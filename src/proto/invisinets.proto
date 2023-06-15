@@ -1,0 +1,71 @@
+syntax = "proto3";
+package invisinets;
+
+service CloudPlugin {
+    rpc SetPermitList(PermitList) returns (BasicResponse) {}
+    rpc GetPermitList(Resource) returns (PermitList) {}
+    rpc CreateEnabledResource(EnabledResource) returns (BasicResponse) {}
+    rpc TagResource(TagList) returns (BasicResponse) {}
+}
+
+message BasicResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message Resource {
+    string id = 1;
+}
+
+message PermitList {
+    string name = 1;
+    string type = 2;
+    string location = 3;
+    string id = 4;
+
+    enum Direction {
+        INBOUND = 0;
+        OUTBOUND = 1;
+    }
+
+    message PermitListRule {
+        string tag = 1;
+        Direction direction = 2;
+        int src_port = 3;
+        int dst_port = 4;
+        int protocol = 5;
+    }
+
+    message PermitListProperties {
+        string associated_resource = 1; 
+        repeated PermitListRule rules = 2;
+    }
+
+    PermitListProperties properties = 5; 
+}
+
+
+// TODO: Look at underlying constructs to see if this two-way association will work
+message TagList {
+    string resource_id = 1; 
+
+    message Tag {
+        string name = 1;
+        string id = 2;
+
+        message TagAssociation {
+            string resource_id = 1;
+        }
+
+        repeated TagAssociation associations = 3; 
+    }
+
+    repeated Tag tags = 2;
+}
+
+
+
+// TODO: What is the best way to support resources being inviisnets-enabled without having to directly model every resource?
+message EnabledResource {
+    string resource = 1; // Put entire resource configuration in a JSON string (?)
+}
