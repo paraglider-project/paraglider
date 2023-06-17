@@ -1,6 +1,8 @@
 syntax = "proto3";
 package invisinets;
 
+option go_package="./invisinetspb";
+
 service CloudPlugin {
     rpc SetPermitList(PermitList) returns (BasicResponse) {}
     rpc GetPermitList(Resource) returns (PermitList) {}
@@ -31,9 +33,9 @@ message PermitList {
     message PermitListRule {
         string tag = 1;
         Direction direction = 2;
-        int src_port = 3;
-        int dst_port = 4;
-        int protocol = 5;
+        int32 src_port = 3;
+        int32 dst_port = 4;
+        int32 protocol = 5;
     }
 
     message PermitListProperties {
