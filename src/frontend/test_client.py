@@ -10,7 +10,7 @@ test_permit_list = \
 {
     "name": "example-permit-list", 
     "type": "permit-list",
-    "lcoation": "westus",
+    "location": "westus",
     "id": "tenant-id/permit-list-id",
     "properties": {
         "associated_resource": "tenant-id/resource-id",

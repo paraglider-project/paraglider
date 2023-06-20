@@ -6,13 +6,14 @@ import (
   "github.com/gin-gonic/gin"
 
   grpc "google.golang.org/grpc"
+  insecure "google.golang.org/grpc/credentials/insecure"
   "context"
 
 //   "encoding/json"
 //   "fmt"
 //   "io"
 
-  "github.com/NetSys/invisinets/src/proto/invisinetspb"
+  "github.com/NetSys/invisinets/src/invisinetspb"
 )
 
 
@@ -39,37 +40,36 @@ func permitListGet(c *gin.Context) {
 	})
 }
 
+func createErrorResponse(rid string, message string) gin.H {
+	return gin.H{"id": rid, "err": message}
+}
+
 func permitListPost(c *gin.Context) {
 	id := c.Param("id")
 
 	var permitList invisinetspb.PermitList
-	err := c.BindJSON(&permitList)
 
-	var message string
-	if err != nil {
-		message = err.Error()
-		c.AbortWithStatusJSON(400, gin.H{"id": id, "err": message})
+	if err := c.BindJSON(&permitList); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
 		return // TODO: Make this more verbose
 	}
 
-	conn, err := grpc.Dial("localhost:50051")
+	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		message = err.Error()
-		c.AbortWithStatusJSON(400, gin.H{"id": id, "err": message})
+		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		return
 	}
 
 	client := invisinetspb.NewCloudPluginClient(conn)
 	response, err := client.SetPermitList(context.Background(), &permitList)
 	if err != nil {
-		message = err.Error()
-		c.AbortWithStatusJSON(400, gin.H{"id": id, "err": message})
+		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
 	}
 
 	defer conn.Close()
 	
 	c.JSON(http.StatusOK, gin.H{
 		"id": id,
-		"err": message,
 		"response": response.Message,
 	})
 }

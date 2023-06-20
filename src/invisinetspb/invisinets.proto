@@ -1,5 +1,5 @@
 syntax = "proto3";
-package invisinets;
+package invisinetspb;
 
 option go_package="./invisinetspb";
 

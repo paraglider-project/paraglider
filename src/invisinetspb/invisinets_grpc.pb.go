@@ -19,10 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	CloudPlugin_SetPermitList_FullMethodName         = "/invisinets.CloudPlugin/SetPermitList"
-	CloudPlugin_GetPermitList_FullMethodName         = "/invisinets.CloudPlugin/GetPermitList"
-	CloudPlugin_CreateEnabledResource_FullMethodName = "/invisinets.CloudPlugin/CreateEnabledResource"
-	CloudPlugin_TagResource_FullMethodName           = "/invisinets.CloudPlugin/TagResource"
+	CloudPlugin_SetPermitList_FullMethodName         = "/invisinetspb.CloudPlugin/SetPermitList"
+	CloudPlugin_GetPermitList_FullMethodName         = "/invisinetspb.CloudPlugin/GetPermitList"
+	CloudPlugin_CreateEnabledResource_FullMethodName = "/invisinetspb.CloudPlugin/CreateEnabledResource"
+	CloudPlugin_TagResource_FullMethodName           = "/invisinetspb.CloudPlugin/TagResource"
 )
 
 // CloudPluginClient is the client API for CloudPlugin service.
@@ -195,7 +195,7 @@ func _CloudPlugin_TagResource_Handler(srv interface{}, ctx context.Context, dec 
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var CloudPlugin_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "invisinets.CloudPlugin",
+	ServiceName: "invisinetspb.CloudPlugin",
 	HandlerType: (*CloudPluginServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
