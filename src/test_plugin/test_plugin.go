@@ -22,7 +22,19 @@ type cloudPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
 }
 
-func (s* cloudPluginServer) SetPermitList(context.Context, *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
+func (s* cloudPluginServer) SetPermitList(c context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
+	return &invisinetspb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully set permit list with ID=%s", pl.Id)}, nil
+}
+
+func (s* cloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.Resource) (*invisinetspb.PermitList, error) {
+	return &invisinetspb.PermitList{Id: r.Id}, nil
+}
+
+func (s* cloudPluginServer) CreateEnabledResource(c context.Context, r *invisinetspb.EnabledResource) (*invisinetspb.BasicResponse, error) {
+	return &invisinetspb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully create resource=%s", r.Resource)}, nil
+}
+
+func (s* cloudPluginServer) TagResource(c context.Context, t *invisinetspb.TagList) (*invisinetspb.BasicResponse, error) {
 	return &invisinetspb.BasicResponse{Success: true, Message: "success"}, nil
 }
 

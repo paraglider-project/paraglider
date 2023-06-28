@@ -9,39 +9,46 @@ import (
   insecure "google.golang.org/grpc/credentials/insecure"
   "context"
 
-//   "encoding/json"
+  "encoding/json"
 //   "fmt"
 //   "io"
 
   "github.com/NetSys/invisinets/src/invisinetspb"
 )
 
-
-func main() {
-  router := gin.Default()
-  router.GET("/ping", func(c *gin.Context) {
-    c.JSON(http.StatusOK, gin.H{
-      "message": "pong",
-    })
-  })
-
-  router.GET("/permit-lists/:id", permitListGet)
-  router.POST("/permit-lists/:id", permitListPost)
-//   router.DELETE("/permit-lists/:id", permitListDelete)
-
-  router.Run(":8080") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+func createErrorResponse(rid string, message string) gin.H {
+	return gin.H{"id": rid, "err": message}
 }
 
 func permitListGet(c *gin.Context) {
 	id := c.Param("id")
-	// TODO: Create a connection with the gRPC server and get the correct permit list
+	emptyresource := invisinetspb.Resource{Id: id}
+
+	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		return
+	}
+
+	client := invisinetspb.NewCloudPluginClient(conn)
+	response, err := client.GetPermitList(context.Background(), &emptyresource)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+	}
+
+	defer conn.Close()
+	
+	pl_json, err := json.Marshal(response)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"id": id,
+		"permitlist": response.Id,
+		"permitlist_json": string(pl_json[:]), // TODO: What is the best way to return this?
 	})
-}
-
-func createErrorResponse(rid string, message string) gin.H {
-	return gin.H{"id": rid, "err": message}
 }
 
 func permitListPost(c *gin.Context) {
@@ -51,7 +58,7 @@ func permitListPost(c *gin.Context) {
 
 	if err := c.BindJSON(&permitList); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
-		return // TODO: Make this more verbose
+		return
 	}
 
 	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -73,3 +80,19 @@ func permitListPost(c *gin.Context) {
 		"response": response.Message,
 	})
 }
+
+
+func main() {
+	router := gin.Default()
+	router.GET("/ping", func(c *gin.Context) {
+	  c.JSON(http.StatusOK, gin.H{
+		"message": "pong",
+	  })
+	})
+  
+	router.GET("/permit-lists/:id", permitListGet)
+	router.POST("/permit-lists/:id", permitListPost)
+  //   router.DELETE("/permit-lists/:id", permitListDelete)
+  
+	router.Run(":8080") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+  }
