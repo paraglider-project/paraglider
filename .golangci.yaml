@@ -1,0 +1,9 @@
+linters:
+  enable:
+  - goheader
+linters-settings:
+  # Settings for linter 'goheader'
+  #
+  # This is used to validate that all go files have the required copyright header.
+  goheader:
+    template-path: build/header.tmpl
