@@ -14,6 +14,8 @@ Please send pull requests for all changes, even if they are urgent.
 
 This section lists the prerequisites for working with the repository. Most contributors should start with the basic prerequisites. Depending on the task you need to perform, you may need to install more tools.
 
+We also provide a [Devcontainer](https://code.visualstudio.com/docs/devcontainers/containers) for working with this repository without installing prerequisites. Keep reading for instructions.
+
 ### Operating system
 
 We support developing on macOS, Linux and Windows with [WSL](https://docs.microsoft.com/windows/wsl/install).
@@ -71,11 +73,21 @@ Install both of these and then follow the steps in the *Quick Start* for the Go 
 
 The extension will walk you through an automated install of some additional tools that match your installed version of Go.
 
-#### Launching VSCode
+#### Launching VS Code
 
 The best way to launch VS Code for Go is to do *File* -> *Open Folder* on the repository. 
 
 You can easily do this from the command shell with `code .`, which opens the current directory as a folder in VS Code.
+
+### Using the Dev Container
+
+Dev Containers allow you to run a development environment using VS Code inside a container. If you want to try this:
+
+- Install [Docker](https://code.visualstudio.com/docs/devcontainers/containers#_system-requirements)
+- Install [VS Code](https://code.visualstudio.com/)
+- Install the [Dev Container extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+
+Now when you open the Invisinets repo, you will be prompted with the option to open in a Dev Container. This will take a few minutes the first time to download and build the container, but will be much faster on subsequent opens.
 
 ### Additional Tools
 
