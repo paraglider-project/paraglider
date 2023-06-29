@@ -1,0 +1,32 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+
+# Build Output
+bin/
+dist/
+main
+
+.vscode/
+.DS_Store
+.idea/
+__debug_bin
+__debug_bin.exe
+default.profraw
+
+# Editor backup files
+*~
+*#
+
+# gomock files
+gomock_*
