@@ -59,7 +59,7 @@ def decide_versions() -> tuple[BuildType, str, str]:
         return (BuildType.RELEASE, match.group("version"), "{}.{}".format(match.group("major"), match.group("minor")))
 
     # We end up here for a build of any other branch (eg: a build of main).
-    return (BuildType.Normal, "latest", "latest")
+    return (BuildType.NORMAL, "latest", "latest")
 
 build_type, version, channel = decide_versions()
 with open(os.getenv("GITHUB_ENV"), "a") as github_env, open(os.getenv("GITHUB_STEP_SUMMARY"), "a") as github_step_summary:
