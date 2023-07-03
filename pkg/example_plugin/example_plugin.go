@@ -26,6 +26,10 @@ import (
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
   )
 
+var (
+	port       = flag.Int("port", 50051, "The server port")
+)
+
 type cloudPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
 }
@@ -44,6 +48,7 @@ func newServer() *cloudPluginServer {
 	return s
 }
 
+
 func main() {
 	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
@@ -51,7 +56,10 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	var opts []grpc.ServerOption
-	grpcServer := grpc.NewServer(opts)
+	grpcServer := grpc.NewServer(opts...)
 	invisinetspb.RegisterCloudPluginServer(grpcServer, newServer())
-	grpcServer.Serve(lis)
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }
