@@ -18,6 +18,7 @@ package frontend
 
 import (
   "net/http"
+  "fmt"
 
   "github.com/gin-gonic/gin"
 
@@ -107,5 +108,8 @@ func main() {
 	router.GET("/permit-lists/:id", permitListGet)
 	router.POST("/permit-lists/:id", permitListPost)
   
-	router.Run(":8080")
+	err := router.Run(":8080")
+	if err != nil {
+		fmt.Println(err.Error())
+	}
   }
