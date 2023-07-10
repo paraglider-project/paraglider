@@ -19,35 +19,34 @@ package frontend
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net"
-	"fmt"
+
+	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"google.golang.org/grpc"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
-  )
+)
 
 var (
-	port       = flag.Int("port", 50051, "The server port")
+	port = flag.Int("port", 50051, "The server port")
 )
 
 type cloudPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
 }
 
-func (s* cloudPluginServer) SetPermitList(c context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
+func (s *cloudPluginServer) SetPermitList(c context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
 	return &invisinetspb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully set permit list with ID=%s", pl.Id)}, nil
 }
 
-func (s* cloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.Resource) (*invisinetspb.PermitList, error) {
+func (s *cloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.Resource) (*invisinetspb.PermitList, error) {
 	return &invisinetspb.PermitList{Id: r.Id}, nil
 }
-
 
 func newServer() *cloudPluginServer {
 	s := &cloudPluginServer{}
 	return s
 }
-
 
 func main() {
 	flag.Parse()
