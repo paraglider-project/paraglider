@@ -35,8 +35,8 @@ message Resource {
 
 message PermitList {
     string name = 1;
-    string location = 3;
-    string id = 4;
+    string location = 2;
+    string id = 3;
 
     enum Direction {
         INBOUND = 0;
@@ -56,5 +56,5 @@ message PermitList {
         repeated PermitListRule rules = 2;
     }
 
-    PermitListProperties properties = 5; 
+    PermitListProperties properties = 4; 
 }
