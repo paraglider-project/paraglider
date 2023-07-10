@@ -19,7 +19,7 @@
 // - protoc             v4.23.2
 // source: invisinets.proto
 
-package invisinetspb
+package __
 
 import (
 	context "context"
