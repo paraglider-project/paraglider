@@ -17,18 +17,19 @@ limitations under the License.
 package frontend
 
 import (
-  "net/http"
-  "fmt"
+	"fmt"
+	"net/http"
 
-  "github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin"
 
-  grpc "google.golang.org/grpc"
-  insecure "google.golang.org/grpc/credentials/insecure"
-  "context"
+	"context"
 
-  "encoding/json"
+	grpc "google.golang.org/grpc"
+	insecure "google.golang.org/grpc/credentials/insecure"
 
-  "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"encoding/json"
+
+	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 )
 
 func createErrorResponse(rid string, message string) gin.H {
@@ -52,7 +53,7 @@ func permitListGet(c *gin.Context) {
 	}
 
 	defer conn.Close()
-	
+
 	pl_json, err := json.Marshal(response)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
@@ -60,8 +61,8 @@ func permitListGet(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id": id,
-		"permitlist": response.Id,
+		"id":              id,
+		"permitlist":      response.Id,
 		"permitlist_json": string(pl_json[:]),
 	})
 }
@@ -89,27 +90,26 @@ func permitListPost(c *gin.Context) {
 	}
 
 	defer conn.Close()
-	
+
 	c.JSON(http.StatusOK, gin.H{
-		"id": id,
+		"id":       id,
 		"response": response.Message,
 	})
 }
 
-
 func main() {
 	router := gin.Default()
 	router.GET("/ping", func(c *gin.Context) {
-	  c.JSON(http.StatusOK, gin.H{
-		"message": "pong",
-	  })
+		c.JSON(http.StatusOK, gin.H{
+			"message": "pong",
+		})
 	})
-  
+
 	router.GET("/permit-lists/:id", permitListGet)
 	router.POST("/permit-lists/:id", permitListPost)
-  
+
 	err := router.Run(":8080")
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-  }
+}
