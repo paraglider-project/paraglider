@@ -28,7 +28,7 @@ import (
 
   "encoding/json"
 
-  "github.com/NetSys/invisinets/pkg/invisinetspb"
+  invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 )
 
 func createErrorResponse(rid string, message string) gin.H {
@@ -83,7 +83,7 @@ func permitListPost(c *gin.Context) {
 	}
 
 	client := invisinetspb.NewCloudPluginClient(conn)
-	response, err := client.SetPermitList(context.Background(), &permitList)
+	response, err := client.CreatePermitList(context.Background(), &permitList)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
 	}
