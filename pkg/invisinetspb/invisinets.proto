@@ -20,8 +20,10 @@ package invisinetspb;
 option go_package="./";
 
 service CloudPlugin {
-    rpc SetPermitList(PermitList) returns (BasicResponse) {}
+    rpc CreatePermitList(PermitList) returns (BasicResponse) {}
     rpc GetPermitList(Resource) returns (PermitList) {}
+    rpc CreatePermitListRule(PermitListRule) returns (BasicResponse) {}
+    rpc DeletePermitListRule(PermitListRule) returns (BasicResponse) {}
 }
 
 message BasicResponse {
@@ -33,23 +35,25 @@ message Resource {
     string id = 1;
 }
 
+enum Direction {
+    INBOUND = 0;
+    OUTBOUND = 1;
+}
+
+message PermitListRule {
+    repeated string tag = 1;
+    Direction direction = 2;
+    int32 src_port = 3;
+    int32 dst_port = 4;
+    int32 protocol = 5;
+
+    string permit_list_id = 6;
+}
+
 message PermitList {
     string name = 1;
     string location = 2;
     string id = 3;
-
-    enum Direction {
-        INBOUND = 0;
-        OUTBOUND = 1;
-    }
-
-    message PermitListRule {
-        repeated string tag = 1;
-        Direction direction = 2;
-        int32 src_port = 3;
-        int32 dst_port = 4;
-        int32 protocol = 5;
-    }
 
     message PermitListProperties {
         string associated_resource = 1; 
