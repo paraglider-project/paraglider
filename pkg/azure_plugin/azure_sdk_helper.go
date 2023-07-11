@@ -70,9 +70,9 @@ var protocolMap = map[int32]armnetwork.SecurityRuleProtocol{
 }
 
 // mapping from invisinets direction to Azure SecurityRuleDirection
-var directionMap = map[invisinetspb.PermitList_Direction]armnetwork.SecurityRuleDirection{
-	invisinetspb.PermitList_INBOUND:  armnetwork.SecurityRuleDirectionInbound,
-	invisinetspb.PermitList_OUTBOUND: armnetwork.SecurityRuleDirectionOutbound,
+var directionMap = map[invisinetspb.Direction]armnetwork.SecurityRuleDirection{
+	invisinetspb.Direction_INBOUND:  armnetwork.SecurityRuleDirectionInbound,
+	invisinetspb.Direction_OUTBOUND: armnetwork.SecurityRuleDirectionOutbound,
 }
 
 // GetSecurityGroup reutrns the network security group object given the nsg name
@@ -174,7 +174,7 @@ func GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interfa
 
 		// get the primary NIC ID from the VM
 		nicID := *vm.Properties.NetworkProfile.NetworkInterfaces[0].ID
-		nicName, err := getLastSegment(nicID)
+		nicName, err := GetLastSegment(nicID)
 		if err != nil {
 			log.Printf("Failed to get NIC name from ID: %v", err)
 			return nil, err
@@ -234,7 +234,7 @@ func UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interfa
 }
 
 // getLastSegment returns the last segment of a resource ID.
-func getLastSegment(ID string) (string, error) {
+func GetLastSegment(ID string) (string, error) {
 	// TODO: might need to use stricter validations to check if the ID is valid like a regex
 	segments := strings.Split(ID, "/")
 	// The smallest possible len would be 1 because in go if a string s does not contain sep and sep is not empty,
@@ -246,7 +246,7 @@ func getLastSegment(ID string) (string, error) {
 }
 
 // CreateSecurityRule creates a new security rule in a network security group (NSG).
-func CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitList_PermitListRule, nsgName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
+func CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
 	sourceIP, destIP := getIPs(rule, resourceIpAddress)
 
 	pollerResp, err := securityRulesClient.BeginCreateOrUpdate(ctx,
@@ -284,11 +284,11 @@ func CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitList_Permi
 // and the destination IP address to the resource IP address if the direction is inbound.
 // If the direction is outbound, it sets the source IP address to the resource IP address and
 // the destination IP address to the rule tag.
-func getIPs(rule *invisinetspb.PermitList_PermitListRule, resourceIP string) ([]*string, []*string) {
+func getIPs(rule *invisinetspb.PermitListRule, resourceIP string) ([]*string, []*string) {
 	var sourceIP []*string
 	var destIP []*string
 
-	if rule.Direction == invisinetspb.PermitList_INBOUND {
+	if rule.Direction == invisinetspb.Direction_INBOUND {
 		sourceIP = make([]*string, len(rule.Tag))
 		for i, ip := range rule.Tag {
 			sourceIP[i] = to.Ptr(ip)
@@ -303,4 +303,67 @@ func getIPs(rule *invisinetspb.PermitList_PermitListRule, resourceIP string) ([]
 	}
 
 	return sourceIP, destIP
+}
+
+func GetNSGRuleDesc(rule *armnetwork.SecurityRule) string {
+	var nsgRuleStr string
+	// ruleKey := fmt.Sprintf("%s-%d-%d-%d-%d", strings.Join(rule.Tag, "-"), rule.Direction, rule.SrcPort, rule.DstPort, rule.Protocol)
+
+	if *rule.Properties.Access == armnetwork.SecurityRuleAccessAllow {
+
+	}
+	// type SecurityRulePropertiesFormat struct {
+
+	// 	// REQUIRED; The direction of the rule. The direction specifies if rule will be evaluated on incoming or outgoing traffic.
+	// 	Direction *SecurityRuleDirection
+	
+	// 	// REQUIRED; Network protocol this rule applies to.
+	// 	Protocol *SecurityRuleProtocol
+	
+	// 	// A description for this rule. Restricted to 140 chars.
+	// 	Description *string
+	
+	// 	// The destination address prefix. CIDR or destination IP range. Asterisk '*' can also be used to match all source IPs. Default
+	// 	// tags such as 'VirtualNetwork', 'AzureLoadBalancer' and 'Internet' can also
+	// 	// be used.
+	// 	DestinationAddressPrefix *string
+	
+	// 	// The destination address prefixes. CIDR or destination IP ranges.
+	// 	DestinationAddressPrefixes []*string
+	
+	// 	// The application security group specified as destination.
+	// 	DestinationApplicationSecurityGroups []*ApplicationSecurityGroup
+	
+	// 	// The destination port or range. Integer or range between 0 and 65535. Asterisk '*' can also be used to match all ports.
+	// 	DestinationPortRange *string
+	
+	// 	// The destination port ranges.
+	// 	DestinationPortRanges []*string
+	
+	// 	// The priority of the rule. The value can be between 100 and 4096. The priority number must be unique for each rule in the
+	// 	// collection. The lower the priority number, the higher the priority of the rule.
+	// 	Priority *int32
+	
+	// 	// The CIDR or source IP range. Asterisk '*' can also be used to match all source IPs. Default tags such as 'VirtualNetwork',
+	// 	// 'AzureLoadBalancer' and 'Internet' can also be used. If this is an ingress
+	// 	// rule, specifies where network traffic originates from.
+	// 	SourceAddressPrefix *string
+	
+	// 	// The CIDR or source IP ranges.
+	// 	SourceAddressPrefixes []*string
+	
+	// 	// The application security group specified as source.
+	// 	SourceApplicationSecurityGroups []*ApplicationSecurityGroup
+	
+	// 	// The source port or range. Integer or range between 0 and 65535. Asterisk '*' can also be used to match all ports.
+	// 	SourcePortRange *string
+	
+	// 	// The source port ranges.
+	// 	SourcePortRanges []*string
+	
+	// 	// READ-ONLY; The provisioning state of the security rule resource.
+	// 	ProvisioningState *ProvisioningState
+	// }
+	
+	return nsgRuleStr
 }
