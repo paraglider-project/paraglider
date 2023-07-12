@@ -17,15 +17,16 @@ limitations under the License.
 package frontend
 
 import (
-	"fmt"
-	"net/http"
+  "net/http"
+  "fmt"
 
-	"github.com/gin-gonic/gin"
+  "github.com/gin-gonic/gin"
 
-	"context"
+  grpc "google.golang.org/grpc"
+  insecure "google.golang.org/grpc/credentials/insecure"
+  "context"
 
-	grpc "google.golang.org/grpc"
-	insecure "google.golang.org/grpc/credentials/insecure"
+  "encoding/json"
 
   invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 )
@@ -51,7 +52,7 @@ func permitListGet(c *gin.Context) {
 	}
 
 	defer conn.Close()
-
+	
 	pl_json, err := json.Marshal(response)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
@@ -59,55 +60,25 @@ func permitListGet(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":              id,
-		"permitlist":      response.Id,
+		"id": id,
+		"permitlist": response.Id,
 		"permitlist_json": string(pl_json[:]),
 	})
 }
 
-func permitListPost(c *gin.Context) {
-	id := c.Param("id")
-
-	var permitList invisinetspb.PermitList
-
-	if err := c.BindJSON(&permitList); err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
-		return
-	}
-
-	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
-		return
-	}
-
-	client := invisinetspb.NewCloudPluginClient(conn)
-	response, err := client.CreatePermitList(context.Background(), &permitList)
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
-	}
-
-	defer conn.Close()
-
-	c.JSON(http.StatusOK, gin.H{
-		"id":       id,
-		"response": response.Message,
-	})
-}
 
 func main() {
 	router := gin.Default()
 	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "pong",
-		})
+	  c.JSON(http.StatusOK, gin.H{
+		"message": "pong",
+	  })
 	})
-
+  
 	router.GET("/permit-lists/:id", permitListGet)
-	router.POST("/permit-lists/:id", permitListPost)
-
+  
 	err := router.Run(":8080")
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-}
+  }
