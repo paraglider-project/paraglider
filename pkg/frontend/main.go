@@ -66,6 +66,66 @@ func permitListGet(c *gin.Context) {
 	})
 }
 
+func permitListRulesAdd(c *gin.Context) {
+	id := c.Param("id")
+
+	var permitListRules invisinetspb.PermitListRuleSet
+
+	if err := c.BindJSON(&permitListRules); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		return
+	}
+
+	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		return
+	}
+
+	client := invisinetspb.NewCloudPluginClient(conn)
+	response, err := client.AddPermitListRules(context.Background(), &permitListRules)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+	}
+
+	defer conn.Close()
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":       id,
+		"response": response.Message,
+	})
+}
+
+func permitListRulesDelete(c *gin.Context) {
+	id := c.Param("id")
+
+	var permitListRules invisinetspb.PermitListRuleSet
+
+	if err := c.BindJSON(&permitListRules); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		return
+	}
+
+	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		return
+	}
+
+	client := invisinetspb.NewCloudPluginClient(conn)
+	response, err := client.DeletePermitListRules(context.Background(), &permitListRules)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+	}
+
+	defer conn.Close()
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":       id,
+		"response": response.Message,
+	})
+}
+
 
 func main() {
 	router := gin.Default()
@@ -76,6 +136,8 @@ func main() {
 	})
   
 	router.GET("/permit-lists/:id", permitListGet)
+	router.POST("/permit-lists/:id/rules", permitListRulesAdd)
+	router.DELETE("/permit-lists/:id/rules", permitListRulesDelete)
   
 	err := router.Run(":8080")
 	if err != nil {
