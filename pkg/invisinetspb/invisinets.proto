@@ -42,11 +42,12 @@ enum Direction {
 }
 
 message PermitListRule {
-    repeated string tag = 1;
-    Direction direction = 2;
-    int32 src_port = 3;
-    int32 dst_port = 4;
-    int32 protocol = 5;
+    string id = 1;
+    repeated string tag = 2;
+    Direction direction = 3;
+    int32 src_port = 4;
+    int32 dst_port = 5;
+    int32 protocol = 6;
 }
 
 message PermitListRuleSet {
