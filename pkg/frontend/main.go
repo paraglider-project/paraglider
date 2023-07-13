@@ -61,7 +61,7 @@ func permitListGet(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"id": id,
-		"permitlist": response.Id,
+		"permitlist": response.AssociatedResource,
 		"permitlist_json": string(pl_json[:]),
 	})
 }
@@ -69,7 +69,7 @@ func permitListGet(c *gin.Context) {
 func permitListRulesAdd(c *gin.Context) {
 	id := c.Param("id")
 
-	var permitListRules invisinetspb.PermitListRuleSet
+	var permitListRules invisinetspb.PermitList
 
 	if err := c.BindJSON(&permitListRules); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
@@ -99,7 +99,7 @@ func permitListRulesAdd(c *gin.Context) {
 func permitListRulesDelete(c *gin.Context) {
 	id := c.Param("id")
 
-	var permitListRules invisinetspb.PermitListRuleSet
+	var permitListRules invisinetspb.PermitList
 
 	if err := c.BindJSON(&permitListRules); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
@@ -135,9 +135,9 @@ func main() {
 	  })
 	})
   
-	router.GET("/permit-lists/:id", permitListGet)
-	router.POST("/permit-lists/:id/rules", permitListRulesAdd)
-	router.DELETE("/permit-lists/:id/rules", permitListRulesDelete)
+	router.GET("/resources/:id/permit-list", permitListGet)
+	router.POST("/resources/:id/permit-list/rules", permitListRulesAdd)
+	router.DELETE("/resources/:id/permit-list/rules", permitListRulesDelete)
   
 	err := router.Run(":8080")
 	if err != nil {
