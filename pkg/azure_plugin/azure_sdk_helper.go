@@ -75,14 +75,30 @@ var directionMap = map[invisinetspb.Direction]armnetwork.SecurityRuleDirection{
 	invisinetspb.Direction_OUTBOUND: armnetwork.SecurityRuleDirectionOutbound,
 }
 
-// GetSecurityGroup reutrns the network security group object given the nsg name
-func GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error) {
-    nsgResp, err := securityGroupsClient.Get(ctx, resourceGroupName, nsgName, &armnetwork.SecurityGroupsClientGetOptions{Expand: nil})
-	if err != nil {
-		log.Fatalf("failed to get the network security group: %v", err)
+// GetOrCreateNSG returns the network security group object given the resource NIC
+// if the network security group does not exist, it creates a new one and attach it to the NIC
+func GetOrCreateNSG(ctx context.Context, nic *armnetwork.Interface) (*armnetwork.SecurityGroup, error) {
+	var nsg *armnetwork.SecurityGroup
+
+	if nic.Properties.NetworkSecurityGroup == nil {
+		log.Printf("NIC %s does not have a network security group", *nic.ID)
+
+		// create a new network security group
+		nsgName := fmt.Sprintf("invisnets-%s-nsg", uuid.New().String()) 
+
+		nsg, err := CreateNetworkSecurityGroup(ctx, nsgName, *nic.Location)
+		if err != nil {
+			log.Printf("failed to create a new network security group: %v", err)
+			return nil, err
+		}
+
+		// attach the network security group to the NIC
+		UpdateNetworkInterface(ctx, nic, *nsg.ID)
+	} else {
+		nsg = nic.Properties.NetworkSecurityGroup
 	}
 
-    return &nsgResp.SecurityGroup, nil
+	return nsg, nil
 }
 
 // CreateNetworkSecurityGroup creates a new network security group with the given name and location
@@ -279,32 +295,9 @@ func CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, 
 	return &resp.SecurityRule, nil
 }
 
-// getIPs returns the source and destination IP addresses for a given permit list rule and resource IP address.
-// it checks the direction of the permit list rule and sets the source IP address to the rule tag 
-// and the destination IP address to the resource IP address if the direction is inbound.
-// If the direction is outbound, it sets the source IP address to the resource IP address and
-// the destination IP address to the rule tag.
-func getIPs(rule *invisinetspb.PermitListRule, resourceIP string) ([]*string, []*string) {
-	var sourceIP []*string
-	var destIP []*string
-
-	if rule.Direction == invisinetspb.Direction_INBOUND {
-		sourceIP = make([]*string, len(rule.Tag))
-		for i, ip := range rule.Tag {
-			sourceIP[i] = to.Ptr(ip)
-		}
-		destIP = []*string{to.Ptr(resourceIP)}
-	} else {
-		sourceIP = []*string{to.Ptr(resourceIP)}
-		destIP = make([]*string, len(rule.Tag))
-		for i, ip := range rule.Tag {
-			destIP[i] = to.Ptr(ip)
-		}
-	}
-
-	return sourceIP, destIP
-}
-
+// GetNSGRuleDesc returns a description of a network security group (NSG) rule that could be compared
+// with the description of a permit list rule.
+// TODO
 func GetNSGRuleDesc(rule *armnetwork.SecurityRule) string {
 	var nsgRuleStr string
 	// ruleKey := fmt.Sprintf("%s-%d-%d-%d-%d", strings.Join(rule.Tag, "-"), rule.Direction, rule.SrcPort, rule.DstPort, rule.Protocol)
@@ -366,4 +359,40 @@ func GetNSGRuleDesc(rule *armnetwork.SecurityRule) string {
 	// }
 	
 	return nsgRuleStr
+}
+
+// getSecurityGroup reutrns the network security group object given the nsg name
+func GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error) {
+    nsgResp, err := securityGroupsClient.Get(ctx, resourceGroupName, nsgName, &armnetwork.SecurityGroupsClientGetOptions{Expand: nil})
+	if err != nil {
+		log.Fatalf("failed to get the network security group: %v", err)
+	}
+
+    return &nsgResp.SecurityGroup, nil
+}
+
+// getIPs returns the source and destination IP addresses for a given permit list rule and resource IP address.
+// it checks the direction of the permit list rule and sets the source IP address to the rule tag 
+// and the destination IP address to the resource IP address if the direction is inbound.
+// If the direction is outbound, it sets the source IP address to the resource IP address and
+// the destination IP address to the rule tag.
+func getIPs(rule *invisinetspb.PermitListRule, resourceIP string) ([]*string, []*string) {
+	var sourceIP []*string
+	var destIP []*string
+
+	if rule.Direction == invisinetspb.Direction_INBOUND {
+		sourceIP = make([]*string, len(rule.Tag))
+		for i, ip := range rule.Tag {
+			sourceIP[i] = to.Ptr(ip)
+		}
+		destIP = []*string{to.Ptr(resourceIP)}
+	} else {
+		sourceIP = []*string{to.Ptr(resourceIP)}
+		destIP = make([]*string, len(rule.Tag))
+		for i, ip := range rule.Tag {
+			destIP[i] = to.Ptr(ip)
+		}
+	}
+
+	return sourceIP, destIP
 }
