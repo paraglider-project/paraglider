@@ -35,12 +35,8 @@ type cloudPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
 }
 
-func (s *cloudPluginServer) SetPermitList(c context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	return &invisinetspb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully set permit list with ID=%s", pl.Id)}, nil
-}
-
 func (s *cloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.Resource) (*invisinetspb.PermitList, error) {
-	return &invisinetspb.PermitList{Id: r.Id}, nil
+	return &invisinetspb.PermitList{AssociatedResource: r.Id}, nil
 }
 
 func newServer() *cloudPluginServer {
