@@ -21,10 +21,9 @@ option go_package="github.com/NetSys/invisinets/pkg/invisinetspb";
 
 service CloudPlugin {
     rpc GetPermitList(Resource) returns (PermitList) {}
-    rpc AddPermitListRules(PermitListRuleSet) returns (BasicResponse) {}
-    rpc DeletePermitListRules(PermitListRuleSet) returns (BasicResponse) {}
+    rpc AddPermitListRules(PermitList) returns (BasicResponse) {}
+    rpc DeletePermitListRules(PermitList) returns (BasicResponse) {}
 }
-
 
 message Resource {
     string id = 1;
@@ -50,20 +49,7 @@ message PermitListRule {
     int32 protocol = 6;
 }
 
-message PermitListRuleSet {
-    string permit_list_id = 1;
-    repeated PermitListRule rules = 2;
-}
-
 message PermitList {
-    string name = 1;
-    string location = 2;
-    string id = 3;
-
-    message PermitListProperties {
-        string associated_resource = 1; 
-        repeated PermitListRule rules = 2;
-    }
-
-    PermitListProperties properties = 4; 
+    string associated_resource = 1; 
+    repeated PermitListRule rules = 2;
 }

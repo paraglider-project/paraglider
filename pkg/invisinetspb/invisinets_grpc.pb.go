@@ -44,8 +44,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CloudPluginClient interface {
 	GetPermitList(ctx context.Context, in *Resource, opts ...grpc.CallOption) (*PermitList, error)
-	AddPermitListRules(ctx context.Context, in *PermitListRuleSet, opts ...grpc.CallOption) (*BasicResponse, error)
-	DeletePermitListRules(ctx context.Context, in *PermitListRuleSet, opts ...grpc.CallOption) (*BasicResponse, error)
+	AddPermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error)
+	DeletePermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error)
 }
 
 type cloudPluginClient struct {
@@ -65,7 +65,7 @@ func (c *cloudPluginClient) GetPermitList(ctx context.Context, in *Resource, opt
 	return out, nil
 }
 
-func (c *cloudPluginClient) AddPermitListRules(ctx context.Context, in *PermitListRuleSet, opts ...grpc.CallOption) (*BasicResponse, error) {
+func (c *cloudPluginClient) AddPermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error) {
 	out := new(BasicResponse)
 	err := c.cc.Invoke(ctx, CloudPlugin_AddPermitListRules_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -74,7 +74,7 @@ func (c *cloudPluginClient) AddPermitListRules(ctx context.Context, in *PermitLi
 	return out, nil
 }
 
-func (c *cloudPluginClient) DeletePermitListRules(ctx context.Context, in *PermitListRuleSet, opts ...grpc.CallOption) (*BasicResponse, error) {
+func (c *cloudPluginClient) DeletePermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error) {
 	out := new(BasicResponse)
 	err := c.cc.Invoke(ctx, CloudPlugin_DeletePermitListRules_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -88,8 +88,8 @@ func (c *cloudPluginClient) DeletePermitListRules(ctx context.Context, in *Permi
 // for forward compatibility
 type CloudPluginServer interface {
 	GetPermitList(context.Context, *Resource) (*PermitList, error)
-	AddPermitListRules(context.Context, *PermitListRuleSet) (*BasicResponse, error)
-	DeletePermitListRules(context.Context, *PermitListRuleSet) (*BasicResponse, error)
+	AddPermitListRules(context.Context, *PermitList) (*BasicResponse, error)
+	DeletePermitListRules(context.Context, *PermitList) (*BasicResponse, error)
 	mustEmbedUnimplementedCloudPluginServer()
 }
 
@@ -100,10 +100,10 @@ type UnimplementedCloudPluginServer struct {
 func (UnimplementedCloudPluginServer) GetPermitList(context.Context, *Resource) (*PermitList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPermitList not implemented")
 }
-func (UnimplementedCloudPluginServer) AddPermitListRules(context.Context, *PermitListRuleSet) (*BasicResponse, error) {
+func (UnimplementedCloudPluginServer) AddPermitListRules(context.Context, *PermitList) (*BasicResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddPermitListRules not implemented")
 }
-func (UnimplementedCloudPluginServer) DeletePermitListRules(context.Context, *PermitListRuleSet) (*BasicResponse, error) {
+func (UnimplementedCloudPluginServer) DeletePermitListRules(context.Context, *PermitList) (*BasicResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeletePermitListRules not implemented")
 }
 func (UnimplementedCloudPluginServer) mustEmbedUnimplementedCloudPluginServer() {}
@@ -138,7 +138,7 @@ func _CloudPlugin_GetPermitList_Handler(srv interface{}, ctx context.Context, de
 }
 
 func _CloudPlugin_AddPermitListRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PermitListRuleSet)
+	in := new(PermitList)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -150,13 +150,13 @@ func _CloudPlugin_AddPermitListRules_Handler(srv interface{}, ctx context.Contex
 		FullMethod: CloudPlugin_AddPermitListRules_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CloudPluginServer).AddPermitListRules(ctx, req.(*PermitListRuleSet))
+		return srv.(CloudPluginServer).AddPermitListRules(ctx, req.(*PermitList))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _CloudPlugin_DeletePermitListRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PermitListRuleSet)
+	in := new(PermitList)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -168,7 +168,7 @@ func _CloudPlugin_DeletePermitListRules_Handler(srv interface{}, ctx context.Con
 		FullMethod: CloudPlugin_DeletePermitListRules_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CloudPluginServer).DeletePermitListRules(ctx, req.(*PermitListRuleSet))
+		return srv.(CloudPluginServer).DeletePermitListRules(ctx, req.(*PermitList))
 	}
 	return interceptor(ctx, in, info, handler)
 }
