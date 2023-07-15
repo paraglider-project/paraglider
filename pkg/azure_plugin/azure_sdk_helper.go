@@ -60,7 +60,7 @@ var (
 )
 
 // TODO: this is a temp mapping until decided how it should be handled
-var protocolMap = map[int32]armnetwork.SecurityRuleProtocol{
+var invisinetsToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
 	1: armnetwork.SecurityRuleProtocolAh,
 	2: armnetwork.SecurityRuleProtocolAsterisk,
 	3: armnetwork.SecurityRuleProtocolEsp,
@@ -69,48 +69,67 @@ var protocolMap = map[int32]armnetwork.SecurityRuleProtocol{
 	6: armnetwork.SecurityRuleProtocolUDP,
 }
 
+// mapping from Azure SecurityRuleProtocol to int32
+var azureToInvisinetsProtocol = map[armnetwork.SecurityRuleProtocol]int32{
+	armnetwork.SecurityRuleProtocolAh:       1,
+	armnetwork.SecurityRuleProtocolAsterisk: 2,
+	armnetwork.SecurityRuleProtocolEsp:      3,
+	armnetwork.SecurityRuleProtocolIcmp:     4,
+	armnetwork.SecurityRuleProtocolTCP:      5,
+	armnetwork.SecurityRuleProtocolUDP:      6,
+}
+
+
 // mapping from invisinets direction to Azure SecurityRuleDirection
-var directionMap = map[invisinetspb.Direction]armnetwork.SecurityRuleDirection{
+var invisinetsToAzureDirection = map[invisinetspb.Direction]armnetwork.SecurityRuleDirection{
 	invisinetspb.Direction_INBOUND:  armnetwork.SecurityRuleDirectionInbound,
 	invisinetspb.Direction_OUTBOUND: armnetwork.SecurityRuleDirectionOutbound,
 }
 
+// mapping from Azure SecurityRuleDirection to invisinets direction
+var azureToInvisinetsDirection = map[armnetwork.SecurityRuleDirection]invisinetspb.Direction{
+	armnetwork.SecurityRuleDirectionInbound:  invisinetspb.Direction_INBOUND,
+	armnetwork.SecurityRuleDirectionOutbound: invisinetspb.Direction_OUTBOUND,
+}
+
 // GetOrCreateNSG returns the network security group object given the resource NIC
 // if the network security group does not exist, it creates a new one and attach it to the NIC
-func GetOrCreateNSG(ctx context.Context, nic *armnetwork.Interface) (*armnetwork.SecurityGroup, error) {
+func GetOrCreateNSG(ctx context.Context, nic *armnetwork.Interface) (string, error) {
 	var nsg *armnetwork.SecurityGroup
 
 	if nic.Properties.NetworkSecurityGroup == nil {
+		var err error
 		log.Printf("NIC %s does not have a network security group", *nic.ID)
 
 		// create a new network security group
 		nsgName := fmt.Sprintf("invisnets-%s-nsg", uuid.New().String()) 
 
-		nsg, err := CreateNetworkSecurityGroup(ctx, nsgName, *nic.Location)
+		nsg, err = CreateNetworkSecurityGroup(ctx, nsgName, *nic.Location)
 		if err != nil {
 			log.Printf("failed to create a new network security group: %v", err)
-			return nil, err
+			return "", err
 		}
-
 		// attach the network security group to the NIC
-		UpdateNetworkInterface(ctx, nic, *nsg.ID)
+		UpdateNetworkInterface(ctx, nic, nsg)
 	} else {
 		nsg = nic.Properties.NetworkSecurityGroup
 	}
 
-	return nsg, nil
+	// return the network security group ID instead of nsg object
+	// because nic.Properties.NetworkSecurityGroup returns an nsg obj with only the ID and other fields are nil
+	// so this way it forces the caller to get the nsg object from the ID using nsgClient
+	return *nsg.ID, nil
 }
 
 // CreateNetworkSecurityGroup creates a new network security group with the given name and location
 // and returns the created network security group
 func CreateNetworkSecurityGroup(ctx context.Context, nsgName string, location string) (*armnetwork.SecurityGroup, error) {
-	parameters := armnetwork.SecurityGroup{
+	parameters := armnetwork.SecurityGroup {
 		Location: to.Ptr(location),
 		Properties: &armnetwork.SecurityGroupPropertiesFormat{
 			SecurityRules: []*armnetwork.SecurityRule{},
 		},
 	}
-
 	pollerResponse, err := securityGroupsClient.BeginCreateOrUpdate(ctx, resourceGroupName, nsgName, parameters, nil)
 	if err != nil {
 		return nil, err
@@ -120,7 +139,6 @@ func CreateNetworkSecurityGroup(ctx context.Context, nsgName string, location st
 	if err != nil {
 		return nil, err
 	}
-
 	return &resp.SecurityGroup, nil
 }
 
@@ -207,12 +225,11 @@ func GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interfa
 		log.Println(err)
 		return nil, err
 	}
-
 	return resourceNic, nil
 }
 
 // UpdateNetworkInterface updates a network interface card (NIC) with a new network security group (NSG).
-func UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsgID string) (*armnetwork.Interface, error) {
+func UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error) {
 	pollerResp, err := interfacesClient.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
@@ -221,9 +238,7 @@ func UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interfa
 			Location: resourceNic.Location,
 			Properties: &armnetwork.InterfacePropertiesFormat{
 				IPConfigurations: resourceNic.Properties.IPConfigurations,
-				NetworkSecurityGroup: &armnetwork.SecurityGroup{
-					ID: to.Ptr(nsgID),
-				},
+				NetworkSecurityGroup: nsg,
 			},
 		},
 		nil,
@@ -262,21 +277,21 @@ func GetLastSegment(ID string) (string, error) {
 }
 
 // CreateSecurityRule creates a new security rule in a network security group (NSG).
-func CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
+func CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, resourceIpAddress string, priority int32, ruleNamePrefix string) (*armnetwork.SecurityRule, error) {
 	sourceIP, destIP := getIPs(rule, resourceIpAddress)
 
 	pollerResp, err := securityRulesClient.BeginCreateOrUpdate(ctx,
 		resourceGroupName,
 		nsgName,
-		fmt.Sprintf("invisinets-rule-%s", uuid.New().String()),
+		fmt.Sprintf("%s-%s", ruleNamePrefix, uuid.New().String()),
 		armnetwork.SecurityRule{
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
 				DestinationAddressPrefixes: destIP,
 				DestinationPortRange:     to.Ptr(strconv.Itoa(int(rule.DstPort))),
-				Direction:                to.Ptr(directionMap[rule.Direction]),
+				Direction:                to.Ptr(invisinetsToAzureDirection[rule.Direction]),
 				Priority:                 to.Ptr(priority),
-				Protocol:                 to.Ptr(protocolMap[rule.Protocol]),
+				Protocol:                 to.Ptr(invisinetsToAzureprotocol[rule.Protocol]),
 				SourceAddressPrefixes:    sourceIP,
 				SourcePortRange:          to.Ptr(strconv.Itoa(int(rule.SrcPort))),
 			},
@@ -295,73 +310,27 @@ func CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, 
 	return &resp.SecurityRule, nil
 }
 
-// GetNSGRuleDesc returns a description of a network security group (NSG) rule that could be compared
-// with the description of a permit list rule.
-// TODO
-func GetNSGRuleDesc(rule *armnetwork.SecurityRule) string {
-	var nsgRuleStr string
-	// ruleKey := fmt.Sprintf("%s-%d-%d-%d-%d", strings.Join(rule.Tag, "-"), rule.Direction, rule.SrcPort, rule.DstPort, rule.Protocol)
-
-	if *rule.Properties.Access == armnetwork.SecurityRuleAccessAllow {
-
+// GetPermitListRuleFromNSGRule returns a permit list rule from a network security group (NSG) rule.
+func GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule) {
+	srcPort, _ := strconv.Atoi(*rule.Properties.SourcePortRange)
+	dstPort, _ := strconv.Atoi(*rule.Properties.DestinationPortRange)
+	// create permit list rule object 
+	permitListRule := &invisinetspb.PermitListRule{
+		Tag: getTag(rule),
+		Direction: azureToInvisinetsDirection[*rule.Properties.Direction],
+		SrcPort: int32(srcPort),
+		DstPort: int32(dstPort),
+		Protocol: azureToInvisinetsProtocol[*rule.Properties.Protocol],
 	}
-	// type SecurityRulePropertiesFormat struct {
-
-	// 	// REQUIRED; The direction of the rule. The direction specifies if rule will be evaluated on incoming or outgoing traffic.
-	// 	Direction *SecurityRuleDirection
-	
-	// 	// REQUIRED; Network protocol this rule applies to.
-	// 	Protocol *SecurityRuleProtocol
-	
-	// 	// A description for this rule. Restricted to 140 chars.
-	// 	Description *string
-	
-	// 	// The destination address prefix. CIDR or destination IP range. Asterisk '*' can also be used to match all source IPs. Default
-	// 	// tags such as 'VirtualNetwork', 'AzureLoadBalancer' and 'Internet' can also
-	// 	// be used.
-	// 	DestinationAddressPrefix *string
-	
-	// 	// The destination address prefixes. CIDR or destination IP ranges.
-	// 	DestinationAddressPrefixes []*string
-	
-	// 	// The application security group specified as destination.
-	// 	DestinationApplicationSecurityGroups []*ApplicationSecurityGroup
-	
-	// 	// The destination port or range. Integer or range between 0 and 65535. Asterisk '*' can also be used to match all ports.
-	// 	DestinationPortRange *string
-	
-	// 	// The destination port ranges.
-	// 	DestinationPortRanges []*string
-	
-	// 	// The priority of the rule. The value can be between 100 and 4096. The priority number must be unique for each rule in the
-	// 	// collection. The lower the priority number, the higher the priority of the rule.
-	// 	Priority *int32
-	
-	// 	// The CIDR or source IP range. Asterisk '*' can also be used to match all source IPs. Default tags such as 'VirtualNetwork',
-	// 	// 'AzureLoadBalancer' and 'Internet' can also be used. If this is an ingress
-	// 	// rule, specifies where network traffic originates from.
-	// 	SourceAddressPrefix *string
-	
-	// 	// The CIDR or source IP ranges.
-	// 	SourceAddressPrefixes []*string
-	
-	// 	// The application security group specified as source.
-	// 	SourceApplicationSecurityGroups []*ApplicationSecurityGroup
-	
-	// 	// The source port or range. Integer or range between 0 and 65535. Asterisk '*' can also be used to match all ports.
-	// 	SourcePortRange *string
-	
-	// 	// The source port ranges.
-	// 	SourcePortRanges []*string
-	
-	// 	// READ-ONLY; The provisioning state of the security rule resource.
-	// 	ProvisioningState *ProvisioningState
-	// }
-	
-	return nsgRuleStr
+	return permitListRule
 }
 
-// getSecurityGroup reutrns the network security group object given the nsg name
+// GetNSGRuleDesc returns a description of an invisinets permit list rule for easier comparison
+func GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string {
+	return fmt.Sprintf("%s-%d-%d-%d-%d", strings.Join(rule.Tag, "-"), rule.Direction, rule.SrcPort, rule.DstPort, rule.Protocol)
+}
+
+// GetSecurityGroup reutrns the network security group object given the nsg name
 func GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error) {
     nsgResp, err := securityGroupsClient.Get(ctx, resourceGroupName, nsgName, &armnetwork.SecurityGroupsClientGetOptions{Expand: nil})
 	if err != nil {
@@ -395,4 +364,19 @@ func getIPs(rule *invisinetspb.PermitListRule, resourceIP string) ([]*string, []
 	}
 
 	return sourceIP, destIP
+}
+
+// getTag returns the invisiNets tag for a given nsg rule
+func getTag(rule *armnetwork.SecurityRule) []string {
+    var tag []string
+    if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
+        for _, ptr := range rule.Properties.SourceAddressPrefixes {
+            tag = append(tag, *ptr)
+        }
+    } else if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionOutbound {
+        for _, ptr := range rule.Properties.DestinationAddressPrefixes {
+            tag = append(tag, *ptr)
+        }
+    }
+    return tag
 }
