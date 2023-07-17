@@ -70,12 +70,13 @@ func isFirewallEqPermitListRule(firewall *computepb.Firewall, permitListRule *in
 		strings.Compare(firewall.Allowed[0].Ports[0], strconv.Itoa(int(permitListRule.DstPort))) == 0
 }
 
-// Hashes values to lowercase hex string
+// Hashes values to lowercase hex string for use in naming GCP resources
 func hash(values ...string) string {
 	hash := sha256.Sum256([]byte(strings.Join(values, "")))
 	return strings.ToLower(hex.EncodeToString(hash[:]))
 }
 
+// Gets the GCP firewall name based on Invisinets permit list parameters
 func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 	return firewallNamePrefix + hash(
 		strconv.Itoa(int(permitListRule.Protocol)),
@@ -85,7 +86,6 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 	)[:firewallNameMaxLength-len(firewallNamePrefix)]
 }
 
-// TODO @seankimkdy: understanding reusing contexts
 func (s *GCPPluginServer) GetPermitList(ctx context.Context, resource *invisinetspb.Resource) (*invisinetspb.PermitList, error) {
 	client, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
