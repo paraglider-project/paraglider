@@ -13,3 +13,14 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
+package main
+
+import (
+	"testing"
+)
+
+// This is just a placeholder test to get the build definitions working.
+func TestServer(t *testing.T) {
+	t.Skip("Skipping placeholder test")
+}
