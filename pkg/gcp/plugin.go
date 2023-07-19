@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -76,7 +75,7 @@ const tagMaxLength = 63
 
 // Checks if GCP firewall rule is a valid Invisinets permit list rule
 func isFirewallValidPermitListRule(firewall *computepb.Firewall) bool {
-	return !*firewall.Disabled && strings.Compare(*firewall.Network, vpc) == 0 && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
+	return strings.Compare(*firewall.Network, vpc) == 0 && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
 }
 
 // Checks if GCP firewall rule is equivalent to an Invisinets permit list rule
@@ -167,7 +166,6 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resource *invisine
 				}
 
 				permitListRules[i] = &invisinetspb.PermitListRule{
-					// TODO @seankimkdy: set ID field?
 					Direction: firewallDirectionMapGCPToInvisinets[*firewall.Direction],
 					DstPort:   int32(dstPort),
 					Protocol:  int32(protocolNumber),
@@ -196,10 +194,8 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 	project, zone, instance := splitResourceId(permitList.AssociatedResource)
 
 	for _, permitListRule := range permitList.Rules {
-		// TODO @seankimkdy: should we throw an error/warning if user specifies a srcport since GCP doesn't support srcport based firewalls
+		// TODO @seankimkdy: should we throw an error/warning if user specifies a srcport since GCP doesn't support srcport based firewalls?
 		firewallName := getFirewallName(permitListRule)
-		fmt.Printf("permitListRule looks like inside AddPermitListRule:\n%+v\n", permitListRule)
-		fmt.Printf("Direction: %v\n", permitListRule.Direction)
 		firewall := &computepb.Firewall{
 			Allowed: []*computepb.Allowed{
 				{
@@ -223,9 +219,6 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			Project:          project,
 			FirewallResource: firewall,
 		}
-		fmt.Printf("firewall looks like:\n%+v\n", insertFirewallReq.GetFirewallResource())
-		b, _ := json.Marshal(firewall)
-		fmt.Printf("byte array of firewall:\n%v\n", b)
 		insertFirewallOp, err := firewallsClient.Insert(ctx, insertFirewallReq)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create firewall rule: %w", err)
@@ -238,6 +231,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 
 	// Check and add tag to VM if first time
 	// TODO @seankimkdy: this should be removed once we start handling VM instance creation and just create the tag there
+	// 						on second thought this may be a bad idea if VM names change ...
 	getInstanceReq := &computepb.GetInstanceRequest{
 		Instance: instance,
 		Project:  project,
@@ -324,7 +318,7 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList
 			if err = deleteFirewallOp.Wait(ctx); err != nil {
 				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 			}
-			return nil, nil
+			return &invisinetspb.BasicResponse{Success: true}, nil
 		}
 	}
 
