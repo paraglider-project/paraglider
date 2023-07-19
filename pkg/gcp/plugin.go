@@ -1,3 +1,19 @@
+/*
+Copyright 2023 The Invisinets Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package gcp
 
 import (
@@ -51,9 +67,11 @@ var protocolNumberMap = map[string]int{
 const tagPrefix = "invisinets-permitlist-"
 const firewallNamePrefix = "fw-" + tagPrefix
 
-// GCP imposed max length for firewall
+// GCP imposed max length for firewall name
 const firewallNameMaxLength = 62
-const resourceNameMaxLength = 62
+
+// GCP imposed max length for tag
+const tagMaxLength = 63
 
 // Checks if GCP firewall rule is a valid Invisinets permit list rule
 func isFirewallValidPermitListRule(firewall *computepb.Firewall) bool {
@@ -70,6 +88,12 @@ func isFirewallEqPermitListRule(firewall *computepb.Firewall, permitListRule *in
 		strings.Compare(firewall.Allowed[0].Ports[0], strconv.Itoa(int(permitListRule.DstPort))) == 0
 }
 
+// Splits a resource id in the form of {project}/{zone}/{instance}
+func splitResourceId(resourceId string) (string, string, string) {
+	resourceIdSplit := strings.Split(resourceId, "/")
+	return resourceIdSplit[0], resourceIdSplit[1], resourceIdSplit[2]
+}
+
 // Hashes values to lowercase hex string for use in naming GCP resources
 func hash(values ...string) string {
 	hash := sha256.Sum256([]byte(strings.Join(values, "")))
@@ -78,24 +102,22 @@ func hash(values ...string) string {
 
 // Gets the GCP firewall name based on Invisinets permit list parameters
 func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
-	return firewallNamePrefix + hash(
+	return (firewallNamePrefix + hash(
 		strconv.Itoa(int(permitListRule.Protocol)),
 		strconv.Itoa(int(permitListRule.DstPort)),
 		permitListRule.Direction.String(),
 		strings.Join(permitListRule.Tag, ""),
-	)[:firewallNameMaxLength-len(firewallNamePrefix)]
+	))[:firewallNameMaxLength]
 }
 
-func (s *GCPPluginServer) GetPermitList(ctx context.Context, resource *invisinetspb.Resource) (*invisinetspb.PermitList, error) {
-	client, err := compute.NewInstancesRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
-	}
-	defer client.Close()
+// Gets the corresponding tag for a resource
+func getTag(resourceId string) string {
+	_, zone, instance := splitResourceId(resourceId)
+	return (tagPrefix + hash(zone+"/"+instance))[:tagMaxLength]
+}
 
-	// Parse resource ID in the form of {project}/{zone}/{instance}
-	resourceIdSplit := strings.Split(resource.GetId(), "/")
-	project, zone, instance := resourceIdSplit[0], resourceIdSplit[1], resourceIdSplit[2]
+func (s *GCPPluginServer) _GetPermitList(instancesClient *compute.InstancesClient, ctx context.Context, resource *invisinetspb.Resource) (*invisinetspb.PermitList, error) {
+	project, zone, instance := splitResourceId(resource.Id)
 
 	req := &computepb.GetEffectiveFirewallsInstanceRequest{
 		Instance:         instance,
@@ -103,7 +125,7 @@ func (s *GCPPluginServer) GetPermitList(ctx context.Context, resource *invisinet
 		Project:          project,
 		Zone:             zone,
 	}
-	resp, err := client.GetEffectiveFirewalls(ctx, req)
+	resp, err := instancesClient.GetEffectiveFirewalls(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get effective firewalls: %w", err)
 	}
@@ -114,36 +136,41 @@ func (s *GCPPluginServer) GetPermitList(ctx context.Context, resource *invisinet
 	}
 
 	for _, firewall := range resp.Firewalls {
+		// fmt.Println("Here")
+		// fmt.Printf("%+v\n", firewall)
 		if isFirewallValidPermitListRule(firewall) {
-			permitListRules := make([]*invisinetspb.PermitListRule, len(firewall.Allowed)+len(firewall.Denied))
+			permitListRules := make([]*invisinetspb.PermitListRule, len(firewall.Allowed))
 			for i, rule := range firewall.Allowed {
+				protocolNumber, err := strconv.Atoi(*rule.IPProtocol)
 				if err != nil {
-					return nil, fmt.Errorf("could not make permit list rule: %w", err)
+					return nil, fmt.Errorf("could not convert protocol number to")
 				}
-				protocolNumber, ok := protocolNumberMap[*rule.IPProtocol]
-				if !ok {
-					var err error
-					protocolNumber, err = strconv.Atoi(*rule.IPProtocol)
-					if err != nil {
-						return nil, fmt.Errorf("invalid protocol: %w", err)
-					}
-				}
-				var tag []string
+
 				direction := firewallDirectionMapGCPToInvisinets[*firewall.Direction]
+
+				var tag []string
 				if direction == invisinetspb.Direction_INBOUND {
 					tag = append(firewall.SourceRanges, firewall.SourceTags...)
 				} else {
-					tag = append(firewall.DestinationRanges)
+					tag = firewall.DestinationRanges
 				}
-				dstPort, err := strconv.Atoi(rule.Ports[0])
-				if err != nil {
-					return nil, fmt.Errorf("could not convert port to int")
+
+				var dstPort int
+				if len(rule.Ports) == 0 {
+					dstPort = 0
+				} else {
+					dstPort, err = strconv.Atoi(rule.Ports[0])
+					if err != nil {
+						return nil, fmt.Errorf("could not convert port to int")
+					}
 				}
+
 				permitListRules[i] = &invisinetspb.PermitListRule{
-					Tag:       tag,
+					// TODO @seankimkdy: set ID field?
 					Direction: firewallDirectionMapGCPToInvisinets[*firewall.Direction],
 					DstPort:   int32(dstPort),
 					Protocol:  int32(protocolNumber),
+					Tag:       tag,
 				} // SrcPort not specified since GCP doesn't support rules based on source ports
 			}
 			permitList.Rules = append(permitList.Rules, permitListRules...)
@@ -153,6 +180,15 @@ func (s *GCPPluginServer) GetPermitList(ctx context.Context, resource *invisinet
 	return permitList, nil
 }
 
+func (s *GCPPluginServer) GetPermitList(ctx context.Context, resource *invisinetspb.Resource) (*invisinetspb.PermitList, error) {
+	instancesClient, err := compute.NewInstancesRESTClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
+	}
+	defer instancesClient.Close()
+	return s._GetPermitList(instancesClient, ctx, resource)
+}
+
 func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
 	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
 	if err != nil {
@@ -160,8 +196,7 @@ func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, permitList *in
 	}
 	defer firewallsClient.Close()
 
-	resourceIdSplit := strings.Split(permitList.AssociatedResource, "/")
-	project, zone, instance := resourceIdSplit[0], resourceIdSplit[1], resourceIdSplit[2]
+	project, zone, instance := splitResourceId(permitList.AssociatedResource)
 
 	tag := tagPrefix + hash(zone+instance)
 
@@ -254,8 +289,7 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, permitList 
 	}
 	defer instancesClient.Close()
 
-	resourceIdSplit := strings.Split(permitList.AssociatedResource, "/")
-	project, zone, instance := resourceIdSplit[0], resourceIdSplit[1], resourceIdSplit[2]
+	project, zone, instance := splitResourceId(permitList.AssociatedResource)
 
 	getEffectiveFirewallsReq := &computepb.GetEffectiveFirewallsInstanceRequest{
 		Instance:         instance,
