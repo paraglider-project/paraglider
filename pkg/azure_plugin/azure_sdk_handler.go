@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/google/uuid"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -37,13 +36,12 @@ import (
 )
 
 type AzureSDKHandler interface {
-	GetOrCreateNSG(ctx context.Context, nic *armnetwork.Interface) (string, error)
 	CreateNetworkSecurityGroup(ctx context.Context, nsgName string, location string) (*armnetwork.SecurityGroup, error)
 	InitializeClients(cred azcore.TokenCredential)
 	ConnectionAzure() (azcore.TokenCredential, error)
 	GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interface, error)
 	UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error)
-	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, resourceIpAddress string, priority int32, ruleNamePrefix string) (*armnetwork.SecurityRule, error)
+	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
 	GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) *invisinetspb.PermitListRule
 	GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string
@@ -178,35 +176,36 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 		return nil, err
 	}
 
-	if *resource.Type == VirtualMachineResourceType { //TODO: Do a solution that should work for all types
-		vmName := *resource.Name
-
-		// get the VM
-		vm, err := h.virtualMachinesClient.Get(ctx, h.resourceGroupName, vmName, &armcompute.VirtualMachinesClientGetOptions{Expand: to.Ptr(armcompute.InstanceViewTypesUserData)})
-
-		if err != nil {
-			log.Printf("Failed to get VM: %v", err)
-			return nil, err
-		}
-
-		// get the primary NIC ID from the VM
-		nicID := *vm.Properties.NetworkProfile.NetworkInterfaces[0].ID
-		nicName, err := h.GetLastSegment(nicID)
-		if err != nil {
-			log.Printf("Failed to get NIC name from ID: %v", err)
-			return nil, err
-		}
-
-		nicResponse, err := h.interfacesClient.Get(ctx, h.resourceGroupName, nicName, &armnetwork.InterfacesClientGetOptions{Expand: nil})
-		if err != nil {
-			log.Printf("Failed to get NIC: %v", err)
-			return nil, err
-		}
-		resourceNic = &nicResponse.Interface
-	} else {
+	//TODO: Do a solution that should work for all types
+	if *resource.Type != VirtualMachineResourceType {
 		err := fmt.Errorf("resource type %s is not supported", *resource.Type)
 		return nil, err
 	}
+
+	vmName := *resource.Name
+
+	// get the VM
+	vm, err := h.virtualMachinesClient.Get(ctx, h.resourceGroupName, vmName, &armcompute.VirtualMachinesClientGetOptions{Expand: to.Ptr(armcompute.InstanceViewTypesUserData)})
+
+	if err != nil {
+		log.Printf("Failed to get VM: %v", err)
+		return nil, err
+	}
+
+	// get the primary NIC ID from the VM
+	nicID := *vm.Properties.NetworkProfile.NetworkInterfaces[0].ID
+	nicName, err := h.GetLastSegment(nicID)
+	if err != nil {
+		log.Printf("Failed to get NIC name from ID: %v", err)
+		return nil, err
+	}
+
+	nicResponse, err := h.interfacesClient.Get(ctx, h.resourceGroupName, nicName, &armnetwork.InterfacesClientGetOptions{Expand: nil})
+	if err != nil {
+		log.Printf("Failed to get NIC: %v", err)
+		return nil, err
+	}
+	resourceNic = &nicResponse.Interface
 	return resourceNic, nil
 }
 
@@ -258,13 +257,12 @@ func (h *azureSDKHandler) GetLastSegment(ID string) (string, error) {
 }
 
 // CreateSecurityRule creates a new security rule in a network security group (NSG).
-func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, resourceIpAddress string, priority int32, ruleNamePrefix string) (*armnetwork.SecurityRule, error) {
+func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
 	sourceIP, destIP := getIPs(rule, resourceIpAddress)
-
 	pollerResp, err := h.securityRulesClient.BeginCreateOrUpdate(ctx,
 		h.resourceGroupName,
 		nsgName,
-		fmt.Sprintf("%s-%s", ruleNamePrefix, uuid.New().String()),
+		ruleName,
 		armnetwork.SecurityRule{
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),

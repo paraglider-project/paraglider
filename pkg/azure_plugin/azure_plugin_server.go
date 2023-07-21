@@ -153,7 +153,8 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		}
 
 		// Create the NSG rule
-		securityRule, err := s.azureHandler.CreateSecurityRule(ctx, rule, nsgName, resourceAddress, priority, InvisinetsRulePrefix)
+		ruleName := fmt.Sprintf("%s-%s", InvisinetsRulePrefix, uuid.New().String())
+		securityRule, err := s.azureHandler.CreateSecurityRule(ctx, rule, nsgName, ruleName, resourceAddress, priority)
 		if err != nil {
 			log.Printf("cannot create security rule:%+v", err)
 			return nil, err
@@ -277,6 +278,11 @@ func (s *azurePluginServer) fillRulesSet(rulesSet map[string]bool, rules []*invi
 // it also fills the seen map to avoid duplicated rules in the given list of rules
 func (s *azurePluginServer) setupMaps(reservedPrioritiesInbound map[int32]bool, reservedPrioritiesOutbound map[int32]bool, seen map[string]bool, nsg *armnetwork.SecurityGroup) {
 	for _, rule := range nsg.Properties.SecurityRules {
+		if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
+			reservedPrioritiesInbound[*rule.Properties.Priority] = true
+		} else if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionOutbound {
+			reservedPrioritiesOutbound[*rule.Properties.Priority] = true
+		}
 		// skip rules that are not created by Invisinets, because some rules are added by default and have
 		// different fields such as port ranges which is not supported by Invisinets at the moment
 		if !strings.HasPrefix(*rule.Name, InvisinetsRulePrefix) {
@@ -284,11 +290,6 @@ func (s *azurePluginServer) setupMaps(reservedPrioritiesInbound map[int32]bool, 
 		}
 		equivalentInvisinetsRule := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
 		seen[s.azureHandler.GetInvisinetsRuleDesc(equivalentInvisinetsRule)] = true
-		if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
-			reservedPrioritiesInbound[*rule.Properties.Priority] = true
-		} else if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionOutbound {
-			reservedPrioritiesOutbound[*rule.Properties.Priority] = true
-		}
 	}
 }
 
