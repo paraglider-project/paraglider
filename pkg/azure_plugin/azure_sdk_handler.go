@@ -56,20 +56,17 @@ type azureSDKHandler struct {
 	resourcesClientFactory *armresources.ClientFactory
 	computeClientFactory   *armcompute.ClientFactory
 	networkClientFactory   *armnetwork.ClientFactory
-	securityGroupsClient  *armnetwork.SecurityGroupsClient
-	interfacesClient      *armnetwork.InterfacesClient
-	securityRulesClient   *armnetwork.SecurityRulesClient
-	virtualMachinesClient *armcompute.VirtualMachinesClient
-	resourcesClient       *armresources.Client
+	securityGroupsClient   *armnetwork.SecurityGroupsClient
+	interfacesClient       *armnetwork.InterfacesClient
+	securityRulesClient    *armnetwork.SecurityRulesClient
+	virtualMachinesClient  *armcompute.VirtualMachinesClient
+	resourcesClient        *armresources.Client
+	subscriptionID         string
+	resourceGroupName      string
 }
 
 const (
 	VirtualMachineResourceType = "Microsoft.Compute/virtualMachines"
-)
-
-var (
-	subscriptionID    = os.Getenv("AZURE_SUBSCRIPTION_ID")
-	resourceGroupName = os.Getenv("AZURE_RESOURCE_GROUP_NAME")
 )
 
 // TODO: this is a temp mapping until decided how it should be handled
@@ -106,7 +103,7 @@ var azureToInvisinetsDirection = map[armnetwork.SecurityRuleDirection]invisinets
 
 // CreateNetworkSecurityGroup creates a new network security group with the given name and location
 // and returns the created network security group
-func (h* azureSDKHandler) CreateNetworkSecurityGroup(ctx context.Context, nsgName string, location string) (*armnetwork.SecurityGroup, error) {
+func (h *azureSDKHandler) CreateNetworkSecurityGroup(ctx context.Context, nsgName string, location string) (*armnetwork.SecurityGroup, error) {
 	log.Printf("creating a new network security group %s in location %s", nsgName, location)
 	parameters := armnetwork.SecurityGroup{
 		Location: to.Ptr(location),
@@ -114,7 +111,7 @@ func (h* azureSDKHandler) CreateNetworkSecurityGroup(ctx context.Context, nsgNam
 			SecurityRules: []*armnetwork.SecurityRule{},
 		},
 	}
-	pollerResponse, err := h.securityGroupsClient.BeginCreateOrUpdate(ctx, resourceGroupName, nsgName, parameters, nil)
+	pollerResponse, err := h.securityGroupsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nsgName, parameters, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -127,19 +124,19 @@ func (h* azureSDKHandler) CreateNetworkSecurityGroup(ctx context.Context, nsgNam
 }
 
 // InitializeClients initializes the necessary azure clients for the necessary operations
-func (h* azureSDKHandler) InitializeClients(cred azcore.TokenCredential) {
+func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) {
 	var err error
-	h.resourcesClientFactory, err = armresources.NewClientFactory(subscriptionID, cred, nil)
+	h.resourcesClientFactory, err = armresources.NewClientFactory(h.subscriptionID, cred, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	h.networkClientFactory, err = armnetwork.NewClientFactory(subscriptionID, cred, nil)
+	h.networkClientFactory, err = armnetwork.NewClientFactory(h.subscriptionID, cred, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	h.computeClientFactory, err = armcompute.NewClientFactory(subscriptionID, cred, nil)
+	h.computeClientFactory, err = armcompute.NewClientFactory(h.subscriptionID, cred, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -153,7 +150,9 @@ func (h* azureSDKHandler) InitializeClients(cred azcore.TokenCredential) {
 
 // ConnectionAzure returns an Azure credential.
 // it uses the azidentity.NewDefaultAzureCredential() function to create a new Azure credential.
-func (h* azureSDKHandler) ConnectionAzure() (azcore.TokenCredential, error) {
+func (h *azureSDKHandler) ConnectionAzure() (azcore.TokenCredential, error) {
+	h.subscriptionID = os.Getenv("AZURE_SUBSCRIPTION_ID")
+	h.resourceGroupName = os.Getenv("AZURE_RESOURCE_GROUP_NAME")
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
 		return nil, err
@@ -167,7 +166,7 @@ func (h* azureSDKHandler) ConnectionAzure() (azcore.TokenCredential, error) {
 // 2. If the resource is a virtual machine, get the virtual machine by name using the virtualMachinesClient.Get() function.
 // 3. Get the primary NIC ID from the virtual machine's network profile and extract the NIC name from it.
 // 4. Get the NIC by name using the interfacesClient.Get() function and set the return value to the NIC object.
-func (h* azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interface, error) {
+func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interface, error) {
 	var resourceNic *armnetwork.Interface
 	var apiVersion string = "2021-04-01"
 	options := armresources.ClientGetByIDOptions{}
@@ -183,7 +182,7 @@ func (h* azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 		vmName := *resource.Name
 
 		// get the VM
-		vm, err := h.virtualMachinesClient.Get(ctx, resourceGroupName, vmName, &armcompute.VirtualMachinesClientGetOptions{Expand: to.Ptr(armcompute.InstanceViewTypesUserData)})
+		vm, err := h.virtualMachinesClient.Get(ctx, h.resourceGroupName, vmName, &armcompute.VirtualMachinesClientGetOptions{Expand: to.Ptr(armcompute.InstanceViewTypesUserData)})
 
 		if err != nil {
 			log.Printf("Failed to get VM: %v", err)
@@ -198,7 +197,7 @@ func (h* azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 			return nil, err
 		}
 
-		nicResponse, err := h.interfacesClient.Get(ctx, resourceGroupName, nicName, &armnetwork.InterfacesClientGetOptions{Expand: nil})
+		nicResponse, err := h.interfacesClient.Get(ctx, h.resourceGroupName, nicName, &armnetwork.InterfacesClientGetOptions{Expand: nil})
 		if err != nil {
 			log.Printf("Failed to get NIC: %v", err)
 			return nil, err
@@ -212,10 +211,10 @@ func (h* azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 }
 
 // UpdateNetworkInterface updates a network interface card (NIC) with a new network security group (NSG).
-func (h* azureSDKHandler) UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error) {
+func (h *azureSDKHandler) UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error) {
 	pollerResp, err := h.interfacesClient.BeginCreateOrUpdate(
 		ctx,
-		resourceGroupName,
+		h.resourceGroupName,
 		*resourceNic.Name,
 		armnetwork.Interface{
 			Location: resourceNic.Location,
@@ -247,7 +246,7 @@ func (h* azureSDKHandler) UpdateNetworkInterface(ctx context.Context, resourceNi
 }
 
 // getLastSegment returns the last segment of a resource ID.
-func (h* azureSDKHandler) GetLastSegment(ID string) (string, error) {
+func (h *azureSDKHandler) GetLastSegment(ID string) (string, error) {
 	// TODO: might need to use stricter validations to check if the ID is valid like a regex
 	segments := strings.Split(ID, "/")
 	// The smallest possible len would be 1 because in go if a string s does not contain sep and sep is not empty,
@@ -259,11 +258,11 @@ func (h* azureSDKHandler) GetLastSegment(ID string) (string, error) {
 }
 
 // CreateSecurityRule creates a new security rule in a network security group (NSG).
-func (h* azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, resourceIpAddress string, priority int32, ruleNamePrefix string) (*armnetwork.SecurityRule, error) {
+func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, resourceIpAddress string, priority int32, ruleNamePrefix string) (*armnetwork.SecurityRule, error) {
 	sourceIP, destIP := getIPs(rule, resourceIpAddress)
 
 	pollerResp, err := h.securityRulesClient.BeginCreateOrUpdate(ctx,
-		resourceGroupName,
+		h.resourceGroupName,
 		nsgName,
 		fmt.Sprintf("%s-%s", ruleNamePrefix, uuid.New().String()),
 		armnetwork.SecurityRule{
@@ -293,8 +292,8 @@ func (h* azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisine
 }
 
 // DeleteSecurityRule deletes a security rule from a network security group (NSG).
-func (h* azureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error {
-	pollerResp, err := h.securityRulesClient.BeginDelete(ctx, resourceGroupName, nsgName, ruleName, nil)
+func (h *azureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error {
+	pollerResp, err := h.securityRulesClient.BeginDelete(ctx, h.resourceGroupName, nsgName, ruleName, nil)
 	if err != nil {
 		return err
 	}
@@ -310,12 +309,12 @@ func (h* azureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string
 }
 
 // GetPermitListRuleFromNSGRule returns a permit list rule from a network security group (NSG) rule.
-func (h* azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) *invisinetspb.PermitListRule {
+func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) *invisinetspb.PermitListRule {
 	srcPort, _ := strconv.Atoi(*rule.Properties.SourcePortRange)
 	dstPort, _ := strconv.Atoi(*rule.Properties.DestinationPortRange)
 	// create permit list rule object
 	permitListRule := &invisinetspb.PermitListRule{
-		Id: 	   *rule.ID,
+		Id:        *rule.ID,
 		Tag:       getTag(rule),
 		Direction: azureToInvisinetsDirection[*rule.Properties.Direction],
 		SrcPort:   int32(srcPort),
@@ -326,13 +325,13 @@ func (h* azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 }
 
 // GetNSGRuleDesc returns a description of an invisinets permit list rule for easier comparison
-func (h* azureSDKHandler) GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string {
+func (h *azureSDKHandler) GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string {
 	return fmt.Sprintf("%s-%d-%d-%d-%d", strings.Join(rule.Tag, "-"), rule.Direction, rule.SrcPort, rule.DstPort, rule.Protocol)
 }
 
 // GetSecurityGroup reutrns the network security group object given the nsg name
-func (h* azureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error) {
-	nsgResp, err := h.securityGroupsClient.Get(ctx, resourceGroupName, nsgName, &armnetwork.SecurityGroupsClientGetOptions{Expand: nil})
+func (h *azureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error) {
+	nsgResp, err := h.securityGroupsClient.Get(ctx, h.resourceGroupName, nsgName, &armnetwork.SecurityGroupsClientGetOptions{Expand: nil})
 	if err != nil {
 		return nil, err
 	}

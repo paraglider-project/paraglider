@@ -209,7 +209,9 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 // if the network security group does not exist, it creates a new one and attach it to the NIC
 func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.Interface) (string, error) {
 	var nsg *armnetwork.SecurityGroup
-	if nic.Properties.NetworkSecurityGroup == nil {
+	if nic.Properties.NetworkSecurityGroup != nil {
+		nsg = nic.Properties.NetworkSecurityGroup
+	} else {
 		var err error
 		log.Printf("NIC %s does not have a network security group", *nic.ID)
 
@@ -222,9 +224,12 @@ func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.
 			return "", err
 		}
 		// attach the network security group to the NIC
-		s.azureHandler.UpdateNetworkInterface(ctx, nic, nsg)
-	} else {
-		nsg = nic.Properties.NetworkSecurityGroup
+		nicUpdated, err := s.azureHandler.UpdateNetworkInterface(ctx, nic, nsg)
+		if err != nil {
+			log.Printf("failed to attach the network security group to the NIC: %v", err)
+			return "", err
+		}
+		log.Printf("Attached network security group %s to NIC %s", *nsg.ID, *nicUpdated.ID)
 	}
 
 	// return the network security group ID instead of nsg object
@@ -232,7 +237,6 @@ func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.
 	// so this way it forces the caller to get the nsg object from the ID using nsgClient
 	return *nsg.ID, nil
 }
-
 
 // getNSGFromResource gets the NSG associated with the given resource
 // by getting the NIC associated with the resource and then getting the NSG associated with the NIC
@@ -321,5 +325,8 @@ func main() {
 	grpcServer := grpc.NewServer()
 	invisinetspb.RegisterCloudPluginServer(grpcServer, newAzureServer())
 	fmt.Println("Starting server on port :50051")
-	grpcServer.Serve(lis)
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }
