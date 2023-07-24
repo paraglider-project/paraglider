@@ -105,19 +105,8 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	}
 
 	// get the NSG ID associated with the resource
-	nsgID, err := s.getOrCreateNSG(ctx, nic)
-	if err != nil {
-		log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
-		return nil, err
-	}
+	nsg, err := s.getOrCreateNSG(ctx, nic, resourceID)
 
-	nsgName, err := s.azureHandler.GetLastSegment(nsgID)
-	if err != nil {
-		log.Printf("cannot get NSG name for resource %s: %+v", resourceID, err)
-		return nil, err
-	}
-
-	nsg, err := s.azureHandler.GetSecurityGroup(ctx, nsgName)
 	if err != nil {
 		log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
 		return nil, err
@@ -154,7 +143,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 
 		// Create the NSG rule
 		ruleName := fmt.Sprintf("%s-%s", InvisinetsRulePrefix, uuid.New().String())
-		securityRule, err := s.azureHandler.CreateSecurityRule(ctx, rule, nsgName, ruleName, resourceAddress, priority)
+		securityRule, err := s.azureHandler.CreateSecurityRule(ctx, rule, *nsg.Name, ruleName, resourceAddress, priority)
 		if err != nil {
 			log.Printf("cannot create security rule:%+v", err)
 			return nil, err
@@ -208,12 +197,32 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 
 // GetOrCreateNSG returns the network security group object given the resource NIC
 // if the network security group does not exist, it creates a new one and attach it to the NIC
-func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.Interface) (string, error) {
+func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.Interface, resourceID string) (*armnetwork.SecurityGroup, error) {
 	var nsg *armnetwork.SecurityGroup
+	var err error
 	if nic.Properties.NetworkSecurityGroup != nil {
 		nsg = nic.Properties.NetworkSecurityGroup
+
+		// nic.Properties.NetworkSecurityGroup returns an nsg obj with only the ID and other fields are nil
+		// so this way we need to get the nsg object from the ID using nsgClient
+		nsgID := *nsg.ID
+		if err != nil {
+			log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
+			return nil, err
+		}
+
+		nsgName, err := s.azureHandler.GetLastSegment(nsgID)
+		if err != nil {
+			log.Printf("cannot get NSG name for resource %s: %+v", resourceID, err)
+			return nil, err
+		}
+
+		nsg, err = s.azureHandler.GetSecurityGroup(ctx, nsgName)
+		if err != nil {
+			log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
+			return nil, err
+		}
 	} else {
-		var err error
 		log.Printf("NIC %s does not have a network security group", *nic.ID)
 
 		// create a new network security group
@@ -222,21 +231,18 @@ func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.
 		nsg, err = s.azureHandler.CreateNetworkSecurityGroup(ctx, nsgName, *nic.Location)
 		if err != nil {
 			log.Printf("failed to create a new network security group: %v", err)
-			return "", err
+			return nil, err
 		}
 		// attach the network security group to the NIC
 		nicUpdated, err := s.azureHandler.UpdateNetworkInterface(ctx, nic, nsg)
 		if err != nil {
 			log.Printf("failed to attach the network security group to the NIC: %v", err)
-			return "", err
+			return nil, err
 		}
 		log.Printf("Attached network security group %s to NIC %s", *nsg.ID, *nicUpdated.ID)
 	}
 
-	// return the network security group ID instead of nsg object
-	// because nic.Properties.NetworkSecurityGroup returns an nsg obj with only the ID and other fields are nil
-	// so this way it forces the caller to get the nsg object from the ID using nsgClient
-	return *nsg.ID, nil
+	return nsg, nil
 }
 
 // getNSGFromResource gets the NSG associated with the given resource
