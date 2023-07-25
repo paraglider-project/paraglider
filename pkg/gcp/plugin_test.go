@@ -191,7 +191,7 @@ func TestGetPermitList(t *testing.T) {
 	defer fakeServer.Close()
 
 	ctx := context.Background()
-	fakeInstancesClient, err := compute.NewInstancesRESTClient(ctx, option.WithEndpoint(fakeServer.URL))
+	fakeInstancesClient, err := compute.NewInstancesRESTClient(ctx, option.WithoutAuthentication(), option.WithEndpoint(fakeServer.URL))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,12 +219,12 @@ func TestAddPermitListRules(t *testing.T) {
 	defer fakeServer.Close()
 
 	ctx := context.Background()
-	fakeFirewallsClient, err := compute.NewFirewallsRESTClient(ctx, option.WithEndpoint(fakeServer.URL))
+	fakeFirewallsClient, err := compute.NewFirewallsRESTClient(ctx, option.WithoutAuthentication(), option.WithEndpoint(fakeServer.URL))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer fakeFirewallsClient.Close()
-	fakeInstancesClient, err := compute.NewInstancesRESTClient(ctx, option.WithEndpoint(fakeServer.URL))
+	fakeInstancesClient, err := compute.NewInstancesRESTClient(ctx, option.WithoutAuthentication(), option.WithEndpoint(fakeServer.URL))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,12 +274,12 @@ func TestDeletePermitListRules(t *testing.T) {
 	defer fakeServer.Close()
 
 	ctx := context.Background()
-	fakeFirewallsClient, err := compute.NewFirewallsRESTClient(ctx, option.WithEndpoint(fakeServer.URL))
+	fakeFirewallsClient, err := compute.NewFirewallsRESTClient(ctx, option.WithoutAuthentication(), option.WithEndpoint(fakeServer.URL))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer fakeFirewallsClient.Close()
-	fakeInstancesClient, err := compute.NewInstancesRESTClient(ctx, option.WithEndpoint(fakeServer.URL))
+	fakeInstancesClient, err := compute.NewInstancesRESTClient(ctx, option.WithoutAuthentication(), option.WithEndpoint(fakeServer.URL))
 	if err != nil {
 		t.Fatal(err)
 	}
