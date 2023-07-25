@@ -51,18 +51,6 @@ var firewallDirectionMapInvisinetsToGCP = map[invisinetspb.Direction]string{
 	invisinetspb.Direction_OUTBOUND: "EGRESS",
 }
 
-// Maps protocol names that can appear in GCP firewall rules to IANA numbers
-// https://cloud.google.com/firewall/docs/firewalls#protocols_and_ports
-var protocolNumberMap = map[string]int{
-	"tcp":  6,
-	"udp":  17,
-	"icmp": 1,
-	"esp":  50,
-	"ah":   51,
-	"sctp": 132,
-	"ipip": 94,
-}
-
 // Prefixes for tags and firewalls related to invisinets
 const tagPrefix = "invisinets-permitlist-"
 const firewallNamePrefix = "fw-" + tagPrefix
@@ -136,8 +124,6 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resource *invisine
 	}
 
 	for _, firewall := range resp.Firewalls {
-		// fmt.Println("Here")
-		// fmt.Printf("%+v\n", firewall)
 		if isFirewallValidPermitListRule(firewall) {
 			permitListRules := make([]*invisinetspb.PermitListRule, len(firewall.Allowed))
 			for i, rule := range firewall.Allowed {
