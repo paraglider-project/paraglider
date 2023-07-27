@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package azure_plugin
 
 import (
 	"context"
@@ -43,7 +43,7 @@ type AzureSDKHandler interface {
 	UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error)
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
-	GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) *invisinetspb.PermitListRule
+	GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error)
 	GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string
 	GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error)
 	GetLastSegment(resourceID string) (string, error)
@@ -67,24 +67,24 @@ const (
 	VirtualMachineResourceType = "Microsoft.Compute/virtualMachines"
 )
 
-// TODO: this is a temp mapping until decided how it should be handled
+// mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
 var invisinetsToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
-	1: armnetwork.SecurityRuleProtocolAh,
-	2: armnetwork.SecurityRuleProtocolAsterisk,
-	3: armnetwork.SecurityRuleProtocolEsp,
-	4: armnetwork.SecurityRuleProtocolIcmp,
-	5: armnetwork.SecurityRuleProtocolTCP,
-	6: armnetwork.SecurityRuleProtocolUDP,
+	256: armnetwork.SecurityRuleProtocolAsterisk,
+	1:   armnetwork.SecurityRuleProtocolIcmp,
+	6:   armnetwork.SecurityRuleProtocolTCP,
+	17:  armnetwork.SecurityRuleProtocolUDP,
+	50:  armnetwork.SecurityRuleProtocolEsp,
+	51:  armnetwork.SecurityRuleProtocolAh,
 }
 
-// mapping from Azure SecurityRuleProtocol to int32
+// mapping from Azure SecurityRuleProtocol to IANA protocol numbers
 var azureToInvisinetsProtocol = map[armnetwork.SecurityRuleProtocol]int32{
-	armnetwork.SecurityRuleProtocolAh:       1,
-	armnetwork.SecurityRuleProtocolAsterisk: 2,
-	armnetwork.SecurityRuleProtocolEsp:      3,
-	armnetwork.SecurityRuleProtocolIcmp:     4,
-	armnetwork.SecurityRuleProtocolTCP:      5,
-	armnetwork.SecurityRuleProtocolUDP:      6,
+	armnetwork.SecurityRuleProtocolAsterisk: 256,
+	armnetwork.SecurityRuleProtocolIcmp:     1,
+	armnetwork.SecurityRuleProtocolTCP:      6,
+	armnetwork.SecurityRuleProtocolUDP:      17,
+	armnetwork.SecurityRuleProtocolEsp:      50,
+	armnetwork.SecurityRuleProtocolAh:       51,
 }
 
 // mapping from invisinets direction to Azure SecurityRuleDirection
@@ -169,14 +169,14 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 	var apiVersion string = "2021-04-01"
 	options := armresources.ClientGetByIDOptions{}
 
-	// TODO: if we just use VMs, we can use vmclient directly
+	// TODO @nnomier: if we just use VMs, we can use vmclient directly
 	resource, err := h.resourcesClient.GetByID(ctx, resourceID, apiVersion, &options)
 	if err != nil {
 		log.Printf("Failed to get resource: %v", err)
 		return nil, err
 	}
 
-	//TODO: Do a solution that should work for all types
+	//TODO @nnomier: Do a solution that should work for all types
 	if *resource.Type != VirtualMachineResourceType {
 		err := fmt.Errorf("resource type %s is not supported", *resource.Type)
 		return nil, err
@@ -185,7 +185,7 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 	vmName := *resource.Name
 
 	// get the VM
-	vm, err := h.virtualMachinesClient.Get(ctx, h.resourceGroupName, vmName, &armcompute.VirtualMachinesClientGetOptions{Expand: to.Ptr(armcompute.InstanceViewTypesUserData)})
+	vm, err := h.virtualMachinesClient.Get(ctx, h.resourceGroupName, vmName, &armcompute.VirtualMachinesClientGetOptions{Expand: nil})
 
 	if err != nil {
 		log.Printf("Failed to get VM: %v", err)
@@ -246,7 +246,7 @@ func (h *azureSDKHandler) UpdateNetworkInterface(ctx context.Context, resourceNi
 
 // getLastSegment returns the last segment of a resource ID.
 func (h *azureSDKHandler) GetLastSegment(ID string) (string, error) {
-	// TODO: might need to use stricter validations to check if the ID is valid like a regex
+	// TODO @nnomier: might need to use stricter validations to check if the ID is valid like a regex
 	segments := strings.Split(ID, "/")
 	// The smallest possible len would be 1 because in go if a string s does not contain sep and sep is not empty,
 	// Split returns a slice of length 1 whose only element is s.
@@ -307,9 +307,15 @@ func (h *azureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string
 }
 
 // GetPermitListRuleFromNSGRule returns a permit list rule from a network security group (NSG) rule.
-func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) *invisinetspb.PermitListRule {
-	srcPort, _ := strconv.Atoi(*rule.Properties.SourcePortRange)
+func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error) {
+	srcPort, err := strconv.Atoi(*rule.Properties.SourcePortRange)
+	if err != nil {
+		return nil, err
+	}
 	dstPort, _ := strconv.Atoi(*rule.Properties.DestinationPortRange)
+	if err != nil {
+		return nil, err
+	}
 	// create permit list rule object
 	permitListRule := &invisinetspb.PermitListRule{
 		Id:        *rule.ID,
@@ -319,7 +325,7 @@ func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 		DstPort:   int32(dstPort),
 		Protocol:  azureToInvisinetsProtocol[*rule.Properties.Protocol],
 	}
-	return permitListRule
+	return permitListRule, nil
 }
 
 // GetNSGRuleDesc returns a description of an invisinets permit list rule for easier comparison

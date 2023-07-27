@@ -14,24 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package azure_plugin
 
 import (
 	"context"
-	"flag"
-	"fmt"
 	"log"
-	"net"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/google/uuid"
-	"google.golang.org/grpc"
-)
-
-var (
-	port = flag.Int("port", 50051, "The server port")
 )
 
 const (
@@ -78,7 +70,12 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resource *invisin
 	// get the NSG rules
 	for _, rule := range nsg.Properties.SecurityRules {
 		if strings.HasPrefix(*rule.Name, InvisinetsRulePrefix) {
-			pl.Rules = append(pl.Rules, s.azureHandler.GetPermitListRuleFromNSGRule(rule))
+			plRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
+			if err != nil {
+				log.Printf("cannot get Invisinets rule from NSG rule: %+v", err)
+				return nil, err
+			}
+			pl.Rules = append(pl.Rules, plRule)
 		}
 	}
 	return pl, nil
@@ -115,8 +112,11 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	var reservedPrioritiesInbound map[int32]bool = make(map[int32]bool)
 	var reservedPrioritiesOutbound map[int32]bool = make(map[int32]bool)
 	seen := make(map[string]bool)
-	s.setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, seen, nsg)
-
+	err = s.setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, seen, nsg)
+	if err != nil {
+		log.Printf("cannot setup priorities: %+v", err)
+		return nil, err
+	}
 	var outboundPriority int32 = 100
 	var inboundPriority int32 = 100
 	const maxPriority = 4096
@@ -125,10 +125,12 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 
 	// Add the rules to the NSG
 	for _, rule := range pl.GetRules() {
-		if s.isDuplicateRule(rule, seen) {
+		ruleDesc := s.azureHandler.GetInvisinetsRuleDesc(rule)
+		if seen[ruleDesc] {
 			log.Printf("Cannot add this duplicate rule: %+v", rule)
 			continue
 		}
+		seen[ruleDesc] = true
 
 		// To avoid conflicted priorities, we need to check whether the priority is already used by other rules
 		// if the priority is already used, we need to find the next available priority
@@ -142,7 +144,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		}
 
 		// Create the NSG rule
-		ruleName := fmt.Sprintf("%s-%s", InvisinetsRulePrefix, uuid.New().String())
+		ruleName := InvisinetsRulePrefix + "-" + uuid.New().String()
 		securityRule, err := s.azureHandler.CreateSecurityRule(ctx, rule, *nsg.Name, ruleName, resourceAddress, priority)
 		if err != nil {
 			log.Printf("cannot create security rule:%+v", err)
@@ -151,7 +153,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		log.Printf("Created network security rule: %s", *securityRule.ID)
 	}
 
-	return &invisinetspb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully added non duplicate rules if any to resource with ID=%s", resourceID)}, nil
+	return &invisinetspb.BasicResponse{Success: true, Message: "successfully added non duplicate rules if any to resource with ID=" + resourceID}, nil
 }
 
 // DeletePermitListRules does the mapping from Invisinets to Azure by deleting NSG rules for the given resource.
@@ -180,7 +182,11 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 
 	for _, rule := range nsg.Properties.SecurityRules {
 		if strings.HasPrefix(*rule.Name, InvisinetsRulePrefix) {
-			invisinetsRule := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
+			invisinetsRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
+			if err != nil {
+				log.Printf("cannot get permit list rule from NSG rule:%+v", err)
+				return nil, err
+			}
 			if rulesToBeDeleted[s.azureHandler.GetInvisinetsRuleDesc(invisinetsRule)] {
 				err := s.azureHandler.DeleteSecurityRule(c, *nsg.Name, *rule.Name)
 				if err != nil {
@@ -206,11 +212,6 @@ func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.
 		// nic.Properties.NetworkSecurityGroup returns an nsg obj with only the ID and other fields are nil
 		// so this way we need to get the nsg object from the ID using nsgClient
 		nsgID := *nsg.ID
-		if err != nil {
-			log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
-			return nil, err
-		}
-
 		nsgName, err := s.azureHandler.GetLastSegment(nsgID)
 		if err != nil {
 			log.Printf("cannot get NSG name for resource %s: %+v", resourceID, err)
@@ -224,10 +225,8 @@ func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.
 		}
 	} else {
 		log.Printf("NIC %s does not have a network security group", *nic.ID)
-
 		// create a new network security group
-		nsgName := fmt.Sprintf("invisnets-%s-nsg", uuid.New().String())
-
+		nsgName := "invisnets-" + uuid.New().String() + "-nsg"
 		nsg, err = s.azureHandler.CreateNetworkSecurityGroup(ctx, nsgName, *nic.Location)
 		if err != nil {
 			log.Printf("failed to create a new network security group: %v", err)
@@ -241,7 +240,6 @@ func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.
 		}
 		log.Printf("Attached network security group %s to NIC %s", *nsg.ID, *nicUpdated.ID)
 	}
-
 	return nsg, nil
 }
 
@@ -282,7 +280,7 @@ func (s *azurePluginServer) fillRulesSet(rulesSet map[string]bool, rules []*invi
 // setupMaps fills the reservedPrioritiesInbound and reservedPrioritiesOutbound maps with the priorities of the existing rules in the NSG
 // This is done to avoid priorities conflicts when creating new rules
 // it also fills the seen map to avoid duplicated rules in the given list of rules
-func (s *azurePluginServer) setupMaps(reservedPrioritiesInbound map[int32]bool, reservedPrioritiesOutbound map[int32]bool, seen map[string]bool, nsg *armnetwork.SecurityGroup) {
+func (s *azurePluginServer) setupMaps(reservedPrioritiesInbound map[int32]bool, reservedPrioritiesOutbound map[int32]bool, seen map[string]bool, nsg *armnetwork.SecurityGroup) error {
 	for _, rule := range nsg.Properties.SecurityRules {
 		if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
 			reservedPrioritiesInbound[*rule.Properties.Priority] = true
@@ -294,46 +292,24 @@ func (s *azurePluginServer) setupMaps(reservedPrioritiesInbound map[int32]bool, 
 		if !strings.HasPrefix(*rule.Name, InvisinetsRulePrefix) {
 			continue
 		}
-		equivalentInvisinetsRule := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
+		equivalentInvisinetsRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
+		if err != nil {
+			log.Printf("cannot get equivalent Invisinets rule for NSG rule %s: %+v", *rule.Name, err)
+			return err
+		}
 		seen[s.azureHandler.GetInvisinetsRuleDesc(equivalentInvisinetsRule)] = true
 	}
+	return nil
 }
 
 // getPriority returns the next available priority that is not used by other rules
 func getPriority(reservedPriorities map[int32]bool, start int32, end int32) int32 {
-	var priority int32
-	for i := start; i < end; i++ {
-		if _, ok := reservedPriorities[i]; !ok {
-			priority = i
+	var i int32
+	for i = start; i < end; i++ {
+		if !reservedPriorities[i] {
 			reservedPriorities[i] = true
 			break
 		}
 	}
-	return priority
-}
-
-// isDuplicateRule checks if the given rule is a duplicate of a rule in the given set of rules (seen)
-func (s *azurePluginServer) isDuplicateRule(rule *invisinetspb.PermitListRule, seen map[string]bool) bool {
-	key := s.azureHandler.GetInvisinetsRuleDesc(rule)
-	if seen[key] {
-		return true
-	}
-	seen[key] = true
-	return false
-}
-
-func main() {
-	flag.Parse()
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	// var opts []grpc.ServerOption
-	grpcServer := grpc.NewServer()
-	invisinetspb.RegisterCloudPluginServer(grpcServer, newAzureServer())
-	fmt.Println("Starting server on port :50051")
-	err = grpcServer.Serve(lis)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	return i
 }

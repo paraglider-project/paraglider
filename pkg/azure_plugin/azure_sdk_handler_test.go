@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package azure_plugin
 
 import (
 	"context"
@@ -23,7 +23,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -35,8 +34,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+// TODO @nnomier: Setup the server only once and use it for all tests
 
 const (
 	testLocation             = "eastus"
@@ -44,6 +45,8 @@ const (
 	rgName                   = "rg-test"
 	vmResourceID             = "vm-resource-id"
 	vmResourceName           = "vm-resource-name"
+	invalidVmResourceID      = "invalid-vm-resource-id"
+	invalidVmResourceName    = "invalid-vm-resource-name"
 	invalidResourceID        = "invalid-resource-id"
 	validNicId               = "nic/id/nic-name-test"
 	validNicName             = "nic-name-test"
@@ -61,12 +64,9 @@ type dummyToken struct {
 	azcore.TokenCredential
 }
 
-func (d *dummyToken) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
+func (d *dummyToken) GetToken(ctx context.Context, optsWW policy.TokenRequestOptions) (azcore.AccessToken, error) {
 	return azcore.AccessToken{}, nil
 }
-
-var azureSDKHandlerTest *azureSDKHandler
-var fakeHttpHandler http.HandlerFunc
 
 // GetFreePort returns a free port number that the operating system chooses dynamically.
 func GetFreePort() (int, error) {
@@ -82,7 +82,7 @@ func GetFreePort() (int, error) {
 }
 
 // a function for setup before all tests
-func setup(reqRespMap map[string]interface{}) {
+func setup(reqRespMap map[string]interface{}) *azureSDKHandler {
 	freePort, err := GetFreePort()
 	if err != nil {
 		log.Fatal(err)
@@ -96,7 +96,7 @@ func setup(reqRespMap map[string]interface{}) {
 		cloud.AzurePublic.Services[cloud.ResourceManager] = entry
 	}
 
-	fakeHttpHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	fakeHttpHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Removing query parameters from the URL to use as the map key
 		key := strings.Split(r.URL.String(), "?")[0]
 		response, ok := reqRespMap[key]
@@ -118,10 +118,11 @@ func setup(reqRespMap map[string]interface{}) {
 		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", freePort), fakeHttpHandler))
 	}()
 
-	azureSDKHandlerTest = &azureSDKHandler{}
+	azureSDKHandlerTest := &azureSDKHandler{}
 	azureSDKHandlerTest.resourceGroupName = rgName
 	azureSDKHandlerTest.subscriptionID = subID
 	azureSDKHandlerTest.InitializeClients(&dummyToken{})
+	return azureSDKHandlerTest
 }
 
 func initializeReqRespMap() map[string]interface{} {
@@ -143,6 +144,13 @@ func initializeReqRespMap() map[string]interface{} {
 			GenericResource: armresources.GenericResource{
 				Type: to.Ptr("Microsoft.Compute/virtualMachines"),
 				Name: to.Ptr(vmResourceName),
+			},
+		},
+		// this one would have a correct type but should fail when getting the vm
+		fmt.Sprintf("/%s", invalidVmResourceID): armresources.ClientGetByIDResponse{
+			GenericResource: armresources.GenericResource{
+				Type: to.Ptr("Microsoft.Compute/virtualMachines"),
+				Name: to.Ptr(invalidVmResourceName),
 			},
 		},
 		fmt.Sprintf("/%s", invalidResourceID): armresources.ClientGetByIDResponse{
@@ -183,15 +191,15 @@ func initializeReqRespMap() map[string]interface{} {
 func TestCreateSecurityRule(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
 	urlToResponse := initializeReqRespMap()
-	setup(urlToResponse)
+	azureSDKHandlerTest := setup(urlToResponse)
 
 	// Subtest 1: Create security rule - Success Test
 	t.Run("CreateSecurityRule: Success", func(t *testing.T) {
 		resp, err := azureSDKHandlerTest.CreateSecurityRule(context.Background(), &invisinetspb.PermitListRule{},
 			validSecurityGroupName, validSecurityRuleName, "10.1.0.5", 200)
-		assert.NoError(t, err)
-		assert.NotNil(t, resp)
-		assert.Equal(t, *resp.Name, validSecurityRuleName)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, *resp.Name, validSecurityRuleName)
 
 	})
 
@@ -200,44 +208,44 @@ func TestCreateSecurityRule(t *testing.T) {
 		resp, err := azureSDKHandlerTest.CreateSecurityRule(context.Background(), &invisinetspb.PermitListRule{},
 			validSecurityGroupName, "invalid-security-rule-name", "10.10.1.0", 200)
 
-		assert.Error(t, err)
-		assert.Nil(t, resp)
+		require.Error(t, err)
+		require.Nil(t, resp)
 	})
 }
 
 func TestDeleteSecurityRule(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
 	urlToResponse := initializeReqRespMap()
-	setup(urlToResponse)
+	azureSDKHandlerTest := setup(urlToResponse)
 
 	// Subtest 1: Delete security rule - Success Test
 	t.Run("DeleteSecurityRule: Success", func(t *testing.T) {
 		err := azureSDKHandlerTest.DeleteSecurityRule(context.Background(), validSecurityGroupName, validSecurityRuleName)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	// Subtest 2: Delete security rule - Failure Test
 	t.Run("DeleteSecurityRule: Failure", func(t *testing.T) {
 		err := azureSDKHandlerTest.DeleteSecurityRule(context.Background(), validSecurityGroupName, invalidSecurityRuleName)
 
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestGetSecurityGroup(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
 	urlToResponse := initializeReqRespMap()
-	setup(urlToResponse)
+	azureSDKHandlerTest := setup(urlToResponse)
 
 	// Subtest 1: Get security group - Success Test
 	t.Run("GetSecurityGroup: Success", func(t *testing.T) {
 		expectedNsgNameSuccess := validSecurityGroupName
 		nsgSuccess, err := azureSDKHandlerTest.GetSecurityGroup(context.Background(), validSecurityGroupName)
 
-		assert.NoError(t, err)
-		assert.NotNil(t, nsgSuccess)
-		assert.Equal(t, *nsgSuccess.Name, expectedNsgNameSuccess)
+		require.NoError(t, err)
+		require.NotNil(t, nsgSuccess)
+		require.Equal(t, *nsgSuccess.Name, expectedNsgNameSuccess)
 	})
 
 	// Subtest 2: Get security group - Failure Test
@@ -245,15 +253,15 @@ func TestGetSecurityGroup(t *testing.T) {
 		nsgFail, err := azureSDKHandlerTest.GetSecurityGroup(context.Background(), invalidSecurityGroupName)
 
 		// Check if error is not nil and nsgFail is nil
-		assert.Error(t, err)
-		assert.Nil(t, nsgFail)
+		require.Error(t, err)
+		require.Nil(t, nsgFail)
 	})
 }
 
 func TestCreateNetworkSecurityGroup(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
 	urlToResponse := initializeReqRespMap()
-	setup(urlToResponse)
+	azureSDKHandlerTest := setup(urlToResponse)
 
 	// Create a new context for the tests
 	ctx := context.Background()
@@ -267,9 +275,9 @@ func TestCreateNetworkSecurityGroup(t *testing.T) {
 		nsg, err := azureSDKHandlerTest.CreateNetworkSecurityGroup(ctx, expectedNsgName, testLocation)
 
 		// Check if the function returns an error
-		assert.NoError(t, err)
-		assert.Equal(t, *nsg.Name, expectedNsgName)
-		assert.Equal(t, *nsg.Location, expectedLocation)
+		require.NoError(t, err)
+		require.Equal(t, *nsg.Name, expectedNsgName)
+		require.Equal(t, *nsg.Location, expectedLocation)
 	})
 
 	// Subtest 2: Create Network Security Group - Failure Test
@@ -277,15 +285,15 @@ func TestCreateNetworkSecurityGroup(t *testing.T) {
 		// Call the function to create the network security group
 		nsg, err := azureSDKHandlerTest.CreateNetworkSecurityGroup(ctx, invalidSecurityGroupName, testLocation)
 
-		assert.Error(t, err)
-		assert.Nil(t, nsg)
+		require.Error(t, err)
+		require.Nil(t, nsg)
 	})
 }
 
 func TestGetResourceNIC(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
 	urlToResponse := initializeReqRespMap()
-	setup(urlToResponse)
+	azureSDKHandlerTest := setup(urlToResponse)
 
 	// Create a new context for the tests
 	ctx := context.Background()
@@ -295,9 +303,8 @@ func TestGetResourceNIC(t *testing.T) {
 		// Call the function to test
 		nic, err := azureSDKHandlerTest.GetResourceNIC(ctx, vmResourceID)
 
-		assert.NotNil(t, nic)
-		assert.NoError(t, err)
-
+		require.NotNil(t, nic)
+		require.NoError(t, err)
 	})
 
 	// Test 2: Failed Test due to non VM resource type
@@ -305,18 +312,27 @@ func TestGetResourceNIC(t *testing.T) {
 		// Call the function to test
 		nic, err := azureSDKHandlerTest.GetResourceNIC(ctx, invalidResourceID)
 
-		assert.Error(t, err)
-		assert.Nil(t, nic)
+		require.Error(t, err)
+		require.Nil(t, nic)
 
-		// assert the error message
-		assert.Equal(t, err.Error(), fmt.Sprintf("resource type %s is not supported", invalidResourceType))
+		// require the error message
+		require.Equal(t, err.Error(), fmt.Sprintf("resource type %s is not supported", invalidResourceType))
+	})
+
+	// Test 3: Failed Test due to failed GET VM request
+	t.Run("GetResourceNIC: FailureVMTest", func(t *testing.T) {
+		// Call the function to test
+		nic, err := azureSDKHandlerTest.GetResourceNIC(ctx, invalidVmResourceID)
+
+		require.Error(t, err)
+		require.Nil(t, nic)
 	})
 }
 
 func TestUpdateNetworkInterface(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
 	urlToResponse := initializeReqRespMap()
-	setup(urlToResponse)
+	azureSDKHandlerTest := setup(urlToResponse)
 
 	// Create a new context for the tests
 	ctx := context.Background()
@@ -347,8 +363,8 @@ func TestUpdateNetworkInterface(t *testing.T) {
 		// Call the function to test
 		updatedNic, err := azureSDKHandlerTest.UpdateNetworkInterface(ctx, testNicValid, testNsg)
 
-		assert.NoError(t, err)
-		assert.NotNil(t, updatedNic)
+		require.NoError(t, err)
+		require.NotNil(t, updatedNic)
 	})
 
 	// Test 2: Failed UpdateNetworkInterface due to invalid NIC
@@ -356,12 +372,14 @@ func TestUpdateNetworkInterface(t *testing.T) {
 		// Call the function to test
 		updatedNic, err := azureSDKHandlerTest.UpdateNetworkInterface(ctx, testNicInvalid, testNsg)
 
-		assert.Error(t, err)
-		assert.Nil(t, updatedNic)
+		require.Error(t, err)
+		require.Nil(t, updatedNic)
 	})
 }
 
 func TestGetPermitListRuleFromNSGRule(t *testing.T) {
+	azureSDKHandlerTest := &azureSDKHandler{}
+
 	// Test case: Inbound rule
 	t.Run("Inbound", func(t *testing.T) {
 		inboundRule := &armnetwork.SecurityRule{
@@ -376,7 +394,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		}
 
 		// Call the function to test
-		result := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(inboundRule)
+		result, err := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(inboundRule)
 
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
@@ -385,14 +403,13 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 			Direction: invisinetspb.Direction_INBOUND,
 			SrcPort:   100,
 			DstPort:   8080,
-			Protocol:  5,
+			Protocol:  6,
 		}
 
-		assert.NotNil(t, result)
+		require.NoError(t, err)
+		require.NotNil(t, result)
 		// Compare the result with the expected rule
-		if !reflect.DeepEqual(result, expectedRule) {
-			t.Errorf("Expected permit list rule: %+v, but got: %+v", expectedRule, result)
-		}
+		require.Equal(t, expectedRule, result)
 	})
 
 	// Test case: Outbound rule
@@ -409,7 +426,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		}
 
 		// Call the function to test
-		result := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(outboundRule)
+		result, err := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(outboundRule)
 
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
@@ -418,36 +435,37 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 			Direction: invisinetspb.Direction_OUTBOUND,
 			SrcPort:   200,
 			DstPort:   8080,
-			Protocol:  6,
+			Protocol:  17,
 		}
 
-		assert.NotNil(t, result)
+		require.NoError(t, err)
+		require.NotNil(t, result)
 
 		// Compare the result with the expected rule
-		if !reflect.DeepEqual(result, expectedRule) {
-			t.Errorf("Expected permit list rule: %+v, but got: %+v", expectedRule, result)
-		}
+		require.Equal(t, expectedRule, result)
 	})
 }
 
 func TestGetInvisinetsRuleDesc(t *testing.T) {
+	azureSDKHandlerTest := &azureSDKHandler{}
+
 	// Test case: Create a sample permit list rule
 	rule := &invisinetspb.PermitListRule{
 		Tag:       []string{"10.0.0.1", "192.168.0.1"},
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   80,
 		DstPort:   8080,
-		Protocol:  6,
+		Protocol:  17,
 	}
 
 	// Expected description based on the sample rule
-	expectedDescription := "10.0.0.1-192.168.0.1-0-80-8080-6"
+	expectedDescription := "10.0.0.1-192.168.0.1-0-80-8080-17"
 
 	// Call the function to test
 	result := azureSDKHandlerTest.GetInvisinetsRuleDesc(rule)
 
 	// Compare the result with the expected description
-	assert.Equal(t, expectedDescription, result)
+	require.Equal(t, expectedDescription, result)
 }
 
 func TestGetIPs(t *testing.T) {
@@ -462,12 +480,8 @@ func TestGetIPs(t *testing.T) {
 	expectedInboundDestIP := []*string{to.Ptr("192.168.1.100")}
 
 	inboundSourceIP, inboundDestIP := getIPs(inboundRule, resourceIP)
-	if !reflect.DeepEqual(inboundSourceIP, expectedInboundSourceIP) {
-		t.Errorf("Expected inbound source IPs: %v, but got: %v", expectedInboundSourceIP, inboundSourceIP)
-	}
-	if !reflect.DeepEqual(inboundDestIP, expectedInboundDestIP) {
-		t.Errorf("Expected inbound destination IPs: %v, but got: %v", expectedInboundDestIP, inboundDestIP)
-	}
+	require.Equal(t, expectedInboundSourceIP, inboundSourceIP)
+	require.Equal(t, expectedInboundDestIP, inboundDestIP)
 
 	// Test case 2: Outbound rule
 	outboundRule := &invisinetspb.PermitListRule{
@@ -479,12 +493,8 @@ func TestGetIPs(t *testing.T) {
 	expectedOutboundDestIP := []*string{to.Ptr("172.16.0.1"), to.Ptr("192.168.1.1")}
 
 	outboundSourceIP, outboundDestIP := getIPs(outboundRule, resourceIP)
-	if !reflect.DeepEqual(outboundSourceIP, expectedOutboundSourceIP) {
-		t.Errorf("Expected outbound source IPs: %v, but got: %v", expectedOutboundSourceIP, outboundSourceIP)
-	}
-	if !reflect.DeepEqual(outboundDestIP, expectedOutboundDestIP) {
-		t.Errorf("Expected outbound destination IPs: %v, but got: %v", expectedOutboundDestIP, outboundDestIP)
-	}
+	require.Equal(t, expectedOutboundSourceIP, outboundSourceIP)
+	require.Equal(t, expectedOutboundDestIP, outboundDestIP)
 }
 
 func TestGetTag(t *testing.T) {
@@ -500,9 +510,7 @@ func TestGetTag(t *testing.T) {
 
 		expectedInboundTag := []string{"10.0.0.0/24", "192.168.0.0/24"}
 		inboundTag := getTag(&inboundRule)
-		if !reflect.DeepEqual(inboundTag, expectedInboundTag) {
-			t.Errorf("Expected inbound tag: %v, but got: %v", expectedInboundTag, inboundTag)
-		}
+		require.Equal(t, expectedInboundTag, inboundTag)
 	})
 
 	t.Run("OutboundRule", func(t *testing.T) {
@@ -516,8 +524,6 @@ func TestGetTag(t *testing.T) {
 
 		expectedOutboundTag := []string{"172.16.0.0/16", "192.168.1.0/24"}
 		outboundTag := getTag(&outboundRule)
-		if !reflect.DeepEqual(outboundTag, expectedOutboundTag) {
-			t.Errorf("Expected outbound tag: %v, but got: %v", expectedOutboundTag, outboundTag)
-		}
+		require.Equal(t, expectedOutboundTag, outboundTag)
 	})
 }
