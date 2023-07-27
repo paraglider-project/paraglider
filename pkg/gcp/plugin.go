@@ -34,41 +34,37 @@ type GCPPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
 }
 
-// Network interface name for all VMs
-const networkInterface = "nic0"
+// GCP
+const (
+	networkInterface      = "nic0"
+	vpc                   = "nw-invisinets"          // Invisinets VPC name
+	tagPrefix             = "invisinets-permitlist-" // Prefixe for GCP tags related to invisinets
+	firewallNamePrefix    = "fw-" + tagPrefix        // Prefixe for firewall names related to invisinets
+	tagMaxLength          = 63                       // GCP imposed max length for GCP tag
+	firewallNameMaxLength = 62                       // GCP imposed max length for firewall name
+)
 
-// Invisinets VPC name
-const vpc = "nw-invisinets"
+// Maps between of GCP and Invisinets traffic direction terminologies
+var (
+	firewallDirectionMapGCPToInvisinets = map[string]invisinetspb.Direction{
+		"INGRESS": invisinetspb.Direction_INBOUND,
+		"EGRESS":  invisinetspb.Direction_OUTBOUND,
+	}
 
-// Map of GCP traffic direction terminology
-var firewallDirectionMapGCPToInvisinets = map[string]invisinetspb.Direction{
-	"INGRESS": invisinetspb.Direction_INBOUND,
-	"EGRESS":  invisinetspb.Direction_OUTBOUND,
-}
+	firewallDirectionMapInvisinetsToGCP = map[invisinetspb.Direction]string{
+		invisinetspb.Direction_INBOUND:  "INGRESS",
+		invisinetspb.Direction_OUTBOUND: "EGRESS",
+	}
+)
 
-var firewallDirectionMapInvisinetsToGCP = map[invisinetspb.Direction]string{
-	invisinetspb.Direction_INBOUND:  "INGRESS",
-	invisinetspb.Direction_OUTBOUND: "EGRESS",
-}
-
-// Prefixes for tags and firewalls related to invisinets
-const tagPrefix = "invisinets-permitlist-"
-const firewallNamePrefix = "fw-" + tagPrefix
-
-// GCP imposed max length for firewall name
-const firewallNameMaxLength = 62
-
-// GCP imposed max length for tag
-const tagMaxLength = 63
-
-// Checks if GCP firewall rule is a valid Invisinets permit list rule
-func isFirewallValidPermitListRule(firewall *computepb.Firewall) bool {
+// Checks if GCP firewall rule is an Invisinets permit list rule
+func isInvisinetsPermitListRule(firewall *computepb.Firewall) bool {
 	return strings.Compare(*firewall.Network, vpc) == 0 && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
 }
 
 // Checks if GCP firewall rule is equivalent to an Invisinets permit list rule
 func isFirewallEqPermitListRule(firewall *computepb.Firewall, permitListRule *invisinetspb.PermitListRule) bool {
-	return isFirewallValidPermitListRule(firewall) &&
+	return isInvisinetsPermitListRule(firewall) &&
 		strings.Compare(*firewall.Direction, firewallDirectionMapInvisinetsToGCP[permitListRule.Direction]) == 0 &&
 		len(firewall.Allowed) == 1 &&
 		strings.Compare(*firewall.Allowed[0].IPProtocol, strconv.Itoa(int(permitListRule.Protocol))) == 0 &&
@@ -88,7 +84,8 @@ func hash(values ...string) string {
 	return strings.ToLower(hex.EncodeToString(hash[:]))
 }
 
-// Gets the GCP firewall name based on Invisinets permit list parameters
+// Gets a GCP firewall rule name for an Invisinets permit list rule
+// If two Invisinets permit list rules are equal, then they will have the same GCP firewall rule name.
 func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 	return (firewallNamePrefix + hash(
 		strconv.Itoa(int(permitListRule.Protocol)),
@@ -98,8 +95,8 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 	))[:firewallNameMaxLength]
 }
 
-// Gets the corresponding tag for a resource
-func getTag(resourceId string) string {
+// Gets the corresponding GCP tag for a resource
+func getGCPTag(resourceId string) string {
 	_, zone, instance := splitResourceId(resourceId)
 	return (tagPrefix + hash(zone+"/"+instance))[:tagMaxLength]
 }
@@ -124,7 +121,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resource *invisine
 	}
 
 	for _, firewall := range resp.Firewalls {
-		if isFirewallValidPermitListRule(firewall) {
+		if isInvisinetsPermitListRule(firewall) {
 			permitListRules := make([]*invisinetspb.PermitListRule, len(firewall.Allowed))
 			for i, rule := range firewall.Allowed {
 				protocolNumber, err := strconv.Atoi(*rule.IPProtocol)
@@ -175,13 +172,34 @@ func (s *GCPPluginServer) GetPermitList(ctx context.Context, resource *invisinet
 }
 
 func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.BasicResponse, error) {
-	tag := getTag(permitList.AssociatedResource)
-
 	project, zone, instance := splitResourceId(permitList.AssociatedResource)
+	getEffectiveFirewallsReq := &computepb.GetEffectiveFirewallsInstanceRequest{
+		Instance:         instance,
+		NetworkInterface: networkInterface,
+		Project:          project,
+		Zone:             zone,
+	}
+	getEffectiveFirewallsResp, err := instancesClient.GetEffectiveFirewalls(ctx, getEffectiveFirewallsReq)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get effective firewalls: %w", err)
+	}
+
+	firewallMap := map[string]*computepb.Firewall{}
+	for _, firewall := range getEffectiveFirewallsResp.Firewalls {
+		firewallMap[*firewall.Name] = firewall
+	}
+
+	tag := getGCPTag(permitList.AssociatedResource)
 
 	for _, permitListRule := range permitList.Rules {
 		// TODO @seankimkdy: should we throw an error/warning if user specifies a srcport since GCP doesn't support srcport based firewalls?
 		firewallName := getFirewallName(permitListRule)
+
+		// Skip existing permit lists rules
+		if _, ok := firewallMap[getFirewallName(permitListRule)]; ok {
+			continue
+		}
+
 		firewall := &computepb.Firewall{
 			Allowed: []*computepb.Allowed{
 				{
@@ -292,7 +310,7 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList
 
 	for _, permitListRule := range permitList.Rules {
 		firewall, ok := firewallMap[getFirewallName(permitListRule)]
-		if ok && isFirewallValidPermitListRule(firewall) && isFirewallEqPermitListRule(firewall, permitListRule) {
+		if ok && isInvisinetsPermitListRule(firewall) && isFirewallEqPermitListRule(firewall, permitListRule) {
 			deleteFirewallReq := &computepb.DeleteFirewallRequest{
 				Firewall: *firewall.Name,
 				Project:  project,
