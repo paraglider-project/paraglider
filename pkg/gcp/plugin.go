@@ -288,11 +288,10 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList
 			if err = deleteFirewallOp.Wait(ctx); err != nil {
 				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 			}
-			return &invisinetspb.BasicResponse{Success: true}, nil
 		}
 	}
 
-	return nil, fmt.Errorf("could not find specified firewall")
+	return &invisinetspb.BasicResponse{Success: true}, nil
 }
 
 func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {

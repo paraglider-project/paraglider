@@ -280,6 +280,12 @@ func TestAddPermitListRules(t *testing.T) {
 				Protocol:  6,
 				Tag:       []string{"10.5.6.0/24"},
 			},
+			{
+				Direction: invisinetspb.Direction_OUTBOUND,
+				DstPort:   8080,
+				Protocol:  6,
+				Tag:       []string{"10.7.8.0/24"},
+			},
 		},
 	}
 
@@ -314,13 +320,29 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 	teardown(fakeServer, fakeFirewallsClient, fakeInstancesClient)
 }
 
+func TestAddPermitListRulesDuplicate(t *testing.T) {
+	fakeServer, ctx, fakeFirewallsClient, fakeInstancesClient := setup(t, true, true)
+
+	s := &GCPPluginServer{}
+	permitList := &invisinetspb.PermitList{
+		AssociatedResource: fakeMissingResourceId,
+		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1},
+	}
+
+	resp, err := s._AddPermitListRules(ctx, permitList, fakeFirewallsClient, fakeInstancesClient)
+	require.Error(t, err)
+	require.Nil(t, resp)
+
+	teardown(fakeServer, fakeFirewallsClient, fakeInstancesClient)
+}
+
 func TestDeletePermitListRules(t *testing.T) {
 	fakeServer, ctx, fakeFirewallsClient, fakeInstancesClient := setup(t, true, true)
 
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: fakeResourceId,
-		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1},
+		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1, fakePermitListRule2},
 	}
 
 	resp, err := s._DeletePermitListRules(ctx, permitList, fakeFirewallsClient, fakeInstancesClient)
