@@ -38,9 +38,8 @@ type GCPPluginServer struct {
 const (
 	networkInterface      = "nic0"
 	vpc                   = "nw-invisinets"          // Invisinets VPC name
-	tagPrefix             = "invisinets-permitlist-" // Prefixe for GCP tags related to invisinets
-	firewallNamePrefix    = "fw-" + tagPrefix        // Prefixe for firewall names related to invisinets
-	tagMaxLength          = 63                       // GCP imposed max length for GCP tag
+	networkTagPrefix      = "invisinets-permitlist-" // Prefixe for GCP tags related to invisinets
+	firewallNamePrefix    = "fw-" + networkTagPrefix // Prefixe for firewall names related to invisinets
 	firewallNameMaxLength = 62                       // GCP imposed max length for firewall name
 )
 
@@ -93,12 +92,6 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 		permitListRule.Direction.String(),
 		strings.Join(permitListRule.Tag, ""),
 	))[:firewallNameMaxLength]
-}
-
-// Gets the corresponding GCP tag for a resource
-func getGCPTag(resourceId string) string {
-	_, zone, instance := splitResourceId(resourceId)
-	return (tagPrefix + hash(zone+"/"+instance))[:tagMaxLength]
 }
 
 func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resource *invisinetspb.Resource, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
@@ -189,7 +182,17 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 		firewallMap[*firewall.Name] = firewall
 	}
 
-	tag := getGCPTag(permitList.AssociatedResource)
+	// Get GCP network tag corresponding to VM
+	getInstanceReq := &computepb.GetInstanceRequest{
+		Instance: instance,
+		Project:  project,
+		Zone:     zone,
+	}
+	getInstanceResp, err := instancesClient.Get(ctx, getInstanceReq)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get instance: %w", err)
+	}
+	networkTag := networkTagPrefix + strconv.FormatUint(*getInstanceResp.Id, 10)
 
 	for _, permitListRule := range permitList.Rules {
 		// TODO @seankimkdy: should we throw an error/warning if user specifies a srcport since GCP doesn't support srcport based firewalls?
@@ -211,7 +214,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			Direction:   proto.String(firewallDirectionMapInvisinetsToGCP[permitListRule.Direction]),
 			Name:        proto.String(firewallName),
 			Network:     proto.String(vpc),
-			TargetTags:  []string{tag},
+			TargetTags:  []string{networkTag},
 		}
 		if permitListRule.Direction == invisinetspb.Direction_INBOUND {
 			// TODO @seankimkdy: use SourceTags as well once we start supporting tags
@@ -231,43 +234,6 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 		if err = insertFirewallOp.Wait(ctx); err != nil {
 			return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 		}
-	}
-
-	// Check and add tag to VM if first time
-	// TODO @seankimkdy: this should be removed once we start handling VM instance creation and just create the tag there
-	// 						on second thought this may be a bad idea if VM names change ...
-	getInstanceReq := &computepb.GetInstanceRequest{
-		Instance: instance,
-		Project:  project,
-		Zone:     zone,
-	}
-	getInstanceResp, err := instancesClient.Get(ctx, getInstanceReq)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get instance: %w", err)
-	}
-
-	for _, existingTag := range getInstanceResp.Tags.Items {
-		if strings.Compare(tag, existingTag) == 0 {
-			return &invisinetspb.BasicResponse{Success: true}, nil
-		}
-	}
-
-	setTagsReq := &computepb.SetTagsInstanceRequest{
-		Instance: instance,
-		Project:  project,
-		TagsResource: &computepb.Tags{
-			Items:       append(getInstanceResp.Tags.Items, tag),
-			Fingerprint: getInstanceResp.Tags.Fingerprint,
-		},
-		Zone: zone,
-	}
-
-	setTagsOp, err := instancesClient.SetTags(ctx, setTagsReq)
-	if err != nil {
-		return nil, fmt.Errorf("unable to set tags: %w", err)
-	}
-	if err = setTagsOp.Wait(ctx); err != nil {
-		return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 	}
 
 	return &invisinetspb.BasicResponse{Success: true}, nil
