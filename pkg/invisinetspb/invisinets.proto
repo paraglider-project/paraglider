@@ -20,18 +20,10 @@ package invisinetspb;
 option go_package="github.com/NetSys/invisinets/pkg/invisinetspb";
 
 service CloudPlugin {
-    rpc InitializeInvisinetsDeployment(Deployment) returns (BasicResponse) {}
-    rpc DeleteInvisinetsDeployment(Deployment) returns (BasicResponse) {}
-    rpc GetInvisinetsDeployment(Deployment) returns (BasicResponse) {}
     rpc CreateResource(Resource) returns (BasicResponse) {}
     rpc GetPermitList(Resource) returns (PermitList) {}
     rpc AddPermitListRules(PermitList) returns (BasicResponse) {}
     rpc DeletePermitListRules(PermitList) returns (BasicResponse) {}
-}
-
-message Deployment {
-    string name = 1;
-    string location = 2;
 }
 
 message Resource {
