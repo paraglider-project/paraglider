@@ -131,86 +131,6 @@ func permitListRulesDelete(c *gin.Context) {
 	})
 }
 
-func deploymentCreate(c *gin.Context) {
-	name := c.Param("name")
-	location := c.Param("location")
-
-	deployment := invisinetspb.Deployment{Name: name, Location: location}
-
-	conn, err := grpc.Dial(serveraddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(name, err.Error()))
-		return
-	}
-
-	client := invisinetspb.NewCloudPluginClient(conn)
-
-	response, err := client.InitializeInvisinetsDeployment(context.Background(), &deployment)
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(name, err.Error()))
-	}
-
-	defer conn.Close()
-
-	c.JSON(http.StatusOK, gin.H{
-		"id":       name,
-		"response": response.Message,
-	})
-}
-
-func deploymentDelete(c *gin.Context) {
-	name := c.Param("name")
-	location := c.Param("location")
-
-	deployment := invisinetspb.Deployment{Name: name, Location: location}
-
-	conn, err := grpc.Dial(serveraddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(name, err.Error()))
-		return
-	}
-
-	client := invisinetspb.NewCloudPluginClient(conn)
-
-	response, err := client.DeleteInvisinetsDeployment(context.Background(), &deployment)
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(name, err.Error()))
-	}
-
-	defer conn.Close()
-
-	c.JSON(http.StatusOK, gin.H{
-		"id":       name,
-		"response": response.Message,
-	})
-}
-
-func deploymentGet(c *gin.Context) {
-	name := c.Param("name")
-	location := c.Param("location")
-
-	deployment := invisinetspb.Deployment{Name: name, Location: location}
-
-	conn, err := grpc.Dial(serveraddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(name, err.Error()))
-		return
-	}
-
-	client := invisinetspb.NewCloudPluginClient(conn)
-
-	response, err := client.GetInvisinetsDeployment(context.Background(), &deployment)
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(name, err.Error()))
-	}
-
-	defer conn.Close()
-
-	c.JSON(http.StatusOK, gin.H{
-		"id":       name,
-		"response": response.Message,
-	})
-}
 
 func resourceCreate(c *gin.Context) {
 	id := c.Param("id")
@@ -255,9 +175,6 @@ func main() {
 	router.GET("/resources/:id/permit-list", permitListGet)
 	router.POST("/resources/:id/permit-list/rules", permitListRulesAdd)
 	router.DELETE("/resources/:id/permit-list/rules", permitListRulesDelete)
-	router.POST("/invisinets/:location/:name", deploymentCreate)
-	router.DELETE("/invisinets/:location/:name", deploymentDelete)
-	router.GET("/invisinets/:location/:name", deploymentGet)
 	router.POST("/resources/:id/", resourceCreate)
   
 	err := router.Run(":8080")

@@ -34,22 +34,16 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	CloudPlugin_InitializeInvisinetsDeployment_FullMethodName = "/invisinetspb.CloudPlugin/InitializeInvisinetsDeployment"
-	CloudPlugin_DeleteInvisinetsDeployment_FullMethodName     = "/invisinetspb.CloudPlugin/DeleteInvisinetsDeployment"
-	CloudPlugin_GetInvisinetsDeployment_FullMethodName        = "/invisinetspb.CloudPlugin/GetInvisinetsDeployment"
-	CloudPlugin_CreateResource_FullMethodName                 = "/invisinetspb.CloudPlugin/CreateResource"
-	CloudPlugin_GetPermitList_FullMethodName                  = "/invisinetspb.CloudPlugin/GetPermitList"
-	CloudPlugin_AddPermitListRules_FullMethodName             = "/invisinetspb.CloudPlugin/AddPermitListRules"
-	CloudPlugin_DeletePermitListRules_FullMethodName          = "/invisinetspb.CloudPlugin/DeletePermitListRules"
+	CloudPlugin_CreateResource_FullMethodName        = "/invisinetspb.CloudPlugin/CreateResource"
+	CloudPlugin_GetPermitList_FullMethodName         = "/invisinetspb.CloudPlugin/GetPermitList"
+	CloudPlugin_AddPermitListRules_FullMethodName    = "/invisinetspb.CloudPlugin/AddPermitListRules"
+	CloudPlugin_DeletePermitListRules_FullMethodName = "/invisinetspb.CloudPlugin/DeletePermitListRules"
 )
 
 // CloudPluginClient is the client API for CloudPlugin service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CloudPluginClient interface {
-	InitializeInvisinetsDeployment(ctx context.Context, in *Deployment, opts ...grpc.CallOption) (*BasicResponse, error)
-	DeleteInvisinetsDeployment(ctx context.Context, in *Deployment, opts ...grpc.CallOption) (*BasicResponse, error)
-	GetInvisinetsDeployment(ctx context.Context, in *Deployment, opts ...grpc.CallOption) (*BasicResponse, error)
 	CreateResource(ctx context.Context, in *Resource, opts ...grpc.CallOption) (*BasicResponse, error)
 	GetPermitList(ctx context.Context, in *Resource, opts ...grpc.CallOption) (*PermitList, error)
 	AddPermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error)
@@ -62,33 +56,6 @@ type cloudPluginClient struct {
 
 func NewCloudPluginClient(cc grpc.ClientConnInterface) CloudPluginClient {
 	return &cloudPluginClient{cc}
-}
-
-func (c *cloudPluginClient) InitializeInvisinetsDeployment(ctx context.Context, in *Deployment, opts ...grpc.CallOption) (*BasicResponse, error) {
-	out := new(BasicResponse)
-	err := c.cc.Invoke(ctx, CloudPlugin_InitializeInvisinetsDeployment_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *cloudPluginClient) DeleteInvisinetsDeployment(ctx context.Context, in *Deployment, opts ...grpc.CallOption) (*BasicResponse, error) {
-	out := new(BasicResponse)
-	err := c.cc.Invoke(ctx, CloudPlugin_DeleteInvisinetsDeployment_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *cloudPluginClient) GetInvisinetsDeployment(ctx context.Context, in *Deployment, opts ...grpc.CallOption) (*BasicResponse, error) {
-	out := new(BasicResponse)
-	err := c.cc.Invoke(ctx, CloudPlugin_GetInvisinetsDeployment_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *cloudPluginClient) CreateResource(ctx context.Context, in *Resource, opts ...grpc.CallOption) (*BasicResponse, error) {
@@ -131,9 +98,6 @@ func (c *cloudPluginClient) DeletePermitListRules(ctx context.Context, in *Permi
 // All implementations must embed UnimplementedCloudPluginServer
 // for forward compatibility
 type CloudPluginServer interface {
-	InitializeInvisinetsDeployment(context.Context, *Deployment) (*BasicResponse, error)
-	DeleteInvisinetsDeployment(context.Context, *Deployment) (*BasicResponse, error)
-	GetInvisinetsDeployment(context.Context, *Deployment) (*BasicResponse, error)
 	CreateResource(context.Context, *Resource) (*BasicResponse, error)
 	GetPermitList(context.Context, *Resource) (*PermitList, error)
 	AddPermitListRules(context.Context, *PermitList) (*BasicResponse, error)
@@ -145,15 +109,6 @@ type CloudPluginServer interface {
 type UnimplementedCloudPluginServer struct {
 }
 
-func (UnimplementedCloudPluginServer) InitializeInvisinetsDeployment(context.Context, *Deployment) (*BasicResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InitializeInvisinetsDeployment not implemented")
-}
-func (UnimplementedCloudPluginServer) DeleteInvisinetsDeployment(context.Context, *Deployment) (*BasicResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteInvisinetsDeployment not implemented")
-}
-func (UnimplementedCloudPluginServer) GetInvisinetsDeployment(context.Context, *Deployment) (*BasicResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetInvisinetsDeployment not implemented")
-}
 func (UnimplementedCloudPluginServer) CreateResource(context.Context, *Resource) (*BasicResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateResource not implemented")
 }
@@ -177,60 +132,6 @@ type UnsafeCloudPluginServer interface {
 
 func RegisterCloudPluginServer(s grpc.ServiceRegistrar, srv CloudPluginServer) {
 	s.RegisterService(&CloudPlugin_ServiceDesc, srv)
-}
-
-func _CloudPlugin_InitializeInvisinetsDeployment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Deployment)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CloudPluginServer).InitializeInvisinetsDeployment(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: CloudPlugin_InitializeInvisinetsDeployment_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CloudPluginServer).InitializeInvisinetsDeployment(ctx, req.(*Deployment))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _CloudPlugin_DeleteInvisinetsDeployment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Deployment)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CloudPluginServer).DeleteInvisinetsDeployment(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: CloudPlugin_DeleteInvisinetsDeployment_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CloudPluginServer).DeleteInvisinetsDeployment(ctx, req.(*Deployment))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _CloudPlugin_GetInvisinetsDeployment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Deployment)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CloudPluginServer).GetInvisinetsDeployment(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: CloudPlugin_GetInvisinetsDeployment_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CloudPluginServer).GetInvisinetsDeployment(ctx, req.(*Deployment))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _CloudPlugin_CreateResource_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -312,18 +213,6 @@ var CloudPlugin_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "invisinetspb.CloudPlugin",
 	HandlerType: (*CloudPluginServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "InitializeInvisinetsDeployment",
-			Handler:    _CloudPlugin_InitializeInvisinetsDeployment_Handler,
-		},
-		{
-			MethodName: "DeleteInvisinetsDeployment",
-			Handler:    _CloudPlugin_DeleteInvisinetsDeployment_Handler,
-		},
-		{
-			MethodName: "GetInvisinetsDeployment",
-			Handler:    _CloudPlugin_GetInvisinetsDeployment_Handler,
-		},
 		{
 			MethodName: "CreateResource",
 			Handler:    _CloudPlugin_CreateResource_Handler,
