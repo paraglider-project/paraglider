@@ -45,7 +45,7 @@ func newAzureServer() *azurePluginServer {
 // GetPermitList returns the permit list for the given resource by getting the NSG rules
 // associated with the resource and filtering out the Invisinets rules
 func (s *azurePluginServer) GetPermitList(ctx context.Context, resource *invisinetspb.Resource) (*invisinetspb.PermitList, error) {
-	cred, err := s.azureHandler.ConnectionAzure()
+	cred, err := s.azureHandler.GetAzureCredentials()
 	if err != nil {
 		log.Printf("cannot connect to azure:%+v", err)
 		return nil, err
@@ -85,7 +85,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resource *invisin
 // It creates an NSG rule for each permit list rule and applies this NSG to the associated resource (VM)'s NIC (if it doesn't exist).
 // It returns a BasicResponse that includes the nsg ID if successful and an error if it fails.
 func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	cred, err := s.azureHandler.ConnectionAzure()
+	cred, err := s.azureHandler.GetAzureCredentials()
 	if err != nil {
 		log.Printf("cannot connect to azure:%+v", err)
 		return nil, err
@@ -158,7 +158,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 
 // DeletePermitListRules does the mapping from Invisinets to Azure by deleting NSG rules for the given resource.
 func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	cred, err := s.azureHandler.ConnectionAzure()
+	cred, err := s.azureHandler.GetAzureCredentials()
 	if err != nil {
 		log.Printf("cannot connect to azure:%+v", err)
 		return nil, err

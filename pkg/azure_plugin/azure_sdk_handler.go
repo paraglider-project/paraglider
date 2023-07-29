@@ -38,7 +38,7 @@ import (
 type AzureSDKHandler interface {
 	CreateNetworkSecurityGroup(ctx context.Context, nsgName string, location string) (*armnetwork.SecurityGroup, error)
 	InitializeClients(cred azcore.TokenCredential)
-	ConnectionAzure() (azcore.TokenCredential, error)
+	GetAzureCredentials() (azcore.TokenCredential, error)
 	GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interface, error)
 	UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error)
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
@@ -146,9 +146,9 @@ func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) {
 	h.virtualMachinesClient = h.computeClientFactory.NewVirtualMachinesClient()
 }
 
-// ConnectionAzure returns an Azure credential.
+// GetAzureCredentials returns an Azure credential.
 // it uses the azidentity.NewDefaultAzureCredential() function to create a new Azure credential.
-func (h *azureSDKHandler) ConnectionAzure() (azcore.TokenCredential, error) {
+func (h *azureSDKHandler) GetAzureCredentials() (azcore.TokenCredential, error) {
 	h.subscriptionID = os.Getenv("AZURE_SUBSCRIPTION_ID")
 	h.resourceGroupName = os.Getenv("AZURE_RESOURCE_GROUP_NAME")
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
@@ -312,7 +312,7 @@ func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 	if err != nil {
 		return nil, err
 	}
-	dstPort, _ := strconv.Atoi(*rule.Properties.DestinationPortRange)
+	dstPort, err := strconv.Atoi(*rule.Properties.DestinationPortRange)
 	if err != nil {
 		return nil, err
 	}
