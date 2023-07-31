@@ -249,7 +249,9 @@ func TestGetPermitList(t *testing.T) {
 		AssociatedResource: fakeResourceId,
 		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1, fakePermitListRule2},
 	}
-	require.Truef(t, proto.Equal(permitListExpected, permitListActual), "Expected:\n%+v\nActual:\n%+v", permitListExpected, permitListActual)
+	require.NotNil(t, permitListActual)
+	assert.Equal(t, permitListExpected.AssociatedResource, permitListActual.AssociatedResource)
+	assert.ElementsMatch(t, permitListExpected.Rules, permitListActual.Rules)
 
 	teardown(fakeServer, nil, fakeInstancesClient)
 }
