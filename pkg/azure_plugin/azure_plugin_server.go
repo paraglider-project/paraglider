@@ -18,11 +18,11 @@ package azure_plugin
 
 import (
 	"context"
-	"log"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	logger "github.com/NetSys/invisinets/pkg/logger"
 	"github.com/google/uuid"
 )
 
@@ -47,7 +47,7 @@ func newAzureServer() *azurePluginServer {
 func (s *azurePluginServer) GetPermitList(ctx context.Context, resource *invisinetspb.Resource) (*invisinetspb.PermitList, error) {
 	cred, err := s.azureHandler.GetAzureCredentials()
 	if err != nil {
-		log.Printf("cannot connect to azure:%+v", err)
+		logger.Log.Printf("cannot connect to azure:%+v", err)
 		return nil, err
 	}
 	s.azureHandler.InitializeClients(cred)
@@ -57,7 +57,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resource *invisin
 	// get the nsg associated with the resource
 	nsg, err := s.getNSGFromResource(ctx, resourceID)
 	if err != nil {
-		log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
+		logger.Log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
@@ -72,7 +72,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resource *invisin
 		if strings.HasPrefix(*rule.Name, InvisinetsRulePrefix) {
 			plRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
-				log.Printf("cannot get Invisinets rule from NSG rule: %+v", err)
+				logger.Log.Printf("cannot get Invisinets rule from NSG rule: %+v", err)
 				return nil, err
 			}
 			pl.Rules = append(pl.Rules, plRule)
@@ -87,7 +87,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resource *invisin
 func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
 	cred, err := s.azureHandler.GetAzureCredentials()
 	if err != nil {
-		log.Printf("cannot connect to azure:%+v", err)
+		logger.Log.Printf("cannot connect to azure:%+v", err)
 		return nil, err
 	}
 	s.azureHandler.InitializeClients(cred)
@@ -97,7 +97,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	// get the nic associated with the resource
 	nic, err := s.azureHandler.GetResourceNIC(ctx, resourceID)
 	if err != nil {
-		log.Printf("cannot get NIC for resource %s: %+v", resourceID, err)
+		logger.Log.Printf("cannot get NIC for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
@@ -105,7 +105,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	nsg, err := s.getOrCreateNSG(ctx, nic, resourceID)
 
 	if err != nil {
-		log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
+		logger.Log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
@@ -114,7 +114,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	seen := make(map[string]bool)
 	err = s.setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, seen, nsg)
 	if err != nil {
-		log.Printf("cannot setup priorities: %+v", err)
+		logger.Log.Printf("cannot setup priorities: %+v", err)
 		return nil, err
 	}
 	var outboundPriority int32 = 100
@@ -127,7 +127,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	for _, rule := range pl.GetRules() {
 		ruleDesc := s.azureHandler.GetInvisinetsRuleDesc(rule)
 		if seen[ruleDesc] {
-			log.Printf("Cannot add this duplicate rule: %+v", rule)
+			logger.Log.Printf("Cannot add this duplicate rule: %+v", rule)
 			continue
 		}
 		seen[ruleDesc] = true
@@ -147,10 +147,10 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		ruleName := InvisinetsRulePrefix + "-" + uuid.New().String()
 		securityRule, err := s.azureHandler.CreateSecurityRule(ctx, rule, *nsg.Name, ruleName, resourceAddress, priority)
 		if err != nil {
-			log.Printf("cannot create security rule:%+v", err)
+			logger.Log.Printf("cannot create security rule:%+v", err)
 			return nil, err
 		}
-		log.Printf("Created network security rule: %s", *securityRule.ID)
+		logger.Log.Printf("Created network security rule: %s", *securityRule.ID)
 	}
 
 	return &invisinetspb.BasicResponse{Success: true, Message: "successfully added non duplicate rules if any to resource with ID=" + resourceID}, nil
@@ -160,7 +160,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
 	cred, err := s.azureHandler.GetAzureCredentials()
 	if err != nil {
-		log.Printf("cannot connect to azure:%+v", err)
+		logger.Log.Printf("cannot connect to azure:%+v", err)
 		return nil, err
 	}
 	s.azureHandler.InitializeClients(cred)
@@ -169,7 +169,7 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 
 	nsg, err := s.getNSGFromResource(c, resourceID)
 	if err != nil {
-		log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
+		logger.Log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
@@ -184,16 +184,16 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 		if strings.HasPrefix(*rule.Name, InvisinetsRulePrefix) {
 			invisinetsRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
-				log.Printf("cannot get permit list rule from NSG rule:%+v", err)
+				logger.Log.Printf("cannot get permit list rule from NSG rule:%+v", err)
 				return nil, err
 			}
 			if rulesToBeDeleted[s.azureHandler.GetInvisinetsRuleDesc(invisinetsRule)] {
 				err := s.azureHandler.DeleteSecurityRule(c, *nsg.Name, *rule.Name)
 				if err != nil {
-					log.Printf("cannot delete security rule:%+v", err)
+					logger.Log.Printf("cannot delete security rule:%+v", err)
 					return nil, err
 				}
-				log.Printf("Deleted network security rule: %s", *rule.ID)
+				logger.Log.Printf("Deleted network security rule: %s", *rule.ID)
 			}
 		}
 	}
@@ -214,31 +214,31 @@ func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.
 		nsgID := *nsg.ID
 		nsgName, err := s.azureHandler.GetLastSegment(nsgID)
 		if err != nil {
-			log.Printf("cannot get NSG name for resource %s: %+v", resourceID, err)
+			logger.Log.Printf("cannot get NSG name for resource %s: %+v", resourceID, err)
 			return nil, err
 		}
 
 		nsg, err = s.azureHandler.GetSecurityGroup(ctx, nsgName)
 		if err != nil {
-			log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
+			logger.Log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
 			return nil, err
 		}
 	} else {
-		log.Printf("NIC %s does not have a network security group", *nic.ID)
+		logger.Log.Printf("NIC %s does not have a network security group", *nic.ID)
 		// create a new network security group
 		nsgName := "invisnets-" + uuid.New().String() + "-nsg"
 		nsg, err = s.azureHandler.CreateNetworkSecurityGroup(ctx, nsgName, *nic.Location)
 		if err != nil {
-			log.Printf("failed to create a new network security group: %v", err)
+			logger.Log.Printf("failed to create a new network security group: %v", err)
 			return nil, err
 		}
 		// attach the network security group to the NIC
 		nicUpdated, err := s.azureHandler.UpdateNetworkInterface(ctx, nic, nsg)
 		if err != nil {
-			log.Printf("failed to attach the network security group to the NIC: %v", err)
+			logger.Log.Printf("failed to attach the network security group to the NIC: %v", err)
 			return nil, err
 		}
-		log.Printf("Attached network security group %s to NIC %s", *nsg.ID, *nicUpdated.ID)
+		logger.Log.Printf("Attached network security group %s to NIC %s", *nsg.ID, *nicUpdated.ID)
 	}
 	return nsg, nil
 }
@@ -249,7 +249,7 @@ func (s *azurePluginServer) getNSGFromResource(c context.Context, resourceID str
 	// get the nic associated with the resource
 	nic, err := s.azureHandler.GetResourceNIC(c, resourceID)
 	if err != nil {
-		log.Printf("cannot get NIC for resource %s: %+v", resourceID, err)
+		logger.Log.Printf("cannot get NIC for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
@@ -257,13 +257,13 @@ func (s *azurePluginServer) getNSGFromResource(c context.Context, resourceID str
 	nsgID := *nic.Properties.NetworkSecurityGroup.ID
 	nsgName, err := s.azureHandler.GetLastSegment(nsgID)
 	if err != nil {
-		log.Printf("cannot get NSG name for resource %s: %+v", resourceID, err)
+		logger.Log.Printf("cannot get NSG name for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
 	nsg, err := s.azureHandler.GetSecurityGroup(c, nsgName)
 	if err != nil {
-		log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
+		logger.Log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
@@ -294,7 +294,7 @@ func (s *azurePluginServer) setupMaps(reservedPrioritiesInbound map[int32]bool, 
 		}
 		equivalentInvisinetsRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
 		if err != nil {
-			log.Printf("cannot get equivalent Invisinets rule for NSG rule %s: %+v", *rule.Name, err)
+			logger.Log.Printf("cannot get equivalent Invisinets rule for NSG rule %s: %+v", *rule.Name, err)
 			return err
 		}
 		seen[s.azureHandler.GetInvisinetsRuleDesc(equivalentInvisinetsRule)] = true

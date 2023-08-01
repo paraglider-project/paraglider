@@ -1,0 +1,56 @@
+2023/08/01 23:04:57 azure_plugin_server.go:50: cannot connect to azure:connection error
+2023/08/01 23:04:57 azure_plugin_server.go:252: cannot get NIC for resource test-resource-id: NIC get error
+2023/08/01 23:04:57 azure_plugin_server.go:60: cannot get NSG for resource test-resource-id: NIC get error
+2023/08/01 23:04:57 azure_plugin_server.go:75: cannot get Invisinets rule from NSG rule: error while getting permit list rule
+2023/08/01 23:04:57 azure_plugin_server.go:130: Cannot add this duplicate rule: id:"test-rule-id-1" direction:OUTBOUND src_port:100 dst_port:8080 protocol:6
+2023/08/01 23:04:57 azure_plugin_server.go:130: Cannot add this duplicate rule: id:"test-rule-id-2" direction:OUTBOUND src_port:100 dst_port:8080 protocol:6
+2023/08/01 23:04:57 azure_plugin_server.go:153: Created network security rule: fake-invisinets-rule
+2023/08/01 23:04:57 azure_plugin_server.go:153: Created network security rule: fake-invisinets-rule
+2023/08/01 23:04:57 azure_plugin_server.go:223: cannot get NSG for resource test-resource-id: error while getting NSG
+2023/08/01 23:04:57 azure_plugin_server.go:108: cannot get NSG for resource test-resource-id: error while getting NSG
+2023/08/01 23:04:57 azure_plugin_server.go:90: cannot connect to azure:error while connecting to azure
+2023/08/01 23:04:57 azure_plugin_server.go:100: cannot get NIC for resource test-resource-id: error while getting NIC
+2023/08/01 23:04:57 azure_plugin_server.go:217: cannot get NSG name for resource test-resource-id: error while getting nsgName
+2023/08/01 23:04:57 azure_plugin_server.go:108: cannot get NSG for resource test-resource-id: error while getting nsgName
+2023/08/01 23:04:57 azure_plugin_server.go:227: NIC test-nic-id does not have a network security group
+2023/08/01 23:04:57 azure_plugin_server.go:241: Attached network security group test-nsg-id to NIC test-nic-id
+2023/08/01 23:04:57 azure_plugin_server.go:130: Cannot add this duplicate rule: id:"test-rule-id-1" direction:OUTBOUND src_port:100 dst_port:8080 protocol:6
+2023/08/01 23:04:57 azure_plugin_server.go:130: Cannot add this duplicate rule: id:"test-rule-id-2" direction:OUTBOUND src_port:100 dst_port:8080 protocol:6
+2023/08/01 23:04:57 azure_plugin_server.go:153: Created network security rule: fake-invisinets-rule
+2023/08/01 23:04:57 azure_plugin_server.go:153: Created network security rule: fake-invisinets-rule-id
+2023/08/01 23:04:57 azure_plugin_server.go:227: NIC test-nic-id does not have a network security group
+2023/08/01 23:04:57 azure_plugin_server.go:232: failed to create a new network security group: error while creating new NSG
+2023/08/01 23:04:57 azure_plugin_server.go:108: cannot get NSG for resource test-resource-id: error while creating new NSG
+2023/08/01 23:04:57 azure_plugin_server.go:297: cannot get equivalent Invisinets rule for NSG rule invisinets-Rule-1: error while getting permit list rule
+2023/08/01 23:04:57 azure_plugin_server.go:117: cannot setup priorities: error while getting permit list rule
+2023/08/01 23:04:57 azure_plugin_server.go:130: Cannot add this duplicate rule: id:"test-rule-id-1" direction:OUTBOUND src_port:100 dst_port:8080 protocol:6
+2023/08/01 23:04:57 azure_plugin_server.go:130: Cannot add this duplicate rule: id:"test-rule-id-2" direction:OUTBOUND src_port:100 dst_port:8080 protocol:6
+2023/08/01 23:04:57 azure_plugin_server.go:150: cannot create security rule:error while creating nsg rule
+2023/08/01 23:04:57 azure_plugin_server.go:227: NIC test-nic-id does not have a network security group
+2023/08/01 23:04:57 azure_plugin_server.go:238: failed to attach the network security group to the NIC: error while updating nic
+2023/08/01 23:04:57 azure_plugin_server.go:108: cannot get NSG for resource test-resource-id: error while updating nic
+2023/08/01 23:04:57 azure_plugin_server.go:196: Deleted network security rule: test-rule-id-1
+2023/08/01 23:04:57 azure_plugin_server.go:196: Deleted network security rule: test-rule-id-2
+2023/08/01 23:04:57 azure_plugin_server.go:252: cannot get NIC for resource test-resource-id: nic error
+2023/08/01 23:04:57 azure_plugin_server.go:172: cannot get NSG for resource test-resource-id: nic error
+2023/08/01 23:04:57 azure_plugin_server.go:163: cannot connect to azure:azure error
+2023/08/01 23:04:57 azure_plugin_server.go:193: cannot delete security rule:error while deleting rule
+2023/08/01 23:04:57 azure_plugin_server.go:187: cannot get permit list rule from NSG rule:error while getting permit list rule from NSG rule
+2023/08/01 23:04:57 azure_plugin_server.go:260: cannot get NSG name for resource test-resource-id: error while getting last segment
+2023/08/01 23:04:57 azure_plugin_server.go:172: cannot get NSG for resource test-resource-id: error while getting last segment
+2023/08/01 23:04:57 azure_plugin_server.go:266: cannot get NSG for resource test-resource-id: error while getting security group
+2023/08/01 23:04:57 azure_plugin_server.go:172: cannot get NSG for resource test-resource-id: error while getting security group
+2023/08/01 23:04:57 azure_sdk_handler.go:305: Successfully deleted security rule: {}
+2023/08/01 23:04:57 azure_sdk_handler.go:105: creating a new network security group valid-security-group-name in location eastus
+2023/08/01 23:04:57 azure_sdk_handler.go:105: creating a new network security group invalid-security-group-name in location eastus
+2023/08/01 23:04:57 azure_sdk_handler.go:191: Failed to get VM: GET http://localhost:43365/subscriptions/subid-test/resourceGroups/rg-test/providers/Microsoft.Compute/virtualMachines/invalid-vm-resource-name
+--------------------------------------------------------------------------------
+RESPONSE 404: 404 Not Found
+ERROR CODE UNAVAILABLE
+--------------------------------------------------------------------------------
+404 page not found
+
+--------------------------------------------------------------------------------
+2023/08/01 23:04:57 azure_sdk_handler.go:242: Successfully Updated Resource NIC: {
+  "name": "nic-name-test"
+}
