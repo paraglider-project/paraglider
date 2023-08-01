@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -27,6 +28,8 @@ import (
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -35,9 +38,11 @@ type GCPPluginServer struct {
 }
 
 // GCP
+// Naming convention loosely follows https://cloud.google.com/architecture/best-practices-vpc-design#naming
 const (
 	networkInterface      = "nic0"
-	vpc                   = "nw-invisinets"          // Invisinets VPC name
+	vpcName               = "invisinets-vpc" // Invisinets VPC name
+	vpcURL                = "global/networks/" + vpcName
 	networkTagPrefix      = "invisinets-permitlist-" // Prefixe for GCP tags related to invisinets
 	firewallNamePrefix    = "fw-" + networkTagPrefix // Prefixe for firewall names related to invisinets
 	firewallNameMaxLength = 62                       // GCP imposed max length for firewall name
@@ -58,7 +63,7 @@ var (
 
 // Checks if GCP firewall rule is an Invisinets permit list rule
 func isInvisinetsPermitListRule(firewall *computepb.Firewall) bool {
-	return strings.Compare(*firewall.Network, vpc) == 0 && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
+	return strings.Compare(*firewall.Network, vpcURL) == 0 && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
 }
 
 // Checks if GCP firewall rule is equivalent to an Invisinets permit list rule
@@ -213,7 +218,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			Description: proto.String("Invisinets permit list"),
 			Direction:   proto.String(firewallDirectionMapInvisinetsToGCP[permitListRule.Direction]),
 			Name:        proto.String(firewallName),
-			Network:     proto.String(vpc),
+			Network:     proto.String(vpcURL),
 			TargetTags:  []string{networkTag},
 		}
 		if permitListRule.Direction == invisinetspb.Direction_INBOUND {
@@ -308,4 +313,97 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, permitList 
 	defer instancesClient.Close()
 
 	return s._DeletePermitListRules(ctx, permitList, firewallsClient, instancesClient)
+}
+
+func (s *GCPPluginServer) _CreateResource(ctx context.Context, resource *invisinetspb.Resource, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.BasicResponse, error) {
+	description := "bare json string" // TODO @seankimkdy: replace once rebasing on Sarah's
+
+	project, zone, _ := splitResourceId(resource.Id)
+	region := zone[:strings.LastIndex(zone, "-")]
+
+	subnetName := "invisinets-" + region + "-subnet"
+	subnetExists := false
+
+	getNetworkReq := &computepb.GetNetworkRequest{
+		Network: vpcName,
+		Project: project,
+	}
+	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			insertNetworkRequest := &computepb.InsertNetworkRequest{
+				Project: project,
+				NetworkResource: &computepb.Network{
+					Name:                  proto.String(vpcName),
+					Description:           proto.String("VPC for Invisinets"),
+					AutoCreateSubnetworks: proto.Bool(false),
+				},
+			}
+			insertNetworkOp, err := networksClient.Insert(ctx, insertNetworkRequest)
+			if err != nil {
+				return nil, fmt.Errorf("unable to insert network: %w", err)
+			}
+			if err = insertNetworkOp.Wait(ctx); err != nil {
+				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
+		}
+	} else {
+		for _, subnetFullyQualifiedURL := range getNetworkResp.Subnetworks {
+			// Subnets are returned in the form of fully-qualified URLs which look like
+			// https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/europe-west1/subnetworks/europe-subnet
+			// TODO @seankimkdy: the documentation and "Equivalent REST API" feature on the console are contradictory, so figure out which one is correct.
+			if subnetName == subnetFullyQualifiedURL[strings.LastIndex(subnetFullyQualifiedURL, "/")+1:] {
+				subnetExists = true
+				break
+			}
+		}
+	}
+
+	if !subnetExists {
+		insertSubnetworkRequest := &computepb.InsertSubnetworkRequest{
+			Project: project,
+			Region:  region,
+			SubnetworkResource: &computepb.Subnetwork{
+				Name:        proto.String(subnetName),
+				Description: proto.String("Invisinets subnetwork for " + region),
+				Network:     proto.String(vpcURL),
+			},
+		}
+		insertSubnetworkOp, err := subnetworksClient.Insert(ctx, insertSubnetworkRequest)
+		if err != nil {
+			return nil, fmt.Errorf("unable to insert subnetwork: %w", err)
+		}
+		if err = insertSubnetworkOp.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("unable to wait for the operation: %w", err)
+		}
+	}
+
+	insertInstanceRequest := &computepb.InsertInstanceRequest{}
+	err = json.Unmarshal([]byte(description), insertInstanceRequest)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse resource description: %w", err)
+	}
+
+	if len(insertInstanceRequest.InstanceResource.NetworkInterfaces) != 0 {
+		return nil, fmt.Errorf("network settings should not be specified")
+	}
+
+	insertInstanceRequest.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
+		{
+			Network:    proto.String(vpcURL),
+			Subnetwork: proto.String("regions/" + region + "/subnetworks/" + subnetName),
+		},
+	}
+
+	insertInstanceOp, err := instancesClient.Insert(ctx, insertInstanceRequest)
+	if err != nil {
+		return nil, fmt.Errorf("unable to insert subnetwork: %w", err)
+	}
+	if err = insertInstanceOp.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("unable to wait for the operation: %w", err)
+	}
+
+	return &invisinetspb.BasicResponse{Success: true}, nil
 }
