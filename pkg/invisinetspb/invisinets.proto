@@ -31,7 +31,7 @@ message ResourceID {
 }
 
 message ResourceDescription {
-    string description = 1;
+    bytes description = 1;
 }
 
 message BasicResponse {
