@@ -177,6 +177,12 @@ type fakeServerState struct {
 	instance    *computepb.Instance
 }
 
+// Struct to hold fake clients
+type fakeClientsState struct {
+	firewallsClient *compute.FirewallsClient
+	instancesClient *compute.InstancesClient
+}
+
 // Generates fake server state (used for each test case independently)
 func generateFakeServerState() *fakeServerState {
 	return &fakeServerState{
@@ -203,22 +209,20 @@ func generateFakeServerState() *fakeServerState {
 	}
 }
 
-func setup(t *testing.T, needFirewallsClient bool, needInstancesClient bool) (fakeServer *httptest.Server, ctx context.Context, fakeFirewallsClient *compute.FirewallsClient, fakeInstancesClient *compute.InstancesClient) {
+func setup(t *testing.T, neededClients map[string]bool) (fakeServer *httptest.Server, ctx context.Context, fakeClients fakeClientsState) {
 	fakeServer = httptest.NewServer(getFakeServerHandler(generateFakeServerState()))
 
 	ctx = context.Background()
 
 	var err error
-
-	if needFirewallsClient {
-		fakeFirewallsClient, err = compute.NewFirewallsRESTClient(ctx, option.WithoutAuthentication(), option.WithEndpoint(fakeServer.URL))
+	if neededClients["firewalls"] {
+		fakeClients.firewallsClient, err = compute.NewFirewallsRESTClient(ctx, option.WithoutAuthentication(), option.WithEndpoint(fakeServer.URL))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
-
-	if needInstancesClient {
-		fakeInstancesClient, err = compute.NewInstancesRESTClient(ctx, option.WithoutAuthentication(), option.WithEndpoint(fakeServer.URL))
+	if neededClients["instances"] {
+		fakeClients.instancesClient, err = compute.NewInstancesRESTClient(ctx, option.WithoutAuthentication(), option.WithEndpoint(fakeServer.URL))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -227,23 +231,23 @@ func setup(t *testing.T, needFirewallsClient bool, needInstancesClient bool) (fa
 	return
 }
 
-func teardown(fakeServer *httptest.Server, fakeFirewallsClient *compute.FirewallsClient, fakeInstancesClient *compute.InstancesClient) {
+func teardown(fakeServer *httptest.Server, fakeClients fakeClientsState) {
 	fakeServer.Close()
-	if fakeFirewallsClient != nil {
-		fakeFirewallsClient.Close()
+	if fakeClients.firewallsClient != nil {
+		fakeClients.firewallsClient.Close()
 	}
-	if fakeInstancesClient != nil {
-		fakeInstancesClient.Close()
+	if fakeClients.instancesClient != nil {
+		fakeClients.instancesClient.Close()
 	}
 }
 
 func TestGetPermitList(t *testing.T) {
-	fakeServer, ctx, _, fakeInstancesClient := setup(t, false, true)
+	fakeServer, ctx, fakeClients := setup(t, map[string]bool{"instances": true})
 
 	s := &GCPPluginServer{}
 	resource := &invisinetspb.Resource{Id: fakeResourceId}
 
-	permitListActual, err := s._GetPermitList(ctx, resource, fakeInstancesClient)
+	permitListActual, err := s._GetPermitList(ctx, resource, fakeClients.instancesClient)
 	require.NoError(t, err)
 	permitListExpected := &invisinetspb.PermitList{
 		AssociatedResource: fakeResourceId,
@@ -253,24 +257,24 @@ func TestGetPermitList(t *testing.T) {
 	assert.Equal(t, permitListExpected.AssociatedResource, permitListActual.AssociatedResource)
 	assert.ElementsMatch(t, permitListExpected.Rules, permitListActual.Rules)
 
-	teardown(fakeServer, nil, fakeInstancesClient)
+	teardown(fakeServer, fakeClients)
 }
 
 func TestGetPermitListMissingInstance(t *testing.T) {
-	fakeServer, ctx, _, fakeInstancesClient := setup(t, false, true)
+	fakeServer, ctx, fakeClients := setup(t, map[string]bool{"instances": true})
 
 	s := &GCPPluginServer{}
 	resource := &invisinetspb.Resource{Id: fakeMissingResourceId}
 
-	resp, err := s._GetPermitList(ctx, resource, fakeInstancesClient)
+	resp, err := s._GetPermitList(ctx, resource, fakeClients.instancesClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 
-	teardown(fakeServer, nil, fakeInstancesClient)
+	teardown(fakeServer, fakeClients)
 }
 
 func TestAddPermitListRules(t *testing.T) {
-	fakeServer, ctx, fakeFirewallsClient, fakeInstancesClient := setup(t, true, true)
+	fakeServer, ctx, fakeClients := setup(t, map[string]bool{"instances": true, "firewalls": true})
 
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
@@ -291,16 +295,16 @@ func TestAddPermitListRules(t *testing.T) {
 		},
 	}
 
-	resp, err := s._AddPermitListRules(ctx, permitList, fakeFirewallsClient, fakeInstancesClient)
+	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.True(t, resp.Success)
 
-	teardown(fakeServer, fakeFirewallsClient, fakeInstancesClient)
+	teardown(fakeServer, fakeClients)
 }
 
 func TestAddPermitListRulesMissingInstance(t *testing.T) {
-	fakeServer, ctx, fakeFirewallsClient, fakeInstancesClient := setup(t, true, true)
+	fakeServer, ctx, fakeClients := setup(t, map[string]bool{"instances": true, "firewalls": true})
 
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
@@ -315,15 +319,15 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 		},
 	}
 
-	resp, err := s._AddPermitListRules(ctx, permitList, fakeFirewallsClient, fakeInstancesClient)
+	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 
-	teardown(fakeServer, fakeFirewallsClient, fakeInstancesClient)
+	teardown(fakeServer, fakeClients)
 }
 
 func TestAddPermitListRulesDuplicate(t *testing.T) {
-	fakeServer, ctx, fakeFirewallsClient, fakeInstancesClient := setup(t, true, true)
+	fakeServer, ctx, fakeClients := setup(t, map[string]bool{"instances": true, "firewalls": true})
 
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
@@ -331,15 +335,15 @@ func TestAddPermitListRulesDuplicate(t *testing.T) {
 		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1},
 	}
 
-	resp, err := s._AddPermitListRules(ctx, permitList, fakeFirewallsClient, fakeInstancesClient)
+	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 
-	teardown(fakeServer, fakeFirewallsClient, fakeInstancesClient)
+	teardown(fakeServer, fakeClients)
 }
 
 func TestDeletePermitListRules(t *testing.T) {
-	fakeServer, ctx, fakeFirewallsClient, fakeInstancesClient := setup(t, true, true)
+	fakeServer, ctx, fakeClients := setup(t, map[string]bool{"instances": true, "firewalls": true})
 
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
@@ -347,16 +351,16 @@ func TestDeletePermitListRules(t *testing.T) {
 		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1, fakePermitListRule2},
 	}
 
-	resp, err := s._DeletePermitListRules(ctx, permitList, fakeFirewallsClient, fakeInstancesClient)
+	resp, err := s._DeletePermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.True(t, resp.Success)
 
-	teardown(fakeServer, fakeFirewallsClient, fakeInstancesClient)
+	teardown(fakeServer, fakeClients)
 }
 
 func TestDeletePermitListRulesMissingInstance(t *testing.T) {
-	fakeServer, ctx, fakeFirewallsClient, fakeInstancesClient := setup(t, true, true)
+	fakeServer, ctx, fakeClients := setup(t, map[string]bool{"instances": true, "firewalls": true})
 
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
@@ -364,9 +368,9 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1},
 	}
 
-	resp, err := s._DeletePermitListRules(ctx, permitList, fakeFirewallsClient, fakeInstancesClient)
+	resp, err := s._DeletePermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 
-	teardown(fakeServer, fakeFirewallsClient, fakeInstancesClient)
+	teardown(fakeServer, fakeClients)
 }
