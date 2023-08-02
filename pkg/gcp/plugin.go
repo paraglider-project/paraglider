@@ -350,11 +350,8 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resource *invisin
 			return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
 		}
 	} else {
-		for _, subnetFullyQualifiedURL := range getNetworkResp.Subnetworks {
-			// Subnets are returned in the form of fully-qualified URLs which look like
-			// https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/europe-west1/subnetworks/europe-subnet
-			// TODO @seankimkdy: the documentation and "Equivalent REST API" feature on the console are contradictory, so figure out which one is correct.
-			if subnetName == subnetFullyQualifiedURL[strings.LastIndex(subnetFullyQualifiedURL, "/")+1:] {
+		for _, subnetURL := range getNetworkResp.Subnetworks {
+			if subnetName == subnetURL[strings.LastIndex(subnetURL, "/")+1:] {
 				subnetExists = true
 				break
 			}
