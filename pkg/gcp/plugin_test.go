@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	compute "cloud.google.com/go/compute/apiv1"
@@ -106,8 +107,10 @@ var fakeInstance = &computepb.Instance{
 
 // Portions of GCP API URLs
 var (
-	urlProjectPrefix = fmt.Sprintf("/compute/v1/projects/%v", fakeProject)
-	urlZoneInstance  = fmt.Sprintf("/zones/%v/instances/%v", fakeZone, fakeInstanceName)
+	urlProject  = "/compute/v1/projects/" + fakeProject
+	urlZone     = "/zones/" + fakeZone
+	urlRegion   = "/regions/" + fakeRegion
+	urlInstance = "/instances/" + fakeInstanceName
 )
 
 func sendResponse(w http.ResponseWriter, resp any) {
@@ -122,33 +125,21 @@ func sendResponse(w http.ResponseWriter, resp any) {
 	}
 }
 
+func sendResponseFakeOperation(w http.ResponseWriter) {
+	sendResponse(w, &computepb.Operation{Name: proto.String(fakeOperation)})
+}
+
+func sendResponseDoneOperation(w http.ResponseWriter) {
+	sendResponse(w, &computepb.Operation{Status: computepb.Operation_DONE.Enum()})
+}
+
 func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
+	// The handler should be written to do as minimal work as possible
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch path := r.URL.Path; path {
-		case urlProjectPrefix + "/global/firewalls":
-			if r.Method == "POST" {
-				body, err := io.ReadAll(r.Body)
-				if err != nil {
-					http.Error(w, "unable to read body of request: "+err.Error(), http.StatusBadRequest)
-					return
-				}
-				var firewall computepb.Firewall
-				unm := protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}
-				if err = unm.Unmarshal(body, &firewall); err != nil {
-					http.Error(w, "unable to unmarshal body of request: "+err.Error(), http.StatusBadRequest)
-					return
-				}
-				fakeServerState.firewallMap[*firewall.Name] = &firewall
-				sendResponse(w, &computepb.Operation{Name: proto.String(fakeOperation)})
-				return
-			}
-		case urlProjectPrefix + "/global/firewalls/" + *fakeFirewallRule1.Name:
-			if r.Method == "DELETE" {
-				delete(fakeServerState.firewallMap, *fakeFirewallRule1.Name)
-				sendResponse(w, &computepb.Operation{Name: proto.String(fakeOperation)})
-				return
-			}
-		case urlProjectPrefix + urlZoneInstance + "/getEffectiveFirewalls":
+		path := r.URL.Path
+		switch {
+		// Instances
+		case path == urlProject+urlZone+urlInstance+"/getEffectiveFirewalls":
 			if r.Method == "GET" {
 				firewalls := make([]*computepb.Firewall, 0, len(fakeServerState.firewallMap))
 				for _, value := range fakeServerState.firewallMap {
@@ -160,27 +151,45 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				})
 				return
 			}
-		case urlProjectPrefix + urlZoneInstance:
+		case path == urlProject+urlZone+urlInstance+"/setTags":
+			if r.Method == "POST" {
+				fakeServerState.instance.Tags.Items = append(fakeServerState.instance.Tags.Items, getGCPNetworkTag(*fakeServerState.instance.Id))
+				sendResponseFakeOperation(w)
+				return
+			}
+		case path == urlProject+urlZone+urlInstance:
 			if r.Method == "GET" {
 				sendResponse(w, fakeServerState.instance)
 				return
 			}
-		case urlProjectPrefix + "/zones/" + fakeZone + "/instances": // TODO @seankimkdy: fix this better with above case
+		case path == urlProject+urlZone+"/instances":
 			if r.Method == "POST" {
-				fakeInstance.Tags = &computepb.Tags{} // No tags since resource creation wouldn't have been able to set tags yet
+				fakeInstance.Tags = &computepb.Tags{} // No tags since resource creation wouldn't have been able to set the Invisinets network tag yet
 				fakeServerState.instance = fakeInstance
-				sendResponse(w, &computepb.Operation{Name: proto.String(fakeOperation)})
+				sendResponseFakeOperation(w)
 				return
 			}
-		case urlProjectPrefix + urlZoneInstance + "/setTags":
+		// Firewalls
+		case strings.HasPrefix(path, urlProject+"/global/firewalls"):
 			if r.Method == "POST" {
-				// TODO @seankimkdy: maybe this doesn't need to exist if we just insert the instance
-				fakeServerState.instance.Tags.Items = append(fakeServerState.instance.Tags.Items, getGCPNetworkTag(*fakeServerState.instance.Id))
-				sendResponse(w, &computepb.Operation{Name: proto.String(fakeOperation)}) // TODO @seankimkdy: consolidate
+				body, err := io.ReadAll(r.Body)
+				if err != nil {
+					http.Error(w, "unable to read body of request: "+err.Error(), http.StatusBadRequest)
+				}
+				var firewall computepb.Firewall
+				unm := protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}
+				if err = unm.Unmarshal(body, &firewall); err != nil {
+					http.Error(w, "unable to unmarshal body of request: "+err.Error(), http.StatusBadRequest)
+				}
+				fakeServerState.firewallMap[*firewall.Name] = &firewall
+				sendResponseFakeOperation(w)
+				return
+			} else if r.Method == "DELETE" {
+				sendResponseFakeOperation(w)
 				return
 			}
 		// Networks
-		case urlProjectPrefix + "/global/networks/" + vpcName:
+		case strings.HasPrefix(path, urlProject+"/global/networks"):
 			if r.Method == "GET" {
 				if fakeServerState.network != nil {
 					sendResponse(w, fakeServerState.network)
@@ -188,9 +197,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					http.Error(w, "no network found", http.StatusNotFound)
 				}
 				return
-			}
-		case urlProjectPrefix + "/global/networks":
-			if r.Method == "POST" {
+			} else if r.Method == "POST" {
 				// TODO @seankimkdy: consolidate reading in body
 				body, err := io.ReadAll(r.Body)
 				if err != nil {
@@ -204,36 +211,32 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					return
 				}
 				fakeServerState.network = &network
-				sendResponse(w, &computepb.Operation{Name: proto.String(fakeOperation)})
+				sendResponseFakeOperation(w)
 				return
 			}
-		case urlProjectPrefix + "/regions/" + fakeRegion + "/subnetworks":
+		case path == urlProject+urlRegion+"/subnetworks":
 			if r.Method == "POST" {
-				sendResponse(w, &computepb.Operation{Name: proto.String(fakeOperation)})
+				sendResponseFakeOperation(w)
 				return
 			}
 		// Operations
-		case urlProjectPrefix + "/global/operations/" + fakeOperation:
+		case path == urlProject+"/global/operations/"+fakeOperation:
 			if r.Method == "GET" {
-				sendResponse(w, &computepb.Operation{Status: computepb.Operation_DONE.Enum()})
+				sendResponseDoneOperation(w)
 				return
 			}
-		case urlProjectPrefix + "/regions/" + fakeRegion + "/operations/" + fakeOperation:
+		case path == urlProject+"/regions/"+fakeRegion+"/operations/"+fakeOperation:
 			if r.Method == "GET" {
-				sendResponse(w, &computepb.Operation{Status: computepb.Operation_DONE.Enum()})
+				sendResponseDoneOperation(w)
 				return
 			}
-		case urlProjectPrefix + "/zones/" + fakeZone + "/operations/" + fakeOperation:
+		case path == urlProject+"/zones/"+fakeZone+"/operations/"+fakeOperation:
 			if r.Method == "GET" {
-				sendResponse(w, &computepb.Operation{Status: computepb.Operation_DONE.Enum()})
+				sendResponseDoneOperation(w)
 				return
 			}
-		default:
-			fmt.Println(r.Method)
-			fmt.Println(path)
-			http.Error(w, "unsupported URL and/or method", http.StatusBadRequest)
-			return
 		}
+		http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
 	})
 }
 
