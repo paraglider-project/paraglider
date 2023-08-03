@@ -18,8 +18,12 @@ package azure_plugin
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"log"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	logger "github.com/NetSys/invisinets/pkg/logger"
@@ -27,7 +31,7 @@ import (
 )
 
 const (
-	InvisinetsRulePrefix = "invisinets"
+	InvisinetsPrefix = "invisinets"
 )
 
 type azurePluginServer struct {
@@ -67,7 +71,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invis
 
 	// get the NSG rules
 	for _, rule := range nsg.Properties.SecurityRules {
-		if strings.HasPrefix(*rule.Name, InvisinetsRulePrefix) {
+		if strings.HasPrefix(*rule.Name, InvisinetsPrefix) {
 			plRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
 				logger.Log.Printf("cannot get Invisinets rule from NSG rule: %+v", err)
@@ -142,8 +146,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		}
 
 		// Create the NSG rule
-		ruleName := InvisinetsRulePrefix + "-" + uuid.New().String()
-		securityRule, err := s.azureHandler.CreateSecurityRule(ctx, rule, *nsg.Name, ruleName, resourceAddress, priority)
+		securityRule, err := s.azureHandler.CreateSecurityRule(ctx, rule, *nsg.Name, getInvisinetsResourceName("nsgrule"), resourceAddress, priority)
 		if err != nil {
 			logger.Log.Printf("cannot create security rule:%+v", err)
 			return nil, err
@@ -179,7 +182,7 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 	s.fillRulesSet(rulesToBeDeleted, pl.GetRules())
 
 	for _, rule := range nsg.Properties.SecurityRules {
-		if strings.HasPrefix(*rule.Name, InvisinetsRulePrefix) {
+		if strings.HasPrefix(*rule.Name, InvisinetsPrefix) {
 			invisinetsRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
 				logger.Log.Printf("cannot get permit list rule from NSG rule:%+v", err)
@@ -197,6 +200,56 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 	}
 
 	return &invisinetspb.BasicResponse{Success: true, Message: "successfully deleted rules from permit list"}, nil
+}
+
+func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
+	invisinetsVm, err := getVmFromResourceDesc(resourceDesc.Description)
+	if err != nil {
+		log.Printf("Resource description is invalid:%+v", err)
+		return nil, err
+	}
+
+	cred, err := s.azureHandler.GetAzureCredentials()
+	if err != nil {
+		log.Printf("An error occured while getting azure credentials:%+v", err)
+		return nil, err
+	}
+	s.azureHandler.InitializeClients(cred)
+	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnetIfExists(c, InvisinetsPrefix, *invisinetsVm.Location)
+	if err != nil {
+		log.Printf("An error occured while getting invisinets vnet:%+v", err)
+		return nil, err
+	}
+
+	// if there's no invisinets vnet in that location, create a new one
+	if invisinetsVnet == nil {
+		invisinetsVnet, err = s.azureHandler.CreateInvisinetsVirtualNetwork(c, *invisinetsVm.Location, getInvisinetsResourceName("vnet"), resourceDesc.AddressSpace)
+		if err != nil {
+			log.Printf("An error occured while creating invisinets vnet:%+v", err)
+			return nil, err
+		}
+	}
+
+	nic, err := s.azureHandler.CreateNetworkInterface(c, *invisinetsVnet.Properties.Subnets[0].ID, *invisinetsVm.Location, getInvisinetsResourceName("nic"))
+	if err != nil {
+		log.Printf("An error occured while creating network interface:%+v", err)
+		return nil, err
+	}
+
+	invisinetsVm.Properties.NetworkProfile = &armcompute.NetworkProfile{
+		NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
+			{
+				ID: nic.ID,
+			},
+		},
+	}
+
+	invisinetsVm, err = s.azureHandler.CreateVirtualMachine(c, *invisinetsVm, getInvisinetsResourceName("vm"))
+	if err != nil {
+		log.Printf("An error occured while creating the virtual machine:%+v", err)
+		return nil, err
+	}
+	return &invisinetspb.BasicResponse{Success: true, Message: "successfully created resource", UpdatedResource: &invisinetspb.ResourceID{Id: *invisinetsVm.ID}}, nil
 }
 
 // GetOrCreateNSG returns the network security group object given the resource NIC
@@ -287,7 +340,7 @@ func (s *azurePluginServer) setupMaps(reservedPrioritiesInbound map[int32]bool, 
 		}
 		// skip rules that are not created by Invisinets, because some rules are added by default and have
 		// different fields such as port ranges which is not supported by Invisinets at the moment
-		if !strings.HasPrefix(*rule.Name, InvisinetsRulePrefix) {
+		if !strings.HasPrefix(*rule.Name, InvisinetsPrefix) {
 			continue
 		}
 		equivalentInvisinetsRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
@@ -310,4 +363,29 @@ func getPriority(reservedPriorities map[int32]bool, start int32, end int32) int3
 		}
 	}
 	return i
+}
+
+func getVmFromResourceDesc(resourceDesc []byte) (*armcompute.VirtualMachine, error) {
+	vm := &armcompute.VirtualMachine{}
+	err := json.Unmarshal(resourceDesc, &vm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
+	}
+
+	// Some validations on the VM
+	if vm.Location == nil || vm.Properties == nil {
+		return nil, fmt.Errorf("resource description is missing location or properties")
+	}
+
+	// Reject VMs that already have network interfaces
+	if vm.Properties.NetworkProfile != nil && vm.Properties.NetworkProfile.NetworkInterfaces != nil {
+		return nil, fmt.Errorf("resource description contains network interface")
+	}
+
+	return vm, nil
+}
+
+func getInvisinetsResourceName(resourceType string) string {
+	// TODO @nnomier: change based on invisinets naming convention
+	return InvisinetsPrefix + "-" + resourceType + "-" + uuid.New().String()
 }

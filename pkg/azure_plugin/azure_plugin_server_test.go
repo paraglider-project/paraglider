@@ -18,6 +18,7 @@ package azure_plugin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -25,11 +26,23 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+const (
+	fakeLocation = "eastus"
+)
+
+type dummyTokenCredential struct{}
+
+func (d *dummyTokenCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	return azcore.AccessToken{}, nil
+}
 
 type mockAzureSDKHandler struct {
 	mock.Mock
@@ -115,15 +128,45 @@ func (m *mockAzureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName stri
 	return nsg.(*armnetwork.SecurityGroup), args.Error(1)
 }
 
+func (m *mockAzureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, location string, name string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
+	args := m.Called(ctx, location, name, addressSpace)
+	vnet := args.Get(0)
+	if vnet == nil {
+		return nil, args.Error(1)
+	}
+	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
+}
+
+func (m *mockAzureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error) {
+	args := m.Called(ctx, subnetID, location, nicName)
+	nic := args.Get(0)
+	if nic == nil {
+		return nil, args.Error(1)
+	}
+	return nic.(*armnetwork.Interface), args.Error(1)
+}
+
+func (m *mockAzureSDKHandler) CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error) {
+	args := m.Called(ctx, parameters, vmName)
+	vm := args.Get(0)
+	if vm == nil {
+		return nil, args.Error(1)
+	}
+	return vm.(*armcompute.VirtualMachine), args.Error(1)
+}
+
+func (m *mockAzureSDKHandler) GetInvisinetsVnetIfExists(ctx context.Context, prefix string, location string) (*armnetwork.VirtualNetwork, error) {
+	args := m.Called(ctx, prefix, location)
+	vnet := args.Get(0)
+	if vnet == nil {
+		return nil, args.Error(1)
+	}
+	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
+}
+
 func (m *mockAzureSDKHandler) GetLastSegment(resourceID string) (string, error) {
 	args := m.Called(resourceID)
 	return args.String(0), args.Error(1)
-}
-
-type dummyTokenCredential struct{}
-
-func (d *dummyTokenCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
-	return azcore.AccessToken{}, nil
 }
 
 func setupAzurePluginServer() (*azurePluginServer, *mockAzureSDKHandler, context.Context) {
@@ -138,6 +181,97 @@ func setupAzurePluginServer() (*azurePluginServer, *mockAzureSDKHandler, context
 	concreteMockAzureHandler := mockAzureHandler.(*mockAzureSDKHandler)
 
 	return server, concreteMockAzureHandler, context.Background()
+}
+
+func TestCreateResource(t *testing.T) {
+
+	t.Run("TestCreateResource: Success Vnet Already exists", func(t *testing.T) {
+		vm := armcompute.VirtualMachine{
+			Location:   to.Ptr(fakeLocation),
+			Properties: &armcompute.VirtualMachineProperties{},
+		}
+
+		server, mockAzureHandler, ctx := setupAzurePluginServer()
+
+		// Set up mock behavior for the Azure SDK handler
+		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
+		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return()
+		mockAzureHandler.On("GetInvisinetsVnetIfExists", ctx, InvisinetsPrefix, "eastus").Return(&armnetwork.VirtualNetwork{
+			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+				Subnets: []*armnetwork.Subnet{
+					{
+						Name: to.Ptr("default"),
+						ID:   to.Ptr("default_subnet_id"),
+					},
+				},
+			},
+		}, nil)
+		mockAzureHandler.On("CreateNetworkInterface", ctx, "default_subnet_id", "eastus", mock.Anything).Return(&armnetwork.Interface{ID: to.Ptr("test-nic-id")}, nil)
+
+		mockAzureHandler.On("CreateVirtualMachine", ctx, vm, mock.Anything).Return(&armcompute.VirtualMachine{ID: to.Ptr("test-vm-id")}, nil)
+
+		descripton, _ := json.Marshal(vm)
+		vm.Properties.NetworkProfile = &armcompute.NetworkProfile{
+			NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
+				{
+					ID: to.Ptr("test-nic-id"),
+				},
+			},
+		}
+
+		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
+			Description:  descripton,
+			AddressSpace: "10.0.0.1/16",
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, response)
+		assert.Equal(t, "test-vm-id", response.UpdatedResource.Id)
+	})
+
+	t.Run("TestCreateResource: Success Create New Vnet", func(t *testing.T) {
+		vm := armcompute.VirtualMachine{
+			Location:   to.Ptr(fakeLocation),
+			Properties: &armcompute.VirtualMachineProperties{},
+		}
+		server, mockAzureHandler, ctx := setupAzurePluginServer()
+
+		// Set up mock behavior for the Azure SDK handler
+		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
+		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return()
+		mockAzureHandler.On("GetInvisinetsVnetIfExists", ctx, InvisinetsPrefix, "eastus").Return(nil, nil)
+		mockAzureHandler.On("CreateInvisinetsVirtualNetwork", ctx, fakeLocation, mock.Anything, "10.0.0.1/16").Return(&armnetwork.VirtualNetwork{
+			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+				Subnets: []*armnetwork.Subnet{
+					{
+						Name: to.Ptr("default"),
+						ID:   to.Ptr("default_subnet_id"),
+					},
+				},
+			},
+		}, nil)
+		mockAzureHandler.On("CreateNetworkInterface", ctx, "default_subnet_id", "eastus", mock.Anything).Return(&armnetwork.Interface{ID: to.Ptr("test-nic-id")}, nil)
+
+		mockAzureHandler.On("CreateVirtualMachine", ctx, vm, mock.Anything).Return(&armcompute.VirtualMachine{ID: to.Ptr("test-vm-id")}, nil)
+
+		descripton, _ := json.Marshal(vm)
+		vm.Properties.NetworkProfile = &armcompute.NetworkProfile{
+			NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
+				{
+					ID: to.Ptr("test-nic-id"),
+				},
+			},
+		}
+
+		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
+			Description:  descripton,
+			AddressSpace: "10.0.0.1/16",
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, response)
+		assert.Equal(t, "test-vm-id", response.UpdatedResource.Id)
+	})
 }
 
 func TestGetPermitList(t *testing.T) {
@@ -172,7 +306,7 @@ func TestGetPermitList(t *testing.T) {
 
 		// make suret that the GetPermitListRuleFromNSGRule is called on all the invisinets rules
 		for i, rule := range fakeNsg.Properties.SecurityRules {
-			if strings.HasPrefix(*rule.Name, InvisinetsRulePrefix) {
+			if strings.HasPrefix(*rule.Name, InvisinetsPrefix) {
 				mockAzureHandler.On("GetPermitListRuleFromNSGRule", rule).Return(fakePl.GetRules()[i], nil)
 			}
 		}
@@ -356,7 +490,7 @@ func TestAddPermitListRules(t *testing.T) {
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nil)
 		for i, rule := range fakeNsg.Properties.SecurityRules {
-			if strings.HasPrefix(*rule.Name, InvisinetsRulePrefix) {
+			if strings.HasPrefix(*rule.Name, InvisinetsPrefix) {
 				mockAzureHandler.On("GetPermitListRuleFromNSGRule", rule).Return(fakePl.GetRules()[i], nil)
 			}
 			mockAzureHandler.On("GetInvisinetsRuleDesc", fakePl.GetRules()[i]).Return(fakeRuleDesc[i], nil)
@@ -506,7 +640,7 @@ func TestAddPermitListRules(t *testing.T) {
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nil)
 		for i, rule := range fakeNsg.Properties.SecurityRules {
-			if strings.HasPrefix(*rule.Name, InvisinetsRulePrefix) {
+			if strings.HasPrefix(*rule.Name, InvisinetsPrefix) {
 				mockAzureHandler.On("GetPermitListRuleFromNSGRule", rule).Return(fakePl.GetRules()[i], nil)
 			}
 			mockAzureHandler.On("GetInvisinetsRuleDesc", fakePl.GetRules()[i]).Return(fakeRuleDesc[i], nil)
@@ -563,7 +697,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		// make suret that the GetPermitListRuleFromNSGRule is called on all the invisinets rules
 		for i, rule := range fakeNsg.Properties.SecurityRules {
 			mockAzureHandler.On("GetInvisinetsRuleDesc", fakePl.GetRules()[i]).Return(fakeRuleDesc[i], nil)
-			if strings.HasPrefix(*rule.Name, InvisinetsRulePrefix) {
+			if strings.HasPrefix(*rule.Name, InvisinetsPrefix) {
 				mockAzureHandler.On("GetPermitListRuleFromNSGRule", rule).Return(fakePl.GetRules()[i], nil)
 			}
 		}
@@ -610,7 +744,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nil)
 		for i, rule := range fakeNsg.Properties.SecurityRules {
 			mockAzureHandler.On("GetInvisinetsRuleDesc", fakePl.GetRules()[i]).Return(fakeRuleDesc[i], nil)
-			if strings.HasPrefix(*rule.Name, InvisinetsRulePrefix) {
+			if strings.HasPrefix(*rule.Name, InvisinetsPrefix) {
 				mockAzureHandler.On("GetPermitListRuleFromNSGRule", rule).Return(fakePl.GetRules()[i], nil)
 			}
 		}
