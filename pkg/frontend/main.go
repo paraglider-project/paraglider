@@ -134,13 +134,13 @@ func permitListRulesDelete(c *gin.Context) {
 
 func resourceCreate(c *gin.Context) {
 	id := c.Param("id")
-	desc, exists := c.Get("description")
-	if !exists {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, "Resource description not provided"))
+
+	var resource invisinetspb.ResourceDescription
+
+	if err := c.BindJSON(&resource); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
 		return
 	}
-
-	resource := invisinetspb.ResourceDescription{Description: desc.([]byte)}
 
 	conn, err := grpc.Dial(serveraddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
