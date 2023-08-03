@@ -21,15 +21,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -97,6 +98,11 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 		permitListRule.Direction.String(),
 		strings.Join(permitListRule.Tag, ""),
 	))[:firewallNameMaxLength]
+}
+
+// Gets a GCP network tag for a GCP resource
+func getGCPNetworkTag(gcpResourceId uint64) string {
+	return networkTagPrefix + strconv.FormatUint(gcpResourceId, 10)
 }
 
 func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resource *invisinetspb.Resource, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
@@ -197,7 +203,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 	if err != nil {
 		return nil, fmt.Errorf("unable to get instance: %w", err)
 	}
-	networkTag := networkTagPrefix + strconv.FormatUint(*getInstanceResp.Id, 10)
+	networkTag := getGCPNetworkTag(*getInstanceResp.Id)
 
 	for _, permitListRule := range permitList.Rules {
 		// TODO @seankimkdy: should we throw an error/warning if user specifies a srcport since GCP doesn't support srcport based firewalls?
@@ -316,10 +322,33 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, permitList 
 }
 
 func (s *GCPPluginServer) _CreateResource(ctx context.Context, resource *invisinetspb.Resource, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.BasicResponse, error) {
-	description := "bare json string" // TODO @seankimkdy: replace once rebasing on Sarah's
-
-	project, zone, _ := splitResourceId(resource.Id)
+	project, zone, instance := splitResourceId(resource.Id) // TODO @seankimkdy: remove instance once dummy is replaced?
 	region := zone[:strings.LastIndex(zone, "-")]
+
+	// TODO @seankimkdy: replace once rebasing on Sarah's
+	descriptionReq := &computepb.InsertInstanceRequest{
+		Project: project,
+		Zone:    zone,
+		InstanceResource: &computepb.Instance{
+			Name: proto.String(instance),
+			Disks: []*computepb.AttachedDisk{
+				{
+					InitializeParams: &computepb.AttachedDiskInitializeParams{
+						DiskSizeGb:  proto.Int64(256),
+						SourceImage: proto.String("projects/debian-cloud/global/images/family/debian-10"),
+					},
+					AutoDelete: proto.Bool(true),
+					Boot:       proto.Bool(true),
+					Type:       proto.String(computepb.AttachedDisk_PERSISTENT.String()),
+				},
+			},
+			MachineType: proto.String(fmt.Sprintf("zones/%s/machineTypes/%s", zone, "e2-standard-2")),
+		},
+	}
+	description, err := json.Marshal(descriptionReq)
+	if err != nil {
+		return nil, fmt.Errorf("ruh roh")
+	}
 
 	subnetName := "invisinets-" + region + "-subnet"
 	subnetExists := false
@@ -330,7 +359,8 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resource *invisin
 	}
 	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		var e *googleapi.Error
+		if ok := errors.As(err, &e); ok && e.Code == http.StatusNotFound {
 			insertNetworkRequest := &computepb.InsertNetworkRequest{
 				Project: project,
 				NetworkResource: &computepb.Network{
@@ -396,10 +426,38 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resource *invisin
 
 	insertInstanceOp, err := instancesClient.Insert(ctx, insertInstanceRequest)
 	if err != nil {
-		return nil, fmt.Errorf("unable to insert subnetwork: %w", err)
+		return nil, fmt.Errorf("unable to insert instance: %w", err)
 	}
 	if err = insertInstanceOp.Wait(ctx); err != nil {
 		return nil, fmt.Errorf("unable to wait for the operation: %w", err)
+	}
+
+	// Add network tag which will be used by GCP firewall rules corresponding to Invisinets permit list rules
+	instance = *insertInstanceRequest.InstanceResource.Name
+	getInstanceReq := &computepb.GetInstanceRequest{
+		Instance: instance,
+		Project:  project,
+		Zone:     zone,
+	}
+	getInstanceResp, err := instancesClient.Get(ctx, getInstanceReq)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get instance: %w", err)
+	}
+	setTagsReq := &computepb.SetTagsInstanceRequest{
+		Instance: instance,
+		Project:  project,
+		Zone:     zone,
+		TagsResource: &computepb.Tags{
+			Items:       append(getInstanceResp.Tags.Items, getGCPNetworkTag(*getInstanceResp.Id)),
+			Fingerprint: getInstanceResp.Tags.Fingerprint,
+		},
+	}
+	setTagsOp, err := instancesClient.SetTags(ctx, setTagsReq)
+	if err != nil {
+		return nil, fmt.Errorf("unable to set tags: %w", err)
+	}
+	if err = setTagsOp.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("unable to wait for the operation")
 	}
 
 	return &invisinetspb.BasicResponse{Success: true}, nil
