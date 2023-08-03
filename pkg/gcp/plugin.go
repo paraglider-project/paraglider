@@ -105,8 +105,8 @@ func getGCPNetworkTag(gcpResourceId uint64) string {
 	return networkTagPrefix + strconv.FormatUint(gcpResourceId, 10)
 }
 
-func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resource *invisinetspb.Resource, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
-	project, zone, instance := splitResourceId(resource.Id)
+func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
+	project, zone, instance := splitResourceId(resourceID.Id)
 
 	req := &computepb.GetEffectiveFirewallsInstanceRequest{
 		Instance:         instance,
@@ -120,7 +120,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resource *invisine
 	}
 
 	permitList := &invisinetspb.PermitList{
-		AssociatedResource: resource.Id,
+		AssociatedResource: resourceID.Id,
 		Rules:              []*invisinetspb.PermitListRule{},
 	}
 
@@ -166,13 +166,13 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resource *invisine
 	return permitList, nil
 }
 
-func (s *GCPPluginServer) GetPermitList(ctx context.Context, resource *invisinetspb.Resource) (*invisinetspb.PermitList, error) {
+func (s *GCPPluginServer) GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
 	instancesClient, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
 	}
 	defer instancesClient.Close()
-	return s._GetPermitList(ctx, resource, instancesClient)
+	return s._GetPermitList(ctx, resourceID, instancesClient)
 }
 
 func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.BasicResponse, error) {
@@ -321,8 +321,8 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, permitList 
 	return s._DeletePermitListRules(ctx, permitList, firewallsClient, instancesClient)
 }
 
-func (s *GCPPluginServer) _CreateResource(ctx context.Context, resource *invisinetspb.Resource, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.BasicResponse, error) {
-	project, zone, instance := splitResourceId(resource.Id) // TODO @seankimkdy: remove instance once dummy is replaced?
+func (s *GCPPluginServer) _CreateResource(ctx context.Context, resoureId *invisinetspb.ResourceID, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.BasicResponse, error) {
+	project, zone, instance := splitResourceId(resoureId.Id) // TODO @seankimkdy: remove instance once dummy is replaced?
 	region := zone[:strings.LastIndex(zone, "-")]
 
 	// TODO @seankimkdy: replace once rebasing on Sarah's
