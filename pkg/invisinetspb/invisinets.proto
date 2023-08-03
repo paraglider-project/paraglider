@@ -20,19 +20,25 @@ package invisinetspb;
 option go_package="github.com/NetSys/invisinets/pkg/invisinetspb";
 
 service CloudPlugin {
-    rpc GetPermitList(Resource) returns (PermitList) {}
+    rpc CreateResource(ResourceDescription) returns (BasicResponse) {}
+    rpc GetPermitList(ResourceID) returns (PermitList) {}
     rpc AddPermitListRules(PermitList) returns (BasicResponse) {}
     rpc DeletePermitListRules(PermitList) returns (BasicResponse) {}
 }
 
-message Resource {
+message ResourceID {
     string id = 1;
+}
+
+message ResourceDescription {
+    bytes description = 1;
+    string address_space = 2;
 }
 
 message BasicResponse {
     bool success = 1;
     string message = 2;
-    optional Resource updated_resource = 3;
+    optional ResourceID updated_resource = 3;
 }
 
 enum Direction {

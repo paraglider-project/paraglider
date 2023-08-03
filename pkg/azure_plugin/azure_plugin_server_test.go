@@ -151,7 +151,7 @@ func TestGetPermitList(t *testing.T) {
 	fakeNsg := getFakeNsg(fakeNsgID, fakeNsgName)
 
 	// Set up a  resource
-	fakeResource := &invisinetspb.Resource{
+	fakeResource := &invisinetspb.ResourceID{
 		Id: "test-resource-id",
 	}
 
