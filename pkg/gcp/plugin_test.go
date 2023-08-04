@@ -445,7 +445,7 @@ func TestCreateResource(t *testing.T) {
 		instance: fakeInstance, // Include instance in server state since CreateResource will fetch after creating to add the tag
 		network: &computepb.Network{
 			Name:        proto.String(vpcName),
-			Subnetworks: []string{"invisinets-" + fakeRegion + "-subnet"},
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
 		},
 	}
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
