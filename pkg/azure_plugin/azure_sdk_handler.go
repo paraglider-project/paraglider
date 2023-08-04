@@ -20,12 +20,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	logger "github.com/NetSys/invisinets/pkg/logger"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -102,7 +102,7 @@ var azureToInvisinetsDirection = map[armnetwork.SecurityRuleDirection]invisinets
 // CreateNetworkSecurityGroup creates a new network security group with the given name and location
 // and returns the created network security group
 func (h *azureSDKHandler) CreateNetworkSecurityGroup(ctx context.Context, nsgName string, location string) (*armnetwork.SecurityGroup, error) {
-	log.Printf("creating a new network security group %s in location %s", nsgName, location)
+	logger.Log.Printf("creating a new network security group %s in location %s", nsgName, location)
 	parameters := armnetwork.SecurityGroup{
 		Location: to.Ptr(location),
 		Properties: &armnetwork.SecurityGroupPropertiesFormat{
@@ -126,17 +126,17 @@ func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) {
 	var err error
 	h.resourcesClientFactory, err = armresources.NewClientFactory(h.subscriptionID, cred, nil)
 	if err != nil {
-		log.Fatal(err)
+		logger.Log.Fatal(err)
 	}
 
 	h.networkClientFactory, err = armnetwork.NewClientFactory(h.subscriptionID, cred, nil)
 	if err != nil {
-		log.Fatal(err)
+		logger.Log.Fatal(err)
 	}
 
 	h.computeClientFactory, err = armcompute.NewClientFactory(h.subscriptionID, cred, nil)
 	if err != nil {
-		log.Fatal(err)
+		logger.Log.Fatal(err)
 	}
 
 	h.securityGroupsClient = h.networkClientFactory.NewSecurityGroupsClient()
@@ -172,7 +172,7 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 	// TODO @nnomier: if we just use VMs, we can use vmclient directly
 	resource, err := h.resourcesClient.GetByID(ctx, resourceID, apiVersion, &options)
 	if err != nil {
-		log.Printf("Failed to get resource: %v", err)
+		logger.Log.Printf("Failed to get resource: %v", err)
 		return nil, err
 	}
 
@@ -188,7 +188,7 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 	vm, err := h.virtualMachinesClient.Get(ctx, h.resourceGroupName, vmName, &armcompute.VirtualMachinesClientGetOptions{Expand: nil})
 
 	if err != nil {
-		log.Printf("Failed to get VM: %v", err)
+		logger.Log.Printf("Failed to get VM: %v", err)
 		return nil, err
 	}
 
@@ -196,13 +196,13 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 	nicID := *vm.Properties.NetworkProfile.NetworkInterfaces[0].ID
 	nicName, err := h.GetLastSegment(nicID)
 	if err != nil {
-		log.Printf("Failed to get NIC name from ID: %v", err)
+		logger.Log.Printf("Failed to get NIC name from ID: %v", err)
 		return nil, err
 	}
 
 	nicResponse, err := h.interfacesClient.Get(ctx, h.resourceGroupName, nicName, &armnetwork.InterfacesClientGetOptions{Expand: nil})
 	if err != nil {
-		log.Printf("Failed to get NIC: %v", err)
+		logger.Log.Printf("Failed to get NIC: %v", err)
 		return nil, err
 	}
 	resourceNic = &nicResponse.Interface
@@ -236,10 +236,10 @@ func (h *azureSDKHandler) UpdateNetworkInterface(ctx context.Context, resourceNi
 	nic := &resp.Interface
 	jsonData, err := json.MarshalIndent(nic, "", "  ")
 	if err != nil {
-		log.Printf("failed to marshal response to JSON: %v", err)
+		logger.Log.Printf("failed to marshal response to JSON: %v", err)
 		return nil, err
 	}
-	log.Printf("Successfully Updated Resource NIC: %v", string(jsonData))
+	logger.Log.Printf("Successfully Updated Resource NIC: %v", string(jsonData))
 
 	return nic, nil
 }
@@ -302,7 +302,7 @@ func (h *azureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string
 	}
 
 	// resp of type SecurityRulesClientDeleteResponse is currently a placeholder in the sdk
-	log.Printf("Successfully deleted security rule: %v", resp)
+	logger.Log.Printf("Successfully deleted security rule: %v", resp)
 	return nil
 }
 
