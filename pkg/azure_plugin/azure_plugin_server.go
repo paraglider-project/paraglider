@@ -44,7 +44,7 @@ func newAzureServer() *azurePluginServer {
 
 // GetPermitList returns the permit list for the given resource by getting the NSG rules
 // associated with the resource and filtering out the Invisinets rules
-func (s *azurePluginServer) GetPermitList(ctx context.Context, resource *invisinetspb.Resource) (*invisinetspb.PermitList, error) {
+func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
 	cred, err := s.azureHandler.GetAzureCredentials()
 	if err != nil {
 		logger.Log.Printf("cannot connect to azure:%+v", err)
@@ -52,18 +52,16 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resource *invisin
 	}
 	s.azureHandler.InitializeClients(cred)
 
-	resourceID := resource.GetId()
-
 	// get the nsg associated with the resource
-	nsg, err := s.getNSGFromResource(ctx, resourceID)
+	nsg, err := s.getNSGFromResource(ctx, resourceID.Id)
 	if err != nil {
-		logger.Log.Printf("cannot get NSG for resource %s: %+v", resourceID, err)
+		log.Printf("cannot get NSG for resource %s: %+v", resourceID.Id, err)
 		return nil, err
 	}
 
 	// initialize a list of permit list rules
 	pl := &invisinetspb.PermitList{
-		AssociatedResource: resourceID,
+		AssociatedResource: resourceID.Id,
 		Rules:              []*invisinetspb.PermitListRule{},
 	}
 

@@ -94,8 +94,8 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 	))[:firewallNameMaxLength]
 }
 
-func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resource *invisinetspb.Resource, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
-	project, zone, instance := splitResourceId(resource.Id)
+func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
+	project, zone, instance := splitResourceId(resourceID.Id)
 
 	req := &computepb.GetEffectiveFirewallsInstanceRequest{
 		Instance:         instance,
@@ -109,7 +109,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resource *invisine
 	}
 
 	permitList := &invisinetspb.PermitList{
-		AssociatedResource: resource.Id,
+		AssociatedResource: resourceID.Id,
 		Rules:              []*invisinetspb.PermitListRule{},
 	}
 
@@ -155,13 +155,13 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resource *invisine
 	return permitList, nil
 }
 
-func (s *GCPPluginServer) GetPermitList(ctx context.Context, resource *invisinetspb.Resource) (*invisinetspb.PermitList, error) {
+func (s *GCPPluginServer) GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
 	instancesClient, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
 	}
 	defer instancesClient.Close()
-	return s._GetPermitList(ctx, resource, instancesClient)
+	return s._GetPermitList(ctx, resourceID, instancesClient)
 }
 
 func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.BasicResponse, error) {

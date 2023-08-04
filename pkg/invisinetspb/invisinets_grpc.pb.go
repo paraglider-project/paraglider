@@ -34,6 +34,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
+	CloudPlugin_CreateResource_FullMethodName        = "/invisinetspb.CloudPlugin/CreateResource"
 	CloudPlugin_GetPermitList_FullMethodName         = "/invisinetspb.CloudPlugin/GetPermitList"
 	CloudPlugin_AddPermitListRules_FullMethodName    = "/invisinetspb.CloudPlugin/AddPermitListRules"
 	CloudPlugin_DeletePermitListRules_FullMethodName = "/invisinetspb.CloudPlugin/DeletePermitListRules"
@@ -43,7 +44,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CloudPluginClient interface {
-	GetPermitList(ctx context.Context, in *Resource, opts ...grpc.CallOption) (*PermitList, error)
+	CreateResource(ctx context.Context, in *ResourceDescription, opts ...grpc.CallOption) (*BasicResponse, error)
+	GetPermitList(ctx context.Context, in *ResourceID, opts ...grpc.CallOption) (*PermitList, error)
 	AddPermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error)
 	DeletePermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error)
 }
@@ -56,7 +58,16 @@ func NewCloudPluginClient(cc grpc.ClientConnInterface) CloudPluginClient {
 	return &cloudPluginClient{cc}
 }
 
-func (c *cloudPluginClient) GetPermitList(ctx context.Context, in *Resource, opts ...grpc.CallOption) (*PermitList, error) {
+func (c *cloudPluginClient) CreateResource(ctx context.Context, in *ResourceDescription, opts ...grpc.CallOption) (*BasicResponse, error) {
+	out := new(BasicResponse)
+	err := c.cc.Invoke(ctx, CloudPlugin_CreateResource_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cloudPluginClient) GetPermitList(ctx context.Context, in *ResourceID, opts ...grpc.CallOption) (*PermitList, error) {
 	out := new(PermitList)
 	err := c.cc.Invoke(ctx, CloudPlugin_GetPermitList_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -87,7 +98,8 @@ func (c *cloudPluginClient) DeletePermitListRules(ctx context.Context, in *Permi
 // All implementations must embed UnimplementedCloudPluginServer
 // for forward compatibility
 type CloudPluginServer interface {
-	GetPermitList(context.Context, *Resource) (*PermitList, error)
+	CreateResource(context.Context, *ResourceDescription) (*BasicResponse, error)
+	GetPermitList(context.Context, *ResourceID) (*PermitList, error)
 	AddPermitListRules(context.Context, *PermitList) (*BasicResponse, error)
 	DeletePermitListRules(context.Context, *PermitList) (*BasicResponse, error)
 	mustEmbedUnimplementedCloudPluginServer()
@@ -97,7 +109,10 @@ type CloudPluginServer interface {
 type UnimplementedCloudPluginServer struct {
 }
 
-func (UnimplementedCloudPluginServer) GetPermitList(context.Context, *Resource) (*PermitList, error) {
+func (UnimplementedCloudPluginServer) CreateResource(context.Context, *ResourceDescription) (*BasicResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateResource not implemented")
+}
+func (UnimplementedCloudPluginServer) GetPermitList(context.Context, *ResourceID) (*PermitList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPermitList not implemented")
 }
 func (UnimplementedCloudPluginServer) AddPermitListRules(context.Context, *PermitList) (*BasicResponse, error) {
@@ -119,8 +134,26 @@ func RegisterCloudPluginServer(s grpc.ServiceRegistrar, srv CloudPluginServer) {
 	s.RegisterService(&CloudPlugin_ServiceDesc, srv)
 }
 
+func _CloudPlugin_CreateResource_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResourceDescription)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CloudPluginServer).CreateResource(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CloudPlugin_CreateResource_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CloudPluginServer).CreateResource(ctx, req.(*ResourceDescription))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CloudPlugin_GetPermitList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Resource)
+	in := new(ResourceID)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -132,7 +165,7 @@ func _CloudPlugin_GetPermitList_Handler(srv interface{}, ctx context.Context, de
 		FullMethod: CloudPlugin_GetPermitList_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CloudPluginServer).GetPermitList(ctx, req.(*Resource))
+		return srv.(CloudPluginServer).GetPermitList(ctx, req.(*ResourceID))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -180,6 +213,10 @@ var CloudPlugin_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "invisinetspb.CloudPlugin",
 	HandlerType: (*CloudPluginServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateResource",
+			Handler:    _CloudPlugin_CreateResource_Handler,
+		},
 		{
 			MethodName: "GetPermitList",
 			Handler:    _CloudPlugin_GetPermitList_Handler,

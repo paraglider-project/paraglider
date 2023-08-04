@@ -241,7 +241,7 @@ func TestGetPermitList(t *testing.T) {
 	fakeServer, ctx, _, fakeInstancesClient := setup(t, false, true)
 
 	s := &GCPPluginServer{}
-	resource := &invisinetspb.Resource{Id: fakeResourceId}
+	resource := &invisinetspb.ResourceID{Id: fakeResourceId}
 
 	permitListActual, err := s._GetPermitList(ctx, resource, fakeInstancesClient)
 	require.NoError(t, err)
@@ -260,7 +260,7 @@ func TestGetPermitListMissingInstance(t *testing.T) {
 	fakeServer, ctx, _, fakeInstancesClient := setup(t, false, true)
 
 	s := &GCPPluginServer{}
-	resource := &invisinetspb.Resource{Id: fakeMissingResourceId}
+	resource := &invisinetspb.ResourceID{Id: fakeMissingResourceId}
 
 	resp, err := s._GetPermitList(ctx, resource, fakeInstancesClient)
 	require.Error(t, err)

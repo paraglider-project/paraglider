@@ -35,7 +35,7 @@ type cloudPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
 }
 
-func (s *cloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.Resource) (*invisinetspb.PermitList, error) {
+func (s *cloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
 	return &invisinetspb.PermitList{AssociatedResource: r.Id}, nil
 }
 
