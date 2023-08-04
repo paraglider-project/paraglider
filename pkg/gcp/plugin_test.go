@@ -134,7 +134,8 @@ func sendResponseDoneOperation(w http.ResponseWriter) {
 
 func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 	// The handler should be written as minimally as possible to minimize maintenance overhead. Modifying requests (e.g. POST, DELETE)
-	// should generally not do anything other than. return operation response. Instead, initialize the fakeServerState as necessary.
+	// should generally not do anything other than return the operation response. Instead, initialize the fakeServerState as necessary.
+	// Keep in mind these unit tests should rely as little as possible on the functionality of this fake server.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		switch {
@@ -440,8 +441,61 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 }
 
 func TestCreateResource(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		instance: fakeInstance, // Include instance in server state since CreateResource will fetch after creating to add the tag
+		network: &computepb.Network{
+			Name:        proto.String(vpcName),
+			Subnetworks: []string{"invisinets-" + fakeRegion + "-subnet"},
+		},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
+
+	s := &GCPPluginServer{}
+	description, err := json.Marshal(&computepb.InsertInstanceRequest{
+		Project:          fakeProject,
+		Zone:             fakeZone,
+		InstanceResource: fakeInstance,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"} // TODO @seankimkdy: update after sarah merges
+
+	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	teardown(fakeServer, fakeClients)
+}
+
+func TestCreateResourceMissingNetwork(t *testing.T) {
 	// Include instance in server state since CreateResource will fetch after creating to add the tag
 	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: fakeInstance}, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
+
+	s := &GCPPluginServer{}
+	description, err := json.Marshal(&computepb.InsertInstanceRequest{
+		Project:          fakeProject,
+		Zone:             fakeZone,
+		InstanceResource: fakeInstance,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"} // TODO @seankimkdy: update after sarah merges
+
+	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	teardown(fakeServer, fakeClients)
+}
+
+func TestCreateResourceMissingSubnetwork(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		instance: fakeInstance, // Include instance in server state since CreateResource will fetch after creating to add the tag
+		network:  &computepb.Network{Name: proto.String(vpcName)},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
 
 	s := &GCPPluginServer{}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
