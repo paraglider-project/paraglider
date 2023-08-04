@@ -205,7 +205,7 @@ func initializeReqRespMap() map[string]interface{} {
 						Value: []*armnetwork.VirtualNetwork{
 							{
 								Name: to.Ptr(validVnetName),
-								ID:   to.Ptr(fakeLocation),
+								ID:   to.Ptr(testLocation),
 							},
 						},
 					},

@@ -351,18 +351,16 @@ func (h *azureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) 
 	return &nsgResp.SecurityGroup, nil
 }
 
+// GetInvisinetsVnetIfExists returns a valid invisinets vnet based on the locaton by getting all vnets
+// and filtering by the invisinets prefix and location, if non exists it returns nil
 func (h *azureSDKHandler) GetInvisinetsVnetIfExists(ctx context.Context, prefix string, location string) (*armnetwork.VirtualNetwork, error) {
 	pager := h.virtualNetworksClient.NewListAllPager(nil)
 	for pager.More() {
-		fmt.Println("Getting next page of virtual networks")
 		page, err := pager.NextPage(ctx)
-		fmt.Println("Got next page of virtual networks", page, err)
 		if err != nil {
-			fmt.Println("Error getting next page of virtual networks: ", err)
 			return nil, err
 		}
 		for _, v := range page.Value {
-			fmt.Println("Checking virtual network: ", *v.Name)
 			if strings.HasPrefix(*v.Name, prefix) && *v.Location == location {
 				return v, nil
 			}
@@ -371,6 +369,8 @@ func (h *azureSDKHandler) GetInvisinetsVnetIfExists(ctx context.Context, prefix 
 	return nil, nil
 }
 
+// CreateInvisinetsVirtualNetwork creates a new invisinets virtual network with a default subnet with the same address 
+// space as the vnet
 func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
 	parameters := armnetwork.VirtualNetwork{
 		Location: to.Ptr(location),
@@ -405,6 +405,7 @@ func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, lo
 	return &resp.VirtualNetwork, nil
 }
 
+// CreateNetworkInterface creates a new network interface with a dynamic private IP address
 func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error) {
 	parameters := armnetwork.Interface{
 		Location: to.Ptr(location),
@@ -436,6 +437,7 @@ func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 	return &resp.Interface, err
 }
 
+// CreateVirtualMachine creates a new virtual machine with the given parameters and name
 func (h *azureSDKHandler) CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error) {
 	pollerResponse, err := h.virtualMachinesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vmName, parameters, nil)
 	if err != nil {

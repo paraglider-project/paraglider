@@ -154,7 +154,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		logger.Log.Printf("Created network security rule: %s", *securityRule.ID)
 	}
 
-	return &invisinetspb.BasicResponse{Success: true, Message: "successfully added non duplicate rules if any to resource with ID=" + resourceID}, nil
+	return &invisinetspb.BasicResponse{Success: true, Message: "successfully added non duplicate rules if any", UpdatedResource: &invisinetspb.ResourceID{Id: resourceID}}, nil
 }
 
 // DeletePermitListRules does the mapping from Invisinets to Azure by deleting NSG rules for the given resource.
@@ -202,6 +202,9 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 	return &invisinetspb.BasicResponse{Success: true, Message: "successfully deleted rules from permit list"}, nil
 }
 
+// CreateResource does the mapping from Invisinets to Azure to create an invisinets enabled resource
+// which means the resource should be added to a valid invisinets network, the attachement to an invisinets network
+// is determined by the resource's location.
 func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
 	invisinetsVm, err := getVmFromResourceDesc(resourceDesc.Description)
 	if err != nil {
@@ -365,6 +368,8 @@ func getPriority(reservedPriorities map[int32]bool, start int32, end int32) int3
 	return i
 }
 
+// getVmFromResourceDesc gets the armcompute.VirtualMachine object
+// from the given resource description which should be a valid resource payload for a VM
 func getVmFromResourceDesc(resourceDesc []byte) (*armcompute.VirtualMachine, error) {
 	vm := &armcompute.VirtualMachine{}
 	err := json.Unmarshal(resourceDesc, &vm)
@@ -385,6 +390,7 @@ func getVmFromResourceDesc(resourceDesc []byte) (*armcompute.VirtualMachine, err
 	return vm, nil
 }
 
+// getInvisinetsResourceName returns a name for the Invisinets resource
 func getInvisinetsResourceName(resourceType string) string {
 	// TODO @nnomier: change based on invisinets naming convention
 	return InvisinetsPrefix + "-" + resourceType + "-" + uuid.New().String()

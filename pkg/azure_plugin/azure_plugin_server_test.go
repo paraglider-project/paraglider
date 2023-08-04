@@ -34,10 +34,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	fakeLocation = "eastus"
-)
-
 type dummyTokenCredential struct{}
 
 func (d *dummyTokenCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
@@ -183,12 +179,24 @@ func setupAzurePluginServer() (*azurePluginServer, *mockAzureSDKHandler, context
 	return server, concreteMockAzureHandler, context.Background()
 }
 
-func TestCreateResource(t *testing.T) {
+func getValidResourceDesc() (armcompute.VirtualMachine, []byte, error) {
+	validVm := armcompute.VirtualMachine{
+		Location:   to.Ptr(testLocation),
+		Properties: &armcompute.VirtualMachineProperties{},
+	}
 
+	validDescripton, err := json.Marshal(validVm)
+	return validVm, validDescripton, err
+}
+
+func TestCreateResource(t *testing.T) {
+	defaultSubnetName := "default"
+	defaultSubnetID := "default-subnet-id"
 	t.Run("TestCreateResource: Success Vnet Already exists", func(t *testing.T) {
-		vm := armcompute.VirtualMachine{
-			Location:   to.Ptr(fakeLocation),
-			Properties: &armcompute.VirtualMachineProperties{},
+		// we need to recreate it for each test as it will be modified to include network interface
+		vm, desc, err := getValidResourceDesc()
+		if err != nil {
+			t.Errorf("Error while creating valid resource description: %v", err)
 		}
 
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
@@ -196,81 +204,127 @@ func TestCreateResource(t *testing.T) {
 		// Set up mock behavior for the Azure SDK handler
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return()
-		mockAzureHandler.On("GetInvisinetsVnetIfExists", ctx, InvisinetsPrefix, "eastus").Return(&armnetwork.VirtualNetwork{
+		mockAzureHandler.On("GetInvisinetsVnetIfExists", ctx, InvisinetsPrefix, testLocation).Return(&armnetwork.VirtualNetwork{
 			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 				Subnets: []*armnetwork.Subnet{
 					{
-						Name: to.Ptr("default"),
-						ID:   to.Ptr("default_subnet_id"),
+						Name: to.Ptr(defaultSubnetName),
+						ID:   to.Ptr(defaultSubnetID),
 					},
 				},
 			},
 		}, nil)
-		mockAzureHandler.On("CreateNetworkInterface", ctx, "default_subnet_id", "eastus", mock.Anything).Return(&armnetwork.Interface{ID: to.Ptr("test-nic-id")}, nil)
+		mockAzureHandler.On("CreateNetworkInterface", ctx, defaultSubnetID, testLocation, mock.Anything).Return(&armnetwork.Interface{ID: to.Ptr(validNicId)}, nil)
 
-		mockAzureHandler.On("CreateVirtualMachine", ctx, vm, mock.Anything).Return(&armcompute.VirtualMachine{ID: to.Ptr("test-vm-id")}, nil)
+		mockAzureHandler.On("CreateVirtualMachine", ctx, vm, mock.Anything).Return(&armcompute.VirtualMachine{ID: to.Ptr(vmResourceID)}, nil)
 
-		descripton, _ := json.Marshal(vm)
 		vm.Properties.NetworkProfile = &armcompute.NetworkProfile{
 			NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
 				{
-					ID: to.Ptr("test-nic-id"),
+					ID: to.Ptr(validNicId),
 				},
 			},
 		}
 
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
-			Description:  descripton,
-			AddressSpace: "10.0.0.1/16",
+			Description:  desc,
+			AddressSpace: testAddressSpace,
 		})
 
 		require.NoError(t, err)
 		require.NotNil(t, response)
-		assert.Equal(t, "test-vm-id", response.UpdatedResource.Id)
+		assert.Equal(t, vmResourceID, response.UpdatedResource.Id)
 	})
 
 	t.Run("TestCreateResource: Success Create New Vnet", func(t *testing.T) {
-		vm := armcompute.VirtualMachine{
-			Location:   to.Ptr(fakeLocation),
-			Properties: &armcompute.VirtualMachineProperties{},
+		vm, desc, err := getValidResourceDesc()
+		if err != nil {
+			t.Errorf("Error while creating valid resource description: %v", err)
 		}
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 
 		// Set up mock behavior for the Azure SDK handler
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return()
-		mockAzureHandler.On("GetInvisinetsVnetIfExists", ctx, InvisinetsPrefix, "eastus").Return(nil, nil)
-		mockAzureHandler.On("CreateInvisinetsVirtualNetwork", ctx, fakeLocation, mock.Anything, "10.0.0.1/16").Return(&armnetwork.VirtualNetwork{
+		mockAzureHandler.On("GetInvisinetsVnetIfExists", ctx, InvisinetsPrefix, testLocation).Return(nil, nil)
+		mockAzureHandler.On("CreateInvisinetsVirtualNetwork", ctx, testLocation, mock.Anything, testAddressSpace).Return(&armnetwork.VirtualNetwork{
 			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 				Subnets: []*armnetwork.Subnet{
 					{
-						Name: to.Ptr("default"),
-						ID:   to.Ptr("default_subnet_id"),
+						Name: to.Ptr(defaultSubnetName),
+						ID:   to.Ptr(defaultSubnetID),
 					},
 				},
 			},
 		}, nil)
-		mockAzureHandler.On("CreateNetworkInterface", ctx, "default_subnet_id", "eastus", mock.Anything).Return(&armnetwork.Interface{ID: to.Ptr("test-nic-id")}, nil)
-
-		mockAzureHandler.On("CreateVirtualMachine", ctx, vm, mock.Anything).Return(&armcompute.VirtualMachine{ID: to.Ptr("test-vm-id")}, nil)
-
-		descripton, _ := json.Marshal(vm)
+		mockAzureHandler.On("CreateNetworkInterface", ctx, defaultSubnetID, testLocation, mock.Anything).Return(&armnetwork.Interface{ID: to.Ptr(validNicId)}, nil)
+		mockAzureHandler.On("CreateVirtualMachine", ctx, vm, mock.Anything).Return(&armcompute.VirtualMachine{ID: to.Ptr(vmResourceID)}, nil)
 		vm.Properties.NetworkProfile = &armcompute.NetworkProfile{
 			NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
 				{
-					ID: to.Ptr("test-nic-id"),
+					ID: to.Ptr(validNicId),
 				},
 			},
 		}
 
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
-			Description:  descripton,
-			AddressSpace: "10.0.0.1/16",
+			Description:  desc,
+			AddressSpace: testAddressSpace,
 		})
 
 		require.NoError(t, err)
 		require.NotNil(t, response)
-		assert.Equal(t, "test-vm-id", response.UpdatedResource.Id)
+		assert.Equal(t, vmResourceID, response.UpdatedResource.Id)
+	})
+
+	t.Run("TestCreateResource: Failure, invalid json", func(t *testing.T) {
+		server, _, ctx := setupAzurePluginServer()
+		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
+			Description: []byte("invalid json"),
+		})
+
+		require.Error(t, err)
+		require.Nil(t, response)
+	})
+
+	t.Run("TestCreateResource: Failure, No Location", func(t *testing.T) {
+		desc, err := json.Marshal(armcompute.VirtualMachine{
+			Properties: &armcompute.VirtualMachineProperties{},
+		})
+		if err != nil {
+			t.Errorf("Error while marshalling description: %v", err)
+		}
+		server, _, ctx := setupAzurePluginServer()
+		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
+			Description: desc,
+		})
+
+		require.Error(t, err)
+		require.Nil(t, response)
+	})
+
+	t.Run("TestCreateResource: Failure, Includes Network Interface", func(t *testing.T) {
+		desc, err := json.Marshal(armcompute.VirtualMachine{
+			Location:  to.Ptr(testLocation),
+			Properties: &armcompute.VirtualMachineProperties{
+				NetworkProfile: &armcompute.NetworkProfile{
+					NetworkInterfaces: []*armcompute.NetworkInterfaceReference{},
+				},
+			},
+		})
+
+		if err != nil {
+			t.Errorf("Error while marshalling description: %v", err)
+		}
+
+		server, _, ctx := setupAzurePluginServer()
+
+		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
+			Description: desc,
+		})
+
+		require.Error(t, err)
+		require.Nil(t, response)
 	})
 }
 
