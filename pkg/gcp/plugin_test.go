@@ -459,7 +459,7 @@ func TestCreateResource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"} // TODO @seankimkdy: update after sarah merges
+	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"}
 
 	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
@@ -481,7 +481,7 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"} // TODO @seankimkdy: update after sarah merges
+	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"}
 
 	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
@@ -506,7 +506,7 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"} // TODO @seankimkdy: update after sarah merges
+	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"}
 
 	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
