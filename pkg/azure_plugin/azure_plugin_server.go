@@ -55,7 +55,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invis
 	// get the nsg associated with the resource
 	nsg, err := s.getNSGFromResource(ctx, resourceID.Id)
 	if err != nil {
-		log.Printf("cannot get NSG for resource %s: %+v", resourceID.Id, err)
+		logger.Log.Printf("cannot get NSG for resource %s: %+v", resourceID.Id, err)
 		return nil, err
 	}
 
