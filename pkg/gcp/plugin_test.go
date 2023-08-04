@@ -102,6 +102,7 @@ var (
 // Fake instance
 var fakeInstance = &computepb.Instance{
 	Id:   proto.Uint64(fakeInstanceId),
+	Name: proto.String(fakeInstanceName),
 	Tags: &computepb.Tags{Items: []string{fakeNetworkTag}},
 }
 
@@ -245,7 +246,6 @@ type fakeServerState struct {
 	firewallMap map[string]*computepb.Firewall
 	instance    *computepb.Instance
 	network     *computepb.Network
-	subnetwork  *computepb.Subnetwork
 }
 
 // Struct to hold fake clients
@@ -462,7 +462,15 @@ func TestCreateResource(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
 
 	s := &GCPPluginServer{}
-	resource := &invisinetspb.Resource{Id: fakeResourceId} // TODO @seankimkdy: update after sarah merges
+	description, err := json.Marshal(&computepb.InsertInstanceRequest{
+		Project:          fakeProject,
+		Zone:             fakeZone,
+		InstanceResource: fakeInstance,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"} // TODO @seankimkdy: update after sarah merges
 
 	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)

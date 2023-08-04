@@ -321,34 +321,20 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, permitList 
 	return s._DeletePermitListRules(ctx, permitList, firewallsClient, instancesClient)
 }
 
-func (s *GCPPluginServer) _CreateResource(ctx context.Context, resoureId *invisinetspb.ResourceID, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.BasicResponse, error) {
-	project, zone, instance := splitResourceId(resoureId.Id) // TODO @seankimkdy: remove instance once dummy is replaced?
-	region := zone[:strings.LastIndex(zone, "-")]
-
-	// TODO @seankimkdy: replace once rebasing on Sarah's
-	descriptionReq := &computepb.InsertInstanceRequest{
-		Project: project,
-		Zone:    zone,
-		InstanceResource: &computepb.Instance{
-			Name: proto.String(instance),
-			Disks: []*computepb.AttachedDisk{
-				{
-					InitializeParams: &computepb.AttachedDiskInitializeParams{
-						DiskSizeGb:  proto.Int64(256),
-						SourceImage: proto.String("projects/debian-cloud/global/images/family/debian-10"),
-					},
-					AutoDelete: proto.Bool(true),
-					Boot:       proto.Bool(true),
-					Type:       proto.String(computepb.AttachedDisk_PERSISTENT.String()),
-				},
-			},
-			MachineType: proto.String(fmt.Sprintf("zones/%s/machineTypes/%s", zone, "e2-standard-2")),
-		},
-	}
-	description, err := json.Marshal(descriptionReq)
+func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.BasicResponse, error) {
+	// Validate description
+	insertInstanceRequest := &computepb.InsertInstanceRequest{}
+	err := json.Unmarshal(resourceDescription.Description, insertInstanceRequest)
 	if err != nil {
-		return nil, fmt.Errorf("ruh roh")
+		return nil, fmt.Errorf("unable to parse resource description: %w", err)
 	}
+
+	if len(insertInstanceRequest.InstanceResource.NetworkInterfaces) != 0 {
+		return nil, fmt.Errorf("network settings should not be specified")
+	}
+
+	project, zone := insertInstanceRequest.Project, insertInstanceRequest.Zone
+	region := zone[:strings.LastIndex(zone, "-")]
 
 	subnetName := "invisinets-" + region + "-subnet"
 	subnetExists := false
@@ -396,6 +382,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resoureId *invisi
 				Name:        proto.String(subnetName),
 				Description: proto.String("Invisinets subnetwork for " + region),
 				Network:     proto.String(vpcURL),
+				IpCidrRange: proto.String(resourceDescription.AddressSpace),
 			},
 		}
 		insertSubnetworkOp, err := subnetworksClient.Insert(ctx, insertSubnetworkRequest)
@@ -405,16 +392,6 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resoureId *invisi
 		if err = insertSubnetworkOp.Wait(ctx); err != nil {
 			return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 		}
-	}
-
-	insertInstanceRequest := &computepb.InsertInstanceRequest{}
-	err = json.Unmarshal([]byte(description), insertInstanceRequest)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse resource description: %w", err)
-	}
-
-	if len(insertInstanceRequest.InstanceResource.NetworkInterfaces) != 0 {
-		return nil, fmt.Errorf("network settings should not be specified")
 	}
 
 	insertInstanceRequest.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
@@ -433,7 +410,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resoureId *invisi
 	}
 
 	// Add network tag which will be used by GCP firewall rules corresponding to Invisinets permit list rules
-	instance = *insertInstanceRequest.InstanceResource.Name
+	instance := *insertInstanceRequest.InstanceResource.Name
 	getInstanceReq := &computepb.GetInstanceRequest{
 		Instance: instance,
 		Project:  project,
@@ -461,4 +438,26 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resoureId *invisi
 	}
 
 	return &invisinetspb.BasicResponse{Success: true}, nil
+}
+
+func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
+	instancesClient, err := compute.NewInstancesRESTClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
+	}
+	defer instancesClient.Close()
+
+	networksClient, err := compute.NewNetworksRESTClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewNetworksRESTClient: %w", err)
+	}
+	defer networksClient.Close()
+
+	subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewSubnetworksRESTClient: %w", err)
+	}
+	defer subnetworksClient.Close()
+
+	return s._CreateResource(ctx, resourceDescription, instancesClient, networksClient, subnetworksClient)
 }
