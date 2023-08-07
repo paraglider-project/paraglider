@@ -19,7 +19,9 @@ package azure_plugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -359,7 +361,8 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 
 	if err != nil {
 		// Check if the error is Resource Not Found
-		if strings.Contains(err.Error(), "Not Found") {
+		var azError *azcore.ResponseError
+		if ok := errors.As(err, &azError); ok && azError.StatusCode == http.StatusNotFound {
 			// Create the virtual network if it doesn't exist
 			vnet, err := h.CreateInvisinetsVirtualNetwork(ctx, location, vnetName, addressSpace)
 			return vnet, err
