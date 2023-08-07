@@ -20,10 +20,19 @@ package invisinetspb;
 option go_package="github.com/NetSys/invisinets/pkg/invisinetspb";
 
 service CloudPlugin {
+    rpc GetUsedAddressSpaces(Empty) returns (AddressSpaceList) {}
     rpc CreateResource(ResourceDescription) returns (BasicResponse) {}
     rpc GetPermitList(ResourceID) returns (PermitList) {}
     rpc AddPermitListRules(PermitList) returns (BasicResponse) {}
     rpc DeletePermitListRules(PermitList) returns (BasicResponse) {}
+}
+
+message Empty {
+
+}
+
+message AddressSpaceList {
+    repeated string address_spaces = 1;
 }
 
 message ResourceID {
