@@ -305,7 +305,7 @@ func TestCreateResource(t *testing.T) {
 
 	t.Run("TestCreateResource: Failure, Includes Network Interface", func(t *testing.T) {
 		desc, err := json.Marshal(armcompute.VirtualMachine{
-			Location:  to.Ptr(testLocation),
+			Location: to.Ptr(testLocation),
 			Properties: &armcompute.VirtualMachineProperties{
 				NetworkProfile: &armcompute.NetworkProfile{
 					NetworkInterfaces: []*armcompute.NetworkInterfaceReference{},

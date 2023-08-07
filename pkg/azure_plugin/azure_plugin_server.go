@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
@@ -208,19 +207,19 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
 	invisinetsVm, err := getVmFromResourceDesc(resourceDesc.Description)
 	if err != nil {
-		log.Printf("Resource description is invalid:%+v", err)
+		logger.Log.Printf("Resource description is invalid:%+v", err)
 		return nil, err
 	}
 
 	cred, err := s.azureHandler.GetAzureCredentials()
 	if err != nil {
-		log.Printf("An error occured while getting azure credentials:%+v", err)
+		logger.Log.Printf("An error occured while getting azure credentials:%+v", err)
 		return nil, err
 	}
 	s.azureHandler.InitializeClients(cred)
 	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnetIfExists(c, InvisinetsPrefix, *invisinetsVm.Location)
 	if err != nil {
-		log.Printf("An error occured while getting invisinets vnet:%+v", err)
+		logger.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
 		return nil, err
 	}
 
@@ -228,14 +227,14 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 	if invisinetsVnet == nil {
 		invisinetsVnet, err = s.azureHandler.CreateInvisinetsVirtualNetwork(c, *invisinetsVm.Location, getInvisinetsResourceName("vnet"), resourceDesc.AddressSpace)
 		if err != nil {
-			log.Printf("An error occured while creating invisinets vnet:%+v", err)
+			logger.Log.Printf("An error occured while creating invisinets vnet:%+v", err)
 			return nil, err
 		}
 	}
 
 	nic, err := s.azureHandler.CreateNetworkInterface(c, *invisinetsVnet.Properties.Subnets[0].ID, *invisinetsVm.Location, getInvisinetsResourceName("nic"))
 	if err != nil {
-		log.Printf("An error occured while creating network interface:%+v", err)
+		logger.Log.Printf("An error occured while creating network interface:%+v", err)
 		return nil, err
 	}
 
@@ -249,7 +248,7 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 
 	invisinetsVm, err = s.azureHandler.CreateVirtualMachine(c, *invisinetsVm, getInvisinetsResourceName("vm"))
 	if err != nil {
-		log.Printf("An error occured while creating the virtual machine:%+v", err)
+		logger.Log.Printf("An error occured while creating the virtual machine:%+v", err)
 		return nil, err
 	}
 	return &invisinetspb.BasicResponse{Success: true, Message: "successfully created resource", UpdatedResource: &invisinetspb.ResourceID{Id: *invisinetsVm.ID}}, nil

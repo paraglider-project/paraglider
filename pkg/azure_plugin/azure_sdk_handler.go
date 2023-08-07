@@ -369,7 +369,7 @@ func (h *azureSDKHandler) GetInvisinetsVnetIfExists(ctx context.Context, prefix 
 	return nil, nil
 }
 
-// CreateInvisinetsVirtualNetwork creates a new invisinets virtual network with a default subnet with the same address 
+// CreateInvisinetsVirtualNetwork creates a new invisinets virtual network with a default subnet with the same address
 // space as the vnet
 func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
 	parameters := armnetwork.VirtualNetwork{
