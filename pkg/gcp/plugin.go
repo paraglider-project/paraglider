@@ -20,13 +20,17 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -35,9 +39,11 @@ type GCPPluginServer struct {
 }
 
 // GCP
+// Naming convention loosely follows https://cloud.google.com/architecture/best-practices-vpc-design#naming
 const (
 	networkInterface      = "nic0"
-	vpc                   = "nw-invisinets"          // Invisinets VPC name
+	vpcName               = "invisinets-vpc" // Invisinets VPC name
+	vpcURL                = "global/networks/" + vpcName
 	networkTagPrefix      = "invisinets-permitlist-" // Prefixe for GCP tags related to invisinets
 	firewallNamePrefix    = "fw-" + networkTagPrefix // Prefixe for firewall names related to invisinets
 	firewallNameMaxLength = 62                       // GCP imposed max length for firewall name
@@ -58,7 +64,7 @@ var (
 
 // Checks if GCP firewall rule is an Invisinets permit list rule
 func isInvisinetsPermitListRule(firewall *computepb.Firewall) bool {
-	return strings.Compare(*firewall.Network, vpc) == 0 && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
+	return strings.Compare(*firewall.Network, vpcURL) == 0 && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
 }
 
 // Checks if GCP firewall rule is equivalent to an Invisinets permit list rule
@@ -92,6 +98,11 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 		permitListRule.Direction.String(),
 		strings.Join(permitListRule.Tag, ""),
 	))[:firewallNameMaxLength]
+}
+
+// Gets a GCP network tag for a GCP resource
+func getGCPNetworkTag(gcpResourceId uint64) string {
+	return networkTagPrefix + strconv.FormatUint(gcpResourceId, 10)
 }
 
 func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
@@ -166,6 +177,8 @@ func (s *GCPPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 
 func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.BasicResponse, error) {
 	project, zone, instance := splitResourceId(permitList.AssociatedResource)
+
+	// Get existing firewalls
 	getEffectiveFirewallsReq := &computepb.GetEffectiveFirewallsInstanceRequest{
 		Instance:         instance,
 		NetworkInterface: networkInterface,
@@ -182,7 +195,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 		firewallMap[*firewall.Name] = firewall
 	}
 
-	// Get GCP network tag corresponding to VM
+	// Get GCP network tag corresponding to VM (which will have been set during resource creation)
 	getInstanceReq := &computepb.GetInstanceRequest{
 		Instance: instance,
 		Project:  project,
@@ -192,7 +205,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 	if err != nil {
 		return nil, fmt.Errorf("unable to get instance: %w", err)
 	}
-	networkTag := networkTagPrefix + strconv.FormatUint(*getInstanceResp.Id, 10)
+	networkTag := getGCPNetworkTag(*getInstanceResp.Id)
 
 	for _, permitListRule := range permitList.Rules {
 		// TODO @seankimkdy: should we throw an error/warning if user specifies a srcport since GCP doesn't support srcport based firewalls?
@@ -213,7 +226,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			Description: proto.String("Invisinets permit list"),
 			Direction:   proto.String(firewallDirectionMapInvisinetsToGCP[permitListRule.Direction]),
 			Name:        proto.String(firewallName),
-			Network:     proto.String(vpc),
+			Network:     proto.String(vpcURL),
 			TargetTags:  []string{networkTag},
 		}
 		if permitListRule.Direction == invisinetspb.Direction_INBOUND {
@@ -258,6 +271,7 @@ func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, permitList *in
 func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.BasicResponse, error) {
 	project, zone, instance := splitResourceId(permitList.AssociatedResource)
 
+	// Get existing firewalls
 	getEffectiveFirewallsReq := &computepb.GetEffectiveFirewallsInstanceRequest{
 		Instance:         instance,
 		NetworkInterface: networkInterface,
@@ -269,11 +283,11 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList
 		return nil, fmt.Errorf("unable to get effective firewalls: %w", err)
 	}
 
+	// Delete firewalls corresponding to provided permit list rules
 	firewallMap := map[string]*computepb.Firewall{}
 	for _, firewall := range getEffectiveFirewallsResp.Firewalls {
 		firewallMap[*firewall.Name] = firewall
 	}
-
 	for _, permitListRule := range permitList.Rules {
 		firewall, ok := firewallMap[getFirewallName(permitListRule)]
 		if ok && isInvisinetsPermitListRule(firewall) && isFirewallEqPermitListRule(firewall, permitListRule) {
@@ -308,4 +322,148 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, permitList 
 	defer instancesClient.Close()
 
 	return s._DeletePermitListRules(ctx, permitList, firewallsClient, instancesClient)
+}
+
+func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.BasicResponse, error) {
+	// Validate user-provided description
+	insertInstanceRequest := &computepb.InsertInstanceRequest{}
+	err := json.Unmarshal(resourceDescription.Description, insertInstanceRequest)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse resource description: %w", err)
+	}
+	if len(insertInstanceRequest.InstanceResource.NetworkInterfaces) != 0 {
+		return nil, fmt.Errorf("network settings should not be specified")
+	}
+
+	project, zone := insertInstanceRequest.Project, insertInstanceRequest.Zone
+	region := zone[:strings.LastIndex(zone, "-")]
+	subnetName := "invisinets-" + region + "-subnet"
+	subnetExists := false
+
+	// Check if Invisinets specific VPC already exists
+	getNetworkReq := &computepb.GetNetworkRequest{
+		Network: vpcName,
+		Project: project,
+	}
+	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
+	if err != nil {
+		var e *googleapi.Error
+		if ok := errors.As(err, &e); ok && e.Code == http.StatusNotFound {
+			insertNetworkRequest := &computepb.InsertNetworkRequest{
+				Project: project,
+				NetworkResource: &computepb.Network{
+					Name:                  proto.String(vpcName),
+					Description:           proto.String("VPC for Invisinets"),
+					AutoCreateSubnetworks: proto.Bool(false),
+				},
+			}
+			insertNetworkOp, err := networksClient.Insert(ctx, insertNetworkRequest)
+			if err != nil {
+				return nil, fmt.Errorf("unable to insert network: %w", err)
+			}
+			if err = insertNetworkOp.Wait(ctx); err != nil {
+				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
+		}
+	} else {
+		// Check if there is a subnet in the region that resource will be placed in
+		for _, subnetURL := range getNetworkResp.Subnetworks {
+			if subnetName == subnetURL[strings.LastIndex(subnetURL, "/")+1:] {
+				subnetExists = true
+				break
+			}
+		}
+	}
+
+	if !subnetExists {
+		insertSubnetworkRequest := &computepb.InsertSubnetworkRequest{
+			Project: project,
+			Region:  region,
+			SubnetworkResource: &computepb.Subnetwork{
+				Name:        proto.String(subnetName),
+				Description: proto.String("Invisinets subnetwork for " + region),
+				Network:     proto.String(vpcURL),
+				IpCidrRange: proto.String(resourceDescription.AddressSpace),
+			},
+		}
+		insertSubnetworkOp, err := subnetworksClient.Insert(ctx, insertSubnetworkRequest)
+		if err != nil {
+			return nil, fmt.Errorf("unable to insert subnetwork: %w", err)
+		}
+		if err = insertSubnetworkOp.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("unable to wait for the operation: %w", err)
+		}
+	}
+
+	// Configure network settings to Invisinets VPC and corresponding subnet
+	insertInstanceRequest.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
+		{
+			Network:    proto.String(vpcURL),
+			Subnetwork: proto.String("regions/" + region + "/subnetworks/" + subnetName),
+		},
+	}
+
+	// Insert instance
+	insertInstanceOp, err := instancesClient.Insert(ctx, insertInstanceRequest)
+	if err != nil {
+		return nil, fmt.Errorf("unable to insert instance: %w", err)
+	}
+	if err = insertInstanceOp.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("unable to wait for the operation: %w", err)
+	}
+
+	// Add network tag which will be used by GCP firewall rules corresponding to Invisinets permit list rules
+	// The instance is fetched again as the Id which is used to create the tag is only available after instance creation
+	instance := *insertInstanceRequest.InstanceResource.Name
+	getInstanceReq := &computepb.GetInstanceRequest{
+		Instance: instance,
+		Project:  project,
+		Zone:     zone,
+	}
+	getInstanceResp, err := instancesClient.Get(ctx, getInstanceReq)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get instance: %w", err)
+	}
+	setTagsReq := &computepb.SetTagsInstanceRequest{
+		Instance: instance,
+		Project:  project,
+		Zone:     zone,
+		TagsResource: &computepb.Tags{
+			Items:       append(getInstanceResp.Tags.Items, getGCPNetworkTag(*getInstanceResp.Id)),
+			Fingerprint: getInstanceResp.Tags.Fingerprint,
+		},
+	}
+	setTagsOp, err := instancesClient.SetTags(ctx, setTagsReq)
+	if err != nil {
+		return nil, fmt.Errorf("unable to set tags: %w", err)
+	}
+	if err = setTagsOp.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("unable to wait for the operation")
+	}
+
+	return &invisinetspb.BasicResponse{Success: true}, nil
+}
+
+func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
+	instancesClient, err := compute.NewInstancesRESTClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
+	}
+	defer instancesClient.Close()
+
+	networksClient, err := compute.NewNetworksRESTClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewNetworksRESTClient: %w", err)
+	}
+	defer networksClient.Close()
+
+	subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewSubnetworksRESTClient: %w", err)
+	}
+	defer subnetworksClient.Close()
+
+	return s._CreateResource(ctx, resourceDescription, instancesClient, networksClient, subnetworksClient)
 }
