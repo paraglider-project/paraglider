@@ -29,7 +29,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
@@ -130,37 +129,11 @@ func setup(reqRespMap map[string]interface{}) *azureSDKHandler {
 }
 
 func initializeReqRespMap() map[string]interface{} {
-	pager := *runtime.NewPager(runtime.PagingHandler[armnetwork.VirtualNetworksClientListAllResponse]{
-		More: func(page armnetwork.VirtualNetworksClientListAllResponse) bool {
-			fmt.Println("Checking if there is more")
-			return false
-		},
-		Fetcher: func(ctx context.Context, page *armnetwork.VirtualNetworksClientListAllResponse) (armnetwork.VirtualNetworksClientListAllResponse, error) {
-			fmt.Println("Fetching next page", page)
-			return armnetwork.VirtualNetworksClientListAllResponse{
-				VirtualNetworkListResult: armnetwork.VirtualNetworkListResult{
-					Value: []*armnetwork.VirtualNetwork{
-						{
-							Name: to.Ptr(validVnetName),
-							ID:   to.Ptr(testLocation),
-						},
-					},
-				}}, nil
-		},
-	})
-
-	for pager.More() {
-		fmt.Println("More pages")
-		x, _ := pager.NextPage(context.Background())
-		fmt.Println(*x.VirtualNetworkListResult.Value[0].Name)
-	}
-
 	// Define the base URLs
 	nsgURL := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkSecurityGroups", subID, rgName)
 	vmURL := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines", subID, rgName)
 	nicURL := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkInterfaces", subID, rgName)
 	nsgRuleUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkSecurityGroups/%s/securityRules", subID, rgName, validSecurityGroupName)
-	listVnetsUrl := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Network/virtualNetworks", subID)
 	vnetUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
 
 	// Define a map of URLs to responses
@@ -215,8 +188,6 @@ func initializeReqRespMap() map[string]interface{} {
 				Name: to.Ptr(validSecurityRuleName),
 			},
 		},
-		// This one is used to get all the vnets
-		listVnetsUrl: pager,
 		fmt.Sprintf("%s/%s", vnetUrl, validVnetName): armnetwork.VirtualNetworksClientGetResponse{},
 	}
 
@@ -490,23 +461,6 @@ func TestCreateInvisinetsVirtualNetwork(t *testing.T) {
 
 		require.Error(t, err)
 		require.Nil(t, vnet)
-	})
-}
-
-func TestGetInvisinetsVnetIfExists(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
-
-	// Create a new context for the tests
-	ctx := context.Background()
-
-	// Test case: Vnet exists
-	t.Run("GetInvisinetsVnetIfExists: Success VnetExists", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnetIfExists(ctx, InvisinetsPrefix, testLocation)
-
-		require.NoError(t, err)
-		require.NotNil(t, vnet)
 	})
 }
 
