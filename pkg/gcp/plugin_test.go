@@ -20,10 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	compute "cloud.google.com/go/compute/apiv1"
@@ -32,14 +32,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/api/option"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
 // Fake project and resource
 const (
 	fakeProject      = "invisinets-fake"
-	fakeZone         = "us-fake1-a"
+	fakeRegion       = "us-fake1"
+	fakeZone         = fakeRegion + "-a"
 	fakeInstanceName = "vm-invisinets-fake"
 	fakeInstanceId   = uint64(1234)
 	fakeResourceId   = fakeProject + "/" + fakeZone + "/" + fakeInstanceName
@@ -72,7 +72,7 @@ var (
 		},
 		Direction:    proto.String(computepb.Firewall_INGRESS.String()),
 		Name:         proto.String(getFirewallName(fakePermitListRule1)),
-		Network:      proto.String("nw-invisinets"),
+		Network:      proto.String(vpcURL),
 		SourceRanges: []string{"10.1.2.0/24"},
 		TargetTags:   []string{fakeNetworkTag},
 	}
@@ -92,15 +92,24 @@ var (
 		DestinationRanges: []string{"10.3.4.0/24"},
 		Direction:         proto.String(computepb.Firewall_EGRESS.String()),
 		Name:              proto.String(getFirewallName(fakePermitListRule2)),
-		Network:           proto.String("nw-invisinets"),
+		Network:           proto.String(vpcURL),
 		TargetTags:        []string{fakeNetworkTag},
 	}
 )
 
+// Fake instance
+var fakeInstance = &computepb.Instance{
+	Id:   proto.Uint64(fakeInstanceId),
+	Name: proto.String(fakeInstanceName),
+	Tags: &computepb.Tags{Items: []string{fakeNetworkTag}},
+}
+
 // Portions of GCP API URLs
 var (
-	urlProjectPrefix = fmt.Sprintf("/compute/v1/projects/%v", fakeProject)
-	urlZoneInstance  = fmt.Sprintf("/zones/%v/instances/%v", fakeZone, fakeInstanceName)
+	urlProject  = "/compute/v1/projects/" + fakeProject
+	urlZone     = "/zones/" + fakeZone
+	urlRegion   = "/regions/" + fakeRegion
+	urlInstance = "/instances/" + fakeInstanceName
 )
 
 func sendResponse(w http.ResponseWriter, resp any) {
@@ -115,34 +124,23 @@ func sendResponse(w http.ResponseWriter, resp any) {
 	}
 }
 
+func sendResponseFakeOperation(w http.ResponseWriter) {
+	sendResponse(w, &computepb.Operation{Name: proto.String(fakeOperation)})
+}
+
+func sendResponseDoneOperation(w http.ResponseWriter) {
+	sendResponse(w, &computepb.Operation{Status: computepb.Operation_DONE.Enum()})
+}
+
 func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
+	// The handler should be written as minimally as possible to minimize maintenance overhead. Modifying requests (e.g. POST, DELETE)
+	// should generally not do anything other than return the operation response. Instead, initialize the fakeServerState as necessary.
+	// Keep in mind these unit tests should rely as little as possible on the functionality of this fake server.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch path := r.URL.Path; path {
-		case urlProjectPrefix + "/global/firewalls":
-			if r.Method == "POST" {
-				body, err := io.ReadAll(r.Body)
-				if err != nil {
-					http.Error(w, "unable to read body of request: "+err.Error(), http.StatusBadRequest)
-					return
-				}
-				var firewall computepb.Firewall
-				unm := protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}
-				if err = unm.Unmarshal(body, &firewall); err != nil {
-					http.Error(w, "unable to unmarshal body of request: "+err.Error(), http.StatusBadRequest)
-					return
-				}
-				fakeServerState.firewallMap[*firewall.Name] = &firewall
-				sendResponse(w, &computepb.Operation{Name: proto.String(fakeOperation)})
-				return
-			}
-		// TODO @seankimkdy: don't hardcode and figure out how to regex match
-		case urlProjectPrefix + "/global/firewalls/" + *fakeFirewallRule1.Name:
-			if r.Method == "DELETE" {
-				delete(fakeServerState.firewallMap, *fakeFirewallRule1.Name)
-				sendResponse(w, &computepb.Operation{Name: proto.String(fakeOperation)})
-				return
-			}
-		case urlProjectPrefix + urlZoneInstance + "/getEffectiveFirewalls":
+		path := r.URL.Path
+		switch {
+		// Instances
+		case path == urlProject+urlZone+urlInstance+"/getEffectiveFirewalls":
 			if r.Method == "GET" {
 				firewalls := make([]*computepb.Firewall, 0, len(fakeServerState.firewallMap))
 				for _, value := range fakeServerState.firewallMap {
@@ -154,20 +152,66 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				})
 				return
 			}
-		case urlProjectPrefix + urlZoneInstance:
+		case path == urlProject+urlZone+urlInstance+"/setTags":
+			if r.Method == "POST" {
+				sendResponseFakeOperation(w)
+				return
+			}
+		case path == urlProject+urlZone+urlInstance:
 			if r.Method == "GET" {
 				sendResponse(w, fakeServerState.instance)
 				return
 			}
-		case urlProjectPrefix + "/global/operations/" + fakeOperation:
-			if r.Method == "GET" {
-				sendResponse(w, &computepb.Operation{Status: computepb.Operation_DONE.Enum()})
+		case path == urlProject+urlZone+"/instances":
+			if r.Method == "POST" {
+				sendResponseFakeOperation(w)
 				return
 			}
-		default:
-			http.Error(w, "unsupported URL and/or method", http.StatusBadRequest)
-			return
+		// Firewalls
+		case strings.HasPrefix(path, urlProject+"/global/firewalls"):
+			if r.Method == "POST" {
+				sendResponseFakeOperation(w)
+				return
+			} else if r.Method == "DELETE" {
+				sendResponseFakeOperation(w)
+				return
+			}
+		// Networks
+		case strings.HasPrefix(path, urlProject+"/global/networks"):
+			if r.Method == "GET" {
+				if fakeServerState.network != nil {
+					sendResponse(w, fakeServerState.network)
+				} else {
+					http.Error(w, "no network found", http.StatusNotFound)
+				}
+				return
+			} else if r.Method == "POST" {
+				sendResponseFakeOperation(w)
+				return
+			}
+		case path == urlProject+urlRegion+"/subnetworks":
+			if r.Method == "POST" {
+				sendResponseFakeOperation(w)
+				return
+			}
+		// Operations
+		case path == urlProject+"/global/operations/"+fakeOperation:
+			if r.Method == "GET" {
+				sendResponseDoneOperation(w)
+				return
+			}
+		case path == urlProject+"/regions/"+fakeRegion+"/operations/"+fakeOperation:
+			if r.Method == "GET" {
+				sendResponseDoneOperation(w)
+				return
+			}
+		case path == urlProject+"/zones/"+fakeZone+"/operations/"+fakeOperation:
+			if r.Method == "GET" {
+				sendResponseDoneOperation(w)
+				return
+			}
 		}
+		http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
 	})
 }
 
@@ -175,11 +219,73 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 type fakeServerState struct {
 	firewallMap map[string]*computepb.Firewall
 	instance    *computepb.Instance
+	network     *computepb.Network
 }
 
-// Generates fake server state (used for each test case independently)
-func generateFakeServerState() *fakeServerState {
-	return &fakeServerState{
+// Struct to hold fake clients
+type fakeClients struct {
+	firewallsClient   *compute.FirewallsClient
+	instancesClient   *compute.InstancesClient
+	networksClient    *compute.NetworksClient
+	subnetworksClient *compute.SubnetworksClient
+}
+
+// Sets up fake http server and fake GCP compute clients
+func setup(t *testing.T, fakeServerState *fakeServerState, neededClients map[string]bool) (fakeServer *httptest.Server, ctx context.Context, fakeClients fakeClients) {
+	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
+
+	ctx = context.Background()
+
+	clientOptions := []option.ClientOption{option.WithoutAuthentication(), option.WithEndpoint(fakeServer.URL)}
+	var err error
+	if neededClients["firewalls"] {
+		fakeClients.firewallsClient, err = compute.NewFirewallsRESTClient(ctx, clientOptions...)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if neededClients["instances"] {
+		fakeClients.instancesClient, err = compute.NewInstancesRESTClient(ctx, clientOptions...)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if neededClients["networks"] {
+		fakeClients.networksClient, err = compute.NewNetworksRESTClient(ctx, clientOptions...)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if neededClients["subnetworks"] {
+		fakeClients.subnetworksClient, err = compute.NewSubnetworksRESTClient(ctx, clientOptions...)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	return
+}
+
+// Cleans up fake http server and fake GCP compute clients
+func teardown(fakeServer *httptest.Server, fakeClients fakeClients) {
+	fakeServer.Close()
+	if fakeClients.firewallsClient != nil {
+		fakeClients.firewallsClient.Close()
+	}
+	if fakeClients.instancesClient != nil {
+		fakeClients.instancesClient.Close()
+	}
+	if fakeClients.networksClient != nil {
+		fakeClients.networksClient.Close()
+	}
+	if fakeClients.subnetworksClient != nil {
+		fakeClients.subnetworksClient.Close()
+	}
+}
+
+func TestGetPermitList(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		instance: fakeInstance,
 		firewallMap: map[string]*computepb.Firewall{
 			*fakeFirewallRule1.Name: fakeFirewallRule1,
 			*fakeFirewallRule2.Name: fakeFirewallRule2,
@@ -192,58 +298,17 @@ func generateFakeServerState() *fakeServerState {
 				},
 				Direction:  proto.String(computepb.Firewall_INGRESS.String()),
 				Name:       proto.String("fw-allow-icmp"),
-				Network:    proto.String("nw-invisinets"),
+				Network:    proto.String(vpcURL),
 				TargetTags: []string{"0.0.0.0/0"},
 			},
 		},
-		instance: &computepb.Instance{
-			Id:   proto.Uint64(fakeInstanceId),
-			Tags: &computepb.Tags{Items: []string{fakeNetworkTag}},
-		},
 	}
-}
-
-func setup(t *testing.T, needFirewallsClient bool, needInstancesClient bool) (fakeServer *httptest.Server, ctx context.Context, fakeFirewallsClient *compute.FirewallsClient, fakeInstancesClient *compute.InstancesClient) {
-	fakeServer = httptest.NewServer(getFakeServerHandler(generateFakeServerState()))
-
-	ctx = context.Background()
-
-	var err error
-
-	if needFirewallsClient {
-		fakeFirewallsClient, err = compute.NewFirewallsRESTClient(ctx, option.WithoutAuthentication(), option.WithEndpoint(fakeServer.URL))
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if needInstancesClient {
-		fakeInstancesClient, err = compute.NewInstancesRESTClient(ctx, option.WithoutAuthentication(), option.WithEndpoint(fakeServer.URL))
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	return
-}
-
-func teardown(fakeServer *httptest.Server, fakeFirewallsClient *compute.FirewallsClient, fakeInstancesClient *compute.InstancesClient) {
-	fakeServer.Close()
-	if fakeFirewallsClient != nil {
-		fakeFirewallsClient.Close()
-	}
-	if fakeInstancesClient != nil {
-		fakeInstancesClient.Close()
-	}
-}
-
-func TestGetPermitList(t *testing.T) {
-	fakeServer, ctx, _, fakeInstancesClient := setup(t, false, true)
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true})
 
 	s := &GCPPluginServer{}
 	resource := &invisinetspb.ResourceID{Id: fakeResourceId}
 
-	permitListActual, err := s._GetPermitList(ctx, resource, fakeInstancesClient)
+	permitListActual, err := s._GetPermitList(ctx, resource, fakeClients.instancesClient)
 	require.NoError(t, err)
 	permitListExpected := &invisinetspb.PermitList{
 		AssociatedResource: fakeResourceId,
@@ -253,24 +318,24 @@ func TestGetPermitList(t *testing.T) {
 	assert.Equal(t, permitListExpected.AssociatedResource, permitListActual.AssociatedResource)
 	assert.ElementsMatch(t, permitListExpected.Rules, permitListActual.Rules)
 
-	teardown(fakeServer, nil, fakeInstancesClient)
+	teardown(fakeServer, fakeClients)
 }
 
 func TestGetPermitListMissingInstance(t *testing.T) {
-	fakeServer, ctx, _, fakeInstancesClient := setup(t, false, true)
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{}, map[string]bool{"instances": true})
 
 	s := &GCPPluginServer{}
 	resource := &invisinetspb.ResourceID{Id: fakeMissingResourceId}
 
-	resp, err := s._GetPermitList(ctx, resource, fakeInstancesClient)
+	resp, err := s._GetPermitList(ctx, resource, fakeClients.instancesClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 
-	teardown(fakeServer, nil, fakeInstancesClient)
+	teardown(fakeServer, fakeClients)
 }
 
 func TestAddPermitListRules(t *testing.T) {
-	fakeServer, ctx, fakeFirewallsClient, fakeInstancesClient := setup(t, true, true)
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: fakeInstance}, map[string]bool{"instances": true, "firewalls": true})
 
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
@@ -291,16 +356,16 @@ func TestAddPermitListRules(t *testing.T) {
 		},
 	}
 
-	resp, err := s._AddPermitListRules(ctx, permitList, fakeFirewallsClient, fakeInstancesClient)
+	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.True(t, resp.Success)
 
-	teardown(fakeServer, fakeFirewallsClient, fakeInstancesClient)
+	teardown(fakeServer, fakeClients)
 }
 
 func TestAddPermitListRulesMissingInstance(t *testing.T) {
-	fakeServer, ctx, fakeFirewallsClient, fakeInstancesClient := setup(t, true, true)
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{}, map[string]bool{"instances": true, "firewalls": true})
 
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
@@ -315,15 +380,19 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 		},
 	}
 
-	resp, err := s._AddPermitListRules(ctx, permitList, fakeFirewallsClient, fakeInstancesClient)
+	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 
-	teardown(fakeServer, fakeFirewallsClient, fakeInstancesClient)
+	teardown(fakeServer, fakeClients)
 }
 
 func TestAddPermitListRulesDuplicate(t *testing.T) {
-	fakeServer, ctx, fakeFirewallsClient, fakeInstancesClient := setup(t, true, true)
+	fakeServerState := &fakeServerState{
+		instance:    fakeInstance,
+		firewallMap: map[string]*computepb.Firewall{*fakeFirewallRule1.Name: fakeFirewallRule1},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "firewalls": true})
 
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
@@ -331,15 +400,15 @@ func TestAddPermitListRulesDuplicate(t *testing.T) {
 		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1},
 	}
 
-	resp, err := s._AddPermitListRules(ctx, permitList, fakeFirewallsClient, fakeInstancesClient)
+	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 
-	teardown(fakeServer, fakeFirewallsClient, fakeInstancesClient)
+	teardown(fakeServer, fakeClients)
 }
 
 func TestDeletePermitListRules(t *testing.T) {
-	fakeServer, ctx, fakeFirewallsClient, fakeInstancesClient := setup(t, true, true)
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: fakeInstance}, map[string]bool{"instances": true, "firewalls": true})
 
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
@@ -347,16 +416,16 @@ func TestDeletePermitListRules(t *testing.T) {
 		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1, fakePermitListRule2},
 	}
 
-	resp, err := s._DeletePermitListRules(ctx, permitList, fakeFirewallsClient, fakeInstancesClient)
+	resp, err := s._DeletePermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.True(t, resp.Success)
 
-	teardown(fakeServer, fakeFirewallsClient, fakeInstancesClient)
+	teardown(fakeServer, fakeClients)
 }
 
 func TestDeletePermitListRulesMissingInstance(t *testing.T) {
-	fakeServer, ctx, fakeFirewallsClient, fakeInstancesClient := setup(t, true, true)
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{}, map[string]bool{"instances": true, "firewalls": true})
 
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
@@ -364,9 +433,84 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1},
 	}
 
-	resp, err := s._DeletePermitListRules(ctx, permitList, fakeFirewallsClient, fakeInstancesClient)
+	resp, err := s._DeletePermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 
-	teardown(fakeServer, fakeFirewallsClient, fakeInstancesClient)
+	teardown(fakeServer, fakeClients)
+}
+
+func TestCreateResource(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		instance: fakeInstance, // Include instance in server state since CreateResource will fetch after creating to add the tag
+		network: &computepb.Network{
+			Name:        proto.String(vpcName),
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
+		},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
+
+	s := &GCPPluginServer{}
+	description, err := json.Marshal(&computepb.InsertInstanceRequest{
+		Project:          fakeProject,
+		Zone:             fakeZone,
+		InstanceResource: fakeInstance,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"}
+
+	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	teardown(fakeServer, fakeClients)
+}
+
+func TestCreateResourceMissingNetwork(t *testing.T) {
+	// Include instance in server state since CreateResource will fetch after creating to add the tag
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: fakeInstance}, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
+
+	s := &GCPPluginServer{}
+	description, err := json.Marshal(&computepb.InsertInstanceRequest{
+		Project:          fakeProject,
+		Zone:             fakeZone,
+		InstanceResource: fakeInstance,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"}
+
+	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	teardown(fakeServer, fakeClients)
+}
+
+func TestCreateResourceMissingSubnetwork(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		instance: fakeInstance, // Include instance in server state since CreateResource will fetch after creating to add the tag
+		network:  &computepb.Network{Name: proto.String(vpcName)},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
+
+	s := &GCPPluginServer{}
+	description, err := json.Marshal(&computepb.InsertInstanceRequest{
+		Project:          fakeProject,
+		Zone:             fakeZone,
+		InstanceResource: fakeInstance,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"}
+
+	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	teardown(fakeServer, fakeClients)
 }
