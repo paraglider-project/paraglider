@@ -43,7 +43,7 @@ type AzureSDKHandler interface {
 	UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error)
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
-	GetInvisinetsVnetIfExists(ctx context.Context, prefix string, location string) (*armnetwork.VirtualNetwork, error)
+	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, addressSpace string) (*armnetwork.VirtualNetwork, error)
 	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, name string, addressSpace string) (*armnetwork.VirtualNetwork, error)
 	CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error)
 	CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error)
@@ -351,22 +351,31 @@ func (h *azureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) 
 	return &nsgResp.SecurityGroup, nil
 }
 
-// GetInvisinetsVnetIfExists returns a valid invisinets vnet based on the locaton by getting all vnets
-// and filtering by the invisinets prefix and location, if non exists it returns nil
-func (h *azureSDKHandler) GetInvisinetsVnetIfExists(ctx context.Context, prefix string, location string) (*armnetwork.VirtualNetwork, error) {
-	pager := h.virtualNetworksClient.NewListAllPager(nil)
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
-		if err != nil {
+// GetInvisinetsVnet returns a valid invisinets vnet, an invisinets vnet is a vnet with a default subnet with the same
+// address space as the vnet and there is only one vnet per location
+func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string, location string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
+	// Get the virtual network
+	res, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, &armnetwork.VirtualNetworksClientGetOptions{Expand: nil})
+
+	if err != nil {
+		// Check if the error is Resource Not Found
+		if strings.Contains(err.Error(), "Not Found") {
+			// Create the virtual network if it doesn't exist
+			vnet, err := h.CreateInvisinetsVirtualNetwork(ctx, location, vnetName, addressSpace)
+			return vnet, err
+		} else {
+			// Return the error if it's not ResourceNotFound
 			return nil, err
 		}
-		for _, v := range page.Value {
-			if strings.HasPrefix(*v.Name, prefix) && *v.Location == location {
-				return v, nil
-			}
-		}
 	}
-	return nil, nil
+
+	// Check if the virtual network has a subnet with the specified address space
+	vnet := &res.VirtualNetwork
+	if len(vnet.Properties.Subnets) == 0 || *vnet.Properties.Subnets[0].Properties.AddressPrefix != addressSpace {
+		return nil, fmt.Errorf("existing invisinets network: '%s' does not have a subnet with address space %s", vnetName, addressSpace)
+	}
+
+	return vnet, nil
 }
 
 // CreateInvisinetsVirtualNetwork creates a new invisinets virtual network with a default subnet with the same address

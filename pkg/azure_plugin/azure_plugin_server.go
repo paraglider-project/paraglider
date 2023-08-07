@@ -217,19 +217,12 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 		return nil, err
 	}
 	s.azureHandler.InitializeClients(cred)
-	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnetIfExists(c, InvisinetsPrefix, *invisinetsVm.Location)
-	if err != nil {
-		logger.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
-		return nil, err
-	}
+	invisinetsVnetName := InvisinetsPrefix + "-" + *invisinetsVm.Location + "-vnet"
 
-	// if there's no invisinets vnet in that location, create a new one
-	if invisinetsVnet == nil {
-		invisinetsVnet, err = s.azureHandler.CreateInvisinetsVirtualNetwork(c, *invisinetsVm.Location, getInvisinetsResourceName("vnet"), resourceDesc.AddressSpace)
-		if err != nil {
-			logger.Log.Printf("An error occured while creating invisinets vnet:%+v", err)
-			return nil, err
-		}
+	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(c, invisinetsVnetName, *invisinetsVm.Location, resourceDesc.AddressSpace)
+	if err != nil {
+		logger.Log.Printf("an error occured while getting invisinets vnet:%+v", err)
+		return nil, err
 	}
 
 	nic, err := s.azureHandler.CreateNetworkInterface(c, *invisinetsVnet.Properties.Subnets[0].ID, *invisinetsVm.Location, getInvisinetsResourceName("nic"))

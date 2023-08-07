@@ -59,8 +59,10 @@ const (
 	validSecurityGroupName   = "valid-security-group-name"
 	invalidSecurityGroupName = "invalid-security-group-name"
 	validVnetName            = "invisinets-valid-vnet-name"
+	notFoundVnetName         = "invisinets-not-found-vnet-name"
 	invalidVnetName          = "invalid-vnet-name"
-	testAddressSpace         = "10.1.0.0/16"
+	validAddressSpace        = "10.1.0.0/16"
+	conflictingAddressSpace  = "10.2.0.0/16"
 )
 
 type dummyToken struct {
@@ -101,9 +103,13 @@ func setup(reqRespMap map[string]interface{}) *azureSDKHandler {
 
 	fakeHttpHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Removing query parameters from the URL to use as the map key
+		fmt.Println(r.URL.String())
 		key := strings.Split(r.URL.String(), "?")[0]
 		response, ok := reqRespMap[key]
 		if !ok {
+			http.Error(w, "invalid request", http.StatusBadRequest)
+			return
+		} else if strings.Contains(key, notFoundVnetName) && r.Method == http.MethodGet {
 			http.NotFound(w, r)
 			return
 		}
@@ -188,7 +194,21 @@ func initializeReqRespMap() map[string]interface{} {
 				Name: to.Ptr(validSecurityRuleName),
 			},
 		},
-		fmt.Sprintf("%s/%s", vnetUrl, validVnetName): armnetwork.VirtualNetworksClientGetResponse{},
+		fmt.Sprintf("%s/%s", vnetUrl, validVnetName): armnetwork.VirtualNetworksClientGetResponse{
+			VirtualNetwork: armnetwork.VirtualNetwork{
+				Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+					Subnets: []*armnetwork.Subnet{
+						{
+							Properties: &armnetwork.SubnetPropertiesFormat{
+								AddressPrefix: to.Ptr(validAddressSpace),
+							},
+						},
+					},
+				},
+			},
+		},
+		// vnet not found but a new one is created successfully
+		fmt.Sprintf("%s/%s", vnetUrl, notFoundVnetName): armnetwork.VirtualNetworksClientGetResponse{},
 	}
 
 	return urlToResponse
@@ -410,6 +430,42 @@ func TestCreateVirtualMachine(t *testing.T) {
 	})
 }
 
+func TestGetInvisinetsVnet(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	urlToResponse := initializeReqRespMap()
+	azureSDKHandlerTest := setup(urlToResponse)
+	// Create a new context for the tests
+	ctx := context.Background()
+
+	// Test case: Success, vnet already existed
+	t.Run("GetInvisinetsVnet: Success, vnet exists", func(t *testing.T) {
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation, validAddressSpace)
+		require.NoError(t, err)
+		require.NotNil(t, vnet)
+	})
+
+	// Test case: Success, vnet doesn't exist, create new one
+	t.Run("GetInvisinetsVnet: Success, create new vnet", func(t *testing.T) {
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, notFoundVnetName, testLocation, validAddressSpace)
+		require.NoError(t, err)
+		require.NotNil(t, vnet)
+	})
+
+	// Test case: Failure, error when getting vnet
+	t.Run("GetInvisinetsVnet: Failure, error when getting vnet", func(t *testing.T) {
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, invalidVnetName, testLocation, validAddressSpace)
+		require.Error(t, err)
+		require.Nil(t, vnet)
+	})
+
+	// Test case: Failure, conflicting address spaces
+	t.Run("GetInvisinetsVnet: Failure, conflicting address spaces", func(t *testing.T) {
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation, conflictingAddressSpace)
+		require.Error(t, err)
+		require.Nil(t, vnet)
+	})
+}
+
 func TestCreateNetworkInterface(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
 	urlToResponse := initializeReqRespMap()
@@ -448,7 +504,7 @@ func TestCreateInvisinetsVirtualNetwork(t *testing.T) {
 	// Test case: Success
 	t.Run("CreateInvisinetsVirtualNetwork: Success", func(t *testing.T) {
 		// Call the function to test
-		vnet, err := azureSDKHandlerTest.CreateInvisinetsVirtualNetwork(ctx, testLocation, validVnetName, testAddressSpace)
+		vnet, err := azureSDKHandlerTest.CreateInvisinetsVirtualNetwork(ctx, testLocation, validVnetName, validAddressSpace)
 
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
@@ -457,7 +513,7 @@ func TestCreateInvisinetsVirtualNetwork(t *testing.T) {
 	// Test case: Failure
 	t.Run("CreateInvisinetsVirtualNetwork: Failure", func(t *testing.T) {
 		// Call the function to test
-		vnet, err := azureSDKHandlerTest.CreateInvisinetsVirtualNetwork(ctx, testLocation, invalidVnetName, testAddressSpace)
+		vnet, err := azureSDKHandlerTest.CreateInvisinetsVirtualNetwork(ctx, testLocation, invalidVnetName, validAddressSpace)
 
 		require.Error(t, err)
 		require.Nil(t, vnet)
