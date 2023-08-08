@@ -60,6 +60,24 @@ make build lint
 
 Running these steps will run our build and lint steps and verify that the tools are installed correctly. If you get stuck or suspect something is not working in these instructions please ask for help in our [discord](https://discordapp.com/channels/1116864463832891502/11168644638328915074).
 
+#### Integration Tests
+
+Our integration tests perform real requests to cloud providers. You can run these with the following command.
+
+```
+make integration-test
+```
+
+Note that the `make test` command does not run the integration tests.
+
+If you would like to run these locally, you will need to be authenticated. The following are the steps for each respective cloud provider.
+
+**Google Cloud**
+
+1. [Install the gcloud CLI](https://cloud.google.com/sdk/docs/install). If you're using the dev container, this will already be installed for you.
+2. [Set up your application default credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc).
+3. Set the environment variable `INVISINETS_GCP_PROJECT`. Setting this every time may get tedious, so we advise you set this in your shell config or use [direnv](https://direnv.net). (TODO @seankimkdy: mention GitHub issue regarding this once created).
+
 ### Editor
 
 If you don't have a code editor set up for Go, we recommend VS Code. The experience with VS Code is high-quality and approachable for newcomers.
