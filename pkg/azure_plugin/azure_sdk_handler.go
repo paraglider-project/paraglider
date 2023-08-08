@@ -48,6 +48,7 @@ type AzureSDKHandler interface {
 	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, name string, addressSpace string) (*armnetwork.VirtualNetwork, error)
 	CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error)
 	CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error)
+	GetVNetsAddressSpaces(ctx context.Context, prefix string) ([]string, error)
 	GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error)
 	GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string
 	GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error)
@@ -318,6 +319,25 @@ func (h *azureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string
 	// resp of type SecurityRulesClientDeleteResponse is currently a placeholder in the sdk
 	logger.Log.Printf("Successfully deleted security rule: %v", resp)
 	return nil
+}
+
+
+func (h *azureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix string) ([]string, error) {
+	addressSpaces := []string{}
+	pager := h.virtualNetworksClient.NewListAllPager(nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range page.Value {
+			if strings.HasPrefix(*v.Name, prefix) {
+				// assume only one address space per vnet
+				addressSpaces = append(addressSpaces, *v.Properties.AddressSpace.AddressPrefixes[0])
+			}
+		}
+	}
+	return addressSpaces, nil
 }
 
 // GetPermitListRuleFromNSGRule returns a permit list rule from a network security group (NSG) rule.

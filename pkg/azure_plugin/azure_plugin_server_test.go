@@ -163,6 +163,11 @@ func (m *mockAzureSDKHandler) GetInvisinetsVnet(ctx context.Context, prefix stri
 	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
 }
 
+func (m *mockAzureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix string) ([]string, error) {
+	args := m.Called(ctx, prefix)
+	return args.Get(0).([]string), args.Error(1)
+}
+
 func (m *mockAzureSDKHandler) GetLastSegment(resourceID string) (string, error) {
 	args := m.Called(resourceID)
 	return args.String(0), args.Error(1)

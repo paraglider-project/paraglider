@@ -274,6 +274,13 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 	return &invisinetspb.BasicResponse{Success: true, Message: "successfully created resource", UpdatedResource: &invisinetspb.ResourceID{Id: *invisinetsVm.ID}}, nil
 }
 
+// func (s *azurePluginServer)GetUsedAddressSpaces(ctx context.Context, empty *invisinetspb.Empty) (*invisinetspb.AddressSpaceList, error) {
+// 	// create list of strings
+// 	var addressSpaces []string
+
+// 	return &invisinetspb.AddressSpaceList{AddressSpaces: addressSpaces}, nil
+// }
+
 // GetOrCreateNSG returns the network security group object given the resource NIC
 // if the network security group does not exist, it creates a new one and attach it to the NIC
 func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.Interface, resourceID string) (*armnetwork.SecurityGroup, error) {
