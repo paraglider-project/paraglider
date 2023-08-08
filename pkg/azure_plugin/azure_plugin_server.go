@@ -364,7 +364,7 @@ func getPriority(reservedPriorities map[int32]bool, start int32, end int32) int3
 // from the given resource description which should be a valid resource payload for a VM
 func getVmFromResourceDesc(resourceDesc []byte) (*armcompute.VirtualMachine, error) {
 	vm := &armcompute.VirtualMachine{}
-	err := json.Unmarshal(resourceDesc, &vm)
+	err := json.Unmarshal(resourceDesc, vm)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
 	}

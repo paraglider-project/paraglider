@@ -103,7 +103,6 @@ func setup(reqRespMap map[string]interface{}) *azureSDKHandler {
 
 	fakeHttpHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Removing query parameters from the URL to use as the map key
-		fmt.Println(r.URL.String())
 		key := strings.Split(r.URL.String(), "?")[0]
 		response, ok := reqRespMap[key]
 		if !ok {
