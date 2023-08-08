@@ -19,7 +19,9 @@ package azure_plugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -43,6 +45,10 @@ type AzureSDKHandler interface {
 	UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error)
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
+	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, addressSpace string) (*armnetwork.VirtualNetwork, error)
+	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, name string, addressSpace string) (*armnetwork.VirtualNetwork, error)
+	CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error)
+	CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error)
 	GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error)
 	GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string
 	GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error)
@@ -58,7 +64,9 @@ type azureSDKHandler struct {
 	interfacesClient       *armnetwork.InterfacesClient
 	securityRulesClient    *armnetwork.SecurityRulesClient
 	virtualMachinesClient  *armcompute.VirtualMachinesClient
+	virtualNetworksClient  *armnetwork.VirtualNetworksClient
 	resourcesClient        *armresources.Client
+	deploymentsClient      *armresources.DeploymentsClient
 	subscriptionID         string
 	resourceGroupName      string
 }
@@ -142,8 +150,10 @@ func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) {
 	h.securityGroupsClient = h.networkClientFactory.NewSecurityGroupsClient()
 	h.interfacesClient = h.networkClientFactory.NewInterfacesClient()
 	h.securityRulesClient = h.networkClientFactory.NewSecurityRulesClient()
+	h.virtualNetworksClient = h.networkClientFactory.NewVirtualNetworksClient()
 	h.resourcesClient = h.resourcesClientFactory.NewClient()
 	h.virtualMachinesClient = h.computeClientFactory.NewVirtualMachinesClient()
+	h.deploymentsClient = h.resourcesClientFactory.NewDeploymentsClient()
 }
 
 // GetAzureCredentials returns an Azure credential.
@@ -341,6 +351,116 @@ func (h *azureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) 
 	}
 
 	return &nsgResp.SecurityGroup, nil
+}
+
+// GetInvisinetsVnet returns a valid invisinets vnet, an invisinets vnet is a vnet with a default subnet with the same
+// address space as the vnet and there is only one vnet per location
+func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string, location string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
+	// Get the virtual network
+	res, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, &armnetwork.VirtualNetworksClientGetOptions{Expand: nil})
+
+	if err != nil {
+		// Check if the error is Resource Not Found
+		var azError *azcore.ResponseError
+		if ok := errors.As(err, &azError); ok && azError.StatusCode == http.StatusNotFound {
+			// Create the virtual network if it doesn't exist
+			vnet, err := h.CreateInvisinetsVirtualNetwork(ctx, location, vnetName, addressSpace)
+			return vnet, err
+		} else {
+			// Return the error if it's not ResourceNotFound
+			return nil, err
+		}
+	}
+
+	// Check if the virtual network has a subnet with the specified address space
+	vnet := &res.VirtualNetwork
+	if len(vnet.Properties.Subnets) == 0 || *vnet.Properties.Subnets[0].Properties.AddressPrefix != addressSpace {
+		return nil, fmt.Errorf("existing invisinets network: '%s' does not have a subnet with address space %s", vnetName, addressSpace)
+	}
+
+	return vnet, nil
+}
+
+// CreateInvisinetsVirtualNetwork creates a new invisinets virtual network with a default subnet with the same address
+// space as the vnet
+func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
+	parameters := armnetwork.VirtualNetwork{
+		Location: to.Ptr(location),
+		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+			AddressSpace: &armnetwork.AddressSpace{
+				AddressPrefixes: []*string{
+					to.Ptr(addressSpace),
+				},
+			},
+			Subnets: []*armnetwork.Subnet{
+				{
+					Name: to.Ptr("default"),
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						// TODO @nnomier: does it make sense for the subnet to be the same as the address space?
+						AddressPrefix: to.Ptr(addressSpace),
+					},
+				},
+			},
+		},
+	}
+
+	pollerResponse, err := h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vnetName, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp.VirtualNetwork, nil
+}
+
+// CreateNetworkInterface creates a new network interface with a dynamic private IP address
+func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error) {
+	parameters := armnetwork.Interface{
+		Location: to.Ptr(location),
+		Properties: &armnetwork.InterfacePropertiesFormat{
+			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
+				{
+					Name: to.Ptr("ipConfig"),
+					Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+						PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
+						Subnet: &armnetwork.Subnet{
+							ID: to.Ptr(subnetID),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	pollerResponse, err := h.interfacesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nicName, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp.Interface, err
+}
+
+// CreateVirtualMachine creates a new virtual machine with the given parameters and name
+func (h *azureSDKHandler) CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error) {
+	pollerResponse, err := h.virtualMachinesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vmName, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.VirtualMachine, nil
 }
 
 // getIPs returns the source and destination IP addresses for a given permit list rule and resource IP address.
