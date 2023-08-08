@@ -241,7 +241,7 @@ func TestGetVNetsAddressSpaces(t *testing.T) {
 	// Create a new context for the tests
 	ctx := context.Background()
 
-	// Test case: Vnet exists
+	// Test case: Success
 	t.Run("GetVNetsAddressSpaces: Success", func(t *testing.T) {
 		addresses, err := azureSDKHandlerTest.GetVNetsAddressSpaces(ctx, InvisinetsPrefix)
 
