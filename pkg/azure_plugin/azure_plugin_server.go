@@ -275,11 +275,22 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 }
 
 // func (s *azurePluginServer)GetUsedAddressSpaces(ctx context.Context, empty *invisinetspb.Empty) (*invisinetspb.AddressSpaceList, error) {
-// 	// create list of strings
-// 	var addressSpaces []string
+func (s *azurePluginServer)GetUsedAddressSpaces(ctx context.Context) ([]string, error) {
+	cred, err := s.azureHandler.GetAzureCredentials()
+	if err != nil {
+		logger.Log.Printf("An error occured while getting azure credentials:%+v", err)
+		return nil, err
+	}
+	s.azureHandler.InitializeClients(cred)
+	addressSpaces, err := s.azureHandler.GetVNetsAddressSpaces(ctx, InvisinetsPrefix)
+	if err != nil {
+		logger.Log.Printf("An error occured while getting address spaces:%+v", err)
+		return nil, err
+	}
 
-// 	return &invisinetspb.AddressSpaceList{AddressSpaces: addressSpaces}, nil
-// }
+	return addressSpaces, nil
+	// return &invisinetspb.AddressSpaceList{AddressSpaces: addressSpaces}, nil
+}
 
 // GetOrCreateNSG returns the network security group object given the resource NIC
 // if the network security group does not exist, it creates a new one and attach it to the NIC

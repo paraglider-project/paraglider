@@ -753,6 +753,22 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	})
 }
 
+func TestGetUsedAddressSpaces(t *testing.T) {
+	server, mockAzureHandler, ctx := setupAzurePluginServer()
+	fakeAddressList := []string{validAddressSpace}
+	mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
+	mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return()
+	mockAzureHandler.On("GetVNetsAddressSpaces", ctx, InvisinetsPrefix).Return(fakeAddressList, nil)
+	addressList, err := server.GetUsedAddressSpaces(ctx)
+
+	require.NoError(t, err)
+	require.NotNil(t, addressList)
+	// this just validates that the address list returned from
+	// the handler is the one returned at the end
+	// TODO @nnomier: modify this test to validate that the response
+	require.Equal(t, addressList, fakeAddressList)
+}
+
 func getFakePermitList() (*invisinetspb.PermitList, []string, error) {
 	var err error
 	nsg := getFakeNsg("test", "test")
