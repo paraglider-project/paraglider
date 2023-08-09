@@ -38,28 +38,29 @@ type azurePluginServer struct {
 	azureHandler AzureSDKHandler
 }
 
-func setupAzureHandler() error {
-	s := &azurePluginServer{}
-	s.azureHandler = &azureSDKHandler{}
+func (s *azurePluginServer) setupAzureHandler(resourceId string) error {
 	cred, err := s.azureHandler.GetAzureCredentials()
 	if err != nil {
 		logger.Log.Printf("An error occured while getting azure credentials:%+v", err)
 		return err
 	}
 	s.azureHandler.InitializeClients(cred)
+	err = s.azureHandler.SetSubIdAndResourceGroup(resourceId)
+	if err != nil {
+		logger.Log.Printf("An error occured while setting subId and resource group for resource %s: %+v", resourceId, err)
+		return err
+	}
 	return nil
 }
 
 // GetPermitList returns the permit list for the given resource by getting the NSG rules
 // associated with the resource and filtering out the Invisinets rules
 func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
-	err := setupAzureHandler()
+	resourceId := resourceID.Id
+	err := s.setupAzureHandler(resourceId)
 	if err != nil {
 		return nil, err
 	}
-
-	resourceId := resourceID.Id
-	s.azureHandler.SetSubIdAndResourceGroup(resourceId)
 
 	// get the nsg associated with the resource
 	nsg, err := s.getNSGFromResource(ctx, resourceId)
@@ -92,12 +93,11 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invis
 // It creates an NSG rule for each permit list rule and applies this NSG to the associated resource (VM)'s NIC (if it doesn't exist).
 // It returns a BasicResponse that includes the nsg ID if successful and an error if it fails.
 func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	err := setupAzureHandler()
+	resourceID := pl.GetAssociatedResource()
+	err := s.setupAzureHandler(resourceID)
 	if err != nil {
 		return nil, err
 	}
-
-	resourceID := pl.GetAssociatedResource()
 
 	// get the nic associated with the resource
 	nic, err := s.azureHandler.GetResourceNIC(ctx, resourceID)
@@ -162,12 +162,11 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 
 // DeletePermitListRules does the mapping from Invisinets to Azure by deleting NSG rules for the given resource.
 func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	err := setupAzureHandler()
+	resourceID := pl.GetAssociatedResource()
+	err := s.setupAzureHandler(resourceID)
 	if err != nil {
 		return nil, err
 	}
-
-	resourceID := pl.GetAssociatedResource()
 
 	nsg, err := s.getNSGFromResource(c, resourceID)
 	if err != nil {
@@ -213,11 +212,11 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 		return nil, err
 	}
 
-	err = setupAzureHandler()
+	// TODO @nnomier: use the actual ide resourceDes.Id
+	err = s.setupAzureHandler("")
 	if err != nil {
 		return nil, err
 	}
-
 	invisinetsVnetName := InvisinetsPrefix + "-" + *invisinetsVm.Location + "-vnet"
 
 	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(c, invisinetsVnetName, *invisinetsVm.Location, resourceDesc.AddressSpace)

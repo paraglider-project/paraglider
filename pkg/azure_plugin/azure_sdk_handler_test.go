@@ -669,3 +669,48 @@ func TestGetTag(t *testing.T) {
 		require.Equal(t, expectedOutboundTag, outboundTag)
 	})
 }
+
+func TestSetSubIdAndResourceGroup(t *testing.T) {
+	tests := []struct {
+		name        string
+		resourceID  string
+		expectError bool
+		subID       string
+		rgName      string
+	}{
+		{
+			name:        "ValidResourceID",
+			resourceID:  "/subscriptions/123/resourceGroups/myrg/providers/namespace/type/name",
+			expectError: false,
+			subID:       "123",
+			rgName:      "myrg",
+		},
+		{
+			name:        "InvalidResourceID",
+			resourceID:  "invalid/resource/id",
+			expectError: true,
+		},
+		{
+			name:        "InvalidParts",
+			resourceID:  "/subscriptions/123/providers/namespace/type/name",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := &azureSDKHandler{}
+
+			err := handler.SetSubIdAndResourceGroup(tt.resourceID)
+
+			if !tt.expectError {
+				require.NoError(t, err)
+				require.Equal(t, tt.subID, handler.subscriptionID)
+				require.Equal(t, tt.rgName, handler.resourceGroupName)
+			} else {
+				require.Error(t, err)
+				require.NotNil(t, err)
+			}
+		})
+	}
+}

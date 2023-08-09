@@ -73,7 +73,6 @@ type azureSDKHandler struct {
 
 const (
 	VirtualMachineResourceType = "Microsoft.Compute/virtualMachines"
-	AzureUriPattern = "/subscriptions/([^/]+)/?(?:resourceGroups/([^/]+))?"
 )
 
 // mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
@@ -157,10 +156,6 @@ func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) {
 	h.deploymentsClient = h.resourcesClientFactory.NewDeploymentsClient()
 }
 
-func newAzureHandler() AzureSDKHandler {
-	
-	return &azureSDKHandler{}
-}
 // GetAzureCredentials returns an Azure credential.
 // it uses the azidentity.NewDefaultAzureCredential() function to create a new Azure credential.
 func (h *azureSDKHandler) GetAzureCredentials() (azcore.TokenCredential, error) {
@@ -169,11 +164,12 @@ func (h *azureSDKHandler) GetAzureCredentials() (azcore.TokenCredential, error) 
 
 func (h *azureSDKHandler) SetSubIdAndResourceGroup(resourceID string) error {
 	parts := strings.Split(resourceID, "/")
-
-	// assumption: the format is for a resource applied to a resource group:
-	// "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{extensionResourceProviderNamespace}/{extensionResourceType}/{extensionResourceName}"
-	if len(parts) < 8 || parts[1] != "subscriptions" || parts[3] != "resourceGroups" {
-		return fmt.Errorf("invalid resource ID, a valid resource ID should be in the format of /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/...")
+	// ID would look like this "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{extensionResourceProviderNamespace}/
+	// {extensionResourceType}/{extensionResourceName}"
+	// 4 is the minimum number of parts that could be accepted in the case of a rg id for example
+	if len(parts) < 4 || parts[1] != "subscriptions" || parts[3] != "resourceGroups" {
+		return fmt.Errorf("invalid resource ID, a valid resource ID should be in the format of /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/.."+
+			" but got %s", resourceID)
 	}
 	h.subscriptionID = parts[2]
 	h.resourceGroupName = parts[4]
