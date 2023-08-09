@@ -165,6 +165,11 @@ func (m *mockAzureSDKHandler) GetLastSegment(resourceID string) (string, error) 
 	return args.String(0), args.Error(1)
 }
 
+func (m *mockAzureSDKHandler) SetSubIdAndResourceGroup(resourceID string) error {
+	args := m.Called(resourceID)
+	return args.Error(0)
+}
+
 func setupAzurePluginServer() (*azurePluginServer, *mockAzureSDKHandler, context.Context) {
 	// Create a new instance of the azurePluginServer
 	server := &azurePluginServer{}
@@ -338,7 +343,7 @@ func TestGetPermitList(t *testing.T) {
 	t.Run("TestGetPermitList: Failure while connecting to azure", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		// Set up mock behavior for the Azure SDK handler to return an error on GetAzureCredentials call
-		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("connection error"))
+		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("error while getting azure credentials"))
 
 		// Call the GetPermitList function
 		permitList, err := server.GetPermitList(ctx, fakeResource)
@@ -544,7 +549,7 @@ func TestAddPermitListRules(t *testing.T) {
 	// Test 3: Failed during connection
 	t.Run("AddPermitListRules: Failure while connecting to azure", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("error while connecting to azure"))
+		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("error while getting azure credentials"))
 		resp, err := server.AddPermitListRules(ctx, fakePl)
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -739,7 +744,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	// Test 3: Deletion error while connecting to azure
 	t.Run("DeletePermitListRules: Failure while Connecting To Azure", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("azure error"))
+		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("error while getting azure credentials"))
 		resp, err := server.DeletePermitListRules(ctx, fakePl)
 
 		require.Error(t, err)
@@ -818,11 +823,4 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		require.NotNil(t, err)
 		require.Nil(t, resp)
 	})
-}
-
-func TestNewAzureServer(t *testing.T) {
-	server := newAzureServer()
-
-	require.NotNil(t, server)
-	require.NotNil(t, server.azureHandler)
 }

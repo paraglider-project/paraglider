@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 
@@ -53,6 +52,7 @@ type AzureSDKHandler interface {
 	GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string
 	GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error)
 	GetLastSegment(resourceID string) (string, error)
+	SetSubIdAndResourceGroup(resourceID string) error
 }
 
 type azureSDKHandler struct {
@@ -73,6 +73,7 @@ type azureSDKHandler struct {
 
 const (
 	VirtualMachineResourceType = "Microsoft.Compute/virtualMachines"
+	AzureUriPattern = "/subscriptions/([^/]+)/?(?:resourceGroups/([^/]+))?"
 )
 
 // mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
@@ -156,16 +157,27 @@ func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) {
 	h.deploymentsClient = h.resourcesClientFactory.NewDeploymentsClient()
 }
 
+func newAzureHandler() AzureSDKHandler {
+	
+	return &azureSDKHandler{}
+}
 // GetAzureCredentials returns an Azure credential.
 // it uses the azidentity.NewDefaultAzureCredential() function to create a new Azure credential.
 func (h *azureSDKHandler) GetAzureCredentials() (azcore.TokenCredential, error) {
-	h.subscriptionID = os.Getenv("AZURE_SUBSCRIPTION_ID")
-	h.resourceGroupName = os.Getenv("AZURE_RESOURCE_GROUP_NAME")
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
-	if err != nil {
-		return nil, err
+	return azidentity.NewDefaultAzureCredential(nil)
+}
+
+func (h *azureSDKHandler) SetSubIdAndResourceGroup(resourceID string) error {
+	parts := strings.Split(resourceID, "/")
+
+	// assumption: the format is for a resource applied to a resource group:
+	// "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{extensionResourceProviderNamespace}/{extensionResourceType}/{extensionResourceName}"
+	if len(parts) < 8 || parts[1] != "subscriptions" || parts[3] != "resourceGroups" {
+		return fmt.Errorf("invalid resource ID, a valid resource ID should be in the format of /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/...")
 	}
-	return cred, nil
+	h.subscriptionID = parts[2]
+	h.resourceGroupName = parts[4]
+	return nil
 }
 
 // GetResourceNIC returns the network interface card (NIC) for a given resource ID.
