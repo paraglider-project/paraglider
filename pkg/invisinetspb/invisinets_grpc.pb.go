@@ -45,7 +45,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CloudPluginClient interface {
-	GetUsedAddressSpaces(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AddressSpaceList, error)
+	GetUsedAddressSpaces(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*AddressSpaceList, error)
 	CreateResource(ctx context.Context, in *ResourceDescription, opts ...grpc.CallOption) (*BasicResponse, error)
 	GetPermitList(ctx context.Context, in *ResourceID, opts ...grpc.CallOption) (*PermitList, error)
 	AddPermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error)
@@ -60,7 +60,7 @@ func NewCloudPluginClient(cc grpc.ClientConnInterface) CloudPluginClient {
 	return &cloudPluginClient{cc}
 }
 
-func (c *cloudPluginClient) GetUsedAddressSpaces(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AddressSpaceList, error) {
+func (c *cloudPluginClient) GetUsedAddressSpaces(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*AddressSpaceList, error) {
 	out := new(AddressSpaceList)
 	err := c.cc.Invoke(ctx, CloudPlugin_GetUsedAddressSpaces_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -109,7 +109,7 @@ func (c *cloudPluginClient) DeletePermitListRules(ctx context.Context, in *Permi
 // All implementations must embed UnimplementedCloudPluginServer
 // for forward compatibility
 type CloudPluginServer interface {
-	GetUsedAddressSpaces(context.Context, *Empty) (*AddressSpaceList, error)
+	GetUsedAddressSpaces(context.Context, *InvisinetsDeployment) (*AddressSpaceList, error)
 	CreateResource(context.Context, *ResourceDescription) (*BasicResponse, error)
 	GetPermitList(context.Context, *ResourceID) (*PermitList, error)
 	AddPermitListRules(context.Context, *PermitList) (*BasicResponse, error)
@@ -121,7 +121,7 @@ type CloudPluginServer interface {
 type UnimplementedCloudPluginServer struct {
 }
 
-func (UnimplementedCloudPluginServer) GetUsedAddressSpaces(context.Context, *Empty) (*AddressSpaceList, error) {
+func (UnimplementedCloudPluginServer) GetUsedAddressSpaces(context.Context, *InvisinetsDeployment) (*AddressSpaceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUsedAddressSpaces not implemented")
 }
 func (UnimplementedCloudPluginServer) CreateResource(context.Context, *ResourceDescription) (*BasicResponse, error) {
@@ -150,7 +150,7 @@ func RegisterCloudPluginServer(s grpc.ServiceRegistrar, srv CloudPluginServer) {
 }
 
 func _CloudPlugin_GetUsedAddressSpaces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
+	in := new(InvisinetsDeployment)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func _CloudPlugin_GetUsedAddressSpaces_Handler(srv interface{}, ctx context.Cont
 		FullMethod: CloudPlugin_GetUsedAddressSpaces_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CloudPluginServer).GetUsedAddressSpaces(ctx, req.(*Empty))
+		return srv.(CloudPluginServer).GetUsedAddressSpaces(ctx, req.(*InvisinetsDeployment))
 	}
 	return interceptor(ctx, in, info, handler)
 }
