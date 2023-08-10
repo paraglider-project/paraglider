@@ -49,6 +49,9 @@ jobs:
             target_arch: amd64
           - target_os: darwin
             target_arch: arm64
+    permissions:
+      contents: 'read'
+      id-token: 'write'
     steps:
       - name: Check out repo
         uses: actions/checkout@v3
@@ -207,9 +210,6 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v1    
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        permissions:
-          contents: 'read'
-          id-token: 'write'
         with:
           workload_identity_provider: 'projects/594071265942/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider'
           service_account: 'github-actions@invisinets-playground.iam.gserviceaccount.com'
