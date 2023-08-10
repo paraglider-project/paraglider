@@ -3,6 +3,7 @@ linters:
   - goheader
 issues:
   exclude-rules:
+    # Ignore test files which have unit/integration tags
     - path: _test\.go
       linters:
         - goheader
