@@ -50,7 +50,8 @@ jobs:
           - target_os: darwin
             target_arch: arm64
     permissions:
-      contents: read/write
+      checks: 'read'
+      contents: 'read'
       id-token: 'write'
     steps:
       - name: Check out repo
