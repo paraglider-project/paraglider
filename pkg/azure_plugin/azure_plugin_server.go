@@ -33,23 +33,29 @@ const (
 	InvisinetsPrefix = "invisinets"
 )
 
+type ResourceIDInfo struct {
+	SubscriptionID    string
+	ResourceGroupName string
+	VMName            string
+}
+
 type azurePluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
 	azureHandler AzureSDKHandler
 }
 
-func (s *azurePluginServer) setupAzureHandler(resourceId string) error {
+func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) error {
 	cred, err := s.azureHandler.GetAzureCredentials()
 	if err != nil {
 		logger.Log.Printf("An error occured while getting azure credentials:%+v", err)
 		return err
 	}
-	s.azureHandler.InitializeClients(cred)
-	err = s.azureHandler.SetSubIdAndResourceGroup(resourceId)
+	s.azureHandler.SetSubIdAndResourceGroup(resourceIdInfo)
+	err = s.azureHandler.InitializeClients(cred)
 	if err != nil {
-		logger.Log.Printf("An error occured while setting subId and resource group for resource %s: %+v", resourceId, err)
-		return err
+		logger.Log.Printf("An error occured while initializing azure clients: %+v", err)
 	}
+
 	return nil
 }
 
@@ -57,7 +63,12 @@ func (s *azurePluginServer) setupAzureHandler(resourceId string) error {
 // associated with the resource and filtering out the Invisinets rules
 func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
 	resourceId := resourceID.Id
-	err := s.setupAzureHandler(resourceId)
+	resourceIdInfo, err := getResourceIDInfo(resourceId)
+	if err != nil {
+		logger.Log.Printf("An error occured while getting resource ID info: %+v", err)
+		return nil, err
+	}
+	err = s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +105,12 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invis
 // It returns a BasicResponse that includes the nsg ID if successful and an error if it fails.
 func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
 	resourceID := pl.GetAssociatedResource()
-	err := s.setupAzureHandler(resourceID)
+	resourceIdInfo, err := getResourceIDInfo(resourceID)
+	if err != nil {
+		logger.Log.Printf("An error occured while getting resource ID info: %+v", err)
+		return nil, err
+	}
+	err = s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +179,12 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 // DeletePermitListRules does the mapping from Invisinets to Azure by deleting NSG rules for the given resource.
 func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
 	resourceID := pl.GetAssociatedResource()
-	err := s.setupAzureHandler(resourceID)
+	resourceIdInfo, err := getResourceIDInfo(resourceID)
+	if err != nil {
+		logger.Log.Printf("An error occured while getting resource ID info: %+v", err)
+		return nil, err
+	}
+	err = s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -212,8 +233,15 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 		return nil, err
 	}
 
-	// TODO @nnomier: use the actual ide resourceDes.Id
-	err = s.setupAzureHandler("")
+	// TODO @nnomier: use the actual id resourceDes.Id
+	resourceId := "PLACEHOLDER"
+	resourceIdInfo, err := getResourceIDInfo(resourceId)
+	if err != nil {
+		logger.Log.Printf("An error occured while getting resource id info:%+v", err)
+		return nil, err
+	}
+
+	err = s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +267,7 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 		},
 	}
 
-	invisinetsVm, err = s.azureHandler.CreateVirtualMachine(c, *invisinetsVm, getInvisinetsResourceName("vm"))
+	invisinetsVm, err = s.azureHandler.CreateVirtualMachine(c, *invisinetsVm, resourceIdInfo.VMName)
 	if err != nil {
 		logger.Log.Printf("An error occured while creating the virtual machine:%+v", err)
 		return nil, err
@@ -299,7 +327,11 @@ func (s *azurePluginServer) getNSGFromResource(c context.Context, resourceID str
 		return nil, err
 	}
 
-	// get the NSG ID associated with the resource
+	// avoid nil pointer dereference error
+	if nic.Properties.NetworkSecurityGroup == nil {
+		return nil, fmt.Errorf("resource %s does not have a network security group", resourceID)
+	}
+
 	nsgID := *nic.Properties.NetworkSecurityGroup.ID
 	nsgName, err := s.azureHandler.GetLastSegment(nsgID)
 	if err != nil {
@@ -386,4 +418,26 @@ func getVmFromResourceDesc(resourceDesc []byte) (*armcompute.VirtualMachine, err
 func getInvisinetsResourceName(resourceType string) string {
 	// TODO @nnomier: change based on invisinets naming convention
 	return InvisinetsPrefix + "-" + resourceType + "-" + uuid.New().String()
+}
+
+func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
+	parts := strings.Split(resourceID, "/")
+	if len(parts) < 5 {
+		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected at least 5 parts in the format of '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/...', got %d", len(parts))
+	}
+
+	if parts[0] != "" || parts[1] != "subscriptions" || parts[3] != "resourceGroups" {
+		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/...', got '%s'", resourceID)
+	}
+
+	info := ResourceIDInfo{
+		SubscriptionID:    parts[2],
+		ResourceGroupName: parts[4],
+	}
+
+	if len(parts) >= 9 && parts[5] == "providers" && parts[6] == "Microsoft.Compute" && parts[7] == "virtualMachines" {
+		info.VMName = parts[8]
+	}
+
+	return info, nil
 }
