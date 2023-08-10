@@ -50,9 +50,11 @@ jobs:
           - target_os: darwin
             target_arch: arm64
     permissions:
-      checks: 'write'
-      contents: 'read'
-      id-token: 'write'
+      checks: write
+      contents: read
+      id-token: write
+      issues: read
+      pull-requests: write
     steps:
       - name: Check out repo
         uses: actions/checkout@v3
