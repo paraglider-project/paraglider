@@ -44,11 +44,14 @@ type teardownInfo struct {
 }
 
 // Cleans up any resources that were created
+// If you got a panic while the tests ran, you may need to manually clean up resources, which is most easily done through the console.
+// 1. Delete VMs (https://cloud.google.com/compute/docs/instances/deleting-instance).
+// 2. Delete VPC (https://cloud.google.com/vpc/docs/create-modify-vpc-networks#deleting_a_network). Doing this in the console should delete any associated firewalls and subnets.
 func teardownIntegrationTest(teardownInfo *teardownInfo) {
 	// Delete VMs
 	instancesClient, err := compute.NewInstancesRESTClient(teardownInfo.ctx)
 	if err != nil {
-		panic(fmt.Sprintf("Error while creating client (you may need to manually delete any resources that were created): %v", err))
+		panic(fmt.Sprintf("Error while creating client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 	}
 	for _, insertInstanceReq := range teardownInfo.insertInstanceReqs {
 		deleteInstanceReq := &computepb.DeleteInstanceRequest{
@@ -61,12 +64,12 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 			var e *googleapi.Error
 			if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
 				// Ignore 404 errors since resource may not have been created due to an error while running the test
-				panic(fmt.Sprintf("Error on delete instance request (you may need to manually delete any resources that were created): %v", err))
+				panic(fmt.Sprintf("Error on delete instance request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 			}
 		} else {
 			err = deleteInstanceReqOp.Wait(teardownInfo.ctx)
 			if err != nil {
-				panic(fmt.Sprintf("Error while waiting on delete instance op (you may need to manually delete any resources that were created): %v", err))
+				panic(fmt.Sprintf("Error while waiting on delete instance op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 			}
 		}
 	}
@@ -74,11 +77,11 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 	// Delete subnetworks
 	networksClient, err := compute.NewNetworksRESTClient(teardownInfo.ctx)
 	if err != nil {
-		panic(fmt.Sprintf("Error while creating networks client (you may need to manually delete any resources that were created): %v", err))
+		panic(fmt.Sprintf("Error while creating networks client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 	}
 	subnetworksClient, err := compute.NewSubnetworksRESTClient(teardownInfo.ctx)
 	if err != nil {
-		panic(fmt.Sprintf("Error while creating subnetworks client (you may need to manually delete any resources that were created): %v", err))
+		panic(fmt.Sprintf("Error while creating subnetworks client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 	}
 	deletedSubnetworkRegions := map[string]bool{}
 	for _, insertInstanceReq := range teardownInfo.insertInstanceReqs {
@@ -94,12 +97,12 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 				var e *googleapi.Error
 				if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
 					// Ignore 404 errors since resource may not have been created due to an error while running the test
-					panic(fmt.Sprintf("Error on delete subnetwork request (you may need to manually delete any resources that were created): %v", err))
+					panic(fmt.Sprintf("Error on delete subnetwork request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 				}
 			} else {
 				err = deleteSubnetworkOp.Wait(teardownInfo.ctx)
 				if err != nil {
-					panic(fmt.Sprintf("Error while waiting on delete subnetwork op (you may need to manually delete any resources that were created): %v", err))
+					panic(fmt.Sprintf("Error while waiting on delete subnetwork op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 				}
 			}
 			deletedSubnetworkRegions[region] = true
@@ -113,11 +116,11 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 	}
 	getEffectiveFirewallsResp, err := networksClient.GetEffectiveFirewalls(teardownInfo.ctx, getEffectiveFirewallsReq)
 	if err != nil {
-		panic(fmt.Sprintf("Error while getting firewalls (you may need to manually delete any resources that were created): %v", err))
+		panic(fmt.Sprintf("Error while getting firewalls (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 	}
 	firewallsClient, err := compute.NewFirewallsRESTClient(teardownInfo.ctx)
 	if err != nil {
-		panic(fmt.Sprintf("Error while creating firewalls client (you may need to manually delete any resources that were created): %v", err))
+		panic(fmt.Sprintf("Error while creating firewalls client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 	}
 	for _, firewall := range getEffectiveFirewallsResp.Firewalls {
 		deleteFirewallReq := &computepb.DeleteFirewallRequest{
@@ -129,12 +132,12 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 			var e *googleapi.Error
 			if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
 				// Ignore 404 errors since resource may not have been created due to an error while running the test
-				panic(fmt.Sprintf("Error on delete firewall request (you may need to manually delete any resources that were created): %v", err))
+				panic(fmt.Sprintf("Error on delete firewall request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 			}
 		} else {
 			err = deleteFirewallOp.Wait(teardownInfo.ctx)
 			if err != nil {
-				panic(fmt.Sprintf("Error while waiting on delete firewall op (you may need to manually delete any resources that were created): %v", err))
+				panic(fmt.Sprintf("Error while waiting on delete firewall op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 			}
 		}
 	}
@@ -149,12 +152,12 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 		var e *googleapi.Error
 		if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
 			// Ignore 404 errors since resource may not have been created due to an error while running the test
-			panic(fmt.Sprintf("Error on delete subnetwork request (you may need to manually delete any resources that were created): %v", err))
+			panic(fmt.Sprintf("Error on delete subnetwork request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 		}
 	} else {
 		err = deleteNetworkOp.Wait(teardownInfo.ctx)
 		if err != nil {
-			panic(fmt.Sprintf("Error while waiting on delete network op (you may need to manually delete any resources that were created): %v", err))
+			panic(fmt.Sprintf("Error while waiting on delete network op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 		}
 	}
 }

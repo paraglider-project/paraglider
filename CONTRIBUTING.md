@@ -76,7 +76,7 @@ If you would like to run these locally, you will need to be authenticated. The f
 
 1. [Install the gcloud CLI](https://cloud.google.com/sdk/docs/install). If you're using the dev container, this will already be installed for you.
 2. [Set up your application default credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc).
-3. Set the environment variable `INVISINETS_GCP_PROJECT`. Setting this every time may get tedious, so we advise you set this in your shell config or use [direnv](https://direnv.net). (TODO @seankimkdy: mention GitHub issue regarding this once created).
+3. Set the environment variable `INVISINETS_GCP_PROJECT`. Setting this every time may get tedious, so we advise you set this in your shell config or use [direnv](https://direnv.net). Note that this is due to a known limitation where the [Go OAuth2 package does not return the project ID when using application default credentials](https://github.com/golang/oauth2/issues). 
 
 ### Editor
 
