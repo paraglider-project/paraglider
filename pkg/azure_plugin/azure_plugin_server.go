@@ -234,7 +234,8 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 	}
 
 	// TODO @nnomier: use the actual id resourceDes.Id
-	resourceId := "PLACEHOLDER"
+	resourceId := "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/vm123"
+
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
 	if err != nil {
 		logger.Log.Printf("An error occured while getting resource id info:%+v", err)
@@ -420,9 +421,9 @@ func getInvisinetsResourceName(resourceType string) string {
 	return InvisinetsPrefix + "-" + resourceType + "-" + uuid.New().String()
 }
 
-// getResourceIDInfo parses the resourceID to extract subscriptionID and resourceGroupName (and VM name if needed) 
+// getResourceIDInfo parses the resourceID to extract subscriptionID and resourceGroupName (and VM name if needed)
 // and returns a ResourceIDInfo object filled with the extracted values
-// a valid resourceID should be in the format of '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/...' 
+// a valid resourceID should be in the format of '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/...'
 func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	parts := strings.Split(resourceID, "/")
 	if len(parts) < 5 {
