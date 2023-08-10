@@ -47,6 +47,7 @@ const (
 	networkTagPrefix      = "invisinets-permitlist-" // Prefixe for GCP tags related to invisinets
 	firewallNamePrefix    = "fw-" + networkTagPrefix // Prefixe for firewall names related to invisinets
 	firewallNameMaxLength = 62                       // GCP imposed max length for firewall name
+	computeURLPrefix      = "https://www.googleapis.com/compute/v1/"
 )
 
 // Maps between of GCP and Invisinets traffic direction terminologies
@@ -103,6 +104,17 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 // Gets a GCP network tag for a GCP resource
 func getGCPNetworkTag(gcpResourceId uint64) string {
 	return networkTagPrefix + strconv.FormatUint(gcpResourceId, 10)
+}
+
+// Parses GCP compute URL for desired fields
+func parseGCPURL(url string) map[string]string {
+	path := strings.TrimPrefix(url, computeURLPrefix)
+	parsedURL := map[string]string{}
+	pathComponents := strings.Split(path, "/")
+	for i := 0; i < len(pathComponents)-1; i += 2 {
+		parsedURL[pathComponents[i]] = pathComponents[i+1]
+	}
+	return parsedURL
 }
 
 func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
@@ -370,7 +382,8 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	} else {
 		// Check if there is a subnet in the region that resource will be placed in
 		for _, subnetURL := range getNetworkResp.Subnetworks {
-			if subnetName == subnetURL[strings.LastIndex(subnetURL, "/")+1:] {
+			parsedSubnetURL := parseGCPURL(subnetURL)
+			if subnetName == parsedSubnetURL["subnetworks"] {
 				subnetExists = true
 				break
 			}
@@ -487,12 +500,11 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsD
 	} else {
 		addressSpaceList.AddressSpaces = make([]string, len(getNetworkResp.Subnetworks))
 		for i, subnetURL := range getNetworkResp.Subnetworks {
-			subnetName := subnetURL[strings.LastIndex(subnetURL, "/")+1:]
-			subnetRegion := subnetName[strings.Index(subnetName, "-")+1 : strings.LastIndex(subnetName, "-")]
+			parsedSubnetURL := parseGCPURL(subnetURL)
 			getSubnetworkRequest := &computepb.GetSubnetworkRequest{
 				Project:    project,
-				Region:     subnetRegion,
-				Subnetwork: subnetName,
+				Region:     parsedSubnetURL["regions"],
+				Subnetwork: parsedSubnetURL["subnetworks"],
 			}
 			getSubnetworkResp, err := subnetworksClient.Get(ctx, getSubnetworkRequest)
 			if err != nil {
