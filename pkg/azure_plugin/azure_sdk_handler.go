@@ -159,7 +159,11 @@ func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) {
 // GetAzureCredentials returns an Azure credential.
 // it uses the azidentity.NewDefaultAzureCredential() function to create a new Azure credential.
 func (h *azureSDKHandler) GetAzureCredentials() (azcore.TokenCredential, error) {
-	return azidentity.NewDefaultAzureCredential(nil)
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		return nil, err
+	}
+	return cred, nil
 }
 
 func (h *azureSDKHandler) SetSubIdAndResourceGroup(resourceID string) error {
