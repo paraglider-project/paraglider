@@ -408,7 +408,7 @@ func getVmFromResourceDesc(resourceDesc []byte) (*armcompute.VirtualMachine, err
 
 	// Reject VMs that already have network interfaces
 	if vm.Properties.NetworkProfile != nil && vm.Properties.NetworkProfile.NetworkInterfaces != nil {
-		return nil, fmt.Errorf("resource description cannot contains network interface")
+		return nil, fmt.Errorf("resource description cannot contain network interface")
 	}
 
 	return vm, nil
@@ -420,6 +420,9 @@ func getInvisinetsResourceName(resourceType string) string {
 	return InvisinetsPrefix + "-" + resourceType + "-" + uuid.New().String()
 }
 
+// getResourceIDInfo parses the resourceID to extract subscriptionID and resourceGroupName (and VM name if needed) 
+// and returns a ResourceIDInfo object filled with the extracted values
+// a valid resourceID should be in the format of '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/...' 
 func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	parts := strings.Split(resourceID, "/")
 	if len(parts) < 5 {
