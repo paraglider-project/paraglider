@@ -467,3 +467,56 @@ func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescriptio
 
 	return s._CreateResource(ctx, resourceDescription, instancesClient, networksClient, subnetworksClient)
 }
+
+func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsDeployment *invisinetspb.InvisinetsDeployment, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.AddressSpaceList, error) {
+	project := invisinetsDeployment.Id
+	addressSpaceList := &invisinetspb.AddressSpaceList{}
+
+	getNetworkReq := &computepb.GetNetworkRequest{
+		Network: vpcName,
+		Project: project,
+	}
+	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
+	if err != nil {
+		var e *googleapi.Error
+		if ok := errors.As(err, &e); ok && e.Code == http.StatusNotFound {
+			return addressSpaceList, nil
+		} else {
+			return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
+		}
+	} else {
+		addressSpaceList.AddressSpaces = make([]string, len(getNetworkResp.Subnetworks))
+		for i, subnetURL := range getNetworkResp.Subnetworks {
+			subnetName := subnetURL[strings.LastIndex(subnetURL, "/")+1:]
+			subnetRegion := subnetName[strings.Index(subnetName, "-")+1 : strings.LastIndex(subnetName, "-")]
+			getSubnetworkRequest := &computepb.GetSubnetworkRequest{
+				Project:    project,
+				Region:     subnetRegion,
+				Subnetwork: subnetName,
+			}
+			getSubnetworkResp, err := subnetworksClient.Get(ctx, getSubnetworkRequest)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get invisinets subnetwork: %w", err)
+			}
+			addressSpaceList.AddressSpaces[i] = *getSubnetworkResp.IpCidrRange
+		}
+	}
+
+	return addressSpaceList, nil
+}
+
+func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, invisinetsDeployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
+	networksClient, err := compute.NewNetworksRESTClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewNetworksRESTClient: %w", err)
+	}
+	defer networksClient.Close()
+
+	subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewSubnetworksRESTClient: %w", err)
+	}
+	defer subnetworksClient.Close()
+
+	return s._GetUsedAddressSpaces(ctx, invisinetsDeployment, networksClient, subnetworksClient)
+}
