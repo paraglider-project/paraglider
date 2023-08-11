@@ -498,7 +498,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsD
 			return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
 		}
 	} else {
-		addressSpaceList.AddressSpaces = make([]string, len(getNetworkResp.Subnetworks))
+		addressSpaceList.Mappings = make([]*invisinetspb.RegionAddressSpaceMap, len(getNetworkResp.Subnetworks))
 		for i, subnetURL := range getNetworkResp.Subnetworks {
 			parsedSubnetURL := parseGCPURL(subnetURL)
 			getSubnetworkRequest := &computepb.GetSubnetworkRequest{
@@ -510,7 +510,10 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsD
 			if err != nil {
 				return nil, fmt.Errorf("failed to get invisinets subnetwork: %w", err)
 			}
-			addressSpaceList.AddressSpaces[i] = *getSubnetworkResp.IpCidrRange
+			addressSpaceList.Mappings[i] = &invisinetspb.RegionAddressSpaceMap{
+				Region:       parsedSubnetURL["regions"],
+				AddressSpace: *getSubnetworkResp.IpCidrRange,
+			}
 		}
 	}
 
