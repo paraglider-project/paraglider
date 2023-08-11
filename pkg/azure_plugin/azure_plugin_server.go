@@ -292,7 +292,17 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment
 		return nil, err
 	}
 
-	return &invisinetspb.AddressSpaceList{AddressSpaces: addressSpaces}, nil
+	var invisinetMapping []*invisinetspb.RegionAddressSpaceMap
+	for region, address := range addressSpaces {
+		logger.Log.Printf("Invisinets address space: %s -> %s", address, region)
+		mapping := &invisinetspb.RegionAddressSpaceMap{
+			AddressSpace: address,
+			Region:       region,
+		}
+		invisinetMapping = append(invisinetMapping, mapping)
+	}
+
+	return &invisinetspb.AddressSpaceList{Mappings: invisinetMapping}, nil
 }
 
 // GetOrCreateNSG returns the network security group object given the resource NIC

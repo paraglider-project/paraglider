@@ -219,7 +219,8 @@ func initializeReqRespMap() map[string]interface{} {
 			VirtualNetworkListResult: armnetwork.VirtualNetworkListResult{
 				Value: []*armnetwork.VirtualNetwork{
 					{
-						Name: to.Ptr(validVnetName),
+						Name:     to.Ptr(validVnetName),
+						Location: to.Ptr(testLocation),
 						Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 							AddressSpace: &armnetwork.AddressSpace{
 								AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
@@ -244,10 +245,10 @@ func TestGetVNetsAddressSpaces(t *testing.T) {
 	// Test case: Success
 	t.Run("GetVNetsAddressSpaces: Success", func(t *testing.T) {
 		addresses, err := azureSDKHandlerTest.GetVNetsAddressSpaces(ctx, InvisinetsPrefix)
-
 		require.NoError(t, err)
 		require.NotNil(t, addresses)
-		assert.ElementsMatch(t, addresses, []string{validAddressSpace})
+		require.Len(t, addresses, 1)
+		assert.Equal(t, addresses[testLocation], validAddressSpace)
 	})
 }
 

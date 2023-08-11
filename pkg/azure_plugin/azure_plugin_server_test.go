@@ -163,9 +163,9 @@ func (m *mockAzureSDKHandler) GetInvisinetsVnet(ctx context.Context, prefix stri
 	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
 }
 
-func (m *mockAzureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix string) ([]string, error) {
+func (m *mockAzureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string]string, error) {
 	args := m.Called(ctx, prefix)
-	return args.Get(0).([]string), args.Error(1)
+	return args.Get(0).(map[string]string), args.Error(1)
 }
 
 func (m *mockAzureSDKHandler) GetLastSegment(resourceID string) (string, error) {
@@ -755,7 +755,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 func TestGetUsedAddressSpaces(t *testing.T) {
 	server, mockAzureHandler, ctx := setupAzurePluginServer()
-	fakeAddressList := []string{validAddressSpace}
+	fakeAddressList := map[string]string{testLocation: validAddressSpace}
 	mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 	mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
 	mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return(nil)
@@ -766,7 +766,9 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, addressList)
-	require.Equal(t, addressList.AddressSpaces, fakeAddressList)
+	require.Len(t, addressList.Mappings, 1)
+	assert.Equal(t, validAddressSpace, addressList.Mappings[0].AddressSpace)
+	assert.Equal(t, testLocation, addressList.Mappings[0].Region)
 }
 
 func getFakePermitList() (*invisinetspb.PermitList, []string, error) {
