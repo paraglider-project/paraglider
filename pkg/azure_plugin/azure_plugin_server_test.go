@@ -759,14 +759,13 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 	mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return()
 	mockAzureHandler.On("GetVNetsAddressSpaces", ctx, InvisinetsPrefix).Return(fakeAddressList, nil)
-	addressList, err := server.GetUsedAddressSpaces(ctx)
+	addressList, err := server.GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet"})
 
 	require.NoError(t, err)
 	require.NotNil(t, addressList)
 	// this just validates that the address list returned from
 	// the handler is the one returned at the end
-	// TODO @nnomier: modify this test to validate that the response
-	require.Equal(t, addressList, fakeAddressList)
+	require.Equal(t, addressList.AddressSpaces, fakeAddressList)
 }
 
 func getFakePermitList() (*invisinetspb.PermitList, []string, error) {
