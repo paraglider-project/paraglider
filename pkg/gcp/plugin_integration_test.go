@@ -162,6 +162,7 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 	}
 }
 
+// Tests creating two vms in separate regions and basic add/delete/get permit list functionality
 func TestIntegration(t *testing.T) {
 	// Setup
 	project := os.Getenv("INVISINETS_GCP_PROJECT")

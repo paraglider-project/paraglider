@@ -146,7 +146,7 @@ func getProtocolNumber(firewallProtocol string) (int32, error) {
 		var err error
 		protocolNumber, err = strconv.Atoi(firewallProtocol)
 		if err != nil {
-			return 0, fmt.Errorf("could not convert protocol number to")
+			return 0, fmt.Errorf("could not convert GCP firewall protocol to protocol number")
 		}
 	}
 	return int32(protocolNumber), nil
