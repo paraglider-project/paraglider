@@ -321,7 +321,6 @@ func (h *azureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string
 	return nil
 }
 
-
 func (h *azureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix string) ([]string, error) {
 	addressSpaces := []string{}
 	pager := h.virtualNetworksClient.NewListAllPager(nil)

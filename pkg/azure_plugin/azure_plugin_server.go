@@ -275,13 +275,17 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 }
 
 // GetUsedAddressSpaces returns the address spaces used by invisinets which are the address spaces of the invisinets vnets
-func (s *azurePluginServer)GetUsedAddressSpaces(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
-	cred, err := s.azureHandler.GetAzureCredentials()
+func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
+	resourceIdInfo, err := getResourceIDInfo(deployment.Id)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting azure credentials:%+v", err)
+		logger.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
 	}
-	s.azureHandler.InitializeClients(cred)
+	err = s.setupAzureHandler(resourceIdInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	addressSpaces, err := s.azureHandler.GetVNetsAddressSpaces(ctx, InvisinetsPrefix)
 	if err != nil {
 		logger.Log.Printf("An error occured while getting address spaces:%+v", err)
