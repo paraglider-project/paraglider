@@ -757,10 +757,12 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	server, mockAzureHandler, ctx := setupAzurePluginServer()
 	fakeAddressList := []string{validAddressSpace}
 	mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
-	mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return()
+	mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
 	mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return(nil)
 	mockAzureHandler.On("GetVNetsAddressSpaces", ctx, InvisinetsPrefix).Return(fakeAddressList, nil)
-	addressList, err := server.GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet"})
+	addressList, err := server.GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{
+		Id: "/subscriptions/123/resourceGroups/rg",
+	})
 
 	require.NoError(t, err)
 	require.NotNil(t, addressList)
