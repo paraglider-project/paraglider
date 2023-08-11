@@ -235,6 +235,7 @@ func TestCreateResource(t *testing.T) {
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
 			Description:  desc,
 			AddressSpace: validAddressSpace,
+			Id:           "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/vm123",
 		})
 
 		require.NoError(t, err)
@@ -854,7 +855,7 @@ func TestGetResourceIDInfo(t *testing.T) {
 		{
 			name:         "ValidResourceIDWithVM",
 			resourceID:   "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/vm123",
-			expectedInfo: ResourceIDInfo{SubscriptionID: "sub123", ResourceGroupName: "rg123", VMName: "vm123"},
+			expectedInfo: ResourceIDInfo{SubscriptionID: "sub123", ResourceGroupName: "rg123", ResourceName: "vm123"},
 			expectError:  false,
 		},
 		{

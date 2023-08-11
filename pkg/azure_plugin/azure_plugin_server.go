@@ -36,7 +36,7 @@ const (
 type ResourceIDInfo struct {
 	SubscriptionID    string
 	ResourceGroupName string
-	VMName            string
+	ResourceName      string
 }
 
 type azurePluginServer struct {
@@ -233,10 +233,7 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 		return nil, err
 	}
 
-	// TODO @nnomier: use the actual id resourceDes.Id
-	resourceId := "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/vm123"
-
-	resourceIdInfo, err := getResourceIDInfo(resourceId)
+	resourceIdInfo, err := getResourceIDInfo(resourceDesc.Id)
 	if err != nil {
 		logger.Log.Printf("An error occured while getting resource id info:%+v", err)
 		return nil, err
@@ -268,7 +265,7 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 		},
 	}
 
-	invisinetsVm, err = s.azureHandler.CreateVirtualMachine(c, *invisinetsVm, resourceIdInfo.VMName)
+	invisinetsVm, err = s.azureHandler.CreateVirtualMachine(c, *invisinetsVm, resourceIdInfo.ResourceName)
 	if err != nil {
 		logger.Log.Printf("An error occured while creating the virtual machine:%+v", err)
 		return nil, err
@@ -439,8 +436,8 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 		ResourceGroupName: parts[4],
 	}
 
-	if len(parts) >= 9 && parts[5] == "providers" && parts[6] == "Microsoft.Compute" && parts[7] == "virtualMachines" {
-		info.VMName = parts[8]
+	if len(parts) >= 9 {
+		info.ResourceName = parts[8]
 	}
 
 	return info, nil
