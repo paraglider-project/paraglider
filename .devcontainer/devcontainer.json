@@ -7,7 +7,10 @@
 		"ghcr.io/guiyomh/features/golangci-lint:0": {
 			"version": "latest"
 		},
-		"ghcr.io/jungaretti/features/make:1": {}
+		"ghcr.io/jungaretti/features/make:1": {},
+		"ghcr.io/dhoeric/features/google-cloud-cli:1": {
+            "version": "latest"
+        }
 	},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
