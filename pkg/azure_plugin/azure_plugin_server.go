@@ -437,9 +437,7 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 		ResourceGroupName: parts[4],
 	}
 
-	if len(parts) >= 9 {
-		info.ResourceName = parts[8]
-	}
+	info.ResourceName = parts[len(parts)-1]
 
 	return info, nil
 }

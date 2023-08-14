@@ -861,7 +861,7 @@ func TestGetResourceIDInfo(t *testing.T) {
 		{
 			name:         "ValidResourceIDWithoutVM",
 			resourceID:   "/subscriptions/sub123/resourceGroups/rg123",
-			expectedInfo: ResourceIDInfo{SubscriptionID: "sub123", ResourceGroupName: "rg123"},
+			expectedInfo: ResourceIDInfo{SubscriptionID: "sub123", ResourceGroupName: "rg123", ResourceName: "rg123"},
 			expectError:  false,
 		},
 		{
