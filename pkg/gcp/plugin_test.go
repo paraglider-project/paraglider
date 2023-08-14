@@ -189,8 +189,15 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponseFakeOperation(w)
 				return
 			}
-		case path == urlProject+urlRegion+"/subnetworks":
-			if r.Method == "POST" {
+		case strings.HasPrefix(path, urlProject+urlRegion+"/subnetworks"):
+			if r.Method == "GET" {
+				if fakeServerState.subnetwork != nil {
+					sendResponse(w, fakeServerState.subnetwork)
+				} else {
+					http.Error(w, "no subnetwork found", http.StatusNotFound)
+				}
+				return
+			} else if r.Method == "POST" {
 				sendResponseFakeOperation(w)
 				return
 			}
@@ -211,6 +218,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				return
 			}
 		}
+		fmt.Printf("unsupported request: %s %s\n", r.Method, path)
 		http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
 	})
 }
@@ -220,6 +228,7 @@ type fakeServerState struct {
 	firewallMap map[string]*computepb.Firewall
 	instance    *computepb.Instance
 	network     *computepb.Network
+	subnetwork  *computepb.Subnetwork
 }
 
 // Struct to hold fake clients
@@ -511,6 +520,31 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
+
+	teardown(fakeServer, fakeClients)
+}
+
+func TestGetUsedAddressSpaces(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		network: &computepb.Network{
+			Name: proto.String(vpcName),
+			Subnetworks: []string{
+				"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-fake1/subnetworks/invisinets-us-fake1-subnet",
+			},
+		},
+		subnetwork: &computepb.Subnetwork{
+			IpCidrRange: proto.String("10.1.2.0/24"),
+		},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"networks": true, "subnetworks": true})
+
+	s := &GCPPluginServer{}
+
+	usedAddressSpacesExpected := []*invisinetspb.RegionAddressSpaceMap{{Region: "us-fake1", AddressSpace: "10.1.2.0/24"}}
+	addressSpaceList, err := s._GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{Id: fakeProject}, fakeClients.networksClient, fakeClients.subnetworksClient)
+	require.NoError(t, err)
+	require.NotNil(t, addressSpaceList)
+	assert.ElementsMatch(t, usedAddressSpacesExpected, addressSpaceList.Mappings)
 
 	teardown(fakeServer, fakeClients)
 }
