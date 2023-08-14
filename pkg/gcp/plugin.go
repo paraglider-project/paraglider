@@ -151,6 +151,7 @@ func getProtocolNumber(firewallProtocol string) (int32, error) {
 		}
 	}
 	return int32(protocolNumber), nil
+}
 
 // Parses GCP compute URL for desired fields
 func parseGCPURL(url string) map[string]string {
