@@ -292,14 +292,14 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment
 		return nil, err
 	}
 
-	var invisinetMapping []*invisinetspb.RegionAddressSpaceMap
+	invisinetMapping := make([]*invisinetspb.RegionAddressSpaceMap, len(addressSpaces))
+	i := 0
 	for region, address := range addressSpaces {
-		logger.Log.Printf("Invisinets address space: %s -> %s", address, region)
-		mapping := &invisinetspb.RegionAddressSpaceMap{
+		invisinetMapping[i] = &invisinetspb.RegionAddressSpaceMap{
 			AddressSpace: address,
 			Region:       region,
 		}
-		invisinetMapping = append(invisinetMapping, mapping)
+		i++
 	}
 
 	return &invisinetspb.AddressSpaceList{Mappings: invisinetMapping}, nil
