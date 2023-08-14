@@ -131,7 +131,10 @@ func setup(reqRespMap map[string]interface{}) *azureSDKHandler {
 	azureSDKHandlerTest := &azureSDKHandler{}
 	azureSDKHandlerTest.resourceGroupName = rgName
 	azureSDKHandlerTest.subscriptionID = subID
-	azureSDKHandlerTest.InitializeClients(&dummyToken{})
+	err = azureSDKHandlerTest.InitializeClients(&dummyToken{})
+	if err != nil {
+		log.Fatal(err)
+	}
 	return azureSDKHandlerTest
 }
 

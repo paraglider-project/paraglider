@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 
@@ -39,7 +38,7 @@ import (
 
 type AzureSDKHandler interface {
 	CreateNetworkSecurityGroup(ctx context.Context, nsgName string, location string) (*armnetwork.SecurityGroup, error)
-	InitializeClients(cred azcore.TokenCredential)
+	InitializeClients(cred azcore.TokenCredential) error
 	GetAzureCredentials() (azcore.TokenCredential, error)
 	GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interface, error)
 	UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error)
@@ -53,6 +52,7 @@ type AzureSDKHandler interface {
 	GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string
 	GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error)
 	GetLastSegment(resourceID string) (string, error)
+	SetSubIdAndResourceGroup(resourceIdInfo ResourceIDInfo)
 }
 
 type azureSDKHandler struct {
@@ -130,21 +130,21 @@ func (h *azureSDKHandler) CreateNetworkSecurityGroup(ctx context.Context, nsgNam
 }
 
 // InitializeClients initializes the necessary azure clients for the necessary operations
-func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) {
+func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
 	var err error
 	h.resourcesClientFactory, err = armresources.NewClientFactory(h.subscriptionID, cred, nil)
 	if err != nil {
-		logger.Log.Fatal(err)
+		return err
 	}
 
 	h.networkClientFactory, err = armnetwork.NewClientFactory(h.subscriptionID, cred, nil)
 	if err != nil {
-		logger.Log.Fatal(err)
+		return err
 	}
 
 	h.computeClientFactory, err = armcompute.NewClientFactory(h.subscriptionID, cred, nil)
 	if err != nil {
-		logger.Log.Fatal(err)
+		return err
 	}
 
 	h.securityGroupsClient = h.networkClientFactory.NewSecurityGroupsClient()
@@ -154,18 +154,22 @@ func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) {
 	h.resourcesClient = h.resourcesClientFactory.NewClient()
 	h.virtualMachinesClient = h.computeClientFactory.NewVirtualMachinesClient()
 	h.deploymentsClient = h.resourcesClientFactory.NewDeploymentsClient()
+	return nil
 }
 
 // GetAzureCredentials returns an Azure credential.
 // it uses the azidentity.NewDefaultAzureCredential() function to create a new Azure credential.
 func (h *azureSDKHandler) GetAzureCredentials() (azcore.TokenCredential, error) {
-	h.subscriptionID = os.Getenv("AZURE_SUBSCRIPTION_ID")
-	h.resourceGroupName = os.Getenv("AZURE_RESOURCE_GROUP_NAME")
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
 		return nil, err
 	}
 	return cred, nil
+}
+
+func (h *azureSDKHandler) SetSubIdAndResourceGroup(resourceIdInfo ResourceIDInfo) {
+	h.subscriptionID = resourceIdInfo.SubscriptionID
+	h.resourceGroupName = resourceIdInfo.ResourceGroupName
 }
 
 // GetResourceNIC returns the network interface card (NIC) for a given resource ID.
@@ -375,7 +379,7 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 	// Check if the virtual network has a subnet with the specified address space
 	vnet := &res.VirtualNetwork
 	if len(vnet.Properties.Subnets) == 0 || *vnet.Properties.Subnets[0].Properties.AddressPrefix != addressSpace {
-		return nil, fmt.Errorf("existing invisinets network: '%s' does not have a subnet with address space %s", vnetName, addressSpace)
+		return nil, fmt.Errorf("existing invisinets network: '%s' in location '%s' does not have a subnet with address space %s", vnetName, location, addressSpace)
 	}
 
 	return vnet, nil
