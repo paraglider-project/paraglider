@@ -39,7 +39,6 @@ import (
 
 type teardownInfo struct {
 	project            string
-	ctx                context.Context
 	insertInstanceReqs []*computepb.InsertInstanceRequest
 }
 
@@ -49,7 +48,7 @@ type teardownInfo struct {
 // 2. Delete VPC (https://cloud.google.com/vpc/docs/create-modify-vpc-networks#deleting_a_network). Doing this in the console should delete any associated firewalls and subnets.
 func teardownIntegrationTest(teardownInfo *teardownInfo) {
 	// Delete VMs
-	instancesClient, err := compute.NewInstancesRESTClient(teardownInfo.ctx)
+	instancesClient, err := compute.NewInstancesRESTClient(context.Background())
 	if err != nil {
 		panic(fmt.Sprintf("Error while creating client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 	}
@@ -59,7 +58,7 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 			Zone:     insertInstanceReq.Zone,
 			Instance: *insertInstanceReq.InstanceResource.Name,
 		}
-		deleteInstanceReqOp, err := instancesClient.Delete(teardownInfo.ctx, deleteInstanceReq)
+		deleteInstanceReqOp, err := instancesClient.Delete(context.Background(), deleteInstanceReq)
 		if err != nil {
 			var e *googleapi.Error
 			if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
@@ -67,7 +66,7 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 				panic(fmt.Sprintf("Error on delete instance request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 			}
 		} else {
-			err = deleteInstanceReqOp.Wait(teardownInfo.ctx)
+			err = deleteInstanceReqOp.Wait(context.Background())
 			if err != nil {
 				panic(fmt.Sprintf("Error while waiting on delete instance op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 			}
@@ -75,11 +74,11 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 	}
 
 	// Delete subnetworks
-	networksClient, err := compute.NewNetworksRESTClient(teardownInfo.ctx)
+	networksClient, err := compute.NewNetworksRESTClient(context.Background())
 	if err != nil {
 		panic(fmt.Sprintf("Error while creating networks client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 	}
-	subnetworksClient, err := compute.NewSubnetworksRESTClient(teardownInfo.ctx)
+	subnetworksClient, err := compute.NewSubnetworksRESTClient(context.Background())
 	if err != nil {
 		panic(fmt.Sprintf("Error while creating subnetworks client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 	}
@@ -92,7 +91,7 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 				Region:     region,
 				Subnetwork: getGCPSubnetworkName(region),
 			}
-			deleteSubnetworkOp, err := subnetworksClient.Delete(teardownInfo.ctx, deleteSubnetworkReq)
+			deleteSubnetworkOp, err := subnetworksClient.Delete(context.Background(), deleteSubnetworkReq)
 			if err != nil {
 				var e *googleapi.Error
 				if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
@@ -100,7 +99,7 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 					panic(fmt.Sprintf("Error on delete subnetwork request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 				}
 			} else {
-				err = deleteSubnetworkOp.Wait(teardownInfo.ctx)
+				err = deleteSubnetworkOp.Wait(context.Background())
 				if err != nil {
 					panic(fmt.Sprintf("Error while waiting on delete subnetwork op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 				}
@@ -114,11 +113,11 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 		Project: teardownInfo.project,
 		Network: vpcName,
 	}
-	getEffectiveFirewallsResp, err := networksClient.GetEffectiveFirewalls(teardownInfo.ctx, getEffectiveFirewallsReq)
+	getEffectiveFirewallsResp, err := networksClient.GetEffectiveFirewalls(context.Background(), getEffectiveFirewallsReq)
 	if err != nil {
 		panic(fmt.Sprintf("Error while getting firewalls (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 	}
-	firewallsClient, err := compute.NewFirewallsRESTClient(teardownInfo.ctx)
+	firewallsClient, err := compute.NewFirewallsRESTClient(context.Background())
 	if err != nil {
 		panic(fmt.Sprintf("Error while creating firewalls client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 	}
@@ -127,7 +126,7 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 			Firewall: *firewall.Name,
 			Project:  teardownInfo.project,
 		}
-		deleteFirewallOp, err := firewallsClient.Delete(teardownInfo.ctx, deleteFirewallReq)
+		deleteFirewallOp, err := firewallsClient.Delete(context.Background(), deleteFirewallReq)
 		if err != nil {
 			var e *googleapi.Error
 			if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
@@ -135,7 +134,7 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 				panic(fmt.Sprintf("Error on delete firewall request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 			}
 		} else {
-			err = deleteFirewallOp.Wait(teardownInfo.ctx)
+			err = deleteFirewallOp.Wait(context.Background())
 			if err != nil {
 				panic(fmt.Sprintf("Error while waiting on delete firewall op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 			}
@@ -147,7 +146,7 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 		Project: teardownInfo.project,
 		Network: vpcName,
 	}
-	deleteNetworkOp, err := networksClient.Delete(teardownInfo.ctx, deleteNetworkReq)
+	deleteNetworkOp, err := networksClient.Delete(context.Background(), deleteNetworkReq)
 	if err != nil {
 		var e *googleapi.Error
 		if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
@@ -155,7 +154,7 @@ func teardownIntegrationTest(teardownInfo *teardownInfo) {
 			panic(fmt.Sprintf("Error on delete subnetwork request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 		}
 	} else {
-		err = deleteNetworkOp.Wait(teardownInfo.ctx)
+		err = deleteNetworkOp.Wait(context.Background())
 		if err != nil {
 			panic(fmt.Sprintf("Error while waiting on delete network op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
 		}
@@ -169,13 +168,11 @@ func TestIntegration(t *testing.T) {
 	if project == "" {
 		panic("INVISINETS_GCP_PROJECT must be set")
 	}
-	ctx := context.Background()
 	s := &GCPPluginServer{}
 
 	// Teardown
 	teardownInfo := &teardownInfo{
 		project:            project,
-		ctx:                ctx,
 		insertInstanceReqs: make([]*computepb.InsertInstanceRequest, 0),
 	}
 	defer teardownIntegrationTest(teardownInfo)
@@ -213,7 +210,7 @@ func TestIntegration(t *testing.T) {
 		AddressSpace: "10.162.162.0/24",
 	}
 	createResource1Resp, err := s.CreateResource(
-		ctx,
+		context.Background(),
 		resourceDescription1,
 	)
 	require.NoError(t, err)
@@ -240,7 +237,7 @@ func TestIntegration(t *testing.T) {
 		AddressSpace: "10.162.168.0/24",
 	}
 	createResource2Resp, err := s.CreateResource(
-		ctx,
+		context.Background(),
 		resourceDescription2,
 	)
 	require.NoError(t, err)
@@ -248,7 +245,7 @@ func TestIntegration(t *testing.T) {
 	assert.True(t, createResource2Resp.Success)
 
 	// Check VPC and subnetworks
-	networksClient, err := compute.NewNetworksRESTClient(ctx)
+	networksClient, err := compute.NewNetworksRESTClient(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +253,7 @@ func TestIntegration(t *testing.T) {
 		Network: vpcName,
 		Project: project,
 	}
-	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
+	getNetworkResp, err := networksClient.Get(context.Background(), getNetworkReq)
 	require.NoError(t, err)
 	require.NotNil(t, getNetworkResp)
 	subnetworks := make([]string, len(getNetworkResp.Subnetworks))
@@ -282,23 +279,23 @@ func TestIntegration(t *testing.T) {
 			},
 		},
 	}
-	addPermitListRulesResp, err := s.AddPermitListRules(ctx, permitList)
+	addPermitListRulesResp, err := s.AddPermitListRules(context.Background(), permitList)
 	require.NoError(t, err)
 	require.NotNil(t, addPermitListRulesResp)
 	assert.True(t, addPermitListRulesResp.Success)
 
-	getPermitListAfterAddResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: resourceId})
+	getPermitListAfterAddResp, err := s.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: resourceId})
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListAfterAddResp)
 	assert.Equal(t, permitList.AssociatedResource, getPermitListAfterAddResp.AssociatedResource)
 	assert.ElementsMatch(t, permitList.Rules, getPermitListAfterAddResp.Rules)
 
-	deletePermitListRulesResp, err := s.DeletePermitListRules(ctx, permitList)
+	deletePermitListRulesResp, err := s.DeletePermitListRules(context.Background(), permitList)
 	require.NoError(t, err)
 	require.NotNil(t, deletePermitListRulesResp)
 	assert.True(t, deletePermitListRulesResp.Success)
 
-	getPermitListAfterDeleteResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: resourceId})
+	getPermitListAfterDeleteResp, err := s.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: resourceId})
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListAfterDeleteResp)
 	assert.Equal(t, permitList.AssociatedResource, getPermitListAfterDeleteResp.AssociatedResource)
