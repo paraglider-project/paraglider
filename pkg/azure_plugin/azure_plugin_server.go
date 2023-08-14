@@ -274,6 +274,37 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 	return &invisinetspb.BasicResponse{Success: true, Message: "successfully created resource", UpdatedResource: &invisinetspb.ResourceID{Id: *invisinetsVm.ID}}, nil
 }
 
+// GetUsedAddressSpaces returns the address spaces used by invisinets which are the address spaces of the invisinets vnets
+func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
+	resourceIdInfo, err := getResourceIDInfo(deployment.Id)
+	if err != nil {
+		logger.Log.Printf("An error occured while getting resource ID info: %+v", err)
+		return nil, err
+	}
+	err = s.setupAzureHandler(resourceIdInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	addressSpaces, err := s.azureHandler.GetVNetsAddressSpaces(ctx, InvisinetsPrefix)
+	if err != nil {
+		logger.Log.Printf("An error occured while getting address spaces:%+v", err)
+		return nil, err
+	}
+
+	invisinetMapping := make([]*invisinetspb.RegionAddressSpaceMap, len(addressSpaces))
+	i := 0
+	for region, address := range addressSpaces {
+		invisinetMapping[i] = &invisinetspb.RegionAddressSpaceMap{
+			AddressSpace: address,
+			Region:       region,
+		}
+		i++
+	}
+
+	return &invisinetspb.AddressSpaceList{Mappings: invisinetMapping}, nil
+}
+
 // GetOrCreateNSG returns the network security group object given the resource NIC
 // if the network security group does not exist, it creates a new one and attach it to the NIC
 func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.Interface, resourceID string) (*armnetwork.SecurityGroup, error) {
