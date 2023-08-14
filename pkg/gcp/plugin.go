@@ -63,19 +63,48 @@ var (
 	}
 )
 
+// Maps protocol names that can appear in GCP firewall rules to IANA numbers
+// https://cloud.google.com/firewall/docs/firewalls#protocols_and_ports
+var gcpProtocolNumberMap = map[string]int{
+	"tcp":  6,
+	"udp":  17,
+	"icmp": 1,
+	"esp":  50,
+	"ah":   51,
+	"sctp": 132,
+	"ipip": 94,
+}
+
 // Checks if GCP firewall rule is an Invisinets permit list rule
 func isInvisinetsPermitListRule(firewall *computepb.Firewall) bool {
-	return strings.Compare(*firewall.Network, vpcURL) == 0 && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
+	return strings.HasSuffix(*firewall.Network, vpcURL) && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
 }
 
 // Checks if GCP firewall rule is equivalent to an Invisinets permit list rule
 func isFirewallEqPermitListRule(firewall *computepb.Firewall, permitListRule *invisinetspb.PermitListRule) bool {
-	return isInvisinetsPermitListRule(firewall) &&
-		strings.Compare(*firewall.Direction, firewallDirectionMapInvisinetsToGCP[permitListRule.Direction]) == 0 &&
-		len(firewall.Allowed) == 1 &&
-		strings.Compare(*firewall.Allowed[0].IPProtocol, strconv.Itoa(int(permitListRule.Protocol))) == 0 &&
-		len(firewall.Allowed[0].Ports) == 1 &&
-		strings.Compare(firewall.Allowed[0].Ports[0], strconv.Itoa(int(permitListRule.DstPort))) == 0
+	if !isInvisinetsPermitListRule(firewall) {
+		return false
+	}
+	if *firewall.Direction != firewallDirectionMapInvisinetsToGCP[permitListRule.Direction] {
+		return false
+	}
+	if len(firewall.Allowed) != 1 {
+		return false
+	}
+	protocolNumber, err := getProtocolNumber(*firewall.Allowed[0].IPProtocol)
+	if err != nil {
+		return false
+	}
+	if protocolNumber != permitListRule.Protocol {
+		return false
+	}
+	if len(firewall.Allowed[0].Ports) != 1 {
+		return false
+	}
+	if firewall.Allowed[0].Ports[0] != strconv.Itoa(int(permitListRule.DstPort)) {
+		return false
+	}
+	return true
 }
 
 // Splits a resource id in the form of {project}/{zone}/{instance}
@@ -104,6 +133,24 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 // Gets a GCP network tag for a GCP resource
 func getGCPNetworkTag(gcpResourceId uint64) string {
 	return networkTagPrefix + strconv.FormatUint(gcpResourceId, 10)
+}
+
+// Gets a GCP subnetwork name for Invisinets based on region
+func getGCPSubnetworkName(region string) string {
+	return "invisinets-" + region + "-subnet"
+}
+
+// Gets protocol number from GCP specificiation (either a name like "tcp" or an int-string like "6")
+func getProtocolNumber(firewallProtocol string) (int32, error) {
+	protocolNumber, ok := gcpProtocolNumberMap[firewallProtocol]
+	if !ok {
+		var err error
+		protocolNumber, err = strconv.Atoi(firewallProtocol)
+		if err != nil {
+			return 0, fmt.Errorf("could not convert GCP firewall protocol to protocol number")
+		}
+	}
+	return int32(protocolNumber), nil
 }
 
 // Parses GCP compute URL for desired fields
@@ -140,9 +187,9 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 		if isInvisinetsPermitListRule(firewall) {
 			permitListRules := make([]*invisinetspb.PermitListRule, len(firewall.Allowed))
 			for i, rule := range firewall.Allowed {
-				protocolNumber, err := strconv.Atoi(*rule.IPProtocol)
+				protocolNumber, err := getProtocolNumber(*rule.IPProtocol)
 				if err != nil {
-					return nil, fmt.Errorf("could not convert protocol number to")
+					return nil, fmt.Errorf("could not get protocol number: %w", err)
 				}
 
 				direction := firewallDirectionMapGCPToInvisinets[*firewall.Direction]
@@ -349,7 +396,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 
 	project, zone := insertInstanceRequest.Project, insertInstanceRequest.Zone
 	region := zone[:strings.LastIndex(zone, "-")]
-	subnetName := "invisinets-" + region + "-subnet"
+	subnetName := getGCPSubnetworkName(region)
 	subnetExists := false
 
 	// Check if Invisinets specific VPC already exists
