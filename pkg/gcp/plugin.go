@@ -249,9 +249,9 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 		return nil, fmt.Errorf("unable to get effective firewalls: %w", err)
 	}
 
-	firewallMap := map[string]*computepb.Firewall{}
+	existingFirewalls := map[string]bool{}
 	for _, firewall := range getEffectiveFirewallsResp.Firewalls {
-		firewallMap[*firewall.Name] = firewall
+		existingFirewalls[*firewall.Name] = true
 	}
 
 	// Get GCP network tag corresponding to VM (which will have been set during resource creation)
@@ -271,7 +271,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 		firewallName := getFirewallName(permitListRule)
 
 		// Skip existing permit lists rules
-		if _, ok := firewallMap[getFirewallName(permitListRule)]; ok {
+		if existingFirewalls[firewallName] {
 			continue
 		}
 
@@ -306,6 +306,8 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 		if err = insertFirewallOp.Wait(ctx); err != nil {
 			return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 		}
+
+		existingFirewalls[firewallName] = true
 	}
 
 	return &invisinetspb.BasicResponse{Success: true}, nil
