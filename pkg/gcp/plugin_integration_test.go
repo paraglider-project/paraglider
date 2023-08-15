@@ -31,6 +31,7 @@ import (
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/api/googleapi"
@@ -40,6 +41,21 @@ import (
 type teardownInfo struct {
 	project            string
 	insertInstanceReqs []*computepb.InsertInstanceRequest
+}
+
+// Max lengths for random resource name generation
+const (
+	vpcNameMaxLength = 62
+	vmNameMaxLength  = 63
+)
+
+// Generates random VM name to ensure parallel runs of these tests don't run into duplicate resource issues
+func generateRandomVMName() string {
+	vmName := "vm-invisinets-test-" + uuid.New().String()
+	if len(vmName) > vmNameMaxLength {
+		vmName = vmName[:vmNameMaxLength]
+	}
+	return vmName
 }
 
 // Cleans up any resources that were created
@@ -168,6 +184,11 @@ func TestIntegration(t *testing.T) {
 	if project == "" {
 		panic("INVISINETS_GCP_PROJECT must be set")
 	}
+	vpcName = vpcName + "-" + uuid.New().String() // Set global vpcName variable with randomness to ensure tests running concurrently don't overlap
+	if len(vpcName) > vpcNameMaxLength {
+		vpcName = vpcName[:vpcNameMaxLength]
+	}
+	vpcURL = "global/networks/" + vpcName
 	s := &GCPPluginServer{}
 
 	// Teardown
@@ -191,11 +212,12 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// Create VM in a clean state (i.e. no VPC or subnet)
+	vm1Name := generateRandomVMName()
 	insertInstanceReq1 := &computepb.InsertInstanceRequest{
 		Project: project,
 		Zone:    "us-west1-a",
 		InstanceResource: &computepb.Instance{
-			Name:        proto.String("vm-invisinets-test-1"),
+			Name:        proto.String(vm1Name),
 			MachineType: proto.String("zones/us-west1-a/machineTypes/f1-micro"),
 			Disks:       disks,
 		},
@@ -218,11 +240,12 @@ func TestIntegration(t *testing.T) {
 	assert.True(t, createResource1Resp.Success)
 
 	// Create VM in different region (i.e. requires new subnet to be created)
+	vm2Name := generateRandomVMName()
 	insertInstanceReq2 := &computepb.InsertInstanceRequest{
 		Project: project,
 		Zone:    "us-east1-b",
 		InstanceResource: &computepb.Instance{
-			Name:        proto.String("vm-invisinets-test-2"),
+			Name:        proto.String(vm2Name),
 			MachineType: proto.String("zones/us-east1-b/machineTypes/f1-micro"),
 			Disks:       disks,
 		},
