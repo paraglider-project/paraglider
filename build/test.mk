@@ -16,7 +16,12 @@ GOTEST_OPTS ?=
 # We need the double dash here to separate the 'gotestsum' options from the 'go test' options
 GOTEST_TOOL ?= gotestsum $(GOTESTSUM_OPTS) --
 endif
+GOTEST_CMD = CGO_ENABLED=1 $(GOTEST_TOOL) -v ./internal/... ./pkg/... $(GOTEST_OPTS)
 
 .PHONY: test
 test: ## Runs unit tests in the internal and pkg folders
-	CGO_ENABLED=1 $(GOTEST_TOOL) -v ./internal/... ./pkg/... $(GOTEST_OPTS)
+	$(GOTEST_CMD) -tags=unit
+
+.PHONY: integration-test
+integration-test:
+	$(GOTEST_CMD) -tags=integration

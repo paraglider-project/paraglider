@@ -1,9 +1,19 @@
 linters:
   enable:
   - goheader
+issues:
+  exclude-rules:
+    # Ignore test files which have unit/integration tags
+    - path: _test\.go
+      linters:
+        - goheader
 linters-settings:
   # Settings for linter 'goheader'
   #
   # This is used to validate that all go files have the required copyright header.
   goheader:
     template-path: build/header.tmpl
+run:
+  build-tags:
+    - unit
+    - integration

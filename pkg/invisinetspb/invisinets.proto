@@ -33,8 +33,13 @@ message InvisinetsDeployment {
     string id = 1;
 }
 
+message RegionAddressSpaceMap {
+    string address_space = 1;
+    string region = 2;
+}
+
 message AddressSpaceList {
-    repeated string address_spaces = 1;
+    repeated RegionAddressSpaceMap mappings = 1;
 }
 
 message ResourceID {

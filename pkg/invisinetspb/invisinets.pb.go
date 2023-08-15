@@ -129,18 +129,73 @@ func (x *InvisinetsDeployment) GetId() string {
 	return ""
 }
 
+type RegionAddressSpaceMap struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	AddressSpace string `protobuf:"bytes,1,opt,name=address_space,json=addressSpace,proto3" json:"address_space,omitempty"`
+	Region       string `protobuf:"bytes,2,opt,name=region,proto3" json:"region,omitempty"`
+}
+
+func (x *RegionAddressSpaceMap) Reset() {
+	*x = RegionAddressSpaceMap{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_invisinets_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *RegionAddressSpaceMap) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegionAddressSpaceMap) ProtoMessage() {}
+
+func (x *RegionAddressSpaceMap) ProtoReflect() protoreflect.Message {
+	mi := &file_invisinets_proto_msgTypes[1]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegionAddressSpaceMap.ProtoReflect.Descriptor instead.
+func (*RegionAddressSpaceMap) Descriptor() ([]byte, []int) {
+	return file_invisinets_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *RegionAddressSpaceMap) GetAddressSpace() string {
+	if x != nil {
+		return x.AddressSpace
+	}
+	return ""
+}
+
+func (x *RegionAddressSpaceMap) GetRegion() string {
+	if x != nil {
+		return x.Region
+	}
+	return ""
+}
+
 type AddressSpaceList struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	AddressSpaces []string `protobuf:"bytes,1,rep,name=address_spaces,json=addressSpaces,proto3" json:"address_spaces,omitempty"`
+	Mappings []*RegionAddressSpaceMap `protobuf:"bytes,1,rep,name=mappings,proto3" json:"mappings,omitempty"`
 }
 
 func (x *AddressSpaceList) Reset() {
 	*x = AddressSpaceList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_invisinets_proto_msgTypes[1]
+		mi := &file_invisinets_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -153,7 +208,7 @@ func (x *AddressSpaceList) String() string {
 func (*AddressSpaceList) ProtoMessage() {}
 
 func (x *AddressSpaceList) ProtoReflect() protoreflect.Message {
-	mi := &file_invisinets_proto_msgTypes[1]
+	mi := &file_invisinets_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -166,12 +221,12 @@ func (x *AddressSpaceList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddressSpaceList.ProtoReflect.Descriptor instead.
 func (*AddressSpaceList) Descriptor() ([]byte, []int) {
-	return file_invisinets_proto_rawDescGZIP(), []int{1}
+	return file_invisinets_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *AddressSpaceList) GetAddressSpaces() []string {
+func (x *AddressSpaceList) GetMappings() []*RegionAddressSpaceMap {
 	if x != nil {
-		return x.AddressSpaces
+		return x.Mappings
 	}
 	return nil
 }
@@ -187,7 +242,7 @@ type ResourceID struct {
 func (x *ResourceID) Reset() {
 	*x = ResourceID{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_invisinets_proto_msgTypes[2]
+		mi := &file_invisinets_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -200,7 +255,7 @@ func (x *ResourceID) String() string {
 func (*ResourceID) ProtoMessage() {}
 
 func (x *ResourceID) ProtoReflect() protoreflect.Message {
-	mi := &file_invisinets_proto_msgTypes[2]
+	mi := &file_invisinets_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -213,7 +268,7 @@ func (x *ResourceID) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceID.ProtoReflect.Descriptor instead.
 func (*ResourceID) Descriptor() ([]byte, []int) {
-	return file_invisinets_proto_rawDescGZIP(), []int{2}
+	return file_invisinets_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ResourceID) GetId() string {
@@ -236,7 +291,7 @@ type ResourceDescription struct {
 func (x *ResourceDescription) Reset() {
 	*x = ResourceDescription{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_invisinets_proto_msgTypes[3]
+		mi := &file_invisinets_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -249,7 +304,7 @@ func (x *ResourceDescription) String() string {
 func (*ResourceDescription) ProtoMessage() {}
 
 func (x *ResourceDescription) ProtoReflect() protoreflect.Message {
-	mi := &file_invisinets_proto_msgTypes[3]
+	mi := &file_invisinets_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -262,7 +317,7 @@ func (x *ResourceDescription) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceDescription.ProtoReflect.Descriptor instead.
 func (*ResourceDescription) Descriptor() ([]byte, []int) {
-	return file_invisinets_proto_rawDescGZIP(), []int{3}
+	return file_invisinets_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ResourceDescription) GetId() string {
@@ -299,7 +354,7 @@ type BasicResponse struct {
 func (x *BasicResponse) Reset() {
 	*x = BasicResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_invisinets_proto_msgTypes[4]
+		mi := &file_invisinets_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -312,7 +367,7 @@ func (x *BasicResponse) String() string {
 func (*BasicResponse) ProtoMessage() {}
 
 func (x *BasicResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_invisinets_proto_msgTypes[4]
+	mi := &file_invisinets_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -325,7 +380,7 @@ func (x *BasicResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BasicResponse.ProtoReflect.Descriptor instead.
 func (*BasicResponse) Descriptor() ([]byte, []int) {
-	return file_invisinets_proto_rawDescGZIP(), []int{4}
+	return file_invisinets_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *BasicResponse) GetSuccess() bool {
@@ -365,7 +420,7 @@ type PermitListRule struct {
 func (x *PermitListRule) Reset() {
 	*x = PermitListRule{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_invisinets_proto_msgTypes[5]
+		mi := &file_invisinets_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -378,7 +433,7 @@ func (x *PermitListRule) String() string {
 func (*PermitListRule) ProtoMessage() {}
 
 func (x *PermitListRule) ProtoReflect() protoreflect.Message {
-	mi := &file_invisinets_proto_msgTypes[5]
+	mi := &file_invisinets_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -391,7 +446,7 @@ func (x *PermitListRule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PermitListRule.ProtoReflect.Descriptor instead.
 func (*PermitListRule) Descriptor() ([]byte, []int) {
-	return file_invisinets_proto_rawDescGZIP(), []int{5}
+	return file_invisinets_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *PermitListRule) GetId() string {
@@ -448,7 +503,7 @@ type PermitList struct {
 func (x *PermitList) Reset() {
 	*x = PermitList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_invisinets_proto_msgTypes[6]
+		mi := &file_invisinets_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -461,7 +516,7 @@ func (x *PermitList) String() string {
 func (*PermitList) ProtoMessage() {}
 
 func (x *PermitList) ProtoReflect() protoreflect.Message {
-	mi := &file_invisinets_proto_msgTypes[6]
+	mi := &file_invisinets_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -474,7 +529,7 @@ func (x *PermitList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PermitList.ProtoReflect.Descriptor instead.
 func (*PermitList) Descriptor() ([]byte, []int) {
-	return file_invisinets_proto_rawDescGZIP(), []int{6}
+	return file_invisinets_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *PermitList) GetAssociatedResource() string {
@@ -498,11 +553,18 @@ var file_invisinets_proto_rawDesc = []byte{
 	0x74, 0x6f, 0x12, 0x0c, 0x69, 0x6e, 0x76, 0x69, 0x73, 0x69, 0x6e, 0x65, 0x74, 0x73, 0x70, 0x62,
 	0x22, 0x26, 0x0a, 0x14, 0x49, 0x6e, 0x76, 0x69, 0x73, 0x69, 0x6e, 0x65, 0x74, 0x73, 0x44, 0x65,
 	0x70, 0x6c, 0x6f, 0x79, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x22, 0x39, 0x0a, 0x10, 0x41, 0x64, 0x64, 0x72,
-	0x65, 0x73, 0x73, 0x53, 0x70, 0x61, 0x63, 0x65, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x25, 0x0a, 0x0e,
-	0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x5f, 0x73, 0x70, 0x61, 0x63, 0x65, 0x73, 0x18, 0x01,
-	0x20, 0x03, 0x28, 0x09, 0x52, 0x0d, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x70, 0x61,
-	0x63, 0x65, 0x73, 0x22, 0x1c, 0x0a, 0x0a, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x49,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x22, 0x54, 0x0a, 0x15, 0x52, 0x65, 0x67, 0x69,
+	0x6f, 0x6e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x70, 0x61, 0x63, 0x65, 0x4d, 0x61,
+	0x70, 0x12, 0x23, 0x0a, 0x0d, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x5f, 0x73, 0x70, 0x61,
+	0x63, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73,
+	0x73, 0x53, 0x70, 0x61, 0x63, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x72, 0x65, 0x67, 0x69, 0x6f, 0x6e,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x72, 0x65, 0x67, 0x69, 0x6f, 0x6e, 0x22, 0x53,
+	0x0a, 0x10, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x53, 0x70, 0x61, 0x63, 0x65, 0x4c, 0x69,
+	0x73, 0x74, 0x12, 0x3f, 0x0a, 0x08, 0x6d, 0x61, 0x70, 0x70, 0x69, 0x6e, 0x67, 0x73, 0x18, 0x01,
+	0x20, 0x03, 0x28, 0x0b, 0x32, 0x23, 0x2e, 0x69, 0x6e, 0x76, 0x69, 0x73, 0x69, 0x6e, 0x65, 0x74,
+	0x73, 0x70, 0x62, 0x2e, 0x52, 0x65, 0x67, 0x69, 0x6f, 0x6e, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73,
+	0x73, 0x53, 0x70, 0x61, 0x63, 0x65, 0x4d, 0x61, 0x70, 0x52, 0x08, 0x6d, 0x61, 0x70, 0x70, 0x69,
+	0x6e, 0x67, 0x73, 0x22, 0x1c, 0x0a, 0x0a, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x49,
 	0x44, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x69,
 	0x64, 0x22, 0x6c, 0x0a, 0x13, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x44, 0x65, 0x73,
 	0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01,
@@ -588,36 +650,38 @@ func file_invisinets_proto_rawDescGZIP() []byte {
 }
 
 var file_invisinets_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_invisinets_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_invisinets_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_invisinets_proto_goTypes = []interface{}{
-	(Direction)(0),               // 0: invisinetspb.Direction
-	(*InvisinetsDeployment)(nil), // 1: invisinetspb.InvisinetsDeployment
-	(*AddressSpaceList)(nil),     // 2: invisinetspb.AddressSpaceList
-	(*ResourceID)(nil),           // 3: invisinetspb.ResourceID
-	(*ResourceDescription)(nil),  // 4: invisinetspb.ResourceDescription
-	(*BasicResponse)(nil),        // 5: invisinetspb.BasicResponse
-	(*PermitListRule)(nil),       // 6: invisinetspb.PermitListRule
-	(*PermitList)(nil),           // 7: invisinetspb.PermitList
+	(Direction)(0),                // 0: invisinetspb.Direction
+	(*InvisinetsDeployment)(nil),  // 1: invisinetspb.InvisinetsDeployment
+	(*RegionAddressSpaceMap)(nil), // 2: invisinetspb.RegionAddressSpaceMap
+	(*AddressSpaceList)(nil),      // 3: invisinetspb.AddressSpaceList
+	(*ResourceID)(nil),            // 4: invisinetspb.ResourceID
+	(*ResourceDescription)(nil),   // 5: invisinetspb.ResourceDescription
+	(*BasicResponse)(nil),         // 6: invisinetspb.BasicResponse
+	(*PermitListRule)(nil),        // 7: invisinetspb.PermitListRule
+	(*PermitList)(nil),            // 8: invisinetspb.PermitList
 }
 var file_invisinets_proto_depIdxs = []int32{
-	3, // 0: invisinetspb.BasicResponse.updated_resource:type_name -> invisinetspb.ResourceID
-	0, // 1: invisinetspb.PermitListRule.direction:type_name -> invisinetspb.Direction
-	6, // 2: invisinetspb.PermitList.rules:type_name -> invisinetspb.PermitListRule
-	1, // 3: invisinetspb.CloudPlugin.GetUsedAddressSpaces:input_type -> invisinetspb.InvisinetsDeployment
-	4, // 4: invisinetspb.CloudPlugin.CreateResource:input_type -> invisinetspb.ResourceDescription
-	3, // 5: invisinetspb.CloudPlugin.GetPermitList:input_type -> invisinetspb.ResourceID
-	7, // 6: invisinetspb.CloudPlugin.AddPermitListRules:input_type -> invisinetspb.PermitList
-	7, // 7: invisinetspb.CloudPlugin.DeletePermitListRules:input_type -> invisinetspb.PermitList
-	2, // 8: invisinetspb.CloudPlugin.GetUsedAddressSpaces:output_type -> invisinetspb.AddressSpaceList
-	5, // 9: invisinetspb.CloudPlugin.CreateResource:output_type -> invisinetspb.BasicResponse
-	7, // 10: invisinetspb.CloudPlugin.GetPermitList:output_type -> invisinetspb.PermitList
-	5, // 11: invisinetspb.CloudPlugin.AddPermitListRules:output_type -> invisinetspb.BasicResponse
-	5, // 12: invisinetspb.CloudPlugin.DeletePermitListRules:output_type -> invisinetspb.BasicResponse
-	8, // [8:13] is the sub-list for method output_type
-	3, // [3:8] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	2, // 0: invisinetspb.AddressSpaceList.mappings:type_name -> invisinetspb.RegionAddressSpaceMap
+	4, // 1: invisinetspb.BasicResponse.updated_resource:type_name -> invisinetspb.ResourceID
+	0, // 2: invisinetspb.PermitListRule.direction:type_name -> invisinetspb.Direction
+	7, // 3: invisinetspb.PermitList.rules:type_name -> invisinetspb.PermitListRule
+	1, // 4: invisinetspb.CloudPlugin.GetUsedAddressSpaces:input_type -> invisinetspb.InvisinetsDeployment
+	5, // 5: invisinetspb.CloudPlugin.CreateResource:input_type -> invisinetspb.ResourceDescription
+	4, // 6: invisinetspb.CloudPlugin.GetPermitList:input_type -> invisinetspb.ResourceID
+	8, // 7: invisinetspb.CloudPlugin.AddPermitListRules:input_type -> invisinetspb.PermitList
+	8, // 8: invisinetspb.CloudPlugin.DeletePermitListRules:input_type -> invisinetspb.PermitList
+	3, // 9: invisinetspb.CloudPlugin.GetUsedAddressSpaces:output_type -> invisinetspb.AddressSpaceList
+	6, // 10: invisinetspb.CloudPlugin.CreateResource:output_type -> invisinetspb.BasicResponse
+	8, // 11: invisinetspb.CloudPlugin.GetPermitList:output_type -> invisinetspb.PermitList
+	6, // 12: invisinetspb.CloudPlugin.AddPermitListRules:output_type -> invisinetspb.BasicResponse
+	6, // 13: invisinetspb.CloudPlugin.DeletePermitListRules:output_type -> invisinetspb.BasicResponse
+	9, // [9:14] is the sub-list for method output_type
+	4, // [4:9] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_invisinets_proto_init() }
@@ -639,7 +703,7 @@ func file_invisinets_proto_init() {
 			}
 		}
 		file_invisinets_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AddressSpaceList); i {
+			switch v := v.(*RegionAddressSpaceMap); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -651,7 +715,7 @@ func file_invisinets_proto_init() {
 			}
 		}
 		file_invisinets_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ResourceID); i {
+			switch v := v.(*AddressSpaceList); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -663,7 +727,7 @@ func file_invisinets_proto_init() {
 			}
 		}
 		file_invisinets_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ResourceDescription); i {
+			switch v := v.(*ResourceID); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -675,7 +739,7 @@ func file_invisinets_proto_init() {
 			}
 		}
 		file_invisinets_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*BasicResponse); i {
+			switch v := v.(*ResourceDescription); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -687,7 +751,7 @@ func file_invisinets_proto_init() {
 			}
 		}
 		file_invisinets_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PermitListRule); i {
+			switch v := v.(*BasicResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -699,6 +763,18 @@ func file_invisinets_proto_init() {
 			}
 		}
 		file_invisinets_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PermitListRule); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_invisinets_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*PermitList); i {
 			case 0:
 				return &v.state
@@ -711,14 +787,14 @@ func file_invisinets_proto_init() {
 			}
 		}
 	}
-	file_invisinets_proto_msgTypes[4].OneofWrappers = []interface{}{}
+	file_invisinets_proto_msgTypes[5].OneofWrappers = []interface{}{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_invisinets_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

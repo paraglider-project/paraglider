@@ -1,3 +1,5 @@
+//go:build unit
+
 /*
 Copyright 2023 The Invisinets Authors.
 
@@ -34,6 +36,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -129,7 +132,10 @@ func setup(reqRespMap map[string]interface{}) *azureSDKHandler {
 	azureSDKHandlerTest := &azureSDKHandler{}
 	azureSDKHandlerTest.resourceGroupName = rgName
 	azureSDKHandlerTest.subscriptionID = subID
-	azureSDKHandlerTest.InitializeClients(&dummyToken{})
+	err = azureSDKHandlerTest.InitializeClients(&dummyToken{})
+	if err != nil {
+		log.Fatal(err)
+	}
 	return azureSDKHandlerTest
 }
 
@@ -140,6 +146,7 @@ func initializeReqRespMap() map[string]interface{} {
 	nicURL := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkInterfaces", subID, rgName)
 	nsgRuleUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkSecurityGroups/%s/securityRules", subID, rgName, validSecurityGroupName)
 	vnetUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
+	listVnetsUrl := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Network/virtualNetworks", subID)
 
 	// Define a map of URLs to responses
 	urlToResponse := map[string]interface{}{
@@ -208,9 +215,41 @@ func initializeReqRespMap() map[string]interface{} {
 		},
 		// vnet not found but a new one is created successfully
 		fmt.Sprintf("%s/%s", vnetUrl, notFoundVnetName): armnetwork.VirtualNetworksClientGetResponse{},
+		listVnetsUrl: armnetwork.VirtualNetworksClientListAllResponse{
+			VirtualNetworkListResult: armnetwork.VirtualNetworkListResult{
+				Value: []*armnetwork.VirtualNetwork{
+					{
+						Name:     to.Ptr(validVnetName),
+						Location: to.Ptr(testLocation),
+						Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+							AddressSpace: &armnetwork.AddressSpace{
+								AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+							},
+						},
+					},
+				},
+			}},
 	}
 
 	return urlToResponse
+}
+
+func TestGetVNetsAddressSpaces(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	urlToResponse := initializeReqRespMap()
+	azureSDKHandlerTest := setup(urlToResponse)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+
+	// Test case: Success
+	t.Run("GetVNetsAddressSpaces: Success", func(t *testing.T) {
+		addresses, err := azureSDKHandlerTest.GetVNetsAddressSpaces(ctx, InvisinetsPrefix)
+		require.NoError(t, err)
+		require.NotNil(t, addresses)
+		require.Len(t, addresses, 1)
+		assert.Equal(t, addresses[testLocation], validAddressSpace)
+	})
 }
 
 func TestCreateSecurityRule(t *testing.T) {
