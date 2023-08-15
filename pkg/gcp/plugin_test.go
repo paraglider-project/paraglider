@@ -74,7 +74,7 @@ var (
 		},
 		Direction:    proto.String(computepb.Firewall_INGRESS.String()),
 		Name:         proto.String(getFirewallName(fakePermitListRule1)),
-		Network:      proto.String(vpcURL),
+		Network:      proto.String(getVPCURL()),
 		SourceRanges: []string{"10.1.2.0/24"},
 		TargetTags:   []string{fakeNetworkTag},
 	}
@@ -94,7 +94,7 @@ var (
 		DestinationRanges: []string{"10.3.4.0/24"},
 		Direction:         proto.String(computepb.Firewall_EGRESS.String()),
 		Name:              proto.String(getFirewallName(fakePermitListRule2)),
-		Network:           proto.String(vpcURL),
+		Network:           proto.String(getVPCURL()),
 		TargetTags:        []string{fakeNetworkTag},
 	}
 )
@@ -309,7 +309,7 @@ func TestGetPermitList(t *testing.T) {
 				},
 				Direction:  proto.String(computepb.Firewall_INGRESS.String()),
 				Name:       proto.String("fw-allow-icmp"),
-				Network:    proto.String(vpcURL),
+				Network:    proto.String(getVPCURL()),
 				TargetTags: []string{"0.0.0.0/0"},
 			},
 		},
