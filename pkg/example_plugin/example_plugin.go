@@ -51,6 +51,11 @@ func (s *cloudPluginServer) CreateResource(c context.Context, resource *invisine
 	return &invisinetspb.BasicResponse{Success: true, Message: resource.Id}, nil
 }
 
+func (s *cloudPluginServer) GetUsedAddressSpaces(c context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
+	mapping := invisinetspb.RegionAddressSpaceMap{Region: "us-west", AddressSpace: "10.0.0.0/16"}
+	return &invisinetspb.AddressSpaceList{Mappings: [](*invisinetspb.RegionAddressSpaceMap){&mapping}}, nil
+}
+
 func newServer() *cloudPluginServer {
 	s := &cloudPluginServer{}
 	return s

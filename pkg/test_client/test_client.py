@@ -23,3 +23,12 @@ test_permit_list = \
 
 r = requests.post("http://0.0.0.0:8080/cloud/{}/resources/{}/permit-list/rules".format("example", 123), headers={"Content-Type": "application/json"}, json=test_permit_list)
 print(r.text)
+
+test_resource = \
+{
+    "id": "resource-id",
+    "description": "some json",
+}
+
+r = requests.post("http://0.0.0.0:8080/cloud/{}/region/{}/resources/{}/".format("example", "us-west", 123), headers={"Content-Type": "application/json"}, json=test_resource)
+print(r.text)
