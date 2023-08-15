@@ -10,6 +10,11 @@ Invisinets is in the prototype phase, and we're currently building it with a sma
 
 See the [contributing guide](./CONTRIBUTING.md) for ways to contribute and instructions.
 
+## Code of Conduct
+
+This project has adopted the code of conduct defined by the Contributor Covenant to clarify expected behavior in our community.
+For more information, see the [Contributor Covenant Code of Conduct 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
+
 ## Known Issues
 
 ### `gopls` Linting Issue in Testing Files on Package Declartion Line

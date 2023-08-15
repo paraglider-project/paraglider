@@ -40,10 +40,13 @@ type GCPPluginServer struct {
 
 // GCP
 // Naming convention loosely follows https://cloud.google.com/architecture/best-practices-vpc-design#naming
+var ( // declared var instead of const so it can be modified in integration tests
+	vpcName = "invisinets-vpc" // Invisinets VPC name
+	vpcURL  = "global/networks/" + vpcName
+)
+
 const (
 	networkInterface      = "nic0"
-	vpcName               = "invisinets-vpc" // Invisinets VPC name
-	vpcURL                = "global/networks/" + vpcName
 	networkTagPrefix      = "invisinets-permitlist-" // Prefixe for GCP tags related to invisinets
 	firewallNamePrefix    = "fw-" + networkTagPrefix // Prefixe for firewall names related to invisinets
 	firewallNameMaxLength = 62                       // GCP imposed max length for firewall name
