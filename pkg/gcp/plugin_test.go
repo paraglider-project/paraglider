@@ -44,11 +44,11 @@ const (
 	fakeZone         = fakeRegion + "-a"
 	fakeInstanceName = "vm-invisinets-fake"
 	fakeInstanceId   = uint64(1234)
-	fakeResourceId   = fakeProject + "/" + fakeZone + "/" + fakeInstanceName
+	fakeResourceId   = "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
 
 	// Missing resources not registered in fake server
 	fakeMissingInstance   = "vm-invisinets-missing"
-	fakeMissingResourceId = fakeProject + "/" + fakeZone + "/" + fakeMissingInstance
+	fakeMissingResourceId = "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeMissingInstance
 
 	// Overarching dummy operation name
 	fakeOperation = "operation-fake"

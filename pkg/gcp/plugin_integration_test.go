@@ -289,7 +289,7 @@ func TestIntegration(t *testing.T) {
 		subnetworks,
 	)
 
-	resourceId := project + "/" + insertInstanceReq1.Zone + "/" + *insertInstanceReq1.InstanceResource.Name
+	resourceId := "projects/" + project + "/zones/" + insertInstanceReq1.Zone + "/instances/" + *insertInstanceReq1.InstanceResource.Name
 
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: resourceId,

@@ -110,12 +110,6 @@ func isFirewallEqPermitListRule(firewall *computepb.Firewall, permitListRule *in
 	return true
 }
 
-// Splits a resource id in the form of {project}/{zone}/{instance}
-func splitResourceId(resourceId string) (string, string, string) {
-	resourceIdSplit := strings.Split(resourceId, "/")
-	return resourceIdSplit[0], resourceIdSplit[1], resourceIdSplit[2]
-}
-
 // Hashes values to lowercase hex string for use in naming GCP resources
 func hash(values ...string) string {
 	hash := sha256.Sum256([]byte(strings.Join(values, "")))
@@ -167,8 +161,14 @@ func parseGCPURL(url string) map[string]string {
 	return parsedURL
 }
 
+// Splits a instance id which follows the GCP URL form the form of projects/{project}/zones/{zone}/instances/{instance}
+func parseInstanceId(instanceId string) (string, string, string) {
+	parsedInstanceId := parseGCPURL(instanceId)
+	return parsedInstanceId["projects"], parsedInstanceId["zones"], parsedInstanceId["instances"]
+}
+
 func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
-	project, zone, instance := splitResourceId(resourceID.Id)
+	project, zone, instance := parseInstanceId(resourceID.Id)
 
 	req := &computepb.GetEffectiveFirewallsInstanceRequest{
 		Instance:         instance,
@@ -238,7 +238,7 @@ func (s *GCPPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 }
 
 func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.BasicResponse, error) {
-	project, zone, instance := splitResourceId(permitList.AssociatedResource)
+	project, zone, instance := parseInstanceId(permitList.AssociatedResource)
 
 	// Get existing firewalls
 	getEffectiveFirewallsReq := &computepb.GetEffectiveFirewallsInstanceRequest{
@@ -333,7 +333,7 @@ func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, permitList *in
 }
 
 func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.BasicResponse, error) {
-	project, zone, instance := splitResourceId(permitList.AssociatedResource)
+	project, zone, instance := parseInstanceId(permitList.AssociatedResource)
 
 	// Get existing firewalls
 	getEffectiveFirewallsReq := &computepb.GetEffectiveFirewallsInstanceRequest{
