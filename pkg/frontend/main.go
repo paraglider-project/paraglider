@@ -134,7 +134,7 @@ func permitListRulesDelete(c *gin.Context) {
 
 func resourceCreate(c *gin.Context) {
 	id := c.Param("id")
-
+	
 	var resource invisinetspb.ResourceDescription
 
 	if err := c.BindJSON(&resource); err != nil {
