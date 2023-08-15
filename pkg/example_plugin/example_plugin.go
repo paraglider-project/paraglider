@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	port = flag.Int("port", 50051, "The server port")
+	port = flag.Int("port", 1002, "The server port")
 )
 
 type cloudPluginServer struct {
@@ -37,6 +37,18 @@ type cloudPluginServer struct {
 
 func (s *cloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
 	return &invisinetspb.PermitList{AssociatedResource: r.Id}, nil
+}
+
+func (s *cloudPluginServer) AddPermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
+	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
+}
+
+func (s *cloudPluginServer) DeletePermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
+	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
+}
+
+func (s *cloudPluginServer) CreateResource(c context.Context, resource *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
+	return &invisinetspb.BasicResponse{Success: true, Message: resource.Id}, nil
 }
 
 func newServer() *cloudPluginServer {

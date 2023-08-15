@@ -33,6 +33,7 @@ import (
 )
 
 const serveraddr = "localhost:50051"
+var pluginAddresses =  map[string]string{}
 
 func createErrorResponse(rid string, message string) gin.H {
 	return gin.H{"id": rid, "err": message}
@@ -40,9 +41,15 @@ func createErrorResponse(rid string, message string) gin.H {
 
 func permitListGet(c *gin.Context) {
 	id := c.Param("id")
+	cloud := c.Param("cloud")
+	cloudClient, ok := pluginAddresses[cloud]
+	if !ok {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, "Invalid cloud name"))
+	}
+
 	emptyresourceId := invisinetspb.ResourceID{Id: id}
 
-	conn, err := grpc.Dial(serveraddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
 		return
@@ -72,6 +79,11 @@ func permitListGet(c *gin.Context) {
 
 func permitListRulesAdd(c *gin.Context) {
 	id := c.Param("id")
+	cloud := c.Param("cloud")
+	cloudClient, ok := pluginAddresses[cloud]
+	if !ok {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, "Invalid cloud name"))
+	}
 
 	var permitListRules invisinetspb.PermitList
 
@@ -80,7 +92,7 @@ func permitListRulesAdd(c *gin.Context) {
 		return
 	}
 
-	conn, err := grpc.Dial(serveraddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
 		return
@@ -103,6 +115,11 @@ func permitListRulesAdd(c *gin.Context) {
 
 func permitListRulesDelete(c *gin.Context) {
 	id := c.Param("id")
+	cloud := c.Param("cloud")
+	cloudClient, ok := pluginAddresses[cloud]
+	if !ok {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, "Invalid cloud name"))
+	}
 
 	var permitListRules invisinetspb.PermitList
 
@@ -111,7 +128,7 @@ func permitListRulesDelete(c *gin.Context) {
 		return
 	}
 
-	conn, err := grpc.Dial(serveraddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
 		return 
@@ -133,7 +150,13 @@ func permitListRulesDelete(c *gin.Context) {
 }
 
 func resourceCreate(c *gin.Context) {
+	// TODO: provide address space (if needed)
 	id := c.Param("id")
+	cloud := c.Param("cloud")
+	cloudClient, ok := pluginAddresses[cloud]
+	if !ok {
+		c.AbortWithStatusJSON(400, createErrorResponse(id, "Invalid cloud name"))
+	}
 
 	var resource invisinetspb.ResourceDescription
 
@@ -142,7 +165,9 @@ func resourceCreate(c *gin.Context) {
 		return
 	}
 
-	conn, err := grpc.Dial(serveraddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// Check the resource region and get corresponding address space from it (or )
+
+	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
 		return
@@ -163,8 +188,11 @@ func resourceCreate(c *gin.Context) {
 	})
 }
 
-
 func main() {
+	pluginAddresses["gcp"] = "localhost:1000" // TODO: provide this as arguments or in a config
+	pluginAddresses["azure"] = "localhost:1001"
+	pluginAddresses["example"] = "localhost:1002"
+
 	router := gin.Default()
 	router.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -172,10 +200,10 @@ func main() {
 		})
 	})
 
-	router.GET("/resources/:id/permit-list", permitListGet)
-	router.POST("/resources/:id/permit-list/rules", permitListRulesAdd)
-	router.DELETE("/resources/:id/permit-list/rules", permitListRulesDelete)
-	router.POST("/resources/:id/", resourceCreate)
+	router.GET("/cloud/:cloud/resources/:id/permit-list", permitListGet)
+	router.POST("/cloud/:cloud/resources/:id/permit-list/rules", permitListRulesAdd)
+	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules", permitListRulesDelete)
+	router.POST("/cloud/:cloud/resources/:id/", resourceCreate)
   
 	err := router.Run(":8080")
 	if err != nil {
