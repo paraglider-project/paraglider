@@ -84,7 +84,7 @@ func init() {
 	ghRunNumber := os.Getenv("GH_RUN_NUMBER")
 	if ghRunNumber != "" {
 		// Prefix resource names with GitHub workflow run numbers to avoid resource name clashes
-		prefix := "GHR" + ghRunNumber + "-"
+		prefix := "github" + ghRunNumber + "-"
 		vpcName = prefix + vpcName
 		subnetworkNamePrefix = prefix + subnetworkNamePrefix
 		networkTagPrefix = prefix + networkTagPrefix
