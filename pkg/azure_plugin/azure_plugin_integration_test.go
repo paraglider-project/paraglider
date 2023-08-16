@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	vmName     = "sample-vm-"
+	vmName     = "sample-vm"
 	diskName   = "sample-disk"
 	location   = "westus"
 	apiVersion = "2019-07-01"
@@ -71,7 +71,7 @@ func createResourceGroup() {
 
 func tearDown() {
 	ctx := context.Background()
-	poller, err := clientFactory.NewResourceGroupsClient().BeginDelete(ctx, resourceGroup, &armresources.ResourceGroupsClientBeginDeleteOptions{ForceDeletionTypes: to.Ptr("Microsoft.Compute/virtualMachines")})
+	poller, err := clientFactory.NewResourceGroupsClient().BeginDelete(ctx, resourceGroup, nil)
 	if err != nil {
 		panic(fmt.Sprintf("Error while deleting resource group: %v", err))
 	}
@@ -131,10 +131,7 @@ func testAddAndDeletePermitList(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListResp)
 
-	assert.ElementsMatch(t, getPermitListResp.Rules, &invisinetspb.PermitList{
-		AssociatedResource: vmID,
-		Rules:              []*invisinetspb.PermitListRule{},
-	})
+	assert.ElementsMatch(t, getPermitListResp.Rules, []*invisinetspb.PermitListRule{})
 }
 
 func setupValidResourceAndPermitList(t *testing.T, permitList *invisinetspb.PermitList, vmID string) (*azurePluginServer, context.Context) {
