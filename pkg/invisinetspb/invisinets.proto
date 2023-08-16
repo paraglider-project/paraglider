@@ -52,6 +52,11 @@ message ResourceDescription {
     string address_space = 3;
 }
 
+message ResourceDescriptionString {
+    string id = 1;
+    string description = 2;
+}
+
 message BasicResponse {
     bool success = 1;
     string message = 2;
