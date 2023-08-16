@@ -122,7 +122,8 @@ func TestPermitListGet(t *testing.T) {
 	r.ServeHTTP(w, req)
 	responseData, _ := io.ReadAll(w.Body)
 	var jsonMap map[string]string
-	json.Unmarshal(responseData, &jsonMap)
+	err := json.Unmarshal(responseData, &jsonMap)
+	require.Nil(t, err)
     assert.Equal(t, expectedResponse, jsonMap)
     assert.Equal(t, http.StatusOK, w.Code)
 
@@ -148,14 +149,14 @@ func TestPermitListRulesAdd(t *testing.T) {
 	// Well-formed request
 	id := "123"
 	tags := []string{"tag"}
-	rule := invisinetspb.PermitListRule{
+	rule := &invisinetspb.PermitListRule{
 		Id: id, 
 		Tag: tags,
 		Direction: invisinetspb.Direction_INBOUND, 
 		SrcPort: 1, 
 		DstPort: 2, 
 		Protocol: 1 }
-	rulesList := invisinetspb.PermitList{AssociatedResource: "123", Rules: []*invisinetspb.PermitListRule{&rule}}
+	rulesList := &invisinetspb.PermitList{AssociatedResource: "123", Rules: []*invisinetspb.PermitListRule{rule}}
 	jsonValue, _ := json.Marshal(rulesList)
 
 	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "example", id)
@@ -197,14 +198,14 @@ func TestPermitListRulesDelete(t *testing.T) {
 	// Well-formed request
 	id := "123"
 	tags := []string{"tag"}
-	rule := invisinetspb.PermitListRule{
+	rule := &invisinetspb.PermitListRule{
 		Id: "id", 
 		Tag: tags,
 		Direction: invisinetspb.Direction_INBOUND, 
 		SrcPort: 1, 
 		DstPort: 2, 
 		Protocol: 1 }
-	rulesList := invisinetspb.PermitList{AssociatedResource: "123", Rules: []*invisinetspb.PermitListRule{&rule}}
+	rulesList := &invisinetspb.PermitList{AssociatedResource: "123", Rules: []*invisinetspb.PermitListRule{rule}}
 	jsonValue, _ := json.Marshal(rulesList)
 
 	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "example", id)
@@ -247,7 +248,7 @@ func TestCreateResource(t *testing.T) {
 
 	// Well-formed request
 	id := "123"
-	resource := invisinetspb.ResourceDescriptionString{
+	resource := &invisinetspb.ResourceDescriptionString{
 		Id: id, 
 		Description: "description" }
 	jsonValue, _ := json.Marshal(resource)
