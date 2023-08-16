@@ -534,7 +534,7 @@ func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescriptio
 }
 
 func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsDeployment *invisinetspb.InvisinetsDeployment, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.AddressSpaceList, error) {
-	project := invisinetsDeployment.Id
+	project := parseGCPURL(invisinetsDeployment.Id)["projects"]
 	addressSpaceList := &invisinetspb.AddressSpaceList{}
 
 	getNetworkReq := &computepb.GetNetworkRequest{

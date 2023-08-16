@@ -534,7 +534,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	s := &GCPPluginServer{}
 
 	usedAddressSpacesExpected := []*invisinetspb.RegionAddressSpaceMap{{Region: "us-fake1", AddressSpace: "10.1.2.0/24"}}
-	addressSpaceList, err := s._GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{Id: fakeProject}, fakeClients.networksClient, fakeClients.subnetworksClient)
+	addressSpaceList, err := s._GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject}, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
 	require.NotNil(t, addressSpaceList)
 	assert.ElementsMatch(t, usedAddressSpacesExpected, addressSpaceList.Mappings)
