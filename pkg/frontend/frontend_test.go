@@ -63,55 +63,55 @@ func (s *mockCloudPluginServer) GetUsedAddressSpaces(c context.Context, deployme
 	return &invisinetspb.AddressSpaceList{Mappings: [](*invisinetspb.RegionAddressSpaceMap){&mapping}}, nil
 }
 
-// Local dialer through a buffer connection
-func dialer() func(context.Context, string) (net.Conn, error) {
-	listener := bufconn.Listen(1024)
+// // Local dialer through a buffer connection
+// func dialer() func(context.Context, string) (net.Conn, error) {
+// 	listener := bufconn.Listen(1024)
  
-	server := grpc.NewServer()
+// 	server := grpc.NewServer()
  
-	invisinetspb.RegisterCloudPluginServer(server, &mockCloudPluginServer{})
+// 	invisinetspb.RegisterCloudPluginServer(server, &mockCloudPluginServer{})
  
-	go func() {
-		if err := server.Serve(listener); err != nil {
-			log.Fatal(err)
-		}
-	}()
+// 	go func() {
+// 		if err := server.Serve(listener); err != nil {
+// 			log.Fatal(err)
+// 		}
+// 	}()
  
-	return func(context.Context, string) (net.Conn, error) {
-		return listener.Dial()
-	}
-}
+// 	return func(context.Context, string) (net.Conn, error) {
+// 		return listener.Dial()
+// 	}
+// }
 
 func newServer() *mockCloudPluginServer {
 	s := &mockCloudPluginServer{}
 	return s
 }
 
-// func setupServer() {
-// 	port := 1000
-// 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+func setupServer(port int) {
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	
-// 	fmt.Println(pluginAddresses["example"])
-// 	if err != nil {
-// 		log.Fatalf("failed to listen: %v", err)
-// 	}
-// 	grpcServer := grpc.NewServer()
-// 	invisinetspb.RegisterCloudPluginServer(grpcServer, newServer())
-// 	err = grpcServer.Serve(lis)
-// 	if err != nil {
-// 		fmt.Println(err.Error())
-// 	}
-// }
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	invisinetspb.RegisterCloudPluginServer(grpcServer, newServer())
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+}
 
 func SetUpRouter() *gin.Engine{
-    router := gin.Default()
+	gin.SetMode(gin.ReleaseMode)
+	gin.DefaultWriter = io.Discard
+    router := gin.New()
     return router
 }
 
 
 func TestPermitListGetValidRequest(t *testing.T) {
-	// pluginAddresses["example"] = fmt.Sprintf("localhost:%d", 1000)
-	// addPluginAddress("example", "localhost:1000")
+	port := 10001
+	pluginAddresses["example"] = fmt.Sprintf("localhost:%d", port)
 
 	id := "123"
 	permitListJson := "{\"associated_resource\":\"123\"}"
@@ -121,16 +121,10 @@ func TestPermitListGetValidRequest(t *testing.T) {
 		"permitlist_json": permitListJson,
 	}
 
-	ctx := context.Background()
- 
-	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialer()))
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
+	go setupServer(port)
 
 	r := SetUpRouter()
-	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/", "example", "id")
+	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/", "example", id)
     r.GET("/cloud/:cloud/resources/:id/permit-list/", permitListGet)
 	req, _ := http.NewRequest("GET", url, nil)
 	w := httptest.NewRecorder()
@@ -142,6 +136,4 @@ func TestPermitListGetValidRequest(t *testing.T) {
 	json.Unmarshal(responseData, &jsonMap)
     assert.Equal(t, expectedResponse, jsonMap)
     assert.Equal(t, http.StatusOK, w.Code)
-
-
 }
