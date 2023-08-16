@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package frontend
 
 import (
 	"fmt"
@@ -53,171 +53,182 @@ var pluginAddresses =  map[string]string{}
 var addressSpaceMap =  map[string]string{}
 var config Config
 
-func createErrorResponse(rid string, message string) gin.H {
-	fmt.Println(message)
-	return gin.H{"id": rid, "err": message}
+func createErrorResponse(message string) gin.H {
+	return gin.H{"error": message}
 }
 
+// Get specified PermitList from given cloud
 func permitListGet(c *gin.Context) {
 	id := c.Param("id")
 	cloud := c.Param("cloud")
+
+	// Ensure correct cloud name
 	cloudClient, ok := pluginAddresses[cloud]
 	if !ok {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, "Invalid cloud name"))
-	}
-
-	emptyresourceId := invisinetspb.ResourceID{Id: id}
-
-	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		c.AbortWithStatusJSON(400, createErrorResponse(fmt.Sprintf("Invalid cloud name: %s", cloud)))
 		return
 	}
 
+	// Connect to the cloud plugin
+	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	// Send the GetPermitList RPC
 	client := invisinetspb.NewCloudPluginClient(conn)
+	emptyresourceId := invisinetspb.ResourceID{Id: id}
 
 	response, err := client.GetPermitList(context.Background(), &emptyresourceId)
 	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
 	}
 
-	defer conn.Close()
-
+	// Read the response and send back to original client
 	pl_json, err := json.Marshal(response)
 	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"id":              id,
-		"permitlist":      response.AssociatedResource,
+		"resource":        response.AssociatedResource,
 		"permitlist_json": string(pl_json[:]),
 	})
 }
 
+// Add permit list rules to specified resource
 func permitListRulesAdd(c *gin.Context) {
-	id := c.Param("id")
+	// Ensure correct cloud name 
 	cloud := c.Param("cloud")
 	cloudClient, ok := pluginAddresses[cloud]
 	if !ok {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, "Invalid cloud name"))
-	}
-
-	var permitListRules invisinetspb.PermitList
-
-	if err := c.BindJSON(&permitListRules); err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		c.AbortWithStatusJSON(400, createErrorResponse("Invalid cloud name"))
 		return
 	}
 
+	// Parse permit list rules to add
+	var permitListRules invisinetspb.PermitList
+	if err := c.BindJSON(&permitListRules); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Create connection to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
+	defer conn.Close()
 
+	// Send RPC to create rules
 	client := invisinetspb.NewCloudPluginClient(conn)
-
 	response, err := client.AddPermitListRules(context.Background(), &permitListRules)
 	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 	}
 
-	defer conn.Close()
-
 	c.JSON(http.StatusOK, gin.H{
-		"id":       id,
 		"response": response.Message,
 	})
 }
 
+// Delete permit list rules to specified resource
 func permitListRulesDelete(c *gin.Context) {
-	id := c.Param("id")
+	// Ensure correct cloud name 
 	cloud := c.Param("cloud")
 	cloudClient, ok := pluginAddresses[cloud]
 	if !ok {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, "Invalid cloud name"))
-	}
-
-	var permitListRules invisinetspb.PermitList
-
-	if err := c.BindJSON(&permitListRules); err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		c.AbortWithStatusJSON(400, createErrorResponse("Invalid cloud name"))
 		return
 	}
 
+	// Parse rules to delete
+	var permitListRules invisinetspb.PermitList
+	if err := c.BindJSON(&permitListRules); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Create connection to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return 
 	}
-
-	client := invisinetspb.NewCloudPluginClient(conn)
-
-	response, err := client.DeletePermitListRules(context.Background(), &permitListRules)
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
-	}
-
 	defer conn.Close()
 
+	// Send RPC to delete the rules
+	client := invisinetspb.NewCloudPluginClient(conn)
+	response, err := client.DeletePermitListRules(context.Background(), &permitListRules)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"id":       id,
 		"response": response.Message,
 	})
 }
 
-func getAddressSpaces(c *gin.Context, cloud string, id string) *invisinetspb.AddressSpaceList {
+// Get used address spaces from a specified cloud
+func getAddressSpaces(c *gin.Context, cloud string, deploymentId string) *invisinetspb.AddressSpaceList {
+	// Ensure correct cloud name
 	cloudClient, ok := pluginAddresses[cloud]
 	if !ok {
-		fmt.Println("Invalid cloud name")
-		c.AbortWithStatusJSON(400, createErrorResponse(id, "Invalid cloud name")) // TODO: is the ID even helpful at this depth? --> OR at all????
+		c.AbortWithStatusJSON(400, createErrorResponse("Invalid cloud name"))
 		return nil
 	}
-	
-	deployment := invisinetspb.InvisinetsDeployment{Id: id}
 
+	// Connect to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		fmt.Println("Connection failed")
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return nil
 	}
+	defer conn.Close()
 
+	// Send the RPC to get the address spaces
 	client := invisinetspb.NewCloudPluginClient(conn)
-
+	deployment := invisinetspb.InvisinetsDeployment{Id: deploymentId}
 	addressSpaces, err := client.GetUsedAddressSpaces(context.Background(), &deployment)
 	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 	}
-
-	defer conn.Close()
 
 	return addressSpaces
 }
 
+// Update local address space map by getting used address spaces from each cloud plugin
 func updateAddressSpaceMap(c *gin.Context, id string) {
 	// Call each cloud to get address spaces used
 	for _, cloud := range config.Clouds {
 		addressMap := getAddressSpaces(c, cloud.Name, id)
 		if addressMap == nil {
-			c.AbortWithStatusJSON(400, createErrorResponse(id, fmt.Sprintf("Failed to retrieve used address spaces for cloud %s", cloud.Name)))
+			c.AbortWithStatusJSON(400, createErrorResponse(fmt.Sprintf("Failed to retrieve used address spaces for cloud %s", cloud.Name)))
 			return 
 		}
+
+		// Store address space by <cloud_name>\<region>
 		for _, cloudRegion := range addressMap.Mappings {
 			addressSpaceMap[cloud.Name + "\\" + cloudRegion.Region] = cloudRegion.AddressSpace
 		}
 	}
 }
 
+// Get a new address block for a new virtual network
+// TODO @smcclure20: Later, this should allocate more efficiently and with different size address blocks (eg, GCP needs larger than Azure since a VPC will span all regions)
 func getNewAddressSpace(c *gin.Context) string {
 	highestBlockUsed := -1
 	for _, address := range addressSpaceMap {
 		fmt.Println(address)
 		blockNumber, err := strconv.Atoi(strings.Split(address, ".")[1])
 		if err != nil {
-			c.AbortWithStatusJSON(400, createErrorResponse("", "Could not parse existing address spaces"))
+			c.AbortWithStatusJSON(400, createErrorResponse("Could not parse existing address spaces"))
 			return ""
 		}
 
@@ -227,32 +238,32 @@ func getNewAddressSpace(c *gin.Context) string {
 	}
 
 	if highestBlockUsed >= 256 {
-		c.AbortWithStatusJSON(400, createErrorResponse("", "Entire address space used"))
+		c.AbortWithStatusJSON(400, createErrorResponse("Entire address space used"))
 		return ""
 	}
 
 	return fmt.Sprintf("10.%d.0.0/16", highestBlockUsed + 1)
 }
 
+// Create resource in specified cloud region
 func resourceCreate(c *gin.Context) {
-	// TODO: provide address space (if needed)
-	id := c.Param("id")
+	// Ensure correct cloud name
 	cloud := c.Param("cloud")
 	cloudClient, ok := pluginAddresses[cloud]
 	if !ok {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, "Invalid cloud name"))
+		c.AbortWithStatusJSON(400, createErrorResponse("Invalid cloud name"))
 		return
 	}
 
+	// Parse the resource description provided
 	var resourceWithString invisinetspb.ResourceDescriptionString
-
 	if err := c.BindJSON(&resourceWithString); err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
-	// Check the resource region and get corresponding address space from it (or )
-	updateAddressSpaceMap(c, "")
+	// Check the resource region and get corresponding address space from it or get a new address space
+	updateAddressSpaceMap(c, resourceWithString.Id)
 	region := c.Param("region")
 	addressSpace, ok := addressSpaceMap[region]
 	if !ok {
@@ -260,33 +271,31 @@ func resourceCreate(c *gin.Context) {
 		addressSpace = getNewAddressSpace(c)
 	}
 
-	resource :=  invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description), AddressSpace: addressSpace}
-
+	// Create connection to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-
-	client := invisinetspb.NewCloudPluginClient(conn)
-
-	response, err := client.CreateResource(context.Background(), &resource)
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(id, err.Error()))
-	}
-
 	defer conn.Close()
 
+	// Send RPC to create the resource
+	resource :=  invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description), AddressSpace: addressSpace}
+	client := invisinetspb.NewCloudPluginClient(conn)
+	response, err := client.CreateResource(context.Background(), &resource)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"id":       id,
 		"response": response.Message,
 		"addressSpace": addressSpace,
 	})
 }
 
-func main() {
+func setup(configPath string) {
 
-	f, err := os.Open("config.yml")
+	f, err := os.Open(configPath)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -311,9 +320,9 @@ func main() {
 		})
 	})
 
-	router.GET("/cloud/:cloud/resources/:id/permit-list", permitListGet)
-	router.POST("/cloud/:cloud/resources/:id/permit-list/rules", permitListRulesAdd)
-	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules", permitListRulesDelete)
+	router.GET("/cloud/:cloud/resources/:id/permit-list/", permitListGet)
+	router.POST("/cloud/:cloud/resources/:id/permit-list/rules/", permitListRulesAdd)
+	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules/", permitListRulesDelete)
 	router.POST("/cloud/:cloud/region/:region/resources/:id/", resourceCreate)
   
 	err = router.Run(config.Server.Host + ":" + config.Server.Port)

@@ -62,13 +62,11 @@ func newServer() *cloudPluginServer {
 }
 
 func main() {
-	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	var opts []grpc.ServerOption
-	grpcServer := grpc.NewServer(opts...)
+	grpcServer := grpc.NewServer()
 	invisinetspb.RegisterCloudPluginServer(grpcServer, newServer())
 	err = grpcServer.Serve(lis)
 	if err != nil {
