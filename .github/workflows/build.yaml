@@ -229,7 +229,6 @@ jobs:
           INVISINETS_GCP_PROJECT: 'invisinets-playground'
           GH_RUN_NUMBER: ${{ github.run_number }}
           INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          INVISINETS_AZURE_RESOURCE_GROUP_NAME: ${{ secrets.AZURE_RESOURCE_GROUP_NAME }}
         run: |
           make integration-test
 

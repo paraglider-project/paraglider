@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -34,7 +33,7 @@ import (
 )
 
 const (
-	vmName     = "sample-vm"
+	vmName     = "sample-vm-"
 	diskName   = "sample-disk"
 	location   = "westus"
 	apiVersion = "2019-07-01"
@@ -43,8 +42,8 @@ const (
 var (
 	subscriptionId = os.Getenv("INVISINETS_AZURE_SUBSCRIPTION_ID")
 	resourceGroup  = "invisinets-test-" + uuid.New().String()
-	cred 		 *azidentity.DefaultAzureCredential
-	clientFactory *armresources.ClientFactory
+	cred           *azidentity.DefaultAzureCredential
+	clientFactory  *armresources.ClientFactory
 )
 
 func setup() {
@@ -70,7 +69,7 @@ func createResourceGroup() {
 	_ = rg
 }
 
-func deleteResourceGroup() {
+func tearDown() {
 	ctx := context.Background()
 	poller, err := clientFactory.NewResourceGroupsClient().BeginDelete(ctx, resourceGroup, &armresources.ResourceGroupsClientBeginDeleteOptions{ForceDeletionTypes: to.Ptr("Microsoft.Compute/virtualMachines")})
 	if err != nil {
@@ -82,28 +81,9 @@ func deleteResourceGroup() {
 	}
 }
 
-func teardown(resourceIDs *[]string) {
-	resourcesClient := clientFactory.NewClient()
-	ctx := context.Background()
-
-	for _, resourceID := range *resourceIDs {
-		poller, err := resourcesClient.BeginDeleteByID(ctx, resourceID, apiVersion, nil)
-		if err != nil {
-			panic(fmt.Sprintf("Error while deleting resource %s, you need to manually de-allocate resources: %v", resourceID, err))
-		}
-
-		_, err = poller.PollUntilDone(ctx, nil)
-		if err != nil {
-			panic(fmt.Sprintf("Error while deleting resource %s, you need to manually de-allocate resources: %v", resourceID, err))
-		}
-	}
-	// Clear the slice
-	*resourceIDs = nil
-}
-
 func TestAzurePluginIntegration(t *testing.T) {
-	setup() 
-	defer deleteResourceGroup()
+	setup()
+	defer tearDown()
 
 	t.Run("TestAddAndGetPermitList", testAddAndGetPermitList)
 	t.Run("TestAddAndDeletePermitList", testAddAndDeletePermitList)
@@ -114,64 +94,15 @@ func TestAzurePluginIntegration(t *testing.T) {
 // 2. Add a permit list
 // 3. Get the permit list
 func testAddAndGetPermitList(t *testing.T) {
-	resourceIDs := make([]string, 0)
-	s := &azurePluginServer{
-		azureHandler: &azureSDKHandler{},
-	}
-	ctx := context.Background()
-	defer teardown(&resourceIDs)
-
-	parameters := getTestVirtualMachine()
-	descriptionJson, err := json.Marshal(parameters)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	vmID := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroup + "/providers/Microsoft.Compute/virtualMachines/" + vmName
-	createResourceResp, err := s.CreateResource(ctx, &invisinetspb.ResourceDescription{
-		Id:           vmID,
-		Description:  descriptionJson,
-		AddressSpace: "10.0.0.0/16",
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, createResourceResp)
-	assert.True(t, createResourceResp.Success)
-	assert.Equal(t, createResourceResp.UpdatedResource.Id, vmID)
-
-	resourceIDs = append(resourceIDs, createResourceResp.UpdatedResource.Id)
-
-	vmNic, err := s.azureHandler.GetResourceNIC(ctx, createResourceResp.UpdatedResource.Id)
-	require.NoError(t, err)
-	require.NotNil(t, vmNic)
-
-	resourceIDs = append(resourceIDs, *vmNic.ID)
-
-	diskId := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroup + "/providers/Microsoft.Compute/disks/" + diskName
-	resourceIDs = append(resourceIDs, diskId)
-	vnetName := InvisinetsPrefix + "-" + location + "-vnet"
-	vnetID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", subscriptionId, resourceGroup, vnetName)
-	resourceIDs = append(resourceIDs, vnetID)
-
-	// Add permit list
+	vmID := getVmId()
 	permitList := &invisinetspb.PermitList{AssociatedResource: vmID,
 		Rules: []*invisinetspb.PermitListRule{&invisinetspb.PermitListRule{Tag: []string{"10.1.0.5"}, Direction: invisinetspb.Direction_OUTBOUND, SrcPort: 80, DstPort: 80, Protocol: 6}}}
-
-	addPermitListResp, err := s.AddPermitListRules(ctx, permitList)
-	require.NoError(t, err)
-	require.NotNil(t, addPermitListResp)
-	assert.True(t, addPermitListResp.Success)
-	assert.Equal(t, addPermitListResp.UpdatedResource.Id, vmID)
+	s, ctx := setupValidResourceAndPermitList(t, permitList, vmID)
 
 	// Assert the NSG created is equivalent to the pl rules by using the get permit list api
 	getPermitListResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmID})
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListResp)
-
-	// get the nsg id from the nsg rule id
-	nsgRuleIdParts := strings.Split(getPermitListResp.Rules[0].Id, "/")
-	nsgID := strings.Join(nsgRuleIdParts[:len(nsgRuleIdParts)-2], "/")
-	resourceIDs = append(resourceIDs, nsgID)
 
 	// add the id to the initial permit list  for an easier comparison
 	// because it is only set in the get not the add
@@ -184,62 +115,17 @@ func testAddAndGetPermitList(t *testing.T) {
 // 2. Add a permit list
 // 3. Delete the permit list
 func testAddAndDeletePermitList(t *testing.T) {
-	resourceIDs := make([]string, 0)
-	s := &azurePluginServer{
-		azureHandler: &azureSDKHandler{},
-	}
-	ctx := context.Background()
-	defer teardown(&resourceIDs)
-
-	parameters := getTestVirtualMachine()
-	descriptionJson, err := json.Marshal(parameters)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	vmID := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroup + "/providers/Microsoft.Compute/virtualMachines/" + vmName
-	createResourceResp, err := s.CreateResource(ctx, &invisinetspb.ResourceDescription{
-		Id:           vmID,
-		Description:  descriptionJson,
-		AddressSpace: "10.0.0.0/16",
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, createResourceResp)
-	assert.True(t, createResourceResp.Success)
-	assert.Equal(t, createResourceResp.UpdatedResource.Id, vmID)
-
-	resourceIDs = append(resourceIDs, createResourceResp.UpdatedResource.Id)
-
-	vmNic, err := s.azureHandler.GetResourceNIC(ctx, createResourceResp.UpdatedResource.Id)
-	require.NoError(t, err)
-	require.NotNil(t, vmNic)
-
-	resourceIDs = append(resourceIDs, *vmNic.ID)
-
-	diskId := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroup + "/providers/Microsoft.Compute/disks/" + diskName
-	resourceIDs = append(resourceIDs, diskId)
-	vnetName := InvisinetsPrefix + "-" + location + "-vnet"
-	vnetID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", subscriptionId, resourceGroup, vnetName)
-	resourceIDs = append(resourceIDs, vnetID)
-
-	// Add permit list
+	vmID := getVmId()
 	permitList := &invisinetspb.PermitList{AssociatedResource: vmID,
 		Rules: []*invisinetspb.PermitListRule{&invisinetspb.PermitListRule{Tag: []string{"10.1.0.5"}, Direction: invisinetspb.Direction_OUTBOUND, SrcPort: 80, DstPort: 80, Protocol: 6}}}
+	s, ctx := setupValidResourceAndPermitList(t, permitList, vmID)
 
-	addPermitListResp, err := s.AddPermitListRules(ctx, permitList)
-	require.NoError(t, err)
-	require.NotNil(t, addPermitListResp)
-	assert.True(t, addPermitListResp.Success)
-	assert.Equal(t, addPermitListResp.UpdatedResource.Id, vmID)
-
-	
-	// Delete permit list rule 
+	// Delete permit list rule
 	deletePermitListResp, err := s.DeletePermitListRules(ctx, permitList)
 	require.NoError(t, err)
 	require.NotNil(t, deletePermitListResp)
 	assert.True(t, deletePermitListResp.Success)
-	
+
 	// Assert the rule is deleted by using the get permit list api
 	getPermitListResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmID})
 	require.NoError(t, err)
@@ -249,6 +135,34 @@ func testAddAndDeletePermitList(t *testing.T) {
 		AssociatedResource: vmID,
 		Rules:              []*invisinetspb.PermitListRule{},
 	})
+}
+
+func setupValidResourceAndPermitList(t *testing.T, permitList *invisinetspb.PermitList, vmID string) (*azurePluginServer, context.Context) {
+	s := &azurePluginServer{
+		azureHandler: &azureSDKHandler{},
+	}
+	ctx := context.Background()
+
+	parameters := getTestVirtualMachine()
+	descriptionJson, err := json.Marshal(parameters)
+	require.NoError(t, err)
+	createResourceResp, err := s.CreateResource(ctx, &invisinetspb.ResourceDescription{
+		Id:           vmID,
+		Description:  descriptionJson,
+		AddressSpace: "10.0.0.0/16",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, createResourceResp)
+	assert.True(t, createResourceResp.Success)
+	assert.Equal(t, createResourceResp.UpdatedResource.Id, vmID)
+
+	addPermitListResp, err := s.AddPermitListRules(ctx, permitList)
+	require.NoError(t, err)
+	require.NotNil(t, addPermitListResp)
+	assert.True(t, addPermitListResp.Success)
+	assert.Equal(t, addPermitListResp.UpdatedResource.Id, vmID)
+
+	return s, ctx
 }
 
 func getTestVirtualMachine() armcompute.VirtualMachine {
@@ -263,7 +177,7 @@ func getTestVirtualMachine() armcompute.VirtualMachine {
 					Version:   to.Ptr("latest"),
 				},
 				OSDisk: &armcompute.OSDisk{
-					Name:         to.Ptr(diskName),
+					Name:         to.Ptr(diskName + uuid.NewString()),
 					CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
 					Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
 					ManagedDisk: &armcompute.ManagedDiskParameters{
@@ -281,4 +195,8 @@ func getTestVirtualMachine() armcompute.VirtualMachine {
 			},
 		},
 	}
+}
+
+func getVmId() string {
+	return "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroup + "/providers/Microsoft.Compute/virtualMachines/" + vmName + "-" + uuid.NewString()
 }
