@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"net/http"
 	"context"
-	// "os"
+	"os"
 	"strconv"
 	"strings"
 	"errors"
-	// "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 	"encoding/json"
 
 	"github.com/gin-gonic/gin"
@@ -297,40 +297,41 @@ func resourceCreate(c *gin.Context) {
 }
 
 // TODO @smcclure20: include for later integration with cli to run server
-// func setup(configPath string) {
+func Setup(configPath string) {
 
-// 	f, err := os.Open(configPath)
-// 	if err != nil {
-// 		fmt.Println(err.Error())
-// 	}
-// 	defer f.Close()
+	f, err := os.Open(configPath)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	defer f.Close()
 
-// 	var cfg Config
-// 	decoder := yaml.NewDecoder(f)
-// 	err = decoder.Decode(&cfg)
-// 	if err != nil {
-// 		fmt.Println(err.Error())
-// 	}
-// 	config = cfg
+	var cfg Config
+	decoder := yaml.NewDecoder(f)
+	err = decoder.Decode(&cfg)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	config = cfg
 
-// 	for _, c := range config.Clouds {
-// 		pluginAddresses[c.Name] = c.Host + ":" + c.Port
-// 	}
+	for _, c := range config.Clouds {
+		pluginAddresses[c.Name] = c.Host + ":" + c.Port
+	}
 
-// 	router := gin.Default()
-// 	router.GET("/ping", func(c *gin.Context) {
-// 		c.JSON(http.StatusOK, gin.H{
-// 			"message": "pong",
-// 		})
-// 	})
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.Default()
+	router.GET("/ping", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "pong",
+		})
+	})
 
-// 	router.GET("/cloud/:cloud/resources/:id/permit-list/", permitListGet)
-// 	router.POST("/cloud/:cloud/resources/:id/permit-list/rules/", permitListRulesAdd)
-// 	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules/", permitListRulesDelete)
-// 	router.POST("/cloud/:cloud/region/:region/resources/:id/", resourceCreate)
+	router.GET("/cloud/:cloud/resources/:id/permit-list/", permitListGet)
+	router.POST("/cloud/:cloud/resources/:id/permit-list/rules/", permitListRulesAdd)
+	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules/", permitListRulesDelete)
+	router.POST("/cloud/:cloud/region/:region/resources/:id/", resourceCreate)
   
-// 	err = router.Run(config.Server.Host + ":" + config.Server.Port)
-// 	if err != nil {
-// 		fmt.Println(err.Error())
-// 	}
-// }
+	err = router.Run(config.Server.Host + ":" + config.Server.Port)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+}
