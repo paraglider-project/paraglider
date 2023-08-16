@@ -23,6 +23,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"errors"
 	"gopkg.in/yaml.v2"
 	"encoding/json"
 
@@ -49,6 +50,7 @@ type Config struct {
 	Clouds []Cloud `yaml:"cloudPlugins"`
 }
 
+// TODO @smcclure20: refactor this to make it more parallel-friendly
 var pluginAddresses =  map[string]string{}
 var addressSpaceMap =  map[string]string{}
 var config Config
@@ -176,19 +178,17 @@ func permitListRulesDelete(c *gin.Context) {
 }
 
 // Get used address spaces from a specified cloud
-func getAddressSpaces(c *gin.Context, cloud string, deploymentId string) *invisinetspb.AddressSpaceList {
+func getAddressSpaces(c context.Context, cloud string, deploymentId string) (*invisinetspb.AddressSpaceList, error) {
 	// Ensure correct cloud name
 	cloudClient, ok := pluginAddresses[cloud]
 	if !ok {
-		c.AbortWithStatusJSON(400, createErrorResponse("Invalid cloud name"))
-		return nil
+		return nil, errors.New("Invalid cloud name")
 	}
 
 	// Connect to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return nil
+		return nil, errors.New(fmt.Sprintf("Unable to connect to cloud plugin: %s", err.Error()))
 	}
 	defer conn.Close()
 
@@ -196,21 +196,17 @@ func getAddressSpaces(c *gin.Context, cloud string, deploymentId string) *invisi
 	client := invisinetspb.NewCloudPluginClient(conn)
 	deployment := invisinetspb.InvisinetsDeployment{Id: deploymentId}
 	addressSpaces, err := client.GetUsedAddressSpaces(context.Background(), &deployment)
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-	}
 
-	return addressSpaces
+	return addressSpaces, err
 }
 
 // Update local address space map by getting used address spaces from each cloud plugin
-func updateAddressSpaceMap(c *gin.Context, id string) {
+func updateAddressSpaceMap(c context.Context, id string) error {
 	// Call each cloud to get address spaces used
 	for _, cloud := range config.Clouds {
-		addressMap := getAddressSpaces(c, cloud.Name, id)
-		if addressMap == nil {
-			c.AbortWithStatusJSON(400, createErrorResponse(fmt.Sprintf("Failed to retrieve used address spaces for cloud %s", cloud.Name)))
-			return 
+		addressMap, err := getAddressSpaces(c, cloud.Name, id)
+		if err != nil {
+			return errors.New(fmt.Sprintf("Could not retrieve address spaces for cloud %s", cloud))
 		}
 
 		// Store address space by <cloud_name>\<region>
@@ -218,18 +214,17 @@ func updateAddressSpaceMap(c *gin.Context, id string) {
 			addressSpaceMap[cloud.Name + "\\" + cloudRegion.Region] = cloudRegion.AddressSpace
 		}
 	}
+	return nil
 }
 
 // Get a new address block for a new virtual network
 // TODO @smcclure20: Later, this should allocate more efficiently and with different size address blocks (eg, GCP needs larger than Azure since a VPC will span all regions)
-func getNewAddressSpace(c *gin.Context) string {
+func getNewAddressSpace(c context.Context) (string, error) {
 	highestBlockUsed := -1
 	for _, address := range addressSpaceMap {
-		fmt.Println(address)
 		blockNumber, err := strconv.Atoi(strings.Split(address, ".")[1])
 		if err != nil {
-			c.AbortWithStatusJSON(400, createErrorResponse("Could not parse existing address spaces"))
-			return ""
+			return "", err
 		}
 
 		if blockNumber > highestBlockUsed {
@@ -237,12 +232,11 @@ func getNewAddressSpace(c *gin.Context) string {
 		}
 	}
 
-	if highestBlockUsed >= 256 {
-		c.AbortWithStatusJSON(400, createErrorResponse("Entire address space used"))
-		return ""
+	if highestBlockUsed >= 255 {
+		return "", errors.New("All address blocks used")
 	}
 
-	return fmt.Sprintf("10.%d.0.0/16", highestBlockUsed + 1)
+	return fmt.Sprintf("10.%d.0.0/16", highestBlockUsed + 1), nil
 }
 
 // Create resource in specified cloud region
@@ -263,12 +257,17 @@ func resourceCreate(c *gin.Context) {
 	}
 
 	// Check the resource region and get corresponding address space from it or get a new address space
-	updateAddressSpaceMap(c, resourceWithString.Id)
+	updateAddressSpaceMap(context.Background(), resourceWithString.Id)
 	region := c.Param("region")
 	addressSpace, ok := addressSpaceMap[region]
 	if !ok {
 		// Create a new address space 
-		addressSpace = getNewAddressSpace(c)
+		newAddressSpace, err := getNewAddressSpace(context.Background())
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+		addressSpace = newAddressSpace
 	}
 
 	// Create connection to cloud plugin
