@@ -21,13 +21,15 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,20 +43,37 @@ const (
 
 var (
 	subscriptionId = os.Getenv("INVISINETS_AZURE_SUBSCRIPTION_ID")
-	resourceGroup  = os.Getenv("INVISINETS_AZURE_RESOURCE_GROUP_NAME")
+	resourceGroup  = "invisinets-test" + uuid.New().String()
+	cred 		 *azidentity.DefaultAzureCredential
+	clientFactory *armresources.ClientFactory
+	once sync.Once
 )
 
-func teardown(resourceIDs *[]string) {
+func setup() {
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
-		panic(fmt.Sprintf("Error while getting azure credentials in teardown, you need to manually de-allocate resources: %v", err))
+		panic(fmt.Sprintf("Error while getting azure credentials during setup: %v", err))
 	}
-
-	resourcesClient, err := armresources.NewClient(subscriptionId, cred, nil)
-	ctx := context.Background()
+	clientFactory, err = armresources.NewClientFactory("<subscription-id>", cred, nil)
 	if err != nil {
-		panic(fmt.Sprintf("Error while creating client, you need to manually de-allocate resources: %v", err))
+		panic(fmt.Sprintf("Error while creating client factory during setup: %v", err))
 	}
+	createResourceGroup()
+}
+
+func createResourceGroup() {
+	rg, err := clientFactory.NewResourceGroupsClient().CreateOrUpdate(context.Background(), resourceGroup, armresources.ResourceGroup{
+		Location: to.Ptr(location),
+	}, nil)
+	if err != nil {
+		panic(fmt.Sprintf("Error while creating resource group: %v", err))
+	}
+	_ = rg
+}
+
+func teardown(resourceIDs *[]string) {
+	resourcesClient := clientFactory.NewClient()
+	ctx := context.Background()
 
 	for _, resourceID := range *resourceIDs {
 		poller, err := resourcesClient.BeginDeleteByID(ctx, resourceID, apiVersion, nil)
@@ -67,7 +86,8 @@ func teardown(resourceIDs *[]string) {
 			panic(fmt.Sprintf("Error while deleting resource %s, you need to manually de-allocate resources: %v", resourceID, err))
 		}
 	}
-
+	// Clear the slice
+	*resourceIDs = nil
 }
 
 // This test will test the following:
@@ -75,6 +95,7 @@ func teardown(resourceIDs *[]string) {
 // 2. Add a permit list
 // 3. Get the permit list
 func TestAddAndGetPermitList(t *testing.T) {
+	once.Do(setup)
 	resourceIDs := make([]string, 0)
 	s := &azurePluginServer{
 		azureHandler: &azureSDKHandler{},
