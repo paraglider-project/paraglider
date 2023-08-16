@@ -220,5 +220,6 @@ jobs:
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         env:
           INVISINETS_GCP_PROJECT: 'invisinets-playground'
+          GH_RUN_NUMBER: ${{ github.run_number }}
         run: |
           make integration-test
