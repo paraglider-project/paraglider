@@ -69,25 +69,6 @@ func (s *mockCloudPluginServer) GetUsedAddressSpaces(c context.Context, deployme
 	return &invisinetspb.AddressSpaceList{Mappings: [](*invisinetspb.RegionAddressSpaceMap){&mapping}}, nil
 }
 
-// // Local dialer through a buffer connection
-// func dialer() func(context.Context, string) (net.Conn, error) {
-// 	listener := bufconn.Listen(1024)
- 
-// 	server := grpc.NewServer()
- 
-// 	invisinetspb.RegisterCloudPluginServer(server, &mockCloudPluginServer{})
- 
-// 	go func() {
-// 		if err := server.Serve(listener); err != nil {
-// 			log.Fatal(err)
-// 		}
-// 	}()
- 
-// 	return func(context.Context, string) (net.Conn, error) {
-// 		return listener.Dial()
-// 	}
-// }
-
 func newServer() *mockCloudPluginServer {
 	s := &mockCloudPluginServer{}
 	return s
