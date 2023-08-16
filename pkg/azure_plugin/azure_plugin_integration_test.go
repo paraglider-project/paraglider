@@ -21,12 +21,11 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/google/uuid"
@@ -43,18 +42,18 @@ const (
 
 var (
 	subscriptionId = os.Getenv("INVISINETS_AZURE_SUBSCRIPTION_ID")
-	resourceGroup  = "invisinets-test" + uuid.New().String()
+	resourceGroup  = "invisinets-test-" + uuid.New().String()
 	cred 		 *azidentity.DefaultAzureCredential
 	clientFactory *armresources.ClientFactory
-	once sync.Once
 )
 
 func setup() {
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	var err error
+	cred, err = azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
 		panic(fmt.Sprintf("Error while getting azure credentials during setup: %v", err))
 	}
-	clientFactory, err = armresources.NewClientFactory("<subscription-id>", cred, nil)
+	clientFactory, err = armresources.NewClientFactory(subscriptionId, cred, nil)
 	if err != nil {
 		panic(fmt.Sprintf("Error while creating client factory during setup: %v", err))
 	}
@@ -69,6 +68,18 @@ func createResourceGroup() {
 		panic(fmt.Sprintf("Error while creating resource group: %v", err))
 	}
 	_ = rg
+}
+
+func deleteResourceGroup() {
+	ctx := context.Background()
+	poller, err := clientFactory.NewResourceGroupsClient().BeginDelete(ctx, resourceGroup, &armresources.ResourceGroupsClientBeginDeleteOptions{ForceDeletionTypes: to.Ptr("Microsoft.Compute/virtualMachines")})
+	if err != nil {
+		panic(fmt.Sprintf("Error while deleting resource group: %v", err))
+	}
+	_, err = poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		panic(fmt.Sprintf("Error while waiting for resource group deletion: %v", err))
+	}
 }
 
 func teardown(resourceIDs *[]string) {
@@ -90,12 +101,19 @@ func teardown(resourceIDs *[]string) {
 	*resourceIDs = nil
 }
 
+func TestAzurePluginIntegration(t *testing.T) {
+	setup() 
+	defer deleteResourceGroup()
+
+	t.Run("TestAddAndGetPermitList", testAddAndGetPermitList)
+	t.Run("TestAddAndDeletePermitList", testAddAndDeletePermitList)
+}
+
 // This test will test the following:
 // 1. Create a resource
 // 2. Add a permit list
 // 3. Get the permit list
-func TestAddAndGetPermitList(t *testing.T) {
-	once.Do(setup)
+func testAddAndGetPermitList(t *testing.T) {
 	resourceIDs := make([]string, 0)
 	s := &azurePluginServer{
 		azureHandler: &azureSDKHandler{},
@@ -103,35 +121,7 @@ func TestAddAndGetPermitList(t *testing.T) {
 	ctx := context.Background()
 	defer teardown(&resourceIDs)
 
-	parameters := armcompute.VirtualMachine{
-		Location: to.Ptr(location),
-		Properties: &armcompute.VirtualMachineProperties{
-			StorageProfile: &armcompute.StorageProfile{
-				ImageReference: &armcompute.ImageReference{
-					Offer:     to.Ptr("WindowsServer"),
-					Publisher: to.Ptr("MicrosoftWindowsServer"),
-					SKU:       to.Ptr("2019-Datacenter"),
-					Version:   to.Ptr("latest"),
-				},
-				OSDisk: &armcompute.OSDisk{
-					Name:         to.Ptr(diskName),
-					CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
-					Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
-					ManagedDisk: &armcompute.ManagedDiskParameters{
-						StorageAccountType: to.Ptr(armcompute.StorageAccountTypesStandardLRS),
-					},
-				},
-			},
-			HardwareProfile: &armcompute.HardwareProfile{
-				VMSize: to.Ptr(armcompute.VirtualMachineSizeTypes("Standard_F2s")),
-			},
-			OSProfile: &armcompute.OSProfile{ //
-				ComputerName:  to.Ptr("sample-compute"),
-				AdminUsername: to.Ptr("sample-user"),
-				AdminPassword: to.Ptr("Password01!@#"),
-			},
-		},
-	}
+	parameters := getTestVirtualMachine()
 	descriptionJson, err := json.Marshal(parameters)
 	if err != nil {
 		t.Fatal(err)
@@ -187,4 +177,108 @@ func TestAddAndGetPermitList(t *testing.T) {
 	// because it is only set in the get not the add
 	permitList.Rules[0].Id = getPermitListResp.Rules[0].Id
 	assert.ElementsMatch(t, getPermitListResp.Rules, permitList.Rules)
+}
+
+// This test will test the following:
+// 1. Create a resource
+// 2. Add a permit list
+// 3. Delete the permit list
+func testAddAndDeletePermitList(t *testing.T) {
+	resourceIDs := make([]string, 0)
+	s := &azurePluginServer{
+		azureHandler: &azureSDKHandler{},
+	}
+	ctx := context.Background()
+	defer teardown(&resourceIDs)
+
+	parameters := getTestVirtualMachine()
+	descriptionJson, err := json.Marshal(parameters)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vmID := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroup + "/providers/Microsoft.Compute/virtualMachines/" + vmName
+	createResourceResp, err := s.CreateResource(ctx, &invisinetspb.ResourceDescription{
+		Id:           vmID,
+		Description:  descriptionJson,
+		AddressSpace: "10.0.0.0/16",
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, createResourceResp)
+	assert.True(t, createResourceResp.Success)
+	assert.Equal(t, createResourceResp.UpdatedResource.Id, vmID)
+
+	resourceIDs = append(resourceIDs, createResourceResp.UpdatedResource.Id)
+
+	vmNic, err := s.azureHandler.GetResourceNIC(ctx, createResourceResp.UpdatedResource.Id)
+	require.NoError(t, err)
+	require.NotNil(t, vmNic)
+
+	resourceIDs = append(resourceIDs, *vmNic.ID)
+
+	diskId := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroup + "/providers/Microsoft.Compute/disks/" + diskName
+	resourceIDs = append(resourceIDs, diskId)
+	vnetName := InvisinetsPrefix + "-" + location + "-vnet"
+	vnetID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", subscriptionId, resourceGroup, vnetName)
+	resourceIDs = append(resourceIDs, vnetID)
+
+	// Add permit list
+	permitList := &invisinetspb.PermitList{AssociatedResource: vmID,
+		Rules: []*invisinetspb.PermitListRule{&invisinetspb.PermitListRule{Tag: []string{"10.1.0.5"}, Direction: invisinetspb.Direction_OUTBOUND, SrcPort: 80, DstPort: 80, Protocol: 6}}}
+
+	addPermitListResp, err := s.AddPermitListRules(ctx, permitList)
+	require.NoError(t, err)
+	require.NotNil(t, addPermitListResp)
+	assert.True(t, addPermitListResp.Success)
+	assert.Equal(t, addPermitListResp.UpdatedResource.Id, vmID)
+
+	
+	// Delete permit list rule 
+	deletePermitListResp, err := s.DeletePermitListRules(ctx, permitList)
+	require.NoError(t, err)
+	require.NotNil(t, deletePermitListResp)
+	assert.True(t, deletePermitListResp.Success)
+	
+	// Assert the rule is deleted by using the get permit list api
+	getPermitListResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmID})
+	require.NoError(t, err)
+	require.NotNil(t, getPermitListResp)
+
+	assert.ElementsMatch(t, getPermitListResp.Rules, &invisinetspb.PermitList{
+		AssociatedResource: vmID,
+		Rules:              []*invisinetspb.PermitListRule{},
+	})
+}
+
+func getTestVirtualMachine() armcompute.VirtualMachine {
+	return armcompute.VirtualMachine{
+		Location: to.Ptr(location),
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{
+				ImageReference: &armcompute.ImageReference{
+					Offer:     to.Ptr("WindowsServer"),
+					Publisher: to.Ptr("MicrosoftWindowsServer"),
+					SKU:       to.Ptr("2019-Datacenter"),
+					Version:   to.Ptr("latest"),
+				},
+				OSDisk: &armcompute.OSDisk{
+					Name:         to.Ptr(diskName),
+					CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
+					Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
+					ManagedDisk: &armcompute.ManagedDiskParameters{
+						StorageAccountType: to.Ptr(armcompute.StorageAccountTypesStandardLRS),
+					},
+				},
+			},
+			HardwareProfile: &armcompute.HardwareProfile{
+				VMSize: to.Ptr(armcompute.VirtualMachineSizeTypes("Standard_F2s")),
+			},
+			OSProfile: &armcompute.OSProfile{ //
+				ComputerName:  to.Ptr("sample-compute"),
+				AdminUsername: to.Ptr("sample-user"),
+				AdminPassword: to.Ptr("Password01!@#"),
+			},
+		},
+	}
 }
