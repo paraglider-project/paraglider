@@ -44,11 +44,11 @@ const (
 	fakeZone         = fakeRegion + "-a"
 	fakeInstanceName = "vm-invisinets-fake"
 	fakeInstanceId   = uint64(1234)
-	fakeResourceId   = fakeProject + "/" + fakeZone + "/" + fakeInstanceName
+	fakeResourceId   = "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
 
 	// Missing resources not registered in fake server
 	fakeMissingInstance   = "vm-invisinets-missing"
-	fakeMissingResourceId = fakeProject + "/" + fakeZone + "/" + fakeMissingInstance
+	fakeMissingResourceId = "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeMissingInstance
 
 	// Overarching dummy operation name
 	fakeOperation = "operation-fake"
@@ -534,7 +534,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	s := &GCPPluginServer{}
 
 	usedAddressSpacesExpected := []*invisinetspb.RegionAddressSpaceMap{{Region: "us-fake1", AddressSpace: "10.1.2.0/24"}}
-	addressSpaceList, err := s._GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{Id: fakeProject}, fakeClients.networksClient, fakeClients.subnetworksClient)
+	addressSpaceList, err := s._GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject}, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
 	require.NotNil(t, addressSpaceList)
 	assert.ElementsMatch(t, usedAddressSpacesExpected, addressSpaceList.Mappings)
