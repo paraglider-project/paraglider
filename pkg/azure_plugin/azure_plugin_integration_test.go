@@ -46,7 +46,7 @@ var (
 	clientFactory  *armresources.ClientFactory
 )
 
-func setup() {
+func setupIntegration() {
 	var err error
 	cred, err = azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
@@ -82,7 +82,7 @@ func tearDown() {
 }
 
 func TestAzurePluginIntegration(t *testing.T) {
-	setup()
+	setupIntegration()
 	defer tearDown()
 
 	t.Run("TestAddAndGetPermitList", testAddAndGetPermitList)
