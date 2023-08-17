@@ -173,8 +173,13 @@ func (m *mockAzureSDKHandler) GetLastSegment(resourceID string) (string, error) 
 	return args.String(0), args.Error(1)
 }
 
-func (m *mockAzureSDKHandler) SetSubIdAndResourceGroup(ResourceIDInfo ResourceIDInfo) {
-	m.Called(ResourceIDInfo)
+func (m *mockAzureSDKHandler) SetSubIdAndResourceGroup(subid string, resourceGroup string) {
+	m.Called(subid, resourceGroup)
+}
+
+func (m *mockAzureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1 string, vnet2 string) error {
+	args := m.Called(ctx, vnet1, vnet2)
+	return args.Error(0)
 }
 
 func setupAzurePluginServer() (*azurePluginServer, *mockAzureSDKHandler, context.Context) {
@@ -215,7 +220,7 @@ func TestCreateResource(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 
 		// Set up mock behavior for the Azure SDK handler
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return(nil)
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
 		mockAzureHandler.On("GetInvisinetsVnet", ctx, vnetName, testLocation, validAddressSpace).Return(&armnetwork.VirtualNetwork{
@@ -326,7 +331,7 @@ func TestGetPermitList(t *testing.T) {
 
 		// Set up mock behavior for the Azure SDK handler
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("GetResourceNIC", ctx, fakeResource.GetId()).Return(fakeNic, nil)
@@ -369,7 +374,7 @@ func TestGetPermitList(t *testing.T) {
 		// Set up mock behavior for the Azure SDK handler to return an error on GetResourceNIC call
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakeResource.GetId()).Return(nil, fmt.Errorf("NIC get error"))
 
 		// Call the GetPermitList function
@@ -387,7 +392,7 @@ func TestGetPermitList(t *testing.T) {
 		// Set up mock behavior for the Azure SDK handler
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("GetResourceNIC", ctx, fakeResource.GetId()).Return(fakeNic, nil)
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nil)
@@ -417,7 +422,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNic, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nil)
@@ -450,7 +455,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNic, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, fmt.Errorf("error while getting NSG"))
@@ -476,7 +481,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(nil, fmt.Errorf("error while getting NIC"))
 		resp, err := server.AddPermitListRules(ctx, fakePl)
 		require.Error(t, err)
@@ -489,7 +494,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNic, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return("", fmt.Errorf("error while getting nsgName"))
 		resp, err := server.AddPermitListRules(ctx, fakePl)
@@ -505,7 +510,7 @@ func TestAddPermitListRules(t *testing.T) {
 		fakeNicWithoutNSG.Properties.NetworkSecurityGroup = nil
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNicWithoutNSG, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("CreateNetworkSecurityGroup", ctx, mock.Anything, *fakeNicWithoutNSG.Location).Return(fakeNsg, nil)
@@ -540,7 +545,7 @@ func TestAddPermitListRules(t *testing.T) {
 		fakeNicWithoutNSG.Properties.NetworkSecurityGroup = nil
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNicWithoutNSG, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("CreateNetworkSecurityGroup", ctx, mock.Anything, *fakeNicWithoutNSG.Location).Return(nil, fmt.Errorf("error while creating new NSG"))
@@ -556,7 +561,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNic, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nil)
@@ -574,7 +579,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNic, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nil)
@@ -600,7 +605,7 @@ func TestAddPermitListRules(t *testing.T) {
 		fakeNicWithoutNSG.Properties.NetworkSecurityGroup = nil
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNicWithoutNSG, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("CreateNetworkSecurityGroup", ctx, mock.Anything, *fakeNicWithoutNSG.Location).Return(fakeNsg, nil)
@@ -631,7 +636,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNic, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nil)
@@ -656,7 +661,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(nil, fmt.Errorf("nic error"))
 		resp, err := server.DeletePermitListRules(ctx, fakePl)
 
@@ -681,7 +686,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNic, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nil)
@@ -705,7 +710,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNic, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nil)
@@ -724,7 +729,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNic, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return("", fmt.Errorf("error while getting last segment"))
 
@@ -740,7 +745,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return()
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNic, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(nil, fmt.Errorf("error while getting security group"))
@@ -758,7 +763,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	fakeAddressList := map[string]string{testLocation: validAddressSpace}
 	mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 	mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-	mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return(nil)
+	mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 	mockAzureHandler.On("GetVNetsAddressSpaces", ctx, InvisinetsPrefix).Return(fakeAddressList, nil)
 	addressList, err := server.GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{
 		Id: "/subscriptions/123/resourceGroups/rg",

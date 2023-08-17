@@ -62,7 +62,7 @@ func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) err
 		logger.Log.Printf("An error occured while getting azure credentials:%+v", err)
 		return err
 	}
-	s.azureHandler.SetSubIdAndResourceGroup(resourceIdInfo)
+	s.azureHandler.SetSubIdAndResourceGroup(resourceIdInfo.SubscriptionID, resourceIdInfo.ResourceGroupName)
 	err = s.azureHandler.InitializeClients(cred)
 	if err != nil {
 		logger.Log.Printf("An error occured while initializing azure clients: %+v", err)
