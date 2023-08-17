@@ -88,13 +88,12 @@ func setupServer(port int) {
 	}
 }
 
-func SetUpRouter() *gin.Engine{
+func SetUpRouter() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	gin.DefaultWriter = io.Discard
-    router := gin.New()
-    return router
+	router := gin.New()
+	return router
 }
-
 
 func TestPermitListGet(t *testing.T) {
 	// Setup
@@ -287,12 +286,12 @@ func TestGetAddressSpaces(t *testing.T) {
 	go setupServer(port)
 
 	// Well-formed call
-	addressList, _ := getAddressSpaces(context.Background(), "example", "id")
+	addressList, _ := getAddressSpaces("example", "id")
     assert.Equal(t, addressList.Mappings[0].Region, addressSpaceRegion)
 
 
 	// Bad cloud name
-	emptyList, err := getAddressSpaces(context.Background(), "wrong", "id")
+	emptyList, err := getAddressSpaces("wrong", "id")
     require.NotNil(t, err)
 	require.Nil(t, emptyList)
 }
@@ -304,34 +303,34 @@ func TestUpdateAddressSpaceMap(t *testing.T) {
 	go setupServer(port)
 
 	// Valid cloud list 
-	cloud := Cloud{Name: "example",  Host: "localhost", Port: strconv.Itoa(port)}
+	cloud := Cloud{Name: "example",  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	config = Config{Clouds: []Cloud{cloud}}
-	err := updateAddressSpaceMap(context.Background(), "id")
+	err := updateAddressSpaceMap()
 	require.Nil(t, err)
 	assert.Equal(t, addressSpaceMap["example\\" + addressSpaceRegion], addressSpaceAddress)
 
 	// Invalid cloud list 
-	cloud = Cloud{Name: "wrong",  Host: "localhost", Port: strconv.Itoa(port)}
+	cloud = Cloud{Name: "wrong",  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	config = Config{Clouds: []Cloud{cloud}}
-	err = updateAddressSpaceMap(context.Background(), "id")
+	err = updateAddressSpaceMap()
 	require.NotNil(t, err)
 }
 
 func TestGetNewAddressSpace(t *testing.T) {
 	// No entries in address space map
 	addressSpaceMap = make(map[string]string)
-	address, err := getNewAddressSpace(context.Background())
+	address, err := getNewAddressSpace()
 	require.Nil(t, err)
 	assert.Equal(t, address, "10.0.0.0/16")
 
 	// Next entry
 	addressSpaceMap["example\\us-west"] = "10.0.0.0/16"
-	address, err = getNewAddressSpace(context.Background())
+	address, err = getNewAddressSpace()
 	require.Nil(t, err)
 	assert.Equal(t, address, "10.1.0.0/16")
 
 	// Out of addresses
 	addressSpaceMap["example\\us-west"] = "10.255.0.0/16"
-	_, err = getNewAddressSpace(context.Background())
+	_, err = getNewAddressSpace()
 	require.NotNil(t, err)
 }

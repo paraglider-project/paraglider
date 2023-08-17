@@ -44,10 +44,7 @@ type teardownInfo struct {
 }
 
 // Max lengths for random resource name generation
-const (
-	vpcNameMaxLength = 62
-	vmNameMaxLength  = 63
-)
+const vmNameMaxLength = 63
 
 // Generates random VM name to ensure parallel runs of these tests don't run into duplicate resource issues
 func generateRandomVMName() string {
@@ -184,11 +181,6 @@ func TestIntegration(t *testing.T) {
 	if project == "" {
 		panic("INVISINETS_GCP_PROJECT must be set")
 	}
-	vpcName = vpcName + "-" + uuid.New().String() // Set global vpcName variable with randomness to ensure tests running concurrently don't overlap
-	if len(vpcName) > vpcNameMaxLength {
-		vpcName = vpcName[:vpcNameMaxLength]
-	}
-	vpcURL = "global/networks/" + vpcName
 	s := &GCPPluginServer{}
 
 	// Teardown
@@ -289,7 +281,7 @@ func TestIntegration(t *testing.T) {
 		subnetworks,
 	)
 
-	resourceId := project + "/" + insertInstanceReq1.Zone + "/" + *insertInstanceReq1.InstanceResource.Name
+	resourceId := "projects/" + project + "/zones/" + insertInstanceReq1.Zone + "/instances/" + *insertInstanceReq1.InstanceResource.Name
 
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: resourceId,
