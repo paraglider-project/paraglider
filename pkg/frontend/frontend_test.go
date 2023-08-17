@@ -88,11 +88,11 @@ func setupServer(port int) {
 	}
 }
 
-func SetUpRouter() *gin.Engine{
+func SetUpRouter() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	gin.DefaultWriter = io.Discard
-    router := gin.New()
-    return router
+	router := gin.New()
+	return router
 }
 
 
