@@ -302,7 +302,7 @@ func Setup(configPath string) {
 	}
 
 	// Populate server info
-	server := ControllerServer{}
+	server := ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string][]string)}
 	server.config = cfg
 
 	for _, c := range server.config.Clouds {
