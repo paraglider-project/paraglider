@@ -33,45 +33,43 @@ import (
 )
 
 const (
-	vmName     = "sample-vm"
-	diskName   = "sample-disk"
-	location   = "westus"
-	apiVersion = "2019-07-01"
+	vmNamePrefix   = "sample-vm"
+	location       = "westus"
 )
 
 var (
 	subscriptionId = os.Getenv("INVISINETS_AZURE_SUBSCRIPTION_ID")
 	resourceGroup  = "invisinets-test-" + uuid.New().String()
-	cred           *azidentity.DefaultAzureCredential
-	clientFactory  *armresources.ClientFactory
+	resourceGroupsClient  *armresources.ResourceGroupsClient
 )
 
 func setupIntegration() {
-	var err error
-	cred, err = azidentity.NewDefaultAzureCredential(nil)
+	if subscriptionId == "" {
+		panic("Environment variable 'INVISINETS_AZURE_SUBSCRIPTION_ID' must be set")
+	}
+
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
 		panic(fmt.Sprintf("Error while getting azure credentials during setup: %v", err))
 	}
-	clientFactory, err = armresources.NewClientFactory(subscriptionId, cred, nil)
+	clientFactory, err := armresources.NewClientFactory(subscriptionId, cred, nil)
 	if err != nil {
 		panic(fmt.Sprintf("Error while creating client factory during setup: %v", err))
 	}
-	createResourceGroup()
-}
-
-func createResourceGroup() {
-	rg, err := clientFactory.NewResourceGroupsClient().CreateOrUpdate(context.Background(), resourceGroup, armresources.ResourceGroup{
+	resourceGroupsClient = clientFactory.NewResourceGroupsClient()
+	_, err = resourceGroupsClient.CreateOrUpdate(context.Background(), resourceGroup, armresources.ResourceGroup{
 		Location: to.Ptr(location),
 	}, nil)
 	if err != nil {
 		panic(fmt.Sprintf("Error while creating resource group: %v", err))
 	}
-	_ = rg
 }
 
+// Deletes Resource group which in turn deletes all the resources created
+// If deletion fails: refer to https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/delete-resource-group
 func tearDown() {
 	ctx := context.Background()
-	poller, err := clientFactory.NewResourceGroupsClient().BeginDelete(ctx, resourceGroup, nil)
+	poller, err := resourceGroupsClient.BeginDelete(ctx, resourceGroup, nil)
 	if err != nil {
 		panic(fmt.Sprintf("Error while deleting resource group: %v", err))
 	}
@@ -86,13 +84,14 @@ func TestAzurePluginIntegration(t *testing.T) {
 	defer tearDown()
 
 	t.Run("TestAddAndGetPermitList", testAddAndGetPermitList)
-	t.Run("TestAddAndDeletePermitList", testAddAndDeletePermitList)
 }
 
 // This test will test the following:
 // 1. Create a resource
 // 2. Add a permit list
 // 3. Get the permit list
+// 4- Delete permit list rule
+// 5. Get the permit list and valdiates again
 func testAddAndGetPermitList(t *testing.T) {
 	vmID := getVmId()
 	permitList := &invisinetspb.PermitList{AssociatedResource: vmID,
@@ -108,17 +107,6 @@ func testAddAndGetPermitList(t *testing.T) {
 	// because it is only set in the get not the add
 	permitList.Rules[0].Id = getPermitListResp.Rules[0].Id
 	assert.ElementsMatch(t, getPermitListResp.Rules, permitList.Rules)
-}
-
-// This test will test the following:
-// 1. Create a resource
-// 2. Add a permit list
-// 3. Delete the permit list
-func testAddAndDeletePermitList(t *testing.T) {
-	vmID := getVmId()
-	permitList := &invisinetspb.PermitList{AssociatedResource: vmID,
-		Rules: []*invisinetspb.PermitListRule{&invisinetspb.PermitListRule{Tag: []string{"10.1.0.5"}, Direction: invisinetspb.Direction_OUTBOUND, SrcPort: 80, DstPort: 80, Protocol: 6}}}
-	s, ctx := setupValidResourceAndPermitList(t, permitList, vmID)
 
 	// Delete permit list rule
 	deletePermitListResp, err := s.DeletePermitListRules(ctx, permitList)
@@ -127,7 +115,7 @@ func testAddAndDeletePermitList(t *testing.T) {
 	assert.True(t, deletePermitListResp.Success)
 
 	// Assert the rule is deleted by using the get permit list api
-	getPermitListResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmID})
+	getPermitListResp, err = s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmID})
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListResp)
 
@@ -168,22 +156,14 @@ func getTestVirtualMachine() armcompute.VirtualMachine {
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{
 				ImageReference: &armcompute.ImageReference{
-					Offer:     to.Ptr("WindowsServer"),
-					Publisher: to.Ptr("MicrosoftWindowsServer"),
-					SKU:       to.Ptr("2019-Datacenter"),
+					Offer:     to.Ptr("debian-10"),
+					Publisher: to.Ptr("Debian"),
+					SKU:       to.Ptr("10"),
 					Version:   to.Ptr("latest"),
-				},
-				OSDisk: &armcompute.OSDisk{
-					Name:         to.Ptr(diskName + uuid.NewString()),
-					CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
-					Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
-					ManagedDisk: &armcompute.ManagedDiskParameters{
-						StorageAccountType: to.Ptr(armcompute.StorageAccountTypesStandardLRS),
-					},
 				},
 			},
 			HardwareProfile: &armcompute.HardwareProfile{
-				VMSize: to.Ptr(armcompute.VirtualMachineSizeTypes("Standard_F2s")),
+				VMSize: to.Ptr(armcompute.VirtualMachineSizeTypes("Standard_B1s")),
 			},
 			OSProfile: &armcompute.OSProfile{ //
 				ComputerName:  to.Ptr("sample-compute"),
@@ -195,5 +175,5 @@ func getTestVirtualMachine() armcompute.VirtualMachine {
 }
 
 func getVmId() string {
-	return "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroup + "/providers/Microsoft.Compute/virtualMachines/" + vmName + "-" + uuid.NewString()
+	return "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroup + "/providers/Microsoft.Compute/virtualMachines/" + vmNamePrefix + "-" + uuid.NewString()
 }

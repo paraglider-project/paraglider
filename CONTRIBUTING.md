@@ -80,7 +80,7 @@ If you would like to run these locally, you will need to be authenticated. The f
 
 **Azure**
 
-1. [Install azure cli](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli).
+1. [Install azure cli](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli). If you're using the dev container, this will already be installed for you.
 2. [Authenticate to your account with azure login](https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli).
 3. Set environment variables `INVISINETS_AZURE_SUBSCRIPTION_ID` with a valid subscription.
 
