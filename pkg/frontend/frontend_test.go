@@ -95,7 +95,6 @@ func SetUpRouter() *gin.Engine {
 	return router
 }
 
-
 func TestPermitListGet(t *testing.T) {
 	// Setup
 	port := 10001
