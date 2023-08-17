@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	port = flag.Int("port", 50051, "The server port")
+	port = flag.Int("port", 1002, "The server port")
 )
 
 type cloudPluginServer struct {
@@ -39,19 +39,34 @@ func (s *cloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.Res
 	return &invisinetspb.PermitList{AssociatedResource: r.Id}, nil
 }
 
+func (s *cloudPluginServer) AddPermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
+	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
+}
+
+func (s *cloudPluginServer) DeletePermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
+	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
+}
+
+func (s *cloudPluginServer) CreateResource(c context.Context, resource *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
+	return &invisinetspb.BasicResponse{Success: true, Message: resource.Id}, nil
+}
+
+func (s *cloudPluginServer) GetUsedAddressSpaces(c context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
+	mapping := invisinetspb.RegionAddressSpaceMap{Region: "us-west", AddressSpace: "10.0.0.0/16"}
+	return &invisinetspb.AddressSpaceList{Mappings: [](*invisinetspb.RegionAddressSpaceMap){&mapping}}, nil
+}
+
 func newServer() *cloudPluginServer {
 	s := &cloudPluginServer{}
 	return s
 }
 
 func main() {
-	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	var opts []grpc.ServerOption
-	grpcServer := grpc.NewServer(opts...)
+	grpcServer := grpc.NewServer()
 	invisinetspb.RegisterCloudPluginServer(grpcServer, newServer())
 	err = grpcServer.Serve(lis)
 	if err != nil {
