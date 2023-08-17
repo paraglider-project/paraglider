@@ -49,11 +49,12 @@ type AzureSDKHandler interface {
 	CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error)
 	CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error)
 	GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string]string, error)
+	CreateVnetPeering(ctx context.Context, vnet1Name string, vnet2Name string) error
 	GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error)
 	GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string
 	GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error)
 	GetLastSegment(resourceID string) (string, error)
-	SetSubIdAndResourceGroup(resourceIdInfo ResourceIDInfo)
+	SetSubIdAndResourceGroup(subID string, resourceGroupName string)
 }
 
 type azureSDKHandler struct {
@@ -68,6 +69,7 @@ type azureSDKHandler struct {
 	virtualNetworksClient  *armnetwork.VirtualNetworksClient
 	resourcesClient        *armresources.Client
 	deploymentsClient      *armresources.DeploymentsClient
+	networkPeeringClient   *armnetwork.VirtualNetworkPeeringsClient
 	subscriptionID         string
 	resourceGroupName      string
 }
@@ -150,6 +152,7 @@ func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
 
 	h.securityGroupsClient = h.networkClientFactory.NewSecurityGroupsClient()
 	h.interfacesClient = h.networkClientFactory.NewInterfacesClient()
+	h.networkPeeringClient = h.networkClientFactory.NewVirtualNetworkPeeringsClient()
 	h.securityRulesClient = h.networkClientFactory.NewSecurityRulesClient()
 	h.virtualNetworksClient = h.networkClientFactory.NewVirtualNetworksClient()
 	h.resourcesClient = h.resourcesClientFactory.NewClient()
@@ -168,9 +171,9 @@ func (h *azureSDKHandler) GetAzureCredentials() (azcore.TokenCredential, error) 
 	return cred, nil
 }
 
-func (h *azureSDKHandler) SetSubIdAndResourceGroup(resourceIdInfo ResourceIDInfo) {
-	h.subscriptionID = resourceIdInfo.SubscriptionID
-	h.resourceGroupName = resourceIdInfo.ResourceGroupName
+func (h *azureSDKHandler) SetSubIdAndResourceGroup(subid string, resourceGroupName string) {
+	h.subscriptionID = subid
+	h.resourceGroupName = resourceGroupName
 }
 
 // GetResourceNIC returns the network interface card (NIC) for a given resource ID.
@@ -338,6 +341,44 @@ func (h *azureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix stri
 		}
 	}
 	return addressSpaces, nil
+}
+
+// Create Vnet Peering between two VNets, this is important in the case of a multi-region deployment
+// For peering to work, two peering links must be created. By selecting remote virtual network, Azure will create both peering links.
+func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name string, vnet2Name string) error {
+	// create first link from vnet1 to vnet2
+	err := h.createOnePeeringLink(ctx, vnet1Name, vnet2Name)
+	if err != nil {
+		return err
+	}
+	// create second link from vnet2 to vnet1
+	err = h.createOnePeeringLink(ctx, vnet2Name, vnet1Name)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *azureSDKHandler) createOnePeeringLink(ctx context.Context, sourceVnet string, destVnet string) error {
+	poller, err := h.networkPeeringClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, sourceVnet, sourceVnet+"-link", armnetwork.VirtualNetworkPeering{
+		Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
+			AllowForwardedTraffic:     to.Ptr(false),
+			AllowGatewayTransit:       to.Ptr(false),
+			AllowVirtualNetworkAccess: to.Ptr(true),
+			RemoteVirtualNetwork: &armnetwork.SubResource{
+				ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", h.subscriptionID, h.resourceGroupName, destVnet)),
+			},
+			UseRemoteGateways: to.Ptr(false),
+		},
+	}, nil)
+	if err != nil {
+		return err
+	}
+	_, err = poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetPermitListRuleFromNSGRule returns a permit list rule from a network security group (NSG) rule.
