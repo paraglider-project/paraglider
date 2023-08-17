@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"net/http"
 	"context"
-	// "os"
+	"os"
 	"strconv"
 	"strings"
 	"errors"
-	// "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 	"encoding/json"
 
 	"github.com/gin-gonic/gin"
@@ -39,6 +39,7 @@ type Cloud struct {
 	Name string `yaml:"name"`
 	Host string `yaml:"host"`
 	Port string `yaml:"port"`
+	InvDeployment string `yaml:"invDeployment"`
 }
 
 type Config struct {
@@ -201,10 +202,10 @@ func getAddressSpaces(c context.Context, cloud string, deploymentId string) (*in
 }
 
 // Update local address space map by getting used address spaces from each cloud plugin
-func updateAddressSpaceMap(c context.Context, id string) error {
+func updateAddressSpaceMap(c context.Context) error {
 	// Call each cloud to get address spaces used
 	for _, cloud := range config.Clouds {
-		addressMap, err := getAddressSpaces(c, cloud.Name, id)
+		addressMap, err := getAddressSpaces(c, cloud.Name, cloud.InvDeployment)
 		if err != nil {
 			return fmt.Errorf("Could not retrieve address spaces for cloud %s", cloud)
 		}
@@ -257,7 +258,7 @@ func resourceCreate(c *gin.Context) {
 	}
 
 	// Check the resource region and get corresponding address space from it or get a new address space
-	err := updateAddressSpaceMap(context.Background(), resourceWithString.Id)
+	err := updateAddressSpaceMap(context.Background())
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -296,41 +297,39 @@ func resourceCreate(c *gin.Context) {
 	})
 }
 
-// TODO @smcclure20: include for later integration with cli to run server
-// func setup(configPath string) {
+func Setup(configPath string) {
+	f, err := os.Open(configPath)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	defer f.Close()
 
-// 	f, err := os.Open(configPath)
-// 	if err != nil {
-// 		fmt.Println(err.Error())
-// 	}
-// 	defer f.Close()
+	var cfg Config
+	decoder := yaml.NewDecoder(f)
+	err = decoder.Decode(&cfg)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	config = cfg
 
-// 	var cfg Config
-// 	decoder := yaml.NewDecoder(f)
-// 	err = decoder.Decode(&cfg)
-// 	if err != nil {
-// 		fmt.Println(err.Error())
-// 	}
-// 	config = cfg
+	for _, c := range config.Clouds {
+		pluginAddresses[c.Name] = c.Host + ":" + c.Port
+	}
 
-// 	for _, c := range config.Clouds {
-// 		pluginAddresses[c.Name] = c.Host + ":" + c.Port
-// 	}
+	router := gin.Default()
+	router.GET("/ping", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "pong",
+		})
+	})
 
-// 	router := gin.Default()
-// 	router.GET("/ping", func(c *gin.Context) {
-// 		c.JSON(http.StatusOK, gin.H{
-// 			"message": "pong",
-// 		})
-// 	})
-
-// 	router.GET("/cloud/:cloud/resources/:id/permit-list/", permitListGet)
-// 	router.POST("/cloud/:cloud/resources/:id/permit-list/rules/", permitListRulesAdd)
-// 	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules/", permitListRulesDelete)
-// 	router.POST("/cloud/:cloud/region/:region/resources/:id/", resourceCreate)
+	router.GET("/cloud/:cloud/resources/:id/permit-list/", permitListGet)
+	router.POST("/cloud/:cloud/resources/:id/permit-list/rules/", permitListRulesAdd)
+	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules/", permitListRulesDelete)
+	router.POST("/cloud/:cloud/region/:region/resources/:id/", resourceCreate)
   
-// 	err = router.Run(config.Server.Host + ":" + config.Server.Port)
-// 	if err != nil {
-// 		fmt.Println(err.Error())
-// 	}
-// }
+	err = router.Run(config.Server.Host + ":" + config.Server.Port)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+}

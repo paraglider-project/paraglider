@@ -6,6 +6,7 @@ cloudPlugins:
   - name: "example"
     host: "localhost"
     port: 1002
+    invDeployment: ""
   # - name: "gcp"
   #   host: "localhost"
   #   port: 1000

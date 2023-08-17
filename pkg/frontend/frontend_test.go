@@ -304,16 +304,16 @@ func TestUpdateAddressSpaceMap(t *testing.T) {
 	go setupServer(port)
 
 	// Valid cloud list 
-	cloud := Cloud{Name: "example",  Host: "localhost", Port: strconv.Itoa(port)}
+	cloud := Cloud{Name: "example",  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	config = Config{Clouds: []Cloud{cloud}}
-	err := updateAddressSpaceMap(context.Background(), "id")
+	err := updateAddressSpaceMap(context.Background())
 	require.Nil(t, err)
 	assert.Equal(t, addressSpaceMap["example\\" + addressSpaceRegion], addressSpaceAddress)
 
 	// Invalid cloud list 
-	cloud = Cloud{Name: "wrong",  Host: "localhost", Port: strconv.Itoa(port)}
+	cloud = Cloud{Name: "wrong",  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	config = Config{Clouds: []Cloud{cloud}}
-	err = updateAddressSpaceMap(context.Background(), "id")
+	err = updateAddressSpaceMap(context.Background())
 	require.NotNil(t, err)
 }
 
