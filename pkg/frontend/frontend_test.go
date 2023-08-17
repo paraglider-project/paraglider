@@ -81,7 +81,7 @@ func newPluginServer() *mockCloudPluginServer {
 }
 
 func newFrontendServer() *ControllerServer {
-	s := &ControllerServer{}
+	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string][]string)}
 	return s
 }
 
@@ -179,7 +179,7 @@ func TestPermitListRulesAdd(t *testing.T) {
     assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
+	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "wrong", id)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -306,7 +306,7 @@ func TestGetAddressSpaces(t *testing.T) {
 
 
 	// Bad cloud name
-	emptyList, err := frontendServer.getAddressSpaces(exampleCloudName, "id")
+	emptyList, err := frontendServer.getAddressSpaces("wrong", "id")
     require.NotNil(t, err)
 	require.Nil(t, emptyList)
 }
@@ -323,7 +323,7 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	frontendServer.config = Config{Clouds: []Cloud{cloud}}
 	err := frontendServer.updateUsedAddressSpacesMap()
 	require.Nil(t, err)
-	assert.Equal(t, frontendServer.usedAddressSpaces[exampleCloudName], addressSpaceAddress)
+	assert.Equal(t, frontendServer.usedAddressSpaces[exampleCloudName][0], addressSpaceAddress)
 
 	// Invalid cloud list 
 	cloud = Cloud{Name: "wrong",  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
@@ -339,13 +339,13 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 	frontendServer.usedAddressSpaces = make(map[string][]string)
 	address, err := frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
 	require.Nil(t, err)
-	assert.Equal(t, address, "10.0.0.0/16")
+	assert.Equal(t, address.Address, "10.0.0.0/16")
 
 	// Next entry
 	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.0.0.0/16"}
 	address, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
 	require.Nil(t, err)
-	assert.Equal(t, address, "10.1.0.0/16")
+	assert.Equal(t, address.Address, "10.1.0.0/16")
 
 	// Out of addresses
 	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.255.0.0/16"}
