@@ -1,0 +1,15 @@
+server: 
+  host: "localhost"
+  port: 8080
+
+cloudPlugins:
+  - name: "example"
+    host: "localhost"
+    port: 1002
+    invDeployment: ""
+  # - name: "gcp"
+  #   host: "localhost"
+  #   port: 1000
+  # - name: "azure"
+  #   host: "localhost"
+  #   port: 1001
