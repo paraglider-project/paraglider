@@ -179,7 +179,7 @@ func permitListRulesDelete(c *gin.Context) {
 }
 
 // Get used address spaces from a specified cloud
-func getAddressSpaces(c context.Context, cloud string, deploymentId string) (*invisinetspb.AddressSpaceList, error) {
+func getAddressSpaces(cloud string, deploymentId string) (*invisinetspb.AddressSpaceList, error) {
 	// Ensure correct cloud name
 	cloudClient, ok := pluginAddresses[cloud]
 	if !ok {
@@ -202,10 +202,10 @@ func getAddressSpaces(c context.Context, cloud string, deploymentId string) (*in
 }
 
 // Update local address space map by getting used address spaces from each cloud plugin
-func updateAddressSpaceMap(c context.Context) error {
+func updateAddressSpaceMap() error {
 	// Call each cloud to get address spaces used
 	for _, cloud := range config.Clouds {
-		addressMap, err := getAddressSpaces(c, cloud.Name, cloud.InvDeployment)
+		addressMap, err := getAddressSpaces(cloud.Name, cloud.InvDeployment)
 		if err != nil {
 			return fmt.Errorf("Could not retrieve address spaces for cloud %s", cloud)
 		}
@@ -220,7 +220,7 @@ func updateAddressSpaceMap(c context.Context) error {
 
 // Get a new address block for a new virtual network
 // TODO @smcclure20: Later, this should allocate more efficiently and with different size address blocks (eg, GCP needs larger than Azure since a VPC will span all regions)
-func getNewAddressSpace(c context.Context) (string, error) {
+func getNewAddressSpace() (string, error) {
 	highestBlockUsed := -1
 	for _, address := range addressSpaceMap {
 		blockNumber, err := strconv.Atoi(strings.Split(address, ".")[1])
@@ -258,7 +258,7 @@ func resourceCreate(c *gin.Context) {
 	}
 
 	// Check the resource region and get corresponding address space from it or get a new address space
-	err := updateAddressSpaceMap(context.Background())
+	err := updateAddressSpaceMap()
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -267,7 +267,7 @@ func resourceCreate(c *gin.Context) {
 	addressSpace, ok := addressSpaceMap[region]
 	if !ok {
 		// Create a new address space 
-		newAddressSpace, err := getNewAddressSpace(context.Background())
+		newAddressSpace, err := getNewAddressSpace()
 		if err != nil {
 			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 			return
