@@ -39,10 +39,7 @@ type Cloud struct {
 	Name string `yaml:"name"`
 	Host string `yaml:"host"`
 	Port string `yaml:"port"`
-<<<<<<< HEAD
-=======
 	InvDeployment string `yaml:"invDeployment"`
->>>>>>> origin/main
 }
 
 type Config struct {
@@ -182,11 +179,7 @@ func permitListRulesDelete(c *gin.Context) {
 }
 
 // Get used address spaces from a specified cloud
-<<<<<<< HEAD
-func getAddressSpaces(c context.Context, cloud string, deploymentId string) (*invisinetspb.AddressSpaceList, error) {
-=======
 func getAddressSpaces(cloud string, deploymentId string) (*invisinetspb.AddressSpaceList, error) {
->>>>>>> origin/main
 	// Ensure correct cloud name
 	cloudClient, ok := pluginAddresses[cloud]
 	if !ok {
