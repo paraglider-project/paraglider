@@ -270,3 +270,93 @@ var CloudPlugin_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "invisinets.proto",
 }
+
+const (
+	Controller_FindUnusedAddressSpace_FullMethodName = "/invisinetspb.Controller/FindUnusedAddressSpace"
+)
+
+// ControllerClient is the client API for Controller service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ControllerClient interface {
+	FindUnusedAddressSpace(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AddressSpace, error)
+}
+
+type controllerClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewControllerClient(cc grpc.ClientConnInterface) ControllerClient {
+	return &controllerClient{cc}
+}
+
+func (c *controllerClient) FindUnusedAddressSpace(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AddressSpace, error) {
+	out := new(AddressSpace)
+	err := c.cc.Invoke(ctx, Controller_FindUnusedAddressSpace_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ControllerServer is the server API for Controller service.
+// All implementations must embed UnimplementedControllerServer
+// for forward compatibility
+type ControllerServer interface {
+	FindUnusedAddressSpace(context.Context, *Empty) (*AddressSpace, error)
+	mustEmbedUnimplementedControllerServer()
+}
+
+// UnimplementedControllerServer must be embedded to have forward compatible implementations.
+type UnimplementedControllerServer struct {
+}
+
+func (UnimplementedControllerServer) FindUnusedAddressSpace(context.Context, *Empty) (*AddressSpace, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FindUnusedAddressSpace not implemented")
+}
+func (UnimplementedControllerServer) mustEmbedUnimplementedControllerServer() {}
+
+// UnsafeControllerServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ControllerServer will
+// result in compilation errors.
+type UnsafeControllerServer interface {
+	mustEmbedUnimplementedControllerServer()
+}
+
+func RegisterControllerServer(s grpc.ServiceRegistrar, srv ControllerServer) {
+	s.RegisterService(&Controller_ServiceDesc, srv)
+}
+
+func _Controller_FindUnusedAddressSpace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControllerServer).FindUnusedAddressSpace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Controller_FindUnusedAddressSpace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControllerServer).FindUnusedAddressSpace(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// Controller_ServiceDesc is the grpc.ServiceDesc for Controller service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Controller_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "invisinetspb.Controller",
+	HandlerType: (*ControllerServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "FindUnusedAddressSpace",
+			Handler:    _Controller_FindUnusedAddressSpace_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "invisinets.proto",
+}
