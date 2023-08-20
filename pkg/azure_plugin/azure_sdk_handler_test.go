@@ -146,7 +146,7 @@ func initializeReqRespMap() map[string]interface{} {
 	nicURL := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkInterfaces", subID, rgName)
 	nsgRuleUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkSecurityGroups/%s/securityRules", subID, rgName, validSecurityGroupName)
 	vnetUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
-	listVnetsUrl := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Network/virtualNetworks", subID)
+	listVnetsUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
 
 	// Define a map of URLs to responses
 	urlToResponse := map[string]interface{}{
@@ -229,8 +229,8 @@ func initializeReqRespMap() map[string]interface{} {
 					},
 				},
 			}},
+		fmt.Sprintf("%s/%s/virtualNetworkPeerings/%s", vnetUrl, validVnetName, validVnetName + "-link"): armnetwork.VirtualNetworkPeeringsClientGetResponse{},
 	}
-
 	return urlToResponse
 }
 
@@ -555,6 +555,49 @@ func TestCreateInvisinetsVirtualNetwork(t *testing.T) {
 
 		require.Error(t, err)
 		require.Nil(t, vnet)
+	})
+}
+
+func TestGetVnet(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	urlToResponse := initializeReqRespMap()
+	azureSDKHandlerTest := setup(urlToResponse)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+
+	// Test case: Success
+	t.Run("GetVnet: Success", func(t *testing.T) {
+		// Call the function to test
+		vnet, err := azureSDKHandlerTest.GetVNet(ctx, validVnetName)
+
+		require.NoError(t, err)
+		require.NotNil(t, vnet)
+	})
+
+	// Test case: Failure
+	t.Run("GetVnet: Failure", func(t *testing.T) {
+		// Call the function to test
+		vnet, err := azureSDKHandlerTest.GetVNet(ctx, invalidVnetName)
+
+		require.Error(t, err)
+		require.Nil(t, vnet)
+	})
+}
+
+func TestCreateVnetPeering(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	urlToResponse := initializeReqRespMap()
+	azureSDKHandlerTest := setup(urlToResponse)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+	// Test case: Success
+	t.Run("CreateVnetPeering: Success", func(t *testing.T) {
+		// Call the function to test
+		err := azureSDKHandlerTest.CreateVnetPeering(ctx, validVnetName, validVnetName)
+
+		require.NoError(t, err)
 	})
 }
 
