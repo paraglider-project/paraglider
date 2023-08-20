@@ -45,11 +45,12 @@ type AzureSDKHandler interface {
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
 	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, addressSpace string) (*armnetwork.VirtualNetwork, error)
-	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, name string, addressSpace string) (*armnetwork.VirtualNetwork, error)
+	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error)
 	CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error)
 	CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error)
 	GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string]string, error)
 	CreateVnetPeering(ctx context.Context, vnet1Name string, vnet2Name string) error
+	GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error)
 	GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error)
 	GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string
 	GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error)
@@ -526,6 +527,15 @@ func (h *azureSDKHandler) CreateVirtualMachine(ctx context.Context, parameters a
 		return nil, err
 	}
 	return &resp.VirtualMachine, nil
+}
+
+
+func (h *azureSDKHandler) GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error) {
+	vnet, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, nil)
+	if err!= nil {
+		return nil, err
+	}
+	return &vnet.VirtualNetwork, nil
 }
 
 // getIPs returns the source and destination IP addresses for a given permit list rule and resource IP address.

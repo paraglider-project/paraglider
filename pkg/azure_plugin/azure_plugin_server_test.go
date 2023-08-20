@@ -182,6 +182,16 @@ func (m *mockAzureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1 strin
 	return args.Error(0)
 }
 
+func (m *mockAzureSDKHandler) GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error) {
+	args := m.Called(ctx, vnetName)
+	vnet := args.Get(0)
+	if vnet == nil {
+		return nil, args.Error(1)
+	}
+	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
+}
+
+
 func setupAzurePluginServer() (*azurePluginServer, *mockAzureSDKHandler, context.Context) {
 	// Create a new instance of the azurePluginServer
 	server := &azurePluginServer{}
