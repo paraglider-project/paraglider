@@ -158,18 +158,12 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 
 	resourceAddress := *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
 
-	// resourceSubnetID := nic.Properties.IPConfigurations[0].Properties.Subnet.ID
-	// addressSpace, err := h.getSubnetAddressSpace(ctx, resourceSubnetID)
-	// TODO @nnomier: Get the address space, you can get it from the subnet id because 
-	// it containe vnet name and subnet name, or from the location and construct the vnet name and get it
-	// or from the private ip
 	// get the vnet to be able to get both the address space as well as the peering when needed 
 	resourceVnet, err  := s.azureHandler.GetVNet(ctx, getVnetName(*nic.Location))
 	if err != nil {
 		logger.Log.Printf("An error occured while getting resource vnet:%+v", err)
 		return nil, err
 	}
-	resourceAddressSpace := *resourceVnet.Properties.AddressSpace.AddressPrefixes[0]
 
 	invisinetsVnetsMap, err := s.azureHandler.GetVNetsAddressSpaces(ctx, InvisinetsPrefix)
 	if err != nil {
@@ -184,52 +178,8 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 			logger.Log.Printf("Cannot add duplicate rules: %+v", rule)
 			continue
 		}
-
-		// check the tag to see if it's outside of this resource network, then we need to also
-		// create a peering between vnets
-		for _, tag := range rule.Tag {
-			isTagInResourceAddressSpace, err := isAddressInVnetAddressSpace(tag, resourceAddressSpace)
-			if err != nil {
-				logger.Log.Printf("An error occured while checking tag %s :%+v",tag, err)
-				return nil, err
-			}
-			isPeeringFound := false
-			if !isTagInResourceAddressSpace { 
-				// we need to check if it is another vnet in the invisinetsVnetsMap
-				// and if it is, is there already a peering between the two vnets
-				// if there is no peering, we need to create one
-				for vnetLocation, vnetAddressSpace := range invisinetsVnetsMap {
-					// since invisinets vnets have non overlapping address spaces, if we find a match
-					// then we know that this is the vnet that the tag belongs to
-					isTagInVnetAddressSpace, err := isAddressInVnetAddressSpace(tag, vnetAddressSpace)
-					if err != nil {
-						return nil, err
-					}
-					if isTagInVnetAddressSpace {
-						// check if there is already a peering between the two vnets
-						for _ , peeredVnet := range resourceVnet.Properties.VirtualNetworkPeerings {
-							// it already contains a peering so no need to create a new one
-							if strings.HasSuffix(*peeredVnet.Properties.RemoteVirtualNetwork.ID, getVnetName(vnetLocation)) {
-								isPeeringFound = true
-								break
-							}
-						}
-
-						if !isPeeringFound {
-							// create a new peering
-							err := s.azureHandler.CreateVnetPeering(ctx, getVnetName(vnetLocation), getVnetName(*nic.Location))
-							if err != nil {
-								logger.Log.Printf("An error occured while creating vnet peering:%+v", err)
-								return nil, err
-							}
-						}
-						break
-					}
-				}
-			}
-		}
-
 		seen[ruleDesc] = true
+		s.checkPeering(ctx, resourceVnet, rule, resourceAddress, invisinetsVnetsMap)
 
 		// To avoid conflicted priorities, we need to check whether the priority is already used by other rules
 		// if the priority is already used, we need to find the next available priority
@@ -570,6 +520,44 @@ func isAddressInVnetAddressSpace(addressToCheck, vnetCIDR string) (bool, error) 
 
 	return cidr.Contains(ip), nil
 }
+
+func (s *azurePluginServer) checkPeering(ctx context.Context, resourceVnet *armnetwork.VirtualNetwork, rule *invisinetspb.PermitListRule, resourceAddressSpace string, invisinetsVnetsMap map[string]string) error {
+    for _, tag := range rule.Tag {
+        isTagInResourceAddressSpace, err := isAddressInVnetAddressSpace(tag, *resourceVnet.Properties.AddressSpace.AddressPrefixes[0])
+        if err != nil {
+            return err
+        }
+        if isTagInResourceAddressSpace {
+            continue
+        }
+
+        for vnetLocation, vnetAddressSpace := range invisinetsVnetsMap {
+            isTagInVnetAddressSpace, err := isAddressInVnetAddressSpace(tag, vnetAddressSpace)
+            if err != nil {
+                return err
+            }
+            if isTagInVnetAddressSpace {
+                peeringExists := false
+                for _, peeredVnet := range resourceVnet.Properties.VirtualNetworkPeerings {
+                    if strings.HasSuffix(*peeredVnet.Properties.RemoteVirtualNetwork.ID, getVnetName(vnetLocation)) {
+                        peeringExists = true
+                        break
+                    }
+                }
+
+                if !peeringExists {
+                    err := s.azureHandler.CreateVnetPeering(ctx, getVnetName(vnetLocation), getVnetName(*resourceVnet.Location))
+                    if err != nil {
+                        return err
+                    }
+                }
+                break // No need to continue checking other vnets
+            }
+        }
+    }
+    return nil
+}
+
 
 func getVnetName(location string) string {
 	return InvisinetsPrefix + "-" + location + "-vnet"
