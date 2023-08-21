@@ -39,8 +39,8 @@ const (
 
 var (
 	subscriptionId       = os.Getenv("INVISINETS_AZURE_SUBSCRIPTION_ID")
-	resourceGroup        = InvisinetsPrefix + "-integration-test"
 	resourceGroupsClient *armresources.ResourceGroupsClient
+	resourceGroupName        string
 )
 
 func setupIntegration() {
@@ -48,6 +48,7 @@ func setupIntegration() {
 		panic("Environment variable 'INVISINETS_AZURE_SUBSCRIPTION_ID' must be set")
 	}
 
+	resourceGroupName = InvisinetsPrefix + "-integration-test"
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
 		panic(fmt.Sprintf("Error while getting azure credentials during setup: %v", err))
@@ -57,7 +58,7 @@ func setupIntegration() {
 		panic(fmt.Sprintf("Error while creating client factory during setup: %v", err))
 	}
 	resourceGroupsClient = clientFactory.NewResourceGroupsClient()
-	_, err = resourceGroupsClient.CreateOrUpdate(context.Background(), resourceGroup, armresources.ResourceGroup{
+	_, err = resourceGroupsClient.CreateOrUpdate(context.Background(), resourceGroupName, armresources.ResourceGroup{
 		Location: to.Ptr(location),
 	}, nil)
 	if err != nil {
@@ -69,7 +70,7 @@ func setupIntegration() {
 // If deletion fails: refer to https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/delete-resource-group
 func tearDown() {
 	ctx := context.Background()
-	poller, err := resourceGroupsClient.BeginDelete(ctx, resourceGroup, nil)
+	poller, err := resourceGroupsClient.BeginDelete(ctx, resourceGroupName, nil)
 	if err != nil {
 		panic(fmt.Sprintf("Error while deleting resource group: %v", err))
 	}
@@ -178,5 +179,5 @@ func getTestVirtualMachine() armcompute.VirtualMachine {
 }
 
 func getVmId() string {
-	return "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroup + "/providers/Microsoft.Compute/virtualMachines/" + vmNamePrefix + "-" + uuid.NewString()
+	return "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + vmNamePrefix + "-" + uuid.NewString()
 }
