@@ -529,10 +529,9 @@ func (h *azureSDKHandler) CreateVirtualMachine(ctx context.Context, parameters a
 	return &resp.VirtualMachine, nil
 }
 
-
 func (h *azureSDKHandler) GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error) {
 	vnet, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, nil)
-	if err!= nil {
+	if err != nil {
 		return nil, err
 	}
 	return &vnet.VirtualNetwork, nil

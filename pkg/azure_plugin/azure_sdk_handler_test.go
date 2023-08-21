@@ -63,7 +63,7 @@ const (
 	validVnetName            = "invisinets-valid-vnet-name"
 	notFoundVnetName         = "invisinets-not-found-vnet-name"
 	invalidVnetName          = "invalid-vnet-name"
-	validAddressSpace        = "10.1.0.0/16"
+	validAddressSpace        = "10.0.0.0/16"
 	conflictingAddressSpace  = "10.2.0.0/16"
 )
 
@@ -154,7 +154,8 @@ func initializeReqRespMap() map[string]interface{} {
 	nicURL := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkInterfaces", subID, rgName)
 	nsgRuleUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkSecurityGroups/%s/securityRules", subID, rgName, validSecurityGroupName)
 	vnetUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
-	listVnetsUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
+	listVnetsUrl := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Network/virtualNetworks", subID)
+	vnetsInRgUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
 
 	// Define a map of URLs to responses
 	urlToResponse := map[string]interface{}{
@@ -237,7 +238,7 @@ func initializeReqRespMap() map[string]interface{} {
 					},
 				},
 			}},
-		fmt.Sprintf("%s/%s/virtualNetworkPeerings/%s", vnetUrl, validVnetName, validVnetName + "-link"): armnetwork.VirtualNetworkPeeringsClientGetResponse{},
+		fmt.Sprintf("%s/%s/virtualNetworkPeerings/%s", vnetsInRgUrl, validVnetName, validVnetName+"-link"): armnetwork.VirtualNetworkPeeringsClientGetResponse{},
 	}
 	return urlToResponse
 }

@@ -158,8 +158,8 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 
 	resourceAddress := *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
 
-	// get the vnet to be able to get both the address space as well as the peering when needed 
-	resourceVnet, err  := s.azureHandler.GetVNet(ctx, getVnetName(*nic.Location))
+	// get the vnet to be able to get both the address space as well as the peering when needed
+	resourceVnet, err := s.azureHandler.GetVNet(ctx, getVnetName(*nic.Location))
 	if err != nil {
 		logger.Log.Printf("An error occured while getting resource vnet:%+v", err)
 		return nil, err
@@ -179,7 +179,11 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 			continue
 		}
 		seen[ruleDesc] = true
-		s.checkPeering(ctx, resourceVnet, rule, resourceAddress, invisinetsVnetsMap)
+		err := s.checkPeering(ctx, resourceVnet, rule, invisinetsVnetsMap)
+		if err != nil {
+			logger.Log.Printf("An error occured while checking network peering:%+v", err)
+			return nil, err
+		}
 
 		// To avoid conflicted priorities, we need to check whether the priority is already used by other rules
 		// if the priority is already used, we need to find the next available priority
@@ -271,7 +275,7 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 	if err != nil {
 		return nil, err
 	}
-	
+
 	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(c, getVnetName(*invisinetsVm.Location), *invisinetsVm.Location, resourceDesc.AddressSpace)
 	if err != nil {
 		logger.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
@@ -498,6 +502,8 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	return info, nil
 }
 
+// isAddressInVnetAddressSpace checks whether the given address is in the given vnet address space
+// the addressToCheck could either be an IP address or a CIDR block
 func isAddressInVnetAddressSpace(addressToCheck, vnetCIDR string) (bool, error) {
 	_, cidr, err := net.ParseCIDR(vnetCIDR)
 	if err != nil {
@@ -508,7 +514,7 @@ func isAddressInVnetAddressSpace(addressToCheck, vnetCIDR string) (bool, error) 
 	if !strings.Contains(addressToCheck, "/") {
 		ip = net.ParseIP(addressToCheck)
 	} else {
-		ip,_, err = net.ParseCIDR(addressToCheck)
+		ip, _, err = net.ParseCIDR(addressToCheck)
 		if err != nil {
 			return false, err
 		}
@@ -521,44 +527,53 @@ func isAddressInVnetAddressSpace(addressToCheck, vnetCIDR string) (bool, error) 
 	return cidr.Contains(ip), nil
 }
 
-func (s *azurePluginServer) checkPeering(ctx context.Context, resourceVnet *armnetwork.VirtualNetwork, rule *invisinetspb.PermitListRule, resourceAddressSpace string, invisinetsVnetsMap map[string]string) error {
-    for _, tag := range rule.Tag {
-        isTagInResourceAddressSpace, err := isAddressInVnetAddressSpace(tag, *resourceVnet.Properties.AddressSpace.AddressPrefixes[0])
-        if err != nil {
-            return err
-        }
-        if isTagInResourceAddressSpace {
-            continue
-        }
+// checkPeering checks whether the given rule has a tag that is in the address space of any of the invisinets vnets 
+// and if requires a peering or not
+func (s *azurePluginServer) checkPeering(ctx context.Context, resourceVnet *armnetwork.VirtualNetwork, rule *invisinetspb.PermitListRule, invisinetsVnetsMap map[string]string) error {
+	for _, tag := range rule.Tag {
+		isTagInResourceAddressSpace, err := isAddressInVnetAddressSpace(tag, *resourceVnet.Properties.AddressSpace.AddressPrefixes[0])
+		if err != nil {
+			return err
+		}
+		if isTagInResourceAddressSpace {
+			continue
+		}
 
-        for vnetLocation, vnetAddressSpace := range invisinetsVnetsMap {
-            isTagInVnetAddressSpace, err := isAddressInVnetAddressSpace(tag, vnetAddressSpace)
-            if err != nil {
-                return err
-            }
-            if isTagInVnetAddressSpace {
-                peeringExists := false
-                for _, peeredVnet := range resourceVnet.Properties.VirtualNetworkPeerings {
-                    if strings.HasSuffix(*peeredVnet.Properties.RemoteVirtualNetwork.ID, getVnetName(vnetLocation)) {
-                        peeringExists = true
-                        break
-                    }
-                }
+		// if the tag is not in the resource address space, then check on the other invisinets vnets
+		// if it matches one of them, then a peering is required (if it doesn't exist already)
+		for vnetLocation, vnetAddressSpace := range invisinetsVnetsMap {
+			isTagInVnetAddressSpace, err := isAddressInVnetAddressSpace(tag, vnetAddressSpace)
+			if err != nil {
+				return err
+			}
+			if isTagInVnetAddressSpace {
+				peeringExists := false
+				for _, peeredVnet := range resourceVnet.Properties.VirtualNetworkPeerings {
+					if strings.HasSuffix(*peeredVnet.Properties.RemoteVirtualNetwork.ID, getVnetName(vnetLocation)) {
+						peeringExists = true
+						break
+					}
+				}
 
-                if !peeringExists {
-                    err := s.azureHandler.CreateVnetPeering(ctx, getVnetName(vnetLocation), getVnetName(*resourceVnet.Location))
-                    if err != nil {
-                        return err
-                    }
-                }
-                break // No need to continue checking other vnets
-            }
-        }
-    }
-    return nil
+				if !peeringExists {
+					err := s.azureHandler.CreateVnetPeering(ctx, getVnetName(vnetLocation), getVnetName(*resourceVnet.Location))
+					if err != nil {
+						return err
+					}
+					peeringExists = true
+				}
+				break // No need to continue checking other vnets
+			}
+		}
+
+		// TODO: if the tag is not in any of the invisinets vnets (peeringExists = false), this might mean it's remote (another cloud),
+		// so the multicloud setup could be checked/achieved here
+	}
+	return nil
 }
 
-
+// getVnetName returns the name of the invisinets vnet in the given location 
+// since an invisients vnet is unique per location
 func getVnetName(location string) string {
 	return InvisinetsPrefix + "-" + location + "-vnet"
 }
