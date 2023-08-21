@@ -36,6 +36,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var fakeAddressList = map[string]string{testLocation: validAddressSpace}
+
 type dummyTokenCredential struct{}
 
 func (d *dummyTokenCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
@@ -190,7 +192,6 @@ func (m *mockAzureSDKHandler) GetVNet(ctx context.Context, vnetName string) (*ar
 	}
 	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
 }
-
 
 func setupAzurePluginServer() (*azurePluginServer, *mockAzureSDKHandler, context.Context) {
 	// Create a new instance of the azurePluginServer
@@ -426,6 +427,7 @@ func TestAddPermitListRules(t *testing.T) {
 	fakeNsgID := *fakeNic.Properties.NetworkSecurityGroup.ID
 	fakeResourceAddress := *fakeNic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
 	fakeNsg := getFakeNsg(fakeNsgID, fakeNsgName)
+	fakeVnet := getFakeVnet(fakeNic.Location, validAddressSpace)
 
 	// Test 1: Successful AddPermitListRules
 	t.Run("AddPermitListRules: Success", func(t *testing.T) {
@@ -434,6 +436,8 @@ func TestAddPermitListRules(t *testing.T) {
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
 		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNic, nil)
+		mockAzureHandler.On("GetVNet", ctx, getVnetName(*fakeNic.Location)).Return(fakeVnet, nil)
+		mockAzureHandler.On("GetVNetsAddressSpaces", ctx, InvisinetsPrefix).Return(fakeAddressList, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nil)
 		for i, rule := range fakeNsg.Properties.SecurityRules {
@@ -523,6 +527,8 @@ func TestAddPermitListRules(t *testing.T) {
 		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNicWithoutNSG, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
+		mockAzureHandler.On("GetVNet", ctx, getVnetName(*fakeNic.Location)).Return(fakeVnet, nil)
+		mockAzureHandler.On("GetVNetsAddressSpaces", ctx, InvisinetsPrefix).Return(fakeAddressList, nil)
 		mockAzureHandler.On("CreateNetworkSecurityGroup", ctx, mock.Anything, *fakeNicWithoutNSG.Location).Return(fakeNsg, nil)
 		mockAzureHandler.On("UpdateNetworkInterface", ctx, fakeNicWithoutNSG, fakeNsg).Return(fakeNic, nil)
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nil)
@@ -591,6 +597,8 @@ func TestAddPermitListRules(t *testing.T) {
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
 		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNic, nil)
+		mockAzureHandler.On("GetVNet", ctx, getVnetName(*fakeNic.Location)).Return(fakeVnet, nil)
+		mockAzureHandler.On("GetVNetsAddressSpaces", ctx, InvisinetsPrefix).Return(fakeAddressList, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, nil)
 		mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nil)
 		for i, rule := range fakeNsg.Properties.SecurityRules {
@@ -770,7 +778,6 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 func TestGetUsedAddressSpaces(t *testing.T) {
 	server, mockAzureHandler, ctx := setupAzurePluginServer()
-	fakeAddressList := map[string]string{testLocation: validAddressSpace}
 	mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 	mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
 	mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
@@ -840,46 +847,65 @@ func getFakeNsg(nsgID string, nsgName string) *armnetwork.SecurityGroup {
 					ID:   to.Ptr("test-rule-id-1"),
 					Name: to.Ptr("invisinets-Rule-1"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
-						Direction:            to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
-						Priority:             to.Ptr(int32(100)),
-						SourcePortRange:      to.Ptr("100"),
-						DestinationPortRange: to.Ptr("8080"),
-						Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
+						Priority:                   to.Ptr(int32(100)),
+						SourcePortRange:            to.Ptr("100"),
+						DestinationPortRange:       to.Ptr("8080"),
+						Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolTCP),
 					},
 				},
 				{
 					ID:   to.Ptr("test-rule-id-2"),
 					Name: to.Ptr("invisinets-Rule-2"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
-						Direction:            to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
-						Priority:             to.Ptr(int32(101)),
-						SourcePortRange:      to.Ptr("100"),
-						DestinationPortRange: to.Ptr("8080"),
-						Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
+						Priority:                   to.Ptr(int32(101)),
+						SourcePortRange:            to.Ptr("100"),
+						DestinationPortRange:       to.Ptr("8080"),
+						Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolTCP),
 					},
 				},
 				{
 					ID:   to.Ptr("test-rule-id-3"),
 					Name: to.Ptr("not-invisinets-Rule-1"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
-						Direction:            to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
-						Priority:             to.Ptr(int32(102)),
-						SourcePortRange:      to.Ptr("5050"),
-						DestinationPortRange: to.Ptr("8080"),
-						Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
+						Priority:                   to.Ptr(int32(102)),
+						SourcePortRange:            to.Ptr("5050"),
+						DestinationPortRange:       to.Ptr("8080"),
+						Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolTCP),
 					},
 				},
 				{
 					ID:   to.Ptr("test-rule-id-4"),
 					Name: to.Ptr("not-invisinets-Rule-2"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
-						Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
-						Priority:             to.Ptr(int32(100)),
-						SourcePortRange:      to.Ptr("100"),
-						DestinationPortRange: to.Ptr("8080"),
-						Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
+						Priority:                   to.Ptr(int32(100)),
+						SourcePortRange:            to.Ptr("100"),
+						DestinationPortRange:       to.Ptr("8080"),
+						Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolTCP),
 					},
 				},
+			},
+		},
+	}
+}
+
+func getFakeVnet(location *string, addressSpace string) *armnetwork.VirtualNetwork {
+	return &armnetwork.VirtualNetwork{
+		Location: location,
+		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+			AddressSpace: &armnetwork.AddressSpace{
+				AddressPrefixes: []*string{to.Ptr(addressSpace)},
 			},
 		},
 	}
@@ -930,4 +956,42 @@ func TestGetResourceIDInfo(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCheckPeering(t *testing.T) {
+	server, mockAzureHandler, ctx := setupAzurePluginServer()
+
+	fakeResourceVnet := &armnetwork.VirtualNetwork{
+		Location: to.Ptr(testLocation),
+		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+			AddressSpace: &armnetwork.AddressSpace{
+				AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+			},
+			VirtualNetworkPeerings: []*armnetwork.VirtualNetworkPeering{
+				{
+					Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
+						RemoteVirtualNetwork: &armnetwork.SubResource{
+							ID: to.Ptr(getVnetName("westus")),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	vnetMap := map[string]string{"westus": "10.5.0.0/16", "westus2": "10.2.0.0/16"}
+
+	// each tag will represent a test case
+	fakeList := &invisinetspb.PermitListRule{Tag: []string{
+		"10.0.0.1",   // A tag that matches resourceVnet's address space
+		"10.1.0.0/8", // A tag that matches resourceVnet's address space but is in a CIDR format
+		"10.5.3.4",   // A tag outside of the resourceVnet's address space but is in another (westus) invisinets network and has an existing peering
+		"10.2.3.4",   // A tag outside of the resourceVnet's address space but is in another invisinets network and requires a new peering
+	}}
+
+	mockAzureHandler.On("CreateVnetPeering", ctx, getVnetName("westus2"), getVnetName(testLocation)).Return(nil)
+	err := server.checkPeering(ctx, fakeResourceVnet, fakeList, vnetMap)
+
+	mockAzureHandler.AssertExpectations(t)
+	assert.NoError(t, err)
 }
