@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
@@ -29,7 +30,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
+var (
 	InvisinetsPrefix = "invisinets"
 )
 
@@ -42,6 +43,17 @@ type ResourceIDInfo struct {
 type azurePluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
 	azureHandler AzureSDKHandler
+}
+
+func init() {
+	ghRunNumber := os.Getenv("GH_RUN_NUMBER")
+
+	// For integration testing, add the run number to the prefix to avoid conflicts
+	// if multiple runs are running at the same time to ensure each run has its own resources
+	if ghRunNumber != "" {
+		prefix := "github" + ghRunNumber + "-"
+		InvisinetsPrefix = prefix + InvisinetsPrefix
+	}
 }
 
 func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) error {
@@ -330,8 +342,7 @@ func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.
 	} else {
 		logger.Log.Printf("NIC %s does not have a network security group", *nic.ID)
 		// create a new network security group
-		nsgName := "invisnets-" + uuid.New().String() + "-nsg"
-		nsg, err = s.azureHandler.CreateNetworkSecurityGroup(ctx, nsgName, *nic.Location)
+		nsg, err = s.azureHandler.CreateNetworkSecurityGroup(ctx, getInvisinetsResourceName("nsg"), *nic.Location)
 		if err != nil {
 			logger.Log.Printf("Failed to create a new network security group: %v", err)
 			return nil, err

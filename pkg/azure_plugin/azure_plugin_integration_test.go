@@ -33,14 +33,14 @@ import (
 )
 
 const (
-	vmNamePrefix   = "sample-vm"
-	location       = "westus"
+	vmNamePrefix = "sample-vm"
+	location     = "westus"
 )
 
 var (
-	subscriptionId = os.Getenv("INVISINETS_AZURE_SUBSCRIPTION_ID")
-	resourceGroup  = "invisinets-test-" + uuid.New().String()
-	resourceGroupsClient  *armresources.ResourceGroupsClient
+	subscriptionId       = os.Getenv("INVISINETS_AZURE_SUBSCRIPTION_ID")
+	resourceGroup        = InvisinetsPrefix + "-integration-test"
+	resourceGroupsClient *armresources.ResourceGroupsClient
 )
 
 func setupIntegration() {
@@ -79,6 +79,9 @@ func tearDown() {
 	}
 }
 
+// Main integration test function
+// any test that needs to be run as part of integration test should be added here
+// as a subtest, this is to ensure that the setup and teardown is done only once before or after all the tests
 func TestAzurePluginIntegration(t *testing.T) {
 	setupIntegration()
 	defer tearDown()
