@@ -462,6 +462,8 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	}
 
 	if !subnetExists {
+		// Find unused address spaces
+		addressSpace := ""
 		insertSubnetworkRequest := &computepb.InsertSubnetworkRequest{
 			Project: project,
 			Region:  region,
@@ -469,7 +471,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 				Name:        proto.String(subnetName),
 				Description: proto.String("Invisinets subnetwork for " + region),
 				Network:     proto.String(getVPCURL()),
-				IpCidrRange: proto.String(resourceDescription.AddressSpace),
+				IpCidrRange: proto.String(addressSpace),
 			},
 		}
 		insertSubnetworkOp, err := subnetworksClient.Insert(ctx, insertSubnetworkRequest)
@@ -569,7 +571,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsD
 			return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
 		}
 	} else {
-		addressSpaceList.Mappings = make([]*invisinetspb.RegionAddressSpaceMap, len(getNetworkResp.Subnetworks))
+		addressSpaceList.AddressSpaces = make([]string, len(getNetworkResp.Subnetworks))
 		for i, subnetURL := range getNetworkResp.Subnetworks {
 			parsedSubnetURL := parseGCPURL(subnetURL)
 			getSubnetworkRequest := &computepb.GetSubnetworkRequest{
@@ -581,10 +583,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsD
 			if err != nil {
 				return nil, fmt.Errorf("failed to get invisinets subnetwork: %w", err)
 			}
-			addressSpaceList.Mappings[i] = &invisinetspb.RegionAddressSpaceMap{
-				Region:       parsedSubnetURL["regions"],
-				AddressSpace: *getSubnetworkResp.IpCidrRange,
-			}
+			addressSpaceList.AddressSpaces[i] = *getSubnetworkResp.IpCidrRange
 		}
 	}
 

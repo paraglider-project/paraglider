@@ -464,7 +464,7 @@ func TestCreateResource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"}
+	resource := &invisinetspb.ResourceDescription{Description: description}
 
 	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
@@ -485,7 +485,7 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"}
+	resource := &invisinetspb.ResourceDescription{Description: description}
 
 	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
@@ -509,7 +509,7 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"}
+	resource := &invisinetspb.ResourceDescription{Description: description}
 
 	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
@@ -533,9 +533,9 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 	s := &GCPPluginServer{}
 
-	usedAddressSpacesExpected := []*invisinetspb.RegionAddressSpaceMap{{Region: "us-fake1", AddressSpace: "10.1.2.0/24"}}
+	usedAddressSpacesExpected := []string{"10.1.2.0/24"}
 	addressSpaceList, err := s._GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject}, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
 	require.NotNil(t, addressSpaceList)
-	assert.ElementsMatch(t, usedAddressSpacesExpected, addressSpaceList.Mappings)
+	assert.ElementsMatch(t, usedAddressSpacesExpected, addressSpaceList.AddressSpaces)
 }

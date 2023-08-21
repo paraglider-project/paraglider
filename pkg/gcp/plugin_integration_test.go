@@ -220,8 +220,7 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	resourceDescription1 := &invisinetspb.ResourceDescription{
-		Description:  insertInstanceReq1Bytes,
-		AddressSpace: "10.162.162.0/24",
+		Description: insertInstanceReq1Bytes,
 	}
 	createResource1Resp, err := s.CreateResource(
 		context.Background(),
@@ -248,8 +247,7 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	resourceDescription2 := &invisinetspb.ResourceDescription{
-		Description:  insertInstanceReq2Bytes,
-		AddressSpace: "10.162.168.0/24",
+		Description: insertInstanceReq2Bytes,
 	}
 	createResource2Resp, err := s.CreateResource(
 		context.Background(),
