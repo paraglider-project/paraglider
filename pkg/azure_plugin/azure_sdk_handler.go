@@ -360,6 +360,7 @@ func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name strin
 	return nil
 }
 
+// createOnePerringLink creates a unidirectional peering link between two VNets given the source and destination VNet names
 func (h *azureSDKHandler) createOnePeeringLink(ctx context.Context, sourceVnet string, destVnet string) error {
 	poller, err := h.networkPeeringClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, sourceVnet, sourceVnet+"-link", armnetwork.VirtualNetworkPeering{
 		Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
@@ -529,6 +530,7 @@ func (h *azureSDKHandler) CreateVirtualMachine(ctx context.Context, parameters a
 	return &resp.VirtualMachine, nil
 }
 
+// GetVNet returns the virtual network with the given name
 func (h *azureSDKHandler) GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error) {
 	vnet, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, nil)
 	if err != nil {

@@ -793,6 +793,91 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	assert.Equal(t, testLocation, addressList.Mappings[0].Region)
 }
 
+func TestGetResourceIDInfo(t *testing.T) {
+	tests := []struct {
+		name         string
+		resourceID   string
+		expectedInfo ResourceIDInfo
+		expectError  bool
+	}{
+		{
+			name:         "ValidResourceIDWithVM",
+			resourceID:   "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/vm123",
+			expectedInfo: ResourceIDInfo{SubscriptionID: "sub123", ResourceGroupName: "rg123", ResourceName: "vm123"},
+			expectError:  false,
+		},
+		{
+			name:         "ValidResourceIDWithoutVM",
+			resourceID:   "/subscriptions/sub123/resourceGroups/rg123",
+			expectedInfo: ResourceIDInfo{SubscriptionID: "sub123", ResourceGroupName: "rg123", ResourceName: "rg123"},
+			expectError:  false,
+		},
+		{
+			name:         "InvalidFormatTooFewSegments",
+			resourceID:   "/subscriptions/sub123",
+			expectedInfo: ResourceIDInfo{},
+			expectError:  true,
+		},
+		{
+			name:         "InvalidSegment",
+			resourceID:   "/subscriptions/sub123/invalidSegment/rg123/providers/Microsoft.Compute/virtualMachines/vm123",
+			expectedInfo: ResourceIDInfo{},
+			expectError:  true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			info, err := getResourceIDInfo(test.resourceID)
+
+			if test.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, test.expectedInfo, info)
+			}
+		})
+	}
+}
+
+func TestCheckPeering(t *testing.T) {
+	server, mockAzureHandler, ctx := setupAzurePluginServer()
+
+	fakeResourceVnet := &armnetwork.VirtualNetwork{
+		Location: to.Ptr(testLocation),
+		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+			AddressSpace: &armnetwork.AddressSpace{
+				AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+			},
+			VirtualNetworkPeerings: []*armnetwork.VirtualNetworkPeering{
+				{
+					Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
+						RemoteVirtualNetwork: &armnetwork.SubResource{
+							ID: to.Ptr(getVnetName("westus")),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	vnetMap := map[string]string{"westus": "10.5.0.0/16", "westus2": "10.2.0.0/16"}
+
+	// each tag will represent a test case
+	fakeList := &invisinetspb.PermitListRule{Tag: []string{
+		"10.0.0.1",   // A tag that matches resourceVnet's address space
+		"10.1.0.0/8", // A tag that matches resourceVnet's address space but is in a CIDR format
+		"10.5.3.4",   // A tag outside of the resourceVnet's address space but is in another (westus) invisinets network and has an existing peering
+		"10.2.3.4",   // A tag outside of the resourceVnet's address space but is in another invisinets network and requires a new peering
+	}}
+
+	mockAzureHandler.On("CreateVnetPeering", ctx, getVnetName("westus2"), getVnetName(testLocation)).Return(nil)
+	err := server.checkPeering(ctx, fakeResourceVnet, fakeList, vnetMap)
+
+	mockAzureHandler.AssertExpectations(t)
+	assert.NoError(t, err)
+}
+
 func getFakePermitList() (*invisinetspb.PermitList, []string, error) {
 	var err error
 	nsg := getFakeNsg("test", "test")
@@ -909,89 +994,4 @@ func getFakeVnet(location *string, addressSpace string) *armnetwork.VirtualNetwo
 			},
 		},
 	}
-}
-
-func TestGetResourceIDInfo(t *testing.T) {
-	tests := []struct {
-		name         string
-		resourceID   string
-		expectedInfo ResourceIDInfo
-		expectError  bool
-	}{
-		{
-			name:         "ValidResourceIDWithVM",
-			resourceID:   "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/vm123",
-			expectedInfo: ResourceIDInfo{SubscriptionID: "sub123", ResourceGroupName: "rg123", ResourceName: "vm123"},
-			expectError:  false,
-		},
-		{
-			name:         "ValidResourceIDWithoutVM",
-			resourceID:   "/subscriptions/sub123/resourceGroups/rg123",
-			expectedInfo: ResourceIDInfo{SubscriptionID: "sub123", ResourceGroupName: "rg123", ResourceName: "rg123"},
-			expectError:  false,
-		},
-		{
-			name:         "InvalidFormatTooFewSegments",
-			resourceID:   "/subscriptions/sub123",
-			expectedInfo: ResourceIDInfo{},
-			expectError:  true,
-		},
-		{
-			name:         "InvalidSegment",
-			resourceID:   "/subscriptions/sub123/invalidSegment/rg123/providers/Microsoft.Compute/virtualMachines/vm123",
-			expectedInfo: ResourceIDInfo{},
-			expectError:  true,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			info, err := getResourceIDInfo(test.resourceID)
-
-			if test.expectError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, test.expectedInfo, info)
-			}
-		})
-	}
-}
-
-func TestCheckPeering(t *testing.T) {
-	server, mockAzureHandler, ctx := setupAzurePluginServer()
-
-	fakeResourceVnet := &armnetwork.VirtualNetwork{
-		Location: to.Ptr(testLocation),
-		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
-			AddressSpace: &armnetwork.AddressSpace{
-				AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
-			},
-			VirtualNetworkPeerings: []*armnetwork.VirtualNetworkPeering{
-				{
-					Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
-						RemoteVirtualNetwork: &armnetwork.SubResource{
-							ID: to.Ptr(getVnetName("westus")),
-						},
-					},
-				},
-			},
-		},
-	}
-
-	vnetMap := map[string]string{"westus": "10.5.0.0/16", "westus2": "10.2.0.0/16"}
-
-	// each tag will represent a test case
-	fakeList := &invisinetspb.PermitListRule{Tag: []string{
-		"10.0.0.1",   // A tag that matches resourceVnet's address space
-		"10.1.0.0/8", // A tag that matches resourceVnet's address space but is in a CIDR format
-		"10.5.3.4",   // A tag outside of the resourceVnet's address space but is in another (westus) invisinets network and has an existing peering
-		"10.2.3.4",   // A tag outside of the resourceVnet's address space but is in another invisinets network and requires a new peering
-	}}
-
-	mockAzureHandler.On("CreateVnetPeering", ctx, getVnetName("westus2"), getVnetName(testLocation)).Return(nil)
-	err := server.checkPeering(ctx, fakeResourceVnet, fakeList, vnetMap)
-
-	mockAzureHandler.AssertExpectations(t)
-	assert.NoError(t, err)
 }
