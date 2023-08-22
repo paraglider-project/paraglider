@@ -32,6 +32,8 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"google.golang.org/api/googleapi"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -463,7 +465,18 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 
 	if !subnetExists {
 		// Find unused address spaces
-		addressSpace := ""
+		// TODO @seankimkdy: instead of reading the config, we could alternatively have the frontend include the IP address of the server as part of resourceDescription?
+		conn, err := grpc.Dial(resourceDescription.ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
+		}
+		defer conn.Close()
+		client := invisinetspb.NewControllerClient(conn)
+		response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+		if err != nil {
+			return nil, fmt.Errorf("unable to find unused address space: %w", err)
+		}
+
 		insertSubnetworkRequest := &computepb.InsertSubnetworkRequest{
 			Project: project,
 			Region:  region,
@@ -471,7 +484,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 				Name:        proto.String(subnetName),
 				Description: proto.String("Invisinets subnetwork for " + region),
 				Network:     proto.String(getVPCURL()),
-				IpCidrRange: proto.String(addressSpace),
+				IpCidrRange: proto.String(response.Address),
 			},
 		}
 		insertSubnetworkOp, err := subnetworksClient.Insert(ctx, insertSubnetworkRequest)

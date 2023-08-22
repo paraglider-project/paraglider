@@ -55,6 +55,7 @@ message ResourceID {
 message ResourceDescription {
     string id = 1;
     bytes description = 2;
+    string server_addr = 3;
 }
 
 message ResourceDescriptionString {

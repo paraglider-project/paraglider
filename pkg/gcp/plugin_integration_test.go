@@ -182,6 +182,10 @@ func TestIntegration(t *testing.T) {
 		panic("INVISINETS_GCP_PROJECT must be set")
 	}
 	s := &GCPPluginServer{}
+	fakeControllerServerAddr, err := setupFakecontrollerServer()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Teardown
 	teardownInfo := &teardownInfo{
@@ -221,6 +225,7 @@ func TestIntegration(t *testing.T) {
 	}
 	resourceDescription1 := &invisinetspb.ResourceDescription{
 		Description: insertInstanceReq1Bytes,
+		ServerAddr:  fakeControllerServerAddr,
 	}
 	createResource1Resp, err := s.CreateResource(
 		context.Background(),
@@ -248,6 +253,7 @@ func TestIntegration(t *testing.T) {
 	}
 	resourceDescription2 := &invisinetspb.ResourceDescription{
 		Description: insertInstanceReq2Bytes,
+		ServerAddr:  fakeControllerServerAddr,
 	}
 	createResource2Resp, err := s.CreateResource(
 		context.Background(),

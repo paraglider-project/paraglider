@@ -17,15 +17,16 @@ limitations under the License.
 package frontend
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
-	"context"
 	"os"
 	"strconv"
 	"strings"
-	"errors"
+
 	"gopkg.in/yaml.v2"
-	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 
@@ -35,29 +36,28 @@ import (
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 )
 
-
 // Configuration structs
 type Cloud struct {
-	Name string `yaml:"name"`
-	Host string `yaml:"host"`
-	Port string `yaml:"port"`
+	Name          string `yaml:"name"`
+	Host          string `yaml:"host"`
+	Port          string `yaml:"port"`
 	InvDeployment string `yaml:"invDeployment"`
 }
 
 type Config struct {
-    Server struct {
-        Port string `yaml:"port"`
-        Host string `yaml:"host"`
-    } `yaml:"server"`
+	Server struct {
+		Port string `yaml:"port"`
+		Host string `yaml:"host"`
+	} `yaml:"server"`
 
 	Clouds []Cloud `yaml:"cloudPlugins"`
 }
 
 type ControllerServer struct {
 	invisinetspb.UnimplementedControllerServer
-	pluginAddresses map[string]string
+	pluginAddresses   map[string]string
 	usedAddressSpaces map[string][]string
-	config Config
+	config            Config
 }
 
 func createErrorResponse(message string) gin.H {
@@ -110,7 +110,7 @@ func (s *ControllerServer) permitListGet(c *gin.Context) {
 
 // Add permit list rules to specified resource
 func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
-	// Ensure correct cloud name 
+	// Ensure correct cloud name
 	cloud := c.Param("cloud")
 	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
@@ -147,7 +147,7 @@ func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
 
 // Delete permit list rules to specified resource
 func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
-	// Ensure correct cloud name 
+	// Ensure correct cloud name
 	cloud := c.Param("cloud")
 	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
@@ -166,7 +166,7 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return 
+		return
 	}
 	defer conn.Close()
 
@@ -233,7 +233,7 @@ func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, e *invisine
 			if err != nil {
 				return nil, err
 			}
-	
+
 			if blockNumber > highestBlockUsed {
 				highestBlockUsed = blockNumber
 			}
@@ -244,7 +244,7 @@ func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, e *invisine
 		return nil, errors.New("All address blocks used")
 	}
 
-	newAddressSpace := &invisinetspb.AddressSpace{Address: fmt.Sprintf("10.%d.0.0/16", highestBlockUsed + 1)}
+	newAddressSpace := &invisinetspb.AddressSpace{Address: fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+1)}
 	return newAddressSpace, nil
 }
 
@@ -274,7 +274,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	defer conn.Close()
 
 	// Send RPC to create the resource
-	resource :=  invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description)}
+	resource := invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description), ServerAddr: s.config.Server.Host + ":" + s.config.Server.Port}
 	client := invisinetspb.NewCloudPluginClient(conn)
 	response, err := client.CreateResource(context.Background(), &resource)
 	if err != nil {
@@ -316,12 +316,12 @@ func Setup(configPath string) {
 			"message": "pong",
 		})
 	})
-	
+
 	router.GET("/cloud/:cloud/resources/:id/permit-list/", server.permitListGet)
 	router.POST("/cloud/:cloud/resources/:id/permit-list/rules/", server.permitListRulesAdd)
 	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules/", server.permitListRulesDelete)
 	router.POST("/cloud/:cloud/resources/:id/", server.resourceCreate)
-  
+
 	// Run server
 	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
 	if err != nil {
