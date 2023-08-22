@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/NetSys/invisinets/internal/version"
+	"github.com/NetSys/invisinets/pkg/cli"
 )
 
 // Placeholder CLI binary to get the build definitions working.
@@ -30,5 +31,8 @@ func main() {
 	fmt.Println("This is a placeholder version of an invisinet CLI binary.")
 	fmt.Println()
 	fmt.Println(version.VersionString(version.NewVersionInfo()))
+
+	cli.Execute()
+
 	os.Exit(0)
 }
