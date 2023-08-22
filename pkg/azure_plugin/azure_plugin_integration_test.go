@@ -26,6 +26,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -127,6 +128,12 @@ func testAddAndGetPermitList(t *testing.T) {
 }
 
 func setupValidResourceAndPermitList(t *testing.T, permitList *invisinetspb.PermitList, vmID string) (*azurePluginServer, context.Context) {
+
+	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	s := &azurePluginServer{
 		azureHandler: &azureSDKHandler{},
 	}
@@ -138,7 +145,7 @@ func setupValidResourceAndPermitList(t *testing.T, permitList *invisinetspb.Perm
 	createResourceResp, err := s.CreateResource(ctx, &invisinetspb.ResourceDescription{
 		Id:           vmID,
 		Description:  descriptionJson,
-		AddressSpace: "10.0.0.0/16",
+		ServerAddr:  fakeControllerServerAddr,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, createResourceResp)
