@@ -30,6 +30,7 @@ import (
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -182,7 +183,7 @@ func TestIntegration(t *testing.T) {
 		panic("INVISINETS_GCP_PROJECT must be set")
 	}
 	s := &GCPPluginServer{}
-	fakeControllerServerAddr, err := setupFakecontrollerServer()
+	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
 	if err != nil {
 		t.Fatal(err)
 	}

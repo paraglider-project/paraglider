@@ -27,6 +27,8 @@ import (
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	logger "github.com/NetSys/invisinets/pkg/logger"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -44,7 +46,7 @@ type AzureSDKHandler interface {
 	UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error)
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
-	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, addressSpace string) (*armnetwork.VirtualNetwork, error)
+	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, controllerAddress string) (*armnetwork.VirtualNetwork, error)
 	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, name string, addressSpace string) (*armnetwork.VirtualNetwork, error)
 	CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error)
 	CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error)
@@ -379,7 +381,7 @@ func (h *azureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) 
 
 // GetInvisinetsVnet returns a valid invisinets vnet, an invisinets vnet is a vnet with a default subnet with the same
 // address space as the vnet and there is only one vnet per location
-func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string, location string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
+func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string, location string, controllerAddress string) (*armnetwork.VirtualNetwork, error) {
 	// Get the virtual network
 	res, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, &armnetwork.VirtualNetworksClientGetOptions{Expand: nil})
 
@@ -388,7 +390,18 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 		var azError *azcore.ResponseError
 		if ok := errors.As(err, &azError); ok && azError.StatusCode == http.StatusNotFound {
 			// Create the virtual network if it doesn't exist
-			vnet, err := h.CreateInvisinetsVirtualNetwork(ctx, location, vnetName, addressSpace)
+			// Get the address space from the controller service
+			conn, err := grpc.Dial(controllerAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				return nil, err
+			}
+			defer conn.Close()
+			client := invisinetspb.NewControllerClient(conn)
+			response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+			if err != nil {
+				return nil, err
+			}
+			vnet, err := h.CreateInvisinetsVirtualNetwork(ctx, location, vnetName, response.Address)
 			return vnet, err
 		} else {
 			// Return the error if it's not ResourceNotFound
@@ -396,13 +409,7 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 		}
 	}
 
-	// Check if the virtual network has a subnet with the specified address space
-	vnet := &res.VirtualNetwork
-	if len(vnet.Properties.Subnets) == 0 || *vnet.Properties.Subnets[0].Properties.AddressPrefix != addressSpace {
-		return nil, fmt.Errorf("existing invisinets network: '%s' in location '%s' does not have a subnet with address space %s", vnetName, location, addressSpace)
-	}
-
-	return vnet, nil
+	return &res.VirtualNetwork, nil
 }
 
 // CreateInvisinetsVirtualNetwork creates a new invisinets virtual network with a default subnet with the same address

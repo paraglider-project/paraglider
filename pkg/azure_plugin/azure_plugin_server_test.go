@@ -154,8 +154,8 @@ func (m *mockAzureSDKHandler) CreateVirtualMachine(ctx context.Context, paramete
 	return vm.(*armcompute.VirtualMachine), args.Error(1)
 }
 
-func (m *mockAzureSDKHandler) GetInvisinetsVnet(ctx context.Context, prefix string, location string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
-	args := m.Called(ctx, prefix, location, addressSpace)
+func (m *mockAzureSDKHandler) GetInvisinetsVnet(ctx context.Context, prefix string, location string, serverAddress string) (*armnetwork.VirtualNetwork, error) {
+	args := m.Called(ctx, prefix, location, serverAddress)
 	vnet := args.Get(0)
 	if vnet == nil {
 		return nil, args.Error(1)
@@ -240,9 +240,9 @@ func TestCreateResource(t *testing.T) {
 		}
 
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
-			Description:  desc,
-			AddressSpace: validAddressSpace,
-			Id:           "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/vm123",
+			Description: desc,
+			ServerAddr:  "",
+			Id:          "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/vm123",
 		})
 
 		require.NoError(t, err)
@@ -755,20 +755,19 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 func TestGetUsedAddressSpaces(t *testing.T) {
 	server, mockAzureHandler, ctx := setupAzurePluginServer()
-	fakeAddressList := map[string]string{testLocation: validAddressSpace}
+	fakeAddressMap := map[string]string{testLocation: validAddressSpace}
 	mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 	mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
 	mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything).Return(nil)
-	mockAzureHandler.On("GetVNetsAddressSpaces", ctx, InvisinetsPrefix).Return(fakeAddressList, nil)
+	mockAzureHandler.On("GetVNetsAddressSpaces", ctx, InvisinetsPrefix).Return(fakeAddressMap, nil)
 	addressList, err := server.GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{
 		Id: "/subscriptions/123/resourceGroups/rg",
 	})
 
 	require.NoError(t, err)
 	require.NotNil(t, addressList)
-	require.Len(t, addressList.Mappings, 1)
-	assert.Equal(t, validAddressSpace, addressList.Mappings[0].AddressSpace)
-	assert.Equal(t, testLocation, addressList.Mappings[0].Region)
+	require.Len(t, addressList.AddressSpaces, 1)
+	assert.Equal(t, validAddressSpace, addressList.AddressSpaces[0])
 }
 
 func getFakePermitList() (*invisinetspb.PermitList, []string, error) {

@@ -258,7 +258,7 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 	}
 	invisinetsVnetName := InvisinetsPrefix + "-" + *invisinetsVm.Location + "-vnet"
 
-	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(c, invisinetsVnetName, *invisinetsVm.Location, resourceDesc.AddressSpace)
+	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(c, invisinetsVnetName, *invisinetsVm.Location, resourceDesc.ServerAddr)
 	if err != nil {
 		logger.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
 		return nil, err
@@ -303,18 +303,13 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment
 		logger.Log.Printf("An error occured while getting address spaces:%+v", err)
 		return nil, err
 	}
-
-	invisinetMapping := make([]*invisinetspb.RegionAddressSpaceMap, len(addressSpaces))
+	invisinetAddressList := make([]string, len(addressSpaces))
 	i := 0
-	for region, address := range addressSpaces {
-		invisinetMapping[i] = &invisinetspb.RegionAddressSpaceMap{
-			AddressSpace: address,
-			Region:       region,
-		}
+	for _, address := range addressSpaces {
+		invisinetAddressList[i] = address
 		i++
 	}
-
-	return &invisinetspb.AddressSpaceList{Mappings: invisinetMapping}, nil
+	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetAddressList}, nil
 }
 
 // GetOrCreateNSG returns the network security group object given the resource NIC

@@ -22,7 +22,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -31,11 +30,11 @@ import (
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/api/option"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -279,40 +278,6 @@ func setup(t *testing.T, fakeServerState *fakeServerState, neededClients map[str
 	return
 }
 
-// Sets up fake frontend controller server for getting unused address spaces
-type fakeControllerServer struct {
-	invisinetspb.UnimplementedControllerServer
-	findUnusedAddressSpaceFn func(ctx context.Context, e *invisinetspb.Empty) (*invisinetspb.AddressSpace, error)
-	counter                  int
-}
-
-func (f *fakeControllerServer) FindUnusedAddressSpace(ctx context.Context, e *invisinetspb.Empty) (*invisinetspb.AddressSpace, error) {
-	if f.counter == 256 {
-		return nil, fmt.Errorf("ran out of address spaces")
-	}
-	address := fmt.Sprintf("10.%d.0.0/16", f.counter)
-	f.counter = f.counter + 1
-	return &invisinetspb.AddressSpace{Address: address}, nil
-}
-
-func setupFakecontrollerServer() (string, error) {
-	fakeControllerServer := &fakeControllerServer{counter: 0}
-	l, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		return "", err
-	}
-	gsrv := grpc.NewServer()
-	invisinetspb.RegisterControllerServer(gsrv, fakeControllerServer)
-	fakeServerAddr := l.Addr().String()
-	go func() {
-		if err := gsrv.Serve(l); err != nil {
-			panic(err)
-		}
-	}()
-
-	return fakeServerAddr, nil
-}
-
 // Cleans up fake http server and fake GCP compute clients
 func teardown(fakeServer *httptest.Server, fakeClients fakeClients) {
 	fakeServer.Close()
@@ -536,7 +501,7 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
 	defer teardown(fakeServer, fakeClients)
 
-	fakeControllerServerAddr, err := setupFakecontrollerServer()
+	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
 	if err != nil {
 		t.Fatal(err)
 	}
