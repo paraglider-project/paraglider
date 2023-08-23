@@ -1,5 +1,3 @@
-//go:build unit
-
 /*
 Copyright 2023 The Invisinets Authors.
 
@@ -252,7 +250,7 @@ func TestGetVNetsAddressSpaces(t *testing.T) {
 
 	// Test case: Success
 	t.Run("GetVNetsAddressSpaces: Success", func(t *testing.T) {
-		addresses, err := azureSDKHandlerTest.GetVNetsAddressSpaces(ctx, InvisinetsPrefix)
+		addresses, err := azureSDKHandlerTest.GetVNetsAddressSpaces(ctx, invisinetsPrefix)
 		require.NoError(t, err)
 		require.NotNil(t, addresses)
 		require.Len(t, addresses, 1)
