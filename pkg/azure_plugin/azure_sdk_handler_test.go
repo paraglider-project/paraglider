@@ -1,3 +1,5 @@
+//go:build unit
+
 /*
 Copyright 2023 The Invisinets Authors.
 
