@@ -48,7 +48,7 @@ func setupIntegration() {
 		panic("Environment variable 'INVISINETS_AZURE_SUBSCRIPTION_ID' must be set")
 	}
 
-	resourceGroupName = InvisinetsPrefix + "-integration-test"
+	resourceGroupName = invisinetsPrefix + "-integration-test"
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
 		panic(fmt.Sprintf("Error while getting azure credentials during setup: %v", err))

@@ -31,7 +31,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
+var (
 	invisinetsPrefix = "invisinets"
 )
 
@@ -53,7 +53,7 @@ func init() {
 	// if multiple runs are running at the same time to ensure each run has its own resources
 	if ghRunNumber != "" {
 		prefix := "github" + ghRunNumber + "-"
-		InvisinetsPrefix = prefix + InvisinetsPrefix
+		invisinetsPrefix = prefix + invisinetsPrefix
 	}
 }
 
