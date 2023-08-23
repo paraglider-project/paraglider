@@ -20,7 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
+	"net/netip"
 	"os"
 	"strings"
 
@@ -31,8 +31,8 @@ import (
 	"github.com/google/uuid"
 )
 
-var (
-	InvisinetsPrefix = "invisinets"
+const (
+	invisinetsPrefix = "invisinets"
 )
 
 type ResourceIDInfo struct {
@@ -102,7 +102,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invis
 
 	// get the NSG rules
 	for _, rule := range nsg.Properties.SecurityRules {
-		if strings.HasPrefix(*rule.Name, InvisinetsPrefix) {
+		if strings.HasPrefix(*rule.Name, invisinetsPrefix) {
 			plRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
 				logger.Log.Printf("An error occured while getting Invisinets rule from NSG rule: %+v", err)
@@ -180,7 +180,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 			}
 		}
 
-		err := s.checkPeering(ctx, resourceVnet, rule, invisinetsVnetsMap)
+		err := s.checkAndCreatePeering(ctx, resourceVnet, rule, invisinetsVnetsMap)
 		if err != nil {
 			logger.Log.Printf("An error occured while checking network peering:%+v", err)
 			return nil, err
@@ -236,7 +236,7 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 	s.fillRulesSet(rulesToBeDeleted, pl.GetRules())
 
 	for _, rule := range nsg.Properties.SecurityRules {
-		if strings.HasPrefix(*rule.Name, InvisinetsPrefix) {
+		if strings.HasPrefix(*rule.Name, invisinetsPrefix) {
 			invisinetsRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
 				logger.Log.Printf("An error occured while getting permit list rule from NSG rule:%+v", err)
@@ -317,7 +317,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment
 		return nil, err
 	}
 
-	addressSpaces, err := s.azureHandler.GetVNetsAddressSpaces(ctx, InvisinetsPrefix)
+	addressSpaces, err := s.azureHandler.GetVNetsAddressSpaces(ctx, invisinetsPrefix)
 	if err != nil {
 		logger.Log.Printf("An error occured while getting address spaces:%+v", err)
 		return nil, err
@@ -427,7 +427,7 @@ func (s *azurePluginServer) setupMaps(reservedPrioritiesInbound map[int32]bool, 
 		}
 		// skip rules that are not created by Invisinets, because some rules are added by default and have
 		// different fields such as port ranges which is not supported by Invisinets at the moment
-		if !strings.HasPrefix(*rule.Name, InvisinetsPrefix) {
+		if !strings.HasPrefix(*rule.Name, invisinetsPrefix) {
 			continue
 		}
 		equivalentInvisinetsRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
@@ -477,7 +477,7 @@ func getVmFromResourceDesc(resourceDesc []byte) (*armcompute.VirtualMachine, err
 // getInvisinetsResourceName returns a name for the Invisinets resource
 func getInvisinetsResourceName(resourceType string) string {
 	// TODO @nnomier: change based on invisinets naming convention
-	return InvisinetsPrefix + "-" + resourceType + "-" + uuid.New().String()
+	return invisinetsPrefix + "-" + resourceType + "-" + uuid.New().String()
 }
 
 // getResourceIDInfo parses the resourceID to extract subscriptionID and resourceGroupName (and VM name if needed)
@@ -506,31 +506,33 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 // isAddressInVnetAddressSpace checks whether the given address is in the given vnet address space
 // the addressToCheck could either be an IP address or a CIDR block
 func isAddressInVnetAddressSpace(addressToCheck, vnetCIDR string) (bool, error) {
-	_, cidr, err := net.ParseCIDR(vnetCIDR)
+	vnetNetwork, err := netip.ParsePrefix(vnetCIDR)
 	if err != nil {
 		return false, err
 	}
 
-	var ip net.IP
-	if !strings.Contains(addressToCheck, "/") {
-		ip = net.ParseIP(addressToCheck)
-	} else {
-		ip, _, err = net.ParseCIDR(addressToCheck)
+	var isContainted bool
+
+	if strings.Contains(addressToCheck, "/") {
+		addressRange, err := netip.ParsePrefix(addressToCheck)
 		if err != nil {
 			return false, err
 		}
+		isContainted = vnetNetwork.Overlaps(addressRange)
+	} else {
+		address, err := netip.ParseAddr(addressToCheck)
+		if err != nil {
+			return false, err
+		}
+		isContainted = vnetNetwork.Contains(address)
 	}
 
-	if ip == nil {
-		return false, fmt.Errorf("invalid IP address: %s", addressToCheck)
-	}
-
-	return cidr.Contains(ip), nil
+	return isContainted, nil
 }
 
-// checkPeering checks whether the given rule has a tag that is in the address space of any of the invisinets vnets
+// checkAndCreatePeering checks whether the given rule has a tag that is in the address space of any of the invisinets vnets
 // and if requires a peering or not
-func (s *azurePluginServer) checkPeering(ctx context.Context, resourceVnet *armnetwork.VirtualNetwork, rule *invisinetspb.PermitListRule, invisinetsVnetsMap map[string]string) error {
+func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceVnet *armnetwork.VirtualNetwork, rule *invisinetspb.PermitListRule, invisinetsVnetsMap map[string]string) error {
 	for _, tag := range rule.Tag {
 		isTagInResourceAddressSpace, err := isAddressInVnetAddressSpace(tag, *resourceVnet.Properties.AddressSpace.AddressPrefixes[0])
 		if err != nil {
@@ -542,7 +544,7 @@ func (s *azurePluginServer) checkPeering(ctx context.Context, resourceVnet *armn
 
 		// only get the invisinets vnets if the code reaches this point to avoid unnecessary calls
 		if invisinetsVnetsMap == nil {
-			invisinetsVnetsMap, err = s.azureHandler.GetVNetsAddressSpaces(ctx, InvisinetsPrefix)
+			invisinetsVnetsMap, err = s.azureHandler.GetVNetsAddressSpaces(ctx, invisinetsPrefix)
 			if err != nil {
 				return err
 			}
@@ -569,13 +571,12 @@ func (s *azurePluginServer) checkPeering(ctx context.Context, resourceVnet *armn
 					if err != nil {
 						return err
 					}
-					peeringExists = true
 				}
 				break // No need to continue checking other vnets
 			}
 		}
 
-		// TODO: if the tag is not in any of the invisinets vnets (peeringExists = false), this might mean it's remote (another cloud),
+		// TODO @nnomier: if the tag is not in any of the invisinets vnets (peeringExists = false), this might mean it's remote (another cloud),
 		// so the multicloud setup could be checked/achieved here
 	}
 	return nil
@@ -584,5 +585,5 @@ func (s *azurePluginServer) checkPeering(ctx context.Context, resourceVnet *armn
 // getVnetName returns the name of the invisinets vnet in the given location
 // since an invisients vnet is unique per location
 func getVnetName(location string) string {
-	return InvisinetsPrefix + "-" + location + "-vnet"
+	return invisinetsPrefix + "-" + location + "-vnet"
 }
