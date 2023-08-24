@@ -232,10 +232,6 @@ jobs:
             pkg:
               - pkg/**
       - name: Accumulate changed paths
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        env:
-          GOTESTSUM_OPTS: '--junitfile ./dist/unit_test/results.xml'
-          GOTEST_OPTS: '-race -coverprofile ./dist/unit_test/coverage_original.out'
         run: |
           changed_paths="${{ steps.changed-dirs.outputs.pkg_all_changed_files }}"
           echo "Changed paths (before): $changed_paths"
@@ -246,7 +242,12 @@ jobs:
           done
           echo "Changed paths (after): $GOTEST_DIRS"
           echo "GOTEST_DIRS=${GOTEST_DIRS}" >> $GITHUB_ENV
-          source $GITHUB_ENV
+      - name: Run unit tests
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        env:
+          GOTESTSUM_OPTS: '--junitfile ./dist/unit_test/results.xml'
+          GOTEST_OPTS: '-race -coverprofile ./dist/unit_test/coverage_original.out'
+        run:
           go install gotest.tools/gotestsum@v${{ env.GOTESTSUMVERSION }}
           mkdir -p ./dist/unit_test
           make test        
