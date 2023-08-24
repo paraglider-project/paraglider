@@ -236,7 +236,7 @@ jobs:
           echo "List all the files that have changed: ${{ steps.changed-dirs.outputs.pkg_all_changed_files }}"
       - name: Accumulate changed paths
         run: |
-          changed_paths="${{ steps.changed-dirs.outputs.dirs }}"
+          changed_paths="${{ steps.changed-dirs.outputs.pkg_all_changed_files }}"
           echo "Changed paths (before): $changed_paths"
           paths=""
           for path in $changed_paths; do
