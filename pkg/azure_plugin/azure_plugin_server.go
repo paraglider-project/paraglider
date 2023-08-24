@@ -31,6 +31,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const maxPriority = 4096
+
 var (
 	invisinetsPrefix = "invisinets"
 )
@@ -154,7 +156,6 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	}
 	var outboundPriority int32 = 100
 	var inboundPriority int32 = 100
-	const maxPriority = 4096
 
 	resourceAddress := *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
 
@@ -300,6 +301,11 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 	invisinetsVm, err = s.azureHandler.CreateVirtualMachine(c, *invisinetsVm, resourceIdInfo.ResourceName)
 	if err != nil {
 		logger.Log.Printf("An error occured while creating the virtual machine:%+v", err)
+		return nil, err
+	}
+
+	_, err = s.azureHandler.UpdateNetworkInterface(c, nic, nil)
+	if err != nil {
 		return nil, err
 	}
 	return &invisinetspb.BasicResponse{Success: true, Message: "successfully created resource", UpdatedResource: &invisinetspb.ResourceID{Id: *invisinetsVm.ID}}, nil
