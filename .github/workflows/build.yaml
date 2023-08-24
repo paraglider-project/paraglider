@@ -242,7 +242,7 @@ jobs:
           GOTEST_DIRS=""
           for path in $changed_paths; do
             echo "Path: $path"
-            GOTEST_DIRS="$GOTEST_DIRS ./$path"
+            GOTEST_DIRS="$GOTEST_DIRS ./$path/..."
           done
           echo "Changed paths (after): $GOTEST_DIRS"
           echo "GOTEST_DIRS=${GOTEST_DIRS}" >> $GITHUB_ENV
