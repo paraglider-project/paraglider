@@ -237,11 +237,13 @@ jobs:
       - name: Accumulate changed paths
         run: |
           changed_paths="${{ steps.changed-dirs.outputs.dirs }}"
+          echo "Changed paths (before): $changed_paths"
           paths=""
           for path in $changed_paths; do
+            echo "Path: $path"
             paths="$paths ./path"
           done
-          echo "Changed paths: $paths"
+          echo "Changed paths (after): $paths"
       # - name: Run integration tests
       #   if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
       #   env:
