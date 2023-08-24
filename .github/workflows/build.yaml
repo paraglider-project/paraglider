@@ -245,6 +245,7 @@ jobs:
             GOTEST_DIRS="$GOTEST_DIRS ./$path"
           done
           echo "Changed paths (after): $GOTEST_DIRS"
+          echo "GOTEST_DIRS=${FOO}" >> $GITHUB_ENV
           go install gotest.tools/gotestsum@v${{ env.GOTESTSUMVERSION }}
           mkdir -p ./dist/unit_test
           make test        
