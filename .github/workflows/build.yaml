@@ -231,7 +231,8 @@ jobs:
           files_yaml: |
             pkg:
               - pkg/
-        run:
+      - name: List changed files
+        run: |
           echo "List all the files that have changed: ${{ steps.changed-dirs.outputs.pkg_all_changed_files }}"
       # - name: Run integration tests
       #   if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
