@@ -1,4 +1,4 @@
-name: Build and Test
+    name: Build and Test
 on:
   push:
     branches:
@@ -230,7 +230,7 @@ jobs:
           dir_names: "true"
           files_yaml: |
             pkg:
-              - pkg/
+              - pkg/**
       - name: List changed files
         run: |
           echo "List all the files that have changed: ${{ steps.changed-dirs.outputs.pkg_all_changed_files }}"
