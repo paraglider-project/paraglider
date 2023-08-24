@@ -241,7 +241,7 @@ jobs:
           paths=""
           for path in $changed_paths; do
             echo "Path: $path"
-            paths="$paths ./path"
+            paths="$paths ./$path"
           done
           echo "Changed paths (after): $paths"
       # - name: Run integration tests
