@@ -22,6 +22,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"net"
+	"log"
+	grpc "google.golang.org/grpc"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
@@ -483,3 +486,21 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 
 	return info, nil
 }
+
+func Setup(port int) {
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	azureServer := azurePluginServer{
+		azureHandler: &azureSDKHandler{},
+	}
+	invisinetspb.RegisterCloudPluginServer(grpcServer, &azureServer)
+	fmt.Println("Starting server on port :", port)
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+}
+
