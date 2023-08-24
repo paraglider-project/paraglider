@@ -247,7 +247,7 @@ jobs:
         env:
           GOTESTSUM_OPTS: '--junitfile ./dist/unit_test/results.xml'
           GOTEST_OPTS: '-race -coverprofile ./dist/unit_test/coverage_original.out'
-        run:
+        run: |
           go install gotest.tools/gotestsum@v${{ env.GOTESTSUMVERSION }}
           mkdir -p ./dist/unit_test
           make test        
