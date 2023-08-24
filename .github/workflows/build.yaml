@@ -58,38 +58,38 @@ jobs:
     steps:
       - name: Check out repo
         uses: actions/checkout@v3
-      # - name: Set up Go ${{ env.GOVER }}
-      #   uses: actions/setup-go@v3
-      #   with:
-      #     go-version: ${{ env.GOVER }}
-      # - name: Get Go Cache path
-      #   id: go-cache-paths
-      #   run: |
-      #     echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
-      #     echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
-      # - uses: actions/cache@v3
-      #   with:
-      #     path: |
-      #       ${{ steps.go-cache-paths.outputs.go-build }}
-      #       ${{ steps.go-cache-paths.outputs.go-mod }}
-      #     key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-      #     restore-keys: |
-      #       ${{ runner.os }}-go-
-      # - name: Restore the previous coverage
-      #   uses: actions/cache/restore@v3
-      #   with:
-      #     path: ./dist/cache
-      #     key: code-coverage-
-      # - name: Parse release version and set environment variables
-      #   run: python ./.github/scripts/get_release_version.py
-      # - name: Make build
-      #   run: make build
-      # - name: Run linter
-      #   if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'  
-      #   uses: golangci/golangci-lint-action@v3
-      #   with:
-      #     version: 'latest'
-      #     args: --timeout=10m
+      - name: Set up Go ${{ env.GOVER }}
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GOVER }}
+      - name: Get Go Cache path
+        id: go-cache-paths
+        run: |
+          echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
+          echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ${{ steps.go-cache-paths.outputs.go-build }}
+            ${{ steps.go-cache-paths.outputs.go-mod }}
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Restore the previous coverage
+        uses: actions/cache/restore@v3
+        with:
+          path: ./dist/cache
+          key: code-coverage-
+      - name: Parse release version and set environment variables
+        run: python ./.github/scripts/get_release_version.py
+      - name: Make build
+        run: make build
+      - name: Run linter
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'  
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: 'latest'
+          args: --timeout=10m
       # - name: Run make test (unit tests)
       #   if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
       #   env:
@@ -232,6 +232,10 @@ jobs:
             pkg:
               - pkg/**
       - name: Accumulate changed paths
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        env:
+          GOTESTSUM_OPTS: '--junitfile ./dist/unit_test/results.xml'
+          GOTEST_OPTS: '-race -coverprofile ./dist/unit_test/coverage_original.out'
         run: |
           changed_paths="${{ steps.changed-dirs.outputs.pkg_all_changed_files }}"
           echo "Changed paths (before): $changed_paths"
@@ -241,6 +245,9 @@ jobs:
             GOTEST_DIRS="$GOTEST_DIRS ./$path"
           done
           echo "Changed paths (after): $GOTEST_DIRS"
+          go install gotest.tools/gotestsum@v${{ env.GOTESTSUMVERSION }}
+          mkdir -p ./dist/unit_test
+          make test        
       # - name: Run integration tests
       #   if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
       #   env:
