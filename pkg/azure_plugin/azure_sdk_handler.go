@@ -486,6 +486,50 @@ func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, lo
 
 // CreateNetworkInterface creates a new network interface with a dynamic private IP address
 func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error) {
+	// first we need to create a default nsg that denies all traffic
+	nsgParameters := armnetwork.SecurityGroup{
+		Location: to.Ptr(location),
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: []*armnetwork.SecurityRule{
+				{
+					Name: to.Ptr("deny_all_inbound"),
+					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
+						SourceAddressPrefix:      to.Ptr("*"),
+						DestinationAddressPrefix: to.Ptr("*"),
+						DestinationPortRange:     to.Ptr("*"),
+						Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+						Priority:                 to.Ptr(int32(maxPriority)),
+						Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
+						SourcePortRange:          to.Ptr("*"),
+					},
+				},
+				{
+					Name: to.Ptr("deny_all_outbound"),
+					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
+						SourceAddressPrefix:      to.Ptr("*"),
+						DestinationAddressPrefix: to.Ptr("*"),
+						DestinationPortRange:     to.Ptr("*"),
+						Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+						Priority:                 to.Ptr(int32(maxPriority)),
+						Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
+						SourcePortRange:          to.Ptr("*"),
+					},
+				},
+			},
+		},
+	}
+	pollerResponse, err := h.securityGroupsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, invisinetsPrefix+"-default-nsg", nsgParameters, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	nsgResp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	parameters := armnetwork.Interface{
 		Location: to.Ptr(location),
 		Properties: &armnetwork.InterfacePropertiesFormat{
@@ -500,15 +544,18 @@ func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 					},
 				},
 			},
+			NetworkSecurityGroup: &armnetwork.SecurityGroup{
+				ID: nsgResp.ID,
+			},
 		},
 	}
 
-	pollerResponse, err := h.interfacesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nicName, parameters, nil)
+	nicPollerResponse, err := h.interfacesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nicName, parameters, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	resp, err := nicPollerResponse.PollUntilDone(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
