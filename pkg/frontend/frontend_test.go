@@ -76,7 +76,6 @@ func newServer() *mockCloudPluginServer {
 
 func setupServer(port int) {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
-	fmt.Println("got here")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
