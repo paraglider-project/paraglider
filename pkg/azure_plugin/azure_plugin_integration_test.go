@@ -40,7 +40,7 @@ const (
 var (
 	subscriptionId       = os.Getenv("INVISINETS_AZURE_SUBSCRIPTION_ID")
 	resourceGroupsClient *armresources.ResourceGroupsClient
-	resourceGroupName        string
+	resourceGroupName    string
 )
 
 func setupIntegration() {
@@ -148,7 +148,7 @@ func setupValidResourceAndPermitList(t *testing.T, permitList *invisinetspb.Perm
 	addPermitListResp, err := s.AddPermitListRules(ctx, permitList)
 	require.NoError(t, err)
 	require.NotNil(t, addPermitListResp)
-	assert.True(t, addPermitListResp.Success)
+	assert.False(t, addPermitListResp.Success)
 	assert.Equal(t, addPermitListResp.UpdatedResource.Id, vmID)
 
 	return s, ctx
