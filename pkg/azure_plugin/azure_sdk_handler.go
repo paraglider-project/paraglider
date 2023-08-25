@@ -460,7 +460,7 @@ func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 			},
 		},
 	}
-	pollerResponse, err := h.securityGroupsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, invisinetsPrefix+"-default-nsg", nsgParameters, nil)
+	pollerResponse, err := h.securityGroupsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nicName+"-default-nsg", nsgParameters, nil)
 	if err != nil {
 		return nil, err
 	}
