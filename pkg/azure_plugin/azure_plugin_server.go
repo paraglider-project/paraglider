@@ -23,7 +23,9 @@ import (
 	"net/netip"
 	"os"
 	"strings"
+	"net"
 
+	"google.golang.org/grpc"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
@@ -574,4 +576,21 @@ func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceV
 // since an invisients vnet is unique per location
 func getVnetName(location string) string {
 	return invisinetsPrefix + "-" + location + "-vnet"
+}
+
+func Setup(port int) {
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	azureServer := azurePluginServer{
+		azureHandler: &azureSDKHandler{},
+	}
+	invisinetspb.RegisterCloudPluginServer(grpcServer, &azureServer)
+	fmt.Println("Starting server on port :", port)
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }
