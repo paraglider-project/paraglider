@@ -74,6 +74,7 @@ type azureSDKHandler struct {
 
 const (
 	VirtualMachineResourceType = "Microsoft.Compute/virtualMachines"
+	nsgNameSuffix 			= "-default-nsg"
 )
 
 // mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
@@ -460,7 +461,7 @@ func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 			},
 		},
 	}
-	pollerResponse, err := h.securityGroupsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nicName+"-default-nsg", nsgParameters, nil)
+	pollerResponse, err := h.securityGroupsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nicName+nsgNameSuffix, nsgParameters, nil)
 	if err != nil {
 		return nil, err
 	}

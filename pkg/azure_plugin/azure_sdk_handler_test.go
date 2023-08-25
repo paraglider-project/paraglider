@@ -58,7 +58,7 @@ const (
 	validSecurityRuleName    = "valid-security-rule-name"
 	invalidSecurityRuleName  = "invalid-security-rule-name"
 	validSecurityGroupID     = "valid-security-group-id"
-	validSecurityGroupName   = "invisinets-default-nsg"
+	validSecurityGroupName   = validNicName + nsgNameSuffix
 	invalidSecurityGroupName = "invalid-security-group-name"
 	validVnetName            = "invisinets-valid-vnet-name"
 	notFoundVnetName         = "invisinets-not-found-vnet-name"
