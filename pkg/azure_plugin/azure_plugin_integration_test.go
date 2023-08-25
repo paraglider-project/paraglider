@@ -148,7 +148,7 @@ func setupValidResourceAndPermitList(t *testing.T, permitList *invisinetspb.Perm
 	addPermitListResp, err := s.AddPermitListRules(ctx, permitList)
 	require.NoError(t, err)
 	require.NotNil(t, addPermitListResp)
-	assert.False(t, addPermitListResp.Success)
+	assert.True(t, addPermitListResp.Success)
 	assert.Equal(t, addPermitListResp.UpdatedResource.Id, vmID)
 
 	return s, ctx
