@@ -90,126 +90,126 @@ jobs:
         with:
           version: 'latest'
           args: --timeout=10m
-      # - name: Run make test (unit tests)
-      #   if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-      #   env:
-      #     GOTESTSUM_OPTS: '--junitfile ./dist/unit_test/results.xml'
-      #     GOTEST_OPTS: '-race -coverprofile ./dist/unit_test/coverage_original.out'
-      #   run: |
-      #     go install gotest.tools/gotestsum@v${{ env.GOTESTSUMVERSION }}
-      #     mkdir -p ./dist/unit_test
-      #     make test
-      # # The test results file output by gotestsum is missing file and line number on the XML elements
-      # # which is needed for the annotations to work. This script adds the missing information.
-      # - name: 'Transform unit test results'
-      #   # Always is REQUIRED here. Otherwise, the action will be skipped when the unit tests fail, which
-      #   # defeats the purpose. YES it is counterintuitive. This applies to all of the actions in this file.
-      #   if: always() && matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-      #   id: 'process_files'
-      #   shell: 'bash'
-      #   working-directory: ${{ github.workspace }}
-      #   env:
-      #     INPUT_DIRECTORY: ./dist/unit_test/
-      #   run: |
-      #     echo "repository root is $GITHUB_WORKSPACE"
+      - name: Run make test (unit tests)
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        env:
+          GOTESTSUM_OPTS: '--junitfile ./dist/unit_test/results.xml'
+          GOTEST_OPTS: '-race -coverprofile ./dist/unit_test/coverage_original.out'
+        run: |
+          go install gotest.tools/gotestsum@v${{ env.GOTESTSUMVERSION }}
+          mkdir -p ./dist/unit_test
+          make test
+      # The test results file output by gotestsum is missing file and line number on the XML elements
+      # which is needed for the annotations to work. This script adds the missing information.
+      - name: 'Transform unit test results'
+        # Always is REQUIRED here. Otherwise, the action will be skipped when the unit tests fail, which
+        # defeats the purpose. YES it is counterintuitive. This applies to all of the actions in this file.
+        if: always() && matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        id: 'process_files'
+        shell: 'bash'
+        working-directory: ${{ github.workspace }}
+        env:
+          INPUT_DIRECTORY: ./dist/unit_test/
+        run: |
+          echo "repository root is $GITHUB_WORKSPACE"
 
-      #     INPUT_FILES="$INPUT_DIRECTORY*.xml"
-      #     mkdir -p "$INPUT_DIRECTORY/processed"
-      #     for INPUT_FILE in $INPUT_FILES
-      #     do
-      #       DIRECTORY=$(dirname -- "$INPUT_FILE")
-      #       FILENAME=$(basename -- "$INPUT_FILE")
-      #       FILENAME="${FILENAME%.*}"
-      #       OUTPUT_FILE="${DIRECTORY}/processed/${FILENAME}.xml"
-      #       echo "processing test results in $INPUT_FILE to add line and file info..."
-      #       python3 ./.github/scripts/transform_test_results.py $GITHUB_WORKSPACE "$INPUT_FILE" "$OUTPUT_FILE"
-      #       echo "wrote ${OUTPUT_FILE}"
-      #     done
-      # - name: 'Create unit test result report'
-      #   uses: EnricoMi/publish-unit-test-result-action@v2
-      #   if: always() && matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-      #   with:
-      #     check_name: 'Unit Test Results'
-      #     files: |
-      #       ./dist/unit_test/processed/*.xml
-      # - name: 'Upload unit test results'
-      #   uses: actions/upload-artifact@v3
-      #   if: always() && matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-      #   with:
-      #     name: unit_test_results
-      #     path: |
-      #       ./dist/unit_test/*.xml 
-      #       ./dist/unit_test/processed/*.xml 
-      # - name: Generate unit-test coverage files
-      #   if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-      #   run: |
-      #     # Remove mock, generated files, and datamodels from original coverage output.
-      #     cat ./dist/unit_test/coverage_original.out | grep -v  "mock" | grep -v  "zz_"  > $COVERAGE_FILE
-      #     # Generate reports.
-      #     $GO_TOOL_COVER -func=$COVERAGE_FILE -o ./dist/unit_test/coverage.txt
-      #     $GO_TOOL_COVER -html=$COVERAGE_FILE -o ./dist/unit_test/coverage.html
-      #     # Parse total coverage rate from report.
-      #     UT_COVERAGE=`cat ./dist/unit_test/coverage.txt | grep total: | grep -Eo '[0-9]+\.[0-9]+'`
-      #     echo "Test coverage : $UT_COVERAGE"
+          INPUT_FILES="$INPUT_DIRECTORY*.xml"
+          mkdir -p "$INPUT_DIRECTORY/processed"
+          for INPUT_FILE in $INPUT_FILES
+          do
+            DIRECTORY=$(dirname -- "$INPUT_FILE")
+            FILENAME=$(basename -- "$INPUT_FILE")
+            FILENAME="${FILENAME%.*}"
+            OUTPUT_FILE="${DIRECTORY}/processed/${FILENAME}.xml"
+            echo "processing test results in $INPUT_FILE to add line and file info..."
+            python3 ./.github/scripts/transform_test_results.py $GITHUB_WORKSPACE "$INPUT_FILE" "$OUTPUT_FILE"
+            echo "wrote ${OUTPUT_FILE}"
+          done
+      - name: 'Create unit test result report'
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always() && matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        with:
+          check_name: 'Unit Test Results'
+          files: |
+            ./dist/unit_test/processed/*.xml
+      - name: 'Upload unit test results'
+        uses: actions/upload-artifact@v3
+        if: always() && matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        with:
+          name: unit_test_results
+          path: |
+            ./dist/unit_test/*.xml 
+            ./dist/unit_test/processed/*.xml 
+      - name: Generate unit-test coverage files
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        run: |
+          # Remove mock, generated files, and datamodels from original coverage output.
+          cat ./dist/unit_test/coverage_original.out | grep -v  "mock" | grep -v  "zz_"  > $COVERAGE_FILE
+          # Generate reports.
+          $GO_TOOL_COVER -func=$COVERAGE_FILE -o ./dist/unit_test/coverage.txt
+          $GO_TOOL_COVER -html=$COVERAGE_FILE -o ./dist/unit_test/coverage.html
+          # Parse total coverage rate from report.
+          UT_COVERAGE=`cat ./dist/unit_test/coverage.txt | grep total: | grep -Eo '[0-9]+\.[0-9]+'`
+          echo "Test coverage : $UT_COVERAGE"
 
-      #     echo "ut_coverage=$UT_COVERAGE" >> $GITHUB_ENV
+          echo "ut_coverage=$UT_COVERAGE" >> $GITHUB_ENV
 
-      #     mkdir -p ./dist/cache
-      #     MAIN_COVERAGE=0
-      #     if [ -f "./dist/cache/ut_coverage.txt" ]; then
-      #       MAIN_COVERAGE=$(cat ./dist/cache/ut_coverage.txt | grep total: | grep -Eo '[0-9]+\.[0-9]+')
-      #     fi
-      #     echo "main_coverage=$MAIN_COVERAGE" >> $GITHUB_ENV
+          mkdir -p ./dist/cache
+          MAIN_COVERAGE=0
+          if [ -f "./dist/cache/ut_coverage.txt" ]; then
+            MAIN_COVERAGE=$(cat ./dist/cache/ut_coverage.txt | grep total: | grep -Eo '[0-9]+\.[0-9]+')
+          fi
+          echo "main_coverage=$MAIN_COVERAGE" >> $GITHUB_ENV
 
-      #     if (( $(echo "$UT_COVERAGE < $MAIN_COVERAGE" | bc -l) )) ; then
-      #       COLOR=red
-      #     else
-      #       COLOR=green
-      #     fi
+          if (( $(echo "$UT_COVERAGE < $MAIN_COVERAGE" | bc -l) )) ; then
+            COLOR=red
+          else
+            COLOR=green
+          fi
           
-      #     DIFF_RATE=$(echo "$UT_COVERAGE-$MAIN_COVERAGE" | bc -l)
-      #     echo "diff_coverage=$DIFF_RATE" >> $GITHUB_ENV
+          DIFF_RATE=$(echo "$UT_COVERAGE-$MAIN_COVERAGE" | bc -l)
+          echo "diff_coverage=$DIFF_RATE" >> $GITHUB_ENV
 
-      #     echo "coverage_img=https://img.shields.io/badge/coverage-$UT_COVERAGE%25-$COLOR" >> $GITHUB_ENV
-      #     # copy coverage to cache
-      #     cp ./dist/unit_test/coverage.txt ./dist/cache/
-      #   env:
-      #     COVERAGE_FILE: ./dist/unit_test/coverage.out
-      #     GO_TOOL_COVER: go tool cover
-      # - name: Upload unit-test coverage artifact
-      #   if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: unit_test_coverage
-      #     path: |
-      #       ./dist/unit_test/coverage_original.out
-      #       ./dist/unit_test/coverage.out
-      #       ./dist/unit_test/coverage.txt
-      #       ./dist/unit_test/coverage.html
-      # - name: Add coverage result comment
-      #   if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux' && github.event.pull_request && github.event.pull_request.head.repo.full_name == github.repository
-      #   uses: marocchino/sticky-pull-request-comment@v2
-      #   with:
-      #     header: testcov-${{ github.run_id }}
-      #     number: ${{ github.event.pull_request.number }}
-      #     hide: true
-      #     hide_classify: OUTDATED
-      #     message: |
-      #       ![${{ env.ut_coverage }}](${{ env.coverage_img }})
+          echo "coverage_img=https://img.shields.io/badge/coverage-$UT_COVERAGE%25-$COLOR" >> $GITHUB_ENV
+          # copy coverage to cache
+          cp ./dist/unit_test/coverage.txt ./dist/cache/
+        env:
+          COVERAGE_FILE: ./dist/unit_test/coverage.out
+          GO_TOOL_COVER: go tool cover
+      - name: Upload unit-test coverage artifact
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        uses: actions/upload-artifact@v3
+        with:
+          name: unit_test_coverage
+          path: |
+            ./dist/unit_test/coverage_original.out
+            ./dist/unit_test/coverage.out
+            ./dist/unit_test/coverage.txt
+            ./dist/unit_test/coverage.html
+      - name: Add coverage result comment
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux' && github.event.pull_request && github.event.pull_request.head.repo.full_name == github.repository
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: testcov-${{ github.run_id }}
+          number: ${{ github.event.pull_request.number }}
+          hide: true
+          hide_classify: OUTDATED
+          message: |
+            ![${{ env.ut_coverage }}](${{ env.coverage_img }})
 
-      #       For the detailed report, please go to `Checks tab`, click `Build and Test`, and then download `unit_test_coverage` artifact at the bottom of build page.
+            For the detailed report, please go to `Checks tab`, click `Build and Test`, and then download `unit_test_coverage` artifact at the bottom of build page.
 
-      #       * Your PR branch coverage: ${{ env.ut_coverage }} %
-      #       * main branch coverage: ${{ env.main_coverage }} %
-      #       * diff coverage: ${{ env.diff_coverage }} %
+            * Your PR branch coverage: ${{ env.ut_coverage }} %
+            * main branch coverage: ${{ env.main_coverage }} %
+            * diff coverage: ${{ env.diff_coverage }} %
 
-      #       > The coverage result does not include the functional test results. 
-      # - name: Save coverage (only main push)
-      #   uses: actions/cache/save@v3
-      #   if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux' && github.ref == 'refs/heads/main'
-      #   with:
-      #     path: ./dist/cache
-      #     key: code-coverage-${{ github.sha }}-${{ github.run_number }}
+            > The coverage result does not include the functional test results. 
+      - name: Save coverage (only main push)
+        uses: actions/cache/save@v3
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux' && github.ref == 'refs/heads/main'
+        with:
+          path: ./dist/cache
+          key: code-coverage-${{ github.sha }}-${{ github.run_number }}
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v1    
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
@@ -226,24 +226,23 @@ jobs:
       - name: Check for changed files
         id: changed-dirs
         uses: tj-actions/changed-files@v38
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         with:
           dir_names: "true"
           files_yaml: |
             pkg:
               - pkg/**
       - name: Accumulate changed paths
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux' && steps.changed-dirs.outputs.pkg_any_modified == 'true'
         run: |
-          changed_paths="${{ steps.changed-dirs.outputs.pkg_all_changed_files }}"
-          echo "Changed paths (before): $changed_paths"
           GOTEST_DIRS=""
           for path in $changed_paths; do
             echo "Path: $path"
             GOTEST_DIRS="$GOTEST_DIRS ./$path/..."
           done
-          echo "Changed paths (after): $GOTEST_DIRS"
           echo "GOTEST_DIRS=${GOTEST_DIRS}" >> $GITHUB_ENV
       - name: Run integration tests
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux' && steps.changed-dirs.outputs.pkg_any_modified == 'true'
         env:
           INVISINETS_GCP_PROJECT: 'invisinets-playground'
           GH_RUN_NUMBER: ${{ github.run_number }}

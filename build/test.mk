@@ -18,10 +18,7 @@ GOTEST_TOOL ?= gotestsum $(GOTESTSUM_OPTS) --
 endif
 
 # Overriden when running integration tests in CI/CD pipeline
-# Need to use this if instead of ?= since GOTEST_DIRS might be defined as an empty string
-ifeq ($(TEST),)
-	GOTEST_DIRS = ./internal/... ./pkg/...
-endif
+GOTEST_DIRS ?= ./internal/... ./pkg/...
 GOTEST_CMD = CGO_ENABLED=1 $(GOTEST_TOOL) -v $(GOTEST_DIRS) $(GOTEST_OPTS)
 
 .PHONY: test
