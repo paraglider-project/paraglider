@@ -19,17 +19,17 @@ limitations under the License.
 package frontend
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
-	"testing"
-	"io"
-	"net"
-	"log"
-	"bytes"
 	"strconv"
+	"testing"
 
 	"github.com/gin-gonic/gin"
 	grpc "google.golang.org/grpc"
@@ -76,16 +76,17 @@ func newServer() *mockCloudPluginServer {
 
 func setupServer(port int) {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
-	
+	fmt.Println("got here")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
 	invisinetspb.RegisterCloudPluginServer(grpcServer, newServer())
-	err = grpcServer.Serve(lis)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
 }
 
 func SetUpRouter() *gin.Engine {
@@ -100,7 +101,7 @@ func TestPermitListGet(t *testing.T) {
 	port := 10001
 	pluginAddresses["example"] = fmt.Sprintf("localhost:%d", port)
 
-	go setupServer(port)
+	setupServer(port)
 
 	r := SetUpRouter()
 	r.GET("/cloud/:cloud/resources/:id/permit-list/", permitListGet)
@@ -123,8 +124,8 @@ func TestPermitListGet(t *testing.T) {
 	var jsonMap map[string]string
 	err := json.Unmarshal(responseData, &jsonMap)
 	require.Nil(t, err)
-    assert.Equal(t, expectedResponse, jsonMap)
-    assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, expectedResponse, jsonMap)
+	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
 	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/", "wrong", id)
@@ -132,7 +133,7 @@ func TestPermitListGet(t *testing.T) {
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestPermitListRulesAdd(t *testing.T) {
@@ -140,7 +141,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	port := 10002
 	pluginAddresses["example"] = fmt.Sprintf("localhost:%d", port)
 
-	go setupServer(port)
+	setupServer(port)
 
 	r := SetUpRouter()
 	r.POST("/cloud/:cloud/resources/:id/permit-list/rules", permitListRulesAdd)
@@ -149,12 +150,12 @@ func TestPermitListRulesAdd(t *testing.T) {
 	id := "123"
 	tags := []string{"tag"}
 	rule := &invisinetspb.PermitListRule{
-		Id: id, 
-		Tag: tags,
-		Direction: invisinetspb.Direction_INBOUND, 
-		SrcPort: 1, 
-		DstPort: 2, 
-		Protocol: 1 }
+		Id:        id,
+		Tag:       tags,
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
 	rulesList := &invisinetspb.PermitList{AssociatedResource: "123", Rules: []*invisinetspb.PermitListRule{rule}}
 	jsonValue, _ := json.Marshal(rulesList)
 
@@ -163,7 +164,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
 	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "wrong", id)
@@ -171,7 +172,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
@@ -181,7 +182,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestPermitListRulesDelete(t *testing.T) {
@@ -189,7 +190,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	port := 10003
 	pluginAddresses["example"] = fmt.Sprintf("localhost:%d", port)
 
-	go setupServer(port)
+	setupServer(port)
 
 	r := SetUpRouter()
 	r.DELETE("/cloud/:cloud/resources/:id/permit-list/rules", permitListRulesDelete)
@@ -198,12 +199,12 @@ func TestPermitListRulesDelete(t *testing.T) {
 	id := "123"
 	tags := []string{"tag"}
 	rule := &invisinetspb.PermitListRule{
-		Id: "id", 
-		Tag: tags,
-		Direction: invisinetspb.Direction_INBOUND, 
-		SrcPort: 1, 
-		DstPort: 2, 
-		Protocol: 1 }
+		Id:        "id",
+		Tag:       tags,
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
 	rulesList := &invisinetspb.PermitList{AssociatedResource: "123", Rules: []*invisinetspb.PermitListRule{rule}}
 	jsonValue, _ := json.Marshal(rulesList)
 
@@ -212,7 +213,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
 	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "wrong", id)
@@ -220,7 +221,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
@@ -230,7 +231,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestCreateResource(t *testing.T) {
@@ -240,7 +241,7 @@ func TestCreateResource(t *testing.T) {
 	region := "us-west"
 	addressSpaceMap[region] = "10.1.0.0/24"
 
-	go setupServer(port)
+	setupServer(port)
 
 	r := SetUpRouter()
 	r.POST("/cloud/:cloud/region/:region/resources/:id/", resourceCreate)
@@ -248,8 +249,8 @@ func TestCreateResource(t *testing.T) {
 	// Well-formed request
 	id := "123"
 	resource := &invisinetspb.ResourceDescriptionString{
-		Id: id, 
-		Description: "description" }
+		Id:          id,
+		Description: "description"}
 	jsonValue, _ := json.Marshal(resource)
 
 	url := fmt.Sprintf("/cloud/%s/region/%s/resources/%s/", "example", region, id)
@@ -257,7 +258,7 @@ func TestCreateResource(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
 	url = fmt.Sprintf("/cloud/%s/region/%s/resources/%s/", "wrong", region, id)
@@ -265,7 +266,7 @@ func TestCreateResource(t *testing.T) {
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
@@ -275,7 +276,7 @@ func TestCreateResource(t *testing.T) {
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestGetAddressSpaces(t *testing.T) {
@@ -283,16 +284,15 @@ func TestGetAddressSpaces(t *testing.T) {
 	port := 10005
 	pluginAddresses["example"] = fmt.Sprintf("localhost:%d", port)
 
-	go setupServer(port)
+	setupServer(port)
 
 	// Well-formed call
 	addressList, _ := getAddressSpaces("example", "id")
-    assert.Equal(t, addressList.Mappings[0].Region, addressSpaceRegion)
-
+	assert.Equal(t, addressList.Mappings[0].Region, addressSpaceRegion)
 
 	// Bad cloud name
 	emptyList, err := getAddressSpaces("wrong", "id")
-    require.NotNil(t, err)
+	require.NotNil(t, err)
 	require.Nil(t, emptyList)
 }
 
@@ -300,17 +300,17 @@ func TestUpdateAddressSpaceMap(t *testing.T) {
 	port := 10006
 	pluginAddresses["example"] = fmt.Sprintf("localhost:%d", port)
 
-	go setupServer(port)
+	setupServer(port)
 
-	// Valid cloud list 
-	cloud := Cloud{Name: "example",  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
+	// Valid cloud list
+	cloud := Cloud{Name: "example", Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	config = Config{Clouds: []Cloud{cloud}}
 	err := updateAddressSpaceMap()
 	require.Nil(t, err)
-	assert.Equal(t, addressSpaceMap["example\\" + addressSpaceRegion], addressSpaceAddress)
+	assert.Equal(t, addressSpaceMap["example\\"+addressSpaceRegion], addressSpaceAddress)
 
-	// Invalid cloud list 
-	cloud = Cloud{Name: "wrong",  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
+	// Invalid cloud list
+	cloud = Cloud{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	config = Config{Clouds: []Cloud{cloud}}
 	err = updateAddressSpaceMap()
 	require.NotNil(t, err)
