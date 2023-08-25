@@ -223,7 +223,7 @@ jobs:
             client-id: ${{ secrets.AZURE_CLIENT_ID }}
             tenant-id: ${{ secrets.AZURE_TENANT_ID }}
             subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Check for changed files
+      - name: Check for changed paths
         id: changed-dirs
         uses: tj-actions/changed-files@v38
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
@@ -232,7 +232,7 @@ jobs:
           files_yaml: |
             pkg:
               - pkg/**
-      - name: Accumulate changed paths
+      - name: Put changed paths into GOTEST_DIRS
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux' && steps.changed-dirs.outputs.pkg_any_modified == 'true'
         run: |
           GOTEST_DIRS=""
