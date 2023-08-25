@@ -210,19 +210,19 @@ jobs:
       #   with:
       #     path: ./dist/cache
       #     key: code-coverage-${{ github.sha }}-${{ github.run_number }}
-      # - name: Authenticate to Google Cloud
-      #   uses: google-github-actions/auth@v1    
-      #   if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-      #   with:
-      #     workload_identity_provider: 'projects/594071265942/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider'
-      #     service_account: 'github-actions@invisinets-playground.iam.gserviceaccount.com'
-      # - name: 'Az CLI login'
-      #   uses: azure/login@v1
-      #   if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-      #   with:
-      #       client-id: ${{ secrets.AZURE_CLIENT_ID }}
-      #       tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-      #       subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1    
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        with:
+          workload_identity_provider: 'projects/594071265942/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider'
+          service_account: 'github-actions@invisinets-playground.iam.gserviceaccount.com'
+      - name: 'Az CLI login'
+        uses: azure/login@v1
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        with:
+            client-id: ${{ secrets.AZURE_CLIENT_ID }}
+            tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+            subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Check for changed files
         id: changed-dirs
         uses: tj-actions/changed-files@v38
@@ -242,20 +242,11 @@ jobs:
           done
           echo "Changed paths (after): $GOTEST_DIRS"
           echo "GOTEST_DIRS=${GOTEST_DIRS}" >> $GITHUB_ENV
-      - name: Run unit tests
+      - name: Run integration tests
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         env:
-          GOTESTSUM_OPTS: '--junitfile ./dist/unit_test/results.xml'
-          GOTEST_OPTS: '-race -coverprofile ./dist/unit_test/coverage_original.out'
+          INVISINETS_GCP_PROJECT: 'invisinets-playground'
+          GH_RUN_NUMBER: ${{ github.run_number }}
+          INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
-          go install gotest.tools/gotestsum@v${{ env.GOTESTSUMVERSION }}
-          mkdir -p ./dist/unit_test
-          make test        
-      # - name: Run integration tests
-      #   if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-      #   env:
-      #     INVISINETS_GCP_PROJECT: 'invisinets-playground'
-      #     GH_RUN_NUMBER: ${{ github.run_number }}
-      #     INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      #   run: |
-      #     make integration-test
+          make integration-test
