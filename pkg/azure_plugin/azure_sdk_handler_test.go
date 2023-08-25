@@ -58,7 +58,7 @@ const (
 	validSecurityRuleName    = "valid-security-rule-name"
 	invalidSecurityRuleName  = "invalid-security-rule-name"
 	validSecurityGroupID     = "valid-security-group-id"
-	validSecurityGroupName   = "valid-security-group-name"
+	validSecurityGroupName   = "invisinets-default-nsg"
 	invalidSecurityGroupName = "invalid-security-group-name"
 	validVnetName            = "invisinets-valid-vnet-name"
 	notFoundVnetName         = "invisinets-not-found-vnet-name"
@@ -327,37 +327,6 @@ func TestGetSecurityGroup(t *testing.T) {
 	})
 }
 
-func TestCreateNetworkSecurityGroup(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
-
-	// Create a new context for the tests
-	ctx := context.Background()
-
-	// Subtest 1: Create Network Security Group - Success Test
-	t.Run("CreateNetworkSecurityGroup: Success", func(t *testing.T) {
-		expectedNsgName := validSecurityGroupName
-		expectedLocation := testLocation
-
-		// Call the function to create the network security group
-		nsg, err := azureSDKHandlerTest.CreateNetworkSecurityGroup(ctx, expectedNsgName, testLocation)
-
-		// Check if the function returns an error
-		require.NoError(t, err)
-		require.Equal(t, *nsg.Name, expectedNsgName)
-		require.Equal(t, *nsg.Location, expectedLocation)
-	})
-
-	// Subtest 2: Create Network Security Group - Failure Test
-	t.Run("CreateNetworkSecurityGroup: Failure", func(t *testing.T) {
-		// Call the function to create the network security group
-		nsg, err := azureSDKHandlerTest.CreateNetworkSecurityGroup(ctx, invalidSecurityGroupName, testLocation)
-
-		require.Error(t, err)
-		require.Nil(t, nsg)
-	})
-}
-
 func TestGetResourceNIC(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
 	once.Do(setup)
@@ -393,53 +362,6 @@ func TestGetResourceNIC(t *testing.T) {
 
 		require.Error(t, err)
 		require.Nil(t, nic)
-	})
-}
-
-func TestUpdateNetworkInterface(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
-
-	// Create a new context for the tests
-	ctx := context.Background()
-
-	testNsg := &armnetwork.SecurityGroup{
-		ID:   to.Ptr(validSecurityGroupID),
-		Name: to.Ptr(validSecurityGroupName),
-	}
-	testNicValid := &armnetwork.Interface{
-		ID:   to.Ptr(validNicId),
-		Name: to.Ptr(validNicName),
-
-		Properties: &armnetwork.InterfacePropertiesFormat{
-			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{},
-		},
-	}
-	testNicInvalid := &armnetwork.Interface{
-		ID:   to.Ptr(invalidNicId),
-		Name: to.Ptr(invalidNicName),
-
-		Properties: &armnetwork.InterfacePropertiesFormat{
-			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{},
-		},
-	}
-
-	// Test 1: Successful UpdateNetworkInterface
-	t.Run("UpdateNetworkInterface: Success", func(t *testing.T) {
-		// Call the function to test
-		updatedNic, err := azureSDKHandlerTest.UpdateNetworkInterface(ctx, testNicValid, testNsg)
-
-		require.NoError(t, err)
-		require.NotNil(t, updatedNic)
-	})
-
-	// Test 2: Failed UpdateNetworkInterface due to invalid NIC
-	t.Run("UpdateNetworkInterface: Failure", func(t *testing.T) {
-		// Call the function to test
-		updatedNic, err := azureSDKHandlerTest.UpdateNetworkInterface(ctx, testNicInvalid, testNsg)
-
-		require.Error(t, err)
-		require.Nil(t, updatedNic)
 	})
 }
 

@@ -18,7 +18,6 @@ package azure_plugin
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -37,11 +36,9 @@ import (
 )
 
 type AzureSDKHandler interface {
-	CreateNetworkSecurityGroup(ctx context.Context, nsgName string, location string) (*armnetwork.SecurityGroup, error)
 	InitializeClients(cred azcore.TokenCredential) error
 	GetAzureCredentials() (azcore.TokenCredential, error)
 	GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interface, error)
-	UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error)
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
 	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, addressSpace string) (*armnetwork.VirtualNetwork, error)
@@ -109,28 +106,6 @@ var invisinetsToAzureDirection = map[invisinetspb.Direction]armnetwork.SecurityR
 var azureToInvisinetsDirection = map[armnetwork.SecurityRuleDirection]invisinetspb.Direction{
 	armnetwork.SecurityRuleDirectionInbound:  invisinetspb.Direction_INBOUND,
 	armnetwork.SecurityRuleDirectionOutbound: invisinetspb.Direction_OUTBOUND,
-}
-
-// CreateNetworkSecurityGroup creates a new network security group with the given name and location
-// and returns the created network security group
-func (h *azureSDKHandler) CreateNetworkSecurityGroup(ctx context.Context, nsgName string, location string) (*armnetwork.SecurityGroup, error) {
-	logger.Log.Printf("creating a new network security group %s in location %s", nsgName, location)
-	parameters := armnetwork.SecurityGroup{
-		Location: to.Ptr(location),
-		Properties: &armnetwork.SecurityGroupPropertiesFormat{
-			SecurityRules: []*armnetwork.SecurityRule{},
-		},
-	}
-	pollerResponse, err := h.securityGroupsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nsgName, parameters, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := pollerResponse.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &resp.SecurityGroup, nil
 }
 
 // InitializeClients initializes the necessary azure clients for the necessary operations
@@ -226,41 +201,6 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 	}
 	resourceNic = &nicResponse.Interface
 	return resourceNic, nil
-}
-
-// UpdateNetworkInterface updates a network interface card (NIC) with a new network security group (NSG).
-func (h *azureSDKHandler) UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error) {
-	pollerResp, err := h.interfacesClient.BeginCreateOrUpdate(
-		ctx,
-		h.resourceGroupName,
-		*resourceNic.Name,
-		armnetwork.Interface{
-			Location: resourceNic.Location,
-			Properties: &armnetwork.InterfacePropertiesFormat{
-				IPConfigurations:     resourceNic.Properties.IPConfigurations,
-				NetworkSecurityGroup: nsg,
-			},
-		},
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := pollerResp.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	nic := &resp.Interface
-	jsonData, err := json.MarshalIndent(nic, "", "  ")
-	if err != nil {
-		logger.Log.Printf("failed to marshal response to JSON: %v", err)
-		return nil, err
-	}
-	logger.Log.Printf("Successfully Updated Resource NIC: %v", string(jsonData))
-
-	return nic, nil
 }
 
 // getLastSegment returns the last segment of a resource ID.
@@ -545,7 +485,7 @@ func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 				},
 			},
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
-				ID: nsgResp.ID,
+				ID: nsgResp.SecurityGroup.ID,
 			},
 		},
 	}
