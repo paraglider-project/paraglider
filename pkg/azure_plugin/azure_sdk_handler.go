@@ -77,7 +77,7 @@ const (
 	nsgNameSuffix 			= "-default-nsg"
 )
 
-// mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
+// mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is 256 for all protocols
 var invisinetsToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
 	256: armnetwork.SecurityRuleProtocolAsterisk,
 	1:   armnetwork.SecurityRuleProtocolIcmp,
