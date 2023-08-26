@@ -79,14 +79,14 @@ func runConnectivityTest(t *testing.T, reachabilityClient *networkmanagement.Rea
 		t.Fatal(err)
 	}
 	assert.Equal(t, networkmanagementpb.ReachabilityDetails_REACHABLE, connectivityTest.ReachabilityDetails.Result)
-	deleteConnectivityTestReq := &networkmanagementpb.DeleteConnectivityTestRequest{Name: connectivityTest.Name}
-	deleteConnectivityTestOp, err := reachabilityClient.DeleteConnectivityTest(context.Background(), deleteConnectivityTestReq)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = deleteConnectivityTestOp.Wait(context.Background()); err != nil {
-		t.Fatal(err)
-	}
+	// deleteConnectivityTestReq := &networkmanagementpb.DeleteConnectivityTestRequest{Name: connectivityTest.Name}
+	// deleteConnectivityTestOp, err := reachabilityClient.DeleteConnectivityTest(context.Background(), deleteConnectivityTestReq)
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+	// if err = deleteConnectivityTestOp.Wait(context.Background()); err != nil {
+	// 	t.Fatal(err)
+	// }
 }
 
 // Cleans up any resources that were createdx
