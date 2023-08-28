@@ -219,6 +219,19 @@ func (h *azureSDKHandler) GetLastSegment(ID string) (string, error) {
 // CreateSecurityRule creates a new security rule in a network security group (NSG).
 func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
 	sourceIP, destIP := getIPs(rule, resourceIpAddress)
+	var srcPort string
+	var dstPort string
+	if rule.SrcPort == -1 {
+		srcPort = "*"
+	} else {
+		srcPort = strconv.Itoa(int(rule.SrcPort))
+	}
+
+	if rule.DstPort == -1 {
+		dstPort = "*"
+	} else {
+		dstPort = strconv.Itoa(int(rule.DstPort))
+	}
 	pollerResp, err := h.securityRulesClient.BeginCreateOrUpdate(ctx,
 		h.resourceGroupName,
 		nsgName,
@@ -227,12 +240,12 @@ func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisine
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
 				DestinationAddressPrefixes: destIP,
-				DestinationPortRange:       to.Ptr(strconv.Itoa(int(rule.DstPort))),
+				DestinationPortRange:       to.Ptr(dstPort),
 				Direction:                  to.Ptr(invisinetsToAzureDirection[rule.Direction]),
 				Priority:                   to.Ptr(priority),
 				Protocol:                   to.Ptr(invisinetsToAzureprotocol[rule.Protocol]),
 				SourceAddressPrefixes:      sourceIP,
-				SourcePortRange:            to.Ptr(strconv.Itoa(int(rule.SrcPort))),
+				SourcePortRange:            to.Ptr(srcPort),
 			},
 		},
 		nil)
@@ -326,14 +339,26 @@ func (h *azureSDKHandler) createOnePeeringLink(ctx context.Context, sourceVnet s
 
 // GetPermitListRuleFromNSGRule returns a permit list rule from a network security group (NSG) rule.
 func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error) {
-	srcPort, err := strconv.Atoi(*rule.Properties.SourcePortRange)
-	if err != nil {
-		return nil, err
+	var srcPort, dstPort int
+	var err error
+	if(*rule.Properties.SourcePortRange == "*" ) {
+		srcPort = -1
+	} else {
+		srcPort, err = strconv.Atoi(*rule.Properties.SourcePortRange)
+		if err != nil {
+			return nil, fmt.Errorf("cannot convert source port range to int: %v", err)
+		}
 	}
-	dstPort, err := strconv.Atoi(*rule.Properties.DestinationPortRange)
-	if err != nil {
-		return nil, err
+
+	if(*rule.Properties.DestinationPortRange == "*" ) {
+		dstPort = -1
+	} else {
+		dstPort, err = strconv.Atoi(*rule.Properties.DestinationPortRange)
+		if err != nil {
+			return nil, fmt.Errorf("cannot convert destination port range to int: %v", err)
+		}
 	}
+
 	// create permit list rule object
 	permitListRule := &invisinetspb.PermitListRule{
 		Id:        *rule.ID,

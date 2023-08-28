@@ -587,6 +587,39 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		// Compare the result with the expected rule
 		require.Equal(t, expectedRule, result)
 	})
+
+	// Test case: success, any port
+	t.Run("Success:AnyPort", func(t *testing.T) {
+		anyPortRule := &armnetwork.SecurityRule{
+			ID: to.Ptr("security/rule/id"),
+			Properties: &armnetwork.SecurityRulePropertiesFormat{
+				Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+				SourcePortRange:            to.Ptr("*"),
+				DestinationPortRange:       to.Ptr("*"),
+				Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolUDP),
+				DestinationAddressPrefixes: []*string{to.Ptr("10.3.1.0"), to.Ptr("10.2.1.0")},
+			},
+		}
+
+		// Call the function to test
+		result, err := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(anyPortRule)
+
+		// Expected permit list rule
+		expectedRule := &invisinetspb.PermitListRule{
+			Id:        "security/rule/id",
+			Tag:       []string{"10.3.1.0", "10.2.1.0"},
+			Direction: invisinetspb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  17,
+		}
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		// Compare the result with the expected rule
+		require.Equal(t, expectedRule, result)
+	})
 }
 
 func TestGetInvisinetsRuleDesc(t *testing.T) {
