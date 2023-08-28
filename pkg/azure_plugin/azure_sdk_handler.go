@@ -74,7 +74,7 @@ type azureSDKHandler struct {
 
 const (
 	VirtualMachineResourceType = "Microsoft.Compute/virtualMachines"
-	nsgNameSuffix 			= "-default-nsg"
+	nsgNameSuffix              = "-default-nsg"
 )
 
 // mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is 256 for all protocols
@@ -341,7 +341,7 @@ func (h *azureSDKHandler) createOnePeeringLink(ctx context.Context, sourceVnet s
 func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error) {
 	var srcPort, dstPort int
 	var err error
-	if(*rule.Properties.SourcePortRange == "*" ) {
+	if *rule.Properties.SourcePortRange == "*" {
 		srcPort = -1
 	} else {
 		srcPort, err = strconv.Atoi(*rule.Properties.SourcePortRange)
@@ -350,7 +350,7 @@ func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 		}
 	}
 
-	if(*rule.Properties.DestinationPortRange == "*" ) {
+	if *rule.Properties.DestinationPortRange == "*" {
 		dstPort = -1
 	} else {
 		dstPort, err = strconv.Atoi(*rule.Properties.DestinationPortRange)

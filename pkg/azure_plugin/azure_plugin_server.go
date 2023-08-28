@@ -359,7 +359,7 @@ func (s *azurePluginServer) getNSG(ctx context.Context, nic *armnetwork.Interfac
 			return nil, err
 		}
 	} else {
-		// TODO @nnomier: should we handle this in another way? 
+		// TODO @nnomier: should we handle this in another way?
 		return nil, fmt.Errorf("resource %s does not have a default network security group", resourceID)
 	}
 	return nsg, nil
