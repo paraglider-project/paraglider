@@ -1,5 +1,3 @@
-//go:build unit
-
 /*
 Copyright 2023 The Invisinets Authors.
 
@@ -26,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -39,8 +38,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// TODO @nnomier: Setup the server only once and use it for all tests
 
 const (
 	testLocation             = "eastus"
@@ -68,12 +65,30 @@ const (
 	conflictingAddressSpace  = "10.2.0.0/16"
 )
 
+var (
+	once                sync.Once
+	urlToResponse       map[string]interface{}
+	azureSDKHandlerTest *azureSDKHandler
+)
+
 type dummyToken struct {
 	azcore.TokenCredential
 }
 
 func (d *dummyToken) GetToken(ctx context.Context, optsWW policy.TokenRequestOptions) (azcore.AccessToken, error) {
 	return azcore.AccessToken{}, nil
+}
+
+func setup() {
+	urlToResponse = initializeReqRespMap()
+	setupFakeServer(urlToResponse)
+	azureSDKHandlerTest := &azureSDKHandler{}
+	azureSDKHandlerTest.resourceGroupName = rgName
+	azureSDKHandlerTest.subscriptionID = subID
+	err := azureSDKHandlerTest.InitializeClients(&dummyToken{})
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 // GetFreePort returns a free port number that the operating system chooses dynamically.
@@ -89,8 +104,8 @@ func GetFreePort() (int, error) {
 	return address.Port, nil
 }
 
-// a function for setup before all tests
-func setup(reqRespMap map[string]interface{}) *azureSDKHandler {
+// a function for fake server setup
+func setupFakeServer(reqRespMap map[string]interface{}) {
 	freePort, err := GetFreePort()
 	if err != nil {
 		log.Fatal(err)
@@ -128,15 +143,6 @@ func setup(reqRespMap map[string]interface{}) *azureSDKHandler {
 	go func() {
 		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", freePort), fakeHttpHandler))
 	}()
-
-	azureSDKHandlerTest := &azureSDKHandler{}
-	azureSDKHandlerTest.resourceGroupName = rgName
-	azureSDKHandlerTest.subscriptionID = subID
-	err = azureSDKHandlerTest.InitializeClients(&dummyToken{})
-	if err != nil {
-		log.Fatal(err)
-	}
-	return azureSDKHandlerTest
 }
 
 func initializeReqRespMap() map[string]interface{} {
@@ -236,8 +242,7 @@ func initializeReqRespMap() map[string]interface{} {
 
 func TestGetVNetsAddressSpaces(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
@@ -254,8 +259,7 @@ func TestGetVNetsAddressSpaces(t *testing.T) {
 
 func TestCreateSecurityRule(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Subtest 1: Create security rule - Success Test
 	t.Run("CreateSecurityRule: Success", func(t *testing.T) {
@@ -279,8 +283,7 @@ func TestCreateSecurityRule(t *testing.T) {
 
 func TestDeleteSecurityRule(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Subtest 1: Delete security rule - Success Test
 	t.Run("DeleteSecurityRule: Success", func(t *testing.T) {
@@ -299,8 +302,7 @@ func TestDeleteSecurityRule(t *testing.T) {
 
 func TestGetSecurityGroup(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Subtest 1: Get security group - Success Test
 	t.Run("GetSecurityGroup: Success", func(t *testing.T) {
@@ -324,8 +326,7 @@ func TestGetSecurityGroup(t *testing.T) {
 
 func TestCreateNetworkSecurityGroup(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
@@ -356,8 +357,7 @@ func TestCreateNetworkSecurityGroup(t *testing.T) {
 
 func TestGetResourceNIC(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
@@ -395,8 +395,7 @@ func TestGetResourceNIC(t *testing.T) {
 
 func TestUpdateNetworkInterface(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
@@ -443,8 +442,7 @@ func TestUpdateNetworkInterface(t *testing.T) {
 
 func TestCreateVirtualMachine(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
@@ -470,8 +468,8 @@ func TestCreateVirtualMachine(t *testing.T) {
 
 func TestGetInvisinetsVnet(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
+
 	// Create a new context for the tests
 	ctx := context.Background()
 
@@ -506,8 +504,7 @@ func TestGetInvisinetsVnet(t *testing.T) {
 
 func TestCreateNetworkInterface(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
@@ -533,8 +530,7 @@ func TestCreateNetworkInterface(t *testing.T) {
 
 func TestCreateInvisinetsVirtualNetwork(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
