@@ -59,6 +59,7 @@ func getVMIP(instancesClient *compute.InstancesClient, project, zone, name strin
 }
 
 func runConnectivityTest(t *testing.T, reachabilityClient *networkmanagement.ReachabilityClient, project string, name string, srcEndpoint, dstEndpoint *networkmanagementpb.Endpoint) {
+	ctx := context.Background()
 	connectivityTestId := getGitHubRunPrefix() + "connectivity-test-" + name
 	createConnectivityTestReq := &networkmanagementpb.CreateConnectivityTestRequest{
 		Parent: "projects/" + project + "/locations/global",
@@ -70,21 +71,22 @@ func runConnectivityTest(t *testing.T, reachabilityClient *networkmanagement.Rea
 			Destination: dstEndpoint,
 		},
 	}
-	createConnectivityTestOp, err := reachabilityClient.CreateConnectivityTest(context.Background(), createConnectivityTestReq)
+	createConnectivityTestOp, err := reachabilityClient.CreateConnectivityTest(ctx, createConnectivityTestReq)
 	if err != nil {
 		t.Fatal(err)
 	}
-	connectivityTest, err := createConnectivityTestOp.Wait(context.Background())
+	connectivityTest, err := createConnectivityTestOp.Wait(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, networkmanagementpb.ReachabilityDetails_REACHABLE, connectivityTest.ReachabilityDetails.Result)
 	deleteConnectivityTestReq := &networkmanagementpb.DeleteConnectivityTestRequest{Name: connectivityTest.Name}
-	deleteConnectivityTestOp, err := reachabilityClient.DeleteConnectivityTest(context.Background(), deleteConnectivityTestReq)
+	deleteConnectivityTestOp, err := reachabilityClient.DeleteConnectivityTest(ctx, deleteConnectivityTestReq)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = deleteConnectivityTestOp.Wait(context.Background()); err != nil {
+	err = deleteConnectivityTestOp.Wait(ctx)
+	if err != nil {
 		t.Fatal(err)
 	}
 }
@@ -381,7 +383,9 @@ func TestIntegration(t *testing.T) {
 	require.NoError(t, err)
 	vm2IP, err := getVMIP(instancesClient, project, vm2Zone, vm2Name)
 	require.NoError(t, err)
-	reachabilityClient, err := networkmanagement.NewReachabilityRESTClient(context.Background())
+
+	// TODO @seankimkdy: NewReachabilityRESTClient causes errors when deleting connectivity tests
+	reachabilityClient, err := networkmanagement.NewReachabilityClient(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
