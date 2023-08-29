@@ -84,7 +84,7 @@ func (d *dummyToken) GetToken(ctx context.Context, optsWW policy.TokenRequestOpt
 func setup() {
 	urlToResponse = initializeReqRespMap()
 	setupFakeServer(urlToResponse)
-	azureSDKHandlerTest := &azureSDKHandler{}
+	azureSDKHandlerTest = &azureSDKHandler{}
 	azureSDKHandlerTest.resourceGroupName = rgName
 	azureSDKHandlerTest.subscriptionID = subID
 	err := azureSDKHandlerTest.InitializeClients(&dummyToken{})
