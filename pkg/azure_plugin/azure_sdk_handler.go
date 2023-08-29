@@ -75,11 +75,13 @@ type azureSDKHandler struct {
 const (
 	VirtualMachineResourceType = "Microsoft.Compute/virtualMachines"
 	nsgNameSuffix              = "-default-nsg"
+	azureSecurityRuleAsterisk = "*"
+	permitListPortAny 	   = -1
 )
 
-// mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is 256 for all protocols
+// mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
 var invisinetsToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
-	256: armnetwork.SecurityRuleProtocolAsterisk,
+	-1: armnetwork.SecurityRuleProtocolAsterisk,
 	1:   armnetwork.SecurityRuleProtocolIcmp,
 	6:   armnetwork.SecurityRuleProtocolTCP,
 	17:  armnetwork.SecurityRuleProtocolUDP,
@@ -89,7 +91,7 @@ var invisinetsToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
 
 // mapping from Azure SecurityRuleProtocol to IANA protocol numbers
 var azureToInvisinetsProtocol = map[armnetwork.SecurityRuleProtocol]int32{
-	armnetwork.SecurityRuleProtocolAsterisk: 256,
+	armnetwork.SecurityRuleProtocolAsterisk: -1,
 	armnetwork.SecurityRuleProtocolIcmp:     1,
 	armnetwork.SecurityRuleProtocolTCP:      6,
 	armnetwork.SecurityRuleProtocolUDP:      17,
@@ -221,14 +223,14 @@ func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisine
 	sourceIP, destIP := getIPs(rule, resourceIpAddress)
 	var srcPort string
 	var dstPort string
-	if rule.SrcPort == -1 {
-		srcPort = "*"
+	if rule.SrcPort == permitListPortAny {
+		srcPort = azureSecurityRuleAsterisk
 	} else {
 		srcPort = strconv.Itoa(int(rule.SrcPort))
 	}
 
-	if rule.DstPort == -1 {
-		dstPort = "*"
+	if rule.DstPort == permitListPortAny {
+		dstPort = azureSecurityRuleAsterisk
 	} else {
 		dstPort = strconv.Itoa(int(rule.DstPort))
 	}
@@ -341,8 +343,8 @@ func (h *azureSDKHandler) createOnePeeringLink(ctx context.Context, sourceVnet s
 func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error) {
 	var srcPort, dstPort int
 	var err error
-	if *rule.Properties.SourcePortRange == "*" {
-		srcPort = -1
+	if *rule.Properties.SourcePortRange == azureSecurityRuleAsterisk {
+		srcPort = permitListPortAny
 	} else {
 		srcPort, err = strconv.Atoi(*rule.Properties.SourcePortRange)
 		if err != nil {
@@ -350,8 +352,8 @@ func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 		}
 	}
 
-	if *rule.Properties.DestinationPortRange == "*" {
-		dstPort = -1
+	if *rule.Properties.DestinationPortRange == azureSecurityRuleAsterisk {
+		dstPort = permitListPortAny
 	} else {
 		dstPort, err = strconv.Atoi(*rule.Properties.DestinationPortRange)
 		if err != nil {
@@ -461,26 +463,26 @@ func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 					Name: to.Ptr("deny_all_inbound"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
 						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
-						SourceAddressPrefix:      to.Ptr("*"),
-						DestinationAddressPrefix: to.Ptr("*"),
-						DestinationPortRange:     to.Ptr("*"),
+						SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
+						DestinationAddressPrefix: to.Ptr(azureSecurityRuleAsterisk),
+						DestinationPortRange:     to.Ptr(azureSecurityRuleAsterisk),
 						Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 						Priority:                 to.Ptr(int32(maxPriority)),
 						Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
-						SourcePortRange:          to.Ptr("*"),
+						SourcePortRange:          to.Ptr(azureSecurityRuleAsterisk),
 					},
 				},
 				{
 					Name: to.Ptr("deny_all_outbound"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
 						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
-						SourceAddressPrefix:      to.Ptr("*"),
-						DestinationAddressPrefix: to.Ptr("*"),
-						DestinationPortRange:     to.Ptr("*"),
+						SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
+						DestinationAddressPrefix: to.Ptr(azureSecurityRuleAsterisk),
+						DestinationPortRange:     to.Ptr(azureSecurityRuleAsterisk),
 						Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 						Priority:                 to.Ptr(int32(maxPriority)),
 						Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
-						SourcePortRange:          to.Ptr("*"),
+						SourcePortRange:          to.Ptr(azureSecurityRuleAsterisk),
 					},
 				},
 			},
