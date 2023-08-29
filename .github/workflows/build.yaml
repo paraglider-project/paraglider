@@ -236,7 +236,7 @@ jobs:
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux' && steps.changed-dirs.outputs.pkg_any_modified == 'true'
         run: |
           GOTEST_DIRS=""
-          for path in $changed_paths; do
+          for path in ${{ steps.changed-dirs.outputs.pkg_all_changed_files }}; do
             echo "Path: $path"
             GOTEST_DIRS="$GOTEST_DIRS ./$path/..."
           done
