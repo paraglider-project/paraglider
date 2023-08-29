@@ -159,8 +159,17 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	resourceAddress := *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
 
 	// get the vnet to be able to get both the address space as well as the peering when needed
-	var resourceVnet *armnetwork.VirtualNetwork
-	var invisinetsVnetsMap map[string]string
+	resourceVnet, err := s.azureHandler.GetVNet(ctx, getVnetName(*nic.Location))
+	if err != nil {
+		logger.Log.Printf("An error occured while getting resource vnet:%+v", err)
+		return nil, err
+	}
+
+	invisinetsVnetsMap, err := s.azureHandler.GetVNetsAddressSpaces(ctx, invisinetsPrefix)
+	if err != nil {
+		logger.Log.Printf("An error occured while getting invisinets vnets address spaces:%+v", err)
+		return nil, err
+	}
 
 	// Add the rules to the NSG
 	for _, rule := range pl.GetRules() {
@@ -170,15 +179,6 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 			continue
 		}
 		seen[ruleDesc] = true
-
-		// only get the vnet if the code reaches this point to avoid unnecessary calls
-		if resourceVnet == nil {
-			resourceVnet, err = s.azureHandler.GetVNet(ctx, getVnetName(*nic.Location))
-			if err != nil {
-				logger.Log.Printf("An error occured while getting resource vnet:%+v", err)
-				return nil, err
-			}
-		}
 
 		err := s.checkAndCreatePeering(ctx, resourceVnet, rule, invisinetsVnetsMap)
 		if err != nil {
@@ -540,14 +540,6 @@ func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceV
 		}
 		if isTagInResourceAddressSpace {
 			continue
-		}
-
-		// only get the invisinets vnets if the code reaches this point to avoid unnecessary calls
-		if invisinetsVnetsMap == nil {
-			invisinetsVnetsMap, err = s.azureHandler.GetVNetsAddressSpaces(ctx, invisinetsPrefix)
-			if err != nil {
-				return err
-			}
 		}
 
 		// if the tag is not in the resource address space, then check on the other invisinets vnets
