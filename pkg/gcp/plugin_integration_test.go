@@ -400,6 +400,8 @@ func TestIntegration(t *testing.T) {
 		Network:   "projects/" + project + "/" + getVPCURL(),
 		ProjectId: project,
 	}
+
+	// Run connectivity tests on both directions between vm1 and vm2
 	runConnectivityTest(t, reachabilityClient, project, "1to2", vm1Endpoint, vm2Endpoint)
 	runConnectivityTest(t, reachabilityClient, project, "2to1", vm2Endpoint, vm1Endpoint)
 
