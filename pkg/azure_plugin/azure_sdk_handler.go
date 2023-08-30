@@ -18,7 +18,6 @@ package azure_plugin
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -37,11 +36,9 @@ import (
 )
 
 type AzureSDKHandler interface {
-	CreateNetworkSecurityGroup(ctx context.Context, nsgName string, location string) (*armnetwork.SecurityGroup, error)
 	InitializeClients(cred azcore.TokenCredential) error
 	GetAzureCredentials() (azcore.TokenCredential, error)
 	GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interface, error)
-	UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error)
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
 	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, addressSpace string) (*armnetwork.VirtualNetwork, error)
@@ -77,11 +74,15 @@ type azureSDKHandler struct {
 
 const (
 	VirtualMachineResourceType = "Microsoft.Compute/virtualMachines"
+	nsgNameSuffix              = "-default-nsg"
+	azureSecurityRuleAsterisk = "*"
+	permitListPortAny 	   = -1
+	denyAllNsgRulePrefix = "invisinets-deny-all"
 )
 
 // mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
 var invisinetsToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
-	256: armnetwork.SecurityRuleProtocolAsterisk,
+	-1: armnetwork.SecurityRuleProtocolAsterisk,
 	1:   armnetwork.SecurityRuleProtocolIcmp,
 	6:   armnetwork.SecurityRuleProtocolTCP,
 	17:  armnetwork.SecurityRuleProtocolUDP,
@@ -91,7 +92,7 @@ var invisinetsToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
 
 // mapping from Azure SecurityRuleProtocol to IANA protocol numbers
 var azureToInvisinetsProtocol = map[armnetwork.SecurityRuleProtocol]int32{
-	armnetwork.SecurityRuleProtocolAsterisk: 256,
+	armnetwork.SecurityRuleProtocolAsterisk: -1,
 	armnetwork.SecurityRuleProtocolIcmp:     1,
 	armnetwork.SecurityRuleProtocolTCP:      6,
 	armnetwork.SecurityRuleProtocolUDP:      17,
@@ -109,28 +110,6 @@ var invisinetsToAzureDirection = map[invisinetspb.Direction]armnetwork.SecurityR
 var azureToInvisinetsDirection = map[armnetwork.SecurityRuleDirection]invisinetspb.Direction{
 	armnetwork.SecurityRuleDirectionInbound:  invisinetspb.Direction_INBOUND,
 	armnetwork.SecurityRuleDirectionOutbound: invisinetspb.Direction_OUTBOUND,
-}
-
-// CreateNetworkSecurityGroup creates a new network security group with the given name and location
-// and returns the created network security group
-func (h *azureSDKHandler) CreateNetworkSecurityGroup(ctx context.Context, nsgName string, location string) (*armnetwork.SecurityGroup, error) {
-	logger.Log.Printf("creating a new network security group %s in location %s", nsgName, location)
-	parameters := armnetwork.SecurityGroup{
-		Location: to.Ptr(location),
-		Properties: &armnetwork.SecurityGroupPropertiesFormat{
-			SecurityRules: []*armnetwork.SecurityRule{},
-		},
-	}
-	pollerResponse, err := h.securityGroupsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nsgName, parameters, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := pollerResponse.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &resp.SecurityGroup, nil
 }
 
 // InitializeClients initializes the necessary azure clients for the necessary operations
@@ -228,41 +207,6 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 	return resourceNic, nil
 }
 
-// UpdateNetworkInterface updates a network interface card (NIC) with a new network security group (NSG).
-func (h *azureSDKHandler) UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error) {
-	pollerResp, err := h.interfacesClient.BeginCreateOrUpdate(
-		ctx,
-		h.resourceGroupName,
-		*resourceNic.Name,
-		armnetwork.Interface{
-			Location: resourceNic.Location,
-			Properties: &armnetwork.InterfacePropertiesFormat{
-				IPConfigurations:     resourceNic.Properties.IPConfigurations,
-				NetworkSecurityGroup: nsg,
-			},
-		},
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := pollerResp.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	nic := &resp.Interface
-	jsonData, err := json.MarshalIndent(nic, "", "  ")
-	if err != nil {
-		logger.Log.Printf("failed to marshal response to JSON: %v", err)
-		return nil, err
-	}
-	logger.Log.Printf("Successfully Updated Resource NIC: %v", string(jsonData))
-
-	return nic, nil
-}
-
 // getLastSegment returns the last segment of a resource ID.
 func (h *azureSDKHandler) GetLastSegment(ID string) (string, error) {
 	// TODO @nnomier: might need to use stricter validations to check if the ID is valid like a regex
@@ -278,6 +222,19 @@ func (h *azureSDKHandler) GetLastSegment(ID string) (string, error) {
 // CreateSecurityRule creates a new security rule in a network security group (NSG).
 func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
 	sourceIP, destIP := getIPs(rule, resourceIpAddress)
+	var srcPort string
+	var dstPort string
+	if rule.SrcPort == permitListPortAny {
+		srcPort = azureSecurityRuleAsterisk
+	} else {
+		srcPort = strconv.Itoa(int(rule.SrcPort))
+	}
+
+	if rule.DstPort == permitListPortAny {
+		dstPort = azureSecurityRuleAsterisk
+	} else {
+		dstPort = strconv.Itoa(int(rule.DstPort))
+	}
 	pollerResp, err := h.securityRulesClient.BeginCreateOrUpdate(ctx,
 		h.resourceGroupName,
 		nsgName,
@@ -286,12 +243,12 @@ func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisine
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
 				DestinationAddressPrefixes: destIP,
-				DestinationPortRange:       to.Ptr(strconv.Itoa(int(rule.DstPort))),
+				DestinationPortRange:       to.Ptr(dstPort),
 				Direction:                  to.Ptr(invisinetsToAzureDirection[rule.Direction]),
 				Priority:                   to.Ptr(priority),
 				Protocol:                   to.Ptr(invisinetsToAzureprotocol[rule.Protocol]),
 				SourceAddressPrefixes:      sourceIP,
-				SourcePortRange:            to.Ptr(strconv.Itoa(int(rule.SrcPort))),
+				SourcePortRange:            to.Ptr(srcPort),
 			},
 		},
 		nil)
@@ -385,14 +342,26 @@ func (h *azureSDKHandler) createOnePeeringLink(ctx context.Context, sourceVnet s
 
 // GetPermitListRuleFromNSGRule returns a permit list rule from a network security group (NSG) rule.
 func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error) {
-	srcPort, err := strconv.Atoi(*rule.Properties.SourcePortRange)
-	if err != nil {
-		return nil, err
+	var srcPort, dstPort int
+	var err error
+	if *rule.Properties.SourcePortRange == azureSecurityRuleAsterisk {
+		srcPort = permitListPortAny
+	} else {
+		srcPort, err = strconv.Atoi(*rule.Properties.SourcePortRange)
+		if err != nil {
+			return nil, fmt.Errorf("cannot convert source port range to int: %v", err)
+		}
 	}
-	dstPort, err := strconv.Atoi(*rule.Properties.DestinationPortRange)
-	if err != nil {
-		return nil, err
+
+	if *rule.Properties.DestinationPortRange == azureSecurityRuleAsterisk {
+		dstPort = permitListPortAny
+	} else {
+		dstPort, err = strconv.Atoi(*rule.Properties.DestinationPortRange)
+		if err != nil {
+			return nil, fmt.Errorf("cannot convert destination port range to int: %v", err)
+		}
 	}
+
 	// create permit list rule object
 	permitListRule := &invisinetspb.PermitListRule{
 		Id:        *rule.ID,
@@ -486,6 +455,50 @@ func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, lo
 
 // CreateNetworkInterface creates a new network interface with a dynamic private IP address
 func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error) {
+	// first we need to create a default nsg that denies all traffic
+	nsgParameters := armnetwork.SecurityGroup{
+		Location: to.Ptr(location),
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: []*armnetwork.SecurityRule{
+				{
+					Name: to.Ptr(denyAllNsgRulePrefix + "-inbound"),
+					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
+						SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
+						DestinationAddressPrefix: to.Ptr(azureSecurityRuleAsterisk),
+						DestinationPortRange:     to.Ptr(azureSecurityRuleAsterisk),
+						Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+						Priority:                 to.Ptr(int32(maxPriority)),
+						Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
+						SourcePortRange:          to.Ptr(azureSecurityRuleAsterisk),
+					},
+				},
+				{
+					Name: to.Ptr(denyAllNsgRulePrefix + "-outbound"),
+					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
+						SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
+						DestinationAddressPrefix: to.Ptr(azureSecurityRuleAsterisk),
+						DestinationPortRange:     to.Ptr(azureSecurityRuleAsterisk),
+						Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+						Priority:                 to.Ptr(int32(maxPriority)),
+						Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
+						SourcePortRange:          to.Ptr(azureSecurityRuleAsterisk),
+					},
+				},
+			},
+		},
+	}
+	pollerResponse, err := h.securityGroupsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nicName+nsgNameSuffix, nsgParameters, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	nsgResp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	parameters := armnetwork.Interface{
 		Location: to.Ptr(location),
 		Properties: &armnetwork.InterfacePropertiesFormat{
@@ -500,15 +513,18 @@ func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 					},
 				},
 			},
+			NetworkSecurityGroup: &armnetwork.SecurityGroup{
+				ID: nsgResp.SecurityGroup.ID,
+			},
 		},
 	}
 
-	pollerResponse, err := h.interfacesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nicName, parameters, nil)
+	nicPollerResponse, err := h.interfacesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nicName, parameters, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	resp, err := nicPollerResponse.PollUntilDone(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

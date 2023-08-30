@@ -31,6 +31,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const maxPriority = 4096
+
 var (
 	invisinetsPrefix = "invisinets"
 )
@@ -102,7 +104,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invis
 
 	// get the NSG rules
 	for _, rule := range nsg.Properties.SecurityRules {
-		if strings.HasPrefix(*rule.Name, invisinetsPrefix) {
+		if !strings.HasPrefix(*rule.Name, denyAllNsgRulePrefix) && strings.HasPrefix(*rule.Name, invisinetsPrefix) {
 			plRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
 				logger.Log.Printf("An error occured while getting Invisinets rule from NSG rule: %+v", err)
@@ -136,8 +138,8 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		return nil, err
 	}
 
-	// get the NSG ID associated with the resource
-	nsg, err := s.getOrCreateNSG(ctx, nic, resourceID)
+	// get the NSG associated with the resource
+	nsg, err := s.getNSG(ctx, nic, resourceID)
 
 	if err != nil {
 		logger.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
@@ -154,7 +156,6 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	}
 	var outboundPriority int32 = 100
 	var inboundPriority int32 = 100
-	const maxPriority = 4096
 
 	resourceAddress := *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
 
@@ -302,6 +303,7 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 		logger.Log.Printf("An error occured while creating the virtual machine:%+v", err)
 		return nil, err
 	}
+
 	return &invisinetspb.BasicResponse{Success: true, Message: "successfully created resource", UpdatedResource: &invisinetspb.ResourceID{Id: *invisinetsVm.ID}}, nil
 }
 
@@ -336,11 +338,9 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment
 	return &invisinetspb.AddressSpaceList{Mappings: invisinetMapping}, nil
 }
 
-// GetOrCreateNSG returns the network security group object given the resource NIC
-// if the network security group does not exist, it creates a new one and attach it to the NIC
-func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.Interface, resourceID string) (*armnetwork.SecurityGroup, error) {
+// getNSG returns the network security group object given the resource NIC
+func (s *azurePluginServer) getNSG(ctx context.Context, nic *armnetwork.Interface, resourceID string) (*armnetwork.SecurityGroup, error) {
 	var nsg *armnetwork.SecurityGroup
-	var err error
 	if nic.Properties.NetworkSecurityGroup != nil {
 		nsg = nic.Properties.NetworkSecurityGroup
 
@@ -359,20 +359,8 @@ func (s *azurePluginServer) getOrCreateNSG(ctx context.Context, nic *armnetwork.
 			return nil, err
 		}
 	} else {
-		logger.Log.Printf("NIC %s does not have a network security group", *nic.ID)
-		// create a new network security group
-		nsg, err = s.azureHandler.CreateNetworkSecurityGroup(ctx, getInvisinetsResourceName("nsg"), *nic.Location)
-		if err != nil {
-			logger.Log.Printf("Failed to create a new network security group: %v", err)
-			return nil, err
-		}
-		// attach the network security group to the NIC
-		nicUpdated, err := s.azureHandler.UpdateNetworkInterface(ctx, nic, nsg)
-		if err != nil {
-			logger.Log.Printf("Failed to attach the network security group to the NIC: %v", err)
-			return nil, err
-		}
-		logger.Log.Printf("Attached network security group %s to NIC %s", *nsg.ID, *nicUpdated.ID)
+		// TODO @nnomier: should we handle this in another way?
+		return nil, fmt.Errorf("resource %s does not have a default network security group", resourceID)
 	}
 	return nsg, nil
 }

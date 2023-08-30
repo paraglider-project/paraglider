@@ -40,7 +40,7 @@ const (
 var (
 	subscriptionId       = os.Getenv("INVISINETS_AZURE_SUBSCRIPTION_ID")
 	resourceGroupsClient *armresources.ResourceGroupsClient
-	resourceGroupName        string
+	resourceGroupName    string
 )
 
 func setupIntegration() {
