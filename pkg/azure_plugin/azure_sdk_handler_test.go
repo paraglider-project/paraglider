@@ -559,8 +559,7 @@ func TestCreateInvisinetsVirtualNetwork(t *testing.T) {
 
 func TestGetVnet(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
@@ -586,8 +585,7 @@ func TestGetVnet(t *testing.T) {
 
 func TestCreateVnetPeering(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
