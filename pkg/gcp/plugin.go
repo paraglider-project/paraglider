@@ -82,6 +82,9 @@ var gcpProtocolNumberMap = map[string]int{
 	"ipip": 94,
 }
 
+// Frontend server address
+var frontendServerAddr string // TODO @seankimkdy: dynamically configure with config
+
 func init() {
 	ghRunNumber := os.Getenv("GH_RUN_NUMBER")
 	if ghRunNumber != "" {
@@ -466,7 +469,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	if !subnetExists {
 		// Find unused address spaces
 		// TODO @seankimkdy: instead of reading the config, we could alternatively have the frontend include the IP address of the server as part of resourceDescription?
-		conn, err := grpc.Dial(resourceDescription.ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.Dial(frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
 		}

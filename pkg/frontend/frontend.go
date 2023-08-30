@@ -274,7 +274,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	defer conn.Close()
 
 	// Send RPC to create the resource
-	resource := invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description), ServerAddr: s.config.Server.Host + ":" + s.config.Server.Port}
+	resource := invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description)}
 	client := invisinetspb.NewCloudPluginClient(conn)
 	response, err := client.CreateResource(context.Background(), &resource)
 	if err != nil {

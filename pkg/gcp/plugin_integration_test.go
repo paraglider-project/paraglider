@@ -187,6 +187,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	frontendServerAddr = fakeControllerServerAddr
 
 	// Teardown
 	teardownInfo := &teardownInfo{
@@ -224,10 +225,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription1 := &invisinetspb.ResourceDescription{
-		Description: insertInstanceReq1Bytes,
-		ServerAddr:  fakeControllerServerAddr,
-	}
+	resourceDescription1 := &invisinetspb.ResourceDescription{Description: insertInstanceReq1Bytes}
 	createResource1Resp, err := s.CreateResource(
 		context.Background(),
 		resourceDescription1,
@@ -252,10 +250,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription2 := &invisinetspb.ResourceDescription{
-		Description: insertInstanceReq2Bytes,
-		ServerAddr:  fakeControllerServerAddr,
-	}
+	resourceDescription2 := &invisinetspb.ResourceDescription{Description: insertInstanceReq2Bytes}
 	createResource2Resp, err := s.CreateResource(
 		context.Background(),
 		resourceDescription2,

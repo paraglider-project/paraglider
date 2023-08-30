@@ -258,7 +258,7 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 	}
 	invisinetsVnetName := InvisinetsPrefix + "-" + *invisinetsVm.Location + "-vnet"
 
-	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(c, invisinetsVnetName, *invisinetsVm.Location, resourceDesc.ServerAddr)
+	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(c, invisinetsVnetName, *invisinetsVm.Location)
 	if err != nil {
 		logger.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
 		return nil, err

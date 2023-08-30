@@ -41,7 +41,7 @@ const (
 var (
 	subscriptionId       = os.Getenv("INVISINETS_AZURE_SUBSCRIPTION_ID")
 	resourceGroupsClient *armresources.ResourceGroupsClient
-	resourceGroupName        string
+	resourceGroupName    string
 )
 
 func setupIntegration() {
@@ -133,6 +133,7 @@ func setupValidResourceAndPermitList(t *testing.T, permitList *invisinetspb.Perm
 	if err != nil {
 		t.Fatal(err)
 	}
+	frontendServerAddr = fakeControllerServerAddr
 
 	s := &azurePluginServer{
 		azureHandler: &azureSDKHandler{},
@@ -143,9 +144,8 @@ func setupValidResourceAndPermitList(t *testing.T, permitList *invisinetspb.Perm
 	descriptionJson, err := json.Marshal(parameters)
 	require.NoError(t, err)
 	createResourceResp, err := s.CreateResource(ctx, &invisinetspb.ResourceDescription{
-		Id:           vmID,
-		Description:  descriptionJson,
-		ServerAddr:  fakeControllerServerAddr,
+		Id:          vmID,
+		Description: descriptionJson,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, createResourceResp)
