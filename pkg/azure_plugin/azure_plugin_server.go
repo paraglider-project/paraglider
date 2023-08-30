@@ -104,7 +104,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invis
 
 	// get the NSG rules
 	for _, rule := range nsg.Properties.SecurityRules {
-		if strings.HasPrefix(*rule.Name, invisinetsPrefix) {
+		if !strings.HasPrefix(*rule.Name, denyAllNsgRulePrefix) && strings.HasPrefix(*rule.Name, invisinetsPrefix) {
 			plRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
 				logger.Log.Printf("An error occured while getting Invisinets rule from NSG rule: %+v", err)

@@ -77,6 +77,7 @@ const (
 	nsgNameSuffix              = "-default-nsg"
 	azureSecurityRuleAsterisk = "*"
 	permitListPortAny 	   = -1
+	denyAllNsgRulePrefix = "invisinets-deny-all"
 )
 
 // mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
@@ -460,7 +461,7 @@ func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 		Properties: &armnetwork.SecurityGroupPropertiesFormat{
 			SecurityRules: []*armnetwork.SecurityRule{
 				{
-					Name: to.Ptr("deny_all_inbound"),
+					Name: to.Ptr(denyAllNsgRulePrefix + "-inbound"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
 						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
 						SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
@@ -473,7 +474,7 @@ func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 					},
 				},
 				{
-					Name: to.Ptr("deny_all_outbound"),
+					Name: to.Ptr(denyAllNsgRulePrefix + "-outbound"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
 						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
 						SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
