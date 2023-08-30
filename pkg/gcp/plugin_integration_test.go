@@ -91,7 +91,7 @@ func runConnectivityTest(t *testing.T, reachabilityClient *networkmanagement.Rea
 	}
 }
 
-// Cleans up any resources that were createdx
+// Cleans up any resources that were created
 // If you got a panic while the tests ran, you may need to manually clean up resources, which is most easily done through the console.
 // 1. Delete VMs (https://cloud.google.com/compute/docs/instances/deleting-instance).
 // 2. Delete VPC (https://cloud.google.com/vpc/docs/create-modify-vpc-networks#deleting_a_network). Doing this in the console should delete any associated firewalls and subnets.
