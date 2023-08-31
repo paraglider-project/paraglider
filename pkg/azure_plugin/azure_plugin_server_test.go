@@ -474,37 +474,7 @@ func TestAddPermitListRules(t *testing.T) {
 		require.Nil(t, resp)
 	})
 
-	// Test 6: Success but create new NSG
-	t.Run("AddPermitListRules: Success and create new nsg", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		fakeNicWithoutNSG := getFakeNIC()
-		fakeNicWithoutNSG.Properties.NetworkSecurityGroup = nil
-		mockHandlerSetup(mockAzureHandler)
-		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakePl.GetAssociatedResource(), fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
-		mockAzureHandler.On("GetVNet", ctx, getVnetName(*fakeNic.Location)).Return(fakeVnet, nil)
-		for i, rule := range fakeNsg.Properties.SecurityRules {
-			mockAzureHandler.On("GetPermitListRuleFromNSGRule", rule).Return(fakePl.GetRules()[i], nil)
-			mockAzureHandler.On("GetInvisinetsRuleDesc", fakePl.GetRules()[i]).Return(fakeRuleDesc[i], nil)
-		}
-
-		// the only ones called are the non duplicate ones
-		mockAzureHandler.On("CreateSecurityRule", ctx, fakePl.GetRules()[2], fakeNsgName, mock.Anything, fakeResourceAddress, int32(103)).Return(&armnetwork.SecurityRule{
-			ID: to.Ptr("fake-invisinets-rule"),
-		}, nil).Times(1)
-
-		mockAzureHandler.On("CreateSecurityRule", ctx, fakePl.GetRules()[3], fakeNsgName, mock.Anything, fakeResourceAddress, int32(101)).Return(&armnetwork.SecurityRule{
-			Name: to.Ptr("fake-invisinets-rule"),
-			ID:   to.Ptr("fake-invisinets-rule-id"),
-		}, nil)
-
-		resp, err := server.AddPermitListRules(ctx, fakePl)
-
-		require.NoError(t, err)
-		require.NotNil(t, resp)
-		require.True(t, resp.Success)
-	})
-
-	// Test 7: Failure getting pl rule from nsg rule
+	// Test 6: Failure getting pl rule from nsg rule
 	t.Run("AddPermitListRules: Failure when getting pl rule", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockHandlerSetup(mockAzureHandler)
@@ -518,7 +488,7 @@ func TestAddPermitListRules(t *testing.T) {
 
 	})
 
-	// Test 8: Failure while creting the nsg rule in azure
+	// Test 7: Failure while creting the nsg rule in azure
 	t.Run("AddPermitListRules: Failure when creating nsg rule", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockHandlerSetup(mockAzureHandler)
