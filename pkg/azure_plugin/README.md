@@ -3,6 +3,21 @@
 ## Introduction
 This README provides guidance on adding new functions to the plugin and outlines the testing practices, including unit and integration testing.
 
+## Table of Contents
+- [Getting Started](#getting-started)
+  - [Local Development and Testing](#local-development-and-testing)
+- [Package Structure](#package-structure)
+- [Adding a New Invisinets API Function to the Plugin](#adding-a-new-invisinets-api-function-to-the-plugin)
+- [Testing](#testing)
+  - [Unit Tests](#unit-tests)
+    - [`azure_plugin_server.go`](#azure_plugin_servergo)
+    - [`azure_sdk_handler.go`](#azure_sdk_handlergo)
+  - [Integration Testing](#integration-testing)
+    - [Setup and Environment Variables](#setup-and-environment-variables)
+    - [Integration Test Function](#integration-test-function)
+    - [Adjusting Timeout for Local Testing](#adjusting-timeout-for-local-testing)
+
+
 ## Getting Started
 - Configure the project following instructions in [CONTRIBUTING.md](https://github.com/NetSys/invisinets/blob/main/CONTRIBUTING.md).
 ### Local Development and Testing
