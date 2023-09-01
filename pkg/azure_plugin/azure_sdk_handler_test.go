@@ -35,6 +35,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -65,7 +66,6 @@ const (
 	notFoundVnetName         = "invisinets-not-found-vnet-name"
 	invalidVnetName          = "invalid-vnet-name"
 	validAddressSpace        = "10.1.0.0/16"
-	conflictingAddressSpace  = "10.2.0.0/16"
 )
 
 type dummyToken struct {
@@ -474,31 +474,29 @@ func TestGetInvisinetsVnet(t *testing.T) {
 	azureSDKHandlerTest := setup(urlToResponse)
 	// Create a new context for the tests
 	ctx := context.Background()
+	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	frontendServerAddr = fakeControllerServerAddr
 
 	// Test case: Success, vnet already existed
 	t.Run("GetInvisinetsVnet: Success, vnet exists", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation, validAddressSpace)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
 
 	// Test case: Success, vnet doesn't exist, create new one
 	t.Run("GetInvisinetsVnet: Success, create new vnet", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, notFoundVnetName, testLocation, validAddressSpace)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, notFoundVnetName, testLocation)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
 
 	// Test case: Failure, error when getting vnet
 	t.Run("GetInvisinetsVnet: Failure, error when getting vnet", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, invalidVnetName, testLocation, validAddressSpace)
-		require.Error(t, err)
-		require.Nil(t, vnet)
-	})
-
-	// Test case: Failure, conflicting address spaces
-	t.Run("GetInvisinetsVnet: Failure, conflicting address spaces", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation, conflictingAddressSpace)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, invalidVnetName, testLocation)
 		require.Error(t, err)
 		require.Nil(t, vnet)
 	})

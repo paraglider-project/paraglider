@@ -32,6 +32,8 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"google.golang.org/api/googleapi"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -79,6 +81,9 @@ var gcpProtocolNumberMap = map[string]int{
 	"sctp": 132,
 	"ipip": 94,
 }
+
+// Frontend server address
+var frontendServerAddr string // TODO @seankimkdy: dynamically configure with config
 
 func init() {
 	ghRunNumber := os.Getenv("GH_RUN_NUMBER")
@@ -462,6 +467,19 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	}
 
 	if !subnetExists {
+		// Find unused address spaces
+		// TODO @seankimkdy: instead of reading the config, we could alternatively have the frontend include the IP address of the server as part of resourceDescription?
+		conn, err := grpc.Dial(frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
+		}
+		defer conn.Close()
+		client := invisinetspb.NewControllerClient(conn)
+		response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+		if err != nil {
+			return nil, fmt.Errorf("unable to find unused address space: %w", err)
+		}
+
 		insertSubnetworkRequest := &computepb.InsertSubnetworkRequest{
 			Project: project,
 			Region:  region,
@@ -469,7 +487,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 				Name:        proto.String(subnetName),
 				Description: proto.String("Invisinets subnetwork for " + region),
 				Network:     proto.String(getVPCURL()),
-				IpCidrRange: proto.String(resourceDescription.AddressSpace),
+				IpCidrRange: proto.String(response.Address),
 			},
 		}
 		insertSubnetworkOp, err := subnetworksClient.Insert(ctx, insertSubnetworkRequest)
@@ -569,7 +587,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsD
 			return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
 		}
 	} else {
-		addressSpaceList.Mappings = make([]*invisinetspb.RegionAddressSpaceMap, len(getNetworkResp.Subnetworks))
+		addressSpaceList.AddressSpaces = make([]string, len(getNetworkResp.Subnetworks))
 		for i, subnetURL := range getNetworkResp.Subnetworks {
 			parsedSubnetURL := parseGCPURL(subnetURL)
 			getSubnetworkRequest := &computepb.GetSubnetworkRequest{
@@ -581,10 +599,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsD
 			if err != nil {
 				return nil, fmt.Errorf("failed to get invisinets subnetwork: %w", err)
 			}
-			addressSpaceList.Mappings[i] = &invisinetspb.RegionAddressSpaceMap{
-				Region:       parsedSubnetURL["regions"],
-				AddressSpace: *getSubnetworkResp.IpCidrRange,
-			}
+			addressSpaceList.AddressSpaces[i] = *getSubnetworkResp.IpCidrRange
 		}
 	}
 

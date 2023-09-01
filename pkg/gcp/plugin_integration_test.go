@@ -30,6 +30,7 @@ import (
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -182,6 +183,11 @@ func TestIntegration(t *testing.T) {
 		panic("INVISINETS_GCP_PROJECT must be set")
 	}
 	s := &GCPPluginServer{}
+	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	frontendServerAddr = fakeControllerServerAddr
 
 	// Teardown
 	teardownInfo := &teardownInfo{
@@ -219,10 +225,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription1 := &invisinetspb.ResourceDescription{
-		Description:  insertInstanceReq1Bytes,
-		AddressSpace: "10.162.162.0/24",
-	}
+	resourceDescription1 := &invisinetspb.ResourceDescription{Description: insertInstanceReq1Bytes}
 	createResource1Resp, err := s.CreateResource(
 		context.Background(),
 		resourceDescription1,
@@ -247,10 +250,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription2 := &invisinetspb.ResourceDescription{
-		Description:  insertInstanceReq2Bytes,
-		AddressSpace: "10.162.168.0/24",
-	}
+	resourceDescription2 := &invisinetspb.ResourceDescription{Description: insertInstanceReq2Bytes}
 	createResource2Resp, err := s.CreateResource(
 		context.Background(),
 		resourceDescription2,
