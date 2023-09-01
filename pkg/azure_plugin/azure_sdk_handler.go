@@ -18,7 +18,6 @@ package azure_plugin
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -39,23 +38,23 @@ import (
 )
 
 type AzureSDKHandler interface {
-	CreateNetworkSecurityGroup(ctx context.Context, nsgName string, location string) (*armnetwork.SecurityGroup, error)
 	InitializeClients(cred azcore.TokenCredential) error
 	GetAzureCredentials() (azcore.TokenCredential, error)
 	GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interface, error)
-	UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error)
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
-	GetInvisinetsVnet(ctx context.Context, vnetName string, location string) (*armnetwork.VirtualNetwork, error)
-	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, name string, addressSpace string) (*armnetwork.VirtualNetwork, error)
+	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, addressSpace string) (*armnetwork.VirtualNetwork, error)
+	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error)
 	CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error)
 	CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error)
 	GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string]string, error)
+	CreateVnetPeering(ctx context.Context, vnet1Name string, vnet2Name string) error
+	GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error)
 	GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error)
 	GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string
 	GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error)
 	GetLastSegment(resourceID string) (string, error)
-	SetSubIdAndResourceGroup(resourceIdInfo ResourceIDInfo)
+	SetSubIdAndResourceGroup(subID string, resourceGroupName string)
 }
 
 type azureSDKHandler struct {
@@ -70,17 +69,22 @@ type azureSDKHandler struct {
 	virtualNetworksClient  *armnetwork.VirtualNetworksClient
 	resourcesClient        *armresources.Client
 	deploymentsClient      *armresources.DeploymentsClient
+	networkPeeringClient   *armnetwork.VirtualNetworkPeeringsClient
 	subscriptionID         string
 	resourceGroupName      string
 }
 
 const (
 	VirtualMachineResourceType = "Microsoft.Compute/virtualMachines"
+	nsgNameSuffix              = "-default-nsg"
+	azureSecurityRuleAsterisk = "*"
+	permitListPortAny 	   = -1
+	denyAllNsgRulePrefix = "invisinets-deny-all"
 )
 
 // mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
 var invisinetsToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
-	256: armnetwork.SecurityRuleProtocolAsterisk,
+	-1: armnetwork.SecurityRuleProtocolAsterisk,
 	1:   armnetwork.SecurityRuleProtocolIcmp,
 	6:   armnetwork.SecurityRuleProtocolTCP,
 	17:  armnetwork.SecurityRuleProtocolUDP,
@@ -90,7 +94,7 @@ var invisinetsToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
 
 // mapping from Azure SecurityRuleProtocol to IANA protocol numbers
 var azureToInvisinetsProtocol = map[armnetwork.SecurityRuleProtocol]int32{
-	armnetwork.SecurityRuleProtocolAsterisk: 256,
+	armnetwork.SecurityRuleProtocolAsterisk: -1,
 	armnetwork.SecurityRuleProtocolIcmp:     1,
 	armnetwork.SecurityRuleProtocolTCP:      6,
 	armnetwork.SecurityRuleProtocolUDP:      17,
@@ -113,28 +117,6 @@ var azureToInvisinetsDirection = map[armnetwork.SecurityRuleDirection]invisinets
 // Frontend server address
 var frontendServerAddr string // TODO @seankimkdy: dynamically configure with config
 
-// CreateNetworkSecurityGroup creates a new network security group with the given name and location
-// and returns the created network security group
-func (h *azureSDKHandler) CreateNetworkSecurityGroup(ctx context.Context, nsgName string, location string) (*armnetwork.SecurityGroup, error) {
-	logger.Log.Printf("creating a new network security group %s in location %s", nsgName, location)
-	parameters := armnetwork.SecurityGroup{
-		Location: to.Ptr(location),
-		Properties: &armnetwork.SecurityGroupPropertiesFormat{
-			SecurityRules: []*armnetwork.SecurityRule{},
-		},
-	}
-	pollerResponse, err := h.securityGroupsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nsgName, parameters, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := pollerResponse.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &resp.SecurityGroup, nil
-}
-
 // InitializeClients initializes the necessary azure clients for the necessary operations
 func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
 	var err error
@@ -155,6 +137,7 @@ func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
 
 	h.securityGroupsClient = h.networkClientFactory.NewSecurityGroupsClient()
 	h.interfacesClient = h.networkClientFactory.NewInterfacesClient()
+	h.networkPeeringClient = h.networkClientFactory.NewVirtualNetworkPeeringsClient()
 	h.securityRulesClient = h.networkClientFactory.NewSecurityRulesClient()
 	h.virtualNetworksClient = h.networkClientFactory.NewVirtualNetworksClient()
 	h.resourcesClient = h.resourcesClientFactory.NewClient()
@@ -173,9 +156,9 @@ func (h *azureSDKHandler) GetAzureCredentials() (azcore.TokenCredential, error) 
 	return cred, nil
 }
 
-func (h *azureSDKHandler) SetSubIdAndResourceGroup(resourceIdInfo ResourceIDInfo) {
-	h.subscriptionID = resourceIdInfo.SubscriptionID
-	h.resourceGroupName = resourceIdInfo.ResourceGroupName
+func (h *azureSDKHandler) SetSubIdAndResourceGroup(subid string, resourceGroupName string) {
+	h.subscriptionID = subid
+	h.resourceGroupName = resourceGroupName
 }
 
 // GetResourceNIC returns the network interface card (NIC) for a given resource ID.
@@ -229,41 +212,6 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 	return resourceNic, nil
 }
 
-// UpdateNetworkInterface updates a network interface card (NIC) with a new network security group (NSG).
-func (h *azureSDKHandler) UpdateNetworkInterface(ctx context.Context, resourceNic *armnetwork.Interface, nsg *armnetwork.SecurityGroup) (*armnetwork.Interface, error) {
-	pollerResp, err := h.interfacesClient.BeginCreateOrUpdate(
-		ctx,
-		h.resourceGroupName,
-		*resourceNic.Name,
-		armnetwork.Interface{
-			Location: resourceNic.Location,
-			Properties: &armnetwork.InterfacePropertiesFormat{
-				IPConfigurations:     resourceNic.Properties.IPConfigurations,
-				NetworkSecurityGroup: nsg,
-			},
-		},
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := pollerResp.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	nic := &resp.Interface
-	jsonData, err := json.MarshalIndent(nic, "", "  ")
-	if err != nil {
-		logger.Log.Printf("failed to marshal response to JSON: %v", err)
-		return nil, err
-	}
-	logger.Log.Printf("Successfully Updated Resource NIC: %v", string(jsonData))
-
-	return nic, nil
-}
-
 // getLastSegment returns the last segment of a resource ID.
 func (h *azureSDKHandler) GetLastSegment(ID string) (string, error) {
 	// TODO @nnomier: might need to use stricter validations to check if the ID is valid like a regex
@@ -279,6 +227,19 @@ func (h *azureSDKHandler) GetLastSegment(ID string) (string, error) {
 // CreateSecurityRule creates a new security rule in a network security group (NSG).
 func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
 	sourceIP, destIP := getIPs(rule, resourceIpAddress)
+	var srcPort string
+	var dstPort string
+	if rule.SrcPort == permitListPortAny {
+		srcPort = azureSecurityRuleAsterisk
+	} else {
+		srcPort = strconv.Itoa(int(rule.SrcPort))
+	}
+
+	if rule.DstPort == permitListPortAny {
+		dstPort = azureSecurityRuleAsterisk
+	} else {
+		dstPort = strconv.Itoa(int(rule.DstPort))
+	}
 	pollerResp, err := h.securityRulesClient.BeginCreateOrUpdate(ctx,
 		h.resourceGroupName,
 		nsgName,
@@ -287,12 +248,12 @@ func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisine
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
 				DestinationAddressPrefixes: destIP,
-				DestinationPortRange:       to.Ptr(strconv.Itoa(int(rule.DstPort))),
+				DestinationPortRange:       to.Ptr(dstPort),
 				Direction:                  to.Ptr(invisinetsToAzureDirection[rule.Direction]),
 				Priority:                   to.Ptr(priority),
 				Protocol:                   to.Ptr(invisinetsToAzureprotocol[rule.Protocol]),
 				SourceAddressPrefixes:      sourceIP,
-				SourcePortRange:            to.Ptr(strconv.Itoa(int(rule.SrcPort))),
+				SourcePortRange:            to.Ptr(srcPort),
 			},
 		},
 		nil)
@@ -345,16 +306,67 @@ func (h *azureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix stri
 	return addressSpaces, nil
 }
 
+// Create Vnet Peering between two VNets, this is important in the case of a multi-region deployment
+// For peering to work, two peering links must be created. By selecting remote virtual network, Azure will create both peering links.
+func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name string, vnet2Name string) error {
+	// create first link from vnet1 to vnet2
+	err := h.createOnePeeringLink(ctx, vnet1Name, vnet2Name)
+	if err != nil {
+		return err
+	}
+	// create second link from vnet2 to vnet1
+	err = h.createOnePeeringLink(ctx, vnet2Name, vnet1Name)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// createOnePerringLink creates a unidirectional peering link between two VNets given the source and destination VNet names
+func (h *azureSDKHandler) createOnePeeringLink(ctx context.Context, sourceVnet string, destVnet string) error {
+	poller, err := h.networkPeeringClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, sourceVnet, sourceVnet+"-link", armnetwork.VirtualNetworkPeering{
+		Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
+			AllowForwardedTraffic:     to.Ptr(false),
+			AllowGatewayTransit:       to.Ptr(false),
+			AllowVirtualNetworkAccess: to.Ptr(true),
+			RemoteVirtualNetwork: &armnetwork.SubResource{
+				ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", h.subscriptionID, h.resourceGroupName, destVnet)),
+			},
+			UseRemoteGateways: to.Ptr(false),
+		},
+	}, nil)
+	if err != nil {
+		return err
+	}
+	_, err = poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetPermitListRuleFromNSGRule returns a permit list rule from a network security group (NSG) rule.
 func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error) {
-	srcPort, err := strconv.Atoi(*rule.Properties.SourcePortRange)
-	if err != nil {
-		return nil, err
+	var srcPort, dstPort int
+	var err error
+	if *rule.Properties.SourcePortRange == azureSecurityRuleAsterisk {
+		srcPort = permitListPortAny
+	} else {
+		srcPort, err = strconv.Atoi(*rule.Properties.SourcePortRange)
+		if err != nil {
+			return nil, fmt.Errorf("cannot convert source port range to int: %v", err)
+		}
 	}
-	dstPort, err := strconv.Atoi(*rule.Properties.DestinationPortRange)
-	if err != nil {
-		return nil, err
+
+	if *rule.Properties.DestinationPortRange == azureSecurityRuleAsterisk {
+		dstPort = permitListPortAny
+	} else {
+		dstPort, err = strconv.Atoi(*rule.Properties.DestinationPortRange)
+		if err != nil {
+			return nil, fmt.Errorf("cannot convert destination port range to int: %v", err)
+		}
 	}
+
 	// create permit list rule object
 	permitListRule := &invisinetspb.PermitListRule{
 		Id:        *rule.ID,
@@ -453,6 +465,50 @@ func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, lo
 
 // CreateNetworkInterface creates a new network interface with a dynamic private IP address
 func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error) {
+	// first we need to create a default nsg that denies all traffic
+	nsgParameters := armnetwork.SecurityGroup{
+		Location: to.Ptr(location),
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: []*armnetwork.SecurityRule{
+				{
+					Name: to.Ptr(denyAllNsgRulePrefix + "-inbound"),
+					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
+						SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
+						DestinationAddressPrefix: to.Ptr(azureSecurityRuleAsterisk),
+						DestinationPortRange:     to.Ptr(azureSecurityRuleAsterisk),
+						Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+						Priority:                 to.Ptr(int32(maxPriority)),
+						Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
+						SourcePortRange:          to.Ptr(azureSecurityRuleAsterisk),
+					},
+				},
+				{
+					Name: to.Ptr(denyAllNsgRulePrefix + "-outbound"),
+					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
+						SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
+						DestinationAddressPrefix: to.Ptr(azureSecurityRuleAsterisk),
+						DestinationPortRange:     to.Ptr(azureSecurityRuleAsterisk),
+						Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+						Priority:                 to.Ptr(int32(maxPriority)),
+						Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
+						SourcePortRange:          to.Ptr(azureSecurityRuleAsterisk),
+					},
+				},
+			},
+		},
+	}
+	pollerResponse, err := h.securityGroupsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nicName+nsgNameSuffix, nsgParameters, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	nsgResp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	parameters := armnetwork.Interface{
 		Location: to.Ptr(location),
 		Properties: &armnetwork.InterfacePropertiesFormat{
@@ -467,15 +523,18 @@ func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 					},
 				},
 			},
+			NetworkSecurityGroup: &armnetwork.SecurityGroup{
+				ID: nsgResp.SecurityGroup.ID,
+			},
 		},
 	}
 
-	pollerResponse, err := h.interfacesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nicName, parameters, nil)
+	nicPollerResponse, err := h.interfacesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nicName, parameters, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	resp, err := nicPollerResponse.PollUntilDone(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -495,6 +554,15 @@ func (h *azureSDKHandler) CreateVirtualMachine(ctx context.Context, parameters a
 		return nil, err
 	}
 	return &resp.VirtualMachine, nil
+}
+
+// GetVNet returns the virtual network with the given name
+func (h *azureSDKHandler) GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error) {
+	vnet, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &vnet.VirtualNetwork, nil
 }
 
 // getIPs returns the source and destination IP addresses for a given permit list rule and resource IP address.
