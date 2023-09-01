@@ -80,7 +80,7 @@ var (
 	}
 	fakePermitListRule2 = &invisinetspb.PermitListRule{
 		Direction: invisinetspb.Direction_OUTBOUND,
-		DstPort:   0,
+		DstPort:   -1,
 		Protocol:  17,
 		Tag:       []string{"10.3.4.0/24"},
 	}
