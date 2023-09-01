@@ -82,19 +82,26 @@ var gcpProtocolNumberMap = map[string]int{
 	"ipip": 94,
 }
 
+
 // Frontend server address
 var frontendServerAddr string // TODO @seankimkdy: dynamically configure with config
 
-func init() {
+// Returns prefix with GitHub workflow run numbers for integration tests
+func getGitHubRunPrefix() string {
 	ghRunNumber := os.Getenv("GH_RUN_NUMBER")
 	if ghRunNumber != "" {
-		// Prefix resource names with GitHub workflow run numbers to avoid resource name clashes
-		prefix := "github" + ghRunNumber + "-"
-		vpcName = prefix + vpcName
-		subnetworkNamePrefix = prefix + subnetworkNamePrefix
-		networkTagPrefix = prefix + networkTagPrefix
-		firewallNamePrefix = prefix + firewallNamePrefix
+		return "github" + ghRunNumber + "-"
 	}
+	return ""
+}
+
+func init() {
+	githubRunPrefix := getGitHubRunPrefix()
+	// Prefix resource names with GitHub workflow run numbers to avoid resource name clashes during integration tests
+	vpcName = githubRunPrefix + vpcName
+	subnetworkNamePrefix = githubRunPrefix + subnetworkNamePrefix
+	networkTagPrefix = githubRunPrefix + networkTagPrefix
+	firewallNamePrefix = githubRunPrefix + firewallNamePrefix
 }
 
 // Checks if GCP firewall rule is an Invisinets permit list rule
@@ -120,10 +127,10 @@ func isFirewallEqPermitListRule(firewall *computepb.Firewall, permitListRule *in
 	if protocolNumber != permitListRule.Protocol {
 		return false
 	}
-	if len(firewall.Allowed[0].Ports) != 1 {
+	if len(firewall.Allowed[0].Ports) == 0 && permitListRule.DstPort != -1 {
 		return false
 	}
-	if firewall.Allowed[0].Ports[0] != strconv.Itoa(int(permitListRule.DstPort)) {
+	if len(firewall.Allowed[0].Ports) == 1 && firewall.Allowed[0].Ports[0] != strconv.Itoa(int(permitListRule.DstPort)) {
 		return false
 	}
 	return true
@@ -230,7 +237,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 
 				var dstPort int
 				if len(rule.Ports) == 0 {
-					dstPort = 0
+					dstPort = -1
 				} else {
 					dstPort, err = strconv.Atoi(rule.Ports[0])
 					if err != nil {
@@ -306,7 +313,6 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			Allowed: []*computepb.Allowed{
 				{
 					IPProtocol: proto.String(strconv.Itoa(int(permitListRule.Protocol))),
-					Ports:      []string{strconv.Itoa(int(permitListRule.DstPort))},
 				},
 			},
 			Description: proto.String("Invisinets permit list"),
@@ -314,6 +320,11 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			Name:        proto.String(firewallName),
 			Network:     proto.String(getVPCURL()),
 			TargetTags:  []string{networkTag},
+		}
+		if permitListRule.DstPort != -1 {
+			// Users must explicitly set DstPort to -1 if they want it to apply to all ports since proto can't
+			// differentiate between empty and 0 for an int field. Ports of 0 are valid for protocols like TCP/UDP.
+			firewall.Allowed[0].Ports = []string{strconv.Itoa(int(permitListRule.DstPort))}
 		}
 		if permitListRule.Direction == invisinetspb.Direction_INBOUND {
 			// TODO @seankimkdy: use SourceTags as well once we start supporting tags
