@@ -91,7 +91,7 @@ func setupPluginServer(port int) {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
-	invisinetspb.RegisterCloudPluginServer(grpcServer, newServer())
+	invisinetspb.RegisterCloudPluginServer(grpcServer, newPluginServer())
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
 			fmt.Println(err.Error())
