@@ -19,17 +19,17 @@ limitations under the License.
 package frontend
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
-	"testing"
-	"io"
-	"net"
-	"log"
-	"bytes"
 	"strconv"
+	"testing"
 
 	"github.com/gin-gonic/gin"
 	grpc "google.golang.org/grpc"
@@ -87,16 +87,16 @@ func newFrontendServer() *ControllerServer {
 
 func setupPluginServer(port int) {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
-	
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
-	invisinetspb.RegisterCloudPluginServer(grpcServer, newPluginServer())
-	err = grpcServer.Serve(lis)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	invisinetspb.RegisterCloudPluginServer(grpcServer, newServer())
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
 }
 
 func SetUpRouter() *gin.Engine {
@@ -112,7 +112,7 @@ func TestPermitListGet(t *testing.T) {
 	port := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-	go setupPluginServer(port)
+  setupPluginServer(port)
 
 	r := SetUpRouter()
 	r.GET("/cloud/:cloud/resources/:id/permit-list/", frontendServer.permitListGet)
@@ -135,8 +135,8 @@ func TestPermitListGet(t *testing.T) {
 	var jsonMap map[string]string
 	err := json.Unmarshal(responseData, &jsonMap)
 	require.Nil(t, err)
-    assert.Equal(t, expectedResponse, jsonMap)
-    assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, expectedResponse, jsonMap)
+	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
 	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/", "wrong", id)
@@ -144,7 +144,7 @@ func TestPermitListGet(t *testing.T) {
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestPermitListRulesAdd(t *testing.T) {
@@ -153,7 +153,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	port := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-	go setupPluginServer(port)
+	setupPluginServer(port)
 
 	r := SetUpRouter()
 	r.POST("/cloud/:cloud/resources/:id/permit-list/rules", frontendServer.permitListRulesAdd)
@@ -176,7 +176,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
 	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "wrong", id)
@@ -184,7 +184,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
@@ -194,7 +194,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestPermitListRulesDelete(t *testing.T) {
@@ -203,7 +203,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	port := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-	go setupPluginServer(port)
+	setupPluginServer(port)
 
 	r := SetUpRouter()
 	r.DELETE("/cloud/:cloud/resources/:id/permit-list/rules", frontendServer.permitListRulesDelete)
@@ -219,6 +219,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 		DstPort: 2, 
 		Protocol: 1 }
 	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
+
 	jsonValue, _ := json.Marshal(rulesList)
 
 	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
@@ -226,7 +227,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
 	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "wrong", id)
@@ -234,7 +235,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
@@ -244,7 +245,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestCreateResource(t *testing.T) {
@@ -254,7 +255,8 @@ func TestCreateResource(t *testing.T) {
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.1.0.0/24"}
 
-	go setupPluginServer(port)
+	setupPluginServer(port)
+
 
 	r := SetUpRouter()
 	r.POST("/cloud/:cloud/resources/:id/", frontendServer.resourceCreate)
@@ -262,8 +264,8 @@ func TestCreateResource(t *testing.T) {
 	// Well-formed request
 	id := "123"
 	resource := &invisinetspb.ResourceDescriptionString{
-		Id: id, 
-		Description: "description" }
+		Id:          id,
+		Description: "description"}
 	jsonValue, _ := json.Marshal(resource)
 
 	url := fmt.Sprintf("/cloud/%s/resources/%s/", exampleCloudName, id)
@@ -271,7 +273,7 @@ func TestCreateResource(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
 	url = fmt.Sprintf("/cloud/%s/resources/%s/", "wrong", id)
@@ -279,7 +281,7 @@ func TestCreateResource(t *testing.T) {
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
@@ -289,7 +291,7 @@ func TestCreateResource(t *testing.T) {
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestGetAddressSpaces(t *testing.T) {
@@ -298,16 +300,16 @@ func TestGetAddressSpaces(t *testing.T) {
 	port := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-	go setupPluginServer(port)
+	setupPluginServer(port)
 
 	// Well-formed call
 	addressList, _ := frontendServer.getAddressSpaces(exampleCloudName, "id")
     assert.Equal(t, addressList.AddressSpaces[0], addressSpaceAddress)
 
-
 	// Bad cloud name
 	emptyList, err := frontendServer.getAddressSpaces("wrong", "id")
     require.NotNil(t, err)
+  
 	require.Nil(t, emptyList)
 }
 
@@ -316,7 +318,7 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	port := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-	go setupPluginServer(port)
+	setupPluginServer(port)
 
 	// Valid cloud list 
 	cloud := Cloud{Name: exampleCloudName,  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
@@ -329,6 +331,7 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	cloud = Cloud{Name: "wrong",  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	frontendServer.config = Config{Clouds: []Cloud{cloud}}
 	err = frontendServer.updateUsedAddressSpacesMap()
+
 	require.NotNil(t, err)
 }
 
