@@ -137,8 +137,8 @@ func (m *mockAzureSDKHandler) CreateVirtualMachine(ctx context.Context, paramete
 	return vm.(*armcompute.VirtualMachine), args.Error(1)
 }
 
-func (m *mockAzureSDKHandler) GetInvisinetsVnet(ctx context.Context, prefix string, location string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
-	args := m.Called(ctx, prefix, location, addressSpace)
+func (m *mockAzureSDKHandler) GetInvisinetsVnet(ctx context.Context, prefix string, location string) (*armnetwork.VirtualNetwork, error) {
+	args := m.Called(ctx, prefix, location)
 	vnet := args.Get(0)
 	if vnet == nil {
 		return nil, args.Error(1)
@@ -215,7 +215,7 @@ func TestCreateResource(t *testing.T) {
 		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("GetInvisinetsVnet", ctx, vnetName, testLocation, validAddressSpace).Return(&armnetwork.VirtualNetwork{
+		mockAzureHandler.On("GetInvisinetsVnet", ctx, vnetName, testLocation).Return(&armnetwork.VirtualNetwork{
 			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 				Subnets: []*armnetwork.Subnet{
 					{
@@ -237,9 +237,8 @@ func TestCreateResource(t *testing.T) {
 		}
 
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
-			Description:  desc,
-			AddressSpace: validAddressSpace,
-			Id:           "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/vm123",
+			Description: desc,
+			Id:          "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/vm123",
 		})
 
 		require.NoError(t, err)
@@ -639,9 +638,8 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, addressList)
-	require.Len(t, addressList.Mappings, 1)
-	assert.Equal(t, validAddressSpace, addressList.Mappings[0].AddressSpace)
-	assert.Equal(t, testLocation, addressList.Mappings[0].Region)
+	require.Len(t, addressList.AddressSpaces, 1)
+	assert.Equal(t, validAddressSpace, addressList.AddressSpaces[0])
 }
 
 func TestGetResourceIDInfo(t *testing.T) {
