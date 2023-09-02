@@ -18,7 +18,9 @@ package log
 
 import (
 	"log"
+	"net/netip"
 	"os"
+	"strings"
 )
 
 var (
@@ -31,4 +33,28 @@ func init() {
 		log.Fatalf("error opening file: %v", err)
 	}
 	Log = log.New(file, "", log.LstdFlags|log.Lshortfile)
+}
+
+// Checks if an Invisinets permit list rule tag (either an address or address space) is contained within an address space.
+func IsPermitListRuleTagInAddressSpace(permitListRuleTag, addressSpace string) (bool, error) {
+	prefix, err := netip.ParsePrefix(addressSpace)
+	if err != nil {
+		return false, err
+	}
+
+	var addr netip.Addr
+	if strings.Contains(permitListRuleTag, "/") {
+		permitListRuleTagPrefix, err := netip.ParsePrefix(permitListRuleTag)
+		if err != nil {
+			return false, err
+		}
+		addr = permitListRuleTagPrefix.Addr()
+	} else {
+		addr, err = netip.ParseAddr(permitListRuleTag)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	return prefix.Contains(addr), nil
 }

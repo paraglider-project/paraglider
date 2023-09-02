@@ -20,14 +20,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/netip"
 	"os"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	logger "github.com/NetSys/invisinets/pkg/logger"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/google/uuid"
 )
 
@@ -62,13 +61,13 @@ func init() {
 func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) error {
 	cred, err := s.azureHandler.GetAzureCredentials()
 	if err != nil {
-		logger.Log.Printf("An error occured while getting azure credentials:%+v", err)
+		utils.Log.Printf("An error occured while getting azure credentials:%+v", err)
 		return err
 	}
 	s.azureHandler.SetSubIdAndResourceGroup(resourceIdInfo.SubscriptionID, resourceIdInfo.ResourceGroupName)
 	err = s.azureHandler.InitializeClients(cred)
 	if err != nil {
-		logger.Log.Printf("An error occured while initializing azure clients: %+v", err)
+		utils.Log.Printf("An error occured while initializing azure clients: %+v", err)
 		return err
 	}
 
@@ -81,7 +80,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invis
 	resourceId := resourceID.Id
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting resource ID info: %+v", err)
+		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
 	}
 	err = s.setupAzureHandler(resourceIdInfo)
@@ -92,7 +91,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invis
 	// get the nsg associated with the resource
 	nsg, err := s.getNSGFromResource(ctx, resourceId)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceId, err)
+		utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceId, err)
 		return nil, err
 	}
 
@@ -107,7 +106,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invis
 		if !strings.HasPrefix(*rule.Name, denyAllNsgRulePrefix) && strings.HasPrefix(*rule.Name, invisinetsPrefix) {
 			plRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
-				logger.Log.Printf("An error occured while getting Invisinets rule from NSG rule: %+v", err)
+				utils.Log.Printf("An error occured while getting Invisinets rule from NSG rule: %+v", err)
 				return nil, err
 			}
 			pl.Rules = append(pl.Rules, plRule)
@@ -123,7 +122,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	resourceID := pl.GetAssociatedResource()
 	resourceIdInfo, err := getResourceIDInfo(resourceID)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting resource ID info: %+v", err)
+		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
 	}
 	err = s.setupAzureHandler(resourceIdInfo)
@@ -134,7 +133,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	// get the nic associated with the resource
 	nic, err := s.azureHandler.GetResourceNIC(ctx, resourceID)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting NIC for resource %s: %+v", resourceID, err)
+		utils.Log.Printf("An error occured while getting NIC for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
@@ -142,7 +141,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	nsg, err := s.getNSG(ctx, nic, resourceID)
 
 	if err != nil {
-		logger.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
+		utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
@@ -151,7 +150,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	seen := make(map[string]bool)
 	err = s.setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, seen, nsg)
 	if err != nil {
-		logger.Log.Printf("An error occured during setup: %+v", err)
+		utils.Log.Printf("An error occured during setup: %+v", err)
 		return nil, err
 	}
 	var outboundPriority int32 = 100
@@ -162,13 +161,13 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	// get the vnet to be able to get both the address space as well as the peering when needed
 	resourceVnet, err := s.azureHandler.GetVNet(ctx, getVnetName(*nic.Location))
 	if err != nil {
-		logger.Log.Printf("An error occured while getting resource vnet:%+v", err)
+		utils.Log.Printf("An error occured while getting resource vnet:%+v", err)
 		return nil, err
 	}
 
 	invisinetsVnetsMap, err := s.azureHandler.GetVNetsAddressSpaces(ctx, invisinetsPrefix)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting invisinets vnets address spaces:%+v", err)
+		utils.Log.Printf("An error occured while getting invisinets vnets address spaces:%+v", err)
 		return nil, err
 	}
 
@@ -176,14 +175,14 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	for _, rule := range pl.GetRules() {
 		ruleDesc := s.azureHandler.GetInvisinetsRuleDesc(rule)
 		if seen[ruleDesc] {
-			logger.Log.Printf("Cannot add duplicate rules: %+v", rule)
+			utils.Log.Printf("Cannot add duplicate rules: %+v", rule)
 			continue
 		}
 		seen[ruleDesc] = true
 
 		err := s.checkAndCreatePeering(ctx, resourceVnet, rule, invisinetsVnetsMap)
 		if err != nil {
-			logger.Log.Printf("An error occured while checking network peering:%+v", err)
+			utils.Log.Printf("An error occured while checking network peering:%+v", err)
 			return nil, err
 		}
 
@@ -201,10 +200,10 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		// Create the NSG rule
 		securityRule, err := s.azureHandler.CreateSecurityRule(ctx, rule, *nsg.Name, getInvisinetsResourceName("nsgrule"), resourceAddress, priority)
 		if err != nil {
-			logger.Log.Printf("An error occured while creating security rule:%+v", err)
+			utils.Log.Printf("An error occured while creating security rule:%+v", err)
 			return nil, err
 		}
-		logger.Log.Printf("Successfully created network security rule: %s", *securityRule.ID)
+		utils.Log.Printf("Successfully created network security rule: %s", *securityRule.ID)
 	}
 
 	return &invisinetspb.BasicResponse{Success: true, Message: "successfully added non duplicate rules if any", UpdatedResource: &invisinetspb.ResourceID{Id: resourceID}}, nil
@@ -215,7 +214,7 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 	resourceID := pl.GetAssociatedResource()
 	resourceIdInfo, err := getResourceIDInfo(resourceID)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting resource ID info: %+v", err)
+		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
 	}
 	err = s.setupAzureHandler(resourceIdInfo)
@@ -225,7 +224,7 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 
 	nsg, err := s.getNSGFromResource(c, resourceID)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
+		utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
@@ -240,16 +239,16 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 		if strings.HasPrefix(*rule.Name, invisinetsPrefix) {
 			invisinetsRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
-				logger.Log.Printf("An error occured while getting permit list rule from NSG rule:%+v", err)
+				utils.Log.Printf("An error occured while getting permit list rule from NSG rule:%+v", err)
 				return nil, err
 			}
 			if rulesToBeDeleted[s.azureHandler.GetInvisinetsRuleDesc(invisinetsRule)] {
 				err := s.azureHandler.DeleteSecurityRule(c, *nsg.Name, *rule.Name)
 				if err != nil {
-					logger.Log.Printf("An error occured while deleting security rule:%+v", err)
+					utils.Log.Printf("An error occured while deleting security rule:%+v", err)
 					return nil, err
 				}
-				logger.Log.Printf("Successfully deleted network security rule: %s", *rule.ID)
+				utils.Log.Printf("Successfully deleted network security rule: %s", *rule.ID)
 			}
 		}
 	}
@@ -263,13 +262,13 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
 	invisinetsVm, err := getVmFromResourceDesc(resourceDesc.Description)
 	if err != nil {
-		logger.Log.Printf("Resource description is invalid:%+v", err)
+		utils.Log.Printf("Resource description is invalid:%+v", err)
 		return nil, err
 	}
 
 	resourceIdInfo, err := getResourceIDInfo(resourceDesc.Id)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting resource id info:%+v", err)
+		utils.Log.Printf("An error occured while getting resource id info:%+v", err)
 		return nil, err
 	}
 
@@ -280,13 +279,13 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 
 	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(c, getVnetName(*invisinetsVm.Location), *invisinetsVm.Location)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
+		utils.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
 		return nil, err
 	}
 
 	nic, err := s.azureHandler.CreateNetworkInterface(c, *invisinetsVnet.Properties.Subnets[0].ID, *invisinetsVm.Location, getInvisinetsResourceName("nic"))
 	if err != nil {
-		logger.Log.Printf("An error occured while creating network interface:%+v", err)
+		utils.Log.Printf("An error occured while creating network interface:%+v", err)
 		return nil, err
 	}
 
@@ -300,7 +299,7 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 
 	invisinetsVm, err = s.azureHandler.CreateVirtualMachine(c, *invisinetsVm, resourceIdInfo.ResourceName)
 	if err != nil {
-		logger.Log.Printf("An error occured while creating the virtual machine:%+v", err)
+		utils.Log.Printf("An error occured while creating the virtual machine:%+v", err)
 		return nil, err
 	}
 
@@ -311,7 +310,7 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
 	resourceIdInfo, err := getResourceIDInfo(deployment.Id)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting resource ID info: %+v", err)
+		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
 	}
 	err = s.setupAzureHandler(resourceIdInfo)
@@ -321,7 +320,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment
 
 	addressSpaces, err := s.azureHandler.GetVNetsAddressSpaces(ctx, invisinetsPrefix)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting address spaces:%+v", err)
+		utils.Log.Printf("An error occured while getting address spaces:%+v", err)
 		return nil, err
 	}
 	invisinetAddressList := make([]string, len(addressSpaces))
@@ -344,13 +343,13 @@ func (s *azurePluginServer) getNSG(ctx context.Context, nic *armnetwork.Interfac
 		nsgID := *nsg.ID
 		nsgName, err := s.azureHandler.GetLastSegment(nsgID)
 		if err != nil {
-			logger.Log.Printf("An error occured while getting NSG name for resource %s: %+v", resourceID, err)
+			utils.Log.Printf("An error occured while getting NSG name for resource %s: %+v", resourceID, err)
 			return nil, err
 		}
 
 		nsg, err = s.azureHandler.GetSecurityGroup(ctx, nsgName)
 		if err != nil {
-			logger.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
+			utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
 			return nil, err
 		}
 	} else {
@@ -366,7 +365,7 @@ func (s *azurePluginServer) getNSGFromResource(c context.Context, resourceID str
 	// get the nic associated with the resource
 	nic, err := s.azureHandler.GetResourceNIC(c, resourceID)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting NIC for resource %s: %+v", resourceID, err)
+		utils.Log.Printf("An error occured while getting NIC for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
@@ -378,13 +377,13 @@ func (s *azurePluginServer) getNSGFromResource(c context.Context, resourceID str
 	nsgID := *nic.Properties.NetworkSecurityGroup.ID
 	nsgName, err := s.azureHandler.GetLastSegment(nsgID)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting NSG name for resource %s: %+v", resourceID, err)
+		utils.Log.Printf("An error occured while getting NSG name for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
 	nsg, err := s.azureHandler.GetSecurityGroup(c, nsgName)
 	if err != nil {
-		logger.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
+		utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
@@ -415,7 +414,7 @@ func (s *azurePluginServer) setupMaps(reservedPrioritiesInbound map[int32]bool, 
 		}
 		equivalentInvisinetsRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
 		if err != nil {
-			logger.Log.Printf("An error occured while getting equivalent Invisinets rule for NSG rule %s: %+v", *rule.Name, err)
+			utils.Log.Printf("An error occured while getting equivalent Invisinets rule for NSG rule %s: %+v", *rule.Name, err)
 			return err
 		}
 		seen[s.azureHandler.GetInvisinetsRuleDesc(equivalentInvisinetsRule)] = true
@@ -486,38 +485,11 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	return info, nil
 }
 
-// isAddressInVnetAddressSpace checks whether the given address is in the given vnet address space
-// the addressToCheck could either be an IP address or a CIDR block
-func isAddressInVnetAddressSpace(addressToCheck, vnetCIDR string) (bool, error) {
-	vnetNetwork, err := netip.ParsePrefix(vnetCIDR)
-	if err != nil {
-		return false, err
-	}
-
-	var isContainted bool
-
-	if strings.Contains(addressToCheck, "/") {
-		addressRange, err := netip.ParsePrefix(addressToCheck)
-		if err != nil {
-			return false, err
-		}
-		isContainted = vnetNetwork.Overlaps(addressRange)
-	} else {
-		address, err := netip.ParseAddr(addressToCheck)
-		if err != nil {
-			return false, err
-		}
-		isContainted = vnetNetwork.Contains(address)
-	}
-
-	return isContainted, nil
-}
-
 // checkAndCreatePeering checks whether the given rule has a tag that is in the address space of any of the invisinets vnets
 // and if requires a peering or not
 func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceVnet *armnetwork.VirtualNetwork, rule *invisinetspb.PermitListRule, invisinetsVnetsMap map[string]string) error {
 	for _, tag := range rule.Tag {
-		isTagInResourceAddressSpace, err := isAddressInVnetAddressSpace(tag, *resourceVnet.Properties.AddressSpace.AddressPrefixes[0])
+		isTagInResourceAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(tag, *resourceVnet.Properties.AddressSpace.AddressPrefixes[0])
 		if err != nil {
 			return err
 		}
@@ -528,7 +500,7 @@ func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceV
 		// if the tag is not in the resource address space, then check on the other invisinets vnets
 		// if it matches one of them, then a peering is required (if it doesn't exist already)
 		for vnetLocation, vnetAddressSpace := range invisinetsVnetsMap {
-			isTagInVnetAddressSpace, err := isAddressInVnetAddressSpace(tag, vnetAddressSpace)
+			isTagInVnetAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(tag, vnetAddressSpace)
 			if err != nil {
 				return err
 			}

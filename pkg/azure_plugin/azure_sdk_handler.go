@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	logger "github.com/NetSys/invisinets/pkg/logger"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -77,19 +77,19 @@ type azureSDKHandler struct {
 const (
 	VirtualMachineResourceType = "Microsoft.Compute/virtualMachines"
 	nsgNameSuffix              = "-default-nsg"
-	azureSecurityRuleAsterisk = "*"
-	permitListPortAny 	   = -1
-	denyAllNsgRulePrefix = "invisinets-deny-all"
+	azureSecurityRuleAsterisk  = "*"
+	permitListPortAny          = -1
+	denyAllNsgRulePrefix       = "invisinets-deny-all"
 )
 
 // mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
 var invisinetsToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
 	-1: armnetwork.SecurityRuleProtocolAsterisk,
-	1:   armnetwork.SecurityRuleProtocolIcmp,
-	6:   armnetwork.SecurityRuleProtocolTCP,
-	17:  armnetwork.SecurityRuleProtocolUDP,
-	50:  armnetwork.SecurityRuleProtocolEsp,
-	51:  armnetwork.SecurityRuleProtocolAh,
+	1:  armnetwork.SecurityRuleProtocolIcmp,
+	6:  armnetwork.SecurityRuleProtocolTCP,
+	17: armnetwork.SecurityRuleProtocolUDP,
+	50: armnetwork.SecurityRuleProtocolEsp,
+	51: armnetwork.SecurityRuleProtocolAh,
 }
 
 // mapping from Azure SecurityRuleProtocol to IANA protocol numbers
@@ -175,7 +175,7 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 	// TODO @nnomier: if we just use VMs, we can use vmclient directly
 	resource, err := h.resourcesClient.GetByID(ctx, resourceID, apiVersion, &options)
 	if err != nil {
-		logger.Log.Printf("Failed to get resource: %v", err)
+		utils.Log.Printf("Failed to get resource: %v", err)
 		return nil, err
 	}
 
@@ -191,7 +191,7 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 	vm, err := h.virtualMachinesClient.Get(ctx, h.resourceGroupName, vmName, &armcompute.VirtualMachinesClientGetOptions{Expand: nil})
 
 	if err != nil {
-		logger.Log.Printf("Failed to get VM: %v", err)
+		utils.Log.Printf("Failed to get VM: %v", err)
 		return nil, err
 	}
 
@@ -199,13 +199,13 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 	nicID := *vm.Properties.NetworkProfile.NetworkInterfaces[0].ID
 	nicName, err := h.GetLastSegment(nicID)
 	if err != nil {
-		logger.Log.Printf("Failed to get NIC name from ID: %v", err)
+		utils.Log.Printf("Failed to get NIC name from ID: %v", err)
 		return nil, err
 	}
 
 	nicResponse, err := h.interfacesClient.Get(ctx, h.resourceGroupName, nicName, &armnetwork.InterfacesClientGetOptions{Expand: nil})
 	if err != nil {
-		logger.Log.Printf("Failed to get NIC: %v", err)
+		utils.Log.Printf("Failed to get NIC: %v", err)
 		return nil, err
 	}
 	resourceNic = &nicResponse.Interface
@@ -283,7 +283,7 @@ func (h *azureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string
 	}
 
 	// resp of type SecurityRulesClientDeleteResponse is currently a placeholder in the sdk
-	logger.Log.Printf("Successfully deleted security rule: %v", resp)
+	utils.Log.Printf("Successfully deleted security rule: %v", resp)
 	return nil
 }
 
