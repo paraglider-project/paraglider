@@ -32,7 +32,7 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	networkmanagement "cloud.google.com/go/networkmanagement/apiv1"
 	networkmanagementpb "cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
-  fake "github.com/NetSys/invisinets/pkg/fake"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -322,6 +322,16 @@ func TestIntegration(t *testing.T) {
 	// Add bidirectional PING permit list rules
 	vm1Id := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, vm1Zone, vm1Name)
 	vm2Id := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, vm2Zone, vm2Name)
+	instancesClient, err := compute.NewInstancesRESTClient(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer instancesClient.Close()
+	vm1Ip, err := getVMIP(instancesClient, project, vm1Zone, vm1Name)
+	require.NoError(t, err)
+	vm2Ip, err := getVMIP(instancesClient, project, vm2Zone, vm2Name)
+	require.NoError(t, err)
+
 	vmIds := []string{vm1Id, vm2Id}
 	permitLists := [2]*invisinetspb.PermitList{
 		{
@@ -331,13 +341,13 @@ func TestIntegration(t *testing.T) {
 					Direction: invisinetspb.Direction_INBOUND,
 					DstPort:   -1,
 					Protocol:  1,
-					Tag:       []string{resourceDescription2.AddressSpace},
+					Tag:       []string{vm2Ip},
 				},
 				{
 					Direction: invisinetspb.Direction_OUTBOUND,
 					DstPort:   -1,
 					Protocol:  1,
-					Tag:       []string{resourceDescription2.AddressSpace},
+					Tag:       []string{vm2Ip},
 				},
 			},
 		},
@@ -348,13 +358,13 @@ func TestIntegration(t *testing.T) {
 					Direction: invisinetspb.Direction_INBOUND,
 					DstPort:   -1,
 					Protocol:  1,
-					Tag:       []string{resourceDescription1.AddressSpace},
+					Tag:       []string{vm1Ip},
 				},
 				{
 					Direction: invisinetspb.Direction_OUTBOUND,
 					DstPort:   -1,
 					Protocol:  1,
-					Tag:       []string{resourceDescription1.AddressSpace},
+					Tag:       []string{vm1Ip},
 				},
 			},
 		},
@@ -374,16 +384,6 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// Connectivity tests that ping the two VMs
-	instancesClient, err := compute.NewInstancesRESTClient(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer instancesClient.Close()
-	vm1IP, err := getVMIP(instancesClient, project, vm1Zone, vm1Name)
-	require.NoError(t, err)
-	vm2IP, err := getVMIP(instancesClient, project, vm2Zone, vm2Name)
-	require.NoError(t, err)
-
 	// TODO @seankimkdy: NewReachabilityRESTClient causes errors when deleting connectivity tests
 	reachabilityClient, err := networkmanagement.NewReachabilityClient(context.Background())
 	if err != nil {
@@ -391,12 +391,12 @@ func TestIntegration(t *testing.T) {
 	}
 	defer reachabilityClient.Close()
 	vm1Endpoint := &networkmanagementpb.Endpoint{
-		IpAddress: vm1IP,
+		IpAddress: vm1Ip,
 		Network:   "projects/" + project + "/" + getVPCURL(),
 		ProjectId: project,
 	}
 	vm2Endpoint := &networkmanagementpb.Endpoint{
-		IpAddress: vm2IP,
+		IpAddress: vm2Ip,
 		Network:   "projects/" + project + "/" + getVPCURL(),
 		ProjectId: project,
 	}
