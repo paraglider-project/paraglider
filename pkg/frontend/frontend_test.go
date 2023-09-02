@@ -39,9 +39,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var portNum = 10000
+
 // Mock values
-const addressSpaceRegion = "us-west"
 const addressSpaceAddress = "10.0.0.0/16"
+const exampleCloudName = "example"
 
 // Mock Cloud Plugin Server
 type mockCloudPluginServer struct {
@@ -65,22 +67,31 @@ func (s *mockCloudPluginServer) CreateResource(c context.Context, resource *invi
 }
 
 func (s *mockCloudPluginServer) GetUsedAddressSpaces(c context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
-	mapping := invisinetspb.RegionAddressSpaceMap{Region: addressSpaceRegion, AddressSpace: addressSpaceAddress}
-	return &invisinetspb.AddressSpaceList{Mappings: [](*invisinetspb.RegionAddressSpaceMap){&mapping}}, nil
+	return &invisinetspb.AddressSpaceList{AddressSpaces: []string{addressSpaceAddress}}, nil
 }
 
-func newServer() *mockCloudPluginServer {
+func getNewPortNumber() int {
+	portNum = portNum + 1
+	return portNum
+}
+
+func newPluginServer() *mockCloudPluginServer {
 	s := &mockCloudPluginServer{}
 	return s
 }
 
-func setupServer(port int) {
+func newFrontendServer() *ControllerServer {
+	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string][]string)}
+	return s
+}
+
+func setupPluginServer(port int) {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
-	invisinetspb.RegisterCloudPluginServer(grpcServer, newServer())
+	invisinetspb.RegisterCloudPluginServer(grpcServer, newPluginServer())
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
 			fmt.Println(err.Error())
@@ -97,13 +108,14 @@ func SetUpRouter() *gin.Engine {
 
 func TestPermitListGet(t *testing.T) {
 	// Setup
-	port := 10001
-	pluginAddresses["example"] = fmt.Sprintf("localhost:%d", port)
+	frontendServer := newFrontendServer()
+	port := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-	setupServer(port)
+  setupPluginServer(port)
 
 	r := SetUpRouter()
-	r.GET("/cloud/:cloud/resources/:id/permit-list/", permitListGet)
+	r.GET("/cloud/:cloud/resources/:id/permit-list/", frontendServer.permitListGet)
 
 	// Well-formed request
 	id := "123"
@@ -114,7 +126,7 @@ func TestPermitListGet(t *testing.T) {
 		"permitlist_json": permitListJson,
 	}
 
-	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/", "example", id)
+	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/", exampleCloudName, id)
 	req, _ := http.NewRequest("GET", url, nil)
 	w := httptest.NewRecorder()
 
@@ -137,28 +149,29 @@ func TestPermitListGet(t *testing.T) {
 
 func TestPermitListRulesAdd(t *testing.T) {
 	// Setup
-	port := 10002
-	pluginAddresses["example"] = fmt.Sprintf("localhost:%d", port)
+	frontendServer := newFrontendServer()
+	port := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-	setupServer(port)
+	setupPluginServer(port)
 
 	r := SetUpRouter()
-	r.POST("/cloud/:cloud/resources/:id/permit-list/rules", permitListRulesAdd)
+	r.POST("/cloud/:cloud/resources/:id/permit-list/rules", frontendServer.permitListRulesAdd)
 
 	// Well-formed request
 	id := "123"
 	tags := []string{"tag"}
 	rule := &invisinetspb.PermitListRule{
-		Id:        id,
-		Tag:       tags,
-		Direction: invisinetspb.Direction_INBOUND,
-		SrcPort:   1,
-		DstPort:   2,
-		Protocol:  1}
-	rulesList := &invisinetspb.PermitList{AssociatedResource: "123", Rules: []*invisinetspb.PermitListRule{rule}}
+		Id: id, 
+		Tag: tags,
+		Direction: invisinetspb.Direction_INBOUND, 
+		SrcPort: 1, 
+		DstPort: 2, 
+		Protocol: 1 }
+	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
 	jsonValue, _ := json.Marshal(rulesList)
 
-	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "example", id)
+	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -176,7 +189,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "example", id)
+	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -186,28 +199,30 @@ func TestPermitListRulesAdd(t *testing.T) {
 
 func TestPermitListRulesDelete(t *testing.T) {
 	// Setup
-	port := 10003
-	pluginAddresses["example"] = fmt.Sprintf("localhost:%d", port)
+	frontendServer := newFrontendServer()
+	port := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-	setupServer(port)
+	setupPluginServer(port)
 
 	r := SetUpRouter()
-	r.DELETE("/cloud/:cloud/resources/:id/permit-list/rules", permitListRulesDelete)
+	r.DELETE("/cloud/:cloud/resources/:id/permit-list/rules", frontendServer.permitListRulesDelete)
 
 	// Well-formed request
 	id := "123"
 	tags := []string{"tag"}
 	rule := &invisinetspb.PermitListRule{
-		Id:        "id",
-		Tag:       tags,
-		Direction: invisinetspb.Direction_INBOUND,
-		SrcPort:   1,
-		DstPort:   2,
-		Protocol:  1}
-	rulesList := &invisinetspb.PermitList{AssociatedResource: "123", Rules: []*invisinetspb.PermitListRule{rule}}
+		Id: "id", 
+		Tag: tags,
+		Direction: invisinetspb.Direction_INBOUND, 
+		SrcPort: 1, 
+		DstPort: 2, 
+		Protocol: 1 }
+	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
+
 	jsonValue, _ := json.Marshal(rulesList)
 
-	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "example", id)
+	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
 	req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -225,7 +240,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "example", id)
+	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
 	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -235,15 +250,16 @@ func TestPermitListRulesDelete(t *testing.T) {
 
 func TestCreateResource(t *testing.T) {
 	// Setup
-	port := 10004
-	pluginAddresses["example"] = fmt.Sprintf("localhost:%d", port)
-	region := "us-west"
-	addressSpaceMap[region] = "10.1.0.0/24"
+	frontendServer := newFrontendServer()
+	port := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.1.0.0/24"}
 
-	setupServer(port)
+	setupPluginServer(port)
+
 
 	r := SetUpRouter()
-	r.POST("/cloud/:cloud/region/:region/resources/:id/", resourceCreate)
+	r.POST("/cloud/:cloud/resources/:id/", frontendServer.resourceCreate)
 
 	// Well-formed request
 	id := "123"
@@ -252,7 +268,7 @@ func TestCreateResource(t *testing.T) {
 		Description: "description"}
 	jsonValue, _ := json.Marshal(resource)
 
-	url := fmt.Sprintf("/cloud/%s/region/%s/resources/%s/", "example", region, id)
+	url := fmt.Sprintf("/cloud/%s/resources/%s/", exampleCloudName, id)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -260,7 +276,7 @@ func TestCreateResource(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf("/cloud/%s/region/%s/resources/%s/", "wrong", region, id)
+	url = fmt.Sprintf("/cloud/%s/resources/%s/", "wrong", id)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -270,7 +286,7 @@ func TestCreateResource(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf("/cloud/%s/region/%s/resources/%s/", "example", region, id)
+	url = fmt.Sprintf("/cloud/%s/resources/%s/", exampleCloudName, id)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -280,56 +296,62 @@ func TestCreateResource(t *testing.T) {
 
 func TestGetAddressSpaces(t *testing.T) {
 	// Setup
-	port := 10005
-	pluginAddresses["example"] = fmt.Sprintf("localhost:%d", port)
+	frontendServer := newFrontendServer()
+	port := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-	setupServer(port)
+	setupPluginServer(port)
 
 	// Well-formed call
-	addressList, _ := getAddressSpaces("example", "id")
-	assert.Equal(t, addressList.Mappings[0].Region, addressSpaceRegion)
+	addressList, _ := frontendServer.getAddressSpaces(exampleCloudName, "id")
+    assert.Equal(t, addressList.AddressSpaces[0], addressSpaceAddress)
 
 	// Bad cloud name
-	emptyList, err := getAddressSpaces("wrong", "id")
-	require.NotNil(t, err)
+	emptyList, err := frontendServer.getAddressSpaces("wrong", "id")
+    require.NotNil(t, err)
+  
 	require.Nil(t, emptyList)
 }
 
-func TestUpdateAddressSpaceMap(t *testing.T) {
-	port := 10006
-	pluginAddresses["example"] = fmt.Sprintf("localhost:%d", port)
+func TestUpdateUsedAddressSpacesMap(t *testing.T) {
+	frontendServer := newFrontendServer()
+	port := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-	setupServer(port)
+	setupPluginServer(port)
 
-	// Valid cloud list
-	cloud := Cloud{Name: "example", Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
-	config = Config{Clouds: []Cloud{cloud}}
-	err := updateAddressSpaceMap()
+	// Valid cloud list 
+	cloud := Cloud{Name: exampleCloudName,  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
+	frontendServer.config = Config{Clouds: []Cloud{cloud}}
+	err := frontendServer.updateUsedAddressSpacesMap()
 	require.Nil(t, err)
-	assert.Equal(t, addressSpaceMap["example\\"+addressSpaceRegion], addressSpaceAddress)
+	assert.Equal(t, frontendServer.usedAddressSpaces[exampleCloudName][0], addressSpaceAddress)
 
-	// Invalid cloud list
-	cloud = Cloud{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
-	config = Config{Clouds: []Cloud{cloud}}
-	err = updateAddressSpaceMap()
+	// Invalid cloud list 
+	cloud = Cloud{Name: "wrong",  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
+	frontendServer.config = Config{Clouds: []Cloud{cloud}}
+	err = frontendServer.updateUsedAddressSpacesMap()
+
 	require.NotNil(t, err)
 }
 
-func TestGetNewAddressSpace(t *testing.T) {
+func TestFindUnusedAddressSpace(t *testing.T) {
+	frontendServer := newFrontendServer()
+
 	// No entries in address space map
-	addressSpaceMap = make(map[string]string)
-	address, err := getNewAddressSpace()
+	frontendServer.usedAddressSpaces = make(map[string][]string)
+	address, err := frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
 	require.Nil(t, err)
-	assert.Equal(t, address, "10.0.0.0/16")
+	assert.Equal(t, address.Address, "10.0.0.0/16")
 
 	// Next entry
-	addressSpaceMap["example\\us-west"] = "10.0.0.0/16"
-	address, err = getNewAddressSpace()
+	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.0.0.0/16"}
+	address, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
 	require.Nil(t, err)
-	assert.Equal(t, address, "10.1.0.0/16")
+	assert.Equal(t, address.Address, "10.1.0.0/16")
 
 	// Out of addresses
-	addressSpaceMap["example\\us-west"] = "10.255.0.0/16"
-	_, err = getNewAddressSpace()
+	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.255.0.0/16"}
+	_, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
 	require.NotNil(t, err)
 }
