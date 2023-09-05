@@ -247,6 +247,26 @@ func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, e *invisine
 	return newAddressSpace, nil
 }
 
+func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, e *invisinetspb.Empty) (*invisinetspb.AddressSpaceMappingList, error) {
+	err := s.updateUsedAddressSpacesMap()
+	if err != nil {
+		return nil, err
+	}
+
+	usedAddressSpaceMappings := &invisinetspb.AddressSpaceMappingList{}
+	usedAddressSpaceMappings.AddressSpaceMappings = make([]*invisinetspb.AddressSpaceMapping, len(s.usedAddressSpaces))
+	i := 0
+	for cloud, addressSpaces := range s.usedAddressSpaces {
+		usedAddressSpaceMappings.AddressSpaceMappings[i] = &invisinetspb.AddressSpaceMapping{
+			AddressSpaces: addressSpaces,
+			Cloud:         cloud,
+		}
+		i++
+	}
+
+	return usedAddressSpaceMappings, nil
+}
+
 // Create resource in specified cloud region
 func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	// Ensure correct cloud name
@@ -319,7 +339,7 @@ func Setup(configPath string) {
 	router.POST("/cloud/:cloud/resources/:id/permit-list/rules/", server.permitListRulesAdd)
 	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules/", server.permitListRulesDelete)
 	router.POST("/cloud/:cloud/resources/:id/", server.resourceCreate)
-	
+
 	// Run server
 	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
 	if err != nil {

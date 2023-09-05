@@ -273,6 +273,7 @@ var CloudPlugin_ServiceDesc = grpc.ServiceDesc{
 
 const (
 	Controller_FindUnusedAddressSpace_FullMethodName = "/invisinetspb.Controller/FindUnusedAddressSpace"
+	Controller_GetUsedAddressSpaces_FullMethodName   = "/invisinetspb.Controller/GetUsedAddressSpaces"
 )
 
 // ControllerClient is the client API for Controller service.
@@ -280,6 +281,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ControllerClient interface {
 	FindUnusedAddressSpace(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AddressSpace, error)
+	GetUsedAddressSpaces(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AddressSpaceMappingList, error)
 }
 
 type controllerClient struct {
@@ -299,11 +301,21 @@ func (c *controllerClient) FindUnusedAddressSpace(ctx context.Context, in *Empty
 	return out, nil
 }
 
+func (c *controllerClient) GetUsedAddressSpaces(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AddressSpaceMappingList, error) {
+	out := new(AddressSpaceMappingList)
+	err := c.cc.Invoke(ctx, Controller_GetUsedAddressSpaces_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControllerServer is the server API for Controller service.
 // All implementations must embed UnimplementedControllerServer
 // for forward compatibility
 type ControllerServer interface {
 	FindUnusedAddressSpace(context.Context, *Empty) (*AddressSpace, error)
+	GetUsedAddressSpaces(context.Context, *Empty) (*AddressSpaceMappingList, error)
 	mustEmbedUnimplementedControllerServer()
 }
 
@@ -313,6 +325,9 @@ type UnimplementedControllerServer struct {
 
 func (UnimplementedControllerServer) FindUnusedAddressSpace(context.Context, *Empty) (*AddressSpace, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindUnusedAddressSpace not implemented")
+}
+func (UnimplementedControllerServer) GetUsedAddressSpaces(context.Context, *Empty) (*AddressSpaceMappingList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUsedAddressSpaces not implemented")
 }
 func (UnimplementedControllerServer) mustEmbedUnimplementedControllerServer() {}
 
@@ -345,6 +360,24 @@ func _Controller_FindUnusedAddressSpace_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Controller_GetUsedAddressSpaces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControllerServer).GetUsedAddressSpaces(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Controller_GetUsedAddressSpaces_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControllerServer).GetUsedAddressSpaces(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Controller_ServiceDesc is the grpc.ServiceDesc for Controller service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -355,6 +388,10 @@ var Controller_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FindUnusedAddressSpace",
 			Handler:    _Controller_FindUnusedAddressSpace_Handler,
+		},
+		{
+			MethodName: "GetUsedAddressSpaces",
+			Handler:    _Controller_GetUsedAddressSpaces_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

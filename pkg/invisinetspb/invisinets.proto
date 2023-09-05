@@ -29,6 +29,7 @@ service CloudPlugin {
 
 service Controller {
     rpc FindUnusedAddressSpace(Empty) returns (AddressSpace) {}
+    rpc GetUsedAddressSpaces(Empty) returns (AddressSpaceMappingList) {}
 }
 
 message Empty {
@@ -46,6 +47,15 @@ message AddressSpace {
 
 message AddressSpaceList {
     repeated string address_spaces = 1;
+}
+
+message AddressSpaceMapping{
+    repeated string address_spaces = 1;
+    string cloud = 2;
+}
+
+message AddressSpaceMappingList {
+    repeated AddressSpaceMapping address_space_mappings = 1;
 }
 
 message ResourceID {

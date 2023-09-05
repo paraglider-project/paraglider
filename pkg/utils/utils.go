@@ -27,6 +27,12 @@ var (
 	Log *log.Logger
 )
 
+// Cloud names
+const (
+	GCP   = "GCP"
+	AZURE = "AZURE"
+)
+
 func init() {
 	file, err := os.Create("invisinets.log")
 	if err != nil {
