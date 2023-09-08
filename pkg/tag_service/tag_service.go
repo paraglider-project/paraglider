@@ -22,8 +22,10 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	"database/sql"
+	"github.com/go-sql-driver/mysql"
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 	
 	"google.golang.org/grpc"
@@ -31,11 +33,11 @@ import (
 
 var (
 	port = flag.Int("port", 50051, "The server port")
-	db *sql.DB
 )
 
 type tagServiceServer struct {
 	tagservicepb.UnimplementedTagServiceServer
+	db *sql.DB
 }
 
 // func albumsByArtist(name string) ([]Album, error) {
@@ -61,21 +63,29 @@ type tagServiceServer struct {
 //     return albums, nil
 // }
 
-func (s *tagServiceServer) SetTag(c context.Context, mapping *TagMapping) (*BasicResponse, error){
+func (s *tagServiceServer) SetTag(c context.Context, mapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error){
 	// Store tag in local DB or in its respective cloud
-	rows, err := db.Query("SELECT * FROM tags WHERE artist = ?", mapping.)
+	result, err := s.db.Exec("INSERT INTO tags (parent, child) VALUES (?, ?)", mapping.ParentTag.TagName, mapping.ChildTag.TagName)
+    if err != nil {
+        return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
+    }
+    id, err := result.LastInsertId()
+    if err != nil {
+        return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
+    }
+    return  &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Created tag with ID %d", id)}, nil
 }
 
-func (s *tagServiceServer) GetTag(context.Context, *Tag) (*BasicResponse, error){
-	// Get tag from local DB or in its respective cloud
-}
+// func (s *tagservicepb.tagServiceServer) GetTag(context.Context, *tagservicepb.Tag) (*tagservicepb.BasicResponse, error){
+// 	// Get tag from local DB or in its respective cloud
+// }
 
-func (s *tagServiceServer) DeleteTag(context.Context, *Tag) (*BasicResponse, error){
-	// Delete tag from local DB or in its respective cloud
-}
+// func (s *tagservicepb.tagServiceServer) DeleteTag(context.Context, *tagservicepb.Tag) (*tagservicepb.BasicResponse, error){
+// 	// Delete tag from local DB or in its respective cloud
+// }
 
-func newServer(database *sql.DB) *cloudPluginServer {
-	s := &cloudPluginServer{db: database}
+func newServer(database *sql.DB) *tagServiceServer {
+	s := &tagServiceServer{db: database}
 	return s
 }
 
@@ -88,9 +98,10 @@ func main() {
         Addr:   "127.0.0.1:3306",
         DBName: "tags",
     }
+	fmt.Println(cfg.Passwd)
     // Get a database handle.
     var err error
-    db, err = sql.Open("mysql", cfg.FormatDSN())
+    db, err := sql.Open("mysql", cfg.FormatDSN())
     if err != nil {
         log.Fatal(err)
     }
@@ -107,7 +118,7 @@ func main() {
 	}
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
-	invisinetspb.RegisterCloudPluginServer(grpcServer, newServer(&db))
+	tagservicepb.RegisterTagServiceServer(grpcServer, newServer(db))
 	err = grpcServer.Serve(lis)
 	if err != nil {
 		fmt.Println(err.Error())
