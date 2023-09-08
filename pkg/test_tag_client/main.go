@@ -26,6 +26,37 @@ import (
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 )
 
+func add_tag(client tagservicepb.TagServiceClient) {
+	tagMap := tagservicepb.TagMapping{ParentTag: &tagservicepb.Tag{TagName: "testparent3"}, ChildTag: &tagservicepb.Tag{TagName: "testchild"}}
+
+	response, err := client.SetTag(context.Background(), &tagMap)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	fmt.Println(response.Message)
+}
+
+func get_tag(client tagservicepb.TagServiceClient) {
+	tag := tagservicepb.Tag{TagName: "testparent3"}
+	response, err := client.GetTag(context.Background(), &tag)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	fmt.Printf("%s -> %s", response.ParentTag.TagName, response.ChildTag.TagName)
+}
+
+func delete_tag(client tagservicepb.TagServiceClient) {
+	tag := tagservicepb.Tag{TagName: "testparent3"}
+	response, err := client.DeleteTag(context.Background(), &tag)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	fmt.Println(response.Message)
+}
+
 func main() {
 	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -34,14 +65,11 @@ func main() {
 	}
 	defer conn.Close()
 
-	// Send the GetPermitList RPC
 	client := tagservicepb.NewTagServiceClient(conn)
-	tag := tagservicepb.TagMapping{ParentTag: &tagservicepb.Tag{TagName: "testparent"}, ChildTag: &tagservicepb.Tag{TagName: "testchild"}}
 
-	response, err := client.SetTag(context.Background(), &tag)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-	fmt.Println(response.Message)
+	add_tag(client)
+	get_tag(client)
+	delete_tag(client)
+	add_tag(client)
+	add_tag(client)
 }

@@ -44,7 +44,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TagServiceClient interface {
 	SetTag(ctx context.Context, in *TagMapping, opts ...grpc.CallOption) (*BasicResponse, error)
-	GetTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*BasicResponse, error)
+	GetTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*TagMapping, error)
 	DeleteTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*BasicResponse, error)
 }
 
@@ -65,8 +65,8 @@ func (c *tagServiceClient) SetTag(ctx context.Context, in *TagMapping, opts ...g
 	return out, nil
 }
 
-func (c *tagServiceClient) GetTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*BasicResponse, error) {
-	out := new(BasicResponse)
+func (c *tagServiceClient) GetTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*TagMapping, error) {
+	out := new(TagMapping)
 	err := c.cc.Invoke(ctx, TagService_GetTag_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func (c *tagServiceClient) DeleteTag(ctx context.Context, in *Tag, opts ...grpc.
 // for forward compatibility
 type TagServiceServer interface {
 	SetTag(context.Context, *TagMapping) (*BasicResponse, error)
-	GetTag(context.Context, *Tag) (*BasicResponse, error)
+	GetTag(context.Context, *Tag) (*TagMapping, error)
 	DeleteTag(context.Context, *Tag) (*BasicResponse, error)
 	mustEmbedUnimplementedTagServiceServer()
 }
@@ -100,7 +100,7 @@ type UnimplementedTagServiceServer struct {
 func (UnimplementedTagServiceServer) SetTag(context.Context, *TagMapping) (*BasicResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetTag not implemented")
 }
-func (UnimplementedTagServiceServer) GetTag(context.Context, *Tag) (*BasicResponse, error) {
+func (UnimplementedTagServiceServer) GetTag(context.Context, *Tag) (*TagMapping, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTag not implemented")
 }
 func (UnimplementedTagServiceServer) DeleteTag(context.Context, *Tag) (*BasicResponse, error) {

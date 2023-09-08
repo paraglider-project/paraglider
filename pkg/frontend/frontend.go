@@ -327,6 +327,9 @@ func Setup(configPath string) {
 	router.POST("/cloud/:cloud/resources/:id/permit-list/rules/", permitListRulesAdd)
 	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules/", permitListRulesDelete)
 	router.POST("/cloud/:cloud/region/:region/resources/:id/", resourceCreate)
+	// router.GET("/tags/:tag", tagGet) // Gets tag from the local DB
+	// router.POST("/tags/:tag", tagSet) // Set tag in the local DB and underlying clouds
+	// router.DELETE("/tags/:tag", tagDelete) // Deletes tag in the local DB and underlying clouds
   
 	err = router.Run(config.Server.Host + ":" + config.Server.Port)
 	if err != nil {

@@ -21,7 +21,7 @@ option go_package="github.com/NetSys/invisinets/pkg/tag_service/tagservicepb";
 
 service TagService {
     rpc SetTag(TagMapping) returns (BasicResponse) {}
-    rpc GetTag(Tag) returns (BasicResponse) {}
+    rpc GetTag(Tag) returns (TagMapping) {}
     rpc DeleteTag(Tag) returns (BasicResponse) {}
 }
 

@@ -64,25 +64,42 @@ type tagServiceServer struct {
 // }
 
 func (s *tagServiceServer) SetTag(c context.Context, mapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error){
-	// Store tag in local DB or in its respective cloud
-	result, err := s.db.Exec("INSERT INTO tags (parent, child) VALUES (?, ?)", mapping.ParentTag.TagName, mapping.ChildTag.TagName)
+	// Store tag in local DB
+	_, err := s.db.Exec("INSERT INTO tags (parent, child) VALUES (?, ?)", mapping.ParentTag.TagName, mapping.ChildTag.TagName)
     if err != nil {
         return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
     }
-    id, err := result.LastInsertId()
-    if err != nil {
-        return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
-    }
-    return  &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Created tag with ID %d", id)}, nil
+    // id, err := result.LastInsertId()
+    // if err != nil {
+    //     return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
+    // }
+
+    return  &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Created tag: %s", mapping.ParentTag.TagName)}, nil
 }
 
-// func (s *tagservicepb.tagServiceServer) GetTag(context.Context, *tagservicepb.Tag) (*tagservicepb.BasicResponse, error){
-// 	// Get tag from local DB or in its respective cloud
-// }
+func (s *tagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMapping, error){
+	// Get tag from local DB
+	var parentTag tagservicepb.Tag
+	var childTag tagservicepb.Tag
+	row := s.db.QueryRow("SELECT parent, child FROM tags WHERE parent = ?", tag.TagName)
+	if err := row.Scan(&parentTag.TagName, &childTag.TagName); err != nil {
+        if err == sql.ErrNoRows {
+            return nil, fmt.Errorf("GetTag %d: no such tag", tag.TagName)
+        }
+        return nil, fmt.Errorf("GetTag %d: %v", tag.TagName, err)
+    }
+    return &tagservicepb.TagMapping{ParentTag: &parentTag, ChildTag: &childTag}, nil
+}
 
-// func (s *tagservicepb.tagServiceServer) DeleteTag(context.Context, *tagservicepb.Tag) (*tagservicepb.BasicResponse, error){
-// 	// Delete tag from local DB or in its respective cloud
-// }
+func (s *tagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error){
+	// Delete tag from local DB
+	_, err := s.db.Exec("DELETE FROM tags WHERE parent = ?", tag.TagName)
+    if err != nil {
+        return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteTag: %v", err)
+    }
+
+	return  &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Deleted tag: %s", tag.TagName)}, nil
+}
 
 func newServer(database *sql.DB) *tagServiceServer {
 	s := &tagServiceServer{db: database}
@@ -98,7 +115,7 @@ func main() {
         Addr:   "127.0.0.1:3306",
         DBName: "tags",
     }
-	fmt.Println(cfg.Passwd)
+
     // Get a database handle.
     var err error
     db, err := sql.Open("mysql", cfg.FormatDSN())
