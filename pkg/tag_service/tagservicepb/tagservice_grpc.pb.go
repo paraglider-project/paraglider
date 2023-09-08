@@ -34,9 +34,10 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	TagService_SetTag_FullMethodName    = "/tagservicepb.TagService/SetTag"
-	TagService_GetTag_FullMethodName    = "/tagservicepb.TagService/GetTag"
-	TagService_DeleteTag_FullMethodName = "/tagservicepb.TagService/DeleteTag"
+	TagService_SetTag_FullMethodName          = "/tagservicepb.TagService/SetTag"
+	TagService_GetTag_FullMethodName          = "/tagservicepb.TagService/GetTag"
+	TagService_DeleteTagMember_FullMethodName = "/tagservicepb.TagService/DeleteTagMember"
+	TagService_DeleteTag_FullMethodName       = "/tagservicepb.TagService/DeleteTag"
 )
 
 // TagServiceClient is the client API for TagService service.
@@ -45,6 +46,7 @@ const (
 type TagServiceClient interface {
 	SetTag(ctx context.Context, in *TagMapping, opts ...grpc.CallOption) (*BasicResponse, error)
 	GetTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*TagMapping, error)
+	DeleteTagMember(ctx context.Context, in *TagMapping, opts ...grpc.CallOption) (*BasicResponse, error)
 	DeleteTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*BasicResponse, error)
 }
 
@@ -74,6 +76,15 @@ func (c *tagServiceClient) GetTag(ctx context.Context, in *Tag, opts ...grpc.Cal
 	return out, nil
 }
 
+func (c *tagServiceClient) DeleteTagMember(ctx context.Context, in *TagMapping, opts ...grpc.CallOption) (*BasicResponse, error) {
+	out := new(BasicResponse)
+	err := c.cc.Invoke(ctx, TagService_DeleteTagMember_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *tagServiceClient) DeleteTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*BasicResponse, error) {
 	out := new(BasicResponse)
 	err := c.cc.Invoke(ctx, TagService_DeleteTag_FullMethodName, in, out, opts...)
@@ -89,6 +100,7 @@ func (c *tagServiceClient) DeleteTag(ctx context.Context, in *Tag, opts ...grpc.
 type TagServiceServer interface {
 	SetTag(context.Context, *TagMapping) (*BasicResponse, error)
 	GetTag(context.Context, *Tag) (*TagMapping, error)
+	DeleteTagMember(context.Context, *TagMapping) (*BasicResponse, error)
 	DeleteTag(context.Context, *Tag) (*BasicResponse, error)
 	mustEmbedUnimplementedTagServiceServer()
 }
@@ -102,6 +114,9 @@ func (UnimplementedTagServiceServer) SetTag(context.Context, *TagMapping) (*Basi
 }
 func (UnimplementedTagServiceServer) GetTag(context.Context, *Tag) (*TagMapping, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTag not implemented")
+}
+func (UnimplementedTagServiceServer) DeleteTagMember(context.Context, *TagMapping) (*BasicResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteTagMember not implemented")
 }
 func (UnimplementedTagServiceServer) DeleteTag(context.Context, *Tag) (*BasicResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteTag not implemented")
@@ -155,6 +170,24 @@ func _TagService_GetTag_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TagService_DeleteTagMember_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TagMapping)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TagServiceServer).DeleteTagMember(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TagService_DeleteTagMember_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TagServiceServer).DeleteTagMember(ctx, req.(*TagMapping))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _TagService_DeleteTag_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Tag)
 	if err := dec(in); err != nil {
@@ -187,6 +220,10 @@ var TagService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTag",
 			Handler:    _TagService_GetTag_Handler,
+		},
+		{
+			MethodName: "DeleteTagMember",
+			Handler:    _TagService_DeleteTagMember_Handler,
 		},
 		{
 			MethodName: "DeleteTag",

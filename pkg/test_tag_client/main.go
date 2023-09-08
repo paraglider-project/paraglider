@@ -27,7 +27,7 @@ import (
 )
 
 func add_tag(client tagservicepb.TagServiceClient) {
-	tagMap := tagservicepb.TagMapping{ParentTag: &tagservicepb.Tag{TagName: "testparent3"}, ChildTag: &tagservicepb.Tag{TagName: "testchild"}}
+	tagMap := tagservicepb.TagMapping{ParentTag: "testparent", ChildTags: []string{"testchild"}}
 
 	response, err := client.SetTag(context.Background(), &tagMap)
 	if err != nil {
@@ -38,17 +38,17 @@ func add_tag(client tagservicepb.TagServiceClient) {
 }
 
 func get_tag(client tagservicepb.TagServiceClient) {
-	tag := tagservicepb.Tag{TagName: "testparent3"}
+	tag := tagservicepb.Tag{TagName: "testparent"}
 	response, err := client.GetTag(context.Background(), &tag)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
-	fmt.Printf("%s -> %s", response.ParentTag.TagName, response.ChildTag.TagName)
+	fmt.Printf("%s -> %s\n", response.ParentTag, response.ChildTags[0])
 }
 
 func delete_tag(client tagservicepb.TagServiceClient) {
-	tag := tagservicepb.Tag{TagName: "testparent3"}
+	tag := tagservicepb.Tag{TagName: "testparent"}
 	response, err := client.DeleteTag(context.Background(), &tag)
 	if err != nil {
 		fmt.Println(err.Error())

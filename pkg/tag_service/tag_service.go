@@ -22,10 +22,11 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
+	// "os"
 
-	"database/sql"
-	"github.com/go-sql-driver/mysql"
+	// "database/sql"
+	// "github.com/go-sql-driver/mysql"
+	"github.com/redis/go-redis/v9"
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 	
 	"google.golang.org/grpc"
@@ -37,7 +38,7 @@ var (
 
 type tagServiceServer struct {
 	tagservicepb.UnimplementedTagServiceServer
-	db *sql.DB
+	client *redis.Client
 }
 
 // func albumsByArtist(name string) ([]Album, error) {
@@ -64,70 +65,76 @@ type tagServiceServer struct {
 // }
 
 func (s *tagServiceServer) SetTag(c context.Context, mapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error){
-	// Store tag in local DB
-	_, err := s.db.Exec("INSERT INTO tags (parent, child) VALUES (?, ?)", mapping.ParentTag.TagName, mapping.ChildTag.TagName)
-    if err != nil {
-        return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
-    }
-    // id, err := result.LastInsertId()
-    // if err != nil {
-    //     return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
-    // }
+	err := s.client.SAdd(c, mapping.ParentTag, mapping.ChildTags).Err()
+	if err != nil {
+		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
+	}
 
-    return  &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Created tag: %s", mapping.ParentTag.TagName)}, nil
+    return  &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Created/updated tag: %s", mapping.ParentTag)}, nil
 }
 
 func (s *tagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMapping, error){
-	// Get tag from local DB
-	var parentTag tagservicepb.Tag
-	var childTag tagservicepb.Tag
-	row := s.db.QueryRow("SELECT parent, child FROM tags WHERE parent = ?", tag.TagName)
-	if err := row.Scan(&parentTag.TagName, &childTag.TagName); err != nil {
-        if err == sql.ErrNoRows {
-            return nil, fmt.Errorf("GetTag %d: no such tag", tag.TagName)
-        }
-        return nil, fmt.Errorf("GetTag %d: %v", tag.TagName, err)
-    }
-    return &tagservicepb.TagMapping{ParentTag: &parentTag, ChildTag: &childTag}, nil
+	childrenTags, err := s.client.SMembers(c, tag.TagName).Result()
+	if err != nil {
+		return nil, fmt.Errorf("GetTag %d: %v", tag.TagName, err)
+	}
+    return &tagservicepb.TagMapping{ParentTag: tag.TagName, ChildTags: childrenTags}, nil
+}
+
+func (s *tagServiceServer) DeleteTagMember(c context.Context, mapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error){
+	err := s.client.SRem(c, mapping.ParentTag, mapping.ChildTags).Err()
+	if err != nil {
+		return nil, fmt.Errorf("DeleteTagMember %d: %v", mapping.ParentTag, err)
+	}
+    return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Deleted members from tag: %s", mapping.ParentTag)}, nil
 }
 
 func (s *tagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error){
-	// Delete tag from local DB
-	_, err := s.db.Exec("DELETE FROM tags WHERE parent = ?", tag.TagName)
-    if err != nil {
-        return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteTag: %v", err)
-    }
+	childrenTags, err := s.client.SMembers(c, tag.TagName).Result()
+	if err != nil {
+		return nil, fmt.Errorf("DeleteTag %d: %v", tag.TagName, err)
+	}
 
-	return  &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Deleted tag: %s", tag.TagName)}, nil
+	err = s.client.SRem(c, tag.TagName, childrenTags).Err()
+	if err != nil {
+		return nil, fmt.Errorf("DeleteTag %d: %v", tag.TagName, err)
+	}
+    return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Deleted tag: %s", tag.TagName)}, nil
 }
 
-func newServer(database *sql.DB) *tagServiceServer {
-	s := &tagServiceServer{db: database}
+func newServer(database *redis.Client) *tagServiceServer {
+	s := &tagServiceServer{client: database}
 	return s
 }
 
 func main() {
     // Capture connection properties.
-    cfg := mysql.Config{
-        User:   os.Getenv("DBUSER"),
-        Passwd: os.Getenv("DBPASS"),
-        Net:    "tcp",
-        Addr:   "127.0.0.1:3306",
-        DBName: "tags",
-    }
+    // cfg := mysql.Config{
+    //     User:   os.Getenv("DBUSER"),
+    //     Passwd: os.Getenv("DBPASS"),
+    //     Net:    "tcp",
+    //     Addr:   "127.0.0.1:3306",
+    //     DBName: "tags",
+    // }
 
-    // Get a database handle.
-    var err error
-    db, err := sql.Open("mysql", cfg.FormatDSN())
-    if err != nil {
-        log.Fatal(err)
-    }
+    // // Get a database handle.
+    // var err error
+    // db, err := sql.Open("mysql", cfg.FormatDSN())
+    // if err != nil {
+    //     log.Fatal(err)
+    // }
 
-    pingErr := db.Ping()
-    if pingErr != nil {
-        log.Fatal(pingErr)
-    }
-    fmt.Println("Connected!")
+    // pingErr := db.Ping()
+    // if pingErr != nil {
+    //     log.Fatal(pingErr)
+    // }
+    // fmt.Println("Connected!")
+
+	client := redis.NewClient(&redis.Options{
+        Addr:	  "localhost:6379",
+        Password: "", // no password set
+        DB:		  0,  // use default DB
+    })
 
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
 	if err != nil {
@@ -135,7 +142,7 @@ func main() {
 	}
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
-	tagservicepb.RegisterTagServiceServer(grpcServer, newServer(db))
+	tagservicepb.RegisterTagServiceServer(grpcServer, newServer(client))
 	err = grpcServer.Serve(lis)
 	if err != nil {
 		fmt.Println(err.Error())
