@@ -317,7 +317,11 @@ func (s *ControllerServer) getTag(c *gin.Context) {
 
 func (s *ControllerServer) setTag(c *gin.Context) {
 	parentTag := c.Param("tag")
-	childTags := c.PostFormArray("children")
+	var childTags []string
+	if err := c.BindJSON(&childTags); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
 	tagMapping := &tagservicepb.TagMapping{ParentTag: parentTag, ChildTags: childTags}
 
 	// Call SetTag locally
@@ -408,7 +412,11 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 
 func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	parentTag := c.Param("tag")
-	childTags := c.PostFormArray("children")
+	var childTags []string
+	if err := c.BindJSON(&childTags); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
 	tagMapping := &tagservicepb.TagMapping{ParentTag: parentTag, ChildTags: childTags}
 
 	// Call DeleteTagMember locally
@@ -491,7 +499,7 @@ func Setup(configPath string) {
 	router.GET("/tags/:tag", server.getTag)
 	router.POST("/tags/:tag", server.setTag)
 	router.DELETE("/tags/:tag", server.deleteTag)
-	router.POST("/tags/:tag/delmembers/", server.deleteTagMember)
+	router.DELETE("/tags/:tag/members/", server.deleteTagMember)
 	
 	// Run server
 	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
