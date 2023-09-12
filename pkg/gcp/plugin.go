@@ -32,6 +32,8 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"google.golang.org/api/googleapi"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -80,16 +82,26 @@ var gcpProtocolNumberMap = map[string]int{
 	"ipip": 94,
 }
 
-func init() {
+
+// Frontend server address
+var frontendServerAddr string // TODO @seankimkdy: dynamically configure with config
+
+// Returns prefix with GitHub workflow run numbers for integration tests
+func getGitHubRunPrefix() string {
 	ghRunNumber := os.Getenv("GH_RUN_NUMBER")
 	if ghRunNumber != "" {
-		// Prefix resource names with GitHub workflow run numbers to avoid resource name clashes
-		prefix := "github" + ghRunNumber + "-"
-		vpcName = prefix + vpcName
-		subnetworkNamePrefix = prefix + subnetworkNamePrefix
-		networkTagPrefix = prefix + networkTagPrefix
-		firewallNamePrefix = prefix + firewallNamePrefix
+		return "github" + ghRunNumber + "-"
 	}
+	return ""
+}
+
+func init() {
+	githubRunPrefix := getGitHubRunPrefix()
+	// Prefix resource names with GitHub workflow run numbers to avoid resource name clashes during integration tests
+	vpcName = githubRunPrefix + vpcName
+	subnetworkNamePrefix = githubRunPrefix + subnetworkNamePrefix
+	networkTagPrefix = githubRunPrefix + networkTagPrefix
+	firewallNamePrefix = githubRunPrefix + firewallNamePrefix
 }
 
 // Checks if GCP firewall rule is an Invisinets permit list rule
@@ -115,10 +127,10 @@ func isFirewallEqPermitListRule(firewall *computepb.Firewall, permitListRule *in
 	if protocolNumber != permitListRule.Protocol {
 		return false
 	}
-	if len(firewall.Allowed[0].Ports) != 1 {
+	if len(firewall.Allowed[0].Ports) == 0 && permitListRule.DstPort != -1 {
 		return false
 	}
-	if firewall.Allowed[0].Ports[0] != strconv.Itoa(int(permitListRule.DstPort)) {
+	if len(firewall.Allowed[0].Ports) == 1 && firewall.Allowed[0].Ports[0] != strconv.Itoa(int(permitListRule.DstPort)) {
 		return false
 	}
 	return true
@@ -225,7 +237,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 
 				var dstPort int
 				if len(rule.Ports) == 0 {
-					dstPort = 0
+					dstPort = -1
 				} else {
 					dstPort, err = strconv.Atoi(rule.Ports[0])
 					if err != nil {
@@ -301,7 +313,6 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			Allowed: []*computepb.Allowed{
 				{
 					IPProtocol: proto.String(strconv.Itoa(int(permitListRule.Protocol))),
-					Ports:      []string{strconv.Itoa(int(permitListRule.DstPort))},
 				},
 			},
 			Description: proto.String("Invisinets permit list"),
@@ -309,6 +320,11 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			Name:        proto.String(firewallName),
 			Network:     proto.String(getVPCURL()),
 			TargetTags:  []string{networkTag},
+		}
+		if permitListRule.DstPort != -1 {
+			// Users must explicitly set DstPort to -1 if they want it to apply to all ports since proto can't
+			// differentiate between empty and 0 for an int field. Ports of 0 are valid for protocols like TCP/UDP.
+			firewall.Allowed[0].Ports = []string{strconv.Itoa(int(permitListRule.DstPort))}
 		}
 		if permitListRule.Direction == invisinetspb.Direction_INBOUND {
 			// TODO @seankimkdy: use SourceTags as well once we start supporting tags
@@ -462,6 +478,19 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	}
 
 	if !subnetExists {
+		// Find unused address spaces
+		// TODO @seankimkdy: instead of reading the config, we could alternatively have the frontend include the IP address of the server as part of resourceDescription?
+		conn, err := grpc.Dial(frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
+		}
+		defer conn.Close()
+		client := invisinetspb.NewControllerClient(conn)
+		response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+		if err != nil {
+			return nil, fmt.Errorf("unable to find unused address space: %w", err)
+		}
+
 		insertSubnetworkRequest := &computepb.InsertSubnetworkRequest{
 			Project: project,
 			Region:  region,
@@ -469,7 +498,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 				Name:        proto.String(subnetName),
 				Description: proto.String("Invisinets subnetwork for " + region),
 				Network:     proto.String(getVPCURL()),
-				IpCidrRange: proto.String(resourceDescription.AddressSpace),
+				IpCidrRange: proto.String(response.Address),
 			},
 		}
 		insertSubnetworkOp, err := subnetworksClient.Insert(ctx, insertSubnetworkRequest)
@@ -569,7 +598,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsD
 			return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
 		}
 	} else {
-		addressSpaceList.Mappings = make([]*invisinetspb.RegionAddressSpaceMap, len(getNetworkResp.Subnetworks))
+		addressSpaceList.AddressSpaces = make([]string, len(getNetworkResp.Subnetworks))
 		for i, subnetURL := range getNetworkResp.Subnetworks {
 			parsedSubnetURL := parseGCPURL(subnetURL)
 			getSubnetworkRequest := &computepb.GetSubnetworkRequest{
@@ -581,10 +610,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsD
 			if err != nil {
 				return nil, fmt.Errorf("failed to get invisinets subnetwork: %w", err)
 			}
-			addressSpaceList.Mappings[i] = &invisinetspb.RegionAddressSpaceMap{
-				Region:       parsedSubnetURL["regions"],
-				AddressSpace: *getSubnetworkResp.IpCidrRange,
-			}
+			addressSpaceList.AddressSpaces[i] = *getSubnetworkResp.IpCidrRange
 		}
 	}
 

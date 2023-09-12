@@ -30,6 +30,7 @@ import (
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,7 +81,7 @@ var (
 	}
 	fakePermitListRule2 = &invisinetspb.PermitListRule{
 		Direction: invisinetspb.Direction_OUTBOUND,
-		DstPort:   0,
+		DstPort:   -1,
 		Protocol:  17,
 		Tag:       []string{"10.3.4.0/24"},
 	}
@@ -464,7 +465,7 @@ func TestCreateResource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"}
+	resource := &invisinetspb.ResourceDescription{Description: description}
 
 	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
@@ -476,6 +477,11 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: fakeInstance}, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
 	defer teardown(fakeServer, fakeClients)
 
+	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	frontendServerAddr = fakeControllerServerAddr
 	s := &GCPPluginServer{}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
@@ -485,7 +491,7 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"}
+	resource := &invisinetspb.ResourceDescription{Description: description}
 
 	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
@@ -500,6 +506,12 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
 	defer teardown(fakeServer, fakeClients)
 
+	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	frontendServerAddr = fakeControllerServerAddr
+
 	s := &GCPPluginServer{}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
@@ -509,7 +521,7 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{Description: description, AddressSpace: "10.1.2.0/24"}
+	resource := &invisinetspb.ResourceDescription{Description: description}
 
 	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
@@ -533,9 +545,9 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 	s := &GCPPluginServer{}
 
-	usedAddressSpacesExpected := []*invisinetspb.RegionAddressSpaceMap{{Region: "us-fake1", AddressSpace: "10.1.2.0/24"}}
+	usedAddressSpacesExpected := []string{"10.1.2.0/24"}
 	addressSpaceList, err := s._GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject}, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
 	require.NotNil(t, addressSpaceList)
-	assert.ElementsMatch(t, usedAddressSpacesExpected, addressSpaceList.Mappings)
+	assert.ElementsMatch(t, usedAddressSpacesExpected, addressSpaceList.AddressSpaces)
 }
