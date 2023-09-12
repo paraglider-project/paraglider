@@ -30,8 +30,10 @@ import (
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
+	networkmanagement "cloud.google.com/go/networkmanagement/apiv1"
+	networkmanagementpb "cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/api/googleapi"
@@ -43,16 +45,51 @@ type teardownInfo struct {
 	insertInstanceReqs []*computepb.InsertInstanceRequest
 }
 
-// Max lengths for random resource name generation
-const vmNameMaxLength = 63
-
-// Generates random VM name to ensure parallel runs of these tests don't run into duplicate resource issues
-func generateRandomVMName() string {
-	vmName := "vm-invisinets-test-" + uuid.New().String()
-	if len(vmName) > vmNameMaxLength {
-		vmName = vmName[:vmNameMaxLength]
+// Gets the IP address of the VM
+func getVMIP(instancesClient *compute.InstancesClient, project, zone, name string) (string, error) {
+	getInstanceReq := &computepb.GetInstanceRequest{
+		Instance: name,
+		Project:  project,
+		Zone:     zone,
 	}
-	return vmName
+	getInstanceResp, err := instancesClient.Get(context.Background(), getInstanceReq)
+	if err != nil {
+		return "", err
+	}
+	return *getInstanceResp.NetworkInterfaces[0].NetworkIP, nil
+}
+
+func runConnectivityTest(t *testing.T, reachabilityClient *networkmanagement.ReachabilityClient, project string, name string, srcEndpoint, dstEndpoint *networkmanagementpb.Endpoint) {
+	ctx := context.Background()
+	connectivityTestId := getGitHubRunPrefix() + "connectivity-test-" + name
+	createConnectivityTestReq := &networkmanagementpb.CreateConnectivityTestRequest{
+		Parent: "projects/" + project + "/locations/global",
+		TestId: connectivityTestId,
+		Resource: &networkmanagementpb.ConnectivityTest{
+			Name:        "projects/" + project + "/locations/global/connectivityTests" + connectivityTestId,
+			Protocol:    "ICMP",
+			Source:      srcEndpoint,
+			Destination: dstEndpoint,
+		},
+	}
+	createConnectivityTestOp, err := reachabilityClient.CreateConnectivityTest(ctx, createConnectivityTestReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	connectivityTest, err := createConnectivityTestOp.Wait(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, networkmanagementpb.ReachabilityDetails_REACHABLE, connectivityTest.ReachabilityDetails.Result)
+	deleteConnectivityTestReq := &networkmanagementpb.DeleteConnectivityTestRequest{Name: connectivityTest.Name}
+	deleteConnectivityTestOp, err := reachabilityClient.DeleteConnectivityTest(ctx, deleteConnectivityTestReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = deleteConnectivityTestOp.Wait(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // Cleans up any resources that were created
@@ -182,6 +219,11 @@ func TestIntegration(t *testing.T) {
 		panic("INVISINETS_GCP_PROJECT must be set")
 	}
 	s := &GCPPluginServer{}
+	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	frontendServerAddr = fakeControllerServerAddr
 
 	// Teardown
 	teardownInfo := &teardownInfo{
@@ -204,13 +246,14 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// Create VM in a clean state (i.e. no VPC or subnet)
-	vm1Name := generateRandomVMName()
+	vm1Name := getGitHubRunPrefix() + "vm-invisinets-test-1"
+	vm1Zone := "us-west1-a"
 	insertInstanceReq1 := &computepb.InsertInstanceRequest{
 		Project: project,
-		Zone:    "us-west1-a",
+		Zone:    vm1Zone,
 		InstanceResource: &computepb.Instance{
 			Name:        proto.String(vm1Name),
-			MachineType: proto.String("zones/us-west1-a/machineTypes/f1-micro"),
+			MachineType: proto.String("zones/" + vm1Zone + "/machineTypes/f1-micro"),
 			Disks:       disks,
 		},
 	}
@@ -219,10 +262,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription1 := &invisinetspb.ResourceDescription{
-		Description:  insertInstanceReq1Bytes,
-		AddressSpace: "10.162.162.0/24",
-	}
+	resourceDescription1 := &invisinetspb.ResourceDescription{Description: insertInstanceReq1Bytes}
 	createResource1Resp, err := s.CreateResource(
 		context.Background(),
 		resourceDescription1,
@@ -232,13 +272,14 @@ func TestIntegration(t *testing.T) {
 	assert.True(t, createResource1Resp.Success)
 
 	// Create VM in different region (i.e. requires new subnet to be created)
-	vm2Name := generateRandomVMName()
+	vm2Name := getGitHubRunPrefix() + "vm-invisinets-test-2"
+	vm2Zone := "us-east1-b"
 	insertInstanceReq2 := &computepb.InsertInstanceRequest{
 		Project: project,
-		Zone:    "us-east1-b",
+		Zone:    vm2Zone,
 		InstanceResource: &computepb.Instance{
 			Name:        proto.String(vm2Name),
-			MachineType: proto.String("zones/us-east1-b/machineTypes/f1-micro"),
+			MachineType: proto.String("zones/" + vm2Zone + "/machineTypes/f1-micro"),
 			Disks:       disks,
 		},
 	}
@@ -247,10 +288,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription2 := &invisinetspb.ResourceDescription{
-		Description:  insertInstanceReq2Bytes,
-		AddressSpace: "10.162.168.0/24",
-	}
+	resourceDescription2 := &invisinetspb.ResourceDescription{Description: insertInstanceReq2Bytes}
 	createResource2Resp, err := s.CreateResource(
 		context.Background(),
 		resourceDescription2,
@@ -281,38 +319,104 @@ func TestIntegration(t *testing.T) {
 		subnetworks,
 	)
 
-	resourceId := "projects/" + project + "/zones/" + insertInstanceReq1.Zone + "/instances/" + *insertInstanceReq1.InstanceResource.Name
+	// Add bidirectional PING permit list rules
+	vm1Id := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, vm1Zone, vm1Name)
+	vm2Id := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, vm2Zone, vm2Name)
+	instancesClient, err := compute.NewInstancesRESTClient(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer instancesClient.Close()
+	vm1Ip, err := getVMIP(instancesClient, project, vm1Zone, vm1Name)
+	require.NoError(t, err)
+	vm2Ip, err := getVMIP(instancesClient, project, vm2Zone, vm2Name)
+	require.NoError(t, err)
 
-	permitList := &invisinetspb.PermitList{
-		AssociatedResource: resourceId,
-		Rules: []*invisinetspb.PermitListRule{
-			{
-				Direction: invisinetspb.Direction_INBOUND,
-				DstPort:   443,
-				Protocol:  6,
-				Tag:       []string{"10.162.162.0/24"},
+	vmIds := []string{vm1Id, vm2Id}
+	permitLists := [2]*invisinetspb.PermitList{
+		{
+			AssociatedResource: vm1Id,
+			Rules: []*invisinetspb.PermitListRule{
+				{
+					Direction: invisinetspb.Direction_INBOUND,
+					DstPort:   -1,
+					Protocol:  1,
+					Tag:       []string{vm2Ip},
+				},
+				{
+					Direction: invisinetspb.Direction_OUTBOUND,
+					DstPort:   -1,
+					Protocol:  1,
+					Tag:       []string{vm2Ip},
+				},
+			},
+		},
+		{
+			AssociatedResource: vm2Id,
+			Rules: []*invisinetspb.PermitListRule{
+				{
+					Direction: invisinetspb.Direction_INBOUND,
+					DstPort:   -1,
+					Protocol:  1,
+					Tag:       []string{vm1Ip},
+				},
+				{
+					Direction: invisinetspb.Direction_OUTBOUND,
+					DstPort:   -1,
+					Protocol:  1,
+					Tag:       []string{vm1Ip},
+				},
 			},
 		},
 	}
-	addPermitListRulesResp, err := s.AddPermitListRules(context.Background(), permitList)
-	require.NoError(t, err)
-	require.NotNil(t, addPermitListRulesResp)
-	assert.True(t, addPermitListRulesResp.Success)
+	for i, vmId := range vmIds {
+		permitList := permitLists[i]
+		addPermitListRulesResp, err := s.AddPermitListRules(context.Background(), permitList)
+		require.NoError(t, err)
+		require.NotNil(t, addPermitListRulesResp)
+		assert.True(t, addPermitListRulesResp.Success)
 
-	getPermitListAfterAddResp, err := s.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: resourceId})
-	require.NoError(t, err)
-	require.NotNil(t, getPermitListAfterAddResp)
-	assert.Equal(t, permitList.AssociatedResource, getPermitListAfterAddResp.AssociatedResource)
-	assert.ElementsMatch(t, permitList.Rules, getPermitListAfterAddResp.Rules)
+		getPermitListAfterAddResp, err := s.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: vmId})
+		require.NoError(t, err)
+		require.NotNil(t, getPermitListAfterAddResp)
+		assert.Equal(t, permitList.AssociatedResource, getPermitListAfterAddResp.AssociatedResource)
+		assert.ElementsMatch(t, permitList.Rules, getPermitListAfterAddResp.Rules)
+	}
 
-	deletePermitListRulesResp, err := s.DeletePermitListRules(context.Background(), permitList)
-	require.NoError(t, err)
-	require.NotNil(t, deletePermitListRulesResp)
-	assert.True(t, deletePermitListRulesResp.Success)
+	// Connectivity tests that ping the two VMs
+	// TODO @seankimkdy: NewReachabilityRESTClient causes errors when deleting connectivity tests
+	reachabilityClient, err := networkmanagement.NewReachabilityClient(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reachabilityClient.Close()
+	vm1Endpoint := &networkmanagementpb.Endpoint{
+		IpAddress: vm1Ip,
+		Network:   "projects/" + project + "/" + getVPCURL(),
+		ProjectId: project,
+	}
+	vm2Endpoint := &networkmanagementpb.Endpoint{
+		IpAddress: vm2Ip,
+		Network:   "projects/" + project + "/" + getVPCURL(),
+		ProjectId: project,
+	}
 
-	getPermitListAfterDeleteResp, err := s.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: resourceId})
-	require.NoError(t, err)
-	require.NotNil(t, getPermitListAfterDeleteResp)
-	assert.Equal(t, permitList.AssociatedResource, getPermitListAfterDeleteResp.AssociatedResource)
-	assert.Empty(t, getPermitListAfterDeleteResp.Rules)
+	// Run connectivity tests on both directions between vm1 and vm2
+	runConnectivityTest(t, reachabilityClient, project, "1to2", vm1Endpoint, vm2Endpoint)
+	runConnectivityTest(t, reachabilityClient, project, "2to1", vm2Endpoint, vm1Endpoint)
+
+	// Delete permit lists
+	for i, vmId := range vmIds {
+		permitList := permitLists[i]
+		deletePermitListRulesResp, err := s.DeletePermitListRules(context.Background(), permitList)
+		require.NoError(t, err)
+		require.NotNil(t, deletePermitListRulesResp)
+		assert.True(t, deletePermitListRulesResp.Success)
+
+		getPermitListAfterDeleteResp, err := s.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: vmId})
+		require.NoError(t, err)
+		require.NotNil(t, getPermitListAfterDeleteResp)
+		assert.Equal(t, permitList.AssociatedResource, getPermitListAfterDeleteResp.AssociatedResource)
+		assert.Empty(t, getPermitListAfterDeleteResp.Rules)
+	}
 }
