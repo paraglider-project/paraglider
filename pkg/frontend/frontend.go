@@ -323,10 +323,10 @@ func Setup(configPath string) {
 		})
 	})
 
-	router.GET("/cloud/:cloud/resources/:id/permit-list/", permitListGet)
-	router.POST("/cloud/:cloud/resources/:id/permit-list/rules/", permitListRulesAdd)
-	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules/", permitListRulesDelete)
-	router.POST("/cloud/:cloud/region/:region/resources/:id/", resourceCreate)
+	router.GET("/cloud/:cloud/permit-list/", permitListGet)
+	router.POST("/cloud/:cloud/permit-list/rules/", permitListRulesAdd)
+	router.DELETE("/cloud/:cloud/permit-list/rules/", permitListRulesDelete)
+	router.POST("/cloud/:cloud/region/:region/resources/", resourceCreate)
   
 	err = router.Run(config.Server.Host + ":" + config.Server.Port)
 	if err != nil {
