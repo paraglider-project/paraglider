@@ -83,7 +83,7 @@ func TestDeleteTagMember(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
-	tag := &tagservicepb.TagMapping{ParentTag: "parent", ChildTags: []string{"child"}}
+	tag := &tagservicepb.TagMapping{ParentTag: "parent", ChildTags: []string{"child1", "child2"}}
 	mock.ExpectSRem(tag.ParentTag, tag.ChildTags).SetVal(0)
 	resp, _ := server.DeleteTagMember(context.Background(), tag)
 	assert.True(t, resp.Success)

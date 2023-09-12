@@ -90,6 +90,7 @@ func Setup(dbPort int, serverPort int) {
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
 	tagservicepb.RegisterTagServiceServer(grpcServer, newServer(client))
+	fmt.Printf("Serving TagService at localhost:%d", serverPort)
 	err = grpcServer.Serve(lis)
 	if err != nil {
 		fmt.Println(err.Error())

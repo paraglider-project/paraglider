@@ -34,6 +34,7 @@ import (
 	insecure "google.golang.org/grpc/credentials/insecure"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 )
 
 // Configuration structs
@@ -50,6 +51,11 @@ type Config struct {
 		Host string `yaml:"host"`
 	} `yaml:"server"`
 
+	TagService struct {
+		Port string `yaml:"port"`
+		Host string `yaml:"host"`
+	} `yaml:"tagService"`
+
 	Clouds []Cloud `yaml:"cloudPlugins"`
 }
 
@@ -57,6 +63,7 @@ type ControllerServer struct {
 	invisinetspb.UnimplementedControllerServer
 	pluginAddresses   map[string]string
 	usedAddressSpaces map[string][]string
+	localTagService   string
 	config            Config
 }
 
@@ -285,6 +292,167 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	})
 }
 
+func (s *ControllerServer) getTag(c *gin.Context) {
+	// Call getTag locally
+	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+	
+	// Send RPC to get tag
+	tag := c.Param("tag")
+	client := tagservicepb.NewTagServiceClient(conn)
+	response, err := client.GetTag(context.Background(), &tagservicepb.Tag{TagName: tag})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"parent_tag":    response.ParentTag,
+		"child_tags":    response.ChildTags,
+	})
+}
+
+func (s *ControllerServer) setTag(c *gin.Context) {
+	parentTag := c.Param("tag")
+	childTags := c.PostFormArray("children")
+	tagMapping := &tagservicepb.TagMapping{ParentTag: parentTag, ChildTags: childTags}
+
+	// Call SetTag locally
+	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	client := tagservicepb.NewTagServiceClient(conn)
+	response, err := client.SetTag(context.Background(), tagMapping)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	localResult := response.Message
+	conn.Close()
+
+	// Call SetTag for each cloud plugin
+	results := make(map[string]string)
+	for cloud, addr := range s.pluginAddresses {
+		conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			results[cloud] = err.Error()
+			continue
+		}
+
+		client := tagservicepb.NewTagServiceClient(conn)
+		response, err := client.SetTag(context.Background(), tagMapping)
+		if err != nil {
+			results[cloud] = err.Error()
+			continue
+		}
+
+		results[cloud] = response.Message
+		conn.Close()
+	}
+
+	results["LocalTagService"] = localResult
+	c.JSON(http.StatusOK, results)
+}
+
+func (s *ControllerServer) deleteTag(c *gin.Context) {
+	tagName := c.Param("tag")
+	tag := &tagservicepb.Tag{TagName: tagName}
+
+	// Call DeleteTag locally
+	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	client := tagservicepb.NewTagServiceClient(conn)
+	response, err := client.DeleteTag(context.Background(), tag)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	localResult := response.Message
+	conn.Close()
+
+	// Call DeleteTag for each cloud plugin
+	results := make(map[string]string)
+	for cloud, addr := range s.pluginAddresses {
+		conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			results[cloud] = err.Error()
+			continue
+		}
+
+		client := tagservicepb.NewTagServiceClient(conn)
+		response, err := client.DeleteTag(context.Background(), tag)
+		if err != nil {
+			results[cloud] = err.Error()
+			continue
+		}
+
+		results[cloud] = response.Message
+		conn.Close()
+	}
+
+	results["LocalTagService"] = localResult
+	c.JSON(http.StatusOK, results)
+}
+
+func (s *ControllerServer) deleteTagMember(c *gin.Context) {
+	parentTag := c.Param("tag")
+	childTags := c.PostFormArray("children")
+	tagMapping := &tagservicepb.TagMapping{ParentTag: parentTag, ChildTags: childTags}
+
+	// Call DeleteTagMember locally
+	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	client := tagservicepb.NewTagServiceClient(conn)
+	response, err := client.DeleteTagMember(context.Background(), tagMapping)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	localResult := response.Message
+	conn.Close()
+
+	// Call DeleteTag for each cloud plugin
+	results := make(map[string]string)
+	for cloud, addr := range s.pluginAddresses {
+		conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			results[cloud] = err.Error()
+			continue
+		}
+
+		client := tagservicepb.NewTagServiceClient(conn)
+		response, err := client.DeleteTagMember(context.Background(), tagMapping)
+		if err != nil {
+			results[cloud] = err.Error()
+			continue
+		}
+
+		results[cloud] = response.Message
+		conn.Close()
+	}
+
+	results["LocalTagService"] = localResult
+	c.JSON(http.StatusOK, results)
+}
+
+
 func Setup(configPath string) {
 	// Read the config
 	f, err := os.Open(configPath)
@@ -303,6 +471,7 @@ func Setup(configPath string) {
 	// Populate server info
 	server := ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string][]string)}
 	server.config = cfg
+	server.localTagService = cfg.TagService.Host + ":" + cfg.TagService.Port
 
 	for _, c := range server.config.Clouds {
 		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port
@@ -322,6 +491,7 @@ func Setup(configPath string) {
 	router.GET("/tags/:tag", server.getTag)
 	router.POST("/tags/:tag", server.setTag)
 	router.DELETE("/tags/:tag", server.deleteTag)
+	router.POST("/tags/:tag/delmembers/", server.deleteTagMember)
 	
 	// Run server
 	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)

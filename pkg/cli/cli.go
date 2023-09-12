@@ -19,9 +19,11 @@ package cli
 import (
 	"fmt"
 	"os"
+    "strconv"
 	"github.com/spf13/cobra"
 
 	"github.com/NetSys/invisinets/pkg/frontend"
+    tagservice "github.com/NetSys/invisinets/pkg/tag_service"
 )
 
 var frontendCmd = &cobra.Command{
@@ -31,6 +33,24 @@ var frontendCmd = &cobra.Command{
     Args:  cobra.ExactArgs(1),
     Run: func(cmd *cobra.Command, args []string) {
         frontend.Setup(args[0])
+    },
+}
+
+var tagServiceCmd = &cobra.Command{
+    Use:   "tagserv",
+    Aliases: []string{"tagserv"},
+    Short:  "Starts the tag server on given ports",
+    Args:  cobra.ExactArgs(2),
+    Run: func(cmd *cobra.Command, args []string) {
+        dbPort, err := strconv.Atoi(args[0])
+        if err != nil{
+            return
+        }
+        serverPort, err := strconv.Atoi(args[1])
+        if err != nil{
+            return
+        }
+        tagservice.Setup(dbPort, serverPort)
     },
 }
 
@@ -47,6 +67,7 @@ Run Invisinets controller components`,
 
 func init() {
     rootCmd.AddCommand(frontendCmd)
+    rootCmd.AddCommand(tagServiceCmd)
 }
 
 func Execute() {
