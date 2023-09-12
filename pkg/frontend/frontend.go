@@ -315,7 +315,6 @@ func Setup(configPath string) {
 			"message": "pong",
 		})
 	})
-  
 	router.GET("/cloud/:cloud/resources/:id/permit-list/", server.permitListGet)
 	router.POST("/cloud/:cloud/resources/:id/permit-list/rules/", server.permitListRulesAdd)
 	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules/", server.permitListRulesDelete)
