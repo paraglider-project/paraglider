@@ -319,6 +319,9 @@ func Setup(configPath string) {
 	router.POST("/cloud/:cloud/resources/:id/permit-list/rules/", server.permitListRulesAdd)
 	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules/", server.permitListRulesDelete)
 	router.POST("/cloud/:cloud/resources/:id/", server.resourceCreate)
+	router.GET("/tags/:tag", server.getTag)
+	router.POST("/tags/:tag", server.setTag)
+	router.DELETE("/tags/:tag", server.deleteTag)
 	
 	// Run server
 	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
