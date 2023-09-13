@@ -26,6 +26,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -35,12 +36,11 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// TODO @nnomier: Setup the server only once and use it for all tests
 
 const (
 	testLocation             = "eastus"
@@ -59,13 +59,18 @@ const (
 	validSecurityRuleName    = "valid-security-rule-name"
 	invalidSecurityRuleName  = "invalid-security-rule-name"
 	validSecurityGroupID     = "valid-security-group-id"
-	validSecurityGroupName   = "valid-security-group-name"
+	validSecurityGroupName   = validNicName + nsgNameSuffix
 	invalidSecurityGroupName = "invalid-security-group-name"
 	validVnetName            = "invisinets-valid-vnet-name"
 	notFoundVnetName         = "invisinets-not-found-vnet-name"
 	invalidVnetName          = "invalid-vnet-name"
 	validAddressSpace        = "10.1.0.0/16"
-	conflictingAddressSpace  = "10.2.0.0/16"
+)
+
+var (
+	once                sync.Once
+	urlToResponse       map[string]interface{}
+	azureSDKHandlerTest *azureSDKHandler
 )
 
 type dummyToken struct {
@@ -74,6 +79,18 @@ type dummyToken struct {
 
 func (d *dummyToken) GetToken(ctx context.Context, optsWW policy.TokenRequestOptions) (azcore.AccessToken, error) {
 	return azcore.AccessToken{}, nil
+}
+
+func setup() {
+	urlToResponse = initializeReqRespMap()
+	setupFakeServer(urlToResponse)
+	azureSDKHandlerTest = &azureSDKHandler{}
+	azureSDKHandlerTest.resourceGroupName = rgName
+	azureSDKHandlerTest.subscriptionID = subID
+	err := azureSDKHandlerTest.InitializeClients(&dummyToken{})
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 // GetFreePort returns a free port number that the operating system chooses dynamically.
@@ -89,8 +106,8 @@ func GetFreePort() (int, error) {
 	return address.Port, nil
 }
 
-// a function for setup before all tests
-func setup(reqRespMap map[string]interface{}) *azureSDKHandler {
+// a function for fake server setup
+func setupFakeServer(reqRespMap map[string]interface{}) {
 	freePort, err := GetFreePort()
 	if err != nil {
 		log.Fatal(err)
@@ -128,15 +145,6 @@ func setup(reqRespMap map[string]interface{}) *azureSDKHandler {
 	go func() {
 		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", freePort), fakeHttpHandler))
 	}()
-
-	azureSDKHandlerTest := &azureSDKHandler{}
-	azureSDKHandlerTest.resourceGroupName = rgName
-	azureSDKHandlerTest.subscriptionID = subID
-	err = azureSDKHandlerTest.InitializeClients(&dummyToken{})
-	if err != nil {
-		log.Fatal(err)
-	}
-	return azureSDKHandlerTest
 }
 
 func initializeReqRespMap() map[string]interface{} {
@@ -147,6 +155,7 @@ func initializeReqRespMap() map[string]interface{} {
 	nsgRuleUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkSecurityGroups/%s/securityRules", subID, rgName, validSecurityGroupName)
 	vnetUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
 	listVnetsUrl := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Network/virtualNetworks", subID)
+	vnetsInRgUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
 
 	// Define a map of URLs to responses
 	urlToResponse := map[string]interface{}{
@@ -229,22 +238,21 @@ func initializeReqRespMap() map[string]interface{} {
 					},
 				},
 			}},
+		fmt.Sprintf("%s/%s/virtualNetworkPeerings/%s", vnetsInRgUrl, validVnetName, validVnetName+"-link"): armnetwork.VirtualNetworkPeeringsClientGetResponse{},
 	}
-
 	return urlToResponse
 }
 
 func TestGetVNetsAddressSpaces(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
 
 	// Test case: Success
 	t.Run("GetVNetsAddressSpaces: Success", func(t *testing.T) {
-		addresses, err := azureSDKHandlerTest.GetVNetsAddressSpaces(ctx, InvisinetsPrefix)
+		addresses, err := azureSDKHandlerTest.GetVNetsAddressSpaces(ctx, invisinetsPrefix)
 		require.NoError(t, err)
 		require.NotNil(t, addresses)
 		require.Len(t, addresses, 1)
@@ -254,8 +262,7 @@ func TestGetVNetsAddressSpaces(t *testing.T) {
 
 func TestCreateSecurityRule(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Subtest 1: Create security rule - Success Test
 	t.Run("CreateSecurityRule: Success", func(t *testing.T) {
@@ -279,8 +286,7 @@ func TestCreateSecurityRule(t *testing.T) {
 
 func TestDeleteSecurityRule(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Subtest 1: Delete security rule - Success Test
 	t.Run("DeleteSecurityRule: Success", func(t *testing.T) {
@@ -299,8 +305,7 @@ func TestDeleteSecurityRule(t *testing.T) {
 
 func TestGetSecurityGroup(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Subtest 1: Get security group - Success Test
 	t.Run("GetSecurityGroup: Success", func(t *testing.T) {
@@ -322,42 +327,9 @@ func TestGetSecurityGroup(t *testing.T) {
 	})
 }
 
-func TestCreateNetworkSecurityGroup(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
-
-	// Create a new context for the tests
-	ctx := context.Background()
-
-	// Subtest 1: Create Network Security Group - Success Test
-	t.Run("CreateNetworkSecurityGroup: Success", func(t *testing.T) {
-		expectedNsgName := validSecurityGroupName
-		expectedLocation := testLocation
-
-		// Call the function to create the network security group
-		nsg, err := azureSDKHandlerTest.CreateNetworkSecurityGroup(ctx, expectedNsgName, testLocation)
-
-		// Check if the function returns an error
-		require.NoError(t, err)
-		require.Equal(t, *nsg.Name, expectedNsgName)
-		require.Equal(t, *nsg.Location, expectedLocation)
-	})
-
-	// Subtest 2: Create Network Security Group - Failure Test
-	t.Run("CreateNetworkSecurityGroup: Failure", func(t *testing.T) {
-		// Call the function to create the network security group
-		nsg, err := azureSDKHandlerTest.CreateNetworkSecurityGroup(ctx, invalidSecurityGroupName, testLocation)
-
-		require.Error(t, err)
-		require.Nil(t, nsg)
-	})
-}
-
 func TestGetResourceNIC(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
@@ -393,58 +365,9 @@ func TestGetResourceNIC(t *testing.T) {
 	})
 }
 
-func TestUpdateNetworkInterface(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
-
-	// Create a new context for the tests
-	ctx := context.Background()
-
-	testNsg := &armnetwork.SecurityGroup{
-		ID:   to.Ptr(validSecurityGroupID),
-		Name: to.Ptr(validSecurityGroupName),
-	}
-	testNicValid := &armnetwork.Interface{
-		ID:   to.Ptr(validNicId),
-		Name: to.Ptr(validNicName),
-
-		Properties: &armnetwork.InterfacePropertiesFormat{
-			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{},
-		},
-	}
-	testNicInvalid := &armnetwork.Interface{
-		ID:   to.Ptr(invalidNicId),
-		Name: to.Ptr(invalidNicName),
-
-		Properties: &armnetwork.InterfacePropertiesFormat{
-			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{},
-		},
-	}
-
-	// Test 1: Successful UpdateNetworkInterface
-	t.Run("UpdateNetworkInterface: Success", func(t *testing.T) {
-		// Call the function to test
-		updatedNic, err := azureSDKHandlerTest.UpdateNetworkInterface(ctx, testNicValid, testNsg)
-
-		require.NoError(t, err)
-		require.NotNil(t, updatedNic)
-	})
-
-	// Test 2: Failed UpdateNetworkInterface due to invalid NIC
-	t.Run("UpdateNetworkInterface: Failure", func(t *testing.T) {
-		// Call the function to test
-		updatedNic, err := azureSDKHandlerTest.UpdateNetworkInterface(ctx, testNicInvalid, testNsg)
-
-		require.Error(t, err)
-		require.Nil(t, updatedNic)
-	})
-}
-
 func TestCreateVirtualMachine(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
@@ -470,35 +393,33 @@ func TestCreateVirtualMachine(t *testing.T) {
 
 func TestGetInvisinetsVnet(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
+
 	// Create a new context for the tests
 	ctx := context.Background()
+	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	frontendServerAddr = fakeControllerServerAddr
 
 	// Test case: Success, vnet already existed
 	t.Run("GetInvisinetsVnet: Success, vnet exists", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation, validAddressSpace)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
 
 	// Test case: Success, vnet doesn't exist, create new one
 	t.Run("GetInvisinetsVnet: Success, create new vnet", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, notFoundVnetName, testLocation, validAddressSpace)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, notFoundVnetName, testLocation)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
 
 	// Test case: Failure, error when getting vnet
 	t.Run("GetInvisinetsVnet: Failure, error when getting vnet", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, invalidVnetName, testLocation, validAddressSpace)
-		require.Error(t, err)
-		require.Nil(t, vnet)
-	})
-
-	// Test case: Failure, conflicting address spaces
-	t.Run("GetInvisinetsVnet: Failure, conflicting address spaces", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation, conflictingAddressSpace)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, invalidVnetName, testLocation)
 		require.Error(t, err)
 		require.Nil(t, vnet)
 	})
@@ -506,8 +427,7 @@ func TestGetInvisinetsVnet(t *testing.T) {
 
 func TestCreateNetworkInterface(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
@@ -533,8 +453,7 @@ func TestCreateNetworkInterface(t *testing.T) {
 
 func TestCreateInvisinetsVirtualNetwork(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
-	urlToResponse := initializeReqRespMap()
-	azureSDKHandlerTest := setup(urlToResponse)
+	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
@@ -555,6 +474,47 @@ func TestCreateInvisinetsVirtualNetwork(t *testing.T) {
 
 		require.Error(t, err)
 		require.Nil(t, vnet)
+	})
+}
+
+func TestGetVnet(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	once.Do(setup)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+
+	// Test case: Success
+	t.Run("GetVnet: Success", func(t *testing.T) {
+		// Call the function to test
+		vnet, err := azureSDKHandlerTest.GetVNet(ctx, validVnetName)
+
+		require.NoError(t, err)
+		require.NotNil(t, vnet)
+	})
+
+	// Test case: Failure
+	t.Run("GetVnet: Failure", func(t *testing.T) {
+		// Call the function to test
+		vnet, err := azureSDKHandlerTest.GetVNet(ctx, invalidVnetName)
+
+		require.Error(t, err)
+		require.Nil(t, vnet)
+	})
+}
+
+func TestCreateVnetPeering(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	once.Do(setup)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+	// Test case: Success
+	t.Run("CreateVnetPeering: Success", func(t *testing.T) {
+		// Call the function to test
+		err := azureSDKHandlerTest.CreateVnetPeering(ctx, validVnetName, validVnetName)
+
+		require.NoError(t, err)
 	})
 }
 
@@ -616,6 +576,39 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 			Direction: invisinetspb.Direction_OUTBOUND,
 			SrcPort:   200,
 			DstPort:   8080,
+			Protocol:  17,
+		}
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		// Compare the result with the expected rule
+		require.Equal(t, expectedRule, result)
+	})
+
+	// Test case: success, any port
+	t.Run("Success:AnyPort", func(t *testing.T) {
+		anyPortRule := &armnetwork.SecurityRule{
+			ID: to.Ptr("security/rule/id"),
+			Properties: &armnetwork.SecurityRulePropertiesFormat{
+				Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+				SourcePortRange:            to.Ptr("*"),
+				DestinationPortRange:       to.Ptr("*"),
+				Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolUDP),
+				DestinationAddressPrefixes: []*string{to.Ptr("10.3.1.0"), to.Ptr("10.2.1.0")},
+			},
+		}
+
+		// Call the function to test
+		result, err := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(anyPortRule)
+
+		// Expected permit list rule
+		expectedRule := &invisinetspb.PermitListRule{
+			Id:        "security/rule/id",
+			Tag:       []string{"10.3.1.0", "10.2.1.0"},
+			Direction: invisinetspb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
 			Protocol:  17,
 		}
 

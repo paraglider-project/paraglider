@@ -17,15 +17,16 @@ limitations under the License.
 package frontend
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
-	"context"
 	"os"
 	"strconv"
 	"strings"
-	"errors"
+
 	"gopkg.in/yaml.v2"
-	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 
@@ -35,38 +36,41 @@ import (
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 )
 
+// Configuration structs
 type Cloud struct {
-	Name string `yaml:"name"`
-	Host string `yaml:"host"`
-	Port string `yaml:"port"`
+	Name          string `yaml:"name"`
+	Host          string `yaml:"host"`
+	Port          string `yaml:"port"`
 	InvDeployment string `yaml:"invDeployment"`
 }
 
 type Config struct {
-    Server struct {
-        Port string `yaml:"port"`
-        Host string `yaml:"host"`
-    } `yaml:"server"`
+	Server struct {
+		Port string `yaml:"port"`
+		Host string `yaml:"host"`
+	} `yaml:"server"`
 
 	Clouds []Cloud `yaml:"cloudPlugins"`
 }
 
-// TODO @smcclure20: refactor this to make it more parallel-friendly
-var pluginAddresses =  map[string]string{}
-var addressSpaceMap =  map[string]string{}
-var config Config
+type ControllerServer struct {
+	invisinetspb.UnimplementedControllerServer
+	pluginAddresses   map[string]string
+	usedAddressSpaces map[string][]string
+	config            Config
+}
 
 func createErrorResponse(message string) gin.H {
 	return gin.H{"error": message}
 }
 
 // Get specified PermitList from given cloud
-func permitListGet(c *gin.Context) {
+func (s *ControllerServer) permitListGet(c *gin.Context) {
 	id := c.Param("id")
 	cloud := c.Param("cloud")
 
 	// Ensure correct cloud name
-	cloudClient, ok := pluginAddresses[cloud]
+	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
 		c.AbortWithStatusJSON(400, createErrorResponse(fmt.Sprintf("Invalid cloud name: %s", cloud)))
 		return
@@ -105,10 +109,10 @@ func permitListGet(c *gin.Context) {
 }
 
 // Add permit list rules to specified resource
-func permitListRulesAdd(c *gin.Context) {
-	// Ensure correct cloud name 
+func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
+	// Ensure correct cloud name
 	cloud := c.Param("cloud")
-	cloudClient, ok := pluginAddresses[cloud]
+	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
 		c.AbortWithStatusJSON(400, createErrorResponse("Invalid cloud name"))
 		return
@@ -142,10 +146,10 @@ func permitListRulesAdd(c *gin.Context) {
 }
 
 // Delete permit list rules to specified resource
-func permitListRulesDelete(c *gin.Context) {
-	// Ensure correct cloud name 
+func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
+	// Ensure correct cloud name
 	cloud := c.Param("cloud")
-	cloudClient, ok := pluginAddresses[cloud]
+	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
 		c.AbortWithStatusJSON(400, createErrorResponse("Invalid cloud name"))
 		return
@@ -162,7 +166,7 @@ func permitListRulesDelete(c *gin.Context) {
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return 
+		return
 	}
 	defer conn.Close()
 
@@ -179,9 +183,9 @@ func permitListRulesDelete(c *gin.Context) {
 }
 
 // Get used address spaces from a specified cloud
-func getAddressSpaces(cloud string, deploymentId string) (*invisinetspb.AddressSpaceList, error) {
+func (s *ControllerServer) getAddressSpaces(cloud string, deploymentId string) (*invisinetspb.AddressSpaceList, error) {
 	// Ensure correct cloud name
-	cloudClient, ok := pluginAddresses[cloud]
+	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
 		return nil, errors.New("Invalid cloud name")
 	}
@@ -202,49 +206,52 @@ func getAddressSpaces(cloud string, deploymentId string) (*invisinetspb.AddressS
 }
 
 // Update local address space map by getting used address spaces from each cloud plugin
-func updateAddressSpaceMap() error {
+func (s *ControllerServer) updateUsedAddressSpacesMap() error {
 	// Call each cloud to get address spaces used
-	for _, cloud := range config.Clouds {
-		addressMap, err := getAddressSpaces(cloud.Name, cloud.InvDeployment)
+	for _, cloud := range s.config.Clouds {
+		addressList, err := s.getAddressSpaces(cloud.Name, cloud.InvDeployment)
 		if err != nil {
 			return fmt.Errorf("Could not retrieve address spaces for cloud %s", cloud)
 		}
 
-		// Store address space by <cloud_name>\<region>
-		for _, cloudRegion := range addressMap.Mappings {
-			addressSpaceMap[cloud.Name + "\\" + cloudRegion.Region] = cloudRegion.AddressSpace
-		}
+		s.usedAddressSpaces[cloud.Name] = addressList.AddressSpaces
 	}
 	return nil
 }
 
 // Get a new address block for a new virtual network
 // TODO @smcclure20: Later, this should allocate more efficiently and with different size address blocks (eg, GCP needs larger than Azure since a VPC will span all regions)
-func getNewAddressSpace() (string, error) {
+func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, e *invisinetspb.Empty) (*invisinetspb.AddressSpace, error) {
+	err := s.updateUsedAddressSpacesMap()
+	if err != nil {
+		return nil, err
+	}
 	highestBlockUsed := -1
-	for _, address := range addressSpaceMap {
-		blockNumber, err := strconv.Atoi(strings.Split(address, ".")[1])
-		if err != nil {
-			return "", err
-		}
-
-		if blockNumber > highestBlockUsed {
-			highestBlockUsed = blockNumber
+	for _, addressList := range s.usedAddressSpaces {
+		for _, address := range addressList {
+			blockNumber, err := strconv.Atoi(strings.Split(address, ".")[1])
+			if err != nil {
+				return nil, err
+			}
+			if blockNumber > highestBlockUsed {
+				highestBlockUsed = blockNumber
+			}
 		}
 	}
 
 	if highestBlockUsed >= 255 {
-		return "", errors.New("All address blocks used")
+		return nil, errors.New("All address blocks used")
 	}
 
-	return fmt.Sprintf("10.%d.0.0/16", highestBlockUsed + 1), nil
+	newAddressSpace := &invisinetspb.AddressSpace{Address: fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+1)}
+	return newAddressSpace, nil
 }
 
 // Create resource in specified cloud region
-func resourceCreate(c *gin.Context) {
+func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	// Ensure correct cloud name
 	cloud := c.Param("cloud")
-	cloudClient, ok := pluginAddresses[cloud]
+	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
 		c.AbortWithStatusJSON(400, createErrorResponse("Invalid cloud name"))
 		return
@@ -257,24 +264,6 @@ func resourceCreate(c *gin.Context) {
 		return
 	}
 
-	// Check the resource region and get corresponding address space from it or get a new address space
-	err := updateAddressSpaceMap()
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-	region := c.Param("region")
-	addressSpace, ok := addressSpaceMap[region]
-	if !ok {
-		// Create a new address space 
-		newAddressSpace, err := getNewAddressSpace()
-		if err != nil {
-			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-			return
-		}
-		addressSpace = newAddressSpace
-	}
-
 	// Create connection to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -284,7 +273,7 @@ func resourceCreate(c *gin.Context) {
 	defer conn.Close()
 
 	// Send RPC to create the resource
-	resource :=  invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description), AddressSpace: addressSpace}
+	resource := invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description)}
 	client := invisinetspb.NewCloudPluginClient(conn)
 	response, err := client.CreateResource(context.Background(), &resource)
 	if err != nil {
@@ -293,11 +282,11 @@ func resourceCreate(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"response": response.Message,
-		"addressSpace": addressSpace,
 	})
 }
 
 func Setup(configPath string) {
+	// Read the config
 	f, err := os.Open(configPath)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -310,12 +299,16 @@ func Setup(configPath string) {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	config = cfg
 
-	for _, c := range config.Clouds {
-		pluginAddresses[c.Name] = c.Host + ":" + c.Port
+	// Populate server info
+	server := ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string][]string)}
+	server.config = cfg
+
+	for _, c := range server.config.Clouds {
+		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port
 	}
 
+	// Setup URL router
 	router := gin.Default()
 	router.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -328,7 +321,8 @@ func Setup(configPath string) {
 	router.DELETE("/cloud/:cloud/permit-list/rules/", permitListRulesDelete)
 	router.POST("/cloud/:cloud/region/:region/resources/", resourceCreate)
   
-	err = router.Run(config.Server.Host + ":" + config.Server.Port)
+	// Run server
+	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
