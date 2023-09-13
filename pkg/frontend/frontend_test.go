@@ -35,6 +35,8 @@ import (
 	grpc "google.golang.org/grpc"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -45,9 +47,32 @@ var portNum = 10000
 const addressSpaceAddress = "10.0.0.0/16"
 const exampleCloudName = "example"
 
+// Mock Tag Service Server
+type mockTagServiceServer struct {
+	tagservicepb.UnimplementedTagServiceServer
+}
+
+func (s *mockTagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMapping, error) {
+	return &tagservicepb.TagMapping{ParentTag: tag.TagName, ChildTags: []string{"child"}}, nil
+}
+
+func (s *mockTagServiceServer) SetTag(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
+	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully created tag: %s", tagMapping.ParentTag)}, nil
+}
+
+func (s *mockTagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error) {
+	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted tag: %s", tag.TagName)}, nil
+}
+
+func (s *mockTagServiceServer) DeleteTagMember(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
+	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted member %s from tag %s", tagMapping.ChildTags[0], tagMapping.ParentTag)}, nil
+}
+
+
 // Mock Cloud Plugin Server
 type mockCloudPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
+	mockTagServiceServer
 }
 
 func (s *mockCloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
@@ -80,6 +105,11 @@ func newPluginServer() *mockCloudPluginServer {
 	return s
 }
 
+func newTagServer() *mockTagServiceServer {
+	s := &mockTagServiceServer{}
+	return s
+}
+
 func newFrontendServer() *ControllerServer {
 	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string][]string)}
 	return s
@@ -92,6 +122,21 @@ func setupPluginServer(port int) {
 	}
 	grpcServer := grpc.NewServer()
 	invisinetspb.RegisterCloudPluginServer(grpcServer, newPluginServer())
+	tagservicepb.RegisterTagServiceServer(grpcServer, newPluginServer())
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
+}
+
+func setupTagServer(port int) {
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	tagservicepb.RegisterTagServiceServer(grpcServer, newTagServer())
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
 			fmt.Println(err.Error())
@@ -112,7 +157,7 @@ func TestPermitListGet(t *testing.T) {
 	port := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-  setupPluginServer(port)
+    setupPluginServer(port)
 
 	r := SetUpRouter()
 	r.GET("/cloud/:cloud/resources/:id/permit-list/", frontendServer.permitListGet)
@@ -354,4 +399,164 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.255.0.0/16"}
 	_, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
 	require.NotNil(t, err)
+}
+
+func TestGetTag(t *testing.T) {
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	setupTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.GET("/tags/:tag", frontendServer.getTag)
+
+	// Well-formed request
+	tag := "testtag"
+	expectedResult := &tagservicepb.TagMapping{ParentTag: tag, ChildTags: []string{"child"}}
+
+	url := fmt.Sprintf("/tags/%s", tag)
+	req, _ := http.NewRequest("GET", url, nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	responseData, _ := io.ReadAll(w.Body)
+	var tagMap *tagservicepb.TagMapping
+	err := json.Unmarshal(responseData, &tagMap)
+
+	require.Nil(t, err)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, expectedResult, tagMap)
+}
+
+func TestSetTag(t *testing.T) {
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	setupPluginServer(cloudPluginPort)
+	setupTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.POST("/tags/:tag", frontendServer.setTag)
+
+	// Well-formed request
+	tagMapping := &tagservicepb.TagMapping{ParentTag: "parent", ChildTags: []string{"child"}}
+	jsonValue, _ := json.Marshal(tagMapping.ChildTags)
+
+	url := fmt.Sprintf("/tags/%s", tagMapping.ParentTag)
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	responseData, _ := io.ReadAll(w.Body)
+	var jsonMap map[string]string
+	err := json.Unmarshal(responseData, &jsonMap)
+
+	_, localResponseRecorded := jsonMap["LocalTagService"]
+	_, cloudResponseRecorded := jsonMap[exampleCloudName]
+
+	require.Nil(t, err)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, localResponseRecorded)
+	assert.True(t, cloudResponseRecorded)
+
+	// Malformed request
+	jsonValue, _ = json.Marshal(tagMapping)
+
+	url = fmt.Sprintf("/tags/%s", tagMapping.ParentTag)
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	responseData, _ = io.ReadAll(w.Body)
+	err = json.Unmarshal(responseData, &jsonMap)
+
+	require.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestDeleteTagMember(t *testing.T) {
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	setupPluginServer(cloudPluginPort)
+	setupTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.DELETE("/tags/:tag/members", frontendServer.deleteTagMember)
+
+	// Well-formed request
+	tagMapping := &tagservicepb.TagMapping{ParentTag: "parent", ChildTags: []string{"child"}}
+	jsonValue, _ := json.Marshal(tagMapping.ChildTags)
+
+	url := fmt.Sprintf("/tags/%s/members", tagMapping.ParentTag)
+	req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	responseData, _ := io.ReadAll(w.Body)
+	var jsonMap map[string]string
+	err := json.Unmarshal(responseData, &jsonMap)
+
+	_, localResponseRecorded := jsonMap["LocalTagService"] // TODO: Add checking of the actual value here
+	_, cloudResponseRecorded := jsonMap[exampleCloudName]
+
+	require.Nil(t, err)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, localResponseRecorded)
+	assert.True(t, cloudResponseRecorded)
+
+	// Malformed request
+	jsonValue, _ = json.Marshal(tagMapping)
+
+	url = fmt.Sprintf("/tags/%s/members", tagMapping.ParentTag)
+	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	responseData, _ = io.ReadAll(w.Body)
+	err = json.Unmarshal(responseData, &jsonMap)
+
+	require.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestDeleteTag(t *testing.T) {
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	setupPluginServer(cloudPluginPort)
+	setupTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.DELETE("/tags/:tag/", frontendServer.deleteTag)
+
+	// Well-formed request
+	tag := "testtag"
+
+	url := fmt.Sprintf("/tags/%s/", tag)
+	req, _ := http.NewRequest("DELETE", url, nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	responseData, _ := io.ReadAll(w.Body)
+	var jsonMap map[string]string
+	err := json.Unmarshal(responseData, &jsonMap)
+	require.Nil(t, err)
+
+	_, localResponseRecorded := jsonMap["LocalTagService"] // TODO: Add checking of the actual value here
+	_, cloudResponseRecorded := jsonMap[exampleCloudName]
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, localResponseRecorded)
+	assert.True(t, cloudResponseRecorded)
 }

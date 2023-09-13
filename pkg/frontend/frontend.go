@@ -292,6 +292,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	})
 }
 
+// Get tag from local tag service
 func (s *ControllerServer) getTag(c *gin.Context) {
 	// Call getTag locally
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -309,12 +310,10 @@ func (s *ControllerServer) getTag(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"parent_tag":    response.ParentTag,
-		"child_tags":    response.ChildTags,
-	})
+	c.JSON(http.StatusOK, response)
 }
 
+// Set tag mapping in local db and in each cloud (if implemented/supported)
 func (s *ControllerServer) setTag(c *gin.Context) {
 	parentTag := c.Param("tag")
 	var childTags []string
@@ -365,6 +364,7 @@ func (s *ControllerServer) setTag(c *gin.Context) {
 	c.JSON(http.StatusOK, results)
 }
 
+// Delete tag (all mappings under it) in local db and in each cloud (if implemented/supported)
 func (s *ControllerServer) deleteTag(c *gin.Context) {
 	tagName := c.Param("tag")
 	tag := &tagservicepb.Tag{TagName: tagName}
@@ -410,6 +410,7 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 	c.JSON(http.StatusOK, results)
 }
 
+// Delete members of tag in local db and in each cloud (if implemented/supported)
 func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	parentTag := c.Param("tag")
 	var childTags []string
