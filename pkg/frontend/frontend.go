@@ -323,12 +323,13 @@ func (s *ControllerServer) setTag(c *gin.Context) {
 	}
 	tagMapping := &tagservicepb.TagMapping{ParentTag: parentTag, ChildTags: childTags}
 
-	// Call SetTag locally
+	// Call SetTag
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
+	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
 	response, err := client.SetTag(context.Background(), tagMapping)
@@ -337,44 +338,23 @@ func (s *ControllerServer) setTag(c *gin.Context) {
 		return
 	}
 
-	localResult := response.Message
-	conn.Close()
-
-	// Call SetTag for each cloud plugin
-	results := make(map[string]string)
-	for cloud, addr := range s.pluginAddresses {
-		conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			results[cloud] = err.Error()
-			continue
-		}
-
-		client := tagservicepb.NewTagServiceClient(conn)
-		response, err := client.SetTag(context.Background(), tagMapping)
-		if err != nil {
-			results[cloud] = err.Error()
-			continue
-		}
-
-		results[cloud] = response.Message
-		conn.Close()
-	}
-
-	results["LocalTagService"] = localResult
-	c.JSON(http.StatusOK, results)
+	c.JSON(http.StatusOK, gin.H{
+		"response": response.Message,
+	})
 }
 
-// Delete tag (all mappings under it) in local db and in each cloud (if implemented/supported)
+// Delete tag (all mappings under it) in local db
 func (s *ControllerServer) deleteTag(c *gin.Context) {
 	tagName := c.Param("tag")
 	tag := &tagservicepb.Tag{TagName: tagName}
 
-	// Call DeleteTag locally
+	// Call DeleteTag
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
+	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
 	response, err := client.DeleteTag(context.Background(), tag)
@@ -383,31 +363,9 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 		return
 	}
 
-	localResult := response.Message
-	conn.Close()
-
-	// Call DeleteTag for each cloud plugin
-	results := make(map[string]string)
-	for cloud, addr := range s.pluginAddresses {
-		conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			results[cloud] = err.Error()
-			continue
-		}
-
-		client := tagservicepb.NewTagServiceClient(conn)
-		response, err := client.DeleteTag(context.Background(), tag)
-		if err != nil {
-			results[cloud] = err.Error()
-			continue
-		}
-
-		results[cloud] = response.Message
-		conn.Close()
-	}
-
-	results["LocalTagService"] = localResult
-	c.JSON(http.StatusOK, results)
+	c.JSON(http.StatusOK, gin.H{
+		"response": response.Message,
+	})
 }
 
 // Delete members of tag in local db and in each cloud (if implemented/supported)
@@ -420,12 +378,13 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	}
 	tagMapping := &tagservicepb.TagMapping{ParentTag: parentTag, ChildTags: childTags}
 
-	// Call DeleteTagMember locally
+	// Call DeleteTagMember
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
+	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
 	response, err := client.DeleteTagMember(context.Background(), tagMapping)
@@ -433,32 +392,10 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-
-	localResult := response.Message
-	conn.Close()
-
-	// Call DeleteTag for each cloud plugin
-	results := make(map[string]string)
-	for cloud, addr := range s.pluginAddresses {
-		conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			results[cloud] = err.Error()
-			continue
-		}
-
-		client := tagservicepb.NewTagServiceClient(conn)
-		response, err := client.DeleteTagMember(context.Background(), tagMapping)
-		if err != nil {
-			results[cloud] = err.Error()
-			continue
-		}
-
-		results[cloud] = response.Message
-		conn.Close()
-	}
-
-	results["LocalTagService"] = localResult
-	c.JSON(http.StatusOK, results)
+	
+	c.JSON(http.StatusOK, gin.H{
+		"response": response.Message,
+	})
 }
 
 
