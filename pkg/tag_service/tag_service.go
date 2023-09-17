@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/netip"
+	"strings"
 
 	redis "github.com/redis/go-redis/v9"
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
@@ -42,12 +44,78 @@ func (s *tagServiceServer) SetTag(c context.Context, mapping *tagservicepb.TagMa
     return  &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Created/updated tag: %s", mapping.ParentTag)}, nil
 }
 
+func (s *tagServiceServer) SetName(c context.Context, mapping *tagservicepb.NameMapping) (*tagservicepb.BasicResponse, error){
+	err := s.client.HSet(c, mapping.TagName, map[string]string{"uri": mapping.Uri, "ip": mapping.Ip}).Err()
+	if err != nil {
+		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetName: %v", err)
+	}
+
+    return  &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Created/updated name: %s", mapping.TagName)}, nil
+}
+
 func (s *tagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMapping, error){
 	childrenTags, err := s.client.SMembers(c, tag.TagName).Result()
 	if err != nil {
 		return nil, fmt.Errorf("GetTag %s: %v", tag.TagName, err)
 	}
     return &tagservicepb.TagMapping{ParentTag: tag.TagName, ChildTags: childrenTags}, nil
+}
+
+func isIpAddrOrCidr(value string) bool {
+	if strings.Contains(value, "/") {
+		_, err := netip.ParsePrefix(value)
+		if err != nil {
+			return false
+		}
+		return true
+	} else {
+		_, err := netip.ParseAddr(value)
+		if err != nil {
+			return false
+		}
+		return true
+	}
+}
+
+func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolvedTags []*tagservicepb.NameMapping) ([]*tagservicepb.NameMapping, error){
+	for _, tag := range tags {
+		isIp := isIpAddrOrCidr(tag)
+		if isIp {
+			ip_tag := &tagservicepb.NameMapping{TagName: "", Uri: "", Ip: tag}
+			resolvedTags = append(resolvedTags, ip_tag)
+		} else {
+			exists, err := s.client.HExists(c, tag, "uri").Result()
+			if err != nil {
+				return nil, fmt.Errorf("ResolveTag %s: %v", tag, err)
+			}
+
+			if exists {
+				info, err := s.client.HGetAll(c, tag).Result()
+				if err != nil {
+					return nil, fmt.Errorf("ResolveTag %s: %v", tag, err)
+				}
+				resolvedTags = append(resolvedTags, &tagservicepb.NameMapping{TagName: tag, Uri: info["uri"], Ip: info["ip"]})
+			} else {
+				childrenTags, err := s.client.SMembers(c, tag).Result()
+				if err != nil {
+					return nil, fmt.Errorf("ResolveTag %s: %v", tag, err)
+				}
+				resolvedChildTags, err := s._resolveTags(c, childrenTags, resolvedTags)
+				resolvedTags = append(resolvedTags, resolvedChildTags...)
+			}
+		}
+	}
+	return resolvedTags, nil
+}
+
+func (s *tagServiceServer) ResolveTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.NameMappingList, error){
+	var emptyTagList []*tagservicepb.NameMapping
+	resolvedTags, err := s._resolveTags(c, []string{tag.TagName}, emptyTagList)
+	if err != nil {
+		return nil, fmt.Errorf("ResolveTag %s: %v", tag.TagName, err)
+	}
+
+    return &tagservicepb.NameMappingList{Mappings: resolvedTags}, nil
 }
 
 func (s *tagServiceServer) DeleteTagMember(c context.Context, mapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error){
@@ -69,6 +137,28 @@ func (s *tagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (
 		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteTag %s: %v", tag.TagName, err)
 	}
     return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Deleted tag: %s", tag.TagName)}, nil
+}
+
+func (s *tagServiceServer) DeleteName(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error){
+	keys, err := s.client.HKeys(c, tag.TagName).Result()
+	if err != nil {
+		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteName %s: %v", tag.TagName, err)
+	}
+
+	err = s.client.HDel(c, tag.TagName, keys...).Err()
+	if err != nil {
+		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteName %s: %v", tag.TagName, err)
+	}
+    return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Deleted name: %s", tag.TagName)}, nil
+}
+
+func (s *tagServiceServer) Subscribe(c context.Context, sub *tagservicepb.Subscription) (*tagservicepb.BasicResponse, error){
+	err := s.client.SAdd(c, "SUB:"+sub.TagName, sub.Subscriber).Err()
+	if err != nil {
+		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("Subscribe: %v", err)
+	}
+
+    return  &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Subscribed %s to tag %s", sub.Subscriber, sub.TagName)}, nil
 }
 
 func newServer(database *redis.Client) *tagServiceServer {

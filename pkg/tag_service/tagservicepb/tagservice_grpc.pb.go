@@ -35,9 +35,13 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	TagService_SetTag_FullMethodName          = "/tagservicepb.TagService/SetTag"
+	TagService_SetName_FullMethodName         = "/tagservicepb.TagService/SetName"
 	TagService_GetTag_FullMethodName          = "/tagservicepb.TagService/GetTag"
+	TagService_ResolveTag_FullMethodName      = "/tagservicepb.TagService/ResolveTag"
 	TagService_DeleteTagMember_FullMethodName = "/tagservicepb.TagService/DeleteTagMember"
 	TagService_DeleteTag_FullMethodName       = "/tagservicepb.TagService/DeleteTag"
+	TagService_DeleteName_FullMethodName      = "/tagservicepb.TagService/DeleteName"
+	TagService_Subscribe_FullMethodName       = "/tagservicepb.TagService/Subscribe"
 )
 
 // TagServiceClient is the client API for TagService service.
@@ -45,9 +49,13 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TagServiceClient interface {
 	SetTag(ctx context.Context, in *TagMapping, opts ...grpc.CallOption) (*BasicResponse, error)
+	SetName(ctx context.Context, in *NameMapping, opts ...grpc.CallOption) (*BasicResponse, error)
 	GetTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*TagMapping, error)
+	ResolveTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*NameMappingList, error)
 	DeleteTagMember(ctx context.Context, in *TagMapping, opts ...grpc.CallOption) (*BasicResponse, error)
 	DeleteTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*BasicResponse, error)
+	DeleteName(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*BasicResponse, error)
+	Subscribe(ctx context.Context, in *Subscription, opts ...grpc.CallOption) (*BasicResponse, error)
 }
 
 type tagServiceClient struct {
@@ -67,9 +75,27 @@ func (c *tagServiceClient) SetTag(ctx context.Context, in *TagMapping, opts ...g
 	return out, nil
 }
 
+func (c *tagServiceClient) SetName(ctx context.Context, in *NameMapping, opts ...grpc.CallOption) (*BasicResponse, error) {
+	out := new(BasicResponse)
+	err := c.cc.Invoke(ctx, TagService_SetName_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *tagServiceClient) GetTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*TagMapping, error) {
 	out := new(TagMapping)
 	err := c.cc.Invoke(ctx, TagService_GetTag_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tagServiceClient) ResolveTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*NameMappingList, error) {
+	out := new(NameMappingList)
+	err := c.cc.Invoke(ctx, TagService_ResolveTag_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -94,14 +120,36 @@ func (c *tagServiceClient) DeleteTag(ctx context.Context, in *Tag, opts ...grpc.
 	return out, nil
 }
 
+func (c *tagServiceClient) DeleteName(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*BasicResponse, error) {
+	out := new(BasicResponse)
+	err := c.cc.Invoke(ctx, TagService_DeleteName_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tagServiceClient) Subscribe(ctx context.Context, in *Subscription, opts ...grpc.CallOption) (*BasicResponse, error) {
+	out := new(BasicResponse)
+	err := c.cc.Invoke(ctx, TagService_Subscribe_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TagServiceServer is the server API for TagService service.
 // All implementations must embed UnimplementedTagServiceServer
 // for forward compatibility
 type TagServiceServer interface {
 	SetTag(context.Context, *TagMapping) (*BasicResponse, error)
+	SetName(context.Context, *NameMapping) (*BasicResponse, error)
 	GetTag(context.Context, *Tag) (*TagMapping, error)
+	ResolveTag(context.Context, *Tag) (*NameMappingList, error)
 	DeleteTagMember(context.Context, *TagMapping) (*BasicResponse, error)
 	DeleteTag(context.Context, *Tag) (*BasicResponse, error)
+	DeleteName(context.Context, *Tag) (*BasicResponse, error)
+	Subscribe(context.Context, *Subscription) (*BasicResponse, error)
 	mustEmbedUnimplementedTagServiceServer()
 }
 
@@ -112,14 +160,26 @@ type UnimplementedTagServiceServer struct {
 func (UnimplementedTagServiceServer) SetTag(context.Context, *TagMapping) (*BasicResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetTag not implemented")
 }
+func (UnimplementedTagServiceServer) SetName(context.Context, *NameMapping) (*BasicResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetName not implemented")
+}
 func (UnimplementedTagServiceServer) GetTag(context.Context, *Tag) (*TagMapping, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTag not implemented")
+}
+func (UnimplementedTagServiceServer) ResolveTag(context.Context, *Tag) (*NameMappingList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResolveTag not implemented")
 }
 func (UnimplementedTagServiceServer) DeleteTagMember(context.Context, *TagMapping) (*BasicResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteTagMember not implemented")
 }
 func (UnimplementedTagServiceServer) DeleteTag(context.Context, *Tag) (*BasicResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteTag not implemented")
+}
+func (UnimplementedTagServiceServer) DeleteName(context.Context, *Tag) (*BasicResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteName not implemented")
+}
+func (UnimplementedTagServiceServer) Subscribe(context.Context, *Subscription) (*BasicResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Subscribe not implemented")
 }
 func (UnimplementedTagServiceServer) mustEmbedUnimplementedTagServiceServer() {}
 
@@ -152,6 +212,24 @@ func _TagService_SetTag_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TagService_SetName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NameMapping)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TagServiceServer).SetName(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TagService_SetName_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TagServiceServer).SetName(ctx, req.(*NameMapping))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _TagService_GetTag_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Tag)
 	if err := dec(in); err != nil {
@@ -166,6 +244,24 @@ func _TagService_GetTag_Handler(srv interface{}, ctx context.Context, dec func(i
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(TagServiceServer).GetTag(ctx, req.(*Tag))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TagService_ResolveTag_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Tag)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TagServiceServer).ResolveTag(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TagService_ResolveTag_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TagServiceServer).ResolveTag(ctx, req.(*Tag))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -206,6 +302,42 @@ func _TagService_DeleteTag_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TagService_DeleteName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Tag)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TagServiceServer).DeleteName(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TagService_DeleteName_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TagServiceServer).DeleteName(ctx, req.(*Tag))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TagService_Subscribe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Subscription)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TagServiceServer).Subscribe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TagService_Subscribe_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TagServiceServer).Subscribe(ctx, req.(*Subscription))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TagService_ServiceDesc is the grpc.ServiceDesc for TagService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -218,8 +350,16 @@ var TagService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _TagService_SetTag_Handler,
 		},
 		{
+			MethodName: "SetName",
+			Handler:    _TagService_SetName_Handler,
+		},
+		{
 			MethodName: "GetTag",
 			Handler:    _TagService_GetTag_Handler,
+		},
+		{
+			MethodName: "ResolveTag",
+			Handler:    _TagService_ResolveTag_Handler,
 		},
 		{
 			MethodName: "DeleteTagMember",
@@ -228,6 +368,14 @@ var TagService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteTag",
 			Handler:    _TagService_DeleteTag_Handler,
+		},
+		{
+			MethodName: "DeleteName",
+			Handler:    _TagService_DeleteName_Handler,
+		},
+		{
+			MethodName: "Subscribe",
+			Handler:    _TagService_Subscribe_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
