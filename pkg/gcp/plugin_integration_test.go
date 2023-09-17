@@ -21,10 +21,7 @@ package gcp
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
-	"os"
 	"strings"
 	"testing"
 
@@ -34,16 +31,11 @@ import (
 	networkmanagementpb "cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/api/googleapi"
 	"google.golang.org/protobuf/proto"
 )
-
-type teardownInfo struct {
-	project            string
-	insertInstanceReqs []*computepb.InsertInstanceRequest
-}
 
 // Gets the IP address of the VM
 func getVMIP(instancesClient *compute.InstancesClient, project, zone, name string) (string, error) {
@@ -61,7 +53,7 @@ func getVMIP(instancesClient *compute.InstancesClient, project, zone, name strin
 
 func runConnectivityTest(t *testing.T, reachabilityClient *networkmanagement.ReachabilityClient, project string, name string, srcEndpoint, dstEndpoint *networkmanagementpb.Endpoint) {
 	ctx := context.Background()
-	connectivityTestId := getGitHubRunPrefix() + "connectivity-test-" + name
+	connectivityTestId := utils.GetGitHubRunPrefix() + "connectivity-test-" + name
 	createConnectivityTestReq := &networkmanagementpb.CreateConnectivityTestRequest{
 		Parent: "projects/" + project + "/locations/global",
 		TestId: connectivityTestId,
@@ -92,145 +84,23 @@ func runConnectivityTest(t *testing.T, reachabilityClient *networkmanagement.Rea
 	}
 }
 
-// Cleans up any resources that were created
-// If you got a panic while the tests ran, you may need to manually clean up resources, which is most easily done through the console.
-// 1. Delete VMs (https://cloud.google.com/compute/docs/instances/deleting-instance).
-// 2. Delete VPC (https://cloud.google.com/vpc/docs/create-modify-vpc-networks#deleting_a_network). Doing this in the console should delete any associated firewalls and subnets.
-func teardownIntegrationTest(teardownInfo *teardownInfo) {
-	// Delete VMs
-	instancesClient, err := compute.NewInstancesRESTClient(context.Background())
-	if err != nil {
-		panic(fmt.Sprintf("Error while creating client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
-	}
-	for _, insertInstanceReq := range teardownInfo.insertInstanceReqs {
-		deleteInstanceReq := &computepb.DeleteInstanceRequest{
-			Project:  insertInstanceReq.Project,
-			Zone:     insertInstanceReq.Zone,
-			Instance: *insertInstanceReq.InstanceResource.Name,
-		}
-		deleteInstanceReqOp, err := instancesClient.Delete(context.Background(), deleteInstanceReq)
-		if err != nil {
-			var e *googleapi.Error
-			if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
-				// Ignore 404 errors since resource may not have been created due to an error while running the test
-				panic(fmt.Sprintf("Error on delete instance request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
-			}
-		} else {
-			err = deleteInstanceReqOp.Wait(context.Background())
-			if err != nil {
-				panic(fmt.Sprintf("Error while waiting on delete instance op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
-			}
-		}
-	}
-
-	// Delete subnetworks
-	networksClient, err := compute.NewNetworksRESTClient(context.Background())
-	if err != nil {
-		panic(fmt.Sprintf("Error while creating networks client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
-	}
-	subnetworksClient, err := compute.NewSubnetworksRESTClient(context.Background())
-	if err != nil {
-		panic(fmt.Sprintf("Error while creating subnetworks client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
-	}
-	deletedSubnetworkRegions := map[string]bool{}
-	for _, insertInstanceReq := range teardownInfo.insertInstanceReqs {
-		region := insertInstanceReq.Zone[:strings.LastIndex(insertInstanceReq.Zone, "-")]
-		if !deletedSubnetworkRegions[region] {
-			deleteSubnetworkReq := &computepb.DeleteSubnetworkRequest{
-				Project:    teardownInfo.project,
-				Region:     region,
-				Subnetwork: getGCPSubnetworkName(region),
-			}
-			deleteSubnetworkOp, err := subnetworksClient.Delete(context.Background(), deleteSubnetworkReq)
-			if err != nil {
-				var e *googleapi.Error
-				if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
-					// Ignore 404 errors since resource may not have been created due to an error while running the test
-					panic(fmt.Sprintf("Error on delete subnetwork request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
-				}
-			} else {
-				err = deleteSubnetworkOp.Wait(context.Background())
-				if err != nil {
-					panic(fmt.Sprintf("Error while waiting on delete subnetwork op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
-				}
-			}
-			deletedSubnetworkRegions[region] = true
-		}
-	}
-
-	// Delete firewalls
-	getEffectiveFirewallsReq := &computepb.GetEffectiveFirewallsNetworkRequest{
-		Project: teardownInfo.project,
-		Network: vpcName,
-	}
-	getEffectiveFirewallsResp, err := networksClient.GetEffectiveFirewalls(context.Background(), getEffectiveFirewallsReq)
-	if err != nil {
-		panic(fmt.Sprintf("Error while getting firewalls (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
-	}
-	firewallsClient, err := compute.NewFirewallsRESTClient(context.Background())
-	if err != nil {
-		panic(fmt.Sprintf("Error while creating firewalls client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
-	}
-	for _, firewall := range getEffectiveFirewallsResp.Firewalls {
-		deleteFirewallReq := &computepb.DeleteFirewallRequest{
-			Firewall: *firewall.Name,
-			Project:  teardownInfo.project,
-		}
-		deleteFirewallOp, err := firewallsClient.Delete(context.Background(), deleteFirewallReq)
-		if err != nil {
-			var e *googleapi.Error
-			if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
-				// Ignore 404 errors since resource may not have been created due to an error while running the test
-				panic(fmt.Sprintf("Error on delete firewall request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
-			}
-		} else {
-			err = deleteFirewallOp.Wait(context.Background())
-			if err != nil {
-				panic(fmt.Sprintf("Error while waiting on delete firewall op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
-			}
-		}
-	}
-
-	// Delete VPC
-	deleteNetworkReq := &computepb.DeleteNetworkRequest{
-		Project: teardownInfo.project,
-		Network: vpcName,
-	}
-	deleteNetworkOp, err := networksClient.Delete(context.Background(), deleteNetworkReq)
-	if err != nil {
-		var e *googleapi.Error
-		if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
-			// Ignore 404 errors since resource may not have been created due to an error while running the test
-			panic(fmt.Sprintf("Error on delete subnetwork request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
-		}
-	} else {
-		err = deleteNetworkOp.Wait(context.Background())
-		if err != nil {
-			panic(fmt.Sprintf("Error while waiting on delete network op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
-		}
-	}
-}
-
 // Tests creating two vms in separate regions and basic add/delete/get permit list functionality
 func TestIntegration(t *testing.T) {
 	// Setup
-	project := os.Getenv("INVISINETS_GCP_PROJECT")
-	if project == "" {
-		panic("INVISINETS_GCP_PROJECT must be set")
-	}
+	project := GetGcpProject()
 	s := &GCPPluginServer{}
 	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
 	if err != nil {
 		t.Fatal(err)
 	}
-	frontendServerAddr = fakeControllerServerAddr
+	FrontendServerAddr = fakeControllerServerAddr
 
 	// Teardown
-	teardownInfo := &teardownInfo{
-		project:            project,
-		insertInstanceReqs: make([]*computepb.InsertInstanceRequest, 0),
+	teardownInfo := &GcpTestTeardownInfo{
+		Project:            project,
+		InsertInstanceReqs: make([]*computepb.InsertInstanceRequest, 0),
 	}
-	defer teardownIntegrationTest(teardownInfo)
+	defer TeardownGcpTesting(teardownInfo)
 
 	// Disk setting to be used across VM creation
 	var disks = []*computepb.AttachedDisk{
@@ -246,7 +116,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// Create VM in a clean state (i.e. no VPC or subnet)
-	vm1Name := getGitHubRunPrefix() + "vm-invisinets-test-1"
+	vm1Name := utils.GetGitHubRunPrefix() + "vm-invisinets-test-1"
 	vm1Zone := "us-west1-a"
 	insertInstanceReq1 := &computepb.InsertInstanceRequest{
 		Project: project,
@@ -257,7 +127,7 @@ func TestIntegration(t *testing.T) {
 			Disks:       disks,
 		},
 	}
-	teardownInfo.insertInstanceReqs = append(teardownInfo.insertInstanceReqs, insertInstanceReq1)
+	teardownInfo.InsertInstanceReqs = append(teardownInfo.InsertInstanceReqs, insertInstanceReq1)
 	insertInstanceReq1Bytes, err := json.Marshal(insertInstanceReq1)
 	if err != nil {
 		t.Fatal(err)
@@ -272,7 +142,7 @@ func TestIntegration(t *testing.T) {
 	assert.True(t, createResource1Resp.Success)
 
 	// Create VM in different region (i.e. requires new subnet to be created)
-	vm2Name := getGitHubRunPrefix() + "vm-invisinets-test-2"
+	vm2Name := utils.GetGitHubRunPrefix() + "vm-invisinets-test-2"
 	vm2Zone := "us-east1-b"
 	insertInstanceReq2 := &computepb.InsertInstanceRequest{
 		Project: project,
@@ -283,7 +153,7 @@ func TestIntegration(t *testing.T) {
 			Disks:       disks,
 		},
 	}
-	teardownInfo.insertInstanceReqs = append(teardownInfo.insertInstanceReqs, insertInstanceReq2)
+	teardownInfo.InsertInstanceReqs = append(teardownInfo.InsertInstanceReqs, insertInstanceReq2)
 	insertInstanceReq2Bytes, err := json.Marshal(insertInstanceReq2)
 	if err != nil {
 		t.Fatal(err)

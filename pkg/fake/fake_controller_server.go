@@ -28,7 +28,7 @@ import (
 // Sets up fake frontend controller server for getting unused address spaces
 type FakeControllerServer struct {
 	invisinetspb.UnimplementedControllerServer
-	counter                  int
+	counter int
 }
 
 func (f *FakeControllerServer) FindUnusedAddressSpace(ctx context.Context, e *invisinetspb.Empty) (*invisinetspb.AddressSpace, error) {
@@ -38,6 +38,11 @@ func (f *FakeControllerServer) FindUnusedAddressSpace(ctx context.Context, e *in
 	address := fmt.Sprintf("10.%d.0.0/16", f.counter)
 	f.counter = f.counter + 1
 	return &invisinetspb.AddressSpace{Address: address}, nil
+}
+
+func (f *FakeControllerServer) GetUsedAddressSpaces(ctx context.Context, e *invisinetspb.Empty) (*invisinetspb.AddressSpaceMappingList, error) {
+	// TODO @seankimkdy
+	return nil, nil
 }
 
 func SetupFakeControllerServer() (string, error) {

@@ -28,10 +28,24 @@ var (
 )
 
 // Cloud names
+// TODO @seankimkdy: turn these into its own type and use enums
 const (
-	GCP   = "GCP"
-	AZURE = "AZURE"
+	GCP   = "gcp"
+	AZURE = "azure"
 )
+
+// TODO @seankimkdy: temporary, will remove after making everything into GRPc
+type CreateVpnGatewayResponse struct {
+	InterfaceIps []string
+	Asn          int64
+}
+
+// Private address spaces as defined in RFC 1918
+var privateAddressSpaces = []netip.Prefix{
+	netip.MustParsePrefix("10.0.0.0/8"),
+	netip.MustParsePrefix("172.16.0.0/12"),
+	netip.MustParsePrefix("192.168.0.0/16"),
+}
 
 func init() {
 	file, err := os.Create("invisinets.log")
@@ -63,4 +77,27 @@ func IsPermitListRuleTagInAddressSpace(permitListRuleTag, addressSpace string) (
 	}
 
 	return prefix.Contains(addr), nil
+}
+
+// Checks if an IP address is public
+func IsAddressPrivate(addressString string) (bool, error) {
+	address, err := netip.ParseAddr(addressString)
+	if err != nil {
+		return false, err
+	}
+	for _, privateAddressSpace := range privateAddressSpaces {
+		if privateAddressSpace.Contains(address) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// Returns prefix with GitHub workflow run numbers for integration tests
+func GetGitHubRunPrefix() string {
+	ghRunNumber := os.Getenv("GH_RUN_NUMBER")
+	if ghRunNumber != "" {
+		return "github" + ghRunNumber + "-"
+	}
+	return ""
 }

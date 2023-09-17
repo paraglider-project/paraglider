@@ -274,6 +274,7 @@ var CloudPlugin_ServiceDesc = grpc.ServiceDesc{
 const (
 	Controller_FindUnusedAddressSpace_FullMethodName = "/invisinetspb.Controller/FindUnusedAddressSpace"
 	Controller_GetUsedAddressSpaces_FullMethodName   = "/invisinetspb.Controller/GetUsedAddressSpaces"
+	Controller_ConnectClouds_FullMethodName          = "/invisinetspb.Controller/ConnectClouds"
 )
 
 // ControllerClient is the client API for Controller service.
@@ -282,6 +283,7 @@ const (
 type ControllerClient interface {
 	FindUnusedAddressSpace(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AddressSpace, error)
 	GetUsedAddressSpaces(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AddressSpaceMappingList, error)
+	ConnectClouds(ctx context.Context, in *ConnectCloudsRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type controllerClient struct {
@@ -310,12 +312,22 @@ func (c *controllerClient) GetUsedAddressSpaces(ctx context.Context, in *Empty, 
 	return out, nil
 }
 
+func (c *controllerClient) ConnectClouds(ctx context.Context, in *ConnectCloudsRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Controller_ConnectClouds_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControllerServer is the server API for Controller service.
 // All implementations must embed UnimplementedControllerServer
 // for forward compatibility
 type ControllerServer interface {
 	FindUnusedAddressSpace(context.Context, *Empty) (*AddressSpace, error)
 	GetUsedAddressSpaces(context.Context, *Empty) (*AddressSpaceMappingList, error)
+	ConnectClouds(context.Context, *ConnectCloudsRequest) (*Empty, error)
 	mustEmbedUnimplementedControllerServer()
 }
 
@@ -328,6 +340,9 @@ func (UnimplementedControllerServer) FindUnusedAddressSpace(context.Context, *Em
 }
 func (UnimplementedControllerServer) GetUsedAddressSpaces(context.Context, *Empty) (*AddressSpaceMappingList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUsedAddressSpaces not implemented")
+}
+func (UnimplementedControllerServer) ConnectClouds(context.Context, *ConnectCloudsRequest) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConnectClouds not implemented")
 }
 func (UnimplementedControllerServer) mustEmbedUnimplementedControllerServer() {}
 
@@ -378,6 +393,24 @@ func _Controller_GetUsedAddressSpaces_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Controller_ConnectClouds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConnectCloudsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControllerServer).ConnectClouds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Controller_ConnectClouds_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControllerServer).ConnectClouds(ctx, req.(*ConnectCloudsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Controller_ServiceDesc is the grpc.ServiceDesc for Controller service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -392,6 +425,10 @@ var Controller_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUsedAddressSpaces",
 			Handler:    _Controller_GetUsedAddressSpaces_Handler,
+		},
+		{
+			MethodName: "ConnectClouds",
+			Handler:    _Controller_ConnectClouds_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

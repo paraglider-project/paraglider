@@ -19,13 +19,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/google/uuid"
@@ -35,60 +30,36 @@ import (
 
 const (
 	vmNamePrefix = "sample-vm"
-	location     = "westus"
+	vmLocation   = "westus"
 )
 
 var (
-	subscriptionId       = os.Getenv("INVISINETS_AZURE_SUBSCRIPTION_ID")
-	resourceGroupsClient *armresources.ResourceGroupsClient
-	resourceGroupName    string
+	subscriptionId    string
+	resourceGroupName string
 )
-
-func setupIntegration() {
-	if subscriptionId == "" {
-		panic("Environment variable 'INVISINETS_AZURE_SUBSCRIPTION_ID' must be set")
-	}
-
-	resourceGroupName = invisinetsPrefix + "-integration-test"
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
-	if err != nil {
-		panic(fmt.Sprintf("Error while getting azure credentials during setup: %v", err))
-	}
-	clientFactory, err := armresources.NewClientFactory(subscriptionId, cred, nil)
-	if err != nil {
-		panic(fmt.Sprintf("Error while creating client factory during setup: %v", err))
-	}
-	resourceGroupsClient = clientFactory.NewResourceGroupsClient()
-	_, err = resourceGroupsClient.CreateOrUpdate(context.Background(), resourceGroupName, armresources.ResourceGroup{
-		Location: to.Ptr(location),
-	}, nil)
-	if err != nil {
-		panic(fmt.Sprintf("Error while creating resource group: %v", err))
-	}
-}
 
 // Deletes Resource group which in turn deletes all the resources created
 // If deletion fails: refer to https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/delete-resource-group
-func tearDown() {
-	ctx := context.Background()
-	poller, err := resourceGroupsClient.BeginDelete(ctx, resourceGroupName, nil)
-	if err != nil {
-		panic(fmt.Sprintf("Error while deleting resource group: %v", err))
-	}
-	_, err = poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		panic(fmt.Sprintf("Error while waiting for resource group deletion: %v", err))
-	}
-}
 
 // Main integration test function
 // any test that needs to be run as part of integration test should be added here
 // as a subtest, this is to ensure that the setup and teardown is done only once before or after all the tests
 func TestAzurePluginIntegration(t *testing.T) {
-	setupIntegration()
-	defer tearDown()
+	subscriptionId = GetAzureSubscriptionId()
+	resourceGroupName = invisinetsPrefix + "-integration-test" // Must be defined within a test and not as a global var as invisinetsPrefix is subject to change in init()
+	// SetupAzureTesting(subscriptionId, resourceGroupName)
+	// defer TeardownAzureTesting(subscriptionId, resourceGroupName)
 
-	t.Run("TestAddAndGetPermitList", testAddAndGetPermitList)
+	// t.Run("TestAddAndGetPermitList", testAddAndGetPermitList)
+
+	s := InitializeServer()
+	ctx := context.Background()
+	resp, err := s.GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{
+		Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", subscriptionId, "expressroute-rg"),
+	})
+	require.NoError(t, err)
+	fmt.Printf("%v:\n", resp.AddressSpaces)
+	// fmt.Printf("length: %d\n", len(resp))
 }
 
 // This test will test the following:
@@ -98,10 +69,45 @@ func TestAzurePluginIntegration(t *testing.T) {
 // 4- Delete permit list rule
 // 5. Get the permit list and valdiates again
 func testAddAndGetPermitList(t *testing.T) {
-	vmID := getVmId()
-	permitList := &invisinetspb.PermitList{AssociatedResource: vmID,
-		Rules: []*invisinetspb.PermitListRule{&invisinetspb.PermitListRule{Tag: []string{"10.1.0.5"}, Direction: invisinetspb.Direction_OUTBOUND, SrcPort: 80, DstPort: 80, Protocol: 6}}}
-	s, ctx := setupValidResourceAndPermitList(t, permitList, vmID)
+	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	FrontendServerAddr = fakeControllerServerAddr
+
+	s := InitializeServer()
+	ctx := context.Background()
+
+	parameters := GetTestVmParameters(vmLocation)
+	descriptionJson, err := json.Marshal(parameters)
+	require.NoError(t, err)
+	vmID := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + vmNamePrefix + "-" + uuid.NewString()
+	createResourceResp, err := s.CreateResource(ctx, &invisinetspb.ResourceDescription{
+		Id:          vmID,
+		Description: descriptionJson,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, createResourceResp)
+	assert.True(t, createResourceResp.Success)
+	assert.Equal(t, createResourceResp.UpdatedResource.Id, vmID)
+
+	permitList := &invisinetspb.PermitList{
+		AssociatedResource: vmID,
+		Rules: []*invisinetspb.PermitListRule{
+			{
+				Tag:       []string{"10.1.0.5"},
+				Direction: invisinetspb.Direction_OUTBOUND,
+				SrcPort:   80,
+				DstPort:   80,
+				Protocol:  6,
+			},
+		},
+	}
+	addPermitListResp, err := s.AddPermitListRules(ctx, permitList)
+	require.NoError(t, err)
+	require.NotNil(t, addPermitListResp)
+	assert.True(t, addPermitListResp.Success)
+	assert.Equal(t, addPermitListResp.UpdatedResource.Id, vmID)
 
 	// Assert the NSG created is equivalent to the pl rules by using the get permit list api
 	getPermitListResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmID})
@@ -127,64 +133,14 @@ func testAddAndGetPermitList(t *testing.T) {
 	assert.ElementsMatch(t, getPermitListResp.Rules, []*invisinetspb.PermitListRule{})
 }
 
-func setupValidResourceAndPermitList(t *testing.T, permitList *invisinetspb.PermitList, vmID string) (*azurePluginServer, context.Context) {
+// func testVpnGateway(t *testing.T) {
+// 	vmID := getVmId()
+// 	permitList := &invisinetspb.PermitList{AssociatedResource: vmID,
+// 		Rules: []*invisinetspb.PermitListRule{&invisinetspb.PermitListRule{Tag: []string{"10.1.0.5"}, Direction: invisinetspb.Direction_OUTBOUND, SrcPort: 80, DstPort: 80, Protocol: 6}}}
+// 	s, ctx := setupValidResourceAndPermitList(t, permitList, vmID)
 
-	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
-	if err != nil {
-		t.Fatal(err)
-	}
-	frontendServerAddr = fakeControllerServerAddr
-
-	s := &azurePluginServer{
-		azureHandler: &azureSDKHandler{},
-	}
-	ctx := context.Background()
-
-	parameters := getTestVirtualMachine()
-	descriptionJson, err := json.Marshal(parameters)
-	require.NoError(t, err)
-	createResourceResp, err := s.CreateResource(ctx, &invisinetspb.ResourceDescription{
-		Id:          vmID,
-		Description: descriptionJson,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, createResourceResp)
-	assert.True(t, createResourceResp.Success)
-	assert.Equal(t, createResourceResp.UpdatedResource.Id, vmID)
-
-	addPermitListResp, err := s.AddPermitListRules(ctx, permitList)
-	require.NoError(t, err)
-	require.NotNil(t, addPermitListResp)
-	assert.True(t, addPermitListResp.Success)
-	assert.Equal(t, addPermitListResp.UpdatedResource.Id, vmID)
-
-	return s, ctx
-}
-
-func getTestVirtualMachine() armcompute.VirtualMachine {
-	return armcompute.VirtualMachine{
-		Location: to.Ptr(location),
-		Properties: &armcompute.VirtualMachineProperties{
-			StorageProfile: &armcompute.StorageProfile{
-				ImageReference: &armcompute.ImageReference{
-					Offer:     to.Ptr("debian-10"),
-					Publisher: to.Ptr("Debian"),
-					SKU:       to.Ptr("10"),
-					Version:   to.Ptr("latest"),
-				},
-			},
-			HardwareProfile: &armcompute.HardwareProfile{
-				VMSize: to.Ptr(armcompute.VirtualMachineSizeTypes("Standard_B1s")),
-			},
-			OSProfile: &armcompute.OSProfile{ //
-				ComputerName:  to.Ptr("sample-compute"),
-				AdminUsername: to.Ptr("sample-user"),
-				AdminPassword: to.Ptr("Password01!@#"),
-			},
-		},
-	}
-}
-
-func getVmId() string {
-	return "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + vmNamePrefix + "-" + uuid.NewString()
-}
+// 	_, err := s.CreateVpnGateway(ctx, subscriptionId, resourceGroupName)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// }

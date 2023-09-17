@@ -348,6 +348,11 @@ func TestAddPermitListRules(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: fakeInstance}, map[string]bool{"instances": true, "firewalls": true})
 	defer teardown(fakeServer, fakeClients)
 
+	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	FrontendServerAddr = fakeControllerServerAddr
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: fakeResourceId,
@@ -377,6 +382,11 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{}, map[string]bool{"instances": true, "firewalls": true})
 	defer teardown(fakeServer, fakeClients)
 
+	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	FrontendServerAddr = fakeControllerServerAddr
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: fakeMissingResourceId,
@@ -403,6 +413,11 @@ func TestAddPermitListRulesDuplicate(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "firewalls": true})
 	defer teardown(fakeServer, fakeClients)
 
+	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	FrontendServerAddr = fakeControllerServerAddr
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: fakeMissingResourceId,
@@ -481,7 +496,7 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	frontendServerAddr = fakeControllerServerAddr
+	FrontendServerAddr = fakeControllerServerAddr
 	s := &GCPPluginServer{}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
@@ -510,7 +525,7 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	frontendServerAddr = fakeControllerServerAddr
+	FrontendServerAddr = fakeControllerServerAddr
 
 	s := &GCPPluginServer{}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{

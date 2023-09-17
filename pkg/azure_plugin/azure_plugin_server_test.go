@@ -174,6 +174,16 @@ func (m *mockAzureSDKHandler) GetVNet(ctx context.Context, vnetName string) (*ar
 	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
 }
 
+func (m *mockAzureSDKHandler) CreateOrUpdateVirtualNetworkGateway(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGateway) (*armnetwork.VirtualNetworkGateway, error) {
+	// TODO @seankimkdy
+	return nil, nil
+}
+
+func (m *mockAzureSDKHandler) CreatePublicIPAddress(ctx context.Context, name string, parameters armnetwork.PublicIPAddress) (*armnetwork.PublicIPAddress, error) {
+	// TODO @seankimkdy
+	return nil, nil
+}
+
 func setupAzurePluginServer() (*azurePluginServer, *mockAzureSDKHandler, context.Context) {
 	// Create a new instance of the azurePluginServer
 	server := &azurePluginServer{}

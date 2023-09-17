@@ -247,6 +247,7 @@ func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, e *invisine
 	return newAddressSpace, nil
 }
 
+// Gets unused address spaces across all clouds
 func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, e *invisinetspb.Empty) (*invisinetspb.AddressSpaceMappingList, error) {
 	err := s.updateUsedAddressSpacesMap()
 	if err != nil {
@@ -265,6 +266,20 @@ func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, e *invisinets
 	}
 
 	return usedAddressSpaceMappings, nil
+}
+
+// Connects two clouds with VPN gateways (if not connected already)
+func (s *ControllerServer) ConnectClouds(ctx context.Context, request *invisinetspb.ConnectCloudsRequest) (*invisinetspb.Empty, error) {
+	// if (request.CloudA == utils.GCP && request.CloudB == utils.AZURE) || (request.CloudA == utils.AZURE && request.CloudB == utils.GCP) {
+	// 	// TODO @seankimkdy: check if gateways and tunnels are already setup
+	// 	// TODO @seankimkdy: can you reuse a gateway and just create multiple tunnels? or do you need to create a new gateway for each
+	// 	// gcpClient, ok := s.pluginAddresses[utils.GCP]
+	// 	// if !ok {
+	// 	// 	return nil, fmt.Errorf("unable to get gcp client")
+	// 	// }
+	// 	// azureClient, ok := s.pluginAddresses[utils.AZURE]
+	// }
+	return nil, fmt.Errorf("clouds %s and %s are not supported for multi-cloud connecting", request.CloudA, request.CloudB)
 }
 
 // Create resource in specified cloud region

@@ -401,7 +401,7 @@ func TestGetInvisinetsVnet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	frontendServerAddr = fakeControllerServerAddr
+	FrontendServerAddr = fakeControllerServerAddr
 
 	// Test case: Success, vnet already existed
 	t.Run("GetInvisinetsVnet: Success, vnet exists", func(t *testing.T) {

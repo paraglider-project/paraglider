@@ -20,9 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
+	"strconv"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
@@ -47,15 +48,20 @@ type azurePluginServer struct {
 	azureHandler AzureSDKHandler
 }
 
-func init() {
-	ghRunNumber := os.Getenv("GH_RUN_NUMBER")
+// TODO @seankimkdy: replace these
+const (
+	vpnLocation       = "westus"
+	vpnGwAsn          = int64(65515)
+	vpnNumConnections = 2
+)
 
+var vpnGwBgpIpAddrs = []string{"169.254.21.1", "169.254.22.1"}
+
+func init() {
 	// For integration testing, add the run number to the prefix to avoid conflicts
 	// if multiple runs are running at the same time to ensure each run has its own resources
-	if ghRunNumber != "" {
-		prefix := "github" + ghRunNumber + "-"
-		invisinetsPrefix = prefix + invisinetsPrefix
-	}
+	githubRunPrefix := utils.GetGitHubRunPrefix()
+	invisinetsPrefix = githubRunPrefix + invisinetsPrefix
 }
 
 func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) error {
@@ -534,3 +540,300 @@ func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceV
 func getVnetName(location string) string {
 	return invisinetsPrefix + "-" + location + "-vnet"
 }
+
+func getVpnGatewayName() string {
+	return invisinetsPrefix + "-vpn-gw"
+}
+
+func getVPNGatewayIPAddressName(idx int) string {
+	return getVpnGatewayName() + "-ip-" + strconv.Itoa(idx)
+}
+
+func getLocalNetworkGatewayName(cloud string, idx int) string {
+	return invisinetsPrefix + "-" + cloud + "-local-gw-" + strconv.Itoa(idx)
+}
+
+func getVirtualNetworkGatewayConnectionName(cloud string, idx int) string {
+	return invisinetsPrefix + "-" + cloud + "-conn-" + strconv.Itoa(idx)
+}
+
+// TODO @seankimkdy: everything should be passed in as a GRPC thing
+// TODO @seankimkdy: naming? Azure uses "VPN gateway" for a different meaning
+// Note that this is
+func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, subscriptionId string, resourceGroupName string, cloud string) (*utils.CreateVpnGatewayResponse, error) {
+	resourceIdInfo, err := getResourceIDInfo(fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/bleh", subscriptionId, resourceGroupName))
+	if err != nil {
+		return nil, fmt.Errorf("shit hit the fan")
+	}
+	err = s.setupAzureHandler(resourceIdInfo)
+	if err != nil {
+		return nil, fmt.Errorf("shit hit the fan part 2")
+	}
+
+	// TODO @seankimkdy: check if gateway already exists and return information from there
+
+	// Create two public IP addresses (need a second for active-active mode)
+	publicIPAddressParameters := armnetwork.PublicIPAddress{
+		Location: to.Ptr(vpnLocation),
+		Properties: &armnetwork.PublicIPAddressPropertiesFormat{
+			PublicIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv4),
+			PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
+		},
+		SKU: &armnetwork.PublicIPAddressSKU{
+			Name: to.Ptr(armnetwork.PublicIPAddressSKUNameStandard),
+		},
+	}
+	publicIPAddresses := make([]*armnetwork.PublicIPAddress, vpnNumConnections)
+	for i := 0; i < vpnNumConnections; i++ {
+		publicIPAddress, err := s.azureHandler.CreatePublicIPAddress(ctx, getVPNGatewayIPAddressName(i), publicIPAddressParameters)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create public IP address: %w", err)
+		}
+		publicIPAddresses[i] = publicIPAddress
+	}
+
+	// Create gateway subnet
+	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, getVnetName(vpnLocation), vpnLocation)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get invisinets vnet: %w", err)
+	}
+	subnetParameters := armnetwork.Subnet{
+		Name: to.Ptr("GatewaySubnet"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: to.Ptr("10.0.1.0/24"), // TODO @seankimkdy: figure out how to get address space for this
+		},
+	}
+	gatewaySubnet, err := s.azureHandler.CreateSubnet(ctx, *invisinetsVnet.Name, "GatewaySubnet", subnetParameters)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create gateway subnet: %w", err)
+	}
+
+	// Create virtual network gateway
+	virtualNetworkGatewayParameters := armnetwork.VirtualNetworkGateway{
+		Location: to.Ptr(vpnLocation),
+		Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
+			Active: to.Ptr(true),
+			BgpSettings: &armnetwork.BgpSettings{
+				Asn: to.Ptr(vpnGwAsn),
+			},
+			EnableBgp:              to.Ptr(true),
+			EnablePrivateIPAddress: to.Ptr(false),
+			GatewayType:            to.Ptr(armnetwork.VirtualNetworkGatewayTypeVPN),
+			IPConfigurations: []*armnetwork.VirtualNetworkGatewayIPConfiguration{
+				{
+					Name:       to.Ptr("default"),
+					Properties: &armnetwork.VirtualNetworkGatewayIPConfigurationPropertiesFormat{},
+				},
+			},
+			SKU: &armnetwork.VirtualNetworkGatewaySKU{ // TODO @seankimkdy: confirm with sarah
+				Name: to.Ptr(armnetwork.VirtualNetworkGatewaySKUNameVPNGw1),
+				Tier: to.Ptr(armnetwork.VirtualNetworkGatewaySKUTierVPNGw1),
+			},
+			VPNGatewayGeneration: to.Ptr(armnetwork.VPNGatewayGenerationGeneration1), // TODO @seankimkdy: confirm with sarah
+			VPNType:              to.Ptr(armnetwork.VPNTypeRouteBased),
+		},
+	}
+	virtualNetworkGatewayParameters.Properties.IPConfigurations = make([]*armnetwork.VirtualNetworkGatewayIPConfiguration, vpnNumConnections)
+	ipConfigurationNames := []string{"default", "activeActive"} // TODO @seankimkdy: come up with better naming convention ... ? (these are Azure defaults so they may rely on them actually)
+	for i := 0; i < vpnNumConnections; i++ {
+		virtualNetworkGatewayParameters.Properties.IPConfigurations[i] = &armnetwork.VirtualNetworkGatewayIPConfiguration{
+			Name: to.Ptr(ipConfigurationNames[i]),
+			Properties: &armnetwork.VirtualNetworkGatewayIPConfigurationPropertiesFormat{
+				PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
+				PublicIPAddress: &armnetwork.SubResource{
+					ID: publicIPAddresses[i].ID,
+				},
+				Subnet: &armnetwork.SubResource{
+					ID: gatewaySubnet.ID,
+				},
+			},
+		}
+	}
+	virtualNetworkGateway, err := s.azureHandler.CreateOrUpdateVirtualNetworkGateway(ctx, getVpnGatewayName(), virtualNetworkGatewayParameters)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create VPN gateway: %w", err)
+	}
+
+	// Set BGP settings
+	virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses = make([]*armnetwork.IPConfigurationBgpPeeringAddress, len(vpnGwBgpIpAddrs))
+	for i := 0; i < vpnNumConnections; i++ {
+		virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses[i] = &armnetwork.IPConfigurationBgpPeeringAddress{
+			CustomBgpIPAddresses: []*string{to.Ptr(vpnGwBgpIpAddrs[i])},
+			IPConfigurationID:    virtualNetworkGateway.Properties.IPConfigurations[i].ID,
+		}
+	}
+	_, err = s.azureHandler.CreateOrUpdateVirtualNetworkGateway(ctx, getVpnGatewayName(), *virtualNetworkGateway)
+	if err != nil {
+		return nil, fmt.Errorf("unable to add bgp settings to VPN gateway: %w", err)
+	}
+	resp := &utils.CreateVpnGatewayResponse{Asn: vpnGwAsn}
+	resp.InterfaceIps = make([]string, vpnNumConnections)
+	for i := 0; i < vpnNumConnections; i++ {
+		resp.InterfaceIps[i] = *publicIPAddresses[i].Properties.IPAddress
+	}
+	// TODO @seankimkdy: return asn
+	return resp, nil
+}
+
+func (s *azurePluginServer) CreateVpnBgp(ctx context.Context, subscriptionId string, resourceGroupName string, cloud string) ([]string, error) {
+	resourceIdInfo, err := getResourceIDInfo(fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/bleh", subscriptionId, resourceGroupName))
+	if err != nil {
+		return nil, fmt.Errorf("shit hit the fan")
+	}
+	err = s.setupAzureHandler(resourceIdInfo)
+	if err != nil {
+		return nil, fmt.Errorf("shit hit the fan part 2")
+	}
+
+	virtualNetworkGatewayName := getVpnGatewayName()
+	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
+	}
+	virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses = make([]*armnetwork.IPConfigurationBgpPeeringAddress, len(vpnGwBgpIpAddrs))
+	for i := 0; i < vpnNumConnections; i++ {
+		virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses[i] = &armnetwork.IPConfigurationBgpPeeringAddress{
+			CustomBgpIPAddresses: []*string{to.Ptr(vpnGwBgpIpAddrs[i])},
+			IPConfigurationID:    virtualNetworkGateway.Properties.IPConfigurations[i].ID,
+		}
+	}
+	_, err = s.azureHandler.CreateOrUpdateVirtualNetworkGateway(ctx, virtualNetworkGatewayName, *virtualNetworkGateway)
+	if err != nil {
+		return nil, fmt.Errorf("unable to add bgp settings to VPN gateway: %w", err)
+	}
+
+	return vpnGwBgpIpAddrs, nil
+}
+
+func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, subscriptionId string, resourceGroupName string, cloud string, asn int64, addressSpace string, interfaceIps []string, bgpIps []string, sharedKey string) (*invisinetspb.Empty, error) {
+	resourceIdInfo, err := getResourceIDInfo(fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/bleh", subscriptionId, resourceGroupName))
+	if err != nil {
+		return nil, fmt.Errorf("shit hit the fan")
+	}
+	err = s.setupAzureHandler(resourceIdInfo)
+	if err != nil {
+		return nil, fmt.Errorf("shit hit the fan part 2")
+	}
+
+	localNetworkGateways := make([]*armnetwork.LocalNetworkGateway, vpnNumConnections)
+	for i := 0; i < vpnNumConnections; i++ {
+		localNetworkGatewayName := getLocalNetworkGatewayName(cloud, i)
+		localNetworkGatewayParameters := armnetwork.LocalNetworkGateway{
+			Properties: &armnetwork.LocalNetworkGatewayPropertiesFormat{
+				BgpSettings: &armnetwork.BgpSettings{
+					Asn:               to.Ptr(asn),
+					BgpPeeringAddress: to.Ptr(bgpIps[i]),
+					PeerWeight:        to.Ptr(int32(0)),
+				},
+				GatewayIPAddress: to.Ptr(interfaceIps[i]),
+				LocalNetworkAddressSpace: &armnetwork.AddressSpace{
+					AddressPrefixes: []*string{to.Ptr(addressSpace)},
+				},
+			},
+			Location: to.Ptr(vpnLocation),
+		}
+		localNetworkGateway, err := s.azureHandler.CreateLocalNetworkGateway(ctx, localNetworkGatewayName, localNetworkGatewayParameters)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create local network gateway: %w", err)
+		}
+		localNetworkGateways[i] = localNetworkGateway
+	}
+
+	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, getVpnGatewayName())
+	if err != nil {
+		return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
+	}
+	for i := 0; i < vpnNumConnections; i++ {
+		virtualNetworkGatewayconnectionName := getVirtualNetworkGatewayConnectionName(cloud, i)
+		virtualNetworkGatewayConnectionParameters := &armnetwork.VirtualNetworkGatewayConnection{
+			Properties: &armnetwork.VirtualNetworkGatewayConnectionPropertiesFormat{
+				ConnectionType:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionTypeIPsec),
+				VirtualNetworkGateway1:         virtualNetworkGateway,
+				ConnectionMode:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionModeDefault), // TODO @seankimkdy: confirm constant
+				ConnectionProtocol:             to.Ptr(armnetwork.VirtualNetworkGatewayConnectionProtocolIKEv2),
+				DpdTimeoutSeconds:              to.Ptr(int32(45)), // TODO @seankimkdy: confirm constant
+				EnableBgp:                      to.Ptr(true),
+				IPSecPolicies:                  []*armnetwork.IPSecPolicy{}, // TODO @seankimkdy: confirm constant
+				LocalNetworkGateway2:           localNetworkGateways[i],
+				RoutingWeight:                  to.Ptr(int32(0)), // TODO @seankimkdy: confirm constant
+				SharedKey:                      to.Ptr(sharedKey),
+				TrafficSelectorPolicies:        []*armnetwork.TrafficSelectorPolicy{}, // TODO @seankimkdy: confirm constant
+				UseLocalAzureIPAddress:         to.Ptr(false),
+				UsePolicyBasedTrafficSelectors: to.Ptr(false), // TODO @seankimkdy: confirm constant
+			},
+			Location: to.Ptr(vpnLocation),
+		}
+		_, err := s.azureHandler.CreateVirtualNetworkGatewayConnection(ctx, virtualNetworkGatewayconnectionName, *virtualNetworkGatewayConnectionParameters)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create virtual network gateway connection: %w", err)
+		}
+	}
+
+	return nil, nil
+}
+
+// func (s *azurePluginServer) CreatePeerGateways(ctx context.Context, cloud string, addressSpace string, asn int64, interfaceIps []string, bgpIps []string) (*invisinetspb.Empty, error) {
+// 	const numGateways = 2
+// 	for i := 0; i < numGateways; i++ {
+// 		localNetworkGatewayName := getLocalNetworkGatewayName(cloud, i)
+// 		localNetworkGatewayParameters := armnetwork.LocalNetworkGateway{
+// 			Properties: &armnetwork.LocalNetworkGatewayPropertiesFormat{
+// 				BgpSettings: &armnetwork.BgpSettings{
+// 					Asn:               to.Ptr(asn),
+// 					BgpPeeringAddress: to.Ptr(bgpIps[i]),
+// 					PeerWeight:        to.Ptr(int32(0)),
+// 				},
+// 				GatewayIPAddress: to.Ptr(interfaceIps[i]),
+// 				LocalNetworkAddressSpace: &armnetwork.AddressSpace{
+// 					AddressPrefixes: []*string{to.Ptr(addressSpace)},
+// 				},
+// 			},
+// 			Location: to.Ptr(vpnLocation),
+// 		}
+// 		_, err := s.azureHandler.CreateLocalNetworkGateway(ctx, localNetworkGatewayName, localNetworkGatewayParameters)
+// 		if err != nil {
+// 			return nil, fmt.Errorf("unable to create local network gateway: %w", err)
+// 		}
+// 	}
+// 	return nil, nil
+// }
+
+// Equal to _SetupVpnTunnels in GCP
+// func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, cloud string, sharedKey string) (*invisinetspb.Empty, error) {
+// 	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, getVpnGatewayName())
+// 	if err != nil {
+// 		return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
+// 	}
+// 	const numConnections = 2 // TODO @seankimkdy: change this
+// 	for i := 0; i < numConnections; i++ {
+// 		localNetworkGateway, err := s.azureHandler.GetLocalNetworkGateway(ctx, getLocalNetworkGatewayName(cloud, i))
+// 		if err != nil {
+// 			return nil, fmt.Errorf("unable to get local network gateway: %w", err)
+// 		}
+// 		virtualNetworkGatewayConnectionParameters := &armnetwork.VirtualNetworkGatewayConnection{
+// 			Properties: &armnetwork.VirtualNetworkGatewayConnectionPropertiesFormat{
+// 				ConnectionType:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionTypeIPsec),
+// 				VirtualNetworkGateway1:         virtualNetworkGateway,
+// 				ConnectionMode:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionModeDefault), // TODO @seankimkdy: confirm constant
+// 				ConnectionProtocol:             to.Ptr(armnetwork.VirtualNetworkGatewayConnectionProtocolIKEv2),
+// 				DpdTimeoutSeconds:              to.Ptr(int32(45)), // TODO @seankimkdy: confirm constant
+// 				EnableBgp:                      to.Ptr(true),
+// 				IPSecPolicies:                  []*armnetwork.IPSecPolicy{}, // TODO @seankimkdy: confirm constant
+// 				LocalNetworkGateway2:           localNetworkGateway,
+// 				RoutingWeight:                  to.Ptr(int32(0)), // TODO @seankimkdy: confirm constant
+// 				SharedKey:                      to.Ptr(sharedKey),
+// 				TrafficSelectorPolicies:        []*armnetwork.TrafficSelectorPolicy{}, // TODO @seankimkdy: confirm constant
+// 				UseLocalAzureIPAddress:         to.Ptr(false),
+// 				UsePolicyBasedTrafficSelectors: to.Ptr(false), // TODO @seankimkdy: confirm constant
+// 			},
+// 			Location: to.Ptr(vpnLocation),
+// 		}
+// 		virtualNetworkGateway, err := s.azureHandler.CreateVirtualNetworkGatewayConnection(ctx, "todo", *virtualNetworkGatewayConnectionParameters)
+// 		if err != nil {
+// 			return nil, fmt.Errorf("unable to create virtual network gateway connection: %w", err)
+// 		}
+// 		fmt.Printf("%+v\n", virtualNetworkGateway)
+// 	}
+
+// 	return nil, nil
+// }

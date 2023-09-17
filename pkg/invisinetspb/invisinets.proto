@@ -30,6 +30,7 @@ service CloudPlugin {
 service Controller {
     rpc FindUnusedAddressSpace(Empty) returns (AddressSpace) {}
     rpc GetUsedAddressSpaces(Empty) returns (AddressSpaceMappingList) {}
+    rpc ConnectClouds(ConnectCloudsRequest) returns (Empty) {}
 }
 
 message Empty {
@@ -95,4 +96,9 @@ message PermitListRule {
 message PermitList {
     string associated_resource = 1; 
     repeated PermitListRule rules = 2;
+}
+
+message ConnectCloudsRequest{
+    string cloudA = 1;
+    string cloudB = 2;
 }
