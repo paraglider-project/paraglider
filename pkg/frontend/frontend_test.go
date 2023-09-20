@@ -208,7 +208,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	tags := []string{"tag"}
 	rule := &invisinetspb.PermitListRule{
 		Id: id, 
-		Tag: tags,
+		Tags: tags,
 		Direction: invisinetspb.Direction_INBOUND, 
 		SrcPort: 1, 
 		DstPort: 2, 
@@ -258,7 +258,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	tags := []string{"tag"}
 	rule := &invisinetspb.PermitListRule{
 		Id: "id", 
-		Tag: tags,
+		Tags: tags,
 		Direction: invisinetspb.Direction_INBOUND, 
 		SrcPort: 1, 
 		DstPort: 2, 
@@ -455,13 +455,8 @@ func TestSetTag(t *testing.T) {
 	var jsonMap map[string]string
 	err := json.Unmarshal(responseData, &jsonMap)
 
-	_, localResponseRecorded := jsonMap["LocalTagService"]
-	_, cloudResponseRecorded := jsonMap[exampleCloudName]
-
 	require.Nil(t, err)
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.True(t, localResponseRecorded)
-	assert.True(t, cloudResponseRecorded)
 
 	// Malformed request
 	jsonValue, _ = json.Marshal(tagMapping)
@@ -504,13 +499,8 @@ func TestDeleteTagMember(t *testing.T) {
 	var jsonMap map[string]string
 	err := json.Unmarshal(responseData, &jsonMap)
 
-	_, localResponseRecorded := jsonMap["LocalTagService"] // TODO: Add checking of the actual value here
-	_, cloudResponseRecorded := jsonMap[exampleCloudName]
-
 	require.Nil(t, err)
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.True(t, localResponseRecorded)
-	assert.True(t, cloudResponseRecorded)
 
 	// Malformed request
 	jsonValue, _ = json.Marshal(tagMapping)
@@ -553,10 +543,5 @@ func TestDeleteTag(t *testing.T) {
 	err := json.Unmarshal(responseData, &jsonMap)
 	require.Nil(t, err)
 
-	_, localResponseRecorded := jsonMap["LocalTagService"] // TODO: Add checking of the actual value here
-	_, cloudResponseRecorded := jsonMap[exampleCloudName]
-
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.True(t, localResponseRecorded)
-	assert.True(t, cloudResponseRecorded)
 }

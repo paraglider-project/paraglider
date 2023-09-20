@@ -77,9 +77,10 @@ type azureSDKHandler struct {
 const (
 	VirtualMachineResourceType = "Microsoft.Compute/virtualMachines"
 	nsgNameSuffix              = "-default-nsg"
-	azureSecurityRuleAsterisk = "*"
-	permitListPortAny 	   = -1
-	denyAllNsgRulePrefix = "invisinets-deny-all"
+	azureSecurityRuleAsterisk  = "*"
+	permitListPortAny 	       = -1
+	denyAllNsgRulePrefix       = "invisinets-deny-all"
+	nsgRuleDescriptionPrefix   = "invisinets rule"
 )
 
 // mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
@@ -254,6 +255,7 @@ func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisine
 				Protocol:                   to.Ptr(invisinetsToAzureprotocol[rule.Protocol]),
 				SourceAddressPrefixes:      sourceIP,
 				SourcePortRange:            to.Ptr(srcPort),
+				Description:                to.Ptr(getRuleDescription(rule.Tags)),
 			},
 		},
 		nil)
@@ -370,18 +372,19 @@ func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 	// create permit list rule object
 	permitListRule := &invisinetspb.PermitListRule{
 		Id:        *rule.ID,
-		Tag:       getTag(rule),
+		Targets:   getTargets(rule),
 		Direction: azureToInvisinetsDirection[*rule.Properties.Direction],
 		SrcPort:   int32(srcPort),
 		DstPort:   int32(dstPort),
 		Protocol:  azureToInvisinetsProtocol[*rule.Properties.Protocol],
+		Tags:      parseDescriptionTags(rule.Properties.Description),
 	}
 	return permitListRule, nil
 }
 
 // GetNSGRuleDesc returns a description of an invisinets permit list rule for easier comparison
 func (h *azureSDKHandler) GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string {
-	return fmt.Sprintf("%s-%d-%d-%d-%d", strings.Join(rule.Tag, "-"), rule.Direction, rule.SrcPort, rule.DstPort, rule.Protocol)
+	return fmt.Sprintf("%s-%d-%d-%d-%d-%s", strings.Join(rule.Targets, "-"), rule.Direction, rule.SrcPort, rule.DstPort, rule.Protocol, strings.Join(rule.Tags, "-"))
 }
 
 // GetSecurityGroup reutrns the network security group object given the nsg name
@@ -566,24 +569,24 @@ func (h *azureSDKHandler) GetVNet(ctx context.Context, vnetName string) (*armnet
 }
 
 // getIPs returns the source and destination IP addresses for a given permit list rule and resource IP address.
-// it checks the direction of the permit list rule and sets the source IP address to the rule tag
+// it checks the direction of the permit list rule and sets the source IP address to the rule targets
 // and the destination IP address to the resource IP address if the direction is inbound.
 // If the direction is outbound, it sets the source IP address to the resource IP address and
-// the destination IP address to the rule tag.
+// the destination IP address to the rule targets.
 func getIPs(rule *invisinetspb.PermitListRule, resourceIP string) ([]*string, []*string) {
 	var sourceIP []*string
 	var destIP []*string
 
 	if rule.Direction == invisinetspb.Direction_INBOUND {
-		sourceIP = make([]*string, len(rule.Tag))
-		for i, ip := range rule.Tag {
+		sourceIP = make([]*string, len(rule.Targets))
+		for i, ip := range rule.Targets {
 			sourceIP[i] = to.Ptr(ip)
 		}
 		destIP = []*string{to.Ptr(resourceIP)}
 	} else {
 		sourceIP = []*string{to.Ptr(resourceIP)}
-		destIP = make([]*string, len(rule.Tag))
-		for i, ip := range rule.Tag {
+		destIP = make([]*string, len(rule.Targets))
+		for i, ip := range rule.Targets {
 			destIP[i] = to.Ptr(ip)
 		}
 	}
@@ -591,17 +594,37 @@ func getIPs(rule *invisinetspb.PermitListRule, resourceIP string) ([]*string, []
 	return sourceIP, destIP
 }
 
-// getTag returns the invisiNets tag for a given nsg rule
-func getTag(rule *armnetwork.SecurityRule) []string {
-	var tag []string
+// getTarget returns the invisinets tag for a given nsg rule
+func getTargets(rule *armnetwork.SecurityRule) []string {
+	var targets []string
 	if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
 		for _, ptr := range rule.Properties.SourceAddressPrefixes {
-			tag = append(tag, *ptr)
+			targets = append(targets, *ptr)
 		}
 	} else if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionOutbound {
 		for _, ptr := range rule.Properties.DestinationAddressPrefixes {
-			tag = append(tag, *ptr)
+			targets = append(targets, *ptr)
 		}
 	}
-	return tag
+	return targets
+}
+
+// Format the description to keep metadata about tags
+func getRuleDescription(tags []string) string {
+	if len(tags) == 0 {
+		return nsgRuleDescriptionPrefix
+	} 
+	return fmt.Sprintf("%s:%v", nsgRuleDescriptionPrefix, tags)
+}
+
+// Parses description string to get tags 
+func parseDescriptionTags(description *string) []string {
+	var tags []string
+	if description != nil && strings.HasPrefix(*description, nsgRuleDescriptionPrefix+":[") {
+		trimmedDescription := strings.TrimPrefix(*description, nsgRuleDescriptionPrefix+":")
+		trimmedDescription = strings.Trim(trimmedDescription, "[")
+		trimmedDescription = strings.Trim(trimmedDescription, "]")
+		tags = strings.Split(trimmedDescription, " ")
+	}
+	return tags
 }

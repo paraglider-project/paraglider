@@ -64,7 +64,8 @@ var (
 		Direction: invisinetspb.Direction_INBOUND,
 		DstPort:   80,
 		Protocol:  6,
-		Tag:       []string{"10.1.2.0/24"},
+		Targets:   []string{"10.1.2.0/24"},
+		Tags: 	   []string{"tag1", "tag2"},
 	}
 	fakeFirewallRule1 = &computepb.Firewall{
 		Allowed: []*computepb.Allowed{
@@ -78,12 +79,13 @@ var (
 		Network:      proto.String(getVPCURL()),
 		SourceRanges: []string{"10.1.2.0/24"},
 		TargetTags:   []string{fakeNetworkTag},
+		Description:  proto.String(fwRuleDescriptionPrefix+":[tag1 tag2]"),
 	}
 	fakePermitListRule2 = &invisinetspb.PermitListRule{
 		Direction: invisinetspb.Direction_OUTBOUND,
 		DstPort:   -1,
 		Protocol:  17,
-		Tag:       []string{"10.3.4.0/24"},
+		Targets:   []string{"10.3.4.0/24"},
 	}
 	fakeFirewallRule2 = &computepb.Firewall{
 		Allowed: []*computepb.Allowed{
@@ -308,10 +310,10 @@ func TestGetPermitList(t *testing.T) {
 						Ports:      []string{},
 					},
 				},
-				Direction:  proto.String(computepb.Firewall_INGRESS.String()),
-				Name:       proto.String("fw-allow-icmp"),
-				Network:    proto.String(getVPCURL()),
-				TargetTags: []string{"0.0.0.0/0"},
+				Direction:   proto.String(computepb.Firewall_INGRESS.String()),
+				Name:        proto.String("fw-allow-icmp"),
+				Network:     proto.String(getVPCURL()),
+				TargetTags:  []string{"0.0.0.0/0"},
 			},
 		},
 	}
@@ -356,13 +358,14 @@ func TestAddPermitListRules(t *testing.T) {
 				Direction: invisinetspb.Direction_INBOUND,
 				DstPort:   443,
 				Protocol:  6,
-				Tag:       []string{"10.5.6.0/24"},
+				Targets:   []string{"10.5.6.0/24"},
 			},
 			{
 				Direction: invisinetspb.Direction_OUTBOUND,
 				DstPort:   8080,
 				Protocol:  6,
-				Tag:       []string{"10.7.8.0/24"},
+				Targets:   []string{"10.7.8.0/24"},
+				Tags:      []string{"tag"},
 			},
 		},
 	}
@@ -385,7 +388,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 				Direction: invisinetspb.Direction_INBOUND,
 				DstPort:   443,
 				Protocol:  6,
-				Tag:       []string{"10.5.6.0/24"},
+				Targets:   []string{"10.5.6.0/24"},
 			},
 		},
 	}

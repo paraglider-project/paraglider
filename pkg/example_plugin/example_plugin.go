@@ -24,7 +24,6 @@ import (
 	"net"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 	"google.golang.org/grpc"
 )
 
@@ -34,7 +33,6 @@ var (
 
 type cloudPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
-	tagservicepb.UnimplementedTagServiceServer
 }
 
 func (s *cloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
@@ -57,22 +55,6 @@ func (s *cloudPluginServer) GetUsedAddressSpaces(c context.Context, deployment *
 	return &invisinetspb.AddressSpaceList{AddressSpaces: []string{"10.0.0.0/16"}}, nil
 }
 
-func (s *cloudPluginServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMapping, error) {
-	return &tagservicepb.TagMapping{ParentTag: "parent", ChildTags: []string{"child"}}, nil
-}
-
-func (s *cloudPluginServer) SetTag(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully created tag: %s", tagMapping.ParentTag)}, nil
-}
-
-func (s *cloudPluginServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error) {
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted tag: %s", tag.TagName)}, nil
-}
-
-func (s *cloudPluginServer) DeleteTagMember(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted member %s from tag %s", tagMapping.ChildTags[0], tagMapping.ParentTag)}, nil
-}
-
 func newServer() *cloudPluginServer {
 	s := &cloudPluginServer{}
 	return s
@@ -85,7 +67,6 @@ func main() {
 	}
 	grpcServer := grpc.NewServer()
 	invisinetspb.RegisterCloudPluginServer(grpcServer, newServer())
-	tagservicepb.RegisterTagServiceServer(grpcServer, newServer())
 	fmt.Printf("Hosting Example Cloud Plugin Server on port %d\n", *port)
 	err = grpcServer.Serve(lis)
 	if err != nil {

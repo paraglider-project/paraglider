@@ -540,7 +540,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
 			Id:        "security/rule/id",
-			Tag:       []string{"10.5.1.0", "10.6.1.0"},
+			Targets:   []string{"10.5.1.0", "10.6.1.0"},
 			Direction: invisinetspb.Direction_INBOUND,
 			SrcPort:   100,
 			DstPort:   8080,
@@ -572,7 +572,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
 			Id:        "security/rule/id",
-			Tag:       []string{"10.3.1.0", "10.2.1.0"},
+			Targets:   []string{"10.3.1.0", "10.2.1.0"},
 			Direction: invisinetspb.Direction_OUTBOUND,
 			SrcPort:   200,
 			DstPort:   8080,
@@ -605,7 +605,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
 			Id:        "security/rule/id",
-			Tag:       []string{"10.3.1.0", "10.2.1.0"},
+			Targets:   []string{"10.3.1.0", "10.2.1.0"},
 			Direction: invisinetspb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
@@ -625,7 +625,7 @@ func TestGetInvisinetsRuleDesc(t *testing.T) {
 
 	// Test case: Create a sample permit list rule
 	rule := &invisinetspb.PermitListRule{
-		Tag:       []string{"10.0.0.1", "192.168.0.1"},
+		Targets:   []string{"10.0.0.1", "192.168.0.1"},
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   80,
 		DstPort:   8080,
@@ -633,7 +633,7 @@ func TestGetInvisinetsRuleDesc(t *testing.T) {
 	}
 
 	// Expected description based on the sample rule
-	expectedDescription := "10.0.0.1-192.168.0.1-0-80-8080-17"
+	expectedDescription := "10.0.0.1-192.168.0.1-0-80-8080-17-"
 
 	// Call the function to test
 	result := azureSDKHandlerTest.GetInvisinetsRuleDesc(rule)
@@ -646,7 +646,7 @@ func TestGetIPs(t *testing.T) {
 	// Test case 1: Inbound rule
 	inboundRule := &invisinetspb.PermitListRule{
 		Direction: invisinetspb.Direction_INBOUND,
-		Tag:       []string{"10.0.0.1", "192.168.0.1"},
+		Targets:   []string{"10.0.0.1", "192.168.0.1"},
 	}
 
 	resourceIP := "192.168.1.100"
@@ -660,7 +660,7 @@ func TestGetIPs(t *testing.T) {
 	// Test case 2: Outbound rule
 	outboundRule := &invisinetspb.PermitListRule{
 		Direction: invisinetspb.Direction_OUTBOUND,
-		Tag:       []string{"172.16.0.1", "192.168.1.1"},
+		Targets:   []string{"172.16.0.1", "192.168.1.1"},
 	}
 
 	expectedOutboundSourceIP := []*string{to.Ptr("192.168.1.100")}
@@ -671,7 +671,7 @@ func TestGetIPs(t *testing.T) {
 	require.Equal(t, expectedOutboundDestIP, outboundDestIP)
 }
 
-func TestGetTag(t *testing.T) {
+func TestGetTargets(t *testing.T) {
 	// Test cases for inbound rules
 	t.Run("InboundRule", func(t *testing.T) {
 		inboundRule := armnetwork.SecurityRule{
@@ -682,9 +682,9 @@ func TestGetTag(t *testing.T) {
 			},
 		}
 
-		expectedInboundTag := []string{"10.0.0.0/24", "192.168.0.0/24"}
-		inboundTag := getTag(&inboundRule)
-		require.Equal(t, expectedInboundTag, inboundTag)
+		expectedInboundTargets := []string{"10.0.0.0/24", "192.168.0.0/24"}
+		inboundTargets := getTargets(&inboundRule)
+		require.Equal(t, expectedInboundTargets, inboundTargets)
 	})
 
 	t.Run("OutboundRule", func(t *testing.T) {
@@ -696,8 +696,8 @@ func TestGetTag(t *testing.T) {
 			},
 		}
 
-		expectedOutboundTag := []string{"172.16.0.0/16", "192.168.1.0/24"}
-		outboundTag := getTag(&outboundRule)
-		require.Equal(t, expectedOutboundTag, outboundTag)
+		expectedOutboundTargets := []string{"172.16.0.0/16", "192.168.1.0/24"}
+		outboundTargets := getTargets(&outboundRule)
+		require.Equal(t, expectedOutboundTargets, outboundTargets)
 	})
 }

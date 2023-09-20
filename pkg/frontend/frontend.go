@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -101,6 +102,8 @@ func (s *ControllerServer) permitListGet(c *gin.Context) {
 		return
 	}
 
+	// TODO: Un-resolve tags??
+
 	// Read the response and send back to original client
 	pl_json, err := json.Marshal(response)
 	if err != nil {
@@ -113,6 +116,47 @@ func (s *ControllerServer) permitListGet(c *gin.Context) {
 		"resource":        response.AssociatedResource,
 		"permitlist_json": string(pl_json[:]),
 	})
+}
+// TODO: move these functions!
+func getIPsFromResolvedTag(mappings []*tagservicepb.NameMapping) []string {
+	var ips []string
+	for _, mapping := range mappings {
+		ips = append(ips, mapping.Ip)
+	}
+	return ips
+}
+
+func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList, subscribe bool) (*invisinetspb.PermitList, error){
+	for _, rule := range list.Rules {
+		for _, target := range rule.Targets {
+			if _, _, err := net.ParseCIDR(target); err != nil {
+				conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+				if err != nil {
+					return nil, fmt.Errorf("Could not contact tag server: %s", err.Error())
+				}
+				defer conn.Close()
+				
+				// Send RPC to resolve tag
+				client := tagservicepb.NewTagServiceClient(conn)
+				resolvedTag, err := client.ResolveTag(context.Background(), &tagservicepb.Tag{TagName: target})
+				if err != nil {
+					return nil, fmt.Errorf("Could not resolve tag: %s", err.Error())
+				}
+
+				// Subscribe self to tag
+				if subscribe {
+					_, err := client.Subscribe(context.Background(), &tagservicepb.Subscription{TagName: target, Subscriber: list.AssociatedResource})
+					if err != nil {
+						return nil, fmt.Errorf("Could not subscribe to tag: %s", err.Error())
+					}
+				}
+
+				rule.Tags = append(rule.Tags, target)
+				rule.Targets = append(rule.Targets, getIPsFromResolvedTag(resolvedTag.Mappings)...)
+			}
+		}
+	}
+	return list, nil
 }
 
 // Add permit list rules to specified resource
@@ -132,6 +176,9 @@ func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
 		return
 	}
 
+	// Resolve tags referenced in rules 
+	s.resolvePermitListRules(&permitListRules, true)
+	
 	// Create connection to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -176,6 +223,12 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 		return
 	}
 	defer conn.Close()
+
+	// TODO: Resolve tags (for correct lookup in cloud plugin) and unsubscribe
+	// Resolve tags referenced in rules 
+	s.resolvePermitListRules(&permitListRules, false)
+	// problem: this function subscribes you to changes - we want to unsubscribe (if it is the last rule in the list that references the tag --> how to check that?)
+	// could have the RPC return that info and then act on that --> yeah, let's do that
 
 	// Send RPC to delete the rules
 	client := invisinetspb.NewCloudPluginClient(conn)

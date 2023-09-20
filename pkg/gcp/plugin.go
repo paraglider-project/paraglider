@@ -45,10 +45,11 @@ type GCPPluginServer struct {
 // Those declared var may be modified in init() for integration testing
 // None of these should be used to define other global variables. If needed, make a separate function (like getVPCURL).
 var (
-	vpcName              = "invisinets-vpc" // Invisinets VPC name
-	subnetworkNamePrefix = "invisinets-"
-	networkTagPrefix     = "invisinets-permitlist-" // Prefix for GCP tags related to invisinets
-	firewallNamePrefix   = "fw-" + networkTagPrefix // Prefix for firewall names related to invisinets
+	vpcName                 = "invisinets-vpc" // Invisinets VPC name
+	subnetworkNamePrefix    = "invisinets-"
+	networkTagPrefix        = "invisinets-permitlist-" // Prefix for GCP tags related to invisinets
+	firewallNamePrefix      = "fw-" + networkTagPrefix // Prefix for firewall names related to invisinets
+	fwRuleDescriptionPrefix = "invisinets rule" // GCP firewall rule prefix for description
 )
 
 const (
@@ -149,7 +150,8 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 		strconv.Itoa(int(permitListRule.Protocol)),
 		strconv.Itoa(int(permitListRule.DstPort)),
 		permitListRule.Direction.String(),
-		strings.Join(permitListRule.Tag, ""),
+		strings.Join(permitListRule.Tags, ""),
+		strings.Join(permitListRule.Targets, ""),
 	))[:firewallNameMaxLength]
 }
 
@@ -198,6 +200,26 @@ func getVPCURL() string {
 	return "global/networks/" + vpcName
 }
 
+// Format the description to keep metadata about tags
+func getRuleDescription(tags []string) string {
+	if len(tags) == 0 {
+		return fwRuleDescriptionPrefix
+	} 
+	return fmt.Sprintf("%s:%v", fwRuleDescriptionPrefix, tags)
+}
+
+// Parses description string to get tags 
+func parseDescriptionTags(description string) []string {
+	var tags []string
+	if strings.HasPrefix(description, fwRuleDescriptionPrefix+":[") {
+		trimmedDescription := strings.TrimPrefix(description, fwRuleDescriptionPrefix+":")
+		trimmedDescription = strings.Trim(trimmedDescription, "[")
+		trimmedDescription = strings.Trim(trimmedDescription, "]")
+		tags = strings.Split(trimmedDescription, " ")
+	}
+	return tags
+}
+
 func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
 	project, zone, instance := parseInstanceId(resourceID.Id)
 
@@ -228,11 +250,11 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 
 				direction := firewallDirectionMapGCPToInvisinets[*firewall.Direction]
 
-				var tag []string
+				var target []string
 				if direction == invisinetspb.Direction_INBOUND {
-					tag = append(firewall.SourceRanges, firewall.SourceTags...)
+					target = append(firewall.SourceRanges, firewall.SourceTags...)
 				} else {
-					tag = firewall.DestinationRanges
+					target = firewall.DestinationRanges
 				}
 
 				var dstPort int
@@ -245,11 +267,17 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 					}
 				}
 
+				var tags []string
+				if firewall.Description != nil {
+					tags = parseDescriptionTags(*firewall.Description)
+				}
+
 				permitListRules[i] = &invisinetspb.PermitListRule{
 					Direction: firewallDirectionMapGCPToInvisinets[*firewall.Direction],
 					DstPort:   int32(dstPort),
 					Protocol:  int32(protocolNumber),
-					Tag:       tag,
+					Targets:   target,
+					Tags: 	   tags,
 				} // SrcPort not specified since GCP doesn't support rules based on source ports
 			}
 			permitList.Rules = append(permitList.Rules, permitListRules...)
@@ -315,7 +343,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 					IPProtocol: proto.String(strconv.Itoa(int(permitListRule.Protocol))),
 				},
 			},
-			Description: proto.String("Invisinets permit list"),
+			Description: proto.String(getRuleDescription(permitListRule.Tags)),
 			Direction:   proto.String(firewallDirectionMapInvisinetsToGCP[permitListRule.Direction]),
 			Name:        proto.String(firewallName),
 			Network:     proto.String(getVPCURL()),
@@ -328,9 +356,9 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 		}
 		if permitListRule.Direction == invisinetspb.Direction_INBOUND {
 			// TODO @seankimkdy: use SourceTags as well once we start supporting tags
-			firewall.SourceRanges = permitListRule.Tag
+			firewall.SourceRanges = permitListRule.Targets
 		} else {
-			firewall.DestinationRanges = permitListRule.Tag
+			firewall.DestinationRanges = permitListRule.Targets
 		}
 		insertFirewallReq := &computepb.InsertFirewallRequest{
 			Project:          project,
