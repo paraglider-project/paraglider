@@ -46,8 +46,8 @@ var portNum = 10000
 // Mock values
 const addressSpaceAddress = "10.0.0.0/16"
 const exampleCloudName = "example"
+const resolvedTagIp = "1.2.3.4"
 
-// Mock Tag Service Server
 type mockTagServiceServer struct {
 	tagservicepb.UnimplementedTagServiceServer
 }
@@ -56,16 +56,32 @@ func (s *mockTagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) 
 	return &tagservicepb.TagMapping{ParentTag: tag.TagName, ChildTags: []string{"child"}}, nil
 }
 
+func (s *mockTagServiceServer) ResolveTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.NameMappingList, error) {
+	return &tagservicepb.NameMappingList{Mappings: []*tagservicepb.NameMapping{&tagservicepb.NameMapping{TagName: tag.TagName, Uri: "tag/uri", Ip: resolvedTagIp}}}, nil
+}
+
 func (s *mockTagServiceServer) SetTag(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
 	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully created tag: %s", tagMapping.ParentTag)}, nil
+}
+
+func (s *mockTagServiceServer) SetName(c context.Context, nameMapping *tagservicepb.NameMapping) (*tagservicepb.BasicResponse, error) {
+	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully created name: %s", nameMapping.TagName)}, nil
 }
 
 func (s *mockTagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error) {
 	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted tag: %s", tag.TagName)}, nil
 }
 
+func (s *mockTagServiceServer) DeleteName(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error) {
+	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted name: %s", tag.TagName)}, nil
+}
+
 func (s *mockTagServiceServer) DeleteTagMember(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
 	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted member %s from tag %s", tagMapping.ChildTags[0], tagMapping.ParentTag)}, nil
+}
+
+func (s *mockTagServiceServer) Subscribe(c context.Context, sub *tagservicepb.Subscription) (*tagservicepb.BasicResponse, error) {
+	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully subscribed to tag: %s", sub.TagName)}, nil
 }
 
 
@@ -544,4 +560,51 @@ func TestDeleteTag(t *testing.T) {
 	require.Nil(t, err)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestResolvePermitListRules(t *testing.T) {
+	// Setup
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	setupTagServer(tagServerPort)
+
+	// Permit list rule that contains tags, IPs, and names
+	id := "id"
+	rule := &invisinetspb.PermitListRule{
+		Id: "id", 
+		Targets: []string{"tag1", "tag2", "2.3.4.5"},
+		Tags: []string{},
+		Direction: invisinetspb.Direction_INBOUND, 
+		SrcPort: 1, 
+		DstPort: 2, 
+		Protocol: 1 }
+	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
+	expectedRule := &invisinetspb.PermitListRule{
+		Id: "id", 
+		Targets: []string{resolvedTagIp, resolvedTagIp, "2.3.4.5"},
+		Tags: []string{"tag1", "tag2"},
+		Direction: invisinetspb.Direction_INBOUND, 
+		SrcPort: 1, 
+		DstPort: 2, 
+		Protocol: 1 }
+	expectedRulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{expectedRule}}
+
+	resolvedRules, err := frontendServer.resolvePermitListRules(rulesList, false)
+	assert.Nil(t, err)
+	assert.Equal(t, expectedRulesList, resolvedRules)
+}
+
+func TestGetIPsFromResolvedTag(t *testing.T) {
+	ip1 := "1.2.3.4"
+	ip2 := "2.3.4.5"
+	mappings := []*tagservicepb.NameMapping{
+		&tagservicepb.NameMapping{TagName: "name1", Uri: "uri/name1", Ip: ip1},
+		&tagservicepb.NameMapping{TagName: "name2", Uri: "uri/name2", Ip: ip2},
+	}
+	expectedIps := []string{ip1, ip2}
+
+	ips := getIPsFromResolvedTag(mappings)
+	assert.Equal(t, expectedIps, ips)
 }

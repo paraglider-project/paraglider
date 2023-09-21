@@ -22,7 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -118,6 +118,22 @@ func (s *ControllerServer) permitListGet(c *gin.Context) {
 	})
 }
 // TODO: move these functions!
+func isIpAddrOrCidr(value string) bool {
+	if strings.Contains(value, "/") {
+		_, err := netip.ParsePrefix(value)
+		if err != nil {
+			return false
+		}
+		return true
+	} else {
+		_, err := netip.ParseAddr(value)
+		if err != nil {
+			return false
+		}
+		return true
+	}
+}
+
 func getIPsFromResolvedTag(mappings []*tagservicepb.NameMapping) []string {
 	var ips []string
 	for _, mapping := range mappings {
@@ -128,8 +144,11 @@ func getIPsFromResolvedTag(mappings []*tagservicepb.NameMapping) []string {
 
 func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList, subscribe bool) (*invisinetspb.PermitList, error){
 	for _, rule := range list.Rules {
-		for _, target := range rule.Targets {
-			if _, _, err := net.ParseCIDR(target); err != nil {
+		targetsCopy := make([]string, len(rule.Targets))
+		copy(targetsCopy, rule.Targets)
+		rule.Targets = []string{}
+		for _, target := range targetsCopy {
+			if !isIpAddrOrCidr(target) { // TODO: CHANGE FROM PARSECIDR (see tag service implementation)
 				conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 				if err != nil {
 					return nil, fmt.Errorf("Could not contact tag server: %s", err.Error())
@@ -153,6 +172,8 @@ func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList,
 
 				rule.Tags = append(rule.Tags, target)
 				rule.Targets = append(rule.Targets, getIPsFromResolvedTag(resolvedTag.Mappings)...)
+			} else {
+				rule.Targets = append(rule.Targets, target)
 			}
 		}
 	}
