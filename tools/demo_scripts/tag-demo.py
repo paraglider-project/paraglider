@@ -21,3 +21,23 @@ print(r.text)
 
 r = requests.get("http://0.0.0.0:8080/tags/{}/resolve".format("parenttag"))
 print(r.text)
+
+test_permit_list = \
+{
+    "associated_resource": "example-permit-list-resource", 
+    "rules": [
+        {
+            "id" : "id",
+            "targets": ["parenttag"],
+            "direction": 0,
+            "src_port": 1,
+            "dst_port": 2,
+            "protocol": 3
+        }
+    ]
+}
+
+r = requests.post("http://0.0.0.0:8080/cloud/{}/resources/{}/permit-list/rules".format("example", 123), headers={"Content-Type": "application/json"}, json=test_permit_list)
+print(r.text)
+
+

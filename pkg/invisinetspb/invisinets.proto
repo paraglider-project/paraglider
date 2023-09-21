@@ -73,6 +73,7 @@ enum Direction {
     OUTBOUND = 1;
 }
 
+// TODO: have a version of this without the tags field to avoid users setting that at all
 message PermitListRule {
     string id = 1;
     repeated string targets = 2;

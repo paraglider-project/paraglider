@@ -45,6 +45,7 @@ func (s *tagServiceServer) SetTag(c context.Context, mapping *tagservicepb.TagMa
 }
 
 func (s *tagServiceServer) SetName(c context.Context, mapping *tagservicepb.NameMapping) (*tagservicepb.BasicResponse, error){
+	// TODO: Make it so that you can only set the name once
 	err := s.client.HSet(c, mapping.TagName, map[string]string{"uri": mapping.Uri, "ip": mapping.Ip}).Err()
 	if err != nil {
 		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetName: %v", err)

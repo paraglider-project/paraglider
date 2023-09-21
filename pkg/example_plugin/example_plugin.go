@@ -29,6 +29,7 @@ import (
 
 var (
 	port = flag.Int("port", 1002, "The server port")
+	print = true
 )
 
 type cloudPluginServer struct {
@@ -40,6 +41,10 @@ func (s *cloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.Res
 }
 
 func (s *cloudPluginServer) AddPermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
+	if print {
+		fmt.Println("Rules to add:")
+		fmt.Printf("%v\n", permitList)
+	}
 	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
 }
 

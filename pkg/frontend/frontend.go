@@ -42,6 +42,10 @@ import (
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 )
 
+type Warning struct {
+	Message string
+}
+
 // Configuration structs
 type Cloud struct {
 	Name          string `yaml:"name"`
@@ -102,9 +106,26 @@ func getIPsFromResolvedTag(mappings []*tagservicepb.NameMapping) []string {
 	return ips
 }
 
+func checkAndCleanRule(rule *invisinetspb.PermitListRule) (*invisinetspb.PermitListRule, *Warning, error) {
+	if len(rule.Targets) == 0 {
+		return nil, nil, fmt.Errorf("Rule %s contains no targets", rule.Id)
+	}
+	if len(rule.Tags) != 0 {
+		rule.Tags = []string{}
+		return rule, &Warning{Message:fmt.Sprintf("Warning: tags for rule %s ignored", rule.Id)}, nil
+	}
+	return rule, nil, nil 
+}
+
 // Takes a set of permit list rules and returns the same list with all tags referenced in the original rules resolved to IPs
 func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList, subscribe bool) (*invisinetspb.PermitList, error){
 	for _, rule := range list.Rules {
+		// Check rule validity and clean fields
+		rule, _, err := checkAndCleanRule(rule) // TODO: use the warning
+		if err != nil {
+			return nil, fmt.Errorf("Invalid rule: %s", err.Error())
+		}
+
 		targetsCopy := make([]string, len(rule.Targets))
 		copy(targetsCopy, rule.Targets)
 		rule.Targets = []string{}
@@ -141,6 +162,7 @@ func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList,
 	return list, nil
 }
 
+
 // Get specified PermitList from given cloud
 func (s *ControllerServer) permitListGet(c *gin.Context) {
 	id := c.Param("id")
@@ -171,8 +193,6 @@ func (s *ControllerServer) permitListGet(c *gin.Context) {
 		return
 	}
 
-	// TODO: Un-resolve tags??
-
 	// Read the response and send back to original client
 	pl_json, err := json.Marshal(response)
 	if err != nil {
@@ -198,14 +218,18 @@ func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
 	}
 
 	// Parse permit list rules to add
-	var permitListRules invisinetspb.PermitList
+	var permitListRules *invisinetspb.PermitList
 	if err := c.BindJSON(&permitListRules); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
 	// Resolve tags referenced in rules 
-	s.resolvePermitListRules(&permitListRules, true)
+	permitListRules, err := s.resolvePermitListRules(permitListRules, true)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
 	
 	// Create connection to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -217,7 +241,7 @@ func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
 
 	// Send RPC to create rules
 	client := invisinetspb.NewCloudPluginClient(conn)
-	response, err := client.AddPermitListRules(context.Background(), &permitListRules)
+	response, err := client.AddPermitListRules(context.Background(), permitListRules)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 	}
@@ -440,6 +464,8 @@ func (s *ControllerServer) setTag(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
+	 
+	// Look up subscribers and re-resolve the tag
 
 	c.JSON(http.StatusOK, gin.H{
 		"response": response.Message,
