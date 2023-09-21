@@ -14,6 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// TODO:
+// Unsubscribe on last tag reference delete --> how?
+// When tag membership changes, automatically call a re-resolve permit list at those URIs that are subscribed (call GET on their permit list and then call AddRules)
+
 package frontend
 
 import (
@@ -72,6 +76,71 @@ func createErrorResponse(message string) gin.H {
 	return gin.H{"error": message}
 }
 
+// Returns whether the string provided is a valid IP/CIDR
+func isIpAddrOrCidr(value string) bool {
+	if strings.Contains(value, "/") {
+		_, err := netip.ParsePrefix(value)
+		if err != nil {
+			return false
+		}
+		return true
+	} else {
+		_, err := netip.ParseAddr(value)
+		if err != nil {
+			return false
+		}
+		return true
+	}
+}
+
+// Retrieve the IPs from a list of name mappings
+func getIPsFromResolvedTag(mappings []*tagservicepb.NameMapping) []string {
+	var ips []string
+	for _, mapping := range mappings {
+		ips = append(ips, mapping.Ip)
+	}
+	return ips
+}
+
+// Takes a set of permit list rules and returns the same list with all tags referenced in the original rules resolved to IPs
+func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList, subscribe bool) (*invisinetspb.PermitList, error){
+	for _, rule := range list.Rules {
+		targetsCopy := make([]string, len(rule.Targets))
+		copy(targetsCopy, rule.Targets)
+		rule.Targets = []string{}
+		for _, target := range targetsCopy {
+			if !isIpAddrOrCidr(target) {
+				conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+				if err != nil {
+					return nil, fmt.Errorf("Could not contact tag server: %s", err.Error())
+				}
+				defer conn.Close()
+				
+				// Send RPC to resolve tag
+				client := tagservicepb.NewTagServiceClient(conn)
+				resolvedTag, err := client.ResolveTag(context.Background(), &tagservicepb.Tag{TagName: target})
+				if err != nil {
+					return nil, fmt.Errorf("Could not resolve tag: %s", err.Error())
+				}
+
+				// Subscribe self to tag
+				if subscribe {
+					_, err := client.Subscribe(context.Background(), &tagservicepb.Subscription{TagName: target, Subscriber: list.AssociatedResource})
+					if err != nil {
+						return nil, fmt.Errorf("Could not subscribe to tag: %s", err.Error())
+					}
+				}
+
+				rule.Tags = append(rule.Tags, target)
+				rule.Targets = append(rule.Targets, getIPsFromResolvedTag(resolvedTag.Mappings)...)
+			} else {
+				rule.Targets = append(rule.Targets, target)
+			}
+		}
+	}
+	return list, nil
+}
+
 // Get specified PermitList from given cloud
 func (s *ControllerServer) permitListGet(c *gin.Context) {
 	id := c.Param("id")
@@ -116,68 +185,6 @@ func (s *ControllerServer) permitListGet(c *gin.Context) {
 		"resource":        response.AssociatedResource,
 		"permitlist_json": string(pl_json[:]),
 	})
-}
-// TODO: move these functions!
-func isIpAddrOrCidr(value string) bool {
-	if strings.Contains(value, "/") {
-		_, err := netip.ParsePrefix(value)
-		if err != nil {
-			return false
-		}
-		return true
-	} else {
-		_, err := netip.ParseAddr(value)
-		if err != nil {
-			return false
-		}
-		return true
-	}
-}
-
-func getIPsFromResolvedTag(mappings []*tagservicepb.NameMapping) []string {
-	var ips []string
-	for _, mapping := range mappings {
-		ips = append(ips, mapping.Ip)
-	}
-	return ips
-}
-
-func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList, subscribe bool) (*invisinetspb.PermitList, error){
-	for _, rule := range list.Rules {
-		targetsCopy := make([]string, len(rule.Targets))
-		copy(targetsCopy, rule.Targets)
-		rule.Targets = []string{}
-		for _, target := range targetsCopy {
-			if !isIpAddrOrCidr(target) { // TODO: CHANGE FROM PARSECIDR (see tag service implementation)
-				conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
-				if err != nil {
-					return nil, fmt.Errorf("Could not contact tag server: %s", err.Error())
-				}
-				defer conn.Close()
-				
-				// Send RPC to resolve tag
-				client := tagservicepb.NewTagServiceClient(conn)
-				resolvedTag, err := client.ResolveTag(context.Background(), &tagservicepb.Tag{TagName: target})
-				if err != nil {
-					return nil, fmt.Errorf("Could not resolve tag: %s", err.Error())
-				}
-
-				// Subscribe self to tag
-				if subscribe {
-					_, err := client.Subscribe(context.Background(), &tagservicepb.Subscription{TagName: target, Subscriber: list.AssociatedResource})
-					if err != nil {
-						return nil, fmt.Errorf("Could not subscribe to tag: %s", err.Error())
-					}
-				}
-
-				rule.Tags = append(rule.Tags, target)
-				rule.Targets = append(rule.Targets, getIPsFromResolvedTag(resolvedTag.Mappings)...)
-			} else {
-				rule.Targets = append(rule.Targets, target)
-			}
-		}
-	}
-	return list, nil
 }
 
 // Add permit list rules to specified resource
@@ -387,7 +394,28 @@ func (s *ControllerServer) getTag(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// Set tag mapping in local db and in each cloud (if implemented/supported)
+// Resolve tag down to IP/URI(s) from local tag service
+func (s *ControllerServer) resolveTag(c *gin.Context) {
+	// Call resolveTag locally
+	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+	
+	// Send RPC to get tag
+	tag := c.Param("tag")
+	client := tagservicepb.NewTagServiceClient(conn)
+	response, err := client.GetTag(context.Background(), &tagservicepb.Tag{TagName: tag})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// Set tag mapping in local db 
 func (s *ControllerServer) setTag(c *gin.Context) {
 	parentTag := c.Param("tag")
 	var childTags []string
@@ -407,6 +435,38 @@ func (s *ControllerServer) setTag(c *gin.Context) {
 
 	client := tagservicepb.NewTagServiceClient(conn)
 	response, err := client.SetTag(context.Background(), tagMapping)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"response": response.Message,
+	})
+}
+
+// Set tag name in local db
+func (s *ControllerServer) setName(c *gin.Context) {
+	tagName := c.Param("tag")
+
+	// Parse data
+	var nameMapping tagservicepb.NameMapping
+	if err := c.BindJSON(&nameMapping); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	nameMapping.TagName = tagName
+
+	// Call SetName
+	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	client := tagservicepb.NewTagServiceClient(conn)
+	response, err := client.SetName(context.Background(), &nameMapping)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -472,6 +532,30 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	})
 }
 
+// Delete tag name in local db
+func (s *ControllerServer) deleteName(c *gin.Context) {
+	tagName := c.Param("tag")
+
+	// Call DeleteName
+	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	client := tagservicepb.NewTagServiceClient(conn)
+	response, err := client.DeleteName(context.Background(), &tagservicepb.Tag{TagName: tagName})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"response": response.Message,
+	})
+}
+
 
 func Setup(configPath string) {
 	// Read the config
@@ -509,9 +593,12 @@ func Setup(configPath string) {
 	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules/", server.permitListRulesDelete)
 	router.POST("/cloud/:cloud/resources/:id/", server.resourceCreate)
 	router.GET("/tags/:tag", server.getTag)
+	router.GET("/tags/:tag/resolve", server.resolveTag)
 	router.POST("/tags/:tag", server.setTag)
+	router.POST("/tags/:tag/name", server.setName)
 	router.DELETE("/tags/:tag", server.deleteTag)
 	router.DELETE("/tags/:tag/members/", server.deleteTagMember)
+	router.DELETE("/tags/:tag/name", server.deleteName)
 	
 	// Run server
 	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
