@@ -40,7 +40,7 @@ var tagServiceCmd = &cobra.Command{
     Use:   "tagserv",
     Aliases: []string{"tagserv"},
     Short:  "Starts the tag server on given ports",
-    Args:  cobra.ExactArgs(2),
+    Args:  cobra.ExactArgs(3),
     Run: func(cmd *cobra.Command, args []string) {
         dbPort, err := strconv.Atoi(args[0])
         if err != nil{
@@ -50,7 +50,11 @@ var tagServiceCmd = &cobra.Command{
         if err != nil{
             return
         }
-        tagservice.Setup(dbPort, serverPort)
+        clearKeys, err := strconv.ParseBool(args[2])
+        if err != nil{
+            return
+        }
+        tagservice.Setup(dbPort, serverPort, clearKeys)
     },
 }
 

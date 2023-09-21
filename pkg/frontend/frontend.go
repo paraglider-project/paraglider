@@ -417,6 +417,7 @@ func (s *ControllerServer) resolveTag(c *gin.Context) {
 
 // Set tag mapping in local db 
 func (s *ControllerServer) setTag(c *gin.Context) {
+	// TODO: On settag, look up subscribers to tag and re-resolve them
 	parentTag := c.Param("tag")
 	var childTags []string
 	if err := c.BindJSON(&childTags); err != nil {
@@ -504,6 +505,7 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 
 // Delete members of tag in local db and in each cloud (if implemented/supported)
 func (s *ControllerServer) deleteTagMember(c *gin.Context) {
+	// TODO: Re-resolve lists of subscribers 
 	parentTag := c.Param("tag")
 	var childTags []string
 	if err := c.BindJSON(&childTags); err != nil {

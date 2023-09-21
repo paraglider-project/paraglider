@@ -84,21 +84,21 @@ func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolv
 			ip_tag := &tagservicepb.NameMapping{TagName: "", Uri: "", Ip: tag}
 			resolvedTags = append(resolvedTags, ip_tag)
 		} else {
-			exists, err := s.client.HExists(c, tag, "uri").Result()
+			valType, err := s.client.Type(c, tag).Result()
 			if err != nil {
-				return nil, fmt.Errorf("ResolveTag %s: %v", tag, err)
+				return nil, fmt.Errorf("ResolveTag TYPE %s: %v", tag, err)
 			}
 
-			if exists {
+			if valType ==  "hash" {
 				info, err := s.client.HGetAll(c, tag).Result()
 				if err != nil {
-					return nil, fmt.Errorf("ResolveTag %s: %v", tag, err)
+					return nil, fmt.Errorf("ResolveTag HGETALL %s: %v", tag, err)
 				}
 				resolvedTags = append(resolvedTags, &tagservicepb.NameMapping{TagName: tag, Uri: info["uri"], Ip: info["ip"]})
 			} else {
 				childrenTags, err := s.client.SMembers(c, tag).Result()
 				if err != nil {
-					return nil, fmt.Errorf("ResolveTag %s: %v", tag, err)
+					return nil, fmt.Errorf("ResolveTag SMEMBERS %s: %v", tag, err)
 				}
 				resolvedChildTags, err := s._resolveTags(c, childrenTags, resolvedTags)
 				resolvedTags = append(resolvedTags, resolvedChildTags...)
@@ -112,7 +112,7 @@ func (s *tagServiceServer) ResolveTag(c context.Context, tag *tagservicepb.Tag) 
 	var emptyTagList []*tagservicepb.NameMapping
 	resolvedTags, err := s._resolveTags(c, []string{tag.TagName}, emptyTagList)
 	if err != nil {
-		return nil, fmt.Errorf("ResolveTag %s: %v", tag.TagName, err)
+		return nil, err
 	}
 
     return &tagservicepb.NameMappingList{Mappings: resolvedTags}, nil
@@ -166,12 +166,16 @@ func newServer(database *redis.Client) *tagServiceServer {
 	return s
 }
 
-func Setup(dbPort int, serverPort int) {
+func Setup(dbPort int, serverPort int, clearKeys bool) {
 	client := redis.NewClient(&redis.Options{
         Addr:	  fmt.Sprintf("localhost:%d", dbPort),
         Password: "", // no password set
         DB:		  0,  // use default DB
     })
+	if clearKeys {
+		fmt.Printf("Flushed all keys.")
+		client.FlushAll(context.Background())
+	}
 
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", serverPort))
 	if err != nil {
