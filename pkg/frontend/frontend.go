@@ -407,7 +407,7 @@ func (s *ControllerServer) resolveTag(c *gin.Context) {
 	// Send RPC to get tag
 	tag := c.Param("tag")
 	client := tagservicepb.NewTagServiceClient(conn)
-	response, err := client.GetTag(context.Background(), &tagservicepb.Tag{TagName: tag})
+	response, err := client.ResolveTag(context.Background(), &tagservicepb.Tag{TagName: tag})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 	}

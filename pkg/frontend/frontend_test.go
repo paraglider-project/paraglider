@@ -57,7 +57,7 @@ func (s *mockTagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) 
 }
 
 func (s *mockTagServiceServer) ResolveTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.NameMappingList, error) {
-	return &tagservicepb.NameMappingList{Mappings: []*tagservicepb.NameMapping{&tagservicepb.NameMapping{TagName: tag.TagName, Uri: "tag/uri", Ip: resolvedTagIp}}}, nil
+	return &tagservicepb.NameMappingList{Mappings: []*tagservicepb.NameMapping{&tagservicepb.NameMapping{TagName: tag.TagName, Uri: "uri/"+tag.TagName, Ip: resolvedTagIp}}}, nil
 }
 
 func (s *mockTagServiceServer) SetTag(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
@@ -445,14 +445,39 @@ func TestGetTag(t *testing.T) {
 	assert.Equal(t, expectedResult, tagMap)
 }
 
+func TestResolveTag(t *testing.T) {
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	setupTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.GET("/tags/:tag/resolve", frontendServer.resolveTag)
+
+	// Well-formed request
+	tag := "testtag"
+	expectedResult := &tagservicepb.NameMapping{TagName: tag, Uri: "uri/"+tag, Ip: resolvedTagIp}
+
+	url := fmt.Sprintf("/tags/%s/resolve", tag)
+	req, _ := http.NewRequest("GET", url, nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	responseData, _ := io.ReadAll(w.Body)
+	var nameMaps *tagservicepb.NameMappingList
+	err := json.Unmarshal(responseData, &nameMaps)
+
+	require.Nil(t, err)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, expectedResult, nameMaps.Mappings[0])
+}
+
 func TestSetTag(t *testing.T) {
 	frontendServer := newFrontendServer()
 	tagServerPort := getNewPortNumber()
-	cloudPluginPort := getNewPortNumber()
-	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
 	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
-	setupPluginServer(cloudPluginPort)
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
@@ -478,6 +503,46 @@ func TestSetTag(t *testing.T) {
 	jsonValue, _ = json.Marshal(tagMapping)
 
 	url = fmt.Sprintf("/tags/%s", tagMapping.ParentTag)
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	responseData, _ = io.ReadAll(w.Body)
+	err = json.Unmarshal(responseData, &jsonMap)
+
+	require.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestSetName(t *testing.T) {
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	setupTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.POST("/tags/:tag/name", frontendServer.setName)
+
+	// Well-formed request
+	nameMapping := &tagservicepb.NameMapping{TagName: "tag", Uri: "uri/tag", Ip: "1.2.3.4"}
+	jsonValue, _ := json.Marshal(nameMapping)
+
+	url := fmt.Sprintf("/tags/%s/name", nameMapping.TagName)
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	responseData, _ := io.ReadAll(w.Body)
+	var jsonMap map[string]string
+	err := json.Unmarshal(responseData, &jsonMap)
+
+	require.Nil(t, err)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Malformed request
+	jsonValue, _ = json.Marshal(nameMapping.Ip)
+
+	url = fmt.Sprintf("/tags/%s/name", nameMapping.TagName)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -550,6 +615,32 @@ func TestDeleteTag(t *testing.T) {
 	tag := "testtag"
 
 	url := fmt.Sprintf("/tags/%s/", tag)
+	req, _ := http.NewRequest("DELETE", url, nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	responseData, _ := io.ReadAll(w.Body)
+	var jsonMap map[string]string
+	err := json.Unmarshal(responseData, &jsonMap)
+	require.Nil(t, err)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestDeleteName(t *testing.T) {
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	setupTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.DELETE("/tags/:tag/name", frontendServer.deleteName)
+
+	// Well-formed request
+	tag := "testtag"
+
+	url := fmt.Sprintf("/tags/%s/name", tag)
 	req, _ := http.NewRequest("DELETE", url, nil)
 	w := httptest.NewRecorder()
 
