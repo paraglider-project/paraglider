@@ -30,13 +30,21 @@ import (
 var (
 	port = flag.Int("port", 1002, "The server port")
 	print = true
+	storeData = true
 )
 
 type cloudPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
+	permitListState map[string]*invisinetspb.PermitList
 }
 
 func (s *cloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
+	if storeData {
+		permitList, ok := s.permitListState[r.Id]
+		if ok {
+			return permitList, nil
+		}
+	}
 	return &invisinetspb.PermitList{AssociatedResource: r.Id}, nil
 }
 
@@ -44,6 +52,9 @@ func (s *cloudPluginServer) AddPermitListRules(c context.Context, permitList *in
 	if print {
 		fmt.Println("Rules to add:")
 		fmt.Printf("%v\n", permitList)
+	}
+	if storeData {
+		s.permitListState[permitList.AssociatedResource] = permitList
 	}
 	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
 }
@@ -62,6 +73,7 @@ func (s *cloudPluginServer) GetUsedAddressSpaces(c context.Context, deployment *
 
 func newServer() *cloudPluginServer {
 	s := &cloudPluginServer{}
+	s.permitListState = make(map[string]*invisinetspb.PermitList)
 	return s
 }
 

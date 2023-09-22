@@ -23,7 +23,6 @@ package frontend
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -210,17 +209,9 @@ func (s *ControllerServer) permitListGet(c *gin.Context) {
 		return
 	}
 
-	// Read the response and send back to original client
-	pl_json, err := json.Marshal(response)
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"id":              id,
-		"resource":        response.AssociatedResource,
-		"permitlist_json": string(pl_json[:]),
+		"permitlist":      response,
 	})
 }
 
