@@ -240,3 +240,18 @@ func TestUnsubscribe(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestGetSubscribers(t *testing.T) {
+	db, mock := redismock.NewClientMock()
+	server := newTagServiceServer(db)
+
+	tag := &tagservicepb.Tag{TagName: "example"}
+	subscribers := []string{"uri1", "uri2"}
+	mock.ExpectSMembers("SUB:"+tag.TagName).SetVal(subscribers)
+	resp, _ := server.GetSubscribers(context.Background(), tag)
+	assert.Equal(t, subscribers, resp.Subscribers)
+	
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Error(err)
+	}
+}

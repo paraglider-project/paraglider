@@ -29,11 +29,16 @@ service TagService {
     rpc DeleteName(Tag) returns (BasicResponse) {}
     rpc Subscribe(Subscription) returns (BasicResponse) {}
     rpc Unsubscribe(Subscription) returns (BasicResponse) {}
+    rpc GetSubscribers(Tag) returns (SubscriberList) {}
 }
 
 message Subscription {
     string tag_name = 1;
     string subscriber = 2;
+}
+
+message SubscriberList {
+    repeated string subscribers = 1;
 }
 
 message Tag {

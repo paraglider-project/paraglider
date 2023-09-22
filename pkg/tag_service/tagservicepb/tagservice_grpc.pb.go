@@ -43,6 +43,7 @@ const (
 	TagService_DeleteName_FullMethodName      = "/tagservicepb.TagService/DeleteName"
 	TagService_Subscribe_FullMethodName       = "/tagservicepb.TagService/Subscribe"
 	TagService_Unsubscribe_FullMethodName     = "/tagservicepb.TagService/Unsubscribe"
+	TagService_GetSubscribers_FullMethodName  = "/tagservicepb.TagService/GetSubscribers"
 )
 
 // TagServiceClient is the client API for TagService service.
@@ -58,6 +59,7 @@ type TagServiceClient interface {
 	DeleteName(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*BasicResponse, error)
 	Subscribe(ctx context.Context, in *Subscription, opts ...grpc.CallOption) (*BasicResponse, error)
 	Unsubscribe(ctx context.Context, in *Subscription, opts ...grpc.CallOption) (*BasicResponse, error)
+	GetSubscribers(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*SubscriberList, error)
 }
 
 type tagServiceClient struct {
@@ -149,6 +151,15 @@ func (c *tagServiceClient) Unsubscribe(ctx context.Context, in *Subscription, op
 	return out, nil
 }
 
+func (c *tagServiceClient) GetSubscribers(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*SubscriberList, error) {
+	out := new(SubscriberList)
+	err := c.cc.Invoke(ctx, TagService_GetSubscribers_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TagServiceServer is the server API for TagService service.
 // All implementations must embed UnimplementedTagServiceServer
 // for forward compatibility
@@ -162,6 +173,7 @@ type TagServiceServer interface {
 	DeleteName(context.Context, *Tag) (*BasicResponse, error)
 	Subscribe(context.Context, *Subscription) (*BasicResponse, error)
 	Unsubscribe(context.Context, *Subscription) (*BasicResponse, error)
+	GetSubscribers(context.Context, *Tag) (*SubscriberList, error)
 	mustEmbedUnimplementedTagServiceServer()
 }
 
@@ -195,6 +207,9 @@ func (UnimplementedTagServiceServer) Subscribe(context.Context, *Subscription) (
 }
 func (UnimplementedTagServiceServer) Unsubscribe(context.Context, *Subscription) (*BasicResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Unsubscribe not implemented")
+}
+func (UnimplementedTagServiceServer) GetSubscribers(context.Context, *Tag) (*SubscriberList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSubscribers not implemented")
 }
 func (UnimplementedTagServiceServer) mustEmbedUnimplementedTagServiceServer() {}
 
@@ -371,6 +386,24 @@ func _TagService_Unsubscribe_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TagService_GetSubscribers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Tag)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TagServiceServer).GetSubscribers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TagService_GetSubscribers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TagServiceServer).GetSubscribers(ctx, req.(*Tag))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TagService_ServiceDesc is the grpc.ServiceDesc for TagService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -413,6 +446,10 @@ var TagService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Unsubscribe",
 			Handler:    _TagService_Unsubscribe_Handler,
+		},
+		{
+			MethodName: "GetSubscribers",
+			Handler:    _TagService_GetSubscribers_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

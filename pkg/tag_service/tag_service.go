@@ -178,6 +178,15 @@ func (s *tagServiceServer) Unsubscribe(c context.Context, sub *tagservicepb.Subs
     return  &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Unsubscribed %s from tag %s", sub.Subscriber, sub.TagName)}, nil
 }
 
+func (s *tagServiceServer) GetSubscribers(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.SubscriberList, error){
+	subs, err := s.client.SMembers(c, "SUB:"+tag.TagName).Result()
+	if err != nil {
+		return nil, fmt.Errorf("GetSubscribers: %v", err)
+	}
+
+    return  &tagservicepb.SubscriberList{Subscribers: subs}, nil
+}
+
 func newServer(database *redis.Client) *tagServiceServer {
 	s := &tagServiceServer{client: database}
 	return s
