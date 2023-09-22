@@ -86,6 +86,14 @@ func (s *mockTagServiceServer) Subscribe(c context.Context, sub *tagservicepb.Su
 	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully subscribed to tag: %s", sub.TagName)}, nil
 }
 
+func (s *mockTagServiceServer) Unsubscribe(c context.Context, sub *tagservicepb.Subscription) (*tagservicepb.BasicResponse, error) {
+	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully unsubscribed from tag: %s", sub.TagName)}, nil
+}
+
+func (s *mockTagServiceServer) GetSubscribers(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.SubscriberList, error) {
+	return &tagservicepb.SubscriberList{Subscribers: []string{exampleCloudName+">uri"}}, nil
+}
+
 
 // Mock Cloud Plugin Server
 type mockCloudPluginServer struct {
@@ -229,7 +237,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	tags := []string{"tag"}
 	rule := &invisinetspb.PermitListRule{
 		Id: id, 
-		Targets: tags,
+		Tags: tags,
 		Direction: invisinetspb.Direction_INBOUND, 
 		SrcPort: 1, 
 		DstPort: 2, 
@@ -481,8 +489,11 @@ func TestResolveTag(t *testing.T) {
 func TestSetTag(t *testing.T) {
 	frontendServer := newFrontendServer()
 	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
 	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
+	setupPluginServer(cloudPluginPort)
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
@@ -670,8 +681,8 @@ func TestResolvePermitListRules(t *testing.T) {
 	id := "id"
 	rule := &invisinetspb.PermitListRule{
 		Id: "id", 
-		Targets: []string{"tag1", "tag2", "2.3.4.5"},
-		Tags: []string{},
+		Tags: []string{"tag1", "tag2", "2.3.4.5"},
+		Targets: []string{},
 		Direction: invisinetspb.Direction_INBOUND, 
 		SrcPort: 1, 
 		DstPort: 2, 
@@ -679,15 +690,15 @@ func TestResolvePermitListRules(t *testing.T) {
 	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
 	expectedRule := &invisinetspb.PermitListRule{
 		Id: "id", 
+		Tags: []string{"tag1", "tag2", "2.3.4.5"},
 		Targets: []string{resolvedTagIp, resolvedTagIp, "2.3.4.5"},
-		Tags: []string{"tag1", "tag2"},
 		Direction: invisinetspb.Direction_INBOUND, 
 		SrcPort: 1, 
 		DstPort: 2, 
 		Protocol: 1 }
 	expectedRulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{expectedRule}}
 
-	resolvedRules, err := frontendServer.resolvePermitListRules(rulesList, false)
+	resolvedRules, err := frontendServer.resolvePermitListRules(rulesList, false, exampleCloudName)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedRulesList, resolvedRules)
 }
@@ -704,3 +715,51 @@ func TestGetIPsFromResolvedTag(t *testing.T) {
 	ips := getIPsFromResolvedTag(mappings)
 	assert.Equal(t, expectedIps, ips)
 }
+
+func TestCheckAndCleanRule(t *testing.T) {
+	// Rule with correct formatting
+	rule := &invisinetspb.PermitListRule{
+		Id: "id", 
+		Tags: []string{"tag1", "tag2", "2.3.4.5"},
+		Targets: []string{},
+		Direction: invisinetspb.Direction_INBOUND, 
+		SrcPort: 1, 
+		DstPort: 2, 
+		Protocol: 1 }
+	
+	cleanRule, warning, err := checkAndCleanRule(rule)
+	assert.Nil(t, err)
+
+	// Rule with no tags
+	badRule := &invisinetspb.PermitListRule{
+		Id: "id", 
+		Tags: []string{},
+		Targets: []string{},
+		Direction: invisinetspb.Direction_INBOUND, 
+		SrcPort: 1, 
+		DstPort: 2, 
+		Protocol: 1 }
+
+	cleanRule, warning, err = checkAndCleanRule(badRule)
+	assert.NotNil(t, err)
+
+	// Rule with targets
+	badRule = &invisinetspb.PermitListRule{
+		Id: "id", 
+		Tags: []string{"tag1", "tag2", "2.3.4.5"},
+		Targets: []string{"tag1", "tag2", "2.3.4.5"},
+		Direction: invisinetspb.Direction_INBOUND, 
+		SrcPort: 1, 
+		DstPort: 2, 
+		Protocol: 1 }
+
+	cleanRule, warning, err = checkAndCleanRule(badRule)
+	assert.Nil(t, err)
+	assert.NotNil(t, warning)
+	assert.Equal(t, []string{}, cleanRule.Targets)
+}
+
+// Is it possible to test this??
+// func TestUpdateSubscribers(t *testing.T) {
+
+// }

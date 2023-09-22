@@ -130,8 +130,10 @@ func TestResolveTagMemberNotPresent(t *testing.T) {
 	mock.ExpectHGetAll(childMapping.TagName).SetVal(map[string]string{"uri": childMapping.Uri, "ip": childMapping.Ip})
 	mock.ExpectType("non-existent-tag").SetVal("none")
 	
-	_, err := server.ResolveTag(context.Background(), &tagservicepb.Tag{TagName: mapping.ParentTag})
-	assert.NotNil(t, err)
+	resp, err := server.ResolveTag(context.Background(), &tagservicepb.Tag{TagName: mapping.ParentTag})
+	assert.Nil(t, err)
+	assert.Equal(t, resp.Mappings[0], childMapping)
+	assert.Equal(t, resp.Mappings[1].Ip, childIp)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)

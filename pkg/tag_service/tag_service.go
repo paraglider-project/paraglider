@@ -91,7 +91,7 @@ func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolv
 			}
 
 			if valType == "none" {
-				return nil, fmt.Errorf("Tried to resolve non-existing tag %s", tag)
+				continue // The tag is not present
 			} else if valType ==  "hash" {
 				info, err := s.client.HGetAll(c, tag).Result()
 				if err != nil {
@@ -134,7 +134,7 @@ func (s *tagServiceServer) DeleteTagMember(c context.Context, mapping *tagservic
 }
 
 func (s *tagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error){
-	// TODO: Delete the subscription of the tag too
+	// Delete all children in mapping
 	childrenTags, err := s.client.SMembers(c, tag.TagName).Result()
 	if err != nil {
 		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteTag %s: %v", tag.TagName, err)
