@@ -34,7 +34,7 @@ func newTagServiceServer(database *redis.Client) *tagServiceServer {
 	s := &tagServiceServer{client: database}
 	return s
 }
-// TODO: UPDATE THE TESTS!!
+
 func TestSetTag(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
@@ -112,6 +112,27 @@ func TestResolveTag(t *testing.T) {
 	assert.Equal(t, resp.Mappings[0], childMapping)
 	assert.Equal(t, resp.Mappings[1].Ip, childIp)
 	
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestResolveTagMemberNotPresent(t *testing.T) {
+	db, mock := redismock.NewClientMock()
+	server := newTagServiceServer(db)
+
+	childMapping := &tagservicepb.NameMapping{TagName: "child1", Uri: "child/uri", Ip: "2.3.4.5"}
+	childIp := "1.2.3.4"
+	mapping := &tagservicepb.TagMapping{ParentTag: "parent", ChildTags: []string{childMapping.TagName, "non-existent-tag", childIp}}
+	mock.ExpectType(mapping.ParentTag).SetVal("set")
+	mock.ExpectSMembers(mapping.ParentTag).SetVal(mapping.ChildTags)
+	mock.ExpectType(childMapping.TagName).SetVal("hash")
+	mock.ExpectHGetAll(childMapping.TagName).SetVal(map[string]string{"uri": childMapping.Uri, "ip": childMapping.Ip})
+	mock.ExpectType("non-existent-tag").SetVal("none")
+	
+	_, err := server.ResolveTag(context.Background(), &tagservicepb.Tag{TagName: mapping.ParentTag})
+	assert.NotNil(t, err)
+
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
 	}

@@ -90,7 +90,9 @@ func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolv
 				return nil, fmt.Errorf("ResolveTag TYPE %s: %v", tag, err)
 			}
 
-			if valType ==  "hash" {
+			if valType == "none" {
+				return nil, fmt.Errorf("Tried to resolve non-existing tag %s", tag)
+			} else if valType ==  "hash" {
 				info, err := s.client.HGetAll(c, tag).Result()
 				if err != nil {
 					return nil, fmt.Errorf("ResolveTag HGETALL %s: %v", tag, err)
@@ -101,7 +103,11 @@ func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolv
 				if err != nil {
 					return nil, fmt.Errorf("ResolveTag SMEMBERS %s: %v", tag, err)
 				}
+
 				resolvedChildTags, err := s._resolveTags(c, childrenTags, resolvedTags)
+				if err != nil {
+					return nil, fmt.Errorf("ResolveTag %s: %v", tag, err)
+				}
 				resolvedTags = append(resolvedTags, resolvedChildTags...)
 			}
 		}
