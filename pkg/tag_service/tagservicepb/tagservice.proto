@@ -19,7 +19,6 @@ package tagservicepb;
 
 option go_package="github.com/NetSys/invisinets/pkg/tag_service/tagservicepb";
 
-// TODO: Add unsubscribe!
 service TagService {
     rpc SetTag(TagMapping) returns (BasicResponse) {}
     rpc SetName(NameMapping) returns (BasicResponse) {}
@@ -29,6 +28,7 @@ service TagService {
     rpc DeleteTag(Tag) returns (BasicResponse) {}
     rpc DeleteName(Tag) returns (BasicResponse) {}
     rpc Subscribe(Subscription) returns (BasicResponse) {}
+    rpc Unsubscribe(Subscription) returns (BasicResponse) {}
 }
 
 message Subscription {

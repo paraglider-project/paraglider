@@ -102,9 +102,9 @@ func TestResolveTag(t *testing.T) {
 	childMapping := &tagservicepb.NameMapping{TagName: "child1", Uri: "child/uri", Ip: "2.3.4.5"}
 	childIp := "1.2.3.4"
 	mapping := &tagservicepb.TagMapping{ParentTag: "parent", ChildTags: []string{childMapping.TagName, childIp}}
-	mock.ExpectHExists(mapping.ParentTag, "uri").SetVal(false)
+	mock.ExpectType(mapping.ParentTag).SetVal("set")
 	mock.ExpectSMembers(mapping.ParentTag).SetVal(mapping.ChildTags)
-	mock.ExpectHExists(childMapping.TagName, "uri").SetVal(true)
+	mock.ExpectType(childMapping.TagName).SetVal("hash")
 	mock.ExpectHGetAll(childMapping.TagName).SetVal(map[string]string{"uri": childMapping.Uri, "ip": childMapping.Ip})
 	
 	resp, err := server.ResolveTag(context.Background(), &tagservicepb.Tag{TagName: mapping.ParentTag})
@@ -199,6 +199,20 @@ func TestSubscribe(t *testing.T) {
 	sub := &tagservicepb.Subscription{TagName: "example", Subscriber: "sub/uri"}
 	mock.ExpectSAdd("SUB:"+sub.TagName, sub.Subscriber).SetVal(0)
 	resp, _ := server.Subscribe(context.Background(), sub)
+	assert.True(t, resp.Success)
+	
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestUnsubscribe(t *testing.T) {
+	db, mock := redismock.NewClientMock()
+	server := newTagServiceServer(db)
+
+	sub := &tagservicepb.Subscription{TagName: "example", Subscriber: "sub/uri"}
+	mock.ExpectSRem("SUB:"+sub.TagName, sub.Subscriber).SetVal(0)
+	resp, _ := server.Unsubscribe(context.Background(), sub)
 	assert.True(t, resp.Success)
 	
 	if err := mock.ExpectationsWereMet(); err != nil {

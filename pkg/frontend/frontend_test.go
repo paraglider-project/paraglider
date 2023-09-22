@@ -16,6 +16,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// TODO: Add tests for new helper functions!
+
 package frontend
 
 import (
@@ -211,10 +213,13 @@ func TestPermitListGet(t *testing.T) {
 func TestPermitListRulesAdd(t *testing.T) {
 	// Setup
 	frontendServer := newFrontendServer()
-	port := getNewPortNumber()
-	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
-	setupPluginServer(port)
+	setupPluginServer(cloudPluginPort)
+	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
 	r.POST("/cloud/:cloud/resources/:id/permit-list/rules", frontendServer.permitListRulesAdd)
@@ -224,7 +229,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	tags := []string{"tag"}
 	rule := &invisinetspb.PermitListRule{
 		Id: id, 
-		Tags: tags,
+		Targets: tags,
 		Direction: invisinetspb.Direction_INBOUND, 
 		SrcPort: 1, 
 		DstPort: 2, 

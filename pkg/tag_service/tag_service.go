@@ -128,6 +128,7 @@ func (s *tagServiceServer) DeleteTagMember(c context.Context, mapping *tagservic
 }
 
 func (s *tagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error){
+	// TODO: Delete the subscription of the tag too
 	childrenTags, err := s.client.SMembers(c, tag.TagName).Result()
 	if err != nil {
 		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteTag %s: %v", tag.TagName, err)
@@ -160,6 +161,15 @@ func (s *tagServiceServer) Subscribe(c context.Context, sub *tagservicepb.Subscr
 	}
 
     return  &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Subscribed %s to tag %s", sub.Subscriber, sub.TagName)}, nil
+}
+
+func (s *tagServiceServer) Unsubscribe(c context.Context, sub *tagservicepb.Subscription) (*tagservicepb.BasicResponse, error){
+	err := s.client.SRem(c, "SUB:"+sub.TagName, sub.Subscriber).Err()
+	if err != nil {
+		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("Unsubscribe: %v", err)
+	}
+
+    return  &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Unsubscribed %s from tag %s", sub.Subscriber, sub.TagName)}, nil
 }
 
 func newServer(database *redis.Client) *tagServiceServer {
