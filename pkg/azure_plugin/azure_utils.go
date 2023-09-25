@@ -20,10 +20,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
 
@@ -101,4 +103,38 @@ func InitializeServer() *azurePluginServer {
 	return &azurePluginServer{
 		azureHandler: &azureSDKHandler{},
 	}
+}
+
+// TODO @seankimkdy: figure out how to merge this with Azure SDK handler
+func GetVmIpAddress(vmId string) (string, error) {
+	resourceIdInfo, err := getResourceIDInfo(vmId)
+	if err != nil {
+		return "", fmt.Errorf("unable to parse VM ID: %w", err)
+	}
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		return "", fmt.Errorf("unable to get azure credentials: %w", err)
+	}
+	computeClientFactory, err := armcompute.NewClientFactory(resourceIdInfo.SubscriptionID, cred, nil)
+	if err != nil {
+		return "", fmt.Errorf("unable to create compute client factory: %w", err)
+	}
+	networkClientFactory, err := armnetwork.NewClientFactory(resourceIdInfo.SubscriptionID, cred, nil)
+	virtualMachinesClient := computeClientFactory.NewVirtualMachinesClient()
+	interfacesClient := networkClientFactory.NewInterfacesClient()
+	ctx := context.Background()
+
+	virtualMachine, err := virtualMachinesClient.Get(ctx, resourceIdInfo.ResourceGroupName, resourceIdInfo.ResourceName, nil)
+	if err != nil {
+		return "", fmt.Errorf("unable to get virtual machine: %w", err)
+	}
+
+	networkInterfaceIdSplit := strings.Split(*virtualMachine.Properties.NetworkProfile.NetworkInterfaces[0].ID, "/")
+	networkInterfaceName := networkInterfaceIdSplit[len(networkInterfaceIdSplit)-1]
+	networkInterface, err := interfacesClient.Get(ctx, resourceIdInfo.ResourceGroupName, networkInterfaceName, &armnetwork.InterfacesClientGetOptions{Expand: nil})
+	if err != nil {
+		return "", fmt.Errorf("unable to get network interface: %w", err)
+	}
+
+	return *networkInterface.Properties.IPConfigurations[0].Properties.PrivateIPAddress, nil
 }

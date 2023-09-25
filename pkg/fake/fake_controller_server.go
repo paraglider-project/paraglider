@@ -25,40 +25,50 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Sets up fake frontend controller server for getting unused address spaces
+// Sets up fake frontend controller server
+// Note: this is only meant to be used with one cloud (i.e. primarily for each cloud plugin's unit/integration tests)
 type FakeControllerServer struct {
 	invisinetspb.UnimplementedControllerServer
-	counter int
+	Cloud   string
+	Counter int
 }
 
 func (f *FakeControllerServer) FindUnusedAddressSpace(ctx context.Context, e *invisinetspb.Empty) (*invisinetspb.AddressSpace, error) {
-	if f.counter == 256 {
+	if f.Counter == 256 {
 		return nil, fmt.Errorf("ran out of address spaces")
 	}
-	address := fmt.Sprintf("10.%d.0.0/16", f.counter)
-	f.counter = f.counter + 1
+	address := fmt.Sprintf("10.%d.0.0/16", f.Counter) // if changing this to something other than /16, make sure to change the azureSDKHandler.CreateInvisinetsVirtualNetwork accordingly for partitioning the address space
+	f.Counter = f.Counter + 1
 	return &invisinetspb.AddressSpace{Address: address}, nil
 }
 
 func (f *FakeControllerServer) GetUsedAddressSpaces(ctx context.Context, e *invisinetspb.Empty) (*invisinetspb.AddressSpaceMappingList, error) {
-	// TODO @seankimkdy
-	return nil, nil
+	addressSpaces := make([]string, f.Counter)
+	for i := 0; i < f.Counter; i++ {
+		addressSpaces[i] = fmt.Sprintf("10.%d.0.0/16", i)
+	}
+	addressSpaceMappingList := &invisinetspb.AddressSpaceMappingList{
+		AddressSpaceMappings: []*invisinetspb.AddressSpaceMapping{
+			{AddressSpaces: addressSpaces, Cloud: f.Cloud},
+		},
+	}
+	return addressSpaceMappingList, nil
 }
 
-func SetupFakeControllerServer() (string, error) {
-	fakeControllerServer := &FakeControllerServer{counter: 0}
+func SetupFakeControllerServer(cloud string) (*FakeControllerServer, string, error) {
+	fakeControllerServer := &FakeControllerServer{Counter: 0, Cloud: cloud}
 	l, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 	gsrv := grpc.NewServer()
 	invisinetspb.RegisterControllerServer(gsrv, fakeControllerServer)
-	fakeServerAddr := l.Addr().String()
+	fakeControllerServerAddr := l.Addr().String()
 	go func() {
 		if err := gsrv.Serve(l); err != nil {
 			panic(err)
 		}
 	}()
 
-	return fakeServerAddr, nil
+	return fakeControllerServer, fakeControllerServerAddr, nil
 }

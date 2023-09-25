@@ -18,11 +18,11 @@ package azure_plugin
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,19 +47,10 @@ var (
 func TestAzurePluginIntegration(t *testing.T) {
 	subscriptionId = GetAzureSubscriptionId()
 	resourceGroupName = invisinetsPrefix + "-integration-test" // Must be defined within a test and not as a global var as invisinetsPrefix is subject to change in init()
-	// SetupAzureTesting(subscriptionId, resourceGroupName)
-	// defer TeardownAzureTesting(subscriptionId, resourceGroupName)
+	SetupAzureTesting(subscriptionId, resourceGroupName)
+	defer TeardownAzureTesting(subscriptionId, resourceGroupName)
 
-	// t.Run("TestAddAndGetPermitList", testAddAndGetPermitList)
-
-	s := InitializeServer()
-	ctx := context.Background()
-	resp, err := s.GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{
-		Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", subscriptionId, "expressroute-rg"),
-	})
-	require.NoError(t, err)
-	fmt.Printf("%v:\n", resp.AddressSpaces)
-	// fmt.Printf("length: %d\n", len(resp))
+	t.Run("TestAddAndGetPermitList", testAddAndGetPermitList)
 }
 
 // This test will test the following:
@@ -69,7 +60,7 @@ func TestAzurePluginIntegration(t *testing.T) {
 // 4- Delete permit list rule
 // 5. Get the permit list and valdiates again
 func testAddAndGetPermitList(t *testing.T) {
-	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,15 +123,3 @@ func testAddAndGetPermitList(t *testing.T) {
 
 	assert.ElementsMatch(t, getPermitListResp.Rules, []*invisinetspb.PermitListRule{})
 }
-
-// func testVpnGateway(t *testing.T) {
-// 	vmID := getVmId()
-// 	permitList := &invisinetspb.PermitList{AssociatedResource: vmID,
-// 		Rules: []*invisinetspb.PermitListRule{&invisinetspb.PermitListRule{Tag: []string{"10.1.0.5"}, Direction: invisinetspb.Direction_OUTBOUND, SrcPort: 80, DstPort: 80, Protocol: 6}}}
-// 	s, ctx := setupValidResourceAndPermitList(t, permitList, vmID)
-
-// 	_, err := s.CreateVpnGateway(ctx, subscriptionId, resourceGroupName)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// }

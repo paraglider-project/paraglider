@@ -27,69 +27,20 @@ import (
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
-	networkmanagement "cloud.google.com/go/networkmanagement/apiv1"
 	networkmanagementpb "cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 )
-
-// Gets the IP address of the VM
-func getVMIP(instancesClient *compute.InstancesClient, project, zone, name string) (string, error) {
-	getInstanceReq := &computepb.GetInstanceRequest{
-		Instance: name,
-		Project:  project,
-		Zone:     zone,
-	}
-	getInstanceResp, err := instancesClient.Get(context.Background(), getInstanceReq)
-	if err != nil {
-		return "", err
-	}
-	return *getInstanceResp.NetworkInterfaces[0].NetworkIP, nil
-}
-
-func runConnectivityTest(t *testing.T, reachabilityClient *networkmanagement.ReachabilityClient, project string, name string, srcEndpoint, dstEndpoint *networkmanagementpb.Endpoint) {
-	ctx := context.Background()
-	connectivityTestId := utils.GetGitHubRunPrefix() + "connectivity-test-" + name
-	createConnectivityTestReq := &networkmanagementpb.CreateConnectivityTestRequest{
-		Parent: "projects/" + project + "/locations/global",
-		TestId: connectivityTestId,
-		Resource: &networkmanagementpb.ConnectivityTest{
-			Name:        "projects/" + project + "/locations/global/connectivityTests" + connectivityTestId,
-			Protocol:    "ICMP",
-			Source:      srcEndpoint,
-			Destination: dstEndpoint,
-		},
-	}
-	createConnectivityTestOp, err := reachabilityClient.CreateConnectivityTest(ctx, createConnectivityTestReq)
-	if err != nil {
-		t.Fatal(err)
-	}
-	connectivityTest, err := createConnectivityTestOp.Wait(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, networkmanagementpb.ReachabilityDetails_REACHABLE, connectivityTest.ReachabilityDetails.Result)
-	deleteConnectivityTestReq := &networkmanagementpb.DeleteConnectivityTestRequest{Name: connectivityTest.Name}
-	deleteConnectivityTestOp, err := reachabilityClient.DeleteConnectivityTest(ctx, deleteConnectivityTestReq)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = deleteConnectivityTestOp.Wait(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
 
 // Tests creating two vms in separate regions and basic add/delete/get permit list functionality
 func TestIntegration(t *testing.T) {
 	// Setup
 	project := GetGcpProject()
 	s := &GCPPluginServer{}
-	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,31 +53,10 @@ func TestIntegration(t *testing.T) {
 	}
 	defer TeardownGcpTesting(teardownInfo)
 
-	// Disk setting to be used across VM creation
-	var disks = []*computepb.AttachedDisk{
-		{
-			InitializeParams: &computepb.AttachedDiskInitializeParams{
-				DiskSizeGb:  proto.Int64(10),
-				SourceImage: proto.String("projects/debian-cloud/global/images/family/debian-10"),
-			},
-			AutoDelete: proto.Bool(true),
-			Boot:       proto.Bool(true),
-			Type:       proto.String(computepb.AttachedDisk_PERSISTENT.String()),
-		},
-	}
-
 	// Create VM in a clean state (i.e. no VPC or subnet)
 	vm1Name := utils.GetGitHubRunPrefix() + "vm-invisinets-test-1"
 	vm1Zone := "us-west1-a"
-	insertInstanceReq1 := &computepb.InsertInstanceRequest{
-		Project: project,
-		Zone:    vm1Zone,
-		InstanceResource: &computepb.Instance{
-			Name:        proto.String(vm1Name),
-			MachineType: proto.String("zones/" + vm1Zone + "/machineTypes/f1-micro"),
-			Disks:       disks,
-		},
-	}
+	insertInstanceReq1 := GetTestVmParameters(project, vm1Zone, vm1Name)
 	teardownInfo.InsertInstanceReqs = append(teardownInfo.InsertInstanceReqs, insertInstanceReq1)
 	insertInstanceReq1Bytes, err := json.Marshal(insertInstanceReq1)
 	if err != nil {
@@ -144,15 +74,7 @@ func TestIntegration(t *testing.T) {
 	// Create VM in different region (i.e. requires new subnet to be created)
 	vm2Name := utils.GetGitHubRunPrefix() + "vm-invisinets-test-2"
 	vm2Zone := "us-east1-b"
-	insertInstanceReq2 := &computepb.InsertInstanceRequest{
-		Project: project,
-		Zone:    vm2Zone,
-		InstanceResource: &computepb.Instance{
-			Name:        proto.String(vm2Name),
-			MachineType: proto.String("zones/" + vm2Zone + "/machineTypes/f1-micro"),
-			Disks:       disks,
-		},
-	}
+	insertInstanceReq2 := GetTestVmParameters(project, vm2Zone, vm2Name)
 	teardownInfo.InsertInstanceReqs = append(teardownInfo.InsertInstanceReqs, insertInstanceReq2)
 	insertInstanceReq2Bytes, err := json.Marshal(insertInstanceReq2)
 	if err != nil {
@@ -197,9 +119,9 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer instancesClient.Close()
-	vm1Ip, err := getVMIP(instancesClient, project, vm1Zone, vm1Name)
+	vm1Ip, err := GetInstanceIpAddress(project, vm1Zone, vm1Name)
 	require.NoError(t, err)
-	vm2Ip, err := getVMIP(instancesClient, project, vm2Zone, vm2Name)
+	vm2Ip, err := GetInstanceIpAddress(project, vm2Zone, vm2Name)
 	require.NoError(t, err)
 
 	vmIds := []string{vm1Id, vm2Id}
@@ -209,6 +131,7 @@ func TestIntegration(t *testing.T) {
 			Rules: []*invisinetspb.PermitListRule{
 				{
 					Direction: invisinetspb.Direction_INBOUND,
+					SrcPort:   -1,
 					DstPort:   -1,
 					Protocol:  1,
 					Tag:       []string{vm2Ip},
@@ -226,12 +149,14 @@ func TestIntegration(t *testing.T) {
 			Rules: []*invisinetspb.PermitListRule{
 				{
 					Direction: invisinetspb.Direction_INBOUND,
+					SrcPort:   -1,
 					DstPort:   -1,
 					Protocol:  1,
 					Tag:       []string{vm1Ip},
 				},
 				{
 					Direction: invisinetspb.Direction_OUTBOUND,
+					SrcPort:   -1,
 					DstPort:   -1,
 					Protocol:  1,
 					Tag:       []string{vm1Ip},
@@ -255,25 +180,20 @@ func TestIntegration(t *testing.T) {
 
 	// Connectivity tests that ping the two VMs
 	// TODO @seankimkdy: NewReachabilityRESTClient causes errors when deleting connectivity tests
-	reachabilityClient, err := networkmanagement.NewReachabilityClient(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer reachabilityClient.Close()
 	vm1Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm1Ip,
-		Network:   "projects/" + project + "/" + getVPCURL(),
+		Network:   "projects/" + project + "/" + GetVpcUri(),
 		ProjectId: project,
 	}
 	vm2Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm2Ip,
-		Network:   "projects/" + project + "/" + getVPCURL(),
+		Network:   "projects/" + project + "/" + GetVpcUri(),
 		ProjectId: project,
 	}
 
 	// Run connectivity tests on both directions between vm1 and vm2
-	runConnectivityTest(t, reachabilityClient, project, "1to2", vm1Endpoint, vm2Endpoint)
-	runConnectivityTest(t, reachabilityClient, project, "2to1", vm2Endpoint, vm1Endpoint)
+	RunPingConnectivityTest(t, project, "1to2", vm1Endpoint, vm2Endpoint)
+	RunPingConnectivityTest(t, project, "2to1", vm2Endpoint, vm1Endpoint)
 
 	// Delete permit lists
 	for i, vmId := range vmIds {

@@ -17,10 +17,14 @@ limitations under the License.
 package log
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net/netip"
 	"os"
 	"strings"
+
+	"github.com/NetSys/invisinets/pkg/invisinetspb"
 )
 
 var (
@@ -33,12 +37,6 @@ const (
 	GCP   = "gcp"
 	AZURE = "azure"
 )
-
-// TODO @seankimkdy: temporary, will remove after making everything into GRPc
-type CreateVpnGatewayResponse struct {
-	InterfaceIps []string
-	Asn          int64
-}
 
 // Private address spaces as defined in RFC 1918
 var privateAddressSpaces = []netip.Prefix{
@@ -81,16 +79,68 @@ func IsPermitListRuleTagInAddressSpace(permitListRuleTag, addressSpace string) (
 
 // Checks if an IP address is public
 func IsAddressPrivate(addressString string) (bool, error) {
-	address, err := netip.ParseAddr(addressString)
-	if err != nil {
-		return false, err
+	var addr netip.Addr
+	var err error
+	if strings.Contains(addressString, "/") {
+		addressPrefix, err := netip.ParsePrefix(addressString)
+		if err != nil {
+			return false, err
+		}
+		addr = addressPrefix.Addr()
+	} else {
+		addr, err = netip.ParseAddr(addressString)
+		if err != nil {
+			return false, err
+		}
 	}
 	for _, privateAddressSpace := range privateAddressSpaces {
-		if privateAddressSpace.Contains(address) {
+		if privateAddressSpace.Contains(addr) {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+// Checks and connect clouds as necessary
+func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string, ctx context.Context, permitListRule *invisinetspb.PermitListRule, usedAddressSpaceMappings *invisinetspb.AddressSpaceMappingList, controllerClient invisinetspb.ControllerClient) error {
+	for _, tag := range permitListRule.Tag {
+		isPrivate, err := IsAddressPrivate(tag)
+		if err != nil {
+			return fmt.Errorf("unable to determine if address is private: %w", err)
+		}
+		if isPrivate {
+			var peeringCloud, peeringCloudAddressSpace string
+			for _, usedAddressSpaceMapping := range usedAddressSpaceMappings.AddressSpaceMappings {
+				for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
+
+					contained, err := IsPermitListRuleTagInAddressSpace(tag, addressSpace)
+					if err != nil {
+						return fmt.Errorf("unable to determine if tag is in address space: %w", err)
+					}
+					if contained {
+						peeringCloud = usedAddressSpaceMapping.Cloud
+						peeringCloudAddressSpace = addressSpace
+						break
+					}
+				}
+			}
+			if peeringCloud == "" {
+				return fmt.Errorf("permit list rule tag must belong to a specific cloud if it's a private address")
+			} else if peeringCloud != GCP {
+				connectCloudsRequest := &invisinetspb.ConnectCloudsRequest{
+					CloudA:             currentCloud,
+					CloudAAddressSpace: currentCloudAddressSpace,
+					CloudB:             peeringCloud,
+					CloudBAddressSpace: peeringCloudAddressSpace,
+				}
+				_, err := controllerClient.ConnectClouds(ctx, connectCloudsRequest)
+				if err != nil {
+					return fmt.Errorf("unable to connect clouds : %w", err)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // Returns prefix with GitHub workflow run numbers for integration tests

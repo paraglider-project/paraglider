@@ -38,6 +38,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -64,7 +65,7 @@ const (
 	validVnetName            = "invisinets-valid-vnet-name"
 	notFoundVnetName         = "invisinets-not-found-vnet-name"
 	invalidVnetName          = "invalid-vnet-name"
-	validAddressSpace        = "10.1.0.0/16"
+	validAddressSpace        = "10.0.0.0/16"
 )
 
 var (
@@ -154,8 +155,10 @@ func initializeReqRespMap() map[string]interface{} {
 	nicURL := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkInterfaces", subID, rgName)
 	nsgRuleUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkSecurityGroups/%s/securityRules", subID, rgName, validSecurityGroupName)
 	vnetUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
-	listVnetsUrl := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Network/virtualNetworks", subID)
+	listVnetsUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
 	vnetsInRgUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
+	// virtualNetworkGatewayUrl := fmt.Sprintf()
+	fmt.Println(listVnetsUrl)
 
 	// Define a map of URLs to responses
 	urlToResponse := map[string]interface{}{
@@ -397,7 +400,7 @@ func TestGetInvisinetsVnet(t *testing.T) {
 
 	// Create a new context for the tests
 	ctx := context.Background()
-	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -641,6 +644,28 @@ func TestGetInvisinetsRuleDesc(t *testing.T) {
 	// Compare the result with the expected description
 	require.Equal(t, expectedDescription, result)
 }
+
+// func TestCreateOrUpdateVirtualNetworkGateway(t *testing.T) {
+// 	azureSDKHandlerTest := &azureSDKHandler{}
+// 	ctx := context.Background()
+
+// 	t.Run("Success", func(t *testing.T) {
+// 		// Call the function to test
+// 		vm, err := azureSDKHandlerTest.CreateVirtualMachine(ctx, armcompute.VirtualMachine{}, vmResourceName)
+
+// 		require.NoError(t, err)
+// 		require.NotNil(t, vm)
+// 	})
+
+// 	// Test case: Failure
+// 	t.Run("Failure", func(t *testing.T) {
+// 		// Call the function to test
+// 		vm, err := azureSDKHandlerTest.CreateVirtualMachine(ctx, armcompute.VirtualMachine{}, invalidVmResourceName)
+
+// 		require.Error(t, err)
+// 		require.Nil(t, vm)
+// 	})
+// }
 
 func TestGetIPs(t *testing.T) {
 	// Test case 1: Inbound rule

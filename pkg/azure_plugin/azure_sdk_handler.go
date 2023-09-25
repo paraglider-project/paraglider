@@ -62,6 +62,7 @@ type AzureSDKHandler interface {
 	CreateLocalNetworkGateway(ctx context.Context, name string, parameters armnetwork.LocalNetworkGateway) (*armnetwork.LocalNetworkGateway, error)
 	GetLocalNetworkGateway(ctx context.Context, name string) (*armnetwork.LocalNetworkGateway, error)
 	CreateVirtualNetworkGatewayConnection(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGatewayConnection) (*armnetwork.VirtualNetworkGatewayConnection, error)
+	GetVirtualNetworkGatewayConnection(ctx context.Context, name string) (*armnetwork.VirtualNetworkGatewayConnection, error)
 }
 
 type azureSDKHandler struct {
@@ -421,8 +422,7 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 
 	if err != nil {
 		// Check if the error is Resource Not Found
-		var azError *azcore.ResponseError
-		if ok := errors.As(err, &azError); ok && azError.StatusCode == http.StatusNotFound {
+		if isErrorNotFound(err) {
 			// Create the virtual network if it doesn't exist
 			// Get the address space from the controller service
 			conn, err := grpc.Dial(FrontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -461,8 +461,10 @@ func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, lo
 				{
 					Name: to.Ptr("default"),
 					Properties: &armnetwork.SubnetPropertiesFormat{
-						// TODO @nnomier: does it make sense for the subnet to be the same as the address space?
-						AddressPrefix: to.Ptr(strings.Replace(addressSpace, "/16", "/24", 1)), // TODO @seankimkdy: discuss
+						// Partition address space to accommodate a GatewaySubnet that may be created in the future for multicloud connections
+						// TODO @seankimkdy: change this to be more sophisticated replacement
+						// If changing this, also change the creation of GatewaySubnet in
+						AddressPrefix: to.Ptr(strings.Replace(addressSpace, "/16", "/24", 1)),
 					},
 				},
 			},
@@ -660,6 +662,14 @@ func (h *azureSDKHandler) CreateVirtualNetworkGatewayConnection(ctx context.Cont
 	return &resp.VirtualNetworkGatewayConnection, nil
 }
 
+func (h *azureSDKHandler) GetVirtualNetworkGatewayConnection(ctx context.Context, name string) (*armnetwork.VirtualNetworkGatewayConnection, error) {
+	resp, err := h.virtualNetworkGatewayConnectionsClient.Get(ctx, h.resourceGroupName, name, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.VirtualNetworkGatewayConnection, nil
+}
+
 // getIPs returns the source and destination IP addresses for a given permit list rule and resource IP address.
 // it checks the direction of the permit list rule and sets the source IP address to the rule tag
 // and the destination IP address to the resource IP address if the direction is inbound.
@@ -699,4 +709,11 @@ func getTag(rule *armnetwork.SecurityRule) []string {
 		}
 	}
 	return tag
+}
+
+// Checks if Azure error response is a not found error
+func isErrorNotFound(err error) bool {
+	var azError *azcore.ResponseError
+	ok := errors.As(err, &azError)
+	return ok && azError.StatusCode == http.StatusNotFound
 }

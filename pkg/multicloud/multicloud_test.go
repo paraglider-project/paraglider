@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
+	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	azure_plugin "github.com/NetSys/invisinets/pkg/azure_plugin"
 	frontend "github.com/NetSys/invisinets/pkg/frontend"
 	gcp "github.com/NetSys/invisinets/pkg/gcp"
@@ -91,7 +92,7 @@ func TestMulticloud(t *testing.T) {
 			},
 		},
 	}
-	controllerServerAddr := frontend.SetupControllerServer(controllerServerConfig)
+	_, controllerServerAddr := frontend.SetupControllerServer(controllerServerConfig)
 	azure_plugin.FrontendServerAddr = controllerServerAddr
 	gcp.FrontendServerAddr = controllerServerAddr
 	fmt.Println("Setup controller server")
@@ -116,7 +117,7 @@ func TestMulticloud(t *testing.T) {
 	// Create GCP VM
 	gcpVmZone := "us-west1-a"
 	gcpVmName := utils.GetGitHubRunPrefix() + "vm-invisinets-test"
-	gcpVmParameters := gcp.GetTestVmParameters(gcpProject, gcpVmName, gcpVmZone)
+	gcpVmParameters := gcp.GetTestVmParameters(gcpProject, gcpVmZone, gcpVmName)
 	gcpTeardownInfo.InsertInstanceReqs = append(gcpTeardownInfo.InsertInstanceReqs, gcpVmParameters)
 	gcpVmDescription, err := json.Marshal(gcpVmParameters)
 	gcpCreateResourceResp, err := gcpServer.CreateResource(
@@ -128,47 +129,87 @@ func TestMulticloud(t *testing.T) {
 	assert.True(t, gcpCreateResourceResp.Success)
 	fmt.Println("Created GCP VM")
 
-	// Create Azure VPN gateway
-	azureCreateVpnGatewayResp, err := azureServer.CreateVpnGateway(ctx, azureSubscriptionId, azureResourceGroupName, utils.GCP)
+	// Create GCP permit list
+	azureVmIpAddress, err := azure_plugin.GetVmIpAddress(azureVmId)
 	require.NoError(t, err)
-	fmt.Println("Created Azure VPN gateway")
-	// Create GCP VPN gateway
-	gcpCreateVpnGatewayResp, err := gcpServer.CreateVpnGateway(ctx, utils.AZURE)
+	gcpVmPermitList := &invisinetspb.PermitList{
+		AssociatedResource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProject, gcpVmZone, gcpVmName),
+		Rules: []*invisinetspb.PermitListRule{
+			{
+				Direction: invisinetspb.Direction_INBOUND,
+				SrcPort:   -1,
+				DstPort:   -1,
+				Protocol:  1,
+				Tag:       []string{azureVmIpAddress},
+			},
+			{
+				Direction: invisinetspb.Direction_OUTBOUND,
+				SrcPort:   -1,
+				DstPort:   -1,
+				Protocol:  1,
+				Tag:       []string{azureVmIpAddress},
+			},
+			{ // SSH rule for debugging
+				Direction: invisinetspb.Direction_INBOUND,
+				SrcPort:   -1,
+				DstPort:   22,
+				Protocol:  6,
+				Tag:       []string{"0.0.0.0/0"},
+			},
+		},
+	}
+	gcpAddPermitListRulesResp, err := gcpServer.AddPermitListRules(ctx, gcpVmPermitList)
 	require.NoError(t, err)
-	fmt.Println("Created GCP VPN gateway")
+	require.NotNil(t, gcpAddPermitListRulesResp)
+	assert.True(t, gcpAddPermitListRulesResp.Success)
+	fmt.Println("Added GCP permit list rules")
 
-	// Create Azure VPN BGP
-	azureBgpIps, err := azureServer.CreateVpnBgp(ctx, azureSubscriptionId, azureResourceGroupName, utils.GCP)
+	// Create Azure permit list
+	gcpVmIpAddress, err := gcp.GetInstanceIpAddress(gcpProject, gcpVmZone, gcpVmName)
 	require.NoError(t, err)
-	// Create GCP VPN BGP
-	gcpBgpIps, err := gcpServer.CreateVpnBgp(ctx, utils.AZURE)
+	azureVmPermitList := &invisinetspb.PermitList{
+		AssociatedResource: azureVmId,
+		Rules: []*invisinetspb.PermitListRule{
+			{
+				Direction: invisinetspb.Direction_INBOUND,
+				SrcPort:   -1,
+				DstPort:   -1,
+				Protocol:  1,
+				Tag:       []string{gcpVmIpAddress},
+			},
+			{
+				Direction: invisinetspb.Direction_OUTBOUND,
+				SrcPort:   -1,
+				DstPort:   -1,
+				Protocol:  1,
+				Tag:       []string{gcpVmIpAddress},
+			},
+			{ // SSH rule for debugging
+				Direction: invisinetspb.Direction_INBOUND,
+				SrcPort:   -1,
+				DstPort:   22,
+				Protocol:  6,
+				Tag:       []string{"0.0.0.0/0"},
+			},
+		},
+	}
+	azureAddPermitListRulesResp, err := azureServer.AddPermitListRules(ctx, azureVmPermitList)
 	require.NoError(t, err)
+	require.NotNil(t, azureAddPermitListRulesResp)
+	assert.True(t, azureAddPermitListRulesResp.Success)
+	fmt.Println("Added Azure permit list rules")
 
-	sharedKey := "u92lKc2lSJtaO82dj1v557S7iIuZ7NlN" // TODO @seankimkdy: dynamically generate
-	// Create Azure VPN connections
-	_, err = azureServer.CreateVpnConnections(
-		ctx,
-		azureSubscriptionId,
-		azureResourceGroupName,
-		utils.GCP,
-		gcpCreateVpnGatewayResp.Asn,
-		"10.1.0.0/16", // Would be passed from other cloud plugin -> frontend
-		gcpCreateVpnGatewayResp.InterfaceIps,
-		gcpBgpIps,
-		sharedKey,
-	)
-	require.NoError(t, err)
-	fmt.Println("Created Azure VPN connections")
-	// Create GCP VPN connecitons
-	_, err = gcpServer.CreateVpnConnections(
-		ctx,
-		utils.AZURE,
-		azureCreateVpnGatewayResp.Asn,
-		"10.0.0.0/16", // Would be passed from other cloud plugin -> frontend
-		azureCreateVpnGatewayResp.InterfaceIps,
-		azureBgpIps,
-		sharedKey,
-	)
-	require.NoError(t, err)
-	fmt.Println("Created GCP VPN connections")
+	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
+	gcpVmEndpoint := &networkmanagementpb.Endpoint{
+		IpAddress: gcpVmIpAddress,
+		Network:   "projects/" + gcpProject + "/" + gcp.GetVpcUri(),
+		ProjectId: gcpProject,
+	}
+	azureVmEndpoint := &networkmanagementpb.Endpoint{
+		IpAddress:   azureVmIpAddress,
+		NetworkType: networkmanagementpb.Endpoint_NON_GCP_NETWORK,
+	}
+	gcp.RunPingConnectivityTest(t, gcpProject, "gcp-azure", gcpVmEndpoint, azureVmEndpoint)
+
+	// TODO @seankimkdy: add Azure network watcher test
 }

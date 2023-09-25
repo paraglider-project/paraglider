@@ -32,10 +32,11 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	utils "github.com/NetSys/invisinets/pkg/utils"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/api/option"
-	"google.golang.org/protobuf/proto"
 )
 
 // Fake project and resource
@@ -75,7 +76,7 @@ var (
 		},
 		Direction:    proto.String(computepb.Firewall_INGRESS.String()),
 		Name:         proto.String(getFirewallName(fakePermitListRule1)),
-		Network:      proto.String(getVPCURL()),
+		Network:      proto.String(GetVpcUri()),
 		SourceRanges: []string{"10.1.2.0/24"},
 		TargetTags:   []string{fakeNetworkTag},
 	}
@@ -95,16 +96,18 @@ var (
 		DestinationRanges: []string{"10.3.4.0/24"},
 		Direction:         proto.String(computepb.Firewall_EGRESS.String()),
 		Name:              proto.String(getFirewallName(fakePermitListRule2)),
-		Network:           proto.String(getVPCURL()),
+		Network:           proto.String(GetVpcUri()),
 		TargetTags:        []string{fakeNetworkTag},
 	}
 )
 
 // Fake instance
-var fakeInstance = &computepb.Instance{
-	Id:   proto.Uint64(fakeInstanceId),
-	Name: proto.String(fakeInstanceName),
-	Tags: &computepb.Tags{Items: []string{fakeNetworkTag}},
+func getFakeInstance() *computepb.Instance {
+	return &computepb.Instance{
+		Id:   proto.Uint64(fakeInstanceId),
+		Name: proto.String(fakeInstanceName),
+		Tags: &computepb.Tags{Items: []string{fakeNetworkTag}},
+	}
 }
 
 // Portions of GCP API URLs
@@ -204,6 +207,37 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponseFakeOperation(w)
 				return
 			}
+		// VPN Gateways
+		case strings.HasPrefix(path, urlProject+urlRegion+"/vpnGateways"):
+			if r.Method == "GET" {
+				if fakeServerState.vpnGateway != nil {
+					sendResponse(w, fakeServerState.vpnGateway)
+				} else {
+					http.Error(w, "no vpn gateway found", http.StatusNotFound)
+				}
+				return
+			} else if r.Method == "POST" {
+				sendResponseFakeOperation(w)
+				return
+			}
+		// External VPN Gateways
+		case strings.HasPrefix(path, urlProject+"/global/externalVpnGateways"):
+			if r.Method == "POST" {
+				sendResponseFakeOperation(w)
+				return
+			}
+		// VPN Tunnels
+		case strings.HasPrefix(path, urlProject+urlRegion+"/vpnTunnels"):
+			if r.Method == "POST" {
+				sendResponseFakeOperation(w)
+				return
+			}
+		// Routers
+		case strings.HasPrefix(path, urlProject+urlRegion+"/routers"):
+			if r.Method == "POST" || r.Method == "PATCH" {
+				sendResponseFakeOperation(w)
+				return
+			}
 		// Operations
 		case path == urlProject+"/global/operations/"+fakeOperation:
 			if r.Method == "GET" {
@@ -231,15 +265,21 @@ type fakeServerState struct {
 	firewallMap map[string]*computepb.Firewall
 	instance    *computepb.Instance
 	network     *computepb.Network
+	router      *computepb.Router
 	subnetwork  *computepb.Subnetwork
+	vpnGateway  *computepb.VpnGateway
 }
 
 // Struct to hold fake clients
 type fakeClients struct {
-	firewallsClient   *compute.FirewallsClient
-	instancesClient   *compute.InstancesClient
-	networksClient    *compute.NetworksClient
-	subnetworksClient *compute.SubnetworksClient
+	externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient
+	firewallsClient           *compute.FirewallsClient
+	instancesClient           *compute.InstancesClient
+	networksClient            *compute.NetworksClient
+	routersClient             *compute.RoutersClient
+	subnetworksClient         *compute.SubnetworksClient
+	vpnGatewaysClient         *compute.VpnGatewaysClient
+	vpnTunnelsClient          *compute.VpnTunnelsClient
 }
 
 // Sets up fake http server and fake GCP compute clients
@@ -250,6 +290,12 @@ func setup(t *testing.T, fakeServerState *fakeServerState, neededClients map[str
 
 	clientOptions := []option.ClientOption{option.WithoutAuthentication(), option.WithEndpoint(fakeServer.URL)}
 	var err error
+	if neededClients["externalVpnGateways"] {
+		fakeClients.externalVpnGatewaysClient, err = compute.NewExternalVpnGatewaysRESTClient(ctx, clientOptions...)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	if neededClients["firewalls"] {
 		fakeClients.firewallsClient, err = compute.NewFirewallsRESTClient(ctx, clientOptions...)
 		if err != nil {
@@ -268,8 +314,26 @@ func setup(t *testing.T, fakeServerState *fakeServerState, neededClients map[str
 			t.Fatal(err)
 		}
 	}
+	if neededClients["routers"] {
+		fakeClients.routersClient, err = compute.NewRoutersRESTClient(ctx, clientOptions...)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	if neededClients["subnetworks"] {
 		fakeClients.subnetworksClient, err = compute.NewSubnetworksRESTClient(ctx, clientOptions...)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if neededClients["vpnGateways"] {
+		fakeClients.vpnGatewaysClient, err = compute.NewVpnGatewaysRESTClient(ctx, clientOptions...)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if neededClients["vpnTunnels"] {
+		fakeClients.vpnTunnelsClient, err = compute.NewVpnTunnelsRESTClient(ctx, clientOptions...)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -297,7 +361,7 @@ func teardown(fakeServer *httptest.Server, fakeClients fakeClients) {
 
 func TestGetPermitList(t *testing.T) {
 	fakeServerState := &fakeServerState{
-		instance: fakeInstance,
+		instance: getFakeInstance(),
 		firewallMap: map[string]*computepb.Firewall{
 			*fakeFirewallRule1.Name: fakeFirewallRule1,
 			*fakeFirewallRule2.Name: fakeFirewallRule2,
@@ -310,7 +374,7 @@ func TestGetPermitList(t *testing.T) {
 				},
 				Direction:  proto.String(computepb.Firewall_INGRESS.String()),
 				Name:       proto.String("fw-allow-icmp"),
-				Network:    proto.String(getVPCURL()),
+				Network:    proto.String(GetVpcUri()),
 				TargetTags: []string{"0.0.0.0/0"},
 			},
 		},
@@ -345,10 +409,20 @@ func TestGetPermitListMissingInstance(t *testing.T) {
 }
 
 func TestAddPermitListRules(t *testing.T) {
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: fakeInstance}, map[string]bool{"instances": true, "firewalls": true})
+	fakeServerState := &fakeServerState{
+		instance: getFakeInstance(),
+		subnetwork: &computepb.Subnetwork{
+			IpCidrRange: proto.String("10.0.0.0/16"),
+		},
+	}
+	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
+		{Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet"))},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "firewalls": true, "subnetworks": true})
 	defer teardown(fakeServer, fakeClients)
 
-	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	fakeControllerServer, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	fakeControllerServer.Counter = 1
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -361,18 +435,18 @@ func TestAddPermitListRules(t *testing.T) {
 				Direction: invisinetspb.Direction_INBOUND,
 				DstPort:   443,
 				Protocol:  6,
-				Tag:       []string{"10.5.6.0/24"},
+				Tag:       []string{"10.0.0.1"},
 			},
 			{
 				Direction: invisinetspb.Direction_OUTBOUND,
 				DstPort:   8080,
 				Protocol:  6,
-				Tag:       []string{"10.7.8.0/24"},
+				Tag:       []string{"10.0.0.2"},
 			},
 		},
 	}
 
-	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
+	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.True(t, resp.Success)
@@ -382,7 +456,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{}, map[string]bool{"instances": true, "firewalls": true})
 	defer teardown(fakeServer, fakeClients)
 
-	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -400,20 +474,20 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 		},
 	}
 
-	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
+	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
 
 func TestAddPermitListRulesDuplicate(t *testing.T) {
 	fakeServerState := &fakeServerState{
-		instance:    fakeInstance,
+		instance:    getFakeInstance(),
 		firewallMap: map[string]*computepb.Firewall{*fakeFirewallRule1.Name: fakeFirewallRule1},
 	}
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "firewalls": true})
 	defer teardown(fakeServer, fakeClients)
 
-	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -424,13 +498,13 @@ func TestAddPermitListRulesDuplicate(t *testing.T) {
 		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1},
 	}
 
-	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
+	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
 
 func TestDeletePermitListRules(t *testing.T) {
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: fakeInstance}, map[string]bool{"instances": true, "firewalls": true})
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance()}, map[string]bool{"instances": true, "firewalls": true})
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
@@ -462,7 +536,7 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 
 func TestCreateResource(t *testing.T) {
 	fakeServerState := &fakeServerState{
-		instance: fakeInstance, // Include instance in server state since CreateResource will fetch after creating to add the tag
+		instance: getFakeInstance(), // Include instance in server state since CreateResource will fetch after creating to add the tag
 		network: &computepb.Network{
 			Name:        proto.String(vpcName),
 			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
@@ -475,7 +549,7 @@ func TestCreateResource(t *testing.T) {
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
 		Zone:             fakeZone,
-		InstanceResource: fakeInstance,
+		InstanceResource: getFakeInstance(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -489,10 +563,10 @@ func TestCreateResource(t *testing.T) {
 
 func TestCreateResourceMissingNetwork(t *testing.T) {
 	// Include instance in server state since CreateResource will fetch after creating to add the tag
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: fakeInstance}, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance()}, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
 	defer teardown(fakeServer, fakeClients)
 
-	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -501,7 +575,7 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
 		Zone:             fakeZone,
-		InstanceResource: fakeInstance,
+		InstanceResource: getFakeInstance(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -515,13 +589,13 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 
 func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	fakeServerState := &fakeServerState{
-		instance: fakeInstance, // Include instance in server state since CreateResource will fetch after creating to add the tag
+		instance: getFakeInstance(), // Include instance in server state since CreateResource will fetch after creating to add the tag
 		network:  &computepb.Network{Name: proto.String(vpcName)},
 	}
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
 	defer teardown(fakeServer, fakeClients)
 
-	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -531,7 +605,7 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
 		Zone:             fakeZone,
-		InstanceResource: fakeInstance,
+		InstanceResource: getFakeInstance(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -566,3 +640,89 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	require.NotNil(t, addressSpaceList)
 	assert.ElementsMatch(t, usedAddressSpacesExpected, addressSpaceList.AddressSpaces)
 }
+
+func TestCreateVpnGateway(t *testing.T) {
+	fakeVpnGatewayIpAddresses := []string{"1.1.1.1", "2.2.2.2"}
+	fakeServerState := &fakeServerState{
+		vpnGateway: &computepb.VpnGateway{
+			VpnInterfaces: []*computepb.VpnGatewayVpnGatewayInterface{
+				{IpAddress: proto.String(fakeVpnGatewayIpAddresses[0])},
+				{IpAddress: proto.String(fakeVpnGatewayIpAddresses[1])},
+			},
+		},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"vpnGateways": true, "routers": true})
+	defer teardown(fakeServer, fakeClients)
+
+	s := &GCPPluginServer{}
+	vpnRegion = fakeRegion
+
+	deployment := &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)}
+	resp, err := s._CreateVpnGateway(ctx, deployment, fakeClients.vpnGatewaysClient, fakeClients.routersClient)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.ElementsMatch(t, fakeVpnGatewayIpAddresses, resp.GatewayIpAddresses)
+}
+
+func TestCreateVpnBgpSessions(t *testing.T) {
+	fakeServerState := &fakeServerState{}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"routers": true})
+	defer teardown(fakeServer, fakeClients)
+
+	s := &GCPPluginServer{}
+	vpnRegion = fakeRegion
+
+	req := &invisinetspb.CreateVpnBgpSessionsRequest{
+		Deployment: &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
+		Cloud:      "fakeCloud",
+	}
+	resp, err := s._CreateVpnBgpSessions(ctx, req, fakeClients.routersClient)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.ElementsMatch(t, vpnGwBgpIpAddrs, resp.BgpIpAddresses)
+}
+
+func TestCreateVpnConnections(t *testing.T) {
+	fakeServerState := &fakeServerState{}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"externalVpnGateways": true, "vpnTunnels": true, "routers": true})
+	defer teardown(fakeServer, fakeClients)
+
+	s := &GCPPluginServer{}
+	vpnRegion = fakeRegion
+
+	req := &invisinetspb.CreateVpnConnectionsRequest{
+		Deployment:         &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
+		Cloud:              "fakecloud",
+		Asn:                65555,
+		AddressSpace:       "0.0.0.0/0",
+		GatewayIpAddresses: []string{"1.1.1.1", "2.2.2.2"},
+		BgpIpAddresses:     []string{"3.3.3.3", "4.4.4.4"},
+		SharedKey:          "abcd",
+	}
+	resp, err := s._CreateVpnConnections(ctx, req, fakeClients.externalVpnGatewaysClient, fakeClients.vpnTunnelsClient, fakeClients.routersClient)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.True(t, resp.Success)
+}
+
+// func TestBleh(t *testing.T) {
+// 	pl1 := &invisinetspb.PermitListRule{
+// 		Direction: invisinetspb.Direction_INBOUND,
+// 		SrcPort:   -1,
+// 		DstPort:   -1,
+// 		Protocol:  1,
+// 		Tag:       []string{"1.1.1.1"},
+// 	}
+// 	pl2 := &invisinetspb.PermitListRule{
+// 		Direction: invisinetspb.Direction_OUTBOUND,
+// 		SrcPort:   -1,
+// 		DstPort:   -1,
+// 		Protocol:  1,
+// 		Tag:       []string{"1.1.1.1"},
+// 	}
+// 	buf := new(bytes.Buffer)
+// 	_ = proto.MarshalText(buf, pl1)
+// 	fmt.Println(buf.String())
+// 	// fmt.Printf("%+v\n", pl2)
+
+// }

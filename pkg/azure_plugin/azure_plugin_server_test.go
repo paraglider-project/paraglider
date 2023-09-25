@@ -30,7 +30,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -175,11 +177,45 @@ func (m *mockAzureSDKHandler) GetVNet(ctx context.Context, vnetName string) (*ar
 }
 
 func (m *mockAzureSDKHandler) CreateOrUpdateVirtualNetworkGateway(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGateway) (*armnetwork.VirtualNetworkGateway, error) {
+	args := m.Called(ctx, name, parameters)
+	virtualNetworkGateway := args.Get(0)
+	if virtualNetworkGateway == nil {
+		return nil, args.Error(1)
+	}
+	return virtualNetworkGateway.(*armnetwork.VirtualNetworkGateway), args.Error(1)
+}
+
+func (m *mockAzureSDKHandler) GetVirtualNetworkGateway(ctx context.Context, name string) (*armnetwork.VirtualNetworkGateway, error) {
 	// TODO @seankimkdy
 	return nil, nil
 }
 
 func (m *mockAzureSDKHandler) CreatePublicIPAddress(ctx context.Context, name string, parameters armnetwork.PublicIPAddress) (*armnetwork.PublicIPAddress, error) {
+	// TODO @seankimkdy
+	return nil, nil
+}
+
+func (m *mockAzureSDKHandler) CreateSubnet(ctx context.Context, virtualNetworkName string, subnetName string, parameters armnetwork.Subnet) (*armnetwork.Subnet, error) {
+	// TODO @seankimkdy
+	return nil, nil
+}
+
+func (m *mockAzureSDKHandler) CreateLocalNetworkGateway(ctx context.Context, name string, parameters armnetwork.LocalNetworkGateway) (*armnetwork.LocalNetworkGateway, error) {
+	// TODO @seankimkdy
+	return nil, nil
+}
+
+func (m *mockAzureSDKHandler) GetLocalNetworkGateway(ctx context.Context, name string) (*armnetwork.LocalNetworkGateway, error) {
+	// TODO @seankimkdy
+	return nil, nil
+}
+
+func (m *mockAzureSDKHandler) CreateVirtualNetworkGatewayConnection(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGatewayConnection) (*armnetwork.VirtualNetworkGatewayConnection, error) {
+	// TODO @seankimkdy
+	return nil, nil
+}
+
+func (m *mockAzureSDKHandler) GetVirtualNetworkGatewayConnection(ctx context.Context, name string) (*armnetwork.VirtualNetworkGatewayConnection, error) {
 	// TODO @seankimkdy
 	return nil, nil
 }
@@ -398,12 +434,24 @@ func TestGetPermitList(t *testing.T) {
 }
 
 func TestAddPermitListRules(t *testing.T) {
+	fakeControllerServer, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.AZURE)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fakeControllerServer.Counter = 1
+	FrontendServerAddr = fakeControllerServerAddr
+
 	fakePl, fakeRuleDesc, err := getFakePermitList()
 	if err != nil {
 		t.Errorf("Error while getting fake permit list: %v", err)
 	}
 	fakeNsgName := "test-nsg-name"
 	fakeNic := getFakeNIC()
+	fakeNic.Properties.IPConfigurations[0].Properties.Subnet = &armnetwork.Subnet{
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: "10.0.0.6", // TODO @seankimkdy write function to generalize
+		},
+	}
 	fakeNsgID := *fakeNic.Properties.NetworkSecurityGroup.ID
 	fakeResourceAddress := *fakeNic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
 	fakeNsg := getFakeNsg(fakeNsgID, fakeNsgName)

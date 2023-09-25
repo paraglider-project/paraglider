@@ -67,10 +67,9 @@ const (
 	ikeVersion            = 2
 )
 
-// TODO @seankimkdy: replace these
+// TODO @seankimkdy: replace these in the future to be not hardcoded
+var vpnRegion = "us-west1" // Must be var as this is changed during unit tests
 const (
-	vpnProject        = "invisinets-playground"
-	vpnRegion         = "us-west1"
 	vpnGwAsn          = 64512 // TODO @seankimkdy: this should not be constant and rotate incrementally everytime a new gateway is created
 	vpnNumConnections = 2
 )
@@ -122,7 +121,7 @@ func init() {
 
 // Checks if GCP firewall rule is an Invisinets permit list rule
 func isInvisinetsPermitListRule(firewall *computepb.Firewall) bool {
-	return strings.HasSuffix(*firewall.Network, getVPCURL()) && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
+	return strings.HasSuffix(*firewall.Network, GetVpcUri()) && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
 }
 
 // Checks if GCP firewall rule is equivalent to an Invisinets permit list rule
@@ -209,11 +208,6 @@ func parseInstanceId(instanceId string) (string, string, string) {
 	return parsedInstanceId["projects"], parsedInstanceId["zones"], parsedInstanceId["instances"]
 }
 
-// Returns a GCP URL format of vpc
-func getVPCURL() string {
-	return "global/networks/" + vpcName
-}
-
 func getVpnGwUri(project, region, vpnGwName string) string {
 	return computeURLPrefix + fmt.Sprintf("projects/%s/regions/%s/vpnGateways/%s", project, region, vpnGwName)
 }
@@ -249,6 +243,20 @@ func getVpnTunnelInterfaceName(cloud string, tunnelIdx int, interfaceIdx int) st
 // Returns a BGP peer name
 func getBgpPeerName(cloud string, peerIdx int) string {
 	return bgpPeerNamePrefix + cloud + "-" + strconv.Itoa(peerIdx)
+}
+
+// Checks if GCP error response is a not found error
+func isErrorNotFound(err error) bool {
+	var e *googleapi.Error
+	ok := errors.As(err, &e)
+	return ok && e.Code == http.StatusNotFound
+}
+
+// Checks if GCP error response is a duplicate error
+func isErrorDuplicate(err error) bool {
+	var e *googleapi.Error
+	ok := errors.As(err, &e)
+	return ok && e.Code == http.StatusConflict
 }
 
 func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
@@ -321,7 +329,7 @@ func (s *GCPPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 	return s._GetPermitList(ctx, resourceID, instancesClient)
 }
 
-func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.BasicResponse, error) {
+func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.BasicResponse, error) {
 	project, zone, instance := parseInstanceId(permitList.AssociatedResource)
 
 	// Get existing firewalls
@@ -353,14 +361,27 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 	}
 	networkTag := getGCPNetworkTag(*getInstanceResp.Id)
 
+	// Get subnetwork address space
+	parsedSubnetworkUri := parseGCPURL(*getInstanceResp.NetworkInterfaces[0].Subnetwork)
+	getSubnetworkReq := &computepb.GetSubnetworkRequest{
+		Project:    project,
+		Region:     parsedSubnetworkUri["regions"],
+		Subnetwork: parsedSubnetworkUri["subnetworks"],
+	}
+	getSubnetworkResp, err := subnetworksClient.Get(ctx, getSubnetworkReq)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get subnetwork: %w", err)
+	}
+	subnetworkAddressSpace := *getSubnetworkResp.IpCidrRange
+
 	// Get used address spaces of all clouds
-	conn, err := grpc.Dial(FrontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	controllerConn, err := grpc.Dial(FrontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
 	}
-	defer conn.Close()
-	client := invisinetspb.NewControllerClient(conn)
-	usedAddressSpaceMappings, err := client.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	defer controllerConn.Close()
+	controllerClient := invisinetspb.NewControllerClient(controllerConn)
+	usedAddressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
@@ -374,36 +395,49 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			continue
 		}
 
-		// Skip public ip addresses
-		for _, tag := range permitListRule.Tag {
-			isPrivate, err := utils.IsAddressPrivate(tag)
-			if err != nil {
-				return nil, err
-			}
-			if isPrivate {
-				var cloud string
-				for _, usedAddressSpaces := range usedAddressSpaceMappings.AddressSpaceMappings {
-					for _, usedAddressSpace := range usedAddressSpaces.AddressSpaces {
-						contained, err := utils.IsPermitListRuleTagInAddressSpace(tag, usedAddressSpace)
-						if err != nil {
-							return nil, err
-						}
-						if contained {
-							cloud = usedAddressSpaces.Cloud
-							break
-						}
-					}
-				}
-				if cloud == "" {
-					return nil, fmt.Errorf("permit list rule tag must belong to a specific cloud if it's a private address")
-				} else if cloud != utils.GCP {
-					_, err := client.ConnectClouds(ctx, &invisinetspb.ConnectCloudsRequest{CloudA: utils.GCP, CloudB: cloud})
-					if err != nil {
-						return nil, fmt.Errorf("unsuccessful in connecting clouds: %w", err)
-					}
-				}
-			}
+		// Check and create multicloud connections as necessary
+		err = utils.CheckAndConnectClouds(utils.GCP, subnetworkAddressSpace, ctx, permitListRule, usedAddressSpaceMappings, controllerClient)
+		if err != nil {
+			return nil, fmt.Errorf("unable to check and connect clouds: %w", err)
 		}
+
+		// for _, tag := range permitListRule.Tag {
+		// 	isPrivate, err := utils.IsAddressPrivate(tag)
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
+		// 	if isPrivate {
+		// 		var cloud, cloudAddressSpace string
+		// 		for _, usedAddressSpaceMapping := range usedAddressSpaceMappings.AddressSpaceMappings {
+		// 			for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
+
+		// 				contained, err := utils.IsPermitListRuleTagInAddressSpace(tag, addressSpace)
+		// 				if err != nil {
+		// 					return nil, err
+		// 				}
+		// 				if contained {
+		// 					cloud = usedAddressSpaceMapping.Cloud
+		// 					cloudAddressSpace = addressSpace
+		// 					break
+		// 				}
+		// 			}
+		// 		}
+		// 		if cloud == "" {
+		// 			return nil, fmt.Errorf("permit list rule tag must belong to a specific cloud if it's a private address")
+		// 		} else if cloud != utils.GCP {
+		// 			connectCloudsRequest := &invisinetspb.ConnectCloudsRequest{
+		// 				CloudA:             utils.GCP,
+		// 				CloudAAddressSpace: subnetworkAddressSpace,
+		// 				CloudB:             cloud,
+		// 				CloudBAddressSpace: cloudAddressSpace,
+		// 			}
+		// 			_, err := controllerClient.ConnectClouds(ctx, connectCloudsRequest)
+		// 			if err != nil {
+		// 				return nil, fmt.Errorf("unsuccessful in connecting clouds: %w", err)
+		// 			}
+		// 		}
+		// 	}
+		// }
 
 		firewall := &computepb.Firewall{
 			Allowed: []*computepb.Allowed{
@@ -414,7 +448,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			Description: proto.String("Invisinets permit list"),
 			Direction:   proto.String(firewallDirectionMapInvisinetsToGCP[permitListRule.Direction]),
 			Name:        proto.String(firewallName),
-			Network:     proto.String(getVPCURL()),
+			Network:     proto.String(GetVpcUri()),
 			TargetTags:  []string{networkTag},
 		}
 		if permitListRule.DstPort != -1 {
@@ -432,6 +466,9 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			Project:          project,
 			FirewallResource: firewall,
 		}
+		fmt.Println("Inserting firewall")
+		fmt.Printf("PermitListRule:\n%+v\n", permitListRule)
+		fmt.Printf("Firewall:\n%+v\n", firewall)
 		insertFirewallOp, err := firewallsClient.Insert(ctx, insertFirewallReq)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create firewall rule: %w", err)
@@ -460,7 +497,13 @@ func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, permitList *in
 	}
 	defer instancesClient.Close()
 
-	return s._AddPermitListRules(ctx, permitList, firewallsClient, instancesClient)
+	subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewSubnetworksRESTClient: %w", err)
+	}
+	defer subnetworksClient.Close()
+
+	return s._AddPermitListRules(ctx, permitList, firewallsClient, instancesClient, subnetworksClient)
 }
 
 func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.BasicResponse, error) {
@@ -542,8 +585,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	}
 	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
 	if err != nil {
-		var e *googleapi.Error
-		if ok := errors.As(err, &e); ok && e.Code == http.StatusNotFound {
+		if isErrorNotFound(err) {
 			insertNetworkRequest := &computepb.InsertNetworkRequest{
 				Project: project,
 				NetworkResource: &computepb.Network{
@@ -596,7 +638,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 			SubnetworkResource: &computepb.Subnetwork{
 				Name:        proto.String(subnetName),
 				Description: proto.String("Invisinets subnetwork for " + region),
-				Network:     proto.String(getVPCURL()),
+				Network:     proto.String(GetVpcUri()),
 				IpCidrRange: proto.String(response.Address),
 			},
 		}
@@ -612,7 +654,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	// Configure network settings to Invisinets VPC and corresponding subnet
 	insertInstanceRequest.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
-			Network:    proto.String(getVPCURL()),
+			Network:    proto.String(GetVpcUri()),
 			Subnetwork: proto.String("regions/" + region + "/subnetworks/" + subnetName),
 		},
 	}
@@ -690,8 +732,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsD
 	}
 	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
 	if err != nil {
-		var e *googleapi.Error
-		if ok := errors.As(err, &e); ok && e.Code == http.StatusNotFound {
+		if isErrorNotFound(err) {
 			return addressSpaceList, nil
 		} else {
 			return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
@@ -732,35 +773,38 @@ func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, invisinetsDe
 	return s._GetUsedAddressSpaces(ctx, invisinetsDeployment, networksClient, subnetworksClient)
 }
 
-func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, cloud string, vpnGatewaysClient *compute.VpnGatewaysClient, routersClient *compute.RoutersClient) (*utils.CreateVpnGatewayResponse, error) {
-	// TODO @seankimkdy: check if gateway already exists and return information from there
+func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment, vpnGatewaysClient *compute.VpnGatewaysClient, routersClient *compute.RoutersClient) (*invisinetspb.CreateVpnGatewayResponse, error) {
+	project := parseGCPURL(deployment.Id)["projects"]
 
 	// Create VPN gateway
 	insertVpnGatewayReq := &computepb.InsertVpnGatewayRequest{
-		Project: vpnProject,
+		Project: project,
 		Region:  vpnRegion,
 		VpnGatewayResource: &computepb.VpnGateway{
 			Name:        proto.String(vpnGwName),
 			Description: proto.String("Invisinets VPN gateway for multicloud connections"),
-			Network:     proto.String(getVPCURL()),
+			Network:     proto.String(GetVpcUri()),
 		},
 	}
 	insertVpnGatewayOp, err := vpnGatewaysClient.Insert(ctx, insertVpnGatewayReq)
 	if err != nil {
-		return nil, fmt.Errorf("unable to insert vpn gateway: %w", err)
-	}
-	if err = insertVpnGatewayOp.Wait(ctx); err != nil {
-		return nil, fmt.Errorf("unable to wait on insert vpn gateway operation: %w", err)
+		if !isErrorDuplicate(err) {
+			return nil, fmt.Errorf("unable to insert vpn gateway: %w", err)
+		}
+	} else {
+		if err = insertVpnGatewayOp.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("unable to wait on insert vpn gateway operation: %w", err)
+		}
 	}
 
 	// Create router
 	insertRouterReq := &computepb.InsertRouterRequest{
-		Project: vpnProject,
+		Project: project,
 		Region:  vpnRegion,
 		RouterResource: &computepb.Router{
 			Name:        proto.String(routerName),
 			Description: proto.String("Invisinets router for multicloud connections"),
-			Network:     proto.String(getVPCURL()),
+			Network:     proto.String(GetVpcUri()),
 			Bgp: &computepb.RouterBgp{
 				Asn: proto.Uint32(vpnGwAsn),
 			},
@@ -768,33 +812,31 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, cloud string, v
 	}
 	insertRouterOp, err := routersClient.Insert(ctx, insertRouterReq)
 	if err != nil {
-		return nil, fmt.Errorf("unable to insert router: %w", err)
-	}
-	if err = insertRouterOp.Wait(ctx); err != nil {
-		return nil, fmt.Errorf("unable to wait on insert router operation: %w", err)
+		if !isErrorDuplicate(err) {
+			return nil, fmt.Errorf("unable to insert router: %w", err)
+		}
+	} else {
+		if err = insertRouterOp.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("unable to wait on insert router operation: %w", err)
+		}
 	}
 
-	// Get gateway interface IP addresses
 	getVpnGatewayReq := &computepb.GetVpnGatewayRequest{
-		Project:    vpnProject,
+		Project:    project,
 		Region:     vpnRegion,
 		VpnGateway: vpnGwName,
 	}
 	vpnGateway, err := vpnGatewaysClient.Get(ctx, getVpnGatewayReq)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get vpn gateway: %w", err)
-	}
-
-	resp := &utils.CreateVpnGatewayResponse{Asn: vpnGwAsn}
-	resp.InterfaceIps = make([]string, vpnNumConnections)
+	resp := &invisinetspb.CreateVpnGatewayResponse{Asn: vpnGwAsn}
+	resp.GatewayIpAddresses = make([]string, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {
-		resp.InterfaceIps[i] = *vpnGateway.VpnInterfaces[i].IpAddress
+		resp.GatewayIpAddresses[i] = *vpnGateway.VpnInterfaces[i].IpAddress
 	}
 
 	return resp, nil
 }
 
-func (s *GCPPluginServer) CreateVpnGateway(ctx context.Context, cloud string) (*utils.CreateVpnGatewayResponse, error) {
+func (s *GCPPluginServer) CreateVpnGateway(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.CreateVpnGatewayResponse, error) {
 	vpnGatewaysClient, err := compute.NewVpnGatewaysRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewVpnGatewaysRESTClient: %w", err)
@@ -805,12 +847,14 @@ func (s *GCPPluginServer) CreateVpnGateway(ctx context.Context, cloud string) (*
 		return nil, fmt.Errorf("NewRoutersRESTClient: %w", err)
 	}
 	defer routersClient.Close()
-	return s._CreateVpnGateway(ctx, cloud, vpnGatewaysClient, routersClient)
+	return s._CreateVpnGateway(ctx, deployment, vpnGatewaysClient, routersClient)
 }
 
-func (s *GCPPluginServer) _CreateVpnBgp(ctx context.Context, cloud string, routersClient *compute.RoutersClient) ([]string, error) {
+func (s *GCPPluginServer) _CreateVpnBgpSessions(ctx context.Context, req *invisinetspb.CreateVpnBgpSessionsRequest, routersClient *compute.RoutersClient) (*invisinetspb.CreateVpnBgpSessionsResponse, error) {
+	project := parseGCPURL(req.Deployment.Id)["projects"]
+
 	patchRouterReq := &computepb.PatchRouterRequest{
-		Project:        vpnProject,
+		Project:        project,
 		Region:         vpnRegion,
 		Router:         routerName,
 		RouterResource: &computepb.Router{},
@@ -818,9 +862,9 @@ func (s *GCPPluginServer) _CreateVpnBgp(ctx context.Context, cloud string, route
 	patchRouterReq.RouterResource.Interfaces = make([]*computepb.RouterInterface, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {
 		patchRouterReq.RouterResource.Interfaces[i] = &computepb.RouterInterface{
-			Name:            proto.String(getVpnTunnelInterfaceName(cloud, i, i)),
+			Name:            proto.String(getVpnTunnelInterfaceName(req.Cloud, i, i)),
 			IpRange:         proto.String(vpnGwBgpIpAddrs[i] + "/30"),
-			LinkedVpnTunnel: proto.String(getVpnTunnelUri(vpnProject, vpnRegion, getVpnTunnelName(cloud, i))),
+			LinkedVpnTunnel: proto.String(getVpnTunnelUri(project, vpnRegion, getVpnTunnelName(req.Cloud, i))),
 		}
 	}
 	patchRouterOp, err := routersClient.Patch(ctx, patchRouterReq)
@@ -831,34 +875,33 @@ func (s *GCPPluginServer) _CreateVpnBgp(ctx context.Context, cloud string, route
 		return nil, fmt.Errorf("unable to wait on patch router operation: %w", err)
 	}
 
-	return vpnGwBgpIpAddrs, nil
+	return &invisinetspb.CreateVpnBgpSessionsResponse{BgpIpAddresses: vpnGwBgpIpAddrs}, nil
 }
 
-func (s *GCPPluginServer) CreateVpnBgp(ctx context.Context, cloud string) ([]string, error) {
+func (s *GCPPluginServer) CreateVpnBgpSessions(ctx context.Context, req *invisinetspb.CreateVpnBgpSessionsRequest) (*invisinetspb.CreateVpnBgpSessionsResponse, error) {
 	routersClient, err := compute.NewRoutersRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewRoutersRESTClient: %w", err)
 	}
 	defer routersClient.Close()
-
-	return s._CreateVpnBgp(ctx, cloud, routersClient)
+	return s._CreateVpnBgpSessions(ctx, req, routersClient)
 }
 
-func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, cloud string, asn int64, addressSpace string, interfaceIps []string, bgpIps []string, sharedKey string, externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient, vpnTunnelsClient *compute.VpnTunnelsClient, routersClient *compute.RoutersClient) (*invisinetspb.Empty, error) {
+func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *invisinetspb.CreateVpnConnectionsRequest, externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient, vpnTunnelsClient *compute.VpnTunnelsClient, routersClient *compute.RoutersClient) (*invisinetspb.BasicResponse, error) {
+	project := parseGCPURL(req.Deployment.Id)["projects"]
+
 	insertExternalVpnGatewayReq := &computepb.InsertExternalVpnGatewayRequest{
-		Project: vpnProject,
+		Project: project,
 		ExternalVpnGatewayResource: &computepb.ExternalVpnGateway{
-			Name:           proto.String(getPeerGwName(cloud)),
-			Description:    proto.String("Invisinets peer gateway to " + cloud),
+			Name:           proto.String(getPeerGwName(req.Cloud)),
+			Description:    proto.String("Invisinets peer gateway to " + req.Cloud),
 			RedundancyType: proto.String(computepb.ExternalVpnGateway_TWO_IPS_REDUNDANCY.String()),
 		},
 	}
-	if len(interfaceIps) != 1 && len(interfaceIps) != 2 && len(interfaceIps) != 4 {
-		// TODO @seankimkdy: currently only 2 is supported but in the future, these will be the only ones
-		return nil, fmt.Errorf("invalid number of interface IP addresses provided: %d (must be 1, 2, or 4)", len(interfaceIps))
-	}
-	insertExternalVpnGatewayReq.ExternalVpnGatewayResource.Interfaces = make([]*computepb.ExternalVpnGatewayInterface, len(interfaceIps))
-	for i, interfaceIp := range interfaceIps {
+
+	// TODO @seankimkdy: when adding more clouds, check len(req.GatewayIpAddresses) to be either 1, 2, or 4 as allowed by GCP
+	insertExternalVpnGatewayReq.ExternalVpnGatewayResource.Interfaces = make([]*computepb.ExternalVpnGatewayInterface, len(req.GatewayIpAddresses))
+	for i, interfaceIp := range req.GatewayIpAddresses {
 		insertExternalVpnGatewayReq.ExternalVpnGatewayResource.Interfaces[i] = &computepb.ExternalVpnGatewayInterface{
 			Id:        proto.Uint32(uint32(i)),
 			IpAddress: proto.String(interfaceIp),
@@ -866,39 +909,45 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, cloud strin
 	}
 	insertExternalVpnGatewayOp, err := externalVpnGatewaysClient.Insert(ctx, insertExternalVpnGatewayReq)
 	if err != nil {
-		return nil, fmt.Errorf("unable to insert peer vpn gateway: %w", err)
-	}
-	if err = insertExternalVpnGatewayOp.Wait(ctx); err != nil {
-		return nil, fmt.Errorf("unable to wait on insert peer vpn gateway operation: %w", err)
+		if !isErrorDuplicate(err) {
+			return nil, fmt.Errorf("unable to insert external vpn gateway: %w", err)
+		}
+	} else {
+		if err = insertExternalVpnGatewayOp.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("unable to wait on insert external vpn gateway operation: %w", err)
+		}
 	}
 
 	for i := 0; i < vpnNumConnections; i++ {
 		insertVpnTunnelRequest := &computepb.InsertVpnTunnelRequest{
-			Project: vpnProject,
+			Project: project,
 			Region:  vpnRegion,
 			VpnTunnelResource: &computepb.VpnTunnel{
-				Name:                         proto.String(getVpnTunnelName(cloud, i)),
-				Description:                  proto.String(fmt.Sprintf("Invisinets VPN tunnel to %s (interface %d)", cloud, i)),
-				PeerExternalGateway:          proto.String(getPeerGwUri(vpnProject, getPeerGwName(cloud))),
+				Name:                         proto.String(getVpnTunnelName(req.Cloud, i)),
+				Description:                  proto.String(fmt.Sprintf("Invisinets VPN tunnel to %s (interface %d)", req.Cloud, i)),
+				PeerExternalGateway:          proto.String(getPeerGwUri(project, getPeerGwName(req.Cloud))),
 				PeerExternalGatewayInterface: proto.Int32(int32(i)),
 				IkeVersion:                   proto.Int32(ikeVersion),
-				SharedSecret:                 proto.String(sharedKey),
-				Router:                       proto.String(getRouterUri(vpnProject, vpnRegion, routerName)),
-				VpnGateway:                   proto.String(getVpnGwUri(vpnProject, vpnRegion, vpnGwName)),
+				SharedSecret:                 proto.String(req.SharedKey),
+				Router:                       proto.String(getRouterUri(project, vpnRegion, routerName)),
+				VpnGateway:                   proto.String(getVpnGwUri(project, vpnRegion, vpnGwName)),
 				VpnGatewayInterface:          proto.Int32(int32(i)), // TODO @seankimkdy: handle separately for four connections (AWS specific)?
 			},
 		}
 		insertVpnTunnelOp, err := vpnTunnelsClient.Insert(ctx, insertVpnTunnelRequest)
 		if err != nil {
-			return nil, fmt.Errorf("unable to insert vpn tunnel: %w", err)
-		}
-		if err = insertVpnTunnelOp.Wait(ctx); err != nil {
-			return nil, fmt.Errorf("unable to wait on insert vpn tunnel operation: %w", err)
+			if !isErrorDuplicate(err) {
+				return nil, fmt.Errorf("unable to insert vpn tunnel: %w", err)
+			}
+		} else {
+			if err = insertVpnTunnelOp.Wait(ctx); err != nil {
+				return nil, fmt.Errorf("unable to wait on insert vpn tunnel operation: %w", err)
+			}
 		}
 	}
 
 	patchRouterRequest := &computepb.PatchRouterRequest{
-		Project:        vpnProject,
+		Project:        project,
 		Region:         vpnRegion,
 		Router:         routerName,
 		RouterResource: &computepb.Router{},
@@ -906,9 +955,9 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, cloud strin
 	patchRouterRequest.RouterResource.BgpPeers = make([]*computepb.RouterBgpPeer, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {
 		patchRouterRequest.RouterResource.BgpPeers[i] = &computepb.RouterBgpPeer{
-			Name:          proto.String(getBgpPeerName(cloud, i)),
-			PeerIpAddress: proto.String(bgpIps[i]),
-			PeerAsn:       proto.Uint32(uint32(asn)),
+			Name:          proto.String(getBgpPeerName(req.Cloud, i)),
+			PeerIpAddress: proto.String(req.BgpIpAddresses[i]),
+			PeerAsn:       proto.Uint32(uint32(req.Asn)),
 		}
 	}
 	patchRouterOp, err := routersClient.Patch(ctx, patchRouterRequest)
@@ -919,10 +968,10 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, cloud strin
 		return nil, fmt.Errorf("unable to wait on setting up bgp sessions operation: %w", err)
 	}
 
-	return nil, nil
+	return &invisinetspb.BasicResponse{Success: true}, nil
 }
 
-func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, cloud string, asn int64, addressSpace string, interfaceIps []string, bgpIps []string, sharedKey string) (*invisinetspb.Empty, error) {
+func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, req *invisinetspb.CreateVpnConnectionsRequest) (*invisinetspb.BasicResponse, error) {
 	externalVpnGatewaysClient, err := compute.NewExternalVpnGatewaysRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewExternalVpnGatewaysClient: %w", err)
@@ -938,119 +987,5 @@ func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, cloud string
 		return nil, fmt.Errorf("NewRoutersRESTClient: %w", err)
 	}
 	defer routersClient.Close()
-	return s._CreateVpnConnections(ctx, cloud, asn, addressSpace, interfaceIps, bgpIps, sharedKey, externalVpnGatewaysClient, vpnTunnelsClient, routersClient)
+	return s._CreateVpnConnections(ctx, req, externalVpnGatewaysClient, vpnTunnelsClient, routersClient)
 }
-
-// func (s *GCPPluginServer) _SetupPeerGateway(ctx context.Context, cloud string, interfaceIps []string, externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient) error {
-// 	insertExternalVpnGatewayReq := &computepb.InsertExternalVpnGatewayRequest{
-// 		Project: vpnProject,
-// 		ExternalVpnGatewayResource: &computepb.ExternalVpnGateway{
-// 			Name:        proto.String(getPeerGwName(cloud)),
-// 			Description: proto.String("Invisinets peer gateway to " + cloud),
-// 		},
-// 	}
-// 	if len(interfaceIps) != 1 || len(interfaceIps) != 2 || len(interfaceIps) != 4 {
-// 		// TODO @seankimkdy: currently only 2 is supported but in the future, these will be the only ones
-// 		return fmt.Errorf("invalid number of interface IP addresses provided: %d (must be 1, 2, or 4)", len(interfaceIps))
-// 	}
-// 	insertExternalVpnGatewayReq.ExternalVpnGatewayResource.Interfaces = make([]*computepb.ExternalVpnGatewayInterface, len(interfaceIps))
-// 	for i, interfaceIp := range interfaceIps {
-// 		insertExternalVpnGatewayReq.ExternalVpnGatewayResource.Interfaces[i] = &computepb.ExternalVpnGatewayInterface{
-// 			Id:        proto.Uint32(uint32(i)),
-// 			IpAddress: proto.String(interfaceIp),
-// 		}
-// 	}
-// 	insertExternalVpnGatewayOp, err := externalVpnGatewaysClient.Insert(ctx, insertExternalVpnGatewayReq)
-// 	if err != nil {
-// 		return fmt.Errorf("unable to insert peer vpn gateway: %w", err)
-// 	}
-// 	if err = insertExternalVpnGatewayOp.Wait(ctx); err != nil {
-// 		return fmt.Errorf("unable to wait on insert peer vpn gateway operation: %w", err)
-// 	}
-// 	return nil
-// }
-
-// func (s *GCPPluginServer) SetupPeerGateway(ctx context.Context, cloud string, interfaceIps []string) error {
-// 	externalVpnGatewaysClient, err := compute.NewExternalVpnGatewaysRESTClient(ctx)
-// 	if err != nil {
-// 		return fmt.Errorf("NewExternalVpnGatewaysClient: %w", err)
-// 	}
-// 	return s._SetupPeerGateway(ctx, cloud, interfaceIps, externalVpnGatewaysClient)
-// }
-
-// func (s *GCPPluginServer) _SetupVpnTunnels(ctx context.Context, cloud string, numInterfaces int, sharedSecret string, vpnTunnelsClient *compute.VpnTunnelsClient) error {
-// 	for i := 0; i < numInterfaces; i++ {
-// 		insertVpnTunnelRequest := &computepb.InsertVpnTunnelRequest{
-// 			Project: vpnProject,
-// 			Region:  vpnRegion,
-// 			VpnTunnelResource: &computepb.VpnTunnel{
-// 				Name:                         proto.String(getVpnTunnelName(cloud, i)),
-// 				Description:                  proto.String(fmt.Sprintf("Invisinets VPN tunnel to %s (interface %d)", cloud, i)),
-// 				PeerExternalGateway:          proto.String(getPeerGwName(cloud)),
-// 				PeerExternalGatewayInterface: proto.Int32(int32(i)),
-// 				IkeVersion:                   proto.Int32(ikeVersion),
-// 				SharedSecret:                 proto.String(sharedSecret),
-// 				Router:                       proto.String(routerName),
-// 				VpnGateway:                   proto.String(vpnGwName),
-// 				VpnGatewayInterface:          proto.Int32(int32(i)), // TODO @seankimkdy: handle separately for four connections (AWS specific)?
-// 			},
-// 		}
-// 		insertVpnTunnelOp, err := vpnTunnelsClient.Insert(ctx, insertVpnTunnelRequest)
-// 		if err != nil {
-// 			return fmt.Errorf("unable to insert vpn tunnel: %w", err)
-// 		}
-// 		if err = insertVpnTunnelOp.Wait(ctx); err != nil {
-// 			return fmt.Errorf("unable to wait on insert vpn tunnel operation: %w", err)
-// 		}
-// 	}
-// 	return nil
-// }
-
-// func (s *GCPPluginServer) SetupVpnTunnels(ctx context.Context, cloud string, numInterfaces int, sharedSecret string) error {
-// 	vpnTunnelsClient, err := compute.NewVpnTunnelsRESTClient(ctx)
-// 	if err != nil {
-// 		return fmt.Errorf("NewVpnTunnelsRESTClient: %w", err)
-// 	}
-// 	return s._SetupVpnTunnels(ctx, cloud, numInterfaces, sharedSecret, vpnTunnelsClient)
-// }
-
-// func (s *GCPPluginServer) _SetupBgpSessions(ctx context.Context, peerCloud string, numInterfaces int, peerAsn int, peerIpAddrs []string, routersClient *compute.RoutersClient) error {
-// 	patchRouterRequest := &computepb.PatchRouterRequest{
-// 		Project: vpnProject,
-// 		Region:  vpnRegion,
-// 		Router:  routerName,
-// 	}
-// 	patchRouterRequest.RouterResource.Interfaces = make([]*computepb.RouterInterface, numInterfaces)
-// 	patchRouterRequest.RouterResource.BgpPeers = make([]*computepb.RouterBgpPeer, numInterfaces)
-// 	bgp_interface_ips := []string{"169.254.21.2", "169.254.22.2"} // TODO @seankimkdy: change to be dynamic and dependent on peering cloud (e.g. Azure needs APIPA)
-// 	for i := 0; i < numInterfaces; i++ {
-// 		// TODO @seankimkdy: may have to split up adding interfaces and adding bgp peers
-// 		patchRouterRequest.RouterResource.Interfaces[i] = &computepb.RouterInterface{
-// 			Name:            proto.String(getVpnTunnelInterfaceName(peerCloud, i, i)),
-// 			IpRange:         proto.String(bgp_interface_ips[i] + "/30"),
-// 			LinkedVpnTunnel: proto.String(getVpnTunnelUri(vpnProject, vpnRegion, getVpnTunnelName(peerCloud, i))),
-// 		}
-// 		patchRouterRequest.RouterResource.BgpPeers[i] = &computepb.RouterBgpPeer{
-// 			Name:          proto.String(getBgpPeerName(peerCloud, i)),
-// 			PeerIpAddress: proto.String(peerIpAddrs[i]),
-// 			PeerAsn:       proto.Uint32(uint32(peerAsn)),
-// 		}
-// 	}
-// 	patchRouterOp, err := routersClient.Patch(ctx, patchRouterRequest)
-// 	if err != nil {
-// 		return fmt.Errorf("unable to setup bgp sessions: %w", err)
-// 	}
-// 	if err = patchRouterOp.Wait(ctx); err != nil {
-// 		return fmt.Errorf("unable to wait on setting up bgp sessions operation: %w", err)
-// 	}
-
-// 	return nil
-// }
-
-// func (s *GCPPluginServer) SetupBgpSessions(ctx context.Context, peerCloud string, numInterfaces int, peerAsn int, peerIpAddrs []string) error {
-// 	routersClient, err := compute.NewRoutersRESTClient(ctx)
-// 	if err != nil {
-// 		return fmt.Errorf("NewRoutersRESTClient: %w", err)
-// 	}
-// 	return s._SetupBgpSessions(ctx, peerCloud, numInterfaces, peerAsn, peerIpAddrs, routersClient)
-// }

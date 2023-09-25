@@ -18,15 +18,17 @@ package gcp
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
+	"testing"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
-	"google.golang.org/api/googleapi"
+	networkmanagement "cloud.google.com/go/networkmanagement/apiv1"
+	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
+	utils "github.com/NetSys/invisinets/pkg/utils"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -43,46 +45,53 @@ func GetGcpProject() string {
 	return project
 }
 
+func teardownPanic(msg string, err error) {
+	const docstringMsg = "see docstring of TeardownGcpTesting on how to manually delete resources"
+	panic(fmt.Sprintf("%s (%s): %v", msg, docstringMsg, err))
+}
+
 // Cleans up any resources that were created
-// If you got a panic while the tests ran, you may need to manually clean up resources, which is most easily done through the console.
-// 1. Delete VMs (https://cloud.google.com/compute/docs/instances/deleting-instance).
-// 2. Delete VPC (https://cloud.google.com/vpc/docs/create-modify-vpc-networks#deleting_a_network). Doing this in the console should delete any associated firewalls and subnets.
+// If you got a panic while the tests ran, you may need to manually clean up resources.
+// Here is the order for deleting resources when deleting through the console
+// - instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC
 func TeardownGcpTesting(teardownInfo *GcpTestTeardownInfo) {
-	// Delete VMs
-	instancesClient, err := compute.NewInstancesRESTClient(context.Background())
+	ctx := context.Background()
+
+	// Instances
+	instancesClient, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
-		panic(fmt.Sprintf("Error while creating client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
+		teardownPanic("unable to create instances client", err)
 	}
+	defer instancesClient.Close()
 	for _, insertInstanceReq := range teardownInfo.InsertInstanceReqs {
 		deleteInstanceReq := &computepb.DeleteInstanceRequest{
 			Project:  insertInstanceReq.Project,
 			Zone:     insertInstanceReq.Zone,
 			Instance: *insertInstanceReq.InstanceResource.Name,
 		}
-		deleteInstanceReqOp, err := instancesClient.Delete(context.Background(), deleteInstanceReq)
+		deleteInstanceReqOp, err := instancesClient.Delete(ctx, deleteInstanceReq)
 		if err != nil {
-			var e *googleapi.Error
-			if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
-				// Ignore 404 errors since resource may not have been created due to an error while running the test
-				panic(fmt.Sprintf("Error on delete instance request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
+			if !isErrorNotFound(err) {
+				teardownPanic("unable to delete instance", err)
 			}
 		} else {
-			err = deleteInstanceReqOp.Wait(context.Background())
-			if err != nil {
-				panic(fmt.Sprintf("Error while waiting on delete instance op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
+			if err = deleteInstanceReqOp.Wait(ctx); err != nil {
+				teardownPanic("unable to wait on delete instance operation", err)
 			}
 		}
 	}
 
-	// Delete subnetworks
-	networksClient, err := compute.NewNetworksRESTClient(context.Background())
+	// Subnetworks
+	networksClient, err := compute.NewNetworksRESTClient(ctx)
 	if err != nil {
-		panic(fmt.Sprintf("Error while creating networks client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
+		teardownPanic("unable to create networks client", err)
 	}
-	subnetworksClient, err := compute.NewSubnetworksRESTClient(context.Background())
+	defer networksClient.Close()
+	subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
 	if err != nil {
-		panic(fmt.Sprintf("Error while creating subnetworks client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
+		teardownPanic("unable to create subnetworks client", err)
 	}
+	defer subnetworksClient.Close()
 	deletedSubnetworkRegions := map[string]bool{}
 	for _, insertInstanceReq := range teardownInfo.InsertInstanceReqs {
 		region := insertInstanceReq.Zone[:strings.LastIndex(insertInstanceReq.Zone, "-")]
@@ -92,80 +101,184 @@ func TeardownGcpTesting(teardownInfo *GcpTestTeardownInfo) {
 				Region:     region,
 				Subnetwork: getGCPSubnetworkName(region),
 			}
-			deleteSubnetworkOp, err := subnetworksClient.Delete(context.Background(), deleteSubnetworkReq)
+			deleteSubnetworkOp, err := subnetworksClient.Delete(ctx, deleteSubnetworkReq)
 			if err != nil {
-				var e *googleapi.Error
-				if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
-					// Ignore 404 errors since resource may not have been created due to an error while running the test
-					panic(fmt.Sprintf("Error on delete subnetwork request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
+				if !isErrorNotFound(err) {
+					teardownPanic("unable to delete subnetwork", err)
 				}
 			} else {
-				err = deleteSubnetworkOp.Wait(context.Background())
-				if err != nil {
-					panic(fmt.Sprintf("Error while waiting on delete subnetwork op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
+				if err = deleteSubnetworkOp.Wait(ctx); err != nil {
+					teardownPanic("unable to wait on delete subnetwork operation", err)
 				}
 			}
 			deletedSubnetworkRegions[region] = true
 		}
 	}
 
-	// Delete firewalls
+	// Firewalls
 	getEffectiveFirewallsReq := &computepb.GetEffectiveFirewallsNetworkRequest{
 		Project: teardownInfo.Project,
 		Network: vpcName,
 	}
-	getEffectiveFirewallsResp, err := networksClient.GetEffectiveFirewalls(context.Background(), getEffectiveFirewallsReq)
+	getEffectiveFirewallsResp, err := networksClient.GetEffectiveFirewalls(ctx, getEffectiveFirewallsReq)
 	if err != nil {
-		panic(fmt.Sprintf("Error while getting firewalls (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
+		teardownPanic("unable to get effective firewalls", err)
 	}
-	firewallsClient, err := compute.NewFirewallsRESTClient(context.Background())
+	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
 	if err != nil {
-		panic(fmt.Sprintf("Error while creating firewalls client (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
+		teardownPanic("unable to create firewalls client", err)
 	}
+	defer firewallsClient.Close()
 	for _, firewall := range getEffectiveFirewallsResp.Firewalls {
 		deleteFirewallReq := &computepb.DeleteFirewallRequest{
 			Firewall: *firewall.Name,
 			Project:  teardownInfo.Project,
 		}
-		deleteFirewallOp, err := firewallsClient.Delete(context.Background(), deleteFirewallReq)
+		deleteFirewallOp, err := firewallsClient.Delete(ctx, deleteFirewallReq)
 		if err != nil {
-			var e *googleapi.Error
-			if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
-				// Ignore 404 errors since resource may not have been created due to an error while running the test
-				panic(fmt.Sprintf("Error on delete firewall request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
+			if !isErrorNotFound(err) {
+				teardownPanic("unable to delete firewall", err)
 			}
 		} else {
-			err = deleteFirewallOp.Wait(context.Background())
-			if err != nil {
-				panic(fmt.Sprintf("Error while waiting on delete firewall op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
+			if err = deleteFirewallOp.Wait(ctx); err != nil {
+				teardownPanic("unable to wait on delete firewall operation", err)
 			}
 		}
 	}
 
-	// TODO @seankimkdy: delete all VPN related resources
+	// VPN tunnels, router
+	routersClient, err := compute.NewRoutersRESTClient(ctx)
+	if err != nil {
+		teardownPanic("unable to create routers client", err)
+	}
+	defer routersClient.Close()
+	externalVpnGatewayNames := map[string]bool{}
+	getRouterReq := &computepb.GetRouterRequest{
+		Project: teardownInfo.Project,
+		Region:  vpnRegion,
+		Router:  routerName,
+	}
+	router, err := routersClient.Get(ctx, getRouterReq)
+	if err != nil {
+		if !isErrorNotFound(err) {
+			teardownPanic("unable to get router", err)
+		}
+	} else {
+		vpnTunnelsClient, err := compute.NewVpnTunnelsRESTClient(ctx)
+		if err != nil {
+			teardownPanic("unable to create vpn tunnels client", err)
+		}
+		defer vpnTunnelsClient.Close()
+		for _, routerInterface := range router.Interfaces {
+			vpnTunnelName := parseGCPURL(*routerInterface.LinkedVpnTunnel)["vpnTunnels"]
+			fmt.Println(vpnTunnelName)
+			getVpnTunnelReq := &computepb.GetVpnTunnelRequest{
+				Project:   teardownInfo.Project,
+				Region:    vpnRegion,
+				VpnTunnel: vpnTunnelName,
+			}
+			vpnTunnel, err := vpnTunnelsClient.Get(ctx, getVpnTunnelReq)
+			if err != nil {
+				// No ErrorNotFound checking here since vpn tunnel is expected to exist according to the router
+				teardownPanic("unable to get vpn tunnel", err)
+			}
+			// TODO @seankimkdy: use parseGCPURL once it's fixed to work with global resources since external vpn gateways are global
+			externalVpnGatewayUriSplit := strings.Split(*vpnTunnel.PeerExternalGateway, "/")
+			externalVpnGatewayName := externalVpnGatewayUriSplit[len(externalVpnGatewayUriSplit)-1]
+			if externalVpnGatewayName != "" && !externalVpnGatewayNames[externalVpnGatewayName] {
+				externalVpnGatewayNames[externalVpnGatewayName] = true
+			}
+			deleteVpnTunnelReq := &computepb.DeleteVpnTunnelRequest{
+				Project:   teardownInfo.Project,
+				Region:    vpnRegion,
+				VpnTunnel: vpnTunnelName,
+			}
+			deleteVpnTunnelOp, err := vpnTunnelsClient.Delete(ctx, deleteVpnTunnelReq)
+			if err != nil {
+				teardownPanic("unable to delete vpn tunnel", err)
+			}
+			if err = deleteVpnTunnelOp.Wait(ctx); err != nil {
+				teardownPanic("unable to wait on delete vpn tunnel operation", err)
+			}
+		}
 
-	// Delete VPC
+		deleteRouterReq := &computepb.DeleteRouterRequest{
+			Project: teardownInfo.Project,
+			Region:  vpnRegion,
+			Router:  routerName,
+		}
+		deleteRouterOp, err := routersClient.Delete(ctx, deleteRouterReq)
+		if err != nil {
+			// No ErrorNotFound checking here since the GET request for router succeeded
+			teardownPanic("unable to delete router", err)
+		}
+		if err = deleteRouterOp.Wait(ctx); err != nil {
+			teardownPanic("unable to wait on delete router operation", err)
+		}
+	}
+
+	// External VPN gateway
+	externalVpnGatewaysClient, err := compute.NewExternalVpnGatewaysRESTClient(ctx)
+	if err != nil {
+		teardownPanic("unable to create external vpn gateways client", err)
+	}
+	defer externalVpnGatewaysClient.Close()
+	for externalVpnGatewayName := range externalVpnGatewayNames {
+		deleteExternalVpnGatewayReq := &computepb.DeleteExternalVpnGatewayRequest{
+			Project:            teardownInfo.Project,
+			ExternalVpnGateway: externalVpnGatewayName,
+		}
+		fmt.Println(externalVpnGatewayName)
+		deleteExternalVpnGatewayOp, err := externalVpnGatewaysClient.Delete(ctx, deleteExternalVpnGatewayReq)
+		if err != nil {
+			// No ErrorNotFound checking here since external vpn gateway definitvely exists
+			teardownPanic("unable to delete external vpn gateway", err)
+		}
+		if err = deleteExternalVpnGatewayOp.Wait(ctx); err != nil {
+			teardownPanic("unable to wait on delete external vpn gateway operation", err)
+		}
+	}
+
+	// VPN gateway
+	vpnGatewaysClient, err := compute.NewVpnGatewaysRESTClient(ctx)
+	if err != nil {
+		teardownPanic("unable to create vpn gateways client", err)
+	}
+	defer vpnGatewaysClient.Close()
+	deleteVpnGatewayReq := &computepb.DeleteVpnGatewayRequest{
+		Project:    teardownInfo.Project,
+		Region:     vpnRegion,
+		VpnGateway: vpnGwName,
+	}
+	deleteVpnGatewayOp, err := vpnGatewaysClient.Delete(ctx, deleteVpnGatewayReq)
+	if err != nil {
+		if !isErrorNotFound(err) {
+			teardownPanic("unable to delete vpn gateway", err)
+		}
+	} else {
+		if err = deleteVpnGatewayOp.Wait(ctx); err != nil {
+			teardownPanic("unable to wait on delete vpn gateway operation", err)
+		}
+	}
+
+	// VPC
 	deleteNetworkReq := &computepb.DeleteNetworkRequest{
 		Project: teardownInfo.Project,
 		Network: vpcName,
 	}
-	deleteNetworkOp, err := networksClient.Delete(context.Background(), deleteNetworkReq)
+	deleteNetworkOp, err := networksClient.Delete(ctx, deleteNetworkReq)
 	if err != nil {
-		var e *googleapi.Error
-		if ok := errors.As(err, &e); !ok || e.Code != http.StatusNotFound {
-			// Ignore 404 errors since resource may not have been created due to an error while running the test
-			panic(fmt.Sprintf("Error on delete subnetwork request (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
+		if !isErrorNotFound(err) {
+			teardownPanic("unable to delete network", err)
 		}
 	} else {
-		err = deleteNetworkOp.Wait(context.Background())
-		if err != nil {
-			panic(fmt.Sprintf("Error while waiting on delete network op (see docstring of teardownIntegrationTest on how to manually delete resources): %v", err))
+		if err = deleteNetworkOp.Wait(ctx); err != nil {
+			teardownPanic("unable to wait on delete network operation", err)
 		}
 	}
 }
 
-// TODO @seankimkdy: change existing integation test to use this method
-func GetTestVmParameters(project string, name string, zone string) *computepb.InsertInstanceRequest {
+func GetTestVmParameters(project string, zone string, name string) *computepb.InsertInstanceRequest {
 	return &computepb.InsertInstanceRequest{
 		Project: project,
 		Zone:    zone,
@@ -185,4 +298,66 @@ func GetTestVmParameters(project string, name string, zone string) *computepb.In
 			},
 		},
 	}
+}
+
+func GetInstanceIpAddress(project string, zone string, instanceName string) (string, error) {
+	ctx := context.Background()
+	instancesClient, err := compute.NewInstancesRESTClient(ctx)
+	if err != nil {
+		return "", fmt.Errorf("NewInstancesRESTClient: %w", err)
+	}
+	getInstanceReq := &computepb.GetInstanceRequest{
+		Instance: instanceName,
+		Project:  project,
+		Zone:     zone,
+	}
+	instance, err := instancesClient.Get(ctx, getInstanceReq)
+	if err != nil {
+		return "", fmt.Errorf("unable to get instance: %w", err)
+	}
+	return *instance.NetworkInterfaces[0].NetworkIP, nil
+}
+
+// Runs connectivity test between two endpoints
+func RunPingConnectivityTest(t *testing.T, project string, name string, srcEndpoint *networkmanagementpb.Endpoint, dstEndpoint *networkmanagementpb.Endpoint) {
+	ctx := context.Background()
+	reachabilityClient, err := networkmanagement.NewReachabilityClient(ctx) // Can't use REST client for some reason (filed as bug within Google internally)
+	if err != nil {
+		t.Fatal(err)
+	}
+	connectivityTestId := utils.GetGitHubRunPrefix() + "connectivity-test-" + name
+	createConnectivityTestReq := &networkmanagementpb.CreateConnectivityTestRequest{
+		Parent: "projects/" + project + "/locations/global",
+		TestId: connectivityTestId,
+		Resource: &networkmanagementpb.ConnectivityTest{
+			Name:        "projects/" + project + "/locations/global/connectivityTests" + connectivityTestId,
+			Protocol:    "ICMP",
+			Source:      srcEndpoint,
+			Destination: dstEndpoint,
+		},
+	}
+	createConnectivityTestOp, err := reachabilityClient.CreateConnectivityTest(ctx, createConnectivityTestReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	connectivityTest, err := createConnectivityTestOp.Wait(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, networkmanagementpb.ReachabilityDetails_REACHABLE, connectivityTest.ReachabilityDetails.Result)
+	deleteConnectivityTestReq := &networkmanagementpb.DeleteConnectivityTestRequest{Name: connectivityTest.Name}
+	deleteConnectivityTestOp, err := reachabilityClient.DeleteConnectivityTest(ctx, deleteConnectivityTestReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = deleteConnectivityTestOp.Wait(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Returns VPC for Invisinets in a shortened GCP URI format
+// TODO @seankimkdy: should return full URI
+func GetVpcUri() string {
+	return "global/networks/" + vpcName
 }
