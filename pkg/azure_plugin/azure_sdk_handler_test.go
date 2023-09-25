@@ -44,28 +44,38 @@ import (
 )
 
 const (
-	testLocation             = "eastus"
-	subID                    = "subid-test"
-	rgName                   = "rg-test"
-	vmResourceID             = "vm-resource-id"
-	vmResourceName           = "vm-resource-name"
-	invalidVmResourceID      = "invalid-vm-resource-id"
-	invalidVmResourceName    = "invalid-vm-resource-name"
-	invalidResourceID        = "invalid-resource-id"
-	validNicId               = "nic/id/nic-name-test"
-	validNicName             = "nic-name-test"
-	invalidNicId             = "invalid-nic-id"
-	invalidNicName           = "invalid-nic-name"
-	invalidResourceType      = "invalid-type"
-	validSecurityRuleName    = "valid-security-rule-name"
-	invalidSecurityRuleName  = "invalid-security-rule-name"
-	validSecurityGroupID     = "valid-security-group-id"
-	validSecurityGroupName   = validNicName + nsgNameSuffix
-	invalidSecurityGroupName = "invalid-security-group-name"
-	validVnetName            = "invisinets-valid-vnet-name"
-	notFoundVnetName         = "invisinets-not-found-vnet-name"
-	invalidVnetName          = "invalid-vnet-name"
-	validAddressSpace        = "10.0.0.0/16"
+	testLocation                               = "eastus"
+	subID                                      = "subid-test"
+	rgName                                     = "rg-test"
+	vmResourceID                               = "vm-resource-id"
+	vmResourceName                             = "vm-resource-name"
+	invalidVmResourceID                        = "invalid-vm-resource-id"
+	invalidVmResourceName                      = "invalid-vm-resource-name"
+	invalidResourceID                          = "invalid-resource-id"
+	validNicId                                 = "nic/id/nic-name-test"
+	validNicName                               = "nic-name-test"
+	invalidNicId                               = "invalid-nic-id"
+	invalidNicName                             = "invalid-nic-name"
+	invalidResourceType                        = "invalid-type"
+	validSecurityRuleName                      = "valid-security-rule-name"
+	invalidSecurityRuleName                    = "invalid-security-rule-name"
+	validSecurityGroupID                       = "valid-security-group-id"
+	validSecurityGroupName                     = validNicName + nsgNameSuffix
+	invalidSecurityGroupName                   = "invalid-security-group-name"
+	validVnetName                              = "invisinets-valid-vnet-name"
+	notFoundVnetName                           = "invisinets-not-found-vnet-name"
+	invalidVnetName                            = "invalid-vnet-name"
+	validAddressSpace                          = "10.0.0.0/16"
+	validVirtualNetworkGatewayName             = "valid-virtual-network-gateway"
+	invalidVirtualNetworkGatewayName           = "invalid-virtual-network-gateway"
+	validPublicIpAddressName                   = "valid-public-ip-address-name"
+	invalidPublicIpAddressName                 = "invalid-public-ip-address-name"
+	validSubnetName                            = "valid-subnet-name"
+	invalidSubnetName                          = "invalid-subnet-name"
+	validLocalNetworkGatewayName               = "valid-local-network-gateway"
+	invalidLocalNetworkGatewayName             = "invalid-local-network-gateway"
+	validVirtualNetworkGatewayConnectionName   = "valid-virtual-network-gateway-connection"
+	invalidVirtualNetworkGatewayConnectionName = "invalid-virtual-network-gateway-connection"
 )
 
 var (
@@ -157,8 +167,11 @@ func initializeReqRespMap() map[string]interface{} {
 	vnetUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
 	listVnetsUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
 	vnetsInRgUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
-	// virtualNetworkGatewayUrl := fmt.Sprintf()
-	fmt.Println(listVnetsUrl)
+	virtualNetworkGatewayUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworkGateways", subID, rgName)
+	publicIpAddressUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/publicIPAddresses", subID, rgName)
+	subnetUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets", subID, rgName, validVnetName)
+	localNetworkGatewayUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/localNetworkGateways", subID, rgName)
+	virtualNetworkGatewayConnectionUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/connections", subID, rgName)
 
 	// Define a map of URLs to responses
 	urlToResponse := map[string]interface{}{
@@ -242,6 +255,11 @@ func initializeReqRespMap() map[string]interface{} {
 				},
 			}},
 		fmt.Sprintf("%s/%s/virtualNetworkPeerings/%s", vnetsInRgUrl, validVnetName, validVnetName+"-link"): armnetwork.VirtualNetworkPeeringsClientGetResponse{},
+		fmt.Sprintf("%s/%s", virtualNetworkGatewayUrl, validVirtualNetworkGatewayName):                     armnetwork.VirtualNetworkGateway{},
+		fmt.Sprintf("%s/%s", publicIpAddressUrl, validPublicIpAddressName):                                 armnetwork.PublicIPAddress{},
+		fmt.Sprintf("%s/%s", subnetUrl, validSubnetName):                                                   armnetwork.Subnet{},
+		fmt.Sprintf("%s/%s", localNetworkGatewayUrl, validLocalNetworkGatewayName):                         armnetwork.LocalNetworkGateway{},
+		fmt.Sprintf("%s/%s", virtualNetworkGatewayConnectionUrl, validVirtualNetworkGatewayConnectionName): armnetwork.VirtualNetworkGatewayConnection{},
 	}
 	return urlToResponse
 }
@@ -645,27 +663,133 @@ func TestGetInvisinetsRuleDesc(t *testing.T) {
 	require.Equal(t, expectedDescription, result)
 }
 
-// func TestCreateOrUpdateVirtualNetworkGateway(t *testing.T) {
-// 	azureSDKHandlerTest := &azureSDKHandler{}
-// 	ctx := context.Background()
+func TestCreateOrUpdateVirtualNetworkGateway(t *testing.T) {
+	once.Do(setup)
+	ctx := context.Background()
 
-// 	t.Run("Success", func(t *testing.T) {
-// 		// Call the function to test
-// 		vm, err := azureSDKHandlerTest.CreateVirtualMachine(ctx, armcompute.VirtualMachine{}, vmResourceName)
+	t.Run("Success", func(t *testing.T) {
+		virtualNetworkGateway, err := azureSDKHandlerTest.CreateOrUpdateVirtualNetworkGateway(ctx, validVirtualNetworkGatewayName, armnetwork.VirtualNetworkGateway{})
+		require.NoError(t, err)
+		require.NotNil(t, virtualNetworkGateway)
+	})
+	t.Run("Failure", func(t *testing.T) {
+		virtualNetworkGateway, err := azureSDKHandlerTest.CreateOrUpdateVirtualNetworkGateway(ctx, invalidVirtualNetworkGatewayName, armnetwork.VirtualNetworkGateway{})
+		require.Error(t, err)
+		require.Nil(t, virtualNetworkGateway)
+	})
+}
 
-// 		require.NoError(t, err)
-// 		require.NotNil(t, vm)
-// 	})
+func TestGetVirtualNetworkGateway(t *testing.T) {
+	once.Do(setup)
+	ctx := context.Background()
 
-// 	// Test case: Failure
-// 	t.Run("Failure", func(t *testing.T) {
-// 		// Call the function to test
-// 		vm, err := azureSDKHandlerTest.CreateVirtualMachine(ctx, armcompute.VirtualMachine{}, invalidVmResourceName)
+	t.Run("Success", func(t *testing.T) {
+		virtualNetworkGateway, err := azureSDKHandlerTest.GetVirtualNetworkGateway(ctx, validVirtualNetworkGatewayName)
+		require.NoError(t, err)
+		require.NotNil(t, virtualNetworkGateway)
+	})
+	t.Run("Failure", func(t *testing.T) {
+		virtualNetworkGateway, err := azureSDKHandlerTest.GetVirtualNetworkGateway(ctx, invalidVirtualNetworkGatewayName)
+		require.Error(t, err)
+		require.Nil(t, virtualNetworkGateway)
+	})
+}
 
-// 		require.Error(t, err)
-// 		require.Nil(t, vm)
-// 	})
-// }
+func TestCreatePublicIPAddress(t *testing.T) {
+	once.Do(setup)
+	ctx := context.Background()
+
+	t.Run("Success", func(t *testing.T) {
+		publicIPAddress, err := azureSDKHandlerTest.CreatePublicIPAddress(ctx, validPublicIpAddressName, armnetwork.PublicIPAddress{})
+		require.NoError(t, err)
+		require.NotNil(t, publicIPAddress)
+	})
+	t.Run("Failure", func(t *testing.T) {
+		publicIPAddress, err := azureSDKHandlerTest.CreatePublicIPAddress(ctx, invalidPublicIpAddressName, armnetwork.PublicIPAddress{})
+		require.Error(t, err)
+		require.Nil(t, publicIPAddress)
+	})
+}
+
+func TestCreateSubnet(t *testing.T) {
+	once.Do(setup)
+	ctx := context.Background()
+
+	t.Run("Success", func(t *testing.T) {
+		subnet, err := azureSDKHandlerTest.CreateSubnet(ctx, validVnetName, validSubnetName, armnetwork.Subnet{})
+		require.NoError(t, err)
+		require.NotNil(t, subnet)
+	})
+	t.Run("Failure", func(t *testing.T) {
+		subnet, err := azureSDKHandlerTest.CreateSubnet(ctx, validVnetName, invalidSubnetName, armnetwork.Subnet{})
+		require.Error(t, err)
+		require.Nil(t, subnet)
+	})
+}
+
+func TestCreateLocalNetworkGateway(t *testing.T) {
+	once.Do(setup)
+	ctx := context.Background()
+
+	t.Run("Success", func(t *testing.T) {
+		localNetworkGateway, err := azureSDKHandlerTest.CreateLocalNetworkGateway(ctx, validLocalNetworkGatewayName, armnetwork.LocalNetworkGateway{})
+		require.NoError(t, err)
+		require.NotNil(t, localNetworkGateway)
+	})
+	t.Run("Failure", func(t *testing.T) {
+		localNetworkGateway, err := azureSDKHandlerTest.CreateLocalNetworkGateway(ctx, invalidLocalNetworkGatewayName, armnetwork.LocalNetworkGateway{})
+		require.Error(t, err)
+		require.Nil(t, localNetworkGateway)
+	})
+}
+
+func TestGetLocalNetworkGateway(t *testing.T) {
+	once.Do(setup)
+	ctx := context.Background()
+
+	t.Run("Success", func(t *testing.T) {
+		localNetworkGateway, err := azureSDKHandlerTest.GetLocalNetworkGateway(ctx, validLocalNetworkGatewayName)
+		require.NoError(t, err)
+		require.NotNil(t, localNetworkGateway)
+	})
+	t.Run("Failure", func(t *testing.T) {
+		localNetworkGateway, err := azureSDKHandlerTest.GetLocalNetworkGateway(ctx, invalidLocalNetworkGatewayName)
+		require.Error(t, err)
+		require.Nil(t, localNetworkGateway)
+	})
+}
+
+func TestCreateVirtualNetworkGatewayConnection(t *testing.T) {
+	once.Do(setup)
+	ctx := context.Background()
+
+	t.Run("Success", func(t *testing.T) {
+		virtualNetworkGatewayConnection, err := azureSDKHandlerTest.CreateVirtualNetworkGatewayConnection(ctx, validVirtualNetworkGatewayConnectionName, armnetwork.VirtualNetworkGatewayConnection{})
+		require.NoError(t, err)
+		require.NotNil(t, virtualNetworkGatewayConnection)
+	})
+	t.Run("Failure", func(t *testing.T) {
+		virtualNetworkGatewayConnection, err := azureSDKHandlerTest.CreateVirtualNetworkGatewayConnection(ctx, invalidVirtualNetworkGatewayConnectionName, armnetwork.VirtualNetworkGatewayConnection{})
+		require.Error(t, err)
+		require.Nil(t, virtualNetworkGatewayConnection)
+	})
+}
+
+func TestGetVirtualNetworkGatewayConnection(t *testing.T) {
+	once.Do(setup)
+	ctx := context.Background()
+
+	t.Run("Success", func(t *testing.T) {
+		virtualNetworkGatewayConnection, err := azureSDKHandlerTest.GetVirtualNetworkGatewayConnection(ctx, validVirtualNetworkGatewayConnectionName)
+		require.NoError(t, err)
+		require.NotNil(t, virtualNetworkGatewayConnection)
+	})
+	t.Run("Failure", func(t *testing.T) {
+		virtualNetworkGatewayConnection, err := azureSDKHandlerTest.GetVirtualNetworkGatewayConnection(ctx, invalidVirtualNetworkGatewayConnectionName)
+		require.Error(t, err)
+		require.Nil(t, virtualNetworkGatewayConnection)
+	})
+}
 
 func TestGetIPs(t *testing.T) {
 	// Test case 1: Inbound rule

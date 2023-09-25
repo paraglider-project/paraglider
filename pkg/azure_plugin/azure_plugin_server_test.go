@@ -449,7 +449,7 @@ func TestAddPermitListRules(t *testing.T) {
 	fakeNic := getFakeNIC()
 	fakeNic.Properties.IPConfigurations[0].Properties.Subnet = &armnetwork.Subnet{
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: "10.0.0.6", // TODO @seankimkdy write function to generalize
+			AddressPrefix: to.Ptr("10.0.0.6"), // TODO @seankimkdy write function to generalize
 		},
 	}
 	fakeNsgID := *fakeNic.Properties.NetworkSecurityGroup.ID
