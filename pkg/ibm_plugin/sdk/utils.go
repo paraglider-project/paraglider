@@ -6,76 +6,142 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"log"
 	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
+	logger "github.com/NetSys/invisinets/pkg/logger"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v3"
 )
 
-var regions = [10]string{"us-south", "us-east", "eu-de", "eu-gb", "eu-es", "ca-tor", "au-syd",
+// indicate the type of tagged resource to fetch
+type TaggedResourceType string
+
+const (
+	VPC               TaggedResourceType = "vpc"
+	SUBNET            TaggedResourceType = "subnet"
+	VM                TaggedResourceType = "instance"
+	credentialsPath   string             = ".ibm/credentials.yaml"
+	publicSSHKey                         = ".ibm/keys/invisinets-key.pub"
+	privateSSHKey                        = ".ibm/keys/invisinets-key"
+	defaultImage                         = "ibm-ubuntu-22-04"
+	imageArchitecture                    = "amd64"
+	ResourcePrefix                       = "invisinets"
+	LowCPU            InstanceProfile    = "bx2-2x8"
+	HighCPU           InstanceProfile    = "bx2-8x32"
+	GPU               InstanceProfile    = "gx2-8x64x1v100"
+)
+
+// Credentials extracted from local credential file
+type Credentials struct {
+	APIKey          string `yaml:"iam_api_key"`
+	ResourceGroupID string `yaml:"resource_group_id"`
+}
+
+// Used to extend query for tagged resources
+type ResourceQuery struct {
+	Region string
+	Zone   string
+}
+
+var Regions = [10]string{"us-south", "us-east", "eu-de", "eu-gb", "eu-es", "ca-tor", "au-syd",
 	"br-sao", "jp-osa", "jp-tok"}
 
-func get_ibm_cred() []string {
-	yamlMap := make(map[string]string)
-	credKeys := []string{"iam_api_key", "resource_group_id"}
-	credValues := make([]string, 0, 2)
+// returns "Credentials" object loaded from "credentialsPath"
+func get_ibm_cred() (Credentials, error) {
+	var credentials Credentials
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatalln("Failed to generate home path: \n", err)
+		return credentials, fmt.Errorf("failed to generate home path: \n%v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(homeDir, credentialsPath))
 	if err != nil {
-		log.Fatalln("Failed to read credential file:\n ", err)
+		return credentials, fmt.Errorf("failed to read credential file:\n%v", err)
 	}
-
-	// Unmarshal the YAML string into the data map
-	err = yaml.Unmarshal(data, &yamlMap)
+	err = yaml.Unmarshal(data, &credentials)
 	if err != nil {
-		log.Fatalln("Failed to unmarshal credential file into a map:\n ", err)
+		return credentials, fmt.Errorf("failed to unmarshal credential file:\n%v", err)
 	}
-	for _, credKey := range credKeys {
-		credVal, ok := yamlMap[credKey]
-		if !ok {
-			log.Fatalln("Missing IBM credential field: ", credVal)
-		}
-		credValues = append(credValues, credVal)
 
-	}
-	return credValues
+	return credentials, nil
 }
 
-func CreateSSHKeys(privateKeyPath string) (string, error) {
-	if privateKeyPath == "" {
-		return "", fmt.Errorf("keyName is empty")
+// returns local public key contents if exists, else
+// creates ssh key pair in .ibm/keys.
+func getLocalPubKey() (string, error) {
+	var publicKeyData string
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		logger.Log.Println("Failed to generate home path: \n", err)
+		return "", err
 	}
+
+	pubKeyPath := filepath.Join(homeDir, publicSSHKey)
+	err = os.MkdirAll(filepath.Dir(filepath.Join(homeDir, publicSSHKey)), 0700)
+	if err != nil {
+		logger.Log.Println("Failed to create ssh key folder\n", err)
+		return "", err
+	}
+
+	//check if ssh keys exist
+	_, err = os.Stat(pubKeyPath)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			// local ssh keys do not exist, create them.
+			data, keyGenErr := createSSHKeys(filepath.Join(homeDir, privateSSHKey))
+			publicKeyData = data
+			if keyGenErr != nil {
+				logger.Log.Println("Failed to generate ssh keys.\nError:", keyGenErr)
+				return "", err
+			}
+		} else { // Non expected error
+			logger.Log.Println("Failed to verify if ssh keys exist", err)
+			return "", err
+		}
+	} else { // ssh keys exist
+		data, err := os.ReadFile(pubKeyPath)
+		publicKeyData = string(data)
+		if err != nil { // failed to read public ssh key data
+			logger.Log.Println(err)
+			return "", err
+		}
+	}
+	return publicKeyData, nil
+}
+
+// creates public and private key at specified location.
+// returns public key data.
+func createSSHKeys(privateKeyPath string) (string, error) {
+	if privateKeyPath == "" {
+		return "", fmt.Errorf("private key path is missing")
+	}
+	// creates local private key
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return "", err
 	}
-
 	privateKeyFile, err := os.Create(privateKeyPath)
 	if err != nil {
 		return "", err
 	}
 	defer privateKeyFile.Close()
-
 	privateKeyPEM := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)}
 	if err := pem.Encode(privateKeyFile, privateKeyPEM); err != nil {
 		return "", err
 	}
 
+	// creates local public key based on private key
 	publicRsaKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
 	if err != nil {
 		return "", err
 	}
-
 	pubKeyStr := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(publicRsaKey)))
 
 	publicKeyFile, err := os.OpenFile(privateKeyPath+".pub", os.O_RDWR|os.O_CREATE, 0655)
@@ -85,26 +151,53 @@ func CreateSSHKeys(privateKeyPath string) (string, error) {
 	defer publicKeyFile.Close()
 	publicKeyFile.WriteString(pubKeyStr)
 
-	log.Println("Created SSH keys at ", filepath.Dir(privateKeyPath))
+	logger.Log.Println("Created SSH keys at ", filepath.Dir(privateKeyPath))
 	return pubKeyStr, nil
 }
 
-func CRN2ID(crn string) string {
-	index := strings.Index(crn, "vpc:")
-	if index == -1 {
-		log.Fatalf("CRN: %v isn't of valid format", crn)
+// returns true if a slice contains an item
+func DoesSliceContain[T comparable](slice []T, target T) bool {
+	for _, val := range slice {
+		if val == target {
+			return true
+		}
 	}
-	return crn[index+4:]
+	return false
 }
 
+// returns true if region is a valid IBM region
+func IsRegionValid(region string) bool {
+	return DoesSliceContain(Regions[:], region)
+}
+
+// returns url of IBM region
+func endpointURL(region string) string {
+	return fmt.Sprintf("https://%s.iaas.cloud.ibm.com/v1", region)
+}
+
+// returns zones of region
+func GetZonesOfRegion(region string) ([]string, error) {
+	zonesPerRegion := 3
+	if !IsRegionValid(region) {
+		return nil, fmt.Errorf("region %v isn't valid", region)
+	}
+	res := make([]string, zonesPerRegion)
+	for i := 0; i < zonesPerRegion; i++ {
+		res[i] = region + "-" + fmt.Sprint(i+1)
+	}
+	return res, nil
+}
+
+// returns region of zone
 func Zone2Region(zone string) (string, error) {
 	lastDashIndex := strings.LastIndex(zone, "-")
 
 	if lastDashIndex == -1 {
-		log.Fatalf("string: %v isn't in a valid IBM zone format", zone)
+		return "", fmt.Errorf("zone: %v isn't in a valid IBM zone format", zone)
 	}
 	regionVal := zone[:lastDashIndex]
-	for _, region := range regions {
+
+	for _, region := range Regions {
 		if regionVal == region {
 			return regionVal, nil
 		}
@@ -112,12 +205,18 @@ func Zone2Region(zone string) (string, error) {
 	return "", fmt.Errorf("zone specified: %v not valid", zone)
 }
 
-func GenerateResourceName(name string) string {
-	return fmt.Sprintf("%v-%v-%v", ResourcePrefix, name, uuid.New().String()[:8])
+// returns ID of resource based on its CRN
+func CRN2ID(crn string) string {
+	index := strings.LastIndex(crn, ":")
+	if index == -1 {
+		logger.Log.Fatalf("CRN: %v isn't of valid format", crn)
+	}
+	return crn[index+1:]
 }
 
-func endpointURL(region string) string {
-	return fmt.Sprintf("https://%s.iaas.cloud.ibm.com/v1", region)
+// returns unique invisinets resource name
+func GenerateResourceName(name string) string {
+	return fmt.Sprintf("%v-%v-%v", ResourcePrefix, name, uuid.New().String()[:8])
 }
 
 // returns false if cidr blocks don't share a single ip,
@@ -158,4 +257,31 @@ func IsCidrSubset(cidr1, cidr2 string) (bool, error) {
 	// and the network mask of cider1 is no smaller than that of cidr2, as
 	// fewer bits is left for user address space.
 	return networkMask2.Contains(firstIP1) && maskSize1 >= maskSize2, nil
+}
+
+// splits given cidr 3 ways, so the last cidr is as large as the first 2 combined:
+// x.x.x.x/y+2, x.x.64.x/y+2, x.x.128.x/y+1 for cider=x.x.x.x/y.
+func SplitCidr3Ways(cidr string) ([]string, error) {
+	cidrParts := strings.Split(cidr, "/")
+	netmask, err := strconv.Atoi(cidrParts[1])
+	if err != nil {
+		return nil, err
+	}
+	netmaskZone1Zone2 := netmask + 2
+	netmaskZone3 := netmask + 1
+	ip := cidrParts[0]
+	ipOctets := strings.Split(ip, ".")
+	zone2Octets := make([]string, 4)
+	copy(zone2Octets, ipOctets)
+	zone2Octets[2] = "64"
+	ipZone2 := strings.Join(zone2Octets, ".")
+	zone3Octets := make([]string, 4)
+	copy(zone3Octets, ipOctets)
+	zone3Octets[2] = "128"
+	ipZone3 := strings.Join(zone3Octets, ".")
+	return []string{
+		fmt.Sprintf("%s/%d", ip, netmaskZone1Zone2),
+		fmt.Sprintf("%s/%d", ipZone2, netmaskZone1Zone2),
+		fmt.Sprintf("%s/%d", ipZone3, netmaskZone3),
+	}, nil
 }

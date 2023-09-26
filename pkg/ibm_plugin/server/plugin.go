@@ -2,12 +2,14 @@ package ibm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"log"
+
+	logger "github.com/NetSys/invisinets/pkg/logger"
 
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type ibmPluginServer struct {
@@ -15,63 +17,120 @@ type ibmPluginServer struct {
 	cloudClient *sdk.IBMCloudClient
 }
 
-// InstanceFields is a temporary solution until invisinetspb.ResourceDescription.Description
-// will be replaced with a concrete type
-// using this struct instead of *vpcv1.Instance puts an emphasis
-// on the relevant fields and makes the object easier to construct
-type InstanceFields struct {
-	VpcID        string `json:"vpc_id"`        // optional
-	SubnetID     string `json:"subnet_id"`     // optional
-	AddressSpace string `json:"address_space"` // optional`
-	Profile      string `json:"profile"`       // optional
-	Zone         string `json:"zone"`
-	Name         string `json:"name"` // optional
+// TODO currently value is set during testing.
+var frontendServerAddr string
+
+func (s *ibmPluginServer) setupCloudClient(region string) error {
+	client, err := sdk.NewIbmCloudClient(region)
+	if err != nil {
+		logger.Log.Println("Failed to set up IBM clients with error:", err)
+		return err
+	}
+	s.cloudClient = client
+	return nil
 }
 
-// TODO edit ResourcePrefix to differentiate github workflows
-// func init() {
-// }
-
-// Currently only supports VPC instance creation
+// Creates the specified resource. Currently only supports instance creation.
+// Default instance profile is 2CPU, 8GB RAM, unless specified.
+// Default instance name will be auto-generated unless specified.
 func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
-	vmFields := InstanceFields{}
-	err := json.Unmarshal(resourceDesc.Description, &vmFields)
+	var vpcID string
+	var subnetID string
+
+	vmFields, err := getInstanceData(resourceDesc)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
-	}
-	if vmFields.Zone == "" {
-		log.Println("Missing mandatory zone field to launch a VM")
 		return nil, err
 	}
+
 	region, err := sdk.Zone2Region(vmFields.Zone)
 	if err != nil {
-		log.Println("Invalid region:", region)
+		logger.Log.Println("Invalid region:", region)
 		return nil, err
 	}
-	s.cloudClient, err = sdk.NewIbmCloudClient(region)
+	err = s.setupCloudClient(region)
 	if err != nil {
-		log.Println("Failed to set up IBM clients with error:", err)
 		return nil, err
 	}
-	if vmFields.VpcID == "" {
-		vpc, err := s.cloudClient.CreateVpc("")
+	/* TODO: Future support in multiple deployments and multiple vpcs
+	in single region will require adding deployment ID as a tag
+	*/
+	vpcIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.VPC, nil,
+		sdk.ResourceQuery{Region: region})
+	if err != nil {
+		return nil, err
+	}
+
+	// use existing invisinets VPC or create a new one
+	if len(vpcIDs) != 0 {
+		// currently assuming a single VPC per region
+		vpcID = vpcIDs[0]
+		logger.Log.Printf("Reusing invisinets VPC with ID: %v in region %v", vpcID, region)
+	} else {
+		conn, err := grpc.Dial(frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, err
 		}
-		vmFields.VpcID = *vpc.ID
-	}
-	if vmFields.SubnetID == "" {
-		subnet, err := s.cloudClient.CreateSubnet(vmFields.VpcID, vmFields.Zone, resourceDesc.AddressSpace)
+		defer conn.Close()
+		client := invisinetspb.NewControllerClient(conn)
+		response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
 		if err != nil {
 			return nil, err
 		}
-		vmFields.SubnetID = *subnet.ID
+		// create a vpc with a subnet in each zone
+		vpc, err := s.cloudClient.CreateVpc("", response.Address)
+		if err != nil {
+			return nil, err
+		}
+		vpcID = *vpc.ID
 	}
-	vm, err := s.cloudClient.CreateDefaultVM(vmFields.VpcID, vmFields.SubnetID,
+
+	// look for an invisinets subnet that's tagged with the above VPC ID.
+	requiredTags := []string{vpcID}
+	subnetsIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.SUBNET, requiredTags,
+		sdk.ResourceQuery{Zone: vmFields.Zone})
+	if err != nil {
+		return nil, err
+	}
+	if len(subnetsIDs) != 0 {
+		// at least one invisinets subnet that fits the query was found. Use a random one.
+		subnetID = subnetsIDs[0]
+	} else {
+		// No invisinets subnets were found matching vpc and zone, currently er
+		return nil, fmt.Errorf("invisinets subnet wasn't found")
+	}
+
+	vm, err := s.cloudClient.CreateVM(vpcID, subnetID,
 		vmFields.Zone, vmFields.Name, vmFields.Profile)
 	if err != nil {
 		return nil, err
 	}
 	return &invisinetspb.BasicResponse{Success: true, Message: "successfully created VM",
 		UpdatedResource: &invisinetspb.ResourceID{Id: *vm.ID}}, nil
+}
+
+// returns a list of address spaces used by either user's or invisinets' sunbets,
+// for each invisinets vpc.
+func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
+	var invisinetsAddressSpaces []string
+	err := s.setupCloudClient("")
+	if err != nil {
+		return nil, err
+	}
+	// get all VPCs in the deployment.
+	// TODO future multi deployment support will require sending deployment id as tag, currently using static tag.
+	deploymentVpcIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.VPC, nil, sdk.ResourceQuery{})
+	if err != nil {
+		return nil, err
+	}
+	// for each vpc, collect the address space of all subnets, including users'.
+	for _, vpcID := range deploymentVpcIDs {
+		subnets, err := s.cloudClient.GetSubnetsInVPC(vpcID)
+		if err != nil {
+			return nil, err
+		}
+		for _, subnet := range subnets {
+			invisinetsAddressSpaces = append(invisinetsAddressSpaces, *subnet.Ipv4CIDRBlock)
+		}
+	}
+	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetsAddressSpaces}, nil
 }
