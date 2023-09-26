@@ -55,6 +55,7 @@ type mockTagServiceServer struct {
 	tagservicepb.UnimplementedTagServiceServer
 }
 
+// TODO: Have these functions (like Get, etc) only return if it is a "known tag"
 func (s *mockTagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMapping, error) {
 	return &tagservicepb.TagMapping{ParentTag: tag.TagName, ChildTags: []string{"child"}}, nil
 }
@@ -768,7 +769,142 @@ func TestCheckAndCleanRule(t *testing.T) {
 	assert.Equal(t, []string{}, cleanRule.Targets)
 }
 
-// Is it possible to test this??
-// func TestUpdateSubscribers(t *testing.T) {
+func TestIsIpAddrOrCidr(t *testing.T) {
+	ip := "1.2.3.4"
+	cidr := "2.3.4.5/20"
+	nonIp := "tag"
+	nonIpWithSlash := "tag/insidetag"
+	
+	assert.True(t, isIpAddrOrCidr(ip))
+	assert.True(t, isIpAddrOrCidr(cidr))
+	assert.False(t, isIpAddrOrCidr(nonIp))
+	assert.False(t, isIpAddrOrCidr(nonIpWithSlash))
+}
 
-// }
+func TestCreateSubscriberName(t *testing.T) {
+	origCloudName := "cloudname"
+	origUri := "uri"
+	subName := createSubscriberName(origCloudName, origUri)
+	cloud, uri := parseSubscriberName(subName)
+
+	assert.Equal(t, origCloudName, cloud)
+	assert.Equal(t, origUri, uri)
+}
+
+func TestDiffTagReferences(t *testing.T) {
+	beforePermitList := &invisinetspb.PermitList{
+		AssociatedResource: "uri",
+		Rules: []*invisinetspb.PermitListRule{
+			&invisinetspb.PermitListRule{
+				Tags: []string{"tag1", "1.2.3.4"},
+			},
+			&invisinetspb.PermitListRule{
+				Tags: []string{"tag1", "tag2", "tag3"},
+			},
+		},
+	}
+
+	afterPermitList := &invisinetspb.PermitList{
+		AssociatedResource: "uri",
+		Rules: []*invisinetspb.PermitListRule{
+			&invisinetspb.PermitListRule{
+				Tags: []string{"tag1", "1.2.3.4"},
+			},
+			&invisinetspb.PermitListRule{
+				Tags: []string{"tag3"},
+			},
+		},
+	}
+
+	tagDiff := diffTagReferences(beforePermitList, afterPermitList)
+	expectedDiff := []string{"tag2"}
+
+	assert.Equal(t, expectedDiff, tagDiff)
+}
+
+func TestCheckAndUnsubscribe(t *testing.T) {
+	// Setup
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	
+	setupTagServer(tagServerPort)
+
+	beforePermitList := &invisinetspb.PermitList{
+		AssociatedResource: "uri",
+		Rules: []*invisinetspb.PermitListRule{
+			&invisinetspb.PermitListRule{
+				Tags: []string{"tag1", "1.2.3.4"},
+			},
+			&invisinetspb.PermitListRule{
+				Tags: []string{"tag1", "tag2", "tag3"},
+			},
+		},
+	}
+
+	afterPermitList := &invisinetspb.PermitList{
+		AssociatedResource: "uri",
+		Rules: []*invisinetspb.PermitListRule{
+			&invisinetspb.PermitListRule{
+				Tags: []string{"tag1", "1.2.3.4"},
+			},
+			&invisinetspb.PermitListRule{
+				Tags: []string{"tag3"},
+			},
+		},
+	}
+
+	err := frontendServer.checkAndUnsubscribe(beforePermitList, afterPermitList)
+	assert.Nil(t, err)
+}
+
+func TestClearRuleTargets(t *testing.T) {
+	permitList := &invisinetspb.PermitList{
+		AssociatedResource: "uri",
+		Rules: []*invisinetspb.PermitListRule{
+			&invisinetspb.PermitListRule{
+				Targets: []string{"1.2.3.4"},
+			},
+			&invisinetspb.PermitListRule{
+				Targets: []string{"1.2.3.4", "2.3.4.5"},
+			},
+			&invisinetspb.PermitListRule{
+				Tags: []string{"1.2.3.4", "2.3.4.5"},
+			},
+		},
+	}
+
+	expectedPermitList := &invisinetspb.PermitList{
+		AssociatedResource: "uri",
+		Rules: []*invisinetspb.PermitListRule{
+			&invisinetspb.PermitListRule{
+				Targets: []string{},
+			},
+			&invisinetspb.PermitListRule{
+				Targets: []string{},
+			},
+			&invisinetspb.PermitListRule{
+				Targets: []string{},
+				Tags:    []string{"1.2.3.4", "2.3.4.5"},
+			},
+		},
+	}
+
+	clearedRules := clearRuleTargets(permitList)
+
+	assert.ElementsMatch(t, expectedPermitList.Rules, clearedRules.Rules)
+}
+
+func TestUpdateSubscribers(t *testing.T) {
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	setupPluginServer(cloudPluginPort)
+	setupTagServer(tagServerPort)
+
+	err := frontendServer.updateSubscribers("tag")
+	assert.Nil(t, err)
+}

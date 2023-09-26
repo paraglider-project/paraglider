@@ -294,7 +294,7 @@ func diffTagReferences(beforeList *invisinetspb.PermitList, afterList *invisinet
 	return tagsDereferenced
 }
 
-func (s *ControllerServer) checkAndUnsubscribe(c *gin.Context, beforeList *invisinetspb.PermitList, afterList *invisinetspb.PermitList) {
+func (s *ControllerServer) checkAndUnsubscribe(beforeList *invisinetspb.PermitList, afterList *invisinetspb.PermitList) error {
 	//Do it this way for now and optimize later 
 	// Requires a..
 	// Get before (+1 for this design)
@@ -304,8 +304,7 @@ func (s *ControllerServer) checkAndUnsubscribe(c *gin.Context, beforeList *invis
 
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
+		return err
 	}
 	defer conn.Close()
 	client := tagservicepb.NewTagServiceClient(conn)
@@ -314,10 +313,11 @@ func (s *ControllerServer) checkAndUnsubscribe(c *gin.Context, beforeList *invis
 		// Send RPC to unsubscribe from tag
 		_, err := client.Unsubscribe(context.Background(), &tagservicepb.Subscription{TagName: tag, Subscriber: beforeList.AssociatedResource})
 		if err != nil {
-			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-			return
+			return err
 		}
 	}
+
+	return nil
 }
 
 // Delete permit list rules to specified resource
@@ -373,7 +373,10 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	// Determine which tags have been dereferenced from the permit list and unsubscribe 
 	// TODO @smcclure20: Have to do a permit list diff since there is no reverse lookup to see which tags a URI is subscribed to.
 	// 					 Supporting this will probably require a database migration (non-KV store)
-	s.checkAndUnsubscribe(c, permitListBefore, permitListAfter)
+	if err := s.checkAndUnsubscribe(permitListBefore, permitListAfter); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return 
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"response": response.Message,
