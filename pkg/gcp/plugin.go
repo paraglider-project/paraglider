@@ -27,6 +27,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"net"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
@@ -659,4 +660,19 @@ func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, invisinetsDe
 	defer subnetworksClient.Close()
 
 	return s._GetUsedAddressSpaces(ctx, invisinetsDeployment, networksClient, subnetworksClient)
+}
+
+func Setup(port int) {
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	gcpServer := GCPPluginServer{}
+	invisinetspb.RegisterCloudPluginServer(grpcServer, &gcpServer)
+	fmt.Println("Starting server on port :", port)
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }

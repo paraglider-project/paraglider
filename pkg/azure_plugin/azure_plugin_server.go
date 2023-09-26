@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/netip"
+	"net"
 	"os"
 	"strings"
 
@@ -29,6 +30,7 @@ import (
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	logger "github.com/NetSys/invisinets/pkg/logger"
 	"github.com/google/uuid"
+	"google.golang.org/grpc"
 )
 
 const maxPriority = 4096
@@ -561,4 +563,21 @@ func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceV
 // since an invisients vnet is unique per location
 func getVnetName(location string) string {
 	return invisinetsPrefix + "-" + location + "-vnet"
+}
+
+func Setup(port int) {
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	azureServer := azurePluginServer{
+		azureHandler: &azureSDKHandler{},
+	}
+	invisinetspb.RegisterCloudPluginServer(grpcServer, &azureServer)
+	fmt.Println("Starting server on port :", port)
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }

@@ -19,11 +19,13 @@ package cli
 import (
 	"fmt"
 	"os"
-    "strconv"
+  "strconv"
 	"github.com/spf13/cobra"
 
 	"github.com/NetSys/invisinets/pkg/frontend"
-    tagservice "github.com/NetSys/invisinets/pkg/tag_service"
+  tagservice "github.com/NetSys/invisinets/pkg/tag_service"
+  az "github.com/NetSys/invisinets/pkg/azure_plugin"
+  gcp "github.com/NetSys/invisinets/pkg/gcp"
 )
 
 var frontendCmd = &cobra.Command{
@@ -35,6 +37,7 @@ var frontendCmd = &cobra.Command{
         frontend.Setup(args[0])
     },
 }
+
 
 var tagServiceCmd = &cobra.Command{
     Use:   "tagserv",
@@ -55,6 +58,34 @@ var tagServiceCmd = &cobra.Command{
             return
         }
         tagservice.Setup(dbPort, serverPort, clearKeys)
+
+var azCmd = &cobra.Command{
+    Use:   "az",
+    Aliases: []string{"az"},
+    Short:  "Starts the Azure plugin server on given port",
+    Args:  cobra.ExactArgs(1),
+    Run: func(cmd *cobra.Command, args []string) {
+        port, err := strconv.Atoi(args[0])
+        if err != nil {
+            fmt.Println("Invalid port.")
+            return
+        }
+        az.Setup(port)
+    },
+}
+
+var gcpCmd = &cobra.Command{
+    Use:   "gcp",
+    Aliases: []string{"gcp"},
+    Short:  "Starts the GCP plugin server with given config file",
+    Args:  cobra.ExactArgs(1),
+    Run: func(cmd *cobra.Command, args []string) {
+        port, err := strconv.Atoi(args[0])
+        if err != nil {
+            fmt.Println("Invalid port.")
+            return
+        }
+        gcp.Setup(port)
     },
 }
 
@@ -72,6 +103,8 @@ Run Invisinets controller components`,
 func init() {
     rootCmd.AddCommand(frontendCmd)
     rootCmd.AddCommand(tagServiceCmd)
+    rootCmd.AddCommand(azCmd)
+    rootCmd.AddCommand(gcpCmd)
 }
 
 func Execute() {
