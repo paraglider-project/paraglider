@@ -120,6 +120,9 @@ func GetVmIpAddress(vmId string) (string, error) {
 		return "", fmt.Errorf("unable to create compute client factory: %w", err)
 	}
 	networkClientFactory, err := armnetwork.NewClientFactory(resourceIdInfo.SubscriptionID, cred, nil)
+	if err != nil {
+		return "", fmt.Errorf("unable to create network client factory: %w", err)
+	}
 	virtualMachinesClient := computeClientFactory.NewVirtualMachinesClient()
 	interfacesClient := networkClientFactory.NewInterfacesClient()
 	ctx := context.Background()

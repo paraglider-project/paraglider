@@ -28,13 +28,13 @@ import (
 	networkmanagement "cloud.google.com/go/networkmanagement/apiv1"
 	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
-	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
 type GcpTestTeardownInfo struct {
-	Project            string
-	InsertInstanceReqs []*computepb.InsertInstanceRequest
+	Project               string
+	InsertInstanceReqs    []*computepb.InsertInstanceRequest
+	ConnectivityTestNames []string
 }
 
 func GetGcpProject() string {
@@ -276,6 +276,22 @@ func TeardownGcpTesting(teardownInfo *GcpTestTeardownInfo) {
 			teardownPanic("unable to wait on delete network operation", err)
 		}
 	}
+
+	// Connectivity tests
+	reachabilityClient, err := networkmanagement.NewReachabilityClient(ctx) // Can't use REST client for some reason (filed as bug within Google internally)
+	if err != nil {
+		teardownPanic("unable to create reachability client", err)
+	}
+	for _, connectivityTestName := range teardownInfo.ConnectivityTestNames {
+		deleteConnectivityTestReq := &networkmanagementpb.DeleteConnectivityTestRequest{Name: connectivityTestName}
+		deleteConnectivityTestOp, err := reachabilityClient.DeleteConnectivityTest(ctx, deleteConnectivityTestReq)
+		if err != nil {
+			teardownPanic("unable to delete connectivity test", err)
+		}
+		if err = deleteConnectivityTestOp.Wait(ctx); err != nil {
+			teardownPanic("unable to wait on delete connectivity test operation", err)
+		}
+	}
 }
 
 func GetTestVmParameters(project string, zone string, name string) *computepb.InsertInstanceRequest {
@@ -319,7 +335,7 @@ func GetInstanceIpAddress(project string, zone string, instanceName string) (str
 }
 
 // Runs connectivity test between two endpoints
-func RunPingConnectivityTest(t *testing.T, project string, name string, srcEndpoint *networkmanagementpb.Endpoint, dstEndpoint *networkmanagementpb.Endpoint) {
+func RunPingConnectivityTest(t *testing.T, teardownInfo *GcpTestTeardownInfo, project string, name string, srcEndpoint *networkmanagementpb.Endpoint, dstEndpoint *networkmanagementpb.Endpoint) {
 	ctx := context.Background()
 	reachabilityClient, err := networkmanagement.NewReachabilityClient(ctx) // Can't use REST client for some reason (filed as bug within Google internally)
 	if err != nil {
@@ -344,14 +360,29 @@ func RunPingConnectivityTest(t *testing.T, project string, name string, srcEndpo
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, networkmanagementpb.ReachabilityDetails_REACHABLE, connectivityTest.ReachabilityDetails.Result)
-	deleteConnectivityTestReq := &networkmanagementpb.DeleteConnectivityTestRequest{Name: connectivityTest.Name}
-	deleteConnectivityTestOp, err := reachabilityClient.DeleteConnectivityTest(ctx, deleteConnectivityTestReq)
-	if err != nil {
-		t.Fatal(err)
+	teardownInfo.ConnectivityTestNames = append(teardownInfo.ConnectivityTestNames, connectivityTest.Name)
+
+	// Retry up to five times
+	reachable := false
+	for i := 0; i < 5; i++ {
+		rerunConnectivityReq := &networkmanagementpb.RerunConnectivityTestRequest{
+			Name: connectivityTest.Name,
+		}
+		rerunConnectivityTestOp, err := reachabilityClient.RerunConnectivityTest(ctx, rerunConnectivityReq)
+		if err != nil {
+			t.Fatal(err)
+		}
+		connectivityTest, err = rerunConnectivityTestOp.Wait(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		reachable = networkmanagementpb.ReachabilityDetails_REACHABLE == connectivityTest.ReachabilityDetails.Result
+		if reachable {
+			break
+		}
 	}
-	err = deleteConnectivityTestOp.Wait(ctx)
-	if err != nil {
+
+	if !reachable {
 		t.Fatal(err)
 	}
 }

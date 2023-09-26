@@ -112,7 +112,6 @@ func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string,
 			var peeringCloud, peeringCloudAddressSpace string
 			for _, usedAddressSpaceMapping := range usedAddressSpaceMappings.AddressSpaceMappings {
 				for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
-
 					contained, err := IsPermitListRuleTagInAddressSpace(tag, addressSpace)
 					if err != nil {
 						return fmt.Errorf("unable to determine if tag is in address space: %w", err)
@@ -126,7 +125,7 @@ func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string,
 			}
 			if peeringCloud == "" {
 				return fmt.Errorf("permit list rule tag must belong to a specific cloud if it's a private address")
-			} else if peeringCloud != GCP {
+			} else if peeringCloud != currentCloud {
 				connectCloudsRequest := &invisinetspb.ConnectCloudsRequest{
 					CloudA:             currentCloud,
 					CloudAAddressSpace: currentCloudAddressSpace,

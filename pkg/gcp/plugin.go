@@ -163,6 +163,7 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 	return (firewallNamePrefix + hash(
 		strconv.Itoa(int(permitListRule.Protocol)),
 		strconv.Itoa(int(permitListRule.DstPort)),
+		strconv.Itoa(int(permitListRule.SrcPort)),
 		permitListRule.Direction.String(),
 		strings.Join(permitListRule.Tag, ""),
 	))[:firewallNameMaxLength]
@@ -308,10 +309,11 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 
 				permitListRules[i] = &invisinetspb.PermitListRule{
 					Direction: firewallDirectionMapGCPToInvisinets[*firewall.Direction],
+					SrcPort:   -1,
 					DstPort:   int32(dstPort),
-					Protocol:  int32(protocolNumber),
+					Protocol:  protocolNumber,
 					Tag:       tag,
-				} // SrcPort not specified since GCP doesn't support rules based on source ports
+				}
 			}
 			permitList.Rules = append(permitList.Rules, permitListRules...)
 		}
@@ -401,44 +403,6 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			return nil, fmt.Errorf("unable to check and connect clouds: %w", err)
 		}
 
-		// for _, tag := range permitListRule.Tag {
-		// 	isPrivate, err := utils.IsAddressPrivate(tag)
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// 	if isPrivate {
-		// 		var cloud, cloudAddressSpace string
-		// 		for _, usedAddressSpaceMapping := range usedAddressSpaceMappings.AddressSpaceMappings {
-		// 			for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
-
-		// 				contained, err := utils.IsPermitListRuleTagInAddressSpace(tag, addressSpace)
-		// 				if err != nil {
-		// 					return nil, err
-		// 				}
-		// 				if contained {
-		// 					cloud = usedAddressSpaceMapping.Cloud
-		// 					cloudAddressSpace = addressSpace
-		// 					break
-		// 				}
-		// 			}
-		// 		}
-		// 		if cloud == "" {
-		// 			return nil, fmt.Errorf("permit list rule tag must belong to a specific cloud if it's a private address")
-		// 		} else if cloud != utils.GCP {
-		// 			connectCloudsRequest := &invisinetspb.ConnectCloudsRequest{
-		// 				CloudA:             utils.GCP,
-		// 				CloudAAddressSpace: subnetworkAddressSpace,
-		// 				CloudB:             cloud,
-		// 				CloudBAddressSpace: cloudAddressSpace,
-		// 			}
-		// 			_, err := controllerClient.ConnectClouds(ctx, connectCloudsRequest)
-		// 			if err != nil {
-		// 				return nil, fmt.Errorf("unsuccessful in connecting clouds: %w", err)
-		// 			}
-		// 		}
-		// 	}
-		// }
-
 		firewall := &computepb.Firewall{
 			Allowed: []*computepb.Allowed{
 				{
@@ -473,7 +437,6 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 		if err != nil {
 			return nil, fmt.Errorf("unable to create firewall rule: %w", err)
 		}
-
 		if err = insertFirewallOp.Wait(ctx); err != nil {
 			return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 		}
@@ -827,6 +790,9 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, deployment *inv
 		VpnGateway: vpnGwName,
 	}
 	vpnGateway, err := vpnGatewaysClient.Get(ctx, getVpnGatewayReq)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get vpn gateway: %w", err)
+	}
 	resp := &invisinetspb.CreateVpnGatewayResponse{Asn: vpnGwAsn}
 	resp.GatewayIpAddresses = make([]string, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {

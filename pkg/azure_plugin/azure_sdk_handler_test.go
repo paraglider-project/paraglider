@@ -850,3 +850,16 @@ func TestGetTag(t *testing.T) {
 		require.Equal(t, expectedOutboundTag, outboundTag)
 	})
 }
+
+func TestSplitVnetAddressPrefix(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		addressPrefixes, err := splitVnetAddressPrefix("10.3.0.0/16")
+		require.NoError(t, err)
+		assert.Equal(t, addressPrefixes, []string{"10.3.0.0/24", "10.3.1.0/24"})
+	})
+	t.Run("Failure", func(t *testing.T) {
+		addressPrefixes, err := splitVnetAddressPrefix("10.3.0.0/20")
+		require.Error(t, err)
+		require.Nil(t, addressPrefixes)
+	})
+}

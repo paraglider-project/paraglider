@@ -459,17 +459,18 @@ func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, lo
 			},
 			Subnets: []*armnetwork.Subnet{
 				{
-					Name: to.Ptr("default"),
-					Properties: &armnetwork.SubnetPropertiesFormat{
-						// Partition address space to accommodate a GatewaySubnet that may be created in the future for multicloud connections
-						// TODO @seankimkdy: change this to be more sophisticated replacement
-						// If changing this, also change the creation of GatewaySubnet in
-						AddressPrefix: to.Ptr(strings.Replace(addressSpace, "/16", "/24", 1)),
-					},
+					Name:       to.Ptr("default"),
+					Properties: &armnetwork.SubnetPropertiesFormat{},
 				},
 			},
 		},
 	}
+
+	subnetAddressPrefixes, err := splitVnetAddressPrefix(addressSpace)
+	if err != nil {
+		return nil, fmt.Errorf("unable to split address prefix: %w", err)
+	}
+	parameters.Properties.Subnets[0].Properties.AddressPrefix = to.Ptr(subnetAddressPrefixes[0])
 
 	pollerResponse, err := h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vnetName, parameters, nil)
 	if err != nil {
@@ -716,4 +717,19 @@ func isErrorNotFound(err error) bool {
 	var azError *azcore.ResponseError
 	ok := errors.As(err, &azError)
 	return ok && azError.StatusCode == http.StatusNotFound
+}
+
+// Splits address prefix to save room for a potential GatewaySubnet for multicloud connections
+func splitVnetAddressPrefix(addressPrefix string) ([]string, error) {
+	if !strings.Contains(addressPrefix, "/") {
+		return nil, fmt.Errorf("must provide an address prefix in CIDR format (e.g. 10.0.0.0/16)")
+	}
+	// TODO @seankimkdy: change to supports all types of address prefixes /16 address p
+	if !strings.Contains(addressPrefix, "/16") {
+		return nil, fmt.Errorf("only /16 address prefixes are supported")
+	}
+	addressPrefixSplit := strings.Split(addressPrefix, ".")
+	defaultSubnetAddressPrefix := fmt.Sprintf("%s.%s.0.0/24", addressPrefixSplit[0], addressPrefixSplit[1])
+	gatewaySubnetAddressPrefix := fmt.Sprintf("%s.%s.1.0/24", addressPrefixSplit[0], addressPrefixSplit[1])
+	return []string{defaultSubnetAddressPrefix, gatewaySubnetAddressPrefix}, nil
 }

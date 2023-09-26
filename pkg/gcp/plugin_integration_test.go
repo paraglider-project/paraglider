@@ -31,9 +31,18 @@ import (
 	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 )
+
+func checkPermitListsEqual(pl1, pl2 *invisinetspb.PermitList) bool {
+	sortPermitListRuleOpt := protocmp.SortRepeated(func(plr1, plr2 *invisinetspb.PermitListRule) bool {
+		return getFirewallName(plr1) < getFirewallName(plr2)
+	})
+	return cmp.Diff(pl1, pl2, protocmp.Transform(), sortPermitListRuleOpt) == ""
+}
 
 // Tests creating two vms in separate regions and basic add/delete/get permit list functionality
 func TestIntegration(t *testing.T) {
@@ -138,6 +147,7 @@ func TestIntegration(t *testing.T) {
 				},
 				{
 					Direction: invisinetspb.Direction_OUTBOUND,
+					SrcPort:   -1,
 					DstPort:   -1,
 					Protocol:  1,
 					Tag:       []string{vm2Ip},
@@ -174,8 +184,8 @@ func TestIntegration(t *testing.T) {
 		getPermitListAfterAddResp, err := s.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: vmId})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterAddResp)
-		assert.Equal(t, permitList.AssociatedResource, getPermitListAfterAddResp.AssociatedResource)
-		assert.ElementsMatch(t, permitList.Rules, getPermitListAfterAddResp.Rules)
+		// TODO @seankimkdy: use this in all of the codebase to ensure permitlists are being compared properly
+		assert.True(t, checkPermitListsEqual(permitList, getPermitListAfterAddResp))
 	}
 
 	// Connectivity tests that ping the two VMs
@@ -192,8 +202,8 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// Run connectivity tests on both directions between vm1 and vm2
-	RunPingConnectivityTest(t, project, "1to2", vm1Endpoint, vm2Endpoint)
-	RunPingConnectivityTest(t, project, "2to1", vm2Endpoint, vm1Endpoint)
+	RunPingConnectivityTest(t, teardownInfo, project, "1to2", vm1Endpoint, vm2Endpoint)
+	RunPingConnectivityTest(t, teardownInfo, project, "2to1", vm2Endpoint, vm1Endpoint)
 
 	// Delete permit lists
 	for i, vmId := range vmIds {

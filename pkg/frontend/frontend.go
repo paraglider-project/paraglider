@@ -294,6 +294,9 @@ func (s *ControllerServer) getCloudInvDeployment(cloudName string) string {
 
 // Connects two clouds with VPN gateways
 func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.ConnectCloudsRequest) (*invisinetspb.BasicResponse, error) {
+	if req.CloudA == req.CloudB {
+		return nil, fmt.Errorf("must specify different clouds to connect")
+	}
 	// TODO @seankimkdy: have better checking of which clouds are supported for multicloud connections
 	// TODO @seankimkdy: cloudA and cloudB naming seems to be very prone to typos, so perhaps use another naming scheme[?
 	if (req.CloudA == utils.GCP && req.CloudB == utils.AZURE) || (req.CloudA == utils.AZURE && req.CloudB == utils.GCP) {

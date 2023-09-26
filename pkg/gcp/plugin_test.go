@@ -33,10 +33,10 @@ import (
 	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/api/option"
+	"google.golang.org/protobuf/proto"
 )
 
 // Fake project and resource
@@ -63,6 +63,7 @@ var fakeNetworkTag = networkTagPrefix + strconv.FormatUint(fakeInstanceId, 10)
 var (
 	fakePermitListRule1 = &invisinetspb.PermitListRule{
 		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   -1,
 		DstPort:   80,
 		Protocol:  6,
 		Tag:       []string{"10.1.2.0/24"},
@@ -82,6 +83,7 @@ var (
 	}
 	fakePermitListRule2 = &invisinetspb.PermitListRule{
 		Direction: invisinetspb.Direction_OUTBOUND,
+		SrcPort:   -1,
 		DstPort:   -1,
 		Protocol:  17,
 		Tag:       []string{"10.3.4.0/24"},
@@ -265,7 +267,6 @@ type fakeServerState struct {
 	firewallMap map[string]*computepb.Firewall
 	instance    *computepb.Instance
 	network     *computepb.Network
-	router      *computepb.Router
 	subnetwork  *computepb.Subnetwork
 	vpnGateway  *computepb.VpnGateway
 }
@@ -433,12 +434,14 @@ func TestAddPermitListRules(t *testing.T) {
 		Rules: []*invisinetspb.PermitListRule{
 			{
 				Direction: invisinetspb.Direction_INBOUND,
+				SrcPort:   -1,
 				DstPort:   443,
 				Protocol:  6,
 				Tag:       []string{"10.0.0.1"},
 			},
 			{
 				Direction: invisinetspb.Direction_OUTBOUND,
+				SrcPort:   -1,
 				DstPort:   8080,
 				Protocol:  6,
 				Tag:       []string{"10.0.0.2"},
@@ -467,6 +470,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 		Rules: []*invisinetspb.PermitListRule{
 			{
 				Direction: invisinetspb.Direction_INBOUND,
+				SrcPort:   -1,
 				DstPort:   443,
 				Protocol:  6,
 				Tag:       []string{"10.5.6.0/24"},
@@ -704,25 +708,3 @@ func TestCreateVpnConnections(t *testing.T) {
 	require.NotNil(t, resp)
 	require.True(t, resp.Success)
 }
-
-// func TestBleh(t *testing.T) {
-// 	pl1 := &invisinetspb.PermitListRule{
-// 		Direction: invisinetspb.Direction_INBOUND,
-// 		SrcPort:   -1,
-// 		DstPort:   -1,
-// 		Protocol:  1,
-// 		Tag:       []string{"1.1.1.1"},
-// 	}
-// 	pl2 := &invisinetspb.PermitListRule{
-// 		Direction: invisinetspb.Direction_OUTBOUND,
-// 		SrcPort:   -1,
-// 		DstPort:   -1,
-// 		Protocol:  1,
-// 		Tag:       []string{"1.1.1.1"},
-// 	}
-// 	buf := new(bytes.Buffer)
-// 	_ = proto.MarshalText(buf, pl1)
-// 	fmt.Println(buf.String())
-// 	// fmt.Printf("%+v\n", pl2)
-
-// }

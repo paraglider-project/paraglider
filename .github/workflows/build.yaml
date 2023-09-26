@@ -249,3 +249,11 @@ jobs:
           INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
           make integration-test
+      - name: Run multicloud tests
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        env:
+          INVISINETS_GCP_PROJECT: 'invisinets-playground'
+          GH_RUN_NUMBER: ${{ github.run_number }}
+          INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          make multicloud-test

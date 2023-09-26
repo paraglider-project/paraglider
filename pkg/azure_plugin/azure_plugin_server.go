@@ -55,6 +55,7 @@ const (
 	vpnLocation       = "westus"
 	vpnGwAsn          = int64(65515)
 	vpnNumConnections = 2
+	gatewaySubnetName = "GatewaySubnet"
 )
 
 var vpnGwBgpIpAddrs = []string{"169.254.21.1", "169.254.22.1"}
@@ -189,12 +190,15 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	var subnetAddressPrefix string
 	for _, subnet := range resourceVnet.Properties.Subnets {
 		if *subnet.Name == "default" {
-			subnetAddressPrefix = *subnet.Properties.AddressPrefix
+			if subnet.Properties.AddressPrefix != nil {
+				// Check to avoid nil pointer dereference
+				subnetAddressPrefix = *subnet.Properties.AddressPrefix
+			}
 			break
 		}
 	}
 	if subnetAddressPrefix == "" {
-		return nil, fmt.Errorf("unable to get subnet address prefix: %w", err)
+		return nil, fmt.Errorf("unable to get subnet address prefix")
 	}
 
 	invisinetsVnetsMap, err := s.azureHandler.GetVNetsAddressSpaces(ctx, invisinetsPrefix)
@@ -528,7 +532,7 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 // and if requires a peering or not
 func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceVnet *armnetwork.VirtualNetwork, rule *invisinetspb.PermitListRule, invisinetsVnetsMap map[string]string) error {
 	for _, tag := range rule.Tag {
-		isTagInResourceAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(tag, *resourceVnet.Properties.AddressSpace.AddressPrefixes[0])
+		isTagInResourceAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(tag, *resourceVnet.Properties.AddressSpace.AddressPrefixes[0]) // TODO @seankimkdy: should this check for subnet address prefix (which is different due to the partitioning)
 		if err != nil {
 			return err
 		}
@@ -631,12 +635,15 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, deployment *in
 		return nil, fmt.Errorf("unable to get invisinets vnet: %w", err)
 	}
 	subnetParameters := armnetwork.Subnet{
-		Name: to.Ptr("GatewaySubnet"),
-		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr(strings.Replace(*invisinetsVnet.Properties.AddressSpace.AddressPrefixes[0], "0.0/16", "1.0/24", 1)), // TODO @seankimkdy: figure out how to get address space for this
-		},
+		Name:       to.Ptr(gatewaySubnetName), // TODO @seankimkdy: is this necessary?
+		Properties: &armnetwork.SubnetPropertiesFormat{},
 	}
-	gatewaySubnet, err := s.azureHandler.CreateSubnet(ctx, *invisinetsVnet.Name, "GatewaySubnet", subnetParameters)
+	subnetAddressPrefixes, err := splitVnetAddressPrefix(*invisinetsVnet.Properties.AddressSpace.AddressPrefixes[0])
+	if err != nil {
+		return nil, fmt.Errorf("unable to split address prefix: %w", err)
+	}
+	subnetParameters.Properties.AddressPrefix = to.Ptr(subnetAddressPrefixes[1])
+	gatewaySubnet, err := s.azureHandler.CreateSubnet(ctx, *invisinetsVnet.Name, gatewaySubnetName, subnetParameters)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create gateway subnet: %w", err)
 	}
@@ -684,7 +691,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, deployment *in
 	}
 	_, err = s.azureHandler.CreateOrUpdateVirtualNetworkGateway(ctx, getVpnGatewayName(), virtualNetworkGatewayParameters)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create VPN gateway: %w", err)
+		return nil, fmt.Errorf("unable to create virtual network gateway: %w", err)
 	}
 
 	resp := &invisinetspb.CreateVpnGatewayResponse{Asn: vpnGwAsn}

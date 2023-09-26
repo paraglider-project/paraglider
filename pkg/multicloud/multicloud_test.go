@@ -209,7 +209,7 @@ func TestMulticloud(t *testing.T) {
 		IpAddress:   azureVmIpAddress,
 		NetworkType: networkmanagementpb.Endpoint_NON_GCP_NETWORK,
 	}
-	gcp.RunPingConnectivityTest(t, gcpProject, "gcp-azure", gcpVmEndpoint, azureVmEndpoint)
+	gcp.RunPingConnectivityTest(t, gcpTeardownInfo, gcpProject, "gcp-azure", gcpVmEndpoint, azureVmEndpoint)
 
 	// TODO @seankimkdy: add Azure network watcher test
 }

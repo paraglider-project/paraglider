@@ -37,7 +37,7 @@ func (f *FakeControllerServer) FindUnusedAddressSpace(ctx context.Context, e *in
 	if f.Counter == 256 {
 		return nil, fmt.Errorf("ran out of address spaces")
 	}
-	address := fmt.Sprintf("10.%d.0.0/16", f.Counter) // if changing this to something other than /16, make sure to change the azureSDKHandler.CreateInvisinetsVirtualNetwork accordingly for partitioning the address space
+	address := fmt.Sprintf("10.%d.0.0/16", f.Counter)
 	f.Counter = f.Counter + 1
 	return &invisinetspb.AddressSpace{Address: address}, nil
 }
