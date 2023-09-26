@@ -58,6 +58,8 @@ var tagServiceCmd = &cobra.Command{
             return
         }
         tagservice.Setup(dbPort, serverPort, clearKeys)
+    },
+}
 
 var azCmd = &cobra.Command{
     Use:   "az",
