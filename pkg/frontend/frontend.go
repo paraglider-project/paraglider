@@ -125,7 +125,7 @@ func parseSubscriberName(sub string) (string, string) {
 func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList, subscribe bool, cloud string) (*invisinetspb.PermitList, error){
 	for _, rule := range list.Rules {
 		// Check rule validity and clean fields
-		rule, _, err := checkAndCleanRule(rule) // TODO: use the warning
+		rule, _, err := checkAndCleanRule(rule) // TODO @smcclure20: use the warning and show it the user
 		if err != nil {
 			return nil, fmt.Errorf("Invalid rule: %s", err.Error())
 		}
