@@ -30,5 +30,5 @@ integration-test:
 	$(GOTEST_CMD) -tags=integration
 
 .PHONY: multicloud-test
-.multicloud-test:
+multicloud-test:
 	$(GOTEST_CMD) -tags=multicloud -timeout 90m
