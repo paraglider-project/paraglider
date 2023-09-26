@@ -16,8 +16,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// TODO: Add tests for new helper functions!
-
 package frontend
 
 import (
@@ -32,6 +30,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	grpc "google.golang.org/grpc"
@@ -49,19 +48,25 @@ var portNum = 10000
 const addressSpaceAddress = "10.0.0.0/16"
 const exampleCloudName = "example"
 const resolvedTagIp = "1.2.3.4"
-var exampleRule = &invisinetspb.PermitListRule{Id: "example-rule", Tags: []string{"tag1", "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
+const validTagName = "validTagName"
+var exampleRule = &invisinetspb.PermitListRule{Id: "example-rule", Tags: []string{validTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
 
 type mockTagServiceServer struct {
 	tagservicepb.UnimplementedTagServiceServer
 }
 
-// TODO: Have these functions (like Get, etc) only return if it is a "known tag"
 func (s *mockTagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMapping, error) {
-	return &tagservicepb.TagMapping{ParentTag: tag.TagName, ChildTags: []string{"child"}}, nil
+	if strings.HasPrefix(tag.TagName, validTagName) {
+		return &tagservicepb.TagMapping{ParentTag: tag.TagName, ChildTags: []string{"child"}}, nil
+	}
+	return nil, fmt.Errorf("GetTag: Invalid tag name")
 }
 
 func (s *mockTagServiceServer) ResolveTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.NameMappingList, error) {
-	return &tagservicepb.NameMappingList{Mappings: []*tagservicepb.NameMapping{&tagservicepb.NameMapping{TagName: tag.TagName, Uri: "uri/"+tag.TagName, Ip: resolvedTagIp}}}, nil
+	if strings.HasPrefix(tag.TagName, validTagName) {
+		return &tagservicepb.NameMappingList{Mappings: []*tagservicepb.NameMapping{&tagservicepb.NameMapping{TagName: tag.TagName, Uri: "uri/"+tag.TagName, Ip: resolvedTagIp}}}, nil
+	}
+	return nil, fmt.Errorf("ResolveTag: Invalid tag name")
 }
 
 func (s *mockTagServiceServer) SetTag(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
@@ -73,15 +78,24 @@ func (s *mockTagServiceServer) SetName(c context.Context, nameMapping *tagservic
 }
 
 func (s *mockTagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error) {
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted tag: %s", tag.TagName)}, nil
+	if strings.HasPrefix(tag.TagName, validTagName) {
+		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted tag: %s", tag.TagName)}, nil
+	}
+	return &tagservicepb.BasicResponse{Success: false, Message: fmt.Sprintf("tag %s does not exist", tag.TagName)}, fmt.Errorf("tag does not exist")
 }
 
 func (s *mockTagServiceServer) DeleteName(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error) {
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted name: %s", tag.TagName)}, nil
+	if strings.HasPrefix(tag.TagName, validTagName) {
+		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted name: %s", tag.TagName)}, nil
+	}
+	return &tagservicepb.BasicResponse{Success: false, Message: fmt.Sprintf("successfully deleted name: %s", tag.TagName)}, fmt.Errorf("tag does not exist")
 }
 
 func (s *mockTagServiceServer) DeleteTagMember(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted member %s from tag %s", tagMapping.ChildTags[0], tagMapping.ParentTag)}, nil
+	if strings.HasPrefix(tagMapping.ParentTag, validTagName) {
+		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted member %s from tag %s", tagMapping.ChildTags[0], tagMapping.ParentTag)}, nil
+	}
+	return &tagservicepb.BasicResponse{Success: false, Message: fmt.Sprintf("parent tag does not exist")}, fmt.Errorf("parentTag does not exist")
 }
 
 func (s *mockTagServiceServer) Subscribe(c context.Context, sub *tagservicepb.Subscription) (*tagservicepb.BasicResponse, error) {
@@ -89,11 +103,17 @@ func (s *mockTagServiceServer) Subscribe(c context.Context, sub *tagservicepb.Su
 }
 
 func (s *mockTagServiceServer) Unsubscribe(c context.Context, sub *tagservicepb.Subscription) (*tagservicepb.BasicResponse, error) {
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully unsubscribed from tag: %s", sub.TagName)}, nil
+	if strings.HasPrefix(sub.TagName, validTagName) {
+		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully unsubscribed from tag: %s", sub.TagName)}, nil
+	}
+	return &tagservicepb.BasicResponse{Success: false, Message: fmt.Sprintf("no subscriptions for tag: %s", sub.TagName)}, fmt.Errorf("tag has no subscribers")
 }
 
 func (s *mockTagServiceServer) GetSubscribers(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.SubscriberList, error) {
-	return &tagservicepb.SubscriberList{Subscribers: []string{exampleCloudName+">uri"}}, nil
+	if strings.HasPrefix(tag.TagName, validTagName) {
+		return &tagservicepb.SubscriberList{Subscribers: []string{exampleCloudName+">uri"}}, nil
+	}
+	return nil, fmt.Errorf("Tag does not exist")
 }
 
 
@@ -241,7 +261,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 
 	// Well-formed request
 	id := "123"
-	tags := []string{"tag"}
+	tags := []string{validTagName}
 	rule := &invisinetspb.PermitListRule{
 		Id: id, 
 		Tags: tags,
@@ -258,6 +278,25 @@ func TestPermitListRulesAdd(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Invalid tag name (cannot be resolved)
+	tags = []string{"tag"}
+	rule = &invisinetspb.PermitListRule{
+		Id: id, 
+		Tags: tags,
+		Direction: invisinetspb.Direction_INBOUND, 
+		SrcPort: 1, 
+		DstPort: 2, 
+		Protocol: 1 }
+	rulesList = &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
+	jsonValue, _ = json.Marshal(rulesList)
+
+	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Bad cloud name
 	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "wrong", id)
@@ -451,7 +490,7 @@ func TestGetTag(t *testing.T) {
 	r.GET("/tags/:tag", frontendServer.getTag)
 
 	// Well-formed request
-	tag := "testtag"
+	tag := validTagName
 	expectedResult := &tagservicepb.TagMapping{ParentTag: tag, ChildTags: []string{"child"}}
 
 	url := fmt.Sprintf("/tags/%s", tag)
@@ -466,6 +505,17 @@ func TestGetTag(t *testing.T) {
 	require.Nil(t, err)
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, expectedResult, tagMap)
+
+	// Request for non-existent tag
+	tag = "badtag"
+
+	url = fmt.Sprintf("/tags/%s", tag)
+	req, _ = http.NewRequest("GET", url, nil)
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestResolveTag(t *testing.T) {
@@ -479,7 +529,7 @@ func TestResolveTag(t *testing.T) {
 	r.GET("/tags/:tag/resolve", frontendServer.resolveTag)
 
 	// Well-formed request
-	tag := "testtag"
+	tag := validTagName
 	expectedResult := &tagservicepb.NameMapping{TagName: tag, Uri: "uri/"+tag, Ip: resolvedTagIp}
 
 	url := fmt.Sprintf("/tags/%s/resolve", tag)
@@ -494,6 +544,17 @@ func TestResolveTag(t *testing.T) {
 	require.Nil(t, err)
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, expectedResult, nameMaps.Mappings[0])
+
+	// Resolve non-existent tag
+	tag = "badtag"
+
+	url = fmt.Sprintf("/tags/%s/resolve", tag)
+	req, _ = http.NewRequest("GET", url, nil)
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestSetTag(t *testing.T) {
@@ -510,7 +571,7 @@ func TestSetTag(t *testing.T) {
 	r.POST("/tags/:tag", frontendServer.setTag)
 
 	// Well-formed request
-	tagMapping := &tagservicepb.TagMapping{ParentTag: "parent", ChildTags: []string{"child"}}
+	tagMapping := &tagservicepb.TagMapping{ParentTag: validTagName, ChildTags: []string{validTagName+"child"}}
 	jsonValue, _ := json.Marshal(tagMapping.ChildTags)
 
 	url := fmt.Sprintf("/tags/%s", tagMapping.ParentTag)
@@ -594,7 +655,7 @@ func TestDeleteTagMember(t *testing.T) {
 	r.DELETE("/tags/:tag/members", frontendServer.deleteTagMember)
 
 	// Well-formed request
-	tagMapping := &tagservicepb.TagMapping{ParentTag: "parent", ChildTags: []string{"child"}}
+	tagMapping := &tagservicepb.TagMapping{ParentTag: validTagName, ChildTags: []string{"child"}}
 	jsonValue, _ := json.Marshal(tagMapping.ChildTags)
 
 	url := fmt.Sprintf("/tags/%s/members", tagMapping.ParentTag)
@@ -608,6 +669,18 @@ func TestDeleteTagMember(t *testing.T) {
 
 	require.Nil(t, err)
 	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Non-existent tag
+	tagMapping = &tagservicepb.TagMapping{ParentTag: "badtag", ChildTags: []string{"child"}}
+	jsonValue, _ = json.Marshal(tagMapping.ChildTags)
+
+	url = fmt.Sprintf("/tags/%s/members", tagMapping.ParentTag)
+	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Malformed request
 	jsonValue, _ = json.Marshal(tagMapping)
@@ -638,7 +711,7 @@ func TestDeleteTag(t *testing.T) {
 	r.DELETE("/tags/:tag/", frontendServer.deleteTag)
 
 	// Well-formed request
-	tag := "testtag"
+	tag := validTagName
 
 	url := fmt.Sprintf("/tags/%s/", tag)
 	req, _ := http.NewRequest("DELETE", url, nil)
@@ -651,6 +724,17 @@ func TestDeleteTag(t *testing.T) {
 	require.Nil(t, err)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Delete non-existent tag
+	tag = "badtag"
+
+	url = fmt.Sprintf("/tags/%s/", tag)
+	req, _ = http.NewRequest("DELETE", url, nil)
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestDeleteName(t *testing.T) {
@@ -664,7 +748,7 @@ func TestDeleteName(t *testing.T) {
 	r.DELETE("/tags/:tag/name", frontendServer.deleteName)
 
 	// Well-formed request
-	tag := "testtag"
+	tag := validTagName
 
 	url := fmt.Sprintf("/tags/%s/name", tag)
 	req, _ := http.NewRequest("DELETE", url, nil)
@@ -677,6 +761,17 @@ func TestDeleteName(t *testing.T) {
 	require.Nil(t, err)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Tag name that does not exist
+	tag = "badtag"
+
+	url = fmt.Sprintf("/tags/%s/name", tag)
+	req, _ = http.NewRequest("DELETE", url, nil)
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestResolvePermitListRules(t *testing.T) {
@@ -691,7 +786,7 @@ func TestResolvePermitListRules(t *testing.T) {
 	id := "id"
 	rule := &invisinetspb.PermitListRule{
 		Id: "id", 
-		Tags: []string{"tag1", "tag2", "2.3.4.5"},
+		Tags: []string{validTagName+"1", validTagName+"2", "2.3.4.5"},
 		Targets: []string{},
 		Direction: invisinetspb.Direction_INBOUND, 
 		SrcPort: 1, 
@@ -700,7 +795,7 @@ func TestResolvePermitListRules(t *testing.T) {
 	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
 	expectedRule := &invisinetspb.PermitListRule{
 		Id: "id", 
-		Tags: []string{"tag1", "tag2", "2.3.4.5"},
+		Tags: []string{validTagName+"1", validTagName+"2", "2.3.4.5"},
 		Targets: []string{resolvedTagIp, resolvedTagIp, "2.3.4.5"},
 		Direction: invisinetspb.Direction_INBOUND, 
 		SrcPort: 1, 
@@ -730,7 +825,7 @@ func TestCheckAndCleanRule(t *testing.T) {
 	// Rule with correct formatting
 	rule := &invisinetspb.PermitListRule{
 		Id: "id", 
-		Tags: []string{"tag1", "tag2", "2.3.4.5"},
+		Tags: []string{validTagName+"1", validTagName+"2", "2.3.4.5"},
 		Targets: []string{},
 		Direction: invisinetspb.Direction_INBOUND, 
 		SrcPort: 1, 
@@ -756,8 +851,8 @@ func TestCheckAndCleanRule(t *testing.T) {
 	// Rule with targets
 	badRule = &invisinetspb.PermitListRule{
 		Id: "id", 
-		Tags: []string{"tag1", "tag2", "2.3.4.5"},
-		Targets: []string{"tag1", "tag2", "2.3.4.5"},
+		Tags: []string{validTagName+"1", validTagName+"2", "2.3.4.5"},
+		Targets: []string{validTagName+"1", validTagName+"2", "2.3.4.5"},
 		Direction: invisinetspb.Direction_INBOUND, 
 		SrcPort: 1, 
 		DstPort: 2, 
@@ -834,10 +929,10 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 		AssociatedResource: "uri",
 		Rules: []*invisinetspb.PermitListRule{
 			&invisinetspb.PermitListRule{
-				Tags: []string{"tag1", "1.2.3.4"},
+				Tags: []string{validTagName+"1", "1.2.3.4"},
 			},
 			&invisinetspb.PermitListRule{
-				Tags: []string{"tag1", "tag2", "tag3"},
+				Tags: []string{validTagName+"1", validTagName+"2", validTagName+"2"},
 			},
 		},
 	}
@@ -846,10 +941,10 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 		AssociatedResource: "uri",
 		Rules: []*invisinetspb.PermitListRule{
 			&invisinetspb.PermitListRule{
-				Tags: []string{"tag1", "1.2.3.4"},
+				Tags: []string{validTagName+"1", "1.2.3.4"},
 			},
 			&invisinetspb.PermitListRule{
-				Tags: []string{"tag3"},
+				Tags: []string{validTagName+"3"},
 			},
 		},
 	}
@@ -905,6 +1000,6 @@ func TestUpdateSubscribers(t *testing.T) {
 	setupPluginServer(cloudPluginPort)
 	setupTagServer(tagServerPort)
 
-	err := frontendServer.updateSubscribers("tag")
+	err := frontendServer.updateSubscribers(validTagName)
 	assert.Nil(t, err)
 }
