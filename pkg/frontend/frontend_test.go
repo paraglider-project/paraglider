@@ -49,6 +49,7 @@ var portNum = 10000
 const addressSpaceAddress = "10.0.0.0/16"
 const exampleCloudName = "example"
 const resolvedTagIp = "1.2.3.4"
+var exampleRule = &invisinetspb.PermitListRule{Id: "example-rule", Tags: []string{"tag1", "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
 
 type mockTagServiceServer struct {
 	tagservicepb.UnimplementedTagServiceServer
@@ -102,7 +103,7 @@ type mockCloudPluginServer struct {
 }
 
 func (s *mockCloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
-	return &invisinetspb.PermitList{AssociatedResource: r.Id}, nil
+	return &invisinetspb.PermitList{AssociatedResource: r.Id, Rules: []*invisinetspb.PermitListRule{exampleRule}}, nil
 }
 
 func (s *mockCloudPluginServer) AddPermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
@@ -177,6 +178,11 @@ func SetUpRouter() *gin.Engine {
 	return router
 }
 
+type PermitListGetResponse struct {
+	Id          string `json:"id"`
+	PermitList  *invisinetspb.PermitList `json:"permitlist"`
+}
+
 func TestPermitListGet(t *testing.T) {
 	// Setup
 	frontendServer := newFrontendServer()
@@ -190,11 +196,9 @@ func TestPermitListGet(t *testing.T) {
 
 	// Well-formed request
 	id := "123"
-	permitListJson := "{\"associated_resource\":\"123\"}"
-	expectedResponse := map[string]string{
-		"id":              id,
-		"resource":        id,
-		"permitlist_json": permitListJson,
+	expectedResponse := PermitListGetResponse{
+		Id:              id,
+		PermitList:      &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{exampleRule}},
 	}
 
 	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/", exampleCloudName, id)
@@ -203,10 +207,12 @@ func TestPermitListGet(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	responseData, _ := io.ReadAll(w.Body)
-	var jsonMap map[string]string
-	err := json.Unmarshal(responseData, &jsonMap)
+	var permitList PermitListGetResponse
+	err := json.Unmarshal(responseData, &permitList)
 	require.Nil(t, err)
-	assert.Equal(t, expectedResponse, jsonMap)
+	assert.Equal(t, expectedResponse.Id, permitList.Id)
+	assert.Equal(t, expectedResponse.PermitList.AssociatedResource, permitList.PermitList.AssociatedResource)
+	assert.Equal(t, expectedResponse.PermitList.Rules[0].Tags, permitList.PermitList.Rules[0].Tags)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
@@ -274,10 +280,13 @@ func TestPermitListRulesAdd(t *testing.T) {
 func TestPermitListRulesDelete(t *testing.T) {
 	// Setup
 	frontendServer := newFrontendServer()
-	port := getNewPortNumber()
-	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
-	setupPluginServer(port)
+	setupPluginServer(cloudPluginPort)
+	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
 	r.DELETE("/cloud/:cloud/resources/:id/permit-list/rules", frontendServer.permitListRulesDelete)
