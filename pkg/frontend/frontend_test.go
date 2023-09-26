@@ -95,7 +95,7 @@ func (s *mockTagServiceServer) DeleteTagMember(c context.Context, tagMapping *ta
 	if strings.HasPrefix(tagMapping.ParentTag, validTagName) {
 		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted member %s from tag %s", tagMapping.ChildTags[0], tagMapping.ParentTag)}, nil
 	}
-	return &tagservicepb.BasicResponse{Success: false, Message: fmt.Sprintf("parent tag does not exist")}, fmt.Errorf("parentTag does not exist")
+	return &tagservicepb.BasicResponse{Success: false, Message: "parent tag does not exist"}, fmt.Errorf("parentTag does not exist")
 }
 
 func (s *mockTagServiceServer) Subscribe(c context.Context, sub *tagservicepb.Subscription) (*tagservicepb.BasicResponse, error) {
@@ -333,7 +333,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 
 	// Well-formed request
 	id := "123"
-	tags := []string{"tag"}
+	tags := []string{validTagName}
 	rule := &invisinetspb.PermitListRule{
 		Id: "id", 
 		Tags: tags,
@@ -350,6 +350,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
+	
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
@@ -832,8 +833,9 @@ func TestCheckAndCleanRule(t *testing.T) {
 		DstPort: 2, 
 		Protocol: 1 }
 	
-	cleanRule, warning, err := checkAndCleanRule(rule)
+	cleanRule, _, err := checkAndCleanRule(rule)
 	assert.Nil(t, err)
+	assert.Equal(t, rule, cleanRule)
 
 	// Rule with no tags
 	badRule := &invisinetspb.PermitListRule{
@@ -845,7 +847,7 @@ func TestCheckAndCleanRule(t *testing.T) {
 		DstPort: 2, 
 		Protocol: 1 }
 
-	cleanRule, warning, err = checkAndCleanRule(badRule)
+	_, _, err = checkAndCleanRule(badRule)
 	assert.NotNil(t, err)
 
 	// Rule with targets
@@ -858,7 +860,7 @@ func TestCheckAndCleanRule(t *testing.T) {
 		DstPort: 2, 
 		Protocol: 1 }
 
-	cleanRule, warning, err = checkAndCleanRule(badRule)
+	cleanRule, warning, err := checkAndCleanRule(badRule)
 	assert.Nil(t, err)
 	assert.NotNil(t, warning)
 	assert.Equal(t, []string{}, cleanRule.Targets)

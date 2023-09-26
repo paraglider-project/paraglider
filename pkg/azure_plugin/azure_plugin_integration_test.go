@@ -100,7 +100,7 @@ func TestAzurePluginIntegration(t *testing.T) {
 func testAddAndGetPermitList(t *testing.T) {
 	vmID := getVmId()
 	permitList := &invisinetspb.PermitList{AssociatedResource: vmID,
-		Rules: []*invisinetspb.PermitListRule{&invisinetspb.PermitListRule{Tag: []string{"10.1.0.5"}, Direction: invisinetspb.Direction_OUTBOUND, SrcPort: 80, DstPort: 80, Protocol: 6}}}
+		Rules: []*invisinetspb.PermitListRule{&invisinetspb.PermitListRule{Targets: []string{"10.1.0.5"}, Direction: invisinetspb.Direction_OUTBOUND, SrcPort: 80, DstPort: 80, Protocol: 6}}}
 	s, ctx := setupValidResourceAndPermitList(t, permitList, vmID)
 
 	// Assert the NSG created is equivalent to the pl rules by using the get permit list api

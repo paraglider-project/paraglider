@@ -79,16 +79,10 @@ func createErrorResponse(message string) gin.H {
 func isIpAddrOrCidr(value string) bool {
 	if strings.Contains(value, "/") {
 		_, err := netip.ParsePrefix(value)
-		if err != nil {
-			return false
-		}
-		return true
+		return err == nil
 	} else {
 		_, err := netip.ParseAddr(value)
-		if err != nil {
-			return false
-		}
-		return true
+		return err == nil
 	}
 }
 
@@ -101,6 +95,7 @@ func getIPsFromResolvedTag(mappings []*tagservicepb.NameMapping) []string {
 	return ips
 }
 
+// Check if rules given by the user have tags (requirement) and remove any targets they contain (should only be written by the controller)
 func checkAndCleanRule(rule *invisinetspb.PermitListRule) (*invisinetspb.PermitListRule, *Warning, error) {
 	if len(rule.Tags) == 0 {
 		return nil, nil, fmt.Errorf("Rule %s contains no tags", rule.Id)
@@ -112,14 +107,18 @@ func checkAndCleanRule(rule *invisinetspb.PermitListRule) (*invisinetspb.PermitL
 	return rule, nil, nil 
 }
 
+// Format a subscriber name so that when the value is looked up, it is clear which cloud the URI belongs to
 func createSubscriberName(cloud string, uri string) string {
 	return cloud+">"+uri
 }
 
+// Parse subscriber names from database to get the cloud and URI
 func parseSubscriberName(sub string) (string, string) {
-	// TODO: add if contains ","
-	tokens := strings.Split(sub, ">")
-	return tokens[0], tokens[1]
+	if strings.Contains(sub, ">") {
+		tokens := strings.Split(sub, ">")
+		return tokens[0], tokens[1]
+	}
+	return sub, ""
 }
 
 // Takes a set of permit list rules and returns the same list with all tags referenced in the original rules resolved to IPs
@@ -165,6 +164,7 @@ func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList,
 	return list, nil
 }
 
+// Get permit list with ID from plugin
 func (s *ControllerServer) _permitListGet(pluginAddress string, id string) (*invisinetspb.PermitList, error) {
 	// Connect to the cloud plugin
 	conn, err := grpc.Dial(pluginAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -210,6 +210,7 @@ func (s *ControllerServer) permitListGet(c *gin.Context) {
 	})
 }
 
+// Add rules to a resource specified in the permit list in the given cloud
 func (s *ControllerServer) _permitListRulesAdd(pluginAddress string, permitList *invisinetspb.PermitList, cloud string) (*invisinetspb.BasicResponse, error) {
 	// Resolve tags referenced in rules 
 	permitList, err := s.resolvePermitListRules(permitList, true, cloud)
@@ -262,9 +263,8 @@ func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
 	})
 }
 
+// Find the tags dereferenced between two versions of a permit list
 func diffTagReferences(beforeList *invisinetspb.PermitList, afterList *invisinetspb.PermitList) []string{
-	// For each rule, put all (non-CIDR) tags in a set
-	// Provide difference of set membership at the end 
 	beforeListSet := make(map[string]bool)
 	afterListSet := make(map[string]bool)
 	tagsDereferenced := []string{}
@@ -285,6 +285,7 @@ func diffTagReferences(beforeList *invisinetspb.PermitList, afterList *invisinet
 		}
 	}
 
+	// Find tags no longer referenced after the change
 	for tag := range beforeListSet {
 		if _, ok := afterListSet[tag]; !ok {
 			tagsDereferenced = append(tagsDereferenced, tag)
@@ -294,14 +295,17 @@ func diffTagReferences(beforeList *invisinetspb.PermitList, afterList *invisinet
 	return tagsDereferenced
 }
 
+// Check whether any tags have been dereferenced by the permit list and unsubscribe from any that have
 func (s *ControllerServer) checkAndUnsubscribe(beforeList *invisinetspb.PermitList, afterList *invisinetspb.PermitList) error {
-	//Do it this way for now and optimize later 
-	// Requires a..
-	// Get before (+1 for this design)
-	// Do the delete
-	// Get after (+1, either design)
+	// Find the dereferenced tags
 	tagsToUnsubscribe := diffTagReferences(beforeList, afterList)
 
+	// If none dereferenced, return early
+	if len(tagsToUnsubscribe) == 0 {
+		return nil
+	}
+
+	// Dial the tag service
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
@@ -309,8 +313,8 @@ func (s *ControllerServer) checkAndUnsubscribe(beforeList *invisinetspb.PermitLi
 	defer conn.Close()
 	client := tagservicepb.NewTagServiceClient(conn)
 	
+	// Send RPC to unsubscribe from each tag
 	for _, tag := range tagsToUnsubscribe {
-		// Send RPC to unsubscribe from tag
 		_, err := client.Unsubscribe(context.Background(), &tagservicepb.Subscription{TagName: tag, Subscriber: beforeList.AssociatedResource})
 		if err != nil {
 			return err
@@ -331,8 +335,8 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	}
 
 	// Parse rules to delete
-	var permitListRules invisinetspb.PermitList
-	if err := c.BindJSON(&permitListRules); err != nil {
+	var permitListRules *invisinetspb.PermitList = &invisinetspb.PermitList{}
+	if err := c.BindJSON(permitListRules); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	} 
@@ -354,10 +358,14 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	}
 
 	// Resolve tags (for correct lookup in cloud plugin) and unsubscribe
-	s.resolvePermitListRules(&permitListRules, false, cloud)
+	permitListRules, err = s.resolvePermitListRules(permitListRules, false, cloud)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return 
+	}
 
 	// Send RPC to delete the rules
-	response, err := client.DeletePermitListRules(context.Background(), &permitListRules)
+	response, err := client.DeletePermitListRules(context.Background(), permitListRules)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -528,6 +536,7 @@ func (s *ControllerServer) resolveTag(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// Clear targets from rules provided by the user 
 func clearRuleTargets(rules *invisinetspb.PermitList) *invisinetspb.PermitList {
 	for _, rule := range rules.Rules {
 		rule.Targets = []string{}
@@ -535,11 +544,9 @@ func clearRuleTargets(rules *invisinetspb.PermitList) *invisinetspb.PermitList {
 	return rules
 }
 
+// Update subscribers to a tag about membership changes
 func (s *ControllerServer) updateSubscribers(tag string) error {
-	// Get Subscribers from tag service for tag
-	// For each subscriber, 
-		// Call GetPermitList
-		// Then call SetPermitList with resolved rules (note: create helper functions without the network stuff for these functions so they can be reusable)
+	// Get the subscribers to the tag
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
@@ -552,6 +559,7 @@ func (s *ControllerServer) updateSubscribers(tag string) error {
 		return err
 	}
 
+	// For each subscriber, get the current permit list, clear target fields, and re-apply the resolved rules
 	for _, subscriber := range response.Subscribers {
 		cloud, uri := parseSubscriberName(subscriber)
 		cloudClient, ok := s.pluginAddresses[cloud]
@@ -575,7 +583,7 @@ func (s *ControllerServer) updateSubscribers(tag string) error {
 	return nil
 }
 
-// Set tag mapping in local db 
+// Set tag mapping in local db and update subscribers to membership change
 func (s *ControllerServer) setTag(c *gin.Context) {
 	parentTag := c.Param("tag")
 	var childTags []string
@@ -643,7 +651,7 @@ func (s *ControllerServer) setName(c *gin.Context) {
 	})
 }
 
-// Delete tag (all mappings under it) in local db
+// Delete tag (all mappings under it) in local db and update subscribers to membership change
 func (s *ControllerServer) deleteTag(c *gin.Context) {
 	tagName := c.Param("tag")
 	tag := &tagservicepb.Tag{TagName: tagName}
@@ -675,7 +683,7 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 	})
 }
 
-// Delete members of tag in local db and in each cloud (if implemented/supported)
+// Delete members of tag in local db and update subscribers to membership change
 func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	parentTag := c.Param("tag")
 	var childTags []string
@@ -735,7 +743,7 @@ func (s *ControllerServer) deleteName(c *gin.Context) {
 	})
 }
 
-
+// Setup and run the server
 func Setup(configPath string) {
 	// Read the config
 	f, err := os.Open(configPath)
