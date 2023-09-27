@@ -3,6 +3,8 @@ package ibm
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
 
 	logger "github.com/NetSys/invisinets/pkg/logger"
 
@@ -14,11 +16,9 @@ import (
 
 type ibmPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
-	cloudClient *sdk.IBMCloudClient
+	cloudClient        *sdk.IBMCloudClient
+	frontendServerAddr string
 }
-
-// TODO currently value is set during testing.
-var frontendServerAddr string
 
 func (s *ibmPluginServer) setupCloudClient(region string) error {
 	client, err := sdk.NewIbmCloudClient(region)
@@ -66,7 +66,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		vpcID = vpcIDs[0]
 		logger.Log.Printf("Reusing invisinets VPC with ID: %v in region %v", vpcID, region)
 	} else {
-		conn, err := grpc.Dial(frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.Dial(s.frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, err
 		}
@@ -133,4 +133,25 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 		}
 	}
 	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetsAddressSpaces}, nil
+}
+
+//starts up the plugin server and stores the frontend server address. 
+func Setup(port int, frontendAddress string) {
+	pluginServerAddress := "localhost"
+	lis, err := net.Listen("tcp", fmt.Sprintf("%v:%d", pluginServerAddress, port))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	ibmServer := ibmPluginServer{
+		cloudClient:        &sdk.IBMCloudClient{},
+		frontendServerAddr: fmt.Sprintf("%v:%v", frontendAddress, port),
+	}
+	invisinetspb.RegisterCloudPluginServer(grpcServer, &ibmServer)
+	fmt.Printf("Starting plugin server on: %v:%v\n", pluginServerAddress, port)
+	fmt.Println("Received frontend Server address:", frontendAddress)
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }

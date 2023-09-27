@@ -30,7 +30,6 @@ func TestCreateResourceVMNewDeployment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	frontendServerAddr = fakeControllerServerAddr
 
 	// choose default zone if not specified
 	if zone == "" {
@@ -43,7 +42,8 @@ func TestCreateResourceVMNewDeployment(t *testing.T) {
 		Name:    "",
 	}
 
-	s := &ibmPluginServer{}
+	s := &ibmPluginServer{
+		frontendServerAddr:fakeControllerServerAddr}
 	description, err := json.Marshal(instanceData)
 	require.NoError(t, err)
 
