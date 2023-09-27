@@ -159,12 +159,15 @@ func TeardownGcpTesting(teardownInfo *GcpTestTeardownInfo) {
 		Region:  vpnRegion,
 		Router:  routerName,
 	}
+	fmt.Println("bleh")
+	fmt.Println(routerName)
 	router, err := routersClient.Get(ctx, getRouterReq)
 	if err != nil {
 		if !isErrorNotFound(err) {
 			teardownPanic("unable to get router", err)
 		}
 	} else {
+		fmt.Println("Got router")
 		vpnTunnelsClient, err := compute.NewVpnTunnelsRESTClient(ctx)
 		if err != nil {
 			teardownPanic("unable to create vpn tunnels client", err)

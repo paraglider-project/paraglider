@@ -432,9 +432,6 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			Project:          project,
 			FirewallResource: firewall,
 		}
-		fmt.Println("Inserting firewall")
-		fmt.Printf("PermitListRule:\n%+v\n", permitListRule)
-		fmt.Printf("Firewall:\n%+v\n", firewall)
 		insertFirewallOp, err := firewallsClient.Insert(ctx, insertFirewallReq)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create firewall rule: %w", err)
