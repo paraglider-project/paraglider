@@ -23,7 +23,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -954,4 +956,19 @@ func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, req *invisin
 	}
 	defer routersClient.Close()
 	return s._CreateVpnConnections(ctx, req, externalVpnGatewaysClient, vpnTunnelsClient, routersClient)
+}
+
+func Setup(port int) {
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	gcpServer := GCPPluginServer{}
+	invisinetspb.RegisterCloudPluginServer(grpcServer, &gcpServer)
+	fmt.Println("Starting server on port :", port)
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }
