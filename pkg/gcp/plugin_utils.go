@@ -28,6 +28,7 @@ import (
 	networkmanagement "cloud.google.com/go/networkmanagement/apiv1"
 	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -362,9 +363,9 @@ func RunPingConnectivityTest(t *testing.T, teardownInfo *GcpTestTeardownInfo, pr
 	}
 	teardownInfo.ConnectivityTestNames = append(teardownInfo.ConnectivityTestNames, connectivityTest.Name)
 
+	reachable := connectivityTest.ReachabilityDetails.Result == networkmanagementpb.ReachabilityDetails_REACHABLE
 	// Retry up to five times
-	reachable := false
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 5 && !reachable; i++ {
 		rerunConnectivityReq := &networkmanagementpb.RerunConnectivityTestRequest{
 			Name: connectivityTest.Name,
 		}
@@ -376,15 +377,10 @@ func RunPingConnectivityTest(t *testing.T, teardownInfo *GcpTestTeardownInfo, pr
 		if err != nil {
 			t.Fatal(err)
 		}
-		reachable = networkmanagementpb.ReachabilityDetails_REACHABLE == connectivityTest.ReachabilityDetails.Result
-		if reachable {
-			break
-		}
+		reachable = connectivityTest.ReachabilityDetails.Result == networkmanagementpb.ReachabilityDetails_REACHABLE
 	}
 
-	if !reachable {
-		t.Fatal(err)
-	}
+	require.True(t, reachable)
 }
 
 // Returns VPC for Invisinets in a shortened GCP URI format
