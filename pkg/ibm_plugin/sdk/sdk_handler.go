@@ -12,8 +12,6 @@ import (
 	logger "github.com/NetSys/invisinets/pkg/logger"
 )
 
-type InstanceProfile string
-
 type IBMCloudClient struct {
 	vpcService     *vpcv1.VpcV1
 	region         string // region resources will be created in/fetched from

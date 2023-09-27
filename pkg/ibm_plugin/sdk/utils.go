@@ -21,6 +21,7 @@ import (
 
 // indicate the type of tagged resource to fetch
 type TaggedResourceType string
+type InstanceProfile string
 
 const (
 	VPC               TaggedResourceType = "vpc"
