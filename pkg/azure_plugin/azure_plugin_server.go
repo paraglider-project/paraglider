@@ -596,20 +596,15 @@ func getVirtualNetworkGatewayConnectionName(cloud string, idx int) string {
 	return invisinetsPrefix + "-" + cloud + "-conn-" + strconv.Itoa(idx)
 }
 
-// TODO @seankimkdy: everything should be passed in as a GRPC thing
-// TODO @seankimkdy: naming? Azure uses "VPN gateway" for a different meaning
-// Note that this is
 func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.CreateVpnGatewayResponse, error) {
 	resourceIdInfo, err := getResourceIDInfo(deployment.Id)
 	if err != nil {
-		return nil, fmt.Errorf("shit hit the fan")
+		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
 	}
 	err = s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
-		return nil, fmt.Errorf("shit hit the fan part 2")
+		return nil, fmt.Errorf("unable to setup azure handler: %w", err)
 	}
-
-	// TODO @seankimkdy: check if gateway already exists and return information from there
 
 	// Create two public IP addresses (need a second for active-active mode)
 	publicIPAddressParameters := armnetwork.PublicIPAddress{
@@ -637,7 +632,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, deployment *in
 		return nil, fmt.Errorf("unable to get invisinets vnet: %w", err)
 	}
 	subnetParameters := armnetwork.Subnet{
-		Name:       to.Ptr(gatewaySubnetName), // TODO @seankimkdy: is this necessary?
+		Name:       to.Ptr(gatewaySubnetName),
 		Properties: &armnetwork.SubnetPropertiesFormat{},
 	}
 	subnetAddressPrefixes, err := splitVnetAddressPrefix(*invisinetsVnet.Properties.AddressSpace.AddressPrefixes[0])
@@ -667,11 +662,11 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, deployment *in
 					Properties: &armnetwork.VirtualNetworkGatewayIPConfigurationPropertiesFormat{},
 				},
 			},
-			SKU: &armnetwork.VirtualNetworkGatewaySKU{ // TODO @seankimkdy: confirm with sarah
+			SKU: &armnetwork.VirtualNetworkGatewaySKU{
 				Name: to.Ptr(armnetwork.VirtualNetworkGatewaySKUNameVPNGw1),
 				Tier: to.Ptr(armnetwork.VirtualNetworkGatewaySKUTierVPNGw1),
 			},
-			VPNGatewayGeneration: to.Ptr(armnetwork.VPNGatewayGenerationGeneration1), // TODO @seankimkdy: confirm with sarah
+			VPNGatewayGeneration: to.Ptr(armnetwork.VPNGatewayGenerationGeneration1),
 			VPNType:              to.Ptr(armnetwork.VPNTypeRouteBased),
 		},
 	}
@@ -707,11 +702,11 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, deployment *in
 func (s *azurePluginServer) CreateVpnBgpSessions(ctx context.Context, req *invisinetspb.CreateVpnBgpSessionsRequest) (*invisinetspb.CreateVpnBgpSessionsResponse, error) {
 	resourceIdInfo, err := getResourceIDInfo(req.Deployment.Id)
 	if err != nil {
-		return nil, fmt.Errorf("shit hit the fan")
+		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
 	}
 	err = s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
-		return nil, fmt.Errorf("shit hit the fan part 2")
+		return nil, fmt.Errorf("unable to setup azure handler: %w", err)
 	}
 
 	virtualNetworkGatewayName := getVpnGatewayName()
@@ -737,11 +732,11 @@ func (s *azurePluginServer) CreateVpnBgpSessions(ctx context.Context, req *invis
 func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invisinetspb.CreateVpnConnectionsRequest) (*invisinetspb.BasicResponse, error) {
 	resourceIdInfo, err := getResourceIDInfo(req.Deployment.Id)
 	if err != nil {
-		return nil, fmt.Errorf("shit hit the fan")
+		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
 	}
 	err = s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
-		return nil, fmt.Errorf("shit hit the fan part 2")
+		return nil, fmt.Errorf("unable to setup azure handler: %w", err)
 	}
 
 	localNetworkGateways := make([]*armnetwork.LocalNetworkGateway, vpnNumConnections)
@@ -785,17 +780,17 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 					Properties: &armnetwork.VirtualNetworkGatewayConnectionPropertiesFormat{
 						ConnectionType:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionTypeIPsec),
 						VirtualNetworkGateway1:         virtualNetworkGateway,
-						ConnectionMode:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionModeDefault), // TODO @seankimkdy: confirm constant
+						ConnectionMode:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionModeDefault), // TODO @seankimkdy: sarah
 						ConnectionProtocol:             to.Ptr(armnetwork.VirtualNetworkGatewayConnectionProtocolIKEv2),
-						DpdTimeoutSeconds:              to.Ptr(int32(45)), // TODO @seankimkdy: confirm constant
+						DpdTimeoutSeconds:              to.Ptr(int32(45)), // TODO @seankimkdy: sarah
 						EnableBgp:                      to.Ptr(true),
-						IPSecPolicies:                  []*armnetwork.IPSecPolicy{}, // TODO @seankimkdy: confirm constant
+						IPSecPolicies:                  []*armnetwork.IPSecPolicy{}, // TODO @seankimkdy: sarah
 						LocalNetworkGateway2:           localNetworkGateways[i],
-						RoutingWeight:                  to.Ptr(int32(0)), // TODO @seankimkdy: confirm constant
+						RoutingWeight:                  to.Ptr(int32(0)), // TODO @seankimkdy: sarah
 						SharedKey:                      to.Ptr(req.SharedKey),
-						TrafficSelectorPolicies:        []*armnetwork.TrafficSelectorPolicy{}, // TODO @seankimkdy: confirm constant
+						TrafficSelectorPolicies:        []*armnetwork.TrafficSelectorPolicy{}, // TODO @seankimkdy: sarah
 						UseLocalAzureIPAddress:         to.Ptr(false),
-						UsePolicyBasedTrafficSelectors: to.Ptr(false), // TODO @seankimkdy: confirm constant
+						UsePolicyBasedTrafficSelectors: to.Ptr(false), // TODO @seankimkdy: sarah
 					},
 					Location: to.Ptr(vpnLocation),
 				}
@@ -812,19 +807,20 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 	return &invisinetspb.BasicResponse{Success: true}, nil
 }
 
-func Setup(port int) {
+func Setup(port int) (*azurePluginServer, string) {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
-	azureServer := azurePluginServer{
+	azureServer := &azurePluginServer{
 		azureHandler: &azureSDKHandler{},
 	}
-	invisinetspb.RegisterCloudPluginServer(grpcServer, &azureServer)
+	invisinetspb.RegisterCloudPluginServer(grpcServer, azureServer)
 	fmt.Println("Starting server on port :", port)
 	err = grpcServer.Serve(lis)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
+	return azureServer, lis.Addr().String()
 }

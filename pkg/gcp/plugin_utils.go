@@ -159,15 +159,12 @@ func TeardownGcpTesting(teardownInfo *GcpTestTeardownInfo) {
 		Region:  vpnRegion,
 		Router:  routerName,
 	}
-	fmt.Println("bleh")
-	fmt.Println(routerName)
 	router, err := routersClient.Get(ctx, getRouterReq)
 	if err != nil {
 		if !isErrorNotFound(err) {
 			teardownPanic("unable to get router", err)
 		}
 	} else {
-		fmt.Println("Got router")
 		vpnTunnelsClient, err := compute.NewVpnTunnelsRESTClient(ctx)
 		if err != nil {
 			teardownPanic("unable to create vpn tunnels client", err)
@@ -175,7 +172,6 @@ func TeardownGcpTesting(teardownInfo *GcpTestTeardownInfo) {
 		defer vpnTunnelsClient.Close()
 		for _, routerInterface := range router.Interfaces {
 			vpnTunnelName := parseGCPURL(*routerInterface.LinkedVpnTunnel)["vpnTunnels"]
-			fmt.Println(vpnTunnelName)
 			getVpnTunnelReq := &computepb.GetVpnTunnelRequest{
 				Project:   teardownInfo.Project,
 				Region:    vpnRegion,
@@ -232,7 +228,6 @@ func TeardownGcpTesting(teardownInfo *GcpTestTeardownInfo) {
 			Project:            teardownInfo.Project,
 			ExternalVpnGateway: externalVpnGatewayName,
 		}
-		fmt.Println(externalVpnGatewayName)
 		deleteExternalVpnGatewayOp, err := externalVpnGatewaysClient.Delete(ctx, deleteExternalVpnGatewayReq)
 		if err != nil {
 			// No ErrorNotFound checking here since external vpn gateway definitvely exists

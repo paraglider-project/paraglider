@@ -24,7 +24,7 @@ import (
 )
 
 // TODO @seankimkdy: change this back to only return address
-func SetupControllerServer(cfg Config) (*ControllerServer, string) {
+func SetupControllerServer(cfg Config) string {
 	controllerServer := &ControllerServer{
 		pluginAddresses:   make(map[string]string),
 		usedAddressSpaces: make(map[string][]string),
@@ -45,5 +45,5 @@ func SetupControllerServer(cfg Config) (*ControllerServer, string) {
 			panic(err)
 		}
 	}()
-	return controllerServer, controllerServerAddr
+	return controllerServerAddr
 }

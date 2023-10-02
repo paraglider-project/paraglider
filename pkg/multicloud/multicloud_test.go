@@ -19,8 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
-	"os"
 	"strings"
 	"testing"
 
@@ -33,35 +31,16 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 )
 
-// TODO @seankimkdy: will substitue with cloud specific ones after #66 is merged
-func initializeCloudServer(srv invisinetspb.CloudPluginServer) string {
-	l, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
-	}
-	gsrv := grpc.NewServer()
-	invisinetspb.RegisterCloudPluginServer(gsrv, srv)
-	go func() {
-		if err := gsrv.Serve(l); err != nil {
-			panic(err)
-		}
-	}()
-
-	return l.Addr().String()
-}
-
-// TODO @seankimkdy: should this be turned into a system test where we actually
+// TODO @seankimkdy: should this be turned into a system test where we actually call the cloud plugins through the controller GRPC?
 func TestMulticloud(t *testing.T) {
 	// Setup Azure
 	azureSubscriptionId := azure_plugin.GetAzureSubscriptionId()
 	azureResourceGroupName := utils.GetGitHubRunPrefix() + "invisinets-multicloud-test"
 	azure_plugin.SetupAzureTesting(azureSubscriptionId, azureResourceGroupName)
 	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
-	azureServer := azure_plugin.InitializeServer()
-	azureServerAddr := initializeCloudServer(azureServer)
+	azureServer, azureServerAddr := azure_plugin.Setup(0)
 	fmt.Println("Setup Azure server")
 
 	// Setup GCP
@@ -71,8 +50,7 @@ func TestMulticloud(t *testing.T) {
 		InsertInstanceReqs: make([]*computepb.InsertInstanceRequest, 0),
 	}
 	defer gcp.TeardownGcpTesting(gcpTeardownInfo)
-	gcpServer := &gcp.GCPPluginServer{}
-	gcpServerAddr := initializeCloudServer(gcpServer)
+	gcpServer, gcpServerAddr := gcp.Setup(0)
 	fmt.Println("Setup GCP server")
 
 	// Setup controller server
@@ -92,7 +70,7 @@ func TestMulticloud(t *testing.T) {
 			},
 		},
 	}
-	_, controllerServerAddr := frontend.SetupControllerServer(controllerServerConfig)
+	controllerServerAddr := frontend.SetupControllerServer(controllerServerConfig)
 	azure_plugin.FrontendServerAddr = controllerServerAddr
 	gcp.FrontendServerAddr = controllerServerAddr
 	fmt.Println("Setup controller server")
