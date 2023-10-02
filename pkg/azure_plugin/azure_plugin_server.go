@@ -54,10 +54,11 @@ type azurePluginServer struct {
 
 // TODO @seankimkdy: replace these
 const (
-	vpnLocation       = "westus"
-	vpnGwAsn          = int64(65515)
-	vpnNumConnections = 2
-	gatewaySubnetName = "GatewaySubnet"
+	vpnLocation                = "westus"
+	vpnGwAsn                   = int64(65515)
+	vpnNumConnections          = 2
+	gatewaySubnetName          = "GatewaySubnet"
+	gatewaySubnetAddressPrefix = "192.168.255.0/27"
 )
 
 var vpnGwBgpIpAddrs = []string{"169.254.21.1", "169.254.22.1"}
@@ -632,14 +633,11 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, deployment *in
 		return nil, fmt.Errorf("unable to get invisinets vnet: %w", err)
 	}
 	subnetParameters := armnetwork.Subnet{
-		Name:       to.Ptr(gatewaySubnetName),
-		Properties: &armnetwork.SubnetPropertiesFormat{},
+		Name: to.Ptr(gatewaySubnetName),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: to.Ptr(gatewaySubnetAddressPrefix),
+		},
 	}
-	subnetAddressPrefixes, err := splitVnetAddressPrefix(*invisinetsVnet.Properties.AddressSpace.AddressPrefixes[0])
-	if err != nil {
-		return nil, fmt.Errorf("unable to split address prefix: %w", err)
-	}
-	subnetParameters.Properties.AddressPrefix = to.Ptr(subnetAddressPrefixes[1])
 	gatewaySubnet, err := s.azureHandler.CreateSubnet(ctx, *invisinetsVnet.Name, gatewaySubnetName, subnetParameters)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create gateway subnet: %w", err)
@@ -818,9 +816,10 @@ func Setup(port int) (*azurePluginServer, string) {
 	}
 	invisinetspb.RegisterCloudPluginServer(grpcServer, azureServer)
 	fmt.Println("Starting server on port :", port)
-	err = grpcServer.Serve(lis)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
 	return azureServer, lis.Addr().String()
 }

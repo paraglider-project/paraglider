@@ -318,7 +318,7 @@ func (h *azureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix stri
 		}
 		for _, v := range page.Value {
 			if strings.HasPrefix(*v.Name, prefix) {
-				// assume only one address space per vnet
+				// TODO @seankimkdy: should we include the address prefix for gateway subnet as well?
 				addressSpaces[*v.Location] = *v.Properties.AddressSpace.AddressPrefixes[0]
 			}
 		}
@@ -455,22 +455,19 @@ func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, lo
 			AddressSpace: &armnetwork.AddressSpace{
 				AddressPrefixes: []*string{
 					to.Ptr(addressSpace),
+					to.Ptr(gatewaySubnetAddressPrefix),
 				},
 			},
 			Subnets: []*armnetwork.Subnet{
 				{
-					Name:       to.Ptr("default"),
-					Properties: &armnetwork.SubnetPropertiesFormat{},
+					Name: to.Ptr("default"),
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						AddressPrefix: to.Ptr(addressSpace),
+					},
 				},
 			},
 		},
 	}
-
-	subnetAddressPrefixes, err := splitVnetAddressPrefix(addressSpace)
-	if err != nil {
-		return nil, fmt.Errorf("unable to split address prefix: %w", err)
-	}
-	parameters.Properties.Subnets[0].Properties.AddressPrefix = to.Ptr(subnetAddressPrefixes[0])
 
 	pollerResponse, err := h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vnetName, parameters, nil)
 	if err != nil {

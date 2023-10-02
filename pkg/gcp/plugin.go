@@ -964,9 +964,10 @@ func Setup(port int) (*GCPPluginServer, string) {
 	gcpServer := &GCPPluginServer{}
 	invisinetspb.RegisterCloudPluginServer(grpcServer, gcpServer)
 	fmt.Println("Starting server on port :", port)
-	err = grpcServer.Serve(lis)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
 	return gcpServer, lis.Addr().String()
 }
