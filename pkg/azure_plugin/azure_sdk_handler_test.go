@@ -629,7 +629,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 				DestinationPortRange:       to.Ptr("1"),
 				Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolUDP),
 				DestinationAddressPrefixes: []*string{to.Ptr("10.3.1.0"), to.Ptr("10.2.1.0")},
-				Description:                to.Ptr(nsgRuleDescriptionPrefix+":[tag1 tag2]"),
+				Description:                to.Ptr(getRuleDescription([]string{"tag1", "tag2"})),
 			},
 		}
 
@@ -772,7 +772,7 @@ func TestGetRuleDescription(t *testing.T) {
 	// Test case: tags
 	t.Run("Tags", func(t *testing.T) {
 		tags := []string{"tag1", "tag2"}
-		expectedRuleDescription := nsgRuleDescriptionPrefix+":"+fmt.Sprintf("%v", tags)
+		expectedRuleDescription := nsgRuleDescriptionPrefix + ":" + fmt.Sprintf("%v", tags)
 		ruleDescription := getRuleDescription(tags)
 		require.Equal(t, expectedRuleDescription, ruleDescription)
 	})
@@ -789,7 +789,7 @@ func TestParseDescriptionTags(t *testing.T) {
 
 	t.Run("Tags", func(t *testing.T) {
 		originalTags := []string{"tag1", "tag2"}
-		description := nsgRuleDescriptionPrefix+":"+fmt.Sprintf("%v", originalTags)
+		description := nsgRuleDescriptionPrefix + ":" + fmt.Sprintf("%v", originalTags)
 		tags := parseDescriptionTags(&description)
 		require.Equal(t, originalTags, tags)
 	})

@@ -23,11 +23,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
-	"net"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
@@ -46,11 +46,11 @@ type GCPPluginServer struct {
 // Those declared var may be modified in init() for integration testing
 // None of these should be used to define other global variables. If needed, make a separate function (like getVPCURL).
 var (
-	vpcName                 = "invisinets-vpc" // Invisinets VPC name
-	subnetworkNamePrefix    = "invisinets-"
-	networkTagPrefix        = "invisinets-permitlist-" // Prefix for GCP tags related to invisinets
-	firewallNamePrefix      = "fw-" + networkTagPrefix // Prefix for firewall names related to invisinets
-	fwRuleDescriptionPrefix = "invisinets rule" // GCP firewall rule prefix for description
+	vpcName                       = "invisinets-vpc" // Invisinets VPC name
+	subnetworkNamePrefix          = "invisinets-"
+	networkTagPrefix              = "invisinets-permitlist-" // Prefix for GCP tags related to invisinets
+	firewallNamePrefix            = "fw-" + networkTagPrefix // Prefix for firewall names related to invisinets
+	firewallRuleDescriptionPrefix = "invisinets rule"        // GCP firewall rule prefix for description
 )
 
 const (
@@ -83,7 +83,6 @@ var gcpProtocolNumberMap = map[string]int{
 	"sctp": 132,
 	"ipip": 94,
 }
-
 
 // Frontend server address
 var frontendServerAddr string // TODO @seankimkdy: dynamically configure with config
@@ -204,16 +203,16 @@ func getVPCURL() string {
 // Format the description to keep metadata about tags
 func getRuleDescription(tags []string) string {
 	if len(tags) == 0 {
-		return fwRuleDescriptionPrefix
-	} 
-	return fmt.Sprintf("%s:%v", fwRuleDescriptionPrefix, tags)
+		return firewallRuleDescriptionPrefix
+	}
+	return fmt.Sprintf("%s:%v", firewallRuleDescriptionPrefix, tags)
 }
 
-// Parses description string to get tags 
+// Parses description string to get tags
 func parseDescriptionTags(description string) []string {
 	var tags []string
-	if strings.HasPrefix(description, fwRuleDescriptionPrefix+":[") {
-		trimmedDescription := strings.TrimPrefix(description, fwRuleDescriptionPrefix+":")
+	if strings.HasPrefix(description, firewallRuleDescriptionPrefix+":[") {
+		trimmedDescription := strings.TrimPrefix(description, firewallRuleDescriptionPrefix+":")
 		trimmedDescription = strings.Trim(trimmedDescription, "[")
 		trimmedDescription = strings.Trim(trimmedDescription, "]")
 		tags = strings.Split(trimmedDescription, " ")
@@ -278,7 +277,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 					DstPort:   int32(dstPort),
 					Protocol:  int32(protocolNumber),
 					Targets:   target,
-					Tags: 	   tags,
+					Tags:      tags,
 				} // SrcPort not specified since GCP doesn't support rules based on source ports
 			}
 			permitList.Rules = append(permitList.Rules, permitListRules...)

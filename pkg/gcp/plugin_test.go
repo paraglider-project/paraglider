@@ -65,7 +65,7 @@ var (
 		DstPort:   80,
 		Protocol:  6,
 		Targets:   []string{"10.1.2.0/24"},
-		Tags: 	   []string{"tag1", "tag2"},
+		Tags:      []string{"tag1", "tag2"},
 	}
 	fakeFirewallRule1 = &computepb.Firewall{
 		Allowed: []*computepb.Allowed{
@@ -79,7 +79,7 @@ var (
 		Network:      proto.String(getVPCURL()),
 		SourceRanges: []string{"10.1.2.0/24"},
 		TargetTags:   []string{fakeNetworkTag},
-		Description:  proto.String(fwRuleDescriptionPrefix+":[tag1 tag2]"),
+		Description:  proto.String(getRuleDescription([]string{"tag1", "tag2"})),
 	}
 	fakePermitListRule2 = &invisinetspb.PermitListRule{
 		Direction: invisinetspb.Direction_OUTBOUND,
@@ -310,10 +310,10 @@ func TestGetPermitList(t *testing.T) {
 						Ports:      []string{},
 					},
 				},
-				Direction:   proto.String(computepb.Firewall_INGRESS.String()),
-				Name:        proto.String("fw-allow-icmp"),
-				Network:     proto.String(getVPCURL()),
-				TargetTags:  []string{"0.0.0.0/0"},
+				Direction:  proto.String(computepb.Firewall_INGRESS.String()),
+				Name:       proto.String("fw-allow-icmp"),
+				Network:    proto.String(getVPCURL()),
+				TargetTags: []string{"0.0.0.0/0"},
 			},
 		},
 	}

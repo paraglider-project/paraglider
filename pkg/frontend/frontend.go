@@ -102,14 +102,14 @@ func checkAndCleanRule(rule *invisinetspb.PermitListRule) (*invisinetspb.PermitL
 	}
 	if len(rule.Targets) != 0 {
 		rule.Targets = []string{}
-		return rule, &Warning{Message:fmt.Sprintf("Warning: targets for rule %s ignored", rule.Id)}, nil
+		return rule, &Warning{Message: fmt.Sprintf("Warning: targets for rule %s ignored", rule.Id)}, nil
 	}
-	return rule, nil, nil 
+	return rule, nil, nil
 }
 
 // Format a subscriber name so that when the value is looked up, it is clear which cloud the URI belongs to
 func createSubscriberName(cloud string, uri string) string {
-	return cloud+">"+uri
+	return cloud + ">" + uri
 }
 
 // Parse subscriber names from database to get the cloud and URI
@@ -122,7 +122,7 @@ func parseSubscriberName(sub string) (string, string) {
 }
 
 // Takes a set of permit list rules and returns the same list with all tags referenced in the original rules resolved to IPs
-func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList, subscribe bool, cloud string) (*invisinetspb.PermitList, error){
+func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList, subscribe bool, cloud string) (*invisinetspb.PermitList, error) {
 	for _, rule := range list.Rules {
 		// Check rule validity and clean fields
 		rule, _, err := checkAndCleanRule(rule) // TODO @smcclure20: use the warning and report it to the user
@@ -137,7 +137,7 @@ func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList,
 					return nil, fmt.Errorf("Could not contact tag server: %s", err.Error())
 				}
 				defer conn.Close()
-				
+
 				// Send RPC to resolve tag
 				client := tagservicepb.NewTagServiceClient(conn)
 				resolvedTag, err := client.ResolveTag(context.Background(), &tagservicepb.Tag{TagName: tag})
@@ -147,9 +147,9 @@ func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList,
 
 				// Subscribe self to tag
 				if subscribe {
-					_, err := client.Subscribe(context.Background(), 
-											   &tagservicepb.Subscription{TagName: tag, 
-													Subscriber: createSubscriberName(cloud, list.AssociatedResource)})
+					_, err := client.Subscribe(context.Background(),
+						&tagservicepb.Subscription{TagName: tag,
+							Subscriber: createSubscriberName(cloud, list.AssociatedResource)})
 					if err != nil {
 						return nil, fmt.Errorf("Could not subscribe to tag: %s", err.Error())
 					}
@@ -185,7 +185,6 @@ func (s *ControllerServer) _permitListGet(pluginAddress string, id string) (*inv
 	return response, nil
 }
 
-
 // Get specified PermitList from given cloud
 func (s *ControllerServer) permitListGet(c *gin.Context) {
 	id := c.Param("id")
@@ -205,14 +204,14 @@ func (s *ControllerServer) permitListGet(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":              id,
-		"permitlist":      response,
+		"id":         id,
+		"permitlist": response,
 	})
 }
 
 // Add rules to a resource specified in the permit list in the given cloud
 func (s *ControllerServer) _permitListRulesAdd(pluginAddress string, permitList *invisinetspb.PermitList, cloud string) (*invisinetspb.BasicResponse, error) {
-	// Resolve tags referenced in rules 
+	// Resolve tags referenced in rules
 	permitList, err := s.resolvePermitListRules(permitList, true, cloud)
 	if err != nil {
 		return nil, err
@@ -264,7 +263,7 @@ func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
 }
 
 // Find the tags dereferenced between two versions of a permit list
-func diffTagReferences(beforeList *invisinetspb.PermitList, afterList *invisinetspb.PermitList) []string{
+func diffTagReferences(beforeList *invisinetspb.PermitList, afterList *invisinetspb.PermitList) []string {
 	beforeListSet := make(map[string]bool)
 	afterListSet := make(map[string]bool)
 	tagsDereferenced := []string{}
@@ -312,7 +311,7 @@ func (s *ControllerServer) checkAndUnsubscribe(beforeList *invisinetspb.PermitLi
 	}
 	defer conn.Close()
 	client := tagservicepb.NewTagServiceClient(conn)
-	
+
 	// Send RPC to unsubscribe from each tag
 	for _, tag := range tagsToUnsubscribe {
 		_, err := client.Unsubscribe(context.Background(), &tagservicepb.Subscription{TagName: tag, Subscriber: beforeList.AssociatedResource})
@@ -339,7 +338,7 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	if err := c.BindJSON(permitListRules); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
-	} 
+	}
 
 	// Create connection to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -354,14 +353,14 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	permitListBefore, err := client.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: permitListRules.AssociatedResource})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return 
+		return
 	}
 
 	// Resolve tags (for correct lookup in cloud plugin) and unsubscribe
 	permitListRules, err = s.resolvePermitListRules(permitListRules, false, cloud)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return 
+		return
 	}
 
 	// Send RPC to delete the rules
@@ -375,15 +374,15 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	permitListAfter, err := client.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: permitListRules.AssociatedResource})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return 
+		return
 	}
 
-	// Determine which tags have been dereferenced from the permit list and unsubscribe 
+	// Determine which tags have been dereferenced from the permit list and unsubscribe
 	// TODO @smcclure20: Have to do a permit list diff since there is no reverse lookup to see which tags a URI is subscribed to.
 	// 					 Supporting this will probably require a database migration (non-KV store)
 	if err := s.checkAndUnsubscribe(permitListBefore, permitListAfter); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return 
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -503,7 +502,7 @@ func (s *ControllerServer) getTag(c *gin.Context) {
 		return
 	}
 	defer conn.Close()
-	
+
 	// Send RPC to get tag
 	tag := c.Param("tag")
 	client := tagservicepb.NewTagServiceClient(conn)
@@ -524,7 +523,7 @@ func (s *ControllerServer) resolveTag(c *gin.Context) {
 		return
 	}
 	defer conn.Close()
-	
+
 	// Send RPC to get tag
 	tag := c.Param("tag")
 	client := tagservicepb.NewTagServiceClient(conn)
@@ -536,7 +535,7 @@ func (s *ControllerServer) resolveTag(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// Clear targets from rules provided by the user 
+// Clear targets from rules provided by the user
 func clearRuleTargets(rules *invisinetspb.PermitList) *invisinetspb.PermitList {
 	for _, rule := range rules.Rules {
 		rule.Targets = []string{}
@@ -607,7 +606,7 @@ func (s *ControllerServer) setTag(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	 
+
 	// Look up subscribers and re-resolve the tag
 	if err := s.updateSubscribers(tagMapping.ParentTag); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
@@ -713,7 +712,7 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"response": response.Message,
 	})
@@ -786,7 +785,7 @@ func Setup(configPath string) {
 	router.DELETE("/tags/:tag", server.deleteTag)
 	router.DELETE("/tags/:tag/members/", server.deleteTagMember)
 	router.DELETE("/tags/:tag/name", server.deleteName)
-	
+
 	// Run server
 	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
 	if err != nil {

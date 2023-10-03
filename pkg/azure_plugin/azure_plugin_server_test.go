@@ -788,7 +788,7 @@ func getFakeNsg(nsgID string, nsgName string) *armnetwork.SecurityGroup {
 						SourcePortRange:            to.Ptr("100"),
 						DestinationPortRange:       to.Ptr("8080"),
 						Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-						Description:			    to.Ptr("invisinets rule: [tag1,tag2]"),
+						Description:                to.Ptr(getRuleDescription([]string{"tag1", "tag2"})),
 					},
 				},
 				{
