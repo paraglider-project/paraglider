@@ -142,7 +142,7 @@ func createSSHKeys(privateKeyPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	privateKeyFile, err := os.Create(privateKeyPath)
+	privateKeyFile, err := os.OpenFile(privateKeyPath, os.O_RDWR|os.O_CREATE, 0600)
 	if err != nil {
 		return "", err
 	}
