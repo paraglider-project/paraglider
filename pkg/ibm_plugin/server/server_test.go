@@ -86,5 +86,10 @@ func TestGetPermitList(t *testing.T) {
 	resp, err := s.GetPermitList(context.Background(), resourceID)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	fmt.Printf("Permit rules of instance %v are: %v", vmID, resp)
+
+	b, err := json.MarshalIndent(resp, "", "  ")
+	require.NoError(t, err)
+	// Please note: direction:0(inbound) will not be printed.
+    fmt.Printf("Permit rules of instance %v are:\n%v",vmID,string(b))
+
 }

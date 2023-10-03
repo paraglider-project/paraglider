@@ -37,7 +37,7 @@ var ibmToInvisinetsDirection = map[bool]invisinetspb.Direction{
 	false: invisinetspb.Direction_INBOUND,
 }
 
-// mapping integers to IBM protocols
+// mapping integers determined by the IANA standard to IBM protocols
 var invisinetsToIBMprotocol = map[int32]string{
 	-1: "all",
 	1:  "icmp",
@@ -45,7 +45,7 @@ var invisinetsToIBMprotocol = map[int32]string{
 	17: "udp",
 }
 
-// mapping IBM protocols to integers
+// mapping IBM protocols to integers determined by the IANA standard
 var ibmToInvisinetsProtocol = map[string]int32{
 	"all":  -1,
 	"icmp": 1,
@@ -99,6 +99,7 @@ func sgRules2InvisinetsRules(rules []sdk.SecurityGroupRule) ([]*invisinetspb.Per
 		srcPort, dstPort := *rule.PortMin, *rule.PortMin
 
 		permitListRule := &invisinetspb.PermitListRule{
+			Tag:       []string{*rule.Remote},
 			Id:        *rule.ID,
 			Direction: ibmToInvisinetsDirection[*rule.Egress],
 			SrcPort:   int32(srcPort),

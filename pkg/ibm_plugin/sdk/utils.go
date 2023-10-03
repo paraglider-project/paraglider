@@ -55,7 +55,7 @@ type SecurityGroupRule struct {
 	ID         *string // Unique identifier of this rule
 	SgID       *string // Unique ID of the security group to which this rule belongs
 	Protocol   *string // IP protocol that this rules applies to
-	Remote     *string // What this rule applies to. Usually an IP or CIDR block, but can have other meanings depending on the provider
+	Remote     *string // What this rule applies to (IP or CIDR block)
 	RemoteType *string // Type of remote, can be "IP", "CIDR", or "SG"
 	PortMin    *int64  // First port of the range to which this rule applies (only available for TCP/UDP rules), -1 means all ports
 	PortMax    *int64  // Last port of the range to which this rule applies (only available for TCP/UDP rules), -1 means all ports
