@@ -252,9 +252,9 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 
 				var targets []string
 				if direction == invisinetspb.Direction_INBOUND {
-					target = append(firewall.SourceRanges, firewall.SourceTags...)
+					targets = append(firewall.SourceRanges, firewall.SourceTags...)
 				} else {
-					target = firewall.DestinationRanges
+					targets = firewall.DestinationRanges
 				}
 
 				var dstPort int
@@ -276,7 +276,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 					Direction: firewallDirectionMapGCPToInvisinets[*firewall.Direction],
 					DstPort:   int32(dstPort),
 					Protocol:  int32(protocolNumber),
-					Targets:   target,
+					Targets:   targets,
 					Tags:      tags,
 				} // SrcPort not specified since GCP doesn't support rules based on source ports
 			}
