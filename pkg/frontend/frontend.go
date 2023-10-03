@@ -88,9 +88,9 @@ func isIpAddrOrCidr(value string) bool {
 
 // Retrieve the IPs from a list of name mappings
 func getIPsFromResolvedTag(mappings []*tagservicepb.NameMapping) []string {
-	var ips []string
-	for _, mapping := range mappings {
-		ips = append(ips, mapping.Ip)
+	ips := make([]string, len(mappings)
+	for i, mapping := range mappings {
+		ips[i] = mapping.Ip
 	}
 	return ips
 }

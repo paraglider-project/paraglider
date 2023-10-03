@@ -250,7 +250,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 
 				direction := firewallDirectionMapGCPToInvisinets[*firewall.Direction]
 
-				var target []string
+				var targets []string
 				if direction == invisinetspb.Direction_INBOUND {
 					target = append(firewall.SourceRanges, firewall.SourceTags...)
 				} else {
