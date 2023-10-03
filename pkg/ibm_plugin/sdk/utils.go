@@ -27,6 +27,7 @@ const (
 	VPC               TaggedResourceType = "vpc"
 	SUBNET            TaggedResourceType = "subnet"
 	VM                TaggedResourceType = "instance"
+	SG                TaggedResourceType = "security-group"
 	credentialsPath   string             = ".ibm/credentials.yaml"
 	publicSSHKey                         = ".ibm/keys/invisinets-key.pub"
 	privateSSHKey                        = ".ibm/keys/invisinets-key"
@@ -48,6 +49,19 @@ type Credentials struct {
 type ResourceQuery struct {
 	Region string
 	Zone   string
+}
+
+type SecurityGroupRule struct {
+	ID         *string // Unique identifier of this rule
+	SgID       *string // Unique ID of the security group to which this rule belongs
+	Protocol   *string // IP protocol that this rules applies to
+	Remote     *string // What this rule applies to. Usually an IP or CIDR block, but can have other meanings depending on the provider
+	RemoteType *string // Type of remote, can be "IP", "CIDR", or "SG"
+	PortMin    *int64  // First port of the range to which this rule applies (only available for TCP/UDP rules), -1 means all ports
+	PortMax    *int64  // Last port of the range to which this rule applies (only available for TCP/UDP rules), -1 means all ports
+	IcmpType   *int64  // ICMP Type for the rule (only available for ICMP rules), -1 means all types
+	IcmpCode   *int64  // ICMP Code for the rule (only available for ICMP rules), -1 means all codes
+	Egress     *bool   // The rule affects to outbound traffic (true) or inbound (false)
 }
 
 var Regions = [10]string{"us-south", "us-east", "eu-de", "eu-gb", "eu-es", "ca-tor", "au-syd",

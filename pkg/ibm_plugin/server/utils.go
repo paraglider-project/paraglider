@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
 	logger "github.com/NetSys/invisinets/pkg/logger"
 
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
@@ -24,10 +25,38 @@ type InstanceData struct {
 	Name    string `json:"name"` // optional
 }
 
-func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
-	parts := strings.Split(resourceID, "/")
+// mapping invisinets traffic directions to booleans
+var invisinetsToIBMDirection = map[invisinetspb.Direction]bool{
+	invisinetspb.Direction_OUTBOUND: true,
+	invisinetspb.Direction_INBOUND:  false,
+}
+
+// mapping booleans invisinets traffic directions
+var ibmToInvisinetsDirection = map[bool]invisinetspb.Direction{
+	true:  invisinetspb.Direction_OUTBOUND,
+	false: invisinetspb.Direction_INBOUND,
+}
+
+// mapping integers to IBM protocols
+var invisinetsToIBMprotocol = map[int32]string{
+	-1: "all",
+	1:  "icmp",
+	6:  "tcp",
+	17: "udp",
+}
+
+// mapping IBM protocols to integers
+var ibmToInvisinetsProtocol = map[string]int32{
+	"all":  -1,
+	"icmp": 1,
+	"tcp":  6,
+	"udp":  17,
+}
+
+func getResourceIDInfo(resourceID *invisinetspb.ResourceID) (ResourceIDInfo, error) {
+	parts := strings.Split(resourceID.Id, "/")
 	if len(parts) < 5 {
-		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected at least 5 parts in the format of '/ResourceGroupID/{ResourceGroupID}/Region/{Region}/ResourceID/{ResourceID}...', got %d", len(parts))
+		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected at least 5 parts in the format of '/ResourceGroupID/{ResourceGroupID}/Region/{Region}/ResourceID/{ResourceID}', got %d", len(parts))
 	}
 
 	if parts[0] != "" || parts[1] != "ResourceGroupID" || parts[3] != "Region" {
@@ -55,4 +84,29 @@ func getInstanceData(resourceDesc *invisinetspb.ResourceDescription) (InstanceDa
 		return InstanceData{}, err
 	}
 	return vmFields, nil
+}
+
+func sgRules2InvisinetsRules(rules []sdk.SecurityGroupRule) ([]*invisinetspb.PermitListRule, error) {
+	var invisinetsRules []*invisinetspb.PermitListRule
+
+	for _, rule := range rules {
+		if *rule.PortMin != *rule.PortMax {
+			return nil, fmt.Errorf("SG rules with port ranges aren't currently supported")
+		}
+		// PortMin=PortMax since port ranges aren't supported.
+		// srcPort=dstPort since ibm security rules are stateful,
+		// i.e. they automatically also permit the reverse traffic.
+		srcPort, dstPort := *rule.PortMin, *rule.PortMin
+
+		permitListRule := &invisinetspb.PermitListRule{
+			Id:        *rule.ID,
+			Direction: ibmToInvisinetsDirection[*rule.Egress],
+			SrcPort:   int32(srcPort),
+			DstPort:   int32(dstPort),
+			Protocol:  ibmToInvisinetsProtocol[*rule.Protocol],
+		}
+		invisinetsRules = append(invisinetsRules, permitListRule)
+
+	}
+	return invisinetsRules, nil
 }

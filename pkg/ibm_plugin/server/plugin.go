@@ -135,7 +135,52 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetsAddressSpaces}, nil
 }
 
-//starts up the plugin server and stores the frontend server address. 
+/*
+returns security rules of security groups associated with the specified instance.
+Invisinets Assumptions:
+- single security group per instance.
+- ignoring possible user security groups.
+*/
+func (s *ibmPluginServer) GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
+	permitList := &invisinetspb.PermitList{
+		AssociatedResource: resourceID.Id,
+		Rules:              []*invisinetspb.PermitListRule{},
+	}
+	resourceIDInfo, err := getResourceIDInfo(resourceID)
+	if err != nil {
+		return nil, err
+	}
+	region, vmID := resourceIDInfo.Region, resourceIDInfo.ResourceID
+	if !sdk.IsRegionValid(region) {
+		return nil, fmt.Errorf("region %v isn't valid", region)
+	}
+	err = s.setupCloudClient(region)
+	if err != nil {
+		return nil, err
+	}
+
+	securityGroups, err := s.cloudClient.GetSecurityGroupsOfVM(vmID)
+	if err != nil {
+		return nil, err
+	}
+	for _, sgID := range securityGroups {
+		// TODO Currently adding rules for all security groups attached to VM.
+		ibmRules, err := s.cloudClient.GetSecurityRulesOfSG(sgID)
+		if err != nil {
+			return nil, err
+		}
+		invisinetsRules, err := sgRules2InvisinetsRules(ibmRules)
+		if err != nil {
+			return nil, err
+		}
+		// TODO remove duplicates rules.
+		permitList.Rules = append(permitList.Rules, invisinetsRules...)
+
+	}
+	return permitList, nil
+}
+
+// starts up the plugin server and stores the frontend server address.
 func Setup(port int, frontendAddress string) {
 	pluginServerAddress := "localhost"
 	lis, err := net.Listen("tcp", fmt.Sprintf("%v:%d", pluginServerAddress, port))

@@ -211,6 +211,16 @@ func (c *IBMCloudClient) GetVpcByID(vpcID string) (*vpcv1.VPC, error) {
 	return vpc, nil
 }
 
+// returns VPC id of specified instance
+func (c *IBMCloudClient) VmID2VpcID(vmID string) (string, error) {
+	instance, _, err := c.vpcService.GetInstance(
+		&vpcv1.GetInstanceOptions{ID: &vmID})
+	if err != nil {
+		return "", err
+	}
+	return *instance.VPC.ID, nil
+}
+
 // create subnet in specified vpc and zone.
 // tag subnet with invisinets prefix and vpc ID.
 func (c *IBMCloudClient) CreateSubnet(
@@ -595,14 +605,14 @@ func (c *IBMCloudClient) createSecurityGroup(
 	return sg, nil
 }
 
-// returns VPC id of specified instance
-func (c *IBMCloudClient) VmID2VpcID(vmID string) (string, error) {
-	instance, _, err := c.vpcService.GetInstance(
-		&vpcv1.GetInstanceOptions{ID: &vmID})
+func (c *IBMCloudClient) GetSecurityRulesOfSG(sgID string) ([]SecurityGroupRule, error) {
+	options := &vpcv1.ListSecurityGroupRulesOptions{}
+	options.SetSecurityGroupID(sgID)
+	rules, _, err := c.vpcService.ListSecurityGroupRules(options)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return *instance.VPC.ID, nil
+	return c.translateSecurityGroupRules(rules.Rules, &sgID)
 }
 
 // returns true when instance is completely removed from
@@ -699,4 +709,150 @@ func (c *IBMCloudClient) getInvisinetsResourceByTags(resourceType string,
 		return nil, nil
 	}
 	return taggedResources, nil
+}
+
+/*
+The following functions are responsible for transforming
+the "vpcv1.SecurityGroupRuleIntf" interface to the SecurityGroupRule struct
+*/
+
+func (c *IBMCloudClient) translateSecurityGroupRules(
+	ibmRules []vpcv1.SecurityGroupRuleIntf, sgID *string) ([]SecurityGroupRule, error) {
+
+	rules := make([]SecurityGroupRule, len(ibmRules))
+	for i, ibmRule := range ibmRules {
+		rule, err := c.translateSecurityGroupRule(ibmRule, sgID)
+		if err != nil {
+			return nil, err
+		} else {
+			rules[i] = *rule
+		}
+	}
+	return rules, nil
+}
+
+func (c *IBMCloudClient) translateSecurityGroupRule(
+	ibmRule vpcv1.SecurityGroupRuleIntf, sgID *string) (*SecurityGroupRule, error) {
+	switch ibmRule.(type) {
+	case *vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAll:
+		return c.translateSecurityGroupRuleGroupRuleProtocolAll(ibmRule, sgID)
+	case *vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolIcmp:
+		return c.translateSecurityGroupRuleGroupRuleProtocolIcmp(ibmRule, sgID)
+	case *vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolTcpudp:
+		return c.translateSecurityGroupRuleGroupRuleProtocolTcpudp(ibmRule, sgID)
+	}
+	return nil, nil
+}
+
+func (c *IBMCloudClient) translateSecurityGroupRuleGroupRuleProtocolAll(
+	ibmRule vpcv1.SecurityGroupRuleIntf, sgID *string) (*SecurityGroupRule, error) {
+
+	ibmRuleProtoAll := ibmRule.(*vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAll)
+	remote, remoteType, err := c.translateSecurityGroupRuleRemote(ibmRuleProtoAll.Remote)
+	if err != nil {
+		return nil, err
+	}
+	isEgress := false
+	if *ibmRuleProtoAll.Direction == "outbound" {
+		isEgress = true
+	}
+	rule := SecurityGroupRule{
+		ID:         ibmRuleProtoAll.ID,
+		Protocol:   ibmRuleProtoAll.Protocol,
+		SgID:       sgID,
+		Remote:     remote,
+		RemoteType: remoteType,
+		Egress:     &isEgress,
+		PortMin:    core.Int64Ptr(int64(-1)),
+		PortMax:    core.Int64Ptr(int64(-1)),
+	}
+	return &rule, nil
+}
+
+func (c *IBMCloudClient) translateSecurityGroupRuleGroupRuleProtocolIcmp(
+	ibmRule vpcv1.SecurityGroupRuleIntf, sgID *string) (*SecurityGroupRule, error) {
+
+	ibmRuleIcmp := ibmRule.(*vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolIcmp)
+	remote, remoteType, err := c.translateSecurityGroupRuleRemote(ibmRuleIcmp.Remote)
+	if err != nil {
+		return nil, err
+	}
+	isEgress := false
+	if *ibmRuleIcmp.Direction == "outbound" {
+		isEgress = true
+	}
+	icmpCode := int64(-1)
+	if ibmRuleIcmp.Code != nil {
+		icmpCode = *ibmRuleIcmp.Code
+	}
+	icmpType := int64(-1)
+	if ibmRuleIcmp.Type != nil {
+		icmpType = *ibmRuleIcmp.Type
+	}
+	rule := SecurityGroupRule{
+		ID:         ibmRuleIcmp.ID,
+		Protocol:   ibmRuleIcmp.Protocol,
+		SgID:       sgID,
+		Remote:     remote,
+		RemoteType: remoteType,
+		IcmpCode:   &icmpCode,
+		IcmpType:   &icmpType,
+		Egress:     &isEgress,
+	}
+	return &rule, nil
+}
+
+func (c *IBMCloudClient) translateSecurityGroupRuleGroupRuleProtocolTcpudp(
+	ibmRule vpcv1.SecurityGroupRuleIntf, sgID *string) (*SecurityGroupRule, error) {
+
+	ibmRuleTcpUdp := ibmRule.(*vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolTcpudp)
+	remote, remoteType, err := c.translateSecurityGroupRuleRemote(ibmRuleTcpUdp.Remote)
+	if err != nil {
+		return nil, err
+	}
+	isEgress := false
+	if *ibmRuleTcpUdp.Direction == "outbound" {
+		isEgress = true
+	}
+	rule := SecurityGroupRule{
+		ID:         ibmRuleTcpUdp.ID,
+		Protocol:   ibmRuleTcpUdp.Protocol,
+		SgID:       sgID,
+		Remote:     remote,
+		RemoteType: remoteType,
+		PortMin:    ibmRuleTcpUdp.PortMin,
+		PortMax:    ibmRuleTcpUdp.PortMax,
+		Egress:     &isEgress,
+	}
+	return &rule, nil
+}
+
+func (c *IBMCloudClient) translateSecurityGroupRuleRemote(
+	ibmRuleRemoteIntf vpcv1.SecurityGroupRuleRemoteIntf) (*string, *string, error) {
+
+	switch v := ibmRuleRemoteIntf.(type) {
+	// According to the docs, the interface should map to a specific type,
+	// but in this case it seems to just map to a generic "remote" where pointers may be nil
+	case *vpcv1.SecurityGroupRuleRemote:
+		ibmRuleRemote := ibmRuleRemoteIntf.(*vpcv1.SecurityGroupRuleRemote)
+		if ibmRuleRemote.Address != nil {
+			return ibmRuleRemote.Address, core.StringPtr("IP"), nil
+		}
+		if ibmRuleRemote.CIDRBlock != nil {
+			return ibmRuleRemote.CIDRBlock, core.StringPtr("CIDR"), nil
+		}
+		// For IBM Cloud, it is common to have an inbound rule accepting traffic
+		// from a security group (sometimes the same where the rule belongs)
+		if ibmRuleRemote.ID != nil {
+			return ibmRuleRemote.ID, core.StringPtr("SG"), nil
+		}
+	default:
+		return nil, nil, fmt.Errorf(
+			"unexpected type for security group rule remote [%T]", v,
+		)
+	}
+	return nil, nil, fmt.Errorf(
+		"unexpected type for security group rule remote [%T]",
+		ibmRuleRemoteIntf,
+	)
 }
