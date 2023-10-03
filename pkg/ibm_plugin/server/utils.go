@@ -3,6 +3,8 @@ package ibm
 import (
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
+	"reflect"
 	"strings"
 
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
@@ -110,4 +112,42 @@ func sgRules2InvisinetsRules(rules []sdk.SecurityGroupRule) ([]*invisinetspb.Per
 
 	}
 	return invisinetsRules, nil
+}
+
+// returns hash value of any struct containing primitives,
+// or slices of primitives.
+// fieldsToExclude contains field names to be excluded
+// from hash calculation.
+func getStructHash(s interface{}, fieldsToExclude []string) (uint64, error) {
+	h := fnv.New64a()
+	v := reflect.ValueOf(s)
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		fieldName := v.Type().Field(i).Name
+		if sdk.DoesSliceContain(fieldsToExclude, fieldName) {
+			// skip certain fields from hash calculation
+			continue
+		}
+		switch f.Kind() {
+		case reflect.String:
+			_, err := h.Write([]byte(f.String()))
+			if err != nil {
+				return 0, err
+			}
+
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			_, err := h.Write([]byte(fmt.Sprint(f.Int())))
+			if err != nil {
+				return 0, err
+			}
+		case reflect.Slice:
+			for j := 0; j < f.Len(); j++ {
+				_, err := h.Write([]byte(f.Index(j).String()))
+				if err != nil {
+					return 0, err
+				}
+			}
+		}
+	}
+	return h.Sum64(), nil
 }
