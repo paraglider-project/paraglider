@@ -594,7 +594,7 @@ func getIPs(rule *invisinetspb.PermitListRule, resourceIP string) ([]*string, []
 	return sourceIP, destIP
 }
 
-// getTarget returns the invisinets tag for a given nsg rule
+// getTarget returns the invisinets targets for a given nsg rule
 func getTargets(rule *armnetwork.SecurityRule) []string {
 	var targets []string
 	if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
