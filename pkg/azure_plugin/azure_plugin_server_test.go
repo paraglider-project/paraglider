@@ -486,14 +486,13 @@ func TestAddPermitListRules(t *testing.T) {
 		},
 		Subnets: []*armnetwork.Subnet{
 			{
-				Name:       to.Ptr("default"),
-				Properties: &armnetwork.SubnetPropertiesFormat{},
+				Name: to.Ptr("default"),
+				Properties: &armnetwork.SubnetPropertiesFormat{
+					AddressPrefix: to.Ptr("10.0.0.0/16"),
+				},
 			},
 		},
 	}
-	subnetAddressPrefixes, err := splitVnetAddressPrefix("10.0.0.0/16")
-	require.NoError(t, err)
-	fakeVnet.Properties.Subnets[0].Properties.AddressPrefix = to.Ptr(subnetAddressPrefixes[0])
 
 	// Test 1: Successful AddPermitListRules
 	t.Run("AddPermitListRules: Success", func(t *testing.T) {

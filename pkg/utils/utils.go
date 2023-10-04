@@ -109,32 +109,42 @@ func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string,
 			return fmt.Errorf("unable to determine if address is private: %w", err)
 		}
 		if isPrivate {
-			var peeringCloud, peeringCloudAddressSpace string
-			for _, usedAddressSpaceMapping := range usedAddressSpaceMappings.AddressSpaceMappings {
-				for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
-					contained, err := IsPermitListRuleTagInAddressSpace(tag, addressSpace)
-					if err != nil {
-						return fmt.Errorf("unable to determine if tag is in address space: %w", err)
-					}
-					if contained {
-						peeringCloud = usedAddressSpaceMapping.Cloud
-						peeringCloudAddressSpace = addressSpace
-						break
-					}
-				}
+			// Check early to see if tag belongs in current cloud's address space (i.e. local to subnet)
+			contained, err := IsPermitListRuleTagInAddressSpace(tag, currentCloudAddressSpace)
+			if err != nil {
+				return fmt.Errorf("unable to determine if tag is in current address space: %w", err)
 			}
-			if peeringCloud == "" {
-				return fmt.Errorf("permit list rule tag must belong to a specific cloud if it's a private address")
-			} else if peeringCloud != currentCloud {
-				connectCloudsRequest := &invisinetspb.ConnectCloudsRequest{
-					CloudA:             currentCloud,
-					CloudAAddressSpace: currentCloudAddressSpace,
-					CloudB:             peeringCloud,
-					CloudBAddressSpace: peeringCloudAddressSpace,
+			if !contained {
+				var peeringCloud, peeringCloudAddressSpace string
+				for _, usedAddressSpaceMapping := range usedAddressSpaceMappings.AddressSpaceMappings {
+					for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
+						contained, err := IsPermitListRuleTagInAddressSpace(tag, addressSpace)
+						if err != nil {
+							return fmt.Errorf("unable to determine if tag is in address space: %w", err)
+						}
+						if contained {
+							if peeringCloud == currentCloud {
+								return fmt.Errorf("peering cloud cannot be the same as current cloud")
+							}
+							peeringCloud = usedAddressSpaceMapping.Cloud
+							peeringCloudAddressSpace = addressSpace
+							break
+						}
+					}
 				}
-				_, err := controllerClient.ConnectClouds(ctx, connectCloudsRequest)
-				if err != nil {
-					return fmt.Errorf("unable to connect clouds : %w", err)
+				if peeringCloud == "" {
+					return fmt.Errorf("permit list rule tag must belong to a specific cloud if it's a private address")
+				} else {
+					connectCloudsRequest := &invisinetspb.ConnectCloudsRequest{
+						CloudA:             currentCloud,
+						CloudAAddressSpace: currentCloudAddressSpace,
+						CloudB:             peeringCloud,
+						CloudBAddressSpace: peeringCloudAddressSpace,
+					}
+					_, err := controllerClient.ConnectClouds(ctx, connectCloudsRequest)
+					if err != nil {
+						return fmt.Errorf("unable to connect clouds : %w", err)
+					}
 				}
 			}
 		}

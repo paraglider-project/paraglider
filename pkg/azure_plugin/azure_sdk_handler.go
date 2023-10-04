@@ -715,18 +715,3 @@ func isErrorNotFound(err error) bool {
 	ok := errors.As(err, &azError)
 	return ok && azError.StatusCode == http.StatusNotFound
 }
-
-// Splits address prefix to save room for a potential GatewaySubnet for multicloud connections
-func splitVnetAddressPrefix(addressPrefix string) ([]string, error) {
-	if !strings.Contains(addressPrefix, "/") {
-		return nil, fmt.Errorf("must provide an address prefix in CIDR format (e.g. 10.0.0.0/16)")
-	}
-	// TODO @seankimkdy: change to supports all types of address prefixes /16 address p
-	if !strings.Contains(addressPrefix, "/16") {
-		return nil, fmt.Errorf("only /16 address prefixes are supported")
-	}
-	addressPrefixSplit := strings.Split(addressPrefix, ".")
-	defaultSubnetAddressPrefix := fmt.Sprintf("%s.%s.0.0/24", addressPrefixSplit[0], addressPrefixSplit[1])
-	gatewaySubnetAddressPrefix := fmt.Sprintf("%s.%s.1.0/24", addressPrefixSplit[0], addressPrefixSplit[1])
-	return []string{defaultSubnetAddressPrefix, gatewaySubnetAddressPrefix}, nil
-}

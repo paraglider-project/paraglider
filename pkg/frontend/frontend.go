@@ -246,7 +246,7 @@ func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, e *invisine
 		return nil, errors.New("All address blocks used")
 	}
 
-	newAddressSpace := &invisinetspb.AddressSpace{Address: fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+1)} // if changing this to something other than /16, make sure to change the azureSDKHandler.CreateInvisinetsVirtualNetwork accordingly for partitioning the address space
+	newAddressSpace := &invisinetspb.AddressSpace{Address: fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+1)}
 	return newAddressSpace, nil
 }
 
