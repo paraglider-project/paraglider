@@ -23,7 +23,6 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-// TODO @seankimkdy: change this back to only return address
 func SetupControllerServer(cfg Config) string {
 	controllerServer := &ControllerServer{
 		pluginAddresses:   make(map[string]string),

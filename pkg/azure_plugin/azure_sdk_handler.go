@@ -318,7 +318,6 @@ func (h *azureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix stri
 		}
 		for _, v := range page.Value {
 			if strings.HasPrefix(*v.Name, prefix) {
-				// TODO @seankimkdy: should we include the address prefix for gateway subnet as well?
 				addressSpaces[*v.Location] = *v.Properties.AddressSpace.AddressPrefixes[0]
 			}
 		}

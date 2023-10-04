@@ -189,7 +189,6 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// Connectivity tests that ping the two VMs
-	// TODO @seankimkdy: NewReachabilityRESTClient causes errors when deleting connectivity tests
 	vm1Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm1Ip,
 		Network:   "projects/" + project + "/" + GetVpcUri(),

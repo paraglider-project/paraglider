@@ -219,7 +219,6 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		}
 		seen[ruleDesc] = true
 
-		// TODO @seankimkdy: should we pass the subnet address prefix or the vnet adddress prefix?
 		err = utils.CheckAndConnectClouds(utils.AZURE, subnetAddressPrefix, ctx, rule, usedAddressSpaceMappings, controllerClient)
 		if err != nil {
 			return nil, fmt.Errorf("unable to check and connect clouds: %w", err)
@@ -535,7 +534,7 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 // and if requires a peering or not
 func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceVnet *armnetwork.VirtualNetwork, rule *invisinetspb.PermitListRule, invisinetsVnetsMap map[string]string) error {
 	for _, tag := range rule.Tag {
-		isTagInResourceAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(tag, *resourceVnet.Properties.AddressSpace.AddressPrefixes[0]) // TODO @seankimkdy: should this check for subnet address prefix (which is different due to the partitioning)
+		isTagInResourceAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(tag, *resourceVnet.Properties.AddressSpace.AddressPrefixes[0])
 		if err != nil {
 			return err
 		}
@@ -778,17 +777,17 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 					Properties: &armnetwork.VirtualNetworkGatewayConnectionPropertiesFormat{
 						ConnectionType:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionTypeIPsec),
 						VirtualNetworkGateway1:         virtualNetworkGateway,
-						ConnectionMode:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionModeDefault), // TODO @seankimkdy: sarah
+						ConnectionMode:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionModeDefault),
 						ConnectionProtocol:             to.Ptr(armnetwork.VirtualNetworkGatewayConnectionProtocolIKEv2),
-						DpdTimeoutSeconds:              to.Ptr(int32(45)), // TODO @seankimkdy: sarah
+						DpdTimeoutSeconds:              to.Ptr(int32(45)),
 						EnableBgp:                      to.Ptr(true),
-						IPSecPolicies:                  []*armnetwork.IPSecPolicy{}, // TODO @seankimkdy: sarah
+						IPSecPolicies:                  []*armnetwork.IPSecPolicy{},
 						LocalNetworkGateway2:           localNetworkGateways[i],
-						RoutingWeight:                  to.Ptr(int32(0)), // TODO @seankimkdy: sarah
+						RoutingWeight:                  to.Ptr(int32(0)),
 						SharedKey:                      to.Ptr(req.SharedKey),
-						TrafficSelectorPolicies:        []*armnetwork.TrafficSelectorPolicy{}, // TODO @seankimkdy: sarah
+						TrafficSelectorPolicies:        []*armnetwork.TrafficSelectorPolicy{},
 						UseLocalAzureIPAddress:         to.Ptr(false),
-						UsePolicyBasedTrafficSelectors: to.Ptr(false), // TODO @seankimkdy: sarah
+						UsePolicyBasedTrafficSelectors: to.Ptr(false),
 					},
 					Location: to.Ptr(vpnLocation),
 				}
