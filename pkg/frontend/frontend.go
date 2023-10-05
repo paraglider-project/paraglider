@@ -18,6 +18,8 @@ package frontend
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -35,6 +37,7 @@ import (
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
 type Warning struct {
@@ -453,6 +456,144 @@ func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, e *invisine
 
 	newAddressSpace := &invisinetspb.AddressSpace{Address: fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+1)}
 	return newAddressSpace, nil
+}
+
+// Gets unused address spaces across all clouds
+func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, e *invisinetspb.Empty) (*invisinetspb.AddressSpaceMappingList, error) {
+	err := s.updateUsedAddressSpacesMap()
+	if err != nil {
+		return nil, err
+	}
+
+	usedAddressSpaceMappings := &invisinetspb.AddressSpaceMappingList{}
+	usedAddressSpaceMappings.AddressSpaceMappings = make([]*invisinetspb.AddressSpaceMapping, len(s.usedAddressSpaces))
+	i := 0
+	for cloud, addressSpaces := range s.usedAddressSpaces {
+		usedAddressSpaceMappings.AddressSpaceMappings[i] = &invisinetspb.AddressSpaceMapping{
+			AddressSpaces: addressSpaces,
+			Cloud:         cloud,
+		}
+		i++
+	}
+
+	return usedAddressSpaceMappings, nil
+}
+
+// Generates 32-byte shared key for VPN connections
+func generateSharedKey() (string, error) {
+	key := make([]byte, 24)
+	_, err := rand.Read(key)
+	if err != nil {
+		return "", fmt.Errorf("unable to get random bytes: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(key), nil
+}
+
+// Gets the Invisinets deployment field of a cloud
+// TODO @seankimkdy: make this more efficient by using maps to maintain clouds in config?
+func (s *ControllerServer) getCloudInvDeployment(cloudName string) string {
+	for _, cloud := range s.config.Clouds {
+		if cloud.Name == cloudName {
+			return cloud.InvDeployment
+		}
+	}
+	return ""
+}
+
+// Connects two clouds with VPN gateways
+func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.ConnectCloudsRequest) (*invisinetspb.BasicResponse, error) {
+	if req.CloudA == req.CloudB {
+		return nil, fmt.Errorf("must specify different clouds to connect")
+	}
+	// TODO @seankimkdy: have better checking of which clouds are supported for multicloud connections
+	// TODO @seankimkdy: cloudA and cloudB naming seems to be very prone to typos, so perhaps use another naming scheme[?
+	if (req.CloudA == utils.GCP && req.CloudB == utils.AZURE) || (req.CloudA == utils.AZURE && req.CloudB == utils.GCP) {
+		cloudAClientAddress, ok := s.pluginAddresses[req.CloudA]
+		if !ok {
+			return nil, fmt.Errorf("invalid cloud name: %s", req.CloudA)
+		}
+		cloudAConn, err := grpc.Dial(cloudAClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return nil, fmt.Errorf("unable to connect to cloud plugin: %w", err)
+		}
+		defer cloudAConn.Close()
+		cloudAClient := invisinetspb.NewCloudPluginClient(cloudAConn)
+
+		cloudBClientAddress, ok := s.pluginAddresses[req.CloudB]
+		if !ok {
+			return nil, fmt.Errorf("invalid cloud name: %s", req.CloudA)
+		}
+		cloudBconn, err := grpc.Dial(cloudBClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return nil, fmt.Errorf("Unable to connect to cloud plugin: %w", err)
+		}
+		defer cloudAConn.Close()
+		cloudBClient := invisinetspb.NewCloudPluginClient(cloudBconn)
+
+		ctx := context.Background()
+
+		cloudAInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudInvDeployment(req.CloudA)}
+		cloudACreateVpnGatewayResp, err := cloudAClient.CreateVpnGateway(ctx, cloudAInvisinetsDeployment)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create vpn gateway in cloud %s: %w", req.CloudA, err)
+		}
+		cloudBInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudInvDeployment(req.CloudB)}
+		cloudBCreateVpnGatewayResp, err := cloudBClient.CreateVpnGateway(ctx, cloudBInvisinetsDeployment)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create vpn gateway in cloud %s: %w", req.CloudB, err)
+		}
+
+		cloudACreateVpnBgpSessionsReq := &invisinetspb.CreateVpnBgpSessionsRequest{
+			Deployment: cloudAInvisinetsDeployment,
+			Cloud:      req.CloudB,
+		}
+		cloudACreateVpnBgpSessionsResp, err := cloudAClient.CreateVpnBgpSessions(ctx, cloudACreateVpnBgpSessionsReq)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create vpn bgp sessions in cloud %s: %w", req.CloudA, err)
+		}
+		cloudBCreateVpnBgpSessionsReq := &invisinetspb.CreateVpnBgpSessionsRequest{
+			Deployment: cloudBInvisinetsDeployment,
+			Cloud:      req.CloudA,
+		}
+		cloudBCreateVpnBgpSessionsResp, err := cloudBClient.CreateVpnBgpSessions(ctx, cloudBCreateVpnBgpSessionsReq)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create vpn bgp sessions in cloud %s: %w", req.CloudA, err)
+		}
+
+		sharedKey, err := generateSharedKey()
+		if err != nil {
+			return nil, fmt.Errorf("unable to generate shared key: %w", err)
+		}
+
+		cloudACreateVpnConnectionsReq := &invisinetspb.CreateVpnConnectionsRequest{
+			Deployment:         cloudAInvisinetsDeployment,
+			Cloud:              req.CloudB,
+			Asn:                cloudBCreateVpnGatewayResp.Asn,
+			AddressSpace:       req.CloudBAddressSpace,
+			GatewayIpAddresses: cloudBCreateVpnGatewayResp.GatewayIpAddresses,
+			BgpIpAddresses:     cloudBCreateVpnBgpSessionsResp.BgpIpAddresses,
+			SharedKey:          sharedKey,
+		}
+		_, err = cloudAClient.CreateVpnConnections(ctx, cloudACreateVpnConnectionsReq)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create vpn connections in cloud %s: %w", req.CloudA, err)
+		}
+		cloudBCreateVpnConnectionsReq := &invisinetspb.CreateVpnConnectionsRequest{
+			Deployment:         cloudBInvisinetsDeployment,
+			Cloud:              req.CloudA,
+			Asn:                cloudACreateVpnGatewayResp.Asn,
+			AddressSpace:       req.CloudAAddressSpace,
+			GatewayIpAddresses: cloudACreateVpnGatewayResp.GatewayIpAddresses,
+			BgpIpAddresses:     cloudACreateVpnBgpSessionsResp.BgpIpAddresses,
+			SharedKey:          sharedKey,
+		}
+		_, err = cloudBClient.CreateVpnConnections(ctx, cloudBCreateVpnConnectionsReq)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create vpn connections in cloud %s: %w", req.CloudB, err)
+		}
+		return &invisinetspb.BasicResponse{Success: true}, nil
+	}
+	return nil, fmt.Errorf("clouds %s and %s are not supported for multi-cloud connecting", req.CloudA, req.CloudB)
 }
 
 // Create resource in specified cloud region

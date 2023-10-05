@@ -29,8 +29,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
-	"testing"
 	"strings"
+	"testing"
 
 	"github.com/gin-gonic/gin"
 	grpc "google.golang.org/grpc"
@@ -38,6 +38,7 @@ import (
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 
+	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,6 +50,7 @@ const addressSpaceAddress = "10.0.0.0/16"
 const exampleCloudName = "example"
 const resolvedTagIp = "1.2.3.4"
 const validTagName = "validTagName"
+
 var exampleRule = &invisinetspb.PermitListRule{Id: "example-rule", Tags: []string{validTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
 
 type mockTagServiceServer struct {
@@ -64,7 +66,7 @@ func (s *mockTagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) 
 
 func (s *mockTagServiceServer) ResolveTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.NameMappingList, error) {
 	if strings.HasPrefix(tag.TagName, validTagName) {
-		return &tagservicepb.NameMappingList{Mappings: []*tagservicepb.NameMapping{&tagservicepb.NameMapping{TagName: tag.TagName, Uri: "uri/"+tag.TagName, Ip: resolvedTagIp}}}, nil
+		return &tagservicepb.NameMappingList{Mappings: []*tagservicepb.NameMapping{&tagservicepb.NameMapping{TagName: tag.TagName, Uri: "uri/" + tag.TagName, Ip: resolvedTagIp}}}, nil
 	}
 	return nil, fmt.Errorf("ResolveTag: Invalid tag name")
 }
@@ -111,11 +113,10 @@ func (s *mockTagServiceServer) Unsubscribe(c context.Context, sub *tagservicepb.
 
 func (s *mockTagServiceServer) GetSubscribers(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.SubscriberList, error) {
 	if strings.HasPrefix(tag.TagName, validTagName) {
-		return &tagservicepb.SubscriberList{Subscribers: []string{exampleCloudName+">uri"}}, nil
+		return &tagservicepb.SubscriberList{Subscribers: []string{exampleCloudName + ">uri"}}, nil
 	}
 	return nil, fmt.Errorf("Tag does not exist")
 }
-
 
 // Mock Cloud Plugin Server
 type mockCloudPluginServer struct {
@@ -200,8 +201,8 @@ func SetUpRouter() *gin.Engine {
 }
 
 type PermitListGetResponse struct {
-	Id          string `json:"id"`
-	PermitList  *invisinetspb.PermitList `json:"permitlist"`
+	Id         string                   `json:"id"`
+	PermitList *invisinetspb.PermitList `json:"permitlist"`
 }
 
 func TestPermitListGet(t *testing.T) {
@@ -210,7 +211,7 @@ func TestPermitListGet(t *testing.T) {
 	port := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-    setupPluginServer(port)
+	setupPluginServer(port)
 
 	r := SetUpRouter()
 	r.GET("/cloud/:cloud/resources/:id/permit-list/", frontendServer.permitListGet)
@@ -218,8 +219,8 @@ func TestPermitListGet(t *testing.T) {
 	// Well-formed request
 	id := "123"
 	expectedResponse := PermitListGetResponse{
-		Id:              id,
-		PermitList:      &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{exampleRule}},
+		Id:         id,
+		PermitList: &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{exampleRule}},
 	}
 
 	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/", exampleCloudName, id)
@@ -263,12 +264,12 @@ func TestPermitListRulesAdd(t *testing.T) {
 	id := "123"
 	tags := []string{validTagName}
 	rule := &invisinetspb.PermitListRule{
-		Id: id, 
-		Tags: tags,
-		Direction: invisinetspb.Direction_INBOUND, 
-		SrcPort: 1, 
-		DstPort: 2, 
-		Protocol: 1 }
+		Id:        id,
+		Tags:      tags,
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
 	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
 	jsonValue, _ := json.Marshal(rulesList)
 
@@ -282,12 +283,12 @@ func TestPermitListRulesAdd(t *testing.T) {
 	// Invalid tag name (cannot be resolved)
 	tags = []string{"tag"}
 	rule = &invisinetspb.PermitListRule{
-		Id: id, 
-		Tags: tags,
-		Direction: invisinetspb.Direction_INBOUND, 
-		SrcPort: 1, 
-		DstPort: 2, 
-		Protocol: 1 }
+		Id:        id,
+		Tags:      tags,
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
 	rulesList = &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
 	jsonValue, _ = json.Marshal(rulesList)
 
@@ -335,12 +336,12 @@ func TestPermitListRulesDelete(t *testing.T) {
 	id := "123"
 	tags := []string{validTagName}
 	rule := &invisinetspb.PermitListRule{
-		Id: "id", 
-		Tags: tags,
-		Direction: invisinetspb.Direction_INBOUND, 
-		SrcPort: 1, 
-		DstPort: 2, 
-		Protocol: 1 }
+		Id:        "id",
+		Tags:      tags,
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
 	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
 
 	jsonValue, _ := json.Marshal(rulesList)
@@ -350,7 +351,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-	
+
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
@@ -380,7 +381,6 @@ func TestCreateResource(t *testing.T) {
 	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.1.0.0/24"}
 
 	setupPluginServer(port)
-
 
 	r := SetUpRouter()
 	r.POST("/cloud/:cloud/resources/:id/", frontendServer.resourceCreate)
@@ -428,12 +428,12 @@ func TestGetAddressSpaces(t *testing.T) {
 
 	// Well-formed call
 	addressList, _ := frontendServer.getAddressSpaces(exampleCloudName, "id")
-    assert.Equal(t, addressList.AddressSpaces[0], addressSpaceAddress)
+	assert.Equal(t, addressList.AddressSpaces[0], addressSpaceAddress)
 
 	// Bad cloud name
 	emptyList, err := frontendServer.getAddressSpaces("wrong", "id")
-    require.NotNil(t, err)
-  
+	require.NotNil(t, err)
+
 	require.Nil(t, emptyList)
 }
 
@@ -444,15 +444,15 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 
 	setupPluginServer(port)
 
-	// Valid cloud list 
-	cloud := Cloud{Name: exampleCloudName,  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
+	// Valid cloud list
+	cloud := Cloud{Name: exampleCloudName, Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	frontendServer.config = Config{Clouds: []Cloud{cloud}}
 	err := frontendServer.updateUsedAddressSpacesMap()
 	require.Nil(t, err)
 	assert.Equal(t, frontendServer.usedAddressSpaces[exampleCloudName][0], addressSpaceAddress)
 
-	// Invalid cloud list 
-	cloud = Cloud{Name: "wrong",  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
+	// Invalid cloud list
+	cloud = Cloud{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	frontendServer.config = Config{Clouds: []Cloud{cloud}}
 	err = frontendServer.updateUsedAddressSpacesMap()
 
@@ -531,7 +531,7 @@ func TestResolveTag(t *testing.T) {
 
 	// Well-formed request
 	tag := validTagName
-	expectedResult := &tagservicepb.NameMapping{TagName: tag, Uri: "uri/"+tag, Ip: resolvedTagIp}
+	expectedResult := &tagservicepb.NameMapping{TagName: tag, Uri: "uri/" + tag, Ip: resolvedTagIp}
 
 	url := fmt.Sprintf("/tags/%s/resolve", tag)
 	req, _ := http.NewRequest("GET", url, nil)
@@ -572,7 +572,7 @@ func TestSetTag(t *testing.T) {
 	r.POST("/tags/:tag", frontendServer.setTag)
 
 	// Well-formed request
-	tagMapping := &tagservicepb.TagMapping{ParentTag: validTagName, ChildTags: []string{validTagName+"child"}}
+	tagMapping := &tagservicepb.TagMapping{ParentTag: validTagName, ChildTags: []string{validTagName + "child"}}
 	jsonValue, _ := json.Marshal(tagMapping.ChildTags)
 
 	url := fmt.Sprintf("/tags/%s", tagMapping.ParentTag)
@@ -786,22 +786,22 @@ func TestResolvePermitListRules(t *testing.T) {
 	// Permit list rule that contains tags, IPs, and names
 	id := "id"
 	rule := &invisinetspb.PermitListRule{
-		Id: "id", 
-		Tags: []string{validTagName+"1", validTagName+"2", "2.3.4.5"},
-		Targets: []string{},
-		Direction: invisinetspb.Direction_INBOUND, 
-		SrcPort: 1, 
-		DstPort: 2, 
-		Protocol: 1 }
+		Id:        "id",
+		Tags:      []string{validTagName + "1", validTagName + "2", "2.3.4.5"},
+		Targets:   []string{},
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
 	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
 	expectedRule := &invisinetspb.PermitListRule{
-		Id: "id", 
-		Tags: []string{validTagName+"1", validTagName+"2", "2.3.4.5"},
-		Targets: []string{resolvedTagIp, resolvedTagIp, "2.3.4.5"},
-		Direction: invisinetspb.Direction_INBOUND, 
-		SrcPort: 1, 
-		DstPort: 2, 
-		Protocol: 1 }
+		Id:        "id",
+		Tags:      []string{validTagName + "1", validTagName + "2", "2.3.4.5"},
+		Targets:   []string{resolvedTagIp, resolvedTagIp, "2.3.4.5"},
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
 	expectedRulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{expectedRule}}
 
 	resolvedRules, err := frontendServer.resolvePermitListRules(rulesList, false, exampleCloudName)
@@ -825,40 +825,40 @@ func TestGetIPsFromResolvedTag(t *testing.T) {
 func TestCheckAndCleanRule(t *testing.T) {
 	// Rule with correct formatting
 	rule := &invisinetspb.PermitListRule{
-		Id: "id", 
-		Tags: []string{validTagName+"1", validTagName+"2", "2.3.4.5"},
-		Targets: []string{},
-		Direction: invisinetspb.Direction_INBOUND, 
-		SrcPort: 1, 
-		DstPort: 2, 
-		Protocol: 1 }
-	
+		Id:        "id",
+		Tags:      []string{validTagName + "1", validTagName + "2", "2.3.4.5"},
+		Targets:   []string{},
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
+
 	cleanRule, _, err := checkAndCleanRule(rule)
 	assert.Nil(t, err)
 	assert.Equal(t, rule, cleanRule)
 
 	// Rule with no tags
 	badRule := &invisinetspb.PermitListRule{
-		Id: "id", 
-		Tags: []string{},
-		Targets: []string{},
-		Direction: invisinetspb.Direction_INBOUND, 
-		SrcPort: 1, 
-		DstPort: 2, 
-		Protocol: 1 }
+		Id:        "id",
+		Tags:      []string{},
+		Targets:   []string{},
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
 
 	_, _, err = checkAndCleanRule(badRule)
 	assert.NotNil(t, err)
 
 	// Rule with targets
 	badRule = &invisinetspb.PermitListRule{
-		Id: "id", 
-		Tags: []string{validTagName+"1", validTagName+"2", "2.3.4.5"},
-		Targets: []string{validTagName+"1", validTagName+"2", "2.3.4.5"},
-		Direction: invisinetspb.Direction_INBOUND, 
-		SrcPort: 1, 
-		DstPort: 2, 
-		Protocol: 1 }
+		Id:        "id",
+		Tags:      []string{validTagName + "1", validTagName + "2", "2.3.4.5"},
+		Targets:   []string{validTagName + "1", validTagName + "2", "2.3.4.5"},
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
 
 	cleanRule, warning, err := checkAndCleanRule(badRule)
 	assert.Nil(t, err)
@@ -871,7 +871,7 @@ func TestIsIpAddrOrCidr(t *testing.T) {
 	cidr := "2.3.4.5/20"
 	nonIp := "tag"
 	nonIpWithSlash := "tag/insidetag"
-	
+
 	assert.True(t, isIpAddrOrCidr(ip))
 	assert.True(t, isIpAddrOrCidr(cidr))
 	assert.False(t, isIpAddrOrCidr(nonIp))
@@ -924,17 +924,17 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 	frontendServer := newFrontendServer()
 	tagServerPort := getNewPortNumber()
 	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
-	
+
 	setupTagServer(tagServerPort)
 
 	beforePermitList := &invisinetspb.PermitList{
 		AssociatedResource: "uri",
 		Rules: []*invisinetspb.PermitListRule{
 			&invisinetspb.PermitListRule{
-				Tags: []string{validTagName+"1", "1.2.3.4"},
+				Tags: []string{validTagName + "1", "1.2.3.4"},
 			},
 			&invisinetspb.PermitListRule{
-				Tags: []string{validTagName+"1", validTagName+"2", validTagName+"2"},
+				Tags: []string{validTagName + "1", validTagName + "2", validTagName + "2"},
 			},
 		},
 	}
@@ -943,10 +943,10 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 		AssociatedResource: "uri",
 		Rules: []*invisinetspb.PermitListRule{
 			&invisinetspb.PermitListRule{
-				Tags: []string{validTagName+"1", "1.2.3.4"},
+				Tags: []string{validTagName + "1", "1.2.3.4"},
 			},
 			&invisinetspb.PermitListRule{
-				Tags: []string{validTagName+"3"},
+				Tags: []string{validTagName + "3"},
 			},
 		},
 	}
@@ -1004,4 +1004,21 @@ func TestUpdateSubscribers(t *testing.T) {
 
 	err := frontendServer.updateSubscribers(validTagName)
 	assert.Nil(t, err)
+}
+
+func TestGetUsedAddressSpaces(t *testing.T) {
+	frontendServer := newFrontendServer()
+
+	gcp_address_spaces := []string{"10.0.0.0/16", "10.1.0.0/16"}
+	azure_address_spaces := []string{"10.2.0.0/16", "10.3.0.0/16"}
+	frontendServer.usedAddressSpaces = map[string][]string{
+		utils.GCP:   {"10.0.0.0/16", "10.1.0.0/16"},
+		utils.AZURE: {"10.2.0.0/16", "10.3.0.0/16"},
+	}
+	addressSpaces, err := frontendServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	require.Nil(t, err)
+	assert.ElementsMatch(t, addressSpaces.AddressSpaceMappings, []*invisinetspb.AddressSpaceMapping{
+		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP},
+		{AddressSpaces: azure_address_spaces, Cloud: utils.AZURE},
+	})
 }
