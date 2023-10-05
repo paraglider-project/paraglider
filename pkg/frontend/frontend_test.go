@@ -35,6 +35,7 @@ import (
 	grpc "google.golang.org/grpc"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -112,7 +113,7 @@ func TestPermitListGet(t *testing.T) {
 	port := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-  setupPluginServer(port)
+	setupPluginServer(port)
 
 	r := SetUpRouter()
 	r.GET("/cloud/:cloud/resources/:id/permit-list/", frontendServer.permitListGet)
@@ -162,12 +163,12 @@ func TestPermitListRulesAdd(t *testing.T) {
 	id := "123"
 	tags := []string{"tag"}
 	rule := &invisinetspb.PermitListRule{
-		Id: id, 
-		Tag: tags,
-		Direction: invisinetspb.Direction_INBOUND, 
-		SrcPort: 1, 
-		DstPort: 2, 
-		Protocol: 1 }
+		Id:        id,
+		Tag:       tags,
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
 	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
 	jsonValue, _ := json.Marshal(rulesList)
 
@@ -212,12 +213,12 @@ func TestPermitListRulesDelete(t *testing.T) {
 	id := "123"
 	tags := []string{"tag"}
 	rule := &invisinetspb.PermitListRule{
-		Id: "id", 
-		Tag: tags,
-		Direction: invisinetspb.Direction_INBOUND, 
-		SrcPort: 1, 
-		DstPort: 2, 
-		Protocol: 1 }
+		Id:        "id",
+		Tag:       tags,
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
 	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
 
 	jsonValue, _ := json.Marshal(rulesList)
@@ -256,7 +257,6 @@ func TestCreateResource(t *testing.T) {
 	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.1.0.0/24"}
 
 	setupPluginServer(port)
-
 
 	r := SetUpRouter()
 	r.POST("/cloud/:cloud/resources/:id/", frontendServer.resourceCreate)
@@ -304,12 +304,12 @@ func TestGetAddressSpaces(t *testing.T) {
 
 	// Well-formed call
 	addressList, _ := frontendServer.getAddressSpaces(exampleCloudName, "id")
-    assert.Equal(t, addressList.AddressSpaces[0], addressSpaceAddress)
+	assert.Equal(t, addressList.AddressSpaces[0], addressSpaceAddress)
 
 	// Bad cloud name
 	emptyList, err := frontendServer.getAddressSpaces("wrong", "id")
-    require.NotNil(t, err)
-  
+	require.NotNil(t, err)
+
 	require.Nil(t, emptyList)
 }
 
@@ -320,15 +320,15 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 
 	setupPluginServer(port)
 
-	// Valid cloud list 
-	cloud := Cloud{Name: exampleCloudName,  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
+	// Valid cloud list
+	cloud := Cloud{Name: exampleCloudName, Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	frontendServer.config = Config{Clouds: []Cloud{cloud}}
 	err := frontendServer.updateUsedAddressSpacesMap()
 	require.Nil(t, err)
 	assert.Equal(t, frontendServer.usedAddressSpaces[exampleCloudName][0], addressSpaceAddress)
 
-	// Invalid cloud list 
-	cloud = Cloud{Name: "wrong",  Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
+	// Invalid cloud list
+	cloud = Cloud{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	frontendServer.config = Config{Clouds: []Cloud{cloud}}
 	err = frontendServer.updateUsedAddressSpacesMap()
 
@@ -354,4 +354,21 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.255.0.0/16"}
 	_, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
 	require.NotNil(t, err)
+}
+
+func TestGetUsedAddressSpaces(t *testing.T) {
+	frontendServer := newFrontendServer()
+
+	gcp_address_spaces := []string{"10.0.0.0/16", "10.1.0.0/16"}
+	azure_address_spaces := []string{"10.2.0.0/16", "10.3.0.0/16"}
+	frontendServer.usedAddressSpaces = map[string][]string{
+		utils.GCP:   {"10.0.0.0/16", "10.1.0.0/16"},
+		utils.AZURE: {"10.2.0.0/16", "10.3.0.0/16"},
+	}
+	addressSpaces, err := frontendServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	require.Nil(t, err)
+	assert.ElementsMatch(t, addressSpaces.AddressSpaceMappings, []*invisinetspb.AddressSpaceMapping{
+		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP},
+		{AddressSpaces: azure_address_spaces, Cloud: utils.AZURE},
+	})
 }
