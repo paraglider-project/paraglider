@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	logger "github.com/NetSys/invisinets/pkg/logger"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -55,41 +55,54 @@ type AzureSDKHandler interface {
 	GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error)
 	GetLastSegment(resourceID string) (string, error)
 	SetSubIdAndResourceGroup(subID string, resourceGroupName string)
+	CreateOrUpdateVirtualNetworkGateway(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGateway) (*armnetwork.VirtualNetworkGateway, error)
+	GetVirtualNetworkGateway(ctx context.Context, name string) (*armnetwork.VirtualNetworkGateway, error)
+	CreatePublicIPAddress(ctx context.Context, name string, parameters armnetwork.PublicIPAddress) (*armnetwork.PublicIPAddress, error)
+	CreateSubnet(ctx context.Context, virtualNetworkName string, subnetName string, parameters armnetwork.Subnet) (*armnetwork.Subnet, error)
+	CreateLocalNetworkGateway(ctx context.Context, name string, parameters armnetwork.LocalNetworkGateway) (*armnetwork.LocalNetworkGateway, error)
+	GetLocalNetworkGateway(ctx context.Context, name string) (*armnetwork.LocalNetworkGateway, error)
+	CreateVirtualNetworkGatewayConnection(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGatewayConnection) (*armnetwork.VirtualNetworkGatewayConnection, error)
+	GetVirtualNetworkGatewayConnection(ctx context.Context, name string) (*armnetwork.VirtualNetworkGatewayConnection, error)
 }
 
 type azureSDKHandler struct {
 	AzureSDKHandler
-	resourcesClientFactory *armresources.ClientFactory
-	computeClientFactory   *armcompute.ClientFactory
-	networkClientFactory   *armnetwork.ClientFactory
-	securityGroupsClient   *armnetwork.SecurityGroupsClient
-	interfacesClient       *armnetwork.InterfacesClient
-	securityRulesClient    *armnetwork.SecurityRulesClient
-	virtualMachinesClient  *armcompute.VirtualMachinesClient
-	virtualNetworksClient  *armnetwork.VirtualNetworksClient
-	resourcesClient        *armresources.Client
-	deploymentsClient      *armresources.DeploymentsClient
-	networkPeeringClient   *armnetwork.VirtualNetworkPeeringsClient
-	subscriptionID         string
-	resourceGroupName      string
+	resourcesClientFactory                 *armresources.ClientFactory
+	computeClientFactory                   *armcompute.ClientFactory
+	networkClientFactory                   *armnetwork.ClientFactory
+	securityGroupsClient                   *armnetwork.SecurityGroupsClient
+	interfacesClient                       *armnetwork.InterfacesClient
+	securityRulesClient                    *armnetwork.SecurityRulesClient
+	virtualMachinesClient                  *armcompute.VirtualMachinesClient
+	virtualNetworksClient                  *armnetwork.VirtualNetworksClient
+	resourcesClient                        *armresources.Client
+	deploymentsClient                      *armresources.DeploymentsClient
+	networkPeeringClient                   *armnetwork.VirtualNetworkPeeringsClient
+	virtualNetworkGatewaysClient           *armnetwork.VirtualNetworkGatewaysClient
+	publicIPAddressesClient                *armnetwork.PublicIPAddressesClient
+	subnetsClient                          *armnetwork.SubnetsClient
+	virtualNetworkGatewayConnectionsClient *armnetwork.VirtualNetworkGatewayConnectionsClient
+	localNetworkGatewaysClient             *armnetwork.LocalNetworkGatewaysClient
+	subscriptionID                         string
+	resourceGroupName                      string
 }
 
 const (
 	VirtualMachineResourceType = "Microsoft.Compute/virtualMachines"
 	nsgNameSuffix              = "-default-nsg"
-	azureSecurityRuleAsterisk = "*"
-	permitListPortAny 	   = -1
-	denyAllNsgRulePrefix = "invisinets-deny-all"
+	azureSecurityRuleAsterisk  = "*"
+	permitListPortAny          = -1
+	denyAllNsgRulePrefix       = "invisinets-deny-all"
 )
 
 // mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
 var invisinetsToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
 	-1: armnetwork.SecurityRuleProtocolAsterisk,
-	1:   armnetwork.SecurityRuleProtocolIcmp,
-	6:   armnetwork.SecurityRuleProtocolTCP,
-	17:  armnetwork.SecurityRuleProtocolUDP,
-	50:  armnetwork.SecurityRuleProtocolEsp,
-	51:  armnetwork.SecurityRuleProtocolAh,
+	1:  armnetwork.SecurityRuleProtocolIcmp,
+	6:  armnetwork.SecurityRuleProtocolTCP,
+	17: armnetwork.SecurityRuleProtocolUDP,
+	50: armnetwork.SecurityRuleProtocolEsp,
+	51: armnetwork.SecurityRuleProtocolAh,
 }
 
 // mapping from Azure SecurityRuleProtocol to IANA protocol numbers
@@ -115,7 +128,9 @@ var azureToInvisinetsDirection = map[armnetwork.SecurityRuleDirection]invisinets
 }
 
 // Frontend server address
-var frontendServerAddr string // TODO @seankimkdy: dynamically configure with config
+// TODO @seankimkdy: dynamically configure with config
+// TODO @seankimkdy: temporarily exported until we figure a better way to set this from another package (e.g. multicloud tests)
+var FrontendServerAddr string
 
 // InitializeClients initializes the necessary azure clients for the necessary operations
 func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
@@ -143,6 +158,11 @@ func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
 	h.resourcesClient = h.resourcesClientFactory.NewClient()
 	h.virtualMachinesClient = h.computeClientFactory.NewVirtualMachinesClient()
 	h.deploymentsClient = h.resourcesClientFactory.NewDeploymentsClient()
+	h.virtualNetworkGatewaysClient = h.networkClientFactory.NewVirtualNetworkGatewaysClient()
+	h.publicIPAddressesClient = h.networkClientFactory.NewPublicIPAddressesClient()
+	h.subnetsClient = h.networkClientFactory.NewSubnetsClient()
+	h.virtualNetworkGatewayConnectionsClient = h.networkClientFactory.NewVirtualNetworkGatewayConnectionsClient()
+	h.localNetworkGatewaysClient = h.networkClientFactory.NewLocalNetworkGatewaysClient()
 	return nil
 }
 
@@ -175,7 +195,7 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 	// TODO @nnomier: if we just use VMs, we can use vmclient directly
 	resource, err := h.resourcesClient.GetByID(ctx, resourceID, apiVersion, &options)
 	if err != nil {
-		logger.Log.Printf("Failed to get resource: %v", err)
+		utils.Log.Printf("Failed to get resource: %v", err)
 		return nil, err
 	}
 
@@ -191,7 +211,7 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 	vm, err := h.virtualMachinesClient.Get(ctx, h.resourceGroupName, vmName, &armcompute.VirtualMachinesClientGetOptions{Expand: nil})
 
 	if err != nil {
-		logger.Log.Printf("Failed to get VM: %v", err)
+		utils.Log.Printf("Failed to get VM: %v", err)
 		return nil, err
 	}
 
@@ -199,13 +219,13 @@ func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string)
 	nicID := *vm.Properties.NetworkProfile.NetworkInterfaces[0].ID
 	nicName, err := h.GetLastSegment(nicID)
 	if err != nil {
-		logger.Log.Printf("Failed to get NIC name from ID: %v", err)
+		utils.Log.Printf("Failed to get NIC name from ID: %v", err)
 		return nil, err
 	}
 
 	nicResponse, err := h.interfacesClient.Get(ctx, h.resourceGroupName, nicName, &armnetwork.InterfacesClientGetOptions{Expand: nil})
 	if err != nil {
-		logger.Log.Printf("Failed to get NIC: %v", err)
+		utils.Log.Printf("Failed to get NIC: %v", err)
 		return nil, err
 	}
 	resourceNic = &nicResponse.Interface
@@ -283,14 +303,14 @@ func (h *azureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string
 	}
 
 	// resp of type SecurityRulesClientDeleteResponse is currently a placeholder in the sdk
-	logger.Log.Printf("Successfully deleted security rule: %v", resp)
+	utils.Log.Printf("Successfully deleted security rule: %v", resp)
 	return nil
 }
 
 // GetVnetAddressSpaces returns a map of location to address space for all virtual networks (VNets) with a given prefix.
 func (h *azureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string]string, error) {
 	addressSpaces := make(map[string]string)
-	pager := h.virtualNetworksClient.NewListAllPager(nil)
+	pager := h.virtualNetworksClient.NewListPager(h.resourceGroupName, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
@@ -298,7 +318,6 @@ func (h *azureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix stri
 		}
 		for _, v := range page.Value {
 			if strings.HasPrefix(*v.Name, prefix) {
-				// assume only one address space per vnet
 				addressSpaces[*v.Location] = *v.Properties.AddressSpace.AddressPrefixes[0]
 			}
 		}
@@ -402,11 +421,10 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 
 	if err != nil {
 		// Check if the error is Resource Not Found
-		var azError *azcore.ResponseError
-		if ok := errors.As(err, &azError); ok && azError.StatusCode == http.StatusNotFound {
+		if isErrorNotFound(err) {
 			// Create the virtual network if it doesn't exist
 			// Get the address space from the controller service
-			conn, err := grpc.Dial(frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.Dial(FrontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
 				return nil, err
 			}
@@ -436,13 +454,13 @@ func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, lo
 			AddressSpace: &armnetwork.AddressSpace{
 				AddressPrefixes: []*string{
 					to.Ptr(addressSpace),
+					to.Ptr(gatewaySubnetAddressPrefix),
 				},
 			},
 			Subnets: []*armnetwork.Subnet{
 				{
 					Name: to.Ptr("default"),
 					Properties: &armnetwork.SubnetPropertiesFormat{
-						// TODO @nnomier: does it make sense for the subnet to be the same as the address space?
 						AddressPrefix: to.Ptr(addressSpace),
 					},
 				},
@@ -565,6 +583,90 @@ func (h *azureSDKHandler) GetVNet(ctx context.Context, vnetName string) (*armnet
 	return &vnet.VirtualNetwork, nil
 }
 
+func (h *azureSDKHandler) CreateOrUpdateVirtualNetworkGateway(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGateway) (*armnetwork.VirtualNetworkGateway, error) {
+	pollerResponse, err := h.virtualNetworkGatewaysClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.VirtualNetworkGateway, nil
+}
+
+func (h *azureSDKHandler) GetVirtualNetworkGateway(ctx context.Context, name string) (*armnetwork.VirtualNetworkGateway, error) {
+	resp, err := h.virtualNetworkGatewaysClient.Get(ctx, h.resourceGroupName, name, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.VirtualNetworkGateway, nil
+}
+
+func (h *azureSDKHandler) CreatePublicIPAddress(ctx context.Context, name string, parameters armnetwork.PublicIPAddress) (*armnetwork.PublicIPAddress, error) {
+	pollerResponse, err := h.publicIPAddressesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.PublicIPAddress, nil
+}
+
+func (h *azureSDKHandler) CreateSubnet(ctx context.Context, virtualNetworkName string, subnetName string, parameters armnetwork.Subnet) (*armnetwork.Subnet, error) {
+	pollerResponse, err := h.subnetsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, virtualNetworkName, subnetName, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.Subnet, nil
+}
+
+func (h *azureSDKHandler) CreateLocalNetworkGateway(ctx context.Context, name string, parameters armnetwork.LocalNetworkGateway) (*armnetwork.LocalNetworkGateway, error) {
+	pollerResponse, err := h.localNetworkGatewaysClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.LocalNetworkGateway, nil
+}
+
+func (h *azureSDKHandler) GetLocalNetworkGateway(ctx context.Context, name string) (*armnetwork.LocalNetworkGateway, error) {
+	resp, err := h.localNetworkGatewaysClient.Get(ctx, h.resourceGroupName, name, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.LocalNetworkGateway, nil
+}
+
+func (h *azureSDKHandler) CreateVirtualNetworkGatewayConnection(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGatewayConnection) (*armnetwork.VirtualNetworkGatewayConnection, error) {
+	pollerResponse, err := h.virtualNetworkGatewayConnectionsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.VirtualNetworkGatewayConnection, nil
+}
+
+func (h *azureSDKHandler) GetVirtualNetworkGatewayConnection(ctx context.Context, name string) (*armnetwork.VirtualNetworkGatewayConnection, error) {
+	resp, err := h.virtualNetworkGatewayConnectionsClient.Get(ctx, h.resourceGroupName, name, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.VirtualNetworkGatewayConnection, nil
+}
+
 // getIPs returns the source and destination IP addresses for a given permit list rule and resource IP address.
 // it checks the direction of the permit list rule and sets the source IP address to the rule tag
 // and the destination IP address to the resource IP address if the direction is inbound.
@@ -604,4 +706,11 @@ func getTag(rule *armnetwork.SecurityRule) []string {
 		}
 	}
 	return tag
+}
+
+// Checks if Azure error response is a not found error
+func isErrorNotFound(err error) bool {
+	var azError *azcore.ResponseError
+	ok := errors.As(err, &azError)
+	return ok && azError.StatusCode == http.StatusNotFound
 }

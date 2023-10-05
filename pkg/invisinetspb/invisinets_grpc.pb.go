@@ -39,6 +39,9 @@ const (
 	CloudPlugin_GetPermitList_FullMethodName         = "/invisinetspb.CloudPlugin/GetPermitList"
 	CloudPlugin_AddPermitListRules_FullMethodName    = "/invisinetspb.CloudPlugin/AddPermitListRules"
 	CloudPlugin_DeletePermitListRules_FullMethodName = "/invisinetspb.CloudPlugin/DeletePermitListRules"
+	CloudPlugin_CreateVpnGateway_FullMethodName      = "/invisinetspb.CloudPlugin/CreateVpnGateway"
+	CloudPlugin_CreateVpnBgpSessions_FullMethodName  = "/invisinetspb.CloudPlugin/CreateVpnBgpSessions"
+	CloudPlugin_CreateVpnConnections_FullMethodName  = "/invisinetspb.CloudPlugin/CreateVpnConnections"
 )
 
 // CloudPluginClient is the client API for CloudPlugin service.
@@ -50,6 +53,9 @@ type CloudPluginClient interface {
 	GetPermitList(ctx context.Context, in *ResourceID, opts ...grpc.CallOption) (*PermitList, error)
 	AddPermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error)
 	DeletePermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error)
+	CreateVpnGateway(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*CreateVpnGatewayResponse, error)
+	CreateVpnBgpSessions(ctx context.Context, in *CreateVpnBgpSessionsRequest, opts ...grpc.CallOption) (*CreateVpnBgpSessionsResponse, error)
+	CreateVpnConnections(ctx context.Context, in *CreateVpnConnectionsRequest, opts ...grpc.CallOption) (*BasicResponse, error)
 }
 
 type cloudPluginClient struct {
@@ -105,6 +111,33 @@ func (c *cloudPluginClient) DeletePermitListRules(ctx context.Context, in *Permi
 	return out, nil
 }
 
+func (c *cloudPluginClient) CreateVpnGateway(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*CreateVpnGatewayResponse, error) {
+	out := new(CreateVpnGatewayResponse)
+	err := c.cc.Invoke(ctx, CloudPlugin_CreateVpnGateway_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cloudPluginClient) CreateVpnBgpSessions(ctx context.Context, in *CreateVpnBgpSessionsRequest, opts ...grpc.CallOption) (*CreateVpnBgpSessionsResponse, error) {
+	out := new(CreateVpnBgpSessionsResponse)
+	err := c.cc.Invoke(ctx, CloudPlugin_CreateVpnBgpSessions_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cloudPluginClient) CreateVpnConnections(ctx context.Context, in *CreateVpnConnectionsRequest, opts ...grpc.CallOption) (*BasicResponse, error) {
+	out := new(BasicResponse)
+	err := c.cc.Invoke(ctx, CloudPlugin_CreateVpnConnections_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CloudPluginServer is the server API for CloudPlugin service.
 // All implementations must embed UnimplementedCloudPluginServer
 // for forward compatibility
@@ -114,6 +147,9 @@ type CloudPluginServer interface {
 	GetPermitList(context.Context, *ResourceID) (*PermitList, error)
 	AddPermitListRules(context.Context, *PermitList) (*BasicResponse, error)
 	DeletePermitListRules(context.Context, *PermitList) (*BasicResponse, error)
+	CreateVpnGateway(context.Context, *InvisinetsDeployment) (*CreateVpnGatewayResponse, error)
+	CreateVpnBgpSessions(context.Context, *CreateVpnBgpSessionsRequest) (*CreateVpnBgpSessionsResponse, error)
+	CreateVpnConnections(context.Context, *CreateVpnConnectionsRequest) (*BasicResponse, error)
 	mustEmbedUnimplementedCloudPluginServer()
 }
 
@@ -135,6 +171,15 @@ func (UnimplementedCloudPluginServer) AddPermitListRules(context.Context, *Permi
 }
 func (UnimplementedCloudPluginServer) DeletePermitListRules(context.Context, *PermitList) (*BasicResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeletePermitListRules not implemented")
+}
+func (UnimplementedCloudPluginServer) CreateVpnGateway(context.Context, *InvisinetsDeployment) (*CreateVpnGatewayResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateVpnGateway not implemented")
+}
+func (UnimplementedCloudPluginServer) CreateVpnBgpSessions(context.Context, *CreateVpnBgpSessionsRequest) (*CreateVpnBgpSessionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateVpnBgpSessions not implemented")
+}
+func (UnimplementedCloudPluginServer) CreateVpnConnections(context.Context, *CreateVpnConnectionsRequest) (*BasicResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateVpnConnections not implemented")
 }
 func (UnimplementedCloudPluginServer) mustEmbedUnimplementedCloudPluginServer() {}
 
@@ -239,6 +284,60 @@ func _CloudPlugin_DeletePermitListRules_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CloudPlugin_CreateVpnGateway_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InvisinetsDeployment)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CloudPluginServer).CreateVpnGateway(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CloudPlugin_CreateVpnGateway_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CloudPluginServer).CreateVpnGateway(ctx, req.(*InvisinetsDeployment))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CloudPlugin_CreateVpnBgpSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateVpnBgpSessionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CloudPluginServer).CreateVpnBgpSessions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CloudPlugin_CreateVpnBgpSessions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CloudPluginServer).CreateVpnBgpSessions(ctx, req.(*CreateVpnBgpSessionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CloudPlugin_CreateVpnConnections_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateVpnConnectionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CloudPluginServer).CreateVpnConnections(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CloudPlugin_CreateVpnConnections_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CloudPluginServer).CreateVpnConnections(ctx, req.(*CreateVpnConnectionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CloudPlugin_ServiceDesc is the grpc.ServiceDesc for CloudPlugin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -266,6 +365,18 @@ var CloudPlugin_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "DeletePermitListRules",
 			Handler:    _CloudPlugin_DeletePermitListRules_Handler,
 		},
+		{
+			MethodName: "CreateVpnGateway",
+			Handler:    _CloudPlugin_CreateVpnGateway_Handler,
+		},
+		{
+			MethodName: "CreateVpnBgpSessions",
+			Handler:    _CloudPlugin_CreateVpnBgpSessions_Handler,
+		},
+		{
+			MethodName: "CreateVpnConnections",
+			Handler:    _CloudPlugin_CreateVpnConnections_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "invisinets.proto",
@@ -273,6 +384,8 @@ var CloudPlugin_ServiceDesc = grpc.ServiceDesc{
 
 const (
 	Controller_FindUnusedAddressSpace_FullMethodName = "/invisinetspb.Controller/FindUnusedAddressSpace"
+	Controller_GetUsedAddressSpaces_FullMethodName   = "/invisinetspb.Controller/GetUsedAddressSpaces"
+	Controller_ConnectClouds_FullMethodName          = "/invisinetspb.Controller/ConnectClouds"
 )
 
 // ControllerClient is the client API for Controller service.
@@ -280,6 +393,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ControllerClient interface {
 	FindUnusedAddressSpace(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AddressSpace, error)
+	GetUsedAddressSpaces(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AddressSpaceMappingList, error)
+	ConnectClouds(ctx context.Context, in *ConnectCloudsRequest, opts ...grpc.CallOption) (*BasicResponse, error)
 }
 
 type controllerClient struct {
@@ -299,11 +414,31 @@ func (c *controllerClient) FindUnusedAddressSpace(ctx context.Context, in *Empty
 	return out, nil
 }
 
+func (c *controllerClient) GetUsedAddressSpaces(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AddressSpaceMappingList, error) {
+	out := new(AddressSpaceMappingList)
+	err := c.cc.Invoke(ctx, Controller_GetUsedAddressSpaces_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controllerClient) ConnectClouds(ctx context.Context, in *ConnectCloudsRequest, opts ...grpc.CallOption) (*BasicResponse, error) {
+	out := new(BasicResponse)
+	err := c.cc.Invoke(ctx, Controller_ConnectClouds_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControllerServer is the server API for Controller service.
 // All implementations must embed UnimplementedControllerServer
 // for forward compatibility
 type ControllerServer interface {
 	FindUnusedAddressSpace(context.Context, *Empty) (*AddressSpace, error)
+	GetUsedAddressSpaces(context.Context, *Empty) (*AddressSpaceMappingList, error)
+	ConnectClouds(context.Context, *ConnectCloudsRequest) (*BasicResponse, error)
 	mustEmbedUnimplementedControllerServer()
 }
 
@@ -313,6 +448,12 @@ type UnimplementedControllerServer struct {
 
 func (UnimplementedControllerServer) FindUnusedAddressSpace(context.Context, *Empty) (*AddressSpace, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindUnusedAddressSpace not implemented")
+}
+func (UnimplementedControllerServer) GetUsedAddressSpaces(context.Context, *Empty) (*AddressSpaceMappingList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUsedAddressSpaces not implemented")
+}
+func (UnimplementedControllerServer) ConnectClouds(context.Context, *ConnectCloudsRequest) (*BasicResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConnectClouds not implemented")
 }
 func (UnimplementedControllerServer) mustEmbedUnimplementedControllerServer() {}
 
@@ -345,6 +486,42 @@ func _Controller_FindUnusedAddressSpace_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Controller_GetUsedAddressSpaces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControllerServer).GetUsedAddressSpaces(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Controller_GetUsedAddressSpaces_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControllerServer).GetUsedAddressSpaces(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Controller_ConnectClouds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConnectCloudsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControllerServer).ConnectClouds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Controller_ConnectClouds_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControllerServer).ConnectClouds(ctx, req.(*ConnectCloudsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Controller_ServiceDesc is the grpc.ServiceDesc for Controller service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -355,6 +532,14 @@ var Controller_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FindUnusedAddressSpace",
 			Handler:    _Controller_FindUnusedAddressSpace_Handler,
+		},
+		{
+			MethodName: "GetUsedAddressSpaces",
+			Handler:    _Controller_GetUsedAddressSpaces_Handler,
+		},
+		{
+			MethodName: "ConnectClouds",
+			Handler:    _Controller_ConnectClouds_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
