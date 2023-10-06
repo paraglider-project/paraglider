@@ -13,3 +13,7 @@ cloudPlugins:
   # - name: "azure"
   #   host: "localhost"
   #   port: 1001
+
+tagService:
+  host: "localhost"
+  port: 6000

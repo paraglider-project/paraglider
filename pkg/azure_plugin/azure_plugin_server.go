@@ -533,8 +533,8 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 // checkAndCreatePeering checks whether the given rule has a tag that is in the address space of any of the invisinets vnets
 // and if requires a peering or not
 func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceVnet *armnetwork.VirtualNetwork, rule *invisinetspb.PermitListRule, invisinetsVnetsMap map[string]string) error {
-	for _, tag := range rule.Tag {
-		isTagInResourceAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(tag, *resourceVnet.Properties.AddressSpace.AddressPrefixes[0])
+	for _, target := range rule.Targets {
+		isTagInResourceAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(target, *resourceVnet.Properties.AddressSpace.AddressPrefixes[0])
 		if err != nil {
 			return err
 		}
@@ -545,7 +545,7 @@ func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceV
 		// if the tag is not in the resource address space, then check on the other invisinets vnets
 		// if it matches one of them, then a peering is required (if it doesn't exist already)
 		for vnetLocation, vnetAddressSpace := range invisinetsVnetsMap {
-			isTagInVnetAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(tag, vnetAddressSpace)
+			isTagInVnetAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(target, vnetAddressSpace)
 			if err != nil {
 				return err
 			}

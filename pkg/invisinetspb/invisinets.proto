@@ -87,13 +87,15 @@ enum Direction {
     OUTBOUND = 1;
 }
 
+// TODO ?: have a version of this without the tags field to avoid users setting that at all
 message PermitListRule {
     string id = 1;
-    repeated string tag = 2;
+    repeated string targets = 2;
     Direction direction = 3;
     int32 src_port = 4;
     int32 dst_port = 5;
     int32 protocol = 6;
+    repeated string tags = 7;
 }
 
 message PermitList {

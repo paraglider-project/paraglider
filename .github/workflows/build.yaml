@@ -221,26 +221,8 @@ jobs:
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         with:
             creds: ${{ secrets.AZURE_CREDENTIALS }}
-      - name: Check for changed paths
-        id: changed-dirs
-        uses: tj-actions/changed-files@v38
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        with:
-          dir_names: "true"
-          files_yaml: |
-            pkg:
-              - pkg/**
-      - name: Put changed paths into GOTEST_DIRS
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux' && steps.changed-dirs.outputs.pkg_any_modified == 'true'
-        run: |
-          GOTEST_DIRS=""
-          for path in ${{ steps.changed-dirs.outputs.pkg_all_changed_files }}; do
-            echo "Path: $path"
-            GOTEST_DIRS="$GOTEST_DIRS ./$path/..."
-          done
-          echo "GOTEST_DIRS=${GOTEST_DIRS}" >> $GITHUB_ENV
       - name: Run integration tests
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux' && steps.changed-dirs.outputs.pkg_any_modified == 'true'
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         env:
           INVISINETS_GCP_PROJECT: 'invisinets-playground'
           GH_RUN_NUMBER: ${{ github.run_number }}

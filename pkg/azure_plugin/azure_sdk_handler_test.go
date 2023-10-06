@@ -561,7 +561,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
 			Id:        "security/rule/id",
-			Tag:       []string{"10.5.1.0", "10.6.1.0"},
+			Targets:   []string{"10.5.1.0", "10.6.1.0"},
 			Direction: invisinetspb.Direction_INBOUND,
 			SrcPort:   100,
 			DstPort:   8080,
@@ -593,7 +593,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
 			Id:        "security/rule/id",
-			Tag:       []string{"10.3.1.0", "10.2.1.0"},
+			Targets:   []string{"10.3.1.0", "10.2.1.0"},
 			Direction: invisinetspb.Direction_OUTBOUND,
 			SrcPort:   200,
 			DstPort:   8080,
@@ -626,11 +626,46 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
 			Id:        "security/rule/id",
-			Tag:       []string{"10.3.1.0", "10.2.1.0"},
+			Targets:   []string{"10.3.1.0", "10.2.1.0"},
 			Direction: invisinetspb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  17,
+		}
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		// Compare the result with the expected rule
+		require.Equal(t, expectedRule, result)
+	})
+
+	// Test case: success, tags included
+	t.Run("Success:TagsIncluded", func(t *testing.T) {
+		anyPortRule := &armnetwork.SecurityRule{
+			ID: to.Ptr("security/rule/id"),
+			Properties: &armnetwork.SecurityRulePropertiesFormat{
+				Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+				SourcePortRange:            to.Ptr("1"),
+				DestinationPortRange:       to.Ptr("1"),
+				Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolUDP),
+				DestinationAddressPrefixes: []*string{to.Ptr("10.3.1.0"), to.Ptr("10.2.1.0")},
+				Description:                to.Ptr(getRuleDescription([]string{"tag1", "tag2"})),
+			},
+		}
+
+		// Call the function to test
+		result, err := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(anyPortRule)
+
+		// Expected permit list rule
+		expectedRule := &invisinetspb.PermitListRule{
+			Id:        "security/rule/id",
+			Targets:   []string{"10.3.1.0", "10.2.1.0"},
+			Direction: invisinetspb.Direction_OUTBOUND,
+			SrcPort:   1,
+			DstPort:   1,
+			Protocol:  17,
+			Tags:      []string{"tag1", "tag2"},
 		}
 
 		require.NoError(t, err)
@@ -645,22 +680,45 @@ func TestGetInvisinetsRuleDesc(t *testing.T) {
 	azureSDKHandlerTest := &azureSDKHandler{}
 
 	// Test case: Create a sample permit list rule
-	rule := &invisinetspb.PermitListRule{
-		Tag:       []string{"10.0.0.1", "192.168.0.1"},
-		Direction: invisinetspb.Direction_INBOUND,
-		SrcPort:   80,
-		DstPort:   8080,
-		Protocol:  17,
-	}
+	t.Run("Success:NoTags", func(t *testing.T) {
+		rule := &invisinetspb.PermitListRule{
+			Targets:   []string{"10.0.0.1", "192.168.0.1"},
+			Direction: invisinetspb.Direction_INBOUND,
+			SrcPort:   80,
+			DstPort:   8080,
+			Protocol:  17,
+		}
 
-	// Expected description based on the sample rule
-	expectedDescription := "10.0.0.1-192.168.0.1-0-80-8080-17"
+		// Expected description based on the sample rule
+		expectedDescription := "10.0.0.1-192.168.0.1-0-80-8080-17-"
 
-	// Call the function to test
-	result := azureSDKHandlerTest.GetInvisinetsRuleDesc(rule)
+		// Call the function to test
+		result := azureSDKHandlerTest.GetInvisinetsRuleDesc(rule)
 
-	// Compare the result with the expected description
-	require.Equal(t, expectedDescription, result)
+		// Compare the result with the expected description
+		require.Equal(t, expectedDescription, result)
+	})
+
+	// Test case: Create a sample permit list rule with tags
+	t.Run("Success:Tags", func(t *testing.T) {
+		rule := &invisinetspb.PermitListRule{
+			Targets:   []string{"10.0.0.1", "192.168.0.1"},
+			Direction: invisinetspb.Direction_INBOUND,
+			SrcPort:   80,
+			DstPort:   8080,
+			Protocol:  17,
+			Tags:      []string{"tag1", "tag2"},
+		}
+
+		// Expected description based on the sample rule
+		expectedDescription := "10.0.0.1-192.168.0.1-0-80-8080-17-tag1-tag2"
+
+		// Call the function to test
+		result := azureSDKHandlerTest.GetInvisinetsRuleDesc(rule)
+
+		// Compare the result with the expected description
+		require.Equal(t, expectedDescription, result)
+	})
 }
 
 func TestCreateOrUpdateVirtualNetworkGateway(t *testing.T) {
@@ -795,7 +853,7 @@ func TestGetIPs(t *testing.T) {
 	// Test case 1: Inbound rule
 	inboundRule := &invisinetspb.PermitListRule{
 		Direction: invisinetspb.Direction_INBOUND,
-		Tag:       []string{"10.0.0.1", "192.168.0.1"},
+		Targets:   []string{"10.0.0.1", "192.168.0.1"},
 	}
 
 	resourceIP := "192.168.1.100"
@@ -809,7 +867,7 @@ func TestGetIPs(t *testing.T) {
 	// Test case 2: Outbound rule
 	outboundRule := &invisinetspb.PermitListRule{
 		Direction: invisinetspb.Direction_OUTBOUND,
-		Tag:       []string{"172.16.0.1", "192.168.1.1"},
+		Targets:   []string{"172.16.0.1", "192.168.1.1"},
 	}
 
 	expectedOutboundSourceIP := []*string{to.Ptr("192.168.1.100")}
@@ -820,7 +878,7 @@ func TestGetIPs(t *testing.T) {
 	require.Equal(t, expectedOutboundDestIP, outboundDestIP)
 }
 
-func TestGetTag(t *testing.T) {
+func TestGetTargets(t *testing.T) {
 	// Test cases for inbound rules
 	t.Run("InboundRule", func(t *testing.T) {
 		inboundRule := armnetwork.SecurityRule{
@@ -831,9 +889,9 @@ func TestGetTag(t *testing.T) {
 			},
 		}
 
-		expectedInboundTag := []string{"10.0.0.0/24", "192.168.0.0/24"}
-		inboundTag := getTag(&inboundRule)
-		require.Equal(t, expectedInboundTag, inboundTag)
+		expectedInboundTargets := []string{"10.0.0.0/24", "192.168.0.0/24"}
+		inboundTargets := getTargets(&inboundRule)
+		require.Equal(t, expectedInboundTargets, inboundTargets)
 	})
 
 	t.Run("OutboundRule", func(t *testing.T) {
@@ -845,8 +903,43 @@ func TestGetTag(t *testing.T) {
 			},
 		}
 
-		expectedOutboundTag := []string{"172.16.0.0/16", "192.168.1.0/24"}
-		outboundTag := getTag(&outboundRule)
-		require.Equal(t, expectedOutboundTag, outboundTag)
+		expectedOutboundTargets := []string{"172.16.0.0/16", "192.168.1.0/24"}
+		outboundTargets := getTargets(&outboundRule)
+		require.Equal(t, expectedOutboundTargets, outboundTargets)
+	})
+}
+
+func TestGetRuleDescription(t *testing.T) {
+	// Test case: no tags
+	t.Run("NoTags", func(t *testing.T) {
+		var tags []string
+		expectedRuleDescription := nsgRuleDescriptionPrefix
+		ruleDescription := getRuleDescription(tags)
+		require.Equal(t, expectedRuleDescription, ruleDescription)
+	})
+
+	// Test case: tags
+	t.Run("Tags", func(t *testing.T) {
+		tags := []string{"tag1", "tag2"}
+		expectedRuleDescription := nsgRuleDescriptionPrefix + ":" + fmt.Sprintf("%v", tags)
+		ruleDescription := getRuleDescription(tags)
+		require.Equal(t, expectedRuleDescription, ruleDescription)
+	})
+}
+
+func TestParseDescriptionTags(t *testing.T) {
+	// Test case: no tags
+	t.Run("NoTags", func(t *testing.T) {
+		description := nsgRuleDescriptionPrefix
+		var expectedTags []string
+		tags := parseDescriptionTags(&description)
+		require.Equal(t, expectedTags, tags)
+	})
+
+	t.Run("Tags", func(t *testing.T) {
+		originalTags := []string{"tag1", "tag2"}
+		description := nsgRuleDescriptionPrefix + ":" + fmt.Sprintf("%v", originalTags)
+		tags := parseDescriptionTags(&description)
+		require.Equal(t, originalTags, tags)
 	})
 }

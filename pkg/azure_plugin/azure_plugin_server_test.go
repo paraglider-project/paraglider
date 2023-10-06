@@ -808,7 +808,7 @@ func TestCheckAndCreatePeering(t *testing.T) {
 	vnetMap := map[string]string{"westus": "10.5.0.0/16", "westus2": "10.2.0.0/16"}
 
 	// each tag will represent a test case
-	fakeList := &invisinetspb.PermitListRule{Tag: []string{
+	fakeList := &invisinetspb.PermitListRule{Targets: []string{
 		"10.0.0.1",   // A tag that matches resourceVnet's address space
 		"10.1.0.0/8", // A tag that matches resourceVnet's address space but is in a CIDR format
 		"10.5.3.4",   // A tag outside of the resourceVnet's address space but is in another (westus) invisinets network and has an existing peering
@@ -1001,6 +1001,7 @@ func getFakeNsg(nsgID string, nsgName string) *armnetwork.SecurityGroup {
 						SourcePortRange:            to.Ptr("100"),
 						DestinationPortRange:       to.Ptr("8080"),
 						Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+						Description:                to.Ptr(getRuleDescription([]string{"tag1", "tag2"})),
 					},
 				},
 				{

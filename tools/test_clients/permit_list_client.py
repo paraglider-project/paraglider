@@ -3,9 +3,6 @@ import requests
 r = requests.get("http://0.0.0.0:8080/ping")
 print(r.text)
 
-r = requests.get("http://0.0.0.0:8080/cloud/{}/resources/{}/permit-list/".format("example", 123))
-print(r.text)
-
 test_permit_list = \
 {
     "associated_resource": "example-permit-list", 
