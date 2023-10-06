@@ -103,14 +103,14 @@ func IsAddressPrivate(addressString string) (bool, error) {
 
 // Checks and connect clouds as necessary
 func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string, ctx context.Context, permitListRule *invisinetspb.PermitListRule, usedAddressSpaceMappings *invisinetspb.AddressSpaceMappingList, controllerClient invisinetspb.ControllerClient) error {
-	for _, tag := range permitListRule.Tag {
-		isPrivate, err := IsAddressPrivate(tag)
+	for _, target := range permitListRule.Targets {
+		isPrivate, err := IsAddressPrivate(target)
 		if err != nil {
 			return fmt.Errorf("unable to determine if address is private: %w", err)
 		}
 		if isPrivate {
 			// Check early to see if tag belongs in current cloud's address space (i.e. local to subnet)
-			contained, err := IsPermitListRuleTagInAddressSpace(tag, currentCloudAddressSpace)
+			contained, err := IsPermitListRuleTagInAddressSpace(target, currentCloudAddressSpace)
 			if err != nil {
 				return fmt.Errorf("unable to determine if tag is in current address space: %w", err)
 			}
@@ -118,7 +118,7 @@ func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string,
 				var peeringCloud, peeringCloudAddressSpace string
 				for _, usedAddressSpaceMapping := range usedAddressSpaceMappings.AddressSpaceMappings {
 					for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
-						contained, err := IsPermitListRuleTagInAddressSpace(tag, addressSpace)
+						contained, err := IsPermitListRuleTagInAddressSpace(target, addressSpace)
 						if err != nil {
 							return fmt.Errorf("unable to determine if tag is in address space: %w", err)
 						}

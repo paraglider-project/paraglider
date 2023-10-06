@@ -86,7 +86,7 @@ func testAddAndGetPermitList(t *testing.T) {
 		AssociatedResource: vmID,
 		Rules: []*invisinetspb.PermitListRule{
 			{
-				Tag:       []string{"47.235.107.235"},
+				Targets:   []string{"47.235.107.235"},
 				Direction: invisinetspb.Direction_OUTBOUND,
 				SrcPort:   80,
 				DstPort:   80,
