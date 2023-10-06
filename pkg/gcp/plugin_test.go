@@ -286,60 +286,51 @@ type fakeClients struct {
 }
 
 // Sets up fake http server and fake GCP compute clients
-func setup(t *testing.T, fakeServerState *fakeServerState, neededClients map[string]bool) (fakeServer *httptest.Server, ctx context.Context, fakeClients fakeClients) {
+func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClients fakeClients) {
 	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
 
 	ctx = context.Background()
 
 	clientOptions := []option.ClientOption{option.WithoutAuthentication(), option.WithEndpoint(fakeServer.URL)}
 	var err error
-	if neededClients["externalVpnGateways"] {
-		fakeClients.externalVpnGatewaysClient, err = compute.NewExternalVpnGatewaysRESTClient(ctx, clientOptions...)
-		if err != nil {
-			t.Fatal(err)
-		}
+	fakeClients.externalVpnGatewaysClient, err = compute.NewExternalVpnGatewaysRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if neededClients["firewalls"] {
-		fakeClients.firewallsClient, err = compute.NewFirewallsRESTClient(ctx, clientOptions...)
-		if err != nil {
-			t.Fatal(err)
-		}
+
+	fakeClients.firewallsClient, err = compute.NewFirewallsRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if neededClients["instances"] {
-		fakeClients.instancesClient, err = compute.NewInstancesRESTClient(ctx, clientOptions...)
-		if err != nil {
-			t.Fatal(err)
-		}
+
+	fakeClients.instancesClient, err = compute.NewInstancesRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if neededClients["networks"] {
-		fakeClients.networksClient, err = compute.NewNetworksRESTClient(ctx, clientOptions...)
-		if err != nil {
-			t.Fatal(err)
-		}
+
+	fakeClients.networksClient, err = compute.NewNetworksRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if neededClients["routers"] {
-		fakeClients.routersClient, err = compute.NewRoutersRESTClient(ctx, clientOptions...)
-		if err != nil {
-			t.Fatal(err)
-		}
+
+	fakeClients.routersClient, err = compute.NewRoutersRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if neededClients["subnetworks"] {
-		fakeClients.subnetworksClient, err = compute.NewSubnetworksRESTClient(ctx, clientOptions...)
-		if err != nil {
-			t.Fatal(err)
-		}
+
+	fakeClients.subnetworksClient, err = compute.NewSubnetworksRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if neededClients["vpnGateways"] {
-		fakeClients.vpnGatewaysClient, err = compute.NewVpnGatewaysRESTClient(ctx, clientOptions...)
-		if err != nil {
-			t.Fatal(err)
-		}
+
+	fakeClients.vpnGatewaysClient, err = compute.NewVpnGatewaysRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if neededClients["vpnTunnels"] {
-		fakeClients.vpnTunnelsClient, err = compute.NewVpnTunnelsRESTClient(ctx, clientOptions...)
-		if err != nil {
-			t.Fatal(err)
-		}
+
+	fakeClients.vpnTunnelsClient, err = compute.NewVpnTunnelsRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	return
@@ -382,7 +373,7 @@ func TestGetPermitList(t *testing.T) {
 			},
 		},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true})
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
@@ -400,7 +391,7 @@ func TestGetPermitList(t *testing.T) {
 }
 
 func TestGetPermitListMissingInstance(t *testing.T) {
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{}, map[string]bool{"instances": true})
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{})
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
@@ -421,7 +412,7 @@ func TestAddPermitListRules(t *testing.T) {
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
 		{Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet"))},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "firewalls": true, "subnetworks": true})
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
 	fakeControllerServer, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
@@ -459,7 +450,7 @@ func TestAddPermitListRules(t *testing.T) {
 }
 
 func TestAddPermitListRulesMissingInstance(t *testing.T) {
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{}, map[string]bool{"instances": true, "firewalls": true})
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{})
 	defer teardown(fakeServer, fakeClients)
 
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
@@ -491,7 +482,7 @@ func TestAddPermitListRulesDuplicate(t *testing.T) {
 		instance:    getFakeInstance(),
 		firewallMap: map[string]*computepb.Firewall{*fakeFirewallRule1.Name: fakeFirewallRule1},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "firewalls": true})
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
@@ -511,7 +502,7 @@ func TestAddPermitListRulesDuplicate(t *testing.T) {
 }
 
 func TestDeletePermitListRules(t *testing.T) {
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance()}, map[string]bool{"instances": true, "firewalls": true})
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance()})
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
@@ -527,7 +518,7 @@ func TestDeletePermitListRules(t *testing.T) {
 }
 
 func TestDeletePermitListRulesMissingInstance(t *testing.T) {
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{}, map[string]bool{"instances": true, "firewalls": true})
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{})
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
@@ -549,7 +540,7 @@ func TestCreateResource(t *testing.T) {
 			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
 		},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
@@ -570,7 +561,7 @@ func TestCreateResource(t *testing.T) {
 
 func TestCreateResourceMissingNetwork(t *testing.T) {
 	// Include instance in server state since CreateResource will fetch after creating to add the tag
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance()}, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance()})
 	defer teardown(fakeServer, fakeClients)
 
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
@@ -599,7 +590,7 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 		instance: getFakeInstance(), // Include instance in server state since CreateResource will fetch after creating to add the tag
 		network:  &computepb.Network{Name: proto.String(vpcName)},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"instances": true, "networks": true, "subnetworks": true})
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
@@ -636,7 +627,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 			IpCidrRange: proto.String("10.1.2.0/24"),
 		},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"networks": true, "subnetworks": true})
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
@@ -658,7 +649,7 @@ func TestCreateVpnGateway(t *testing.T) {
 			},
 		},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"vpnGateways": true, "routers": true})
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
@@ -673,7 +664,7 @@ func TestCreateVpnGateway(t *testing.T) {
 
 func TestCreateVpnBgpSessions(t *testing.T) {
 	fakeServerState := &fakeServerState{}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"routers": true})
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
@@ -691,7 +682,7 @@ func TestCreateVpnBgpSessions(t *testing.T) {
 
 func TestCreateVpnConnections(t *testing.T) {
 	fakeServerState := &fakeServerState{}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState, map[string]bool{"externalVpnGateways": true, "vpnTunnels": true, "routers": true})
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
