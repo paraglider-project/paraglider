@@ -222,7 +222,7 @@ jobs:
         with:
             creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: Run integration tests
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux' && steps.changed-dirs.outputs.pkg_any_modified == 'true'
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         env:
           INVISINETS_GCP_PROJECT: 'invisinets-playground'
           GH_RUN_NUMBER: ${{ github.run_number }}
