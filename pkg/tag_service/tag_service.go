@@ -80,8 +80,14 @@ func (s *tagServiceServer) isDescendent(c context.Context, tag string, potential
 	return false, nil
 }
 
-func isLastLevelTagMapping(mapping *tagservicepb.TagMapping) bool {
-	return len(mapping.ChildTags) == 0 && (mapping.Ip != nil || mapping.Uri != nil)
+func isLastLevelTagMapping(mapping *tagservicepb.TagMapping) (bool, error) {
+	hasChildren := len(mapping.ChildTags) > 0
+	hasUriOrIp := mapping.Uri != nil || mapping.Ip != nil
+	if hasChildren && hasUriOrIp {
+		return false, fmt.Errorf("TagMapping %s has both children and URI/IP", mapping.TagName)
+	}
+
+	return !hasChildren && hasUriOrIp, nil
 }
 
 func (s *tagServiceServer) isLastLevelTag(c context.Context, tag *tagservicepb.Tag) (bool, error) {
@@ -105,7 +111,11 @@ func (s *tagServiceServer) _setLastLevelTag(c context.Context, mapping *tagservi
 // Set tag relationship by adding child tag to parent tag's set
 func (s *tagServiceServer) SetTag(c context.Context, mapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
 	// If tag is last-level entry (no children), set as a hash record and return
-	if isLastLevelTagMapping(mapping) {
+	isLastLevel, err := isLastLevelTagMapping(mapping)
+	if err != nil {
+		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
+	}
+	if isLastLevel {
 		err := s._setLastLevelTag(c, mapping)
 		if err != nil {
 			return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
@@ -126,7 +136,7 @@ func (s *tagServiceServer) SetTag(c context.Context, mapping *tagservicepb.TagMa
 	}
 
 	// Add the tags
-	err := s.client.SAdd(c, mapping.TagName, mapping.ChildTags).Err()
+	err = s.client.SAdd(c, mapping.TagName, mapping.ChildTags).Err()
 	if err != nil {
 		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
 	}
@@ -249,6 +259,7 @@ func (s *tagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (
 		if err != nil {
 			return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteTag %s: %v", tag.TagName, err)
 		}
+		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Deleted tag: %s", tag.TagName)}, nil
 	}
 
 	// Delete all children in mapping
