@@ -529,7 +529,7 @@ func TestCreateResource(t *testing.T) {
 	}
 	resource := &invisinetspb.ResourceDescription{Description: description}
 
-	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
+	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
@@ -554,7 +554,7 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 	}
 	resource := &invisinetspb.ResourceDescription{Description: description}
 
-	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
+	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
@@ -583,7 +583,7 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	}
 	resource := &invisinetspb.ResourceDescription{Description: description}
 
-	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient)
+	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }

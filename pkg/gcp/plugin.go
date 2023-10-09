@@ -552,7 +552,7 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, permitList 
 	return s._DeletePermitListRules(ctx, permitList, firewallsClient, instancesClient)
 }
 
-func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.BasicResponse, error) {
+func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient) (*invisinetspb.BasicResponse, error) {
 	// Validate user-provided description
 	insertInstanceRequest := &computepb.InsertInstanceRequest{}
 	err := json.Unmarshal(resourceDescription.Description, insertInstanceRequest)
@@ -640,6 +640,30 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		}
 	}
 
+	// Deny all egress traffic since GCP implicitly allows all egress traffic
+	insertFirewallReq := &computepb.InsertFirewallRequest{
+		Project: project,
+		FirewallResource: &computepb.Firewall{
+			Denied: []*computepb.Denied{
+				{
+					IPProtocol: proto.String("0.0.0.0/0"),
+				},
+			},
+			Description: proto.String("Invisinets deny all traffic"),
+			Direction:   proto.String(computepb.Firewall_EGRESS.String()),
+			Name:        proto.String("invisinets-fw-deny-all-egress"), // TODO @seankimkdy: replace
+			Network:     proto.String(GetVpcUri()),
+			Priority:    proto.Int32(65534),
+		},
+	}
+	insertFirewallOp, err := firewallsClient.Insert(ctx, insertFirewallReq)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create firewall rule: %w", err)
+	}
+	if err = insertFirewallOp.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("unable to wait for the operation: %w", err)
+	}
+
 	// Configure network settings to Invisinets VPC and corresponding subnet
 	insertInstanceRequest.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
@@ -695,20 +719,22 @@ func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescriptio
 		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
 	}
 	defer instancesClient.Close()
-
 	networksClient, err := compute.NewNetworksRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewNetworksRESTClient: %w", err)
 	}
 	defer networksClient.Close()
-
 	subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewSubnetworksRESTClient: %w", err)
 	}
 	defer subnetworksClient.Close()
+	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewFirewallsRESTClient: %w", err)
+	}
 
-	return s._CreateResource(ctx, resourceDescription, instancesClient, networksClient, subnetworksClient)
+	return s._CreateResource(ctx, resourceDescription, instancesClient, networksClient, subnetworksClient, firewallsClient)
 }
 
 func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsDeployment *invisinetspb.InvisinetsDeployment, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.AddressSpaceList, error) {
