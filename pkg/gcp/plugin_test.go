@@ -286,8 +286,8 @@ type fakeClients struct {
 }
 
 // Sets up fake http server and fake GCP compute clients
-func setup(t *testing.T, fakeServerState *fakeServerState) (ctx context.Context, fakeClients fakeClients) {
-	fakeServer := httptest.NewServer(getFakeServerHandler(fakeServerState))
+func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClients fakeClients) {
+	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
 
 	ctx = context.Background()
 
@@ -336,6 +336,23 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (ctx context.Context,
 	return
 }
 
+// Cleans up fake http server and fake GCP compute clients
+func teardown(fakeServer *httptest.Server, fakeClients fakeClients) {
+	fakeServer.Close()
+	if fakeClients.firewallsClient != nil {
+		fakeClients.firewallsClient.Close()
+	}
+	if fakeClients.instancesClient != nil {
+		fakeClients.instancesClient.Close()
+	}
+	if fakeClients.networksClient != nil {
+		fakeClients.networksClient.Close()
+	}
+	if fakeClients.subnetworksClient != nil {
+		fakeClients.subnetworksClient.Close()
+	}
+}
+
 func TestGetPermitList(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		instance: getFakeInstance(),
@@ -356,7 +373,8 @@ func TestGetPermitList(t *testing.T) {
 			},
 		},
 	}
-	ctx, fakeClients := setup(t, fakeServerState)
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
 	resource := &invisinetspb.ResourceID{Id: fakeResourceId}
@@ -373,7 +391,8 @@ func TestGetPermitList(t *testing.T) {
 }
 
 func TestGetPermitListMissingInstance(t *testing.T) {
-	ctx, fakeClients := setup(t, &fakeServerState{})
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{})
+	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
 	resource := &invisinetspb.ResourceID{Id: fakeMissingResourceId}
@@ -393,7 +412,8 @@ func TestAddPermitListRules(t *testing.T) {
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
 		{Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet"))},
 	}
-	ctx, fakeClients := setup(t, fakeServerState)
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
 
 	fakeControllerServer, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
 	fakeControllerServer.Counter = 1
@@ -430,7 +450,8 @@ func TestAddPermitListRules(t *testing.T) {
 }
 
 func TestAddPermitListRulesMissingInstance(t *testing.T) {
-	ctx, fakeClients := setup(t, &fakeServerState{})
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{})
+	defer teardown(fakeServer, fakeClients)
 
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
 	if err != nil {
@@ -461,7 +482,8 @@ func TestAddPermitListRulesDuplicate(t *testing.T) {
 		instance:    getFakeInstance(),
 		firewallMap: map[string]*computepb.Firewall{*fakeFirewallRule1.Name: fakeFirewallRule1},
 	}
-	ctx, fakeClients := setup(t, fakeServerState)
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
 
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
 	if err != nil {
@@ -480,7 +502,8 @@ func TestAddPermitListRulesDuplicate(t *testing.T) {
 }
 
 func TestDeletePermitListRules(t *testing.T) {
-	ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance()})
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance()})
+	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
@@ -495,7 +518,8 @@ func TestDeletePermitListRules(t *testing.T) {
 }
 
 func TestDeletePermitListRulesMissingInstance(t *testing.T) {
-	ctx, fakeClients := setup(t, &fakeServerState{})
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{})
+	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
 	permitList := &invisinetspb.PermitList{
@@ -516,7 +540,8 @@ func TestCreateResource(t *testing.T) {
 			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
 		},
 	}
-	ctx, fakeClients := setup(t, fakeServerState)
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
@@ -536,7 +561,8 @@ func TestCreateResource(t *testing.T) {
 
 func TestCreateResourceMissingNetwork(t *testing.T) {
 	// Include instance in server state since CreateResource will fetch after creating to add the tag
-	ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance()})
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance()})
+	defer teardown(fakeServer, fakeClients)
 
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
 	if err != nil {
@@ -564,7 +590,8 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 		instance: getFakeInstance(), // Include instance in server state since CreateResource will fetch after creating to add the tag
 		network:  &computepb.Network{Name: proto.String(vpcName)},
 	}
-	ctx, fakeClients := setup(t, fakeServerState)
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
 
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
 	if err != nil {
@@ -600,7 +627,8 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 			IpCidrRange: proto.String("10.1.2.0/24"),
 		},
 	}
-	ctx, fakeClients := setup(t, fakeServerState)
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
 
@@ -621,7 +649,8 @@ func TestCreateVpnGateway(t *testing.T) {
 			},
 		},
 	}
-	ctx, fakeClients := setup(t, fakeServerState)
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
 	vpnRegion = fakeRegion
@@ -635,7 +664,8 @@ func TestCreateVpnGateway(t *testing.T) {
 
 func TestCreateVpnBgpSessions(t *testing.T) {
 	fakeServerState := &fakeServerState{}
-	ctx, fakeClients := setup(t, fakeServerState)
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
 	vpnRegion = fakeRegion
@@ -652,7 +682,8 @@ func TestCreateVpnBgpSessions(t *testing.T) {
 
 func TestCreateVpnConnections(t *testing.T) {
 	fakeServerState := &fakeServerState{}
-	ctx, fakeClients := setup(t, fakeServerState)
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
 	vpnRegion = fakeRegion
