@@ -49,9 +49,9 @@ type GCPPluginServer struct {
 var (
 	vpcName                       = "invisinets-vpc" // Invisinets VPC name
 	subnetworkNamePrefix          = "invisinets-"
-	networkTagPrefix              = "invisinets-permitlist-" // Prefix for GCP tags related to invisinets
-	firewallNamePrefix            = "fw-" + networkTagPrefix // Prefix for firewall names related to invisinets
-	firewallRuleDescriptionPrefix = "invisinets rule"        // GCP firewall rule prefix for description
+	networkTagPrefix              = "invisinets-vm-"  // Prefix for GCP tags related to invisinets
+	firewallNamePrefix            = "invisinets-fw-"  // Prefix for firewall names related to invisinets
+	firewallRuleDescriptionPrefix = "invisinets rule" // GCP firewall rule prefix for description
 	vpnGwName                     = "invisinets-vpn-gw"
 	routerName                    = "invisinets-router"
 	peerGwNamePrefix              = "invisinets-"
@@ -171,6 +171,11 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 		strings.Join(permitListRule.Tags, ""),
 		strings.Join(permitListRule.Targets, ""),
 	))[:firewallNameMaxLength]
+}
+
+// Returns name of firewall for denying all egress traffic
+func getDenyAllIngressFirewallName() string {
+	return firewallNamePrefix + "deny-all-egress"
 }
 
 // Gets a GCP network tag for a GCP resource
@@ -304,7 +309,8 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 	}
 
 	for _, firewall := range resp.Firewalls {
-		if isInvisinetsPermitListRule(firewall) {
+		// Exclude default deny all egress from being included since it applies to every VM
+		if isInvisinetsPermitListRule(firewall) && *firewall.Name != getDenyAllIngressFirewallName() {
 			permitListRules := make([]*invisinetspb.PermitListRule, len(firewall.Allowed))
 			for i, rule := range firewall.Allowed {
 				protocolNumber, err := getProtocolNumber(*rule.IPProtocol)
@@ -594,6 +600,30 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 			if err = insertNetworkOp.Wait(ctx); err != nil {
 				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 			}
+			// Deny all egress traffic since GCP implicitly allows all egress traffic
+			insertFirewallReq := &computepb.InsertFirewallRequest{
+				Project: project,
+				FirewallResource: &computepb.Firewall{
+					Denied: []*computepb.Denied{
+						{
+							IPProtocol: proto.String("all"),
+						},
+					},
+					Description:       proto.String("Invisinets deny all traffic"),
+					DestinationRanges: []string{"0.0.0.0/0"},
+					Direction:         proto.String(computepb.Firewall_EGRESS.String()),
+					Name:              proto.String(getDenyAllIngressFirewallName()),
+					Network:           proto.String(GetVpcUri()),
+					Priority:          proto.Int32(65534),
+				},
+			}
+			insertFirewallOp, err := firewallsClient.Insert(ctx, insertFirewallReq)
+			if err != nil {
+				return nil, fmt.Errorf("unable to create firewall rule: %w", err)
+			}
+			if err = insertFirewallOp.Wait(ctx); err != nil {
+				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
+			}
 		} else {
 			return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
 		}
@@ -638,30 +668,6 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		if err = insertSubnetworkOp.Wait(ctx); err != nil {
 			return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 		}
-	}
-
-	// Deny all egress traffic since GCP implicitly allows all egress traffic
-	insertFirewallReq := &computepb.InsertFirewallRequest{
-		Project: project,
-		FirewallResource: &computepb.Firewall{
-			Denied: []*computepb.Denied{
-				{
-					IPProtocol: proto.String("0.0.0.0/0"),
-				},
-			},
-			Description: proto.String("Invisinets deny all traffic"),
-			Direction:   proto.String(computepb.Firewall_EGRESS.String()),
-			Name:        proto.String("invisinets-fw-deny-all-egress"), // TODO @seankimkdy: replace
-			Network:     proto.String(GetVpcUri()),
-			Priority:    proto.Int32(65534),
-		},
-	}
-	insertFirewallOp, err := firewallsClient.Insert(ctx, insertFirewallReq)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create firewall rule: %w", err)
-	}
-	if err = insertFirewallOp.Wait(ctx); err != nil {
-		return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 	}
 
 	// Configure network settings to Invisinets VPC and corresponding subnet
