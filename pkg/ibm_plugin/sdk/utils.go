@@ -10,9 +10,11 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 
+	"github.com/IBM/go-sdk-core/v5/core"
 	logger "github.com/NetSys/invisinets/pkg/logger"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
@@ -52,16 +54,16 @@ type ResourceQuery struct {
 }
 
 type SecurityGroupRule struct {
-	ID         *string // Unique identifier of this rule
-	SgID       *string // Unique ID of the security group to which this rule belongs
-	Protocol   *string // IP protocol that this rules applies to
-	Remote     *string // What this rule applies to (IP or CIDR block)
-	RemoteType *string // Type of remote, can be "IP", "CIDR", or "SG"
-	PortMin    *int64  // First port of the range to which this rule applies (only available for TCP/UDP rules), -1 means all ports
-	PortMax    *int64  // Last port of the range to which this rule applies (only available for TCP/UDP rules), -1 means all ports
-	IcmpType   *int64  // ICMP Type for the rule (only available for ICMP rules), -1 means all types
-	IcmpCode   *int64  // ICMP Code for the rule (only available for ICMP rules), -1 means all codes
-	Egress     *bool   // The rule affects to outbound traffic (true) or inbound (false)
+	ID         string // Unique identifier of this rule
+	SgID       string // Unique ID of the security group to which this rule belongs
+	Protocol   string // IP protocol that this rules applies to
+	Remote     string // What this rule applies to (IP or CIDR block)
+	RemoteType string // Type of remote, can be "IP", "CIDR", or "SG"
+	PortMin    int64  // First port of the range to which this rule applies (only available for TCP/UDP rules), -1 means all ports
+	PortMax    int64  // Last port of the range to which this rule applies (only available for TCP/UDP rules), -1 means all ports
+	IcmpType   int64  // ICMP Type for the rule (only available for ICMP rules), -1 means all types
+	IcmpCode   int64  // ICMP Code for the rule (only available for ICMP rules), -1 means all codes
+	Egress     bool   // The rule affects to outbound traffic (true) or inbound (false)
 }
 
 var Regions = [10]string{"us-south", "us-east", "eu-de", "eu-gb", "eu-es", "ca-tor", "au-syd",
@@ -254,24 +256,45 @@ func DoCidrOverlap(cidr1, cidr2 string) (bool, error) {
 
 // returns true if cidr1 is a subset (including equal) to cidr2
 func IsCidrSubset(cidr1, cidr2 string) (bool, error) {
-	firstIP1, networkMask1, err := net.ParseCIDR(cidr1)
+	firstIP1, netCidr1, err := net.ParseCIDR(cidr1)
 	// ParseCIDR() example from Docs: for CIDR="192.0.2.1/24"
 	// IP=192.0.2.1 and network mask 192.0.2.0/24 are returned
 	if err != nil {
 		return false, err
 	}
 
-	_, networkMask2, err := net.ParseCIDR(cidr2)
+	_, netCidr2, err := net.ParseCIDR(cidr2)
 	if err != nil {
 		return false, err
 	}
 	// number of significant bits in the subnet mask
-	maskSize1, _ := networkMask1.Mask.Size()
-	maskSize2, _ := networkMask2.Mask.Size()
+	maskSize1, _ := netCidr1.Mask.Size()
+	maskSize2, _ := netCidr2.Mask.Size()
 	//cidr1 is a subset of cidr2 if the first user ip of cidr1 within cidr2
 	// and the network mask of cider1 is no smaller than that of cidr2, as
 	// fewer bits is left for user address space.
-	return networkMask2.Contains(firstIP1) && maskSize1 >= maskSize2, nil
+	return netCidr2.Contains(firstIP1) && maskSize1 >= maskSize2, nil
+}
+
+// returns true if remote is contained in the CIDR's IP range.
+// remote could be either an IP or a CIDR block.
+func IsRemoteInCidr(remote, cidr string) (bool, error) {
+	remoteType, err := GetRemoteType(remote)
+	if err != nil {
+		return false, err
+	}
+	if remoteType == "IP" {
+		_, netCidr, err := net.ParseCIDR(cidr)
+		if err != nil {
+			return false, err
+		}
+		netIP := net.ParseIP(remote)
+		if netIP == nil {
+			return false, fmt.Errorf("ip %v isn't a valid IP address", remote)
+		}
+		return netCidr.Contains(netIP), nil
+	}
+	return IsCidrSubset(remote, cidr)
 }
 
 // splits given cidr 3 ways, so the last cidr is as large as the first 2 combined:
@@ -299,4 +322,51 @@ func SplitCidr3Ways(cidr string) ([]string, error) {
 		fmt.Sprintf("%s/%d", ipZone2, netmaskZone1Zone2),
 		fmt.Sprintf("%s/%d", ipZone3, netmaskZone3),
 	}, nil
+}
+
+// returns IBM specific keyword returned by vpc1 SDK,
+// indicating the type of remote an SG rule permits
+func GetRemoteType(remote string) (string, error) {
+	ip := net.ParseIP(remote)
+	if ip != nil {
+		return "IP", nil
+	}
+	_, _, err := net.ParseCIDR(remote)
+	if err == nil {
+		return "CIDR", nil
+	}
+	return "", fmt.Errorf("remote %v isn't a CIDR/IP", remote)
+}
+
+// returns IBM specific keyword returned by vpc1 SDK,
+// indicating the traffic direction an SG rule permits
+func getEgressDirection(egress bool) *string {
+	if egress {
+		return core.StringPtr("outbound")
+	} else {
+		return core.StringPtr("inbound")
+	}
+}
+
+// returns true if two given structs of the same type have matching fields values
+// on all types except those listed in fieldsToExclude
+func AreStructsEqual(s1, s2 interface{}, fieldsToExclude []string) bool {
+	v1 := reflect.ValueOf(s1)
+	v2 := reflect.ValueOf(s2)
+
+	if v1.Type() != v2.Type() {
+		return false
+	}
+
+	for i := 0; i < v1.NumField(); i++ {
+		fieldName := v1.Type().Field(i).Name
+		if DoesSliceContain(fieldsToExclude, fieldName) {
+			continue
+		}
+
+		if !reflect.DeepEqual(v1.Field(i).Interface(), v2.Field(i).Interface()) {
+			return false
+		}
+	}
+	return true
 }

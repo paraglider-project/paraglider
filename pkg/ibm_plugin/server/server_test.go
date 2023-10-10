@@ -14,10 +14,45 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// user flags
 var vmID string   // (optional flag) existing invisinets VM ID.
 var region string // (optional flag) existing invisinets VM ID.
 var zone string   // (optional flag) zone to launch a VM in.
 var delVPC bool   // (optional flag) if set to true cleans resources after test.
+
+// permit list example
+var premitList1 []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRule{
+	//TCP protocol rules
+	{
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   443,
+		DstPort:   443,
+		Protocol:  6,
+		Tag:       []string{"10.0.0.0/18"},
+	},
+	{
+		Direction: invisinetspb.Direction_OUTBOUND,
+		SrcPort:   8080,
+		DstPort:   8080,
+		Protocol:  6,
+		Tag:       []string{"10.0.128.12"},
+	},
+	//All protocol rules
+	{
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   -1,
+		DstPort:   -1,
+		Protocol:  -1,
+		Tag:       []string{"10.0.64.0/22"},
+	},
+	{
+		Direction: invisinetspb.Direction_OUTBOUND,
+		SrcPort:   -1,
+		DstPort:   -1,
+		Protocol:  -1,
+		Tag:       []string{"10.0.64.1"},
+	},
+}
 
 func init() {
 	flag.StringVar(&vmID, "vmID", "", "Existing invisinets VM ID")
@@ -29,6 +64,7 @@ func init() {
 // to terminate the created vpc specify -delVPC.
 // to launch VM in a specific zone specify -zone=<zoneName>, e.g.:
 // go test -run TestCreateResourceVMNewDeployment -delVPC -zone=eu-de-1
+// NOTE: use sdk's TestTerminateVPC to delete the VPC post run.
 func TestCreateResourceVMNewDeployment(t *testing.T) {
 
 	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
@@ -73,7 +109,6 @@ func TestGetPermitList(t *testing.T) {
 		println("(TestGetPermitList skipped - missing arguments)")
 		t.Skip("TestCreateResourceVMExsitingVPC skipped - missing arguments")
 	}
-
 	// choose default region if not specified
 	if region == "" {
 		region = "us-east"
@@ -90,6 +125,55 @@ func TestGetPermitList(t *testing.T) {
 	b, err := json.MarshalIndent(resp, "", "  ")
 	require.NoError(t, err)
 	// Please note: direction:0(inbound) will not be printed.
-    fmt.Printf("Permit rules of instance %v are:\n%v",vmID,string(b))
+	fmt.Printf("Permit rules of instance %v are:\n%v", vmID, string(b))
+}
 
+// usage: go test -run TestAddPermitListRules -region=<value> -vmID=<value>
+func TestAddPermitListRules(t *testing.T) {
+	if vmID == "" {
+		println("(TestGetPermitList skipped - missing arguments)")
+		t.Skip("TestCreateResourceVMExsitingVPC skipped - missing arguments")
+	}
+	// choose default region if not specified
+	if region == "" {
+		region = "us-east"
+	}
+
+	permitList := &invisinetspb.PermitList{
+		AssociatedResource: fmt.Sprintf("/ResourceGroupID/NOTUSED/Region/%v/ResourceID/%v", region, vmID),
+		Rules:              premitList1,
+	}
+
+	s := &ibmPluginServer{}
+
+	resp, err := s.AddPermitListRules(context.Background(), permitList)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	fmt.Printf("respond: %v", resp)
+}
+
+// usage: go test -run TestDeletePermitListRules -region=<value> -vmID=<value>
+func TestDeletePermitListRules(t *testing.T) {
+	if vmID == "" {
+		println("(TestGetPermitList skipped - missing arguments)")
+		t.Skip("TestCreateResourceVMExsitingVPC skipped - missing arguments")
+	}
+	// choose default region if not specified
+	if region == "" {
+		region = "us-east"
+	}
+
+	permitList := &invisinetspb.PermitList{
+		AssociatedResource: fmt.Sprintf("/ResourceGroupID/NOTUSED/Region/%v/ResourceID/%v", region, vmID),
+		Rules:              premitList1,
+	}
+
+	s := &ibmPluginServer{}
+
+	resp, err := s.DeletePermitListRules(context.Background(), permitList)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	fmt.Printf("respond: %v", resp)
 }

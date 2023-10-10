@@ -55,8 +55,8 @@ var ibmToInvisinetsProtocol = map[string]int32{
 	"udp":  17,
 }
 
-func getResourceIDInfo(resourceID *invisinetspb.ResourceID) (ResourceIDInfo, error) {
-	parts := strings.Split(resourceID.Id, "/")
+func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
+	parts := strings.Split(resourceID, "/")
 	if len(parts) < 5 {
 		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected at least 5 parts in the format of '/ResourceGroupID/{ResourceGroupID}/Region/{Region}/ResourceID/{ResourceID}', got %d", len(parts))
 	}
@@ -92,26 +92,59 @@ func sgRules2InvisinetsRules(rules []sdk.SecurityGroupRule) ([]*invisinetspb.Per
 	var invisinetsRules []*invisinetspb.PermitListRule
 
 	for _, rule := range rules {
-		if *rule.PortMin != *rule.PortMax {
+		if rule.PortMin != rule.PortMax {
 			return nil, fmt.Errorf("SG rules with port ranges aren't currently supported")
 		}
 		// PortMin=PortMax since port ranges aren't supported.
 		// srcPort=dstPort since ibm security rules are stateful,
 		// i.e. they automatically also permit the reverse traffic.
-		srcPort, dstPort := *rule.PortMin, *rule.PortMin
+		srcPort, dstPort := rule.PortMin, rule.PortMin
 
 		permitListRule := &invisinetspb.PermitListRule{
-			Tag:       []string{*rule.Remote},
-			Id:        *rule.ID,
-			Direction: ibmToInvisinetsDirection[*rule.Egress],
+			Tag:       []string{rule.Remote},
+			Id:        rule.ID,
+			Direction: ibmToInvisinetsDirection[rule.Egress],
 			SrcPort:   int32(srcPort),
 			DstPort:   int32(dstPort),
-			Protocol:  ibmToInvisinetsProtocol[*rule.Protocol],
+			Protocol:  ibmToInvisinetsProtocol[rule.Protocol],
 		}
 		invisinetsRules = append(invisinetsRules, permitListRule)
 
 	}
 	return invisinetsRules, nil
+}
+
+// Translate invisinets permit rules to SecurityGroupRule struct containing all IBM permit rules data
+// NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code
+func invisinetsRules2IbmRules(securityGroupID string, rules []*invisinetspb.PermitListRule) (
+	[]sdk.SecurityGroupRule, error) {
+	var sgRules []sdk.SecurityGroupRule
+	for _, rule := range rules {
+		if len(rule.Tag) == 0 {
+			return nil, fmt.Errorf("PermitListRule is missing Tag value")
+		}
+		remote := rule.Tag[0]
+		remoteType, err := sdk.GetRemoteType(remote)
+		if err != nil {
+			return nil, err
+		}
+
+		sgRule := sdk.SecurityGroupRule{
+			ID:         rule.Id,
+			SgID:       securityGroupID,
+			Protocol:   invisinetsToIBMprotocol[rule.Protocol],
+			Remote:     remote,
+			RemoteType: remoteType,
+			PortMin:    int64(rule.SrcPort),
+			PortMax:    int64(rule.SrcPort),
+			Egress:     invisinetsToIBMDirection[rule.Direction],
+			// explicitly setting value to 0. other icmp values have meaning.
+			IcmpType:   0,
+			IcmpCode:   0,
+		}
+		sgRules = append(sgRules, sgRule)
+	}
+	return sgRules, nil
 }
 
 // returns hash value of any struct containing primitives,
@@ -125,7 +158,7 @@ func getStructHash(s interface{}, fieldsToExclude []string) (uint64, error) {
 		f := v.Field(i)
 		fieldName := v.Type().Field(i).Name
 		if sdk.DoesSliceContain(fieldsToExclude, fieldName) {
-			// skip certain fields from hash calculation
+			// skip fields in fieldsToExclude from hash calculation
 			continue
 		}
 		switch f.Kind() {

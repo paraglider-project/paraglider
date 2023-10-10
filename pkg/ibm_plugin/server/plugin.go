@@ -135,18 +135,13 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetsAddressSpaces}, nil
 }
 
-/*
-returns security rules of security groups associated with the specified instance.
-Invisinets Assumptions:
-- single security group per instance.
-- ignoring possible user security groups.
-*/
+// returns security rules of security groups associated with the specified instance.
 func (s *ibmPluginServer) GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: resourceID.Id,
 		Rules:              []*invisinetspb.PermitListRule{},
 	}
-	resourceIDInfo, err := getResourceIDInfo(resourceID)
+	resourceIDInfo, err := getResourceIDInfo(resourceID.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -163,31 +158,240 @@ func (s *ibmPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 	if err != nil {
 		return nil, err
 	}
+	var sgsRules []sdk.SecurityGroupRule
 	rulesHashValues := map[int64]bool{}
+	// collect rules from all security groups attached to VM.
 	for _, sgID := range securityGroups {
-		// Currently adding rules for all security groups attached to VM.
-		ibmRules, err := s.cloudClient.GetSecurityRulesOfSG(sgID)
+		sgRules, err := s.cloudClient.GetSecurityRulesOfSG(sgID)
 		if err != nil {
 			return nil, err
 		}
-		invisinetsRules, err := sgRules2InvisinetsRules(ibmRules)
+		// filter away duplicate rules
+		rules, err := s.getUniqueSgRules(sgRules, rulesHashValues)
 		if err != nil {
 			return nil, err
 		}
-		// Avoid adding duplicate rules.
-		for _, rule := range invisinetsRules {
-			// exclude unique field "Id" from hash calculation.
-			ruleHashValue, err := getStructHash(*rule, []string{"Id"})
+		// append new rules to result
+		sgsRules = append(sgsRules, rules...)
+	}
+	invisinetsRules, err := sgRules2InvisinetsRules(sgsRules)
+	if err != nil {
+		return nil, err
+	}
+
+	permitList.Rules = append(permitList.Rules, invisinetsRules...)
+	return permitList, nil
+}
+
+// Attaches SG rules to the specified instance in PermitList.AssociatedResource.
+func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
+	var vmInvisinetsSgID string // security group to add rules to
+	var subnetsCIDRs []string
+	resourceIDInfo, err := getResourceIDInfo(pl.AssociatedResource)
+	if err != nil {
+		return nil, err
+	}
+	region, vmID := resourceIDInfo.Region, resourceIDInfo.ResourceID
+	if !sdk.IsRegionValid(region) {
+		return nil, fmt.Errorf("region %v isn't valid", region)
+	}
+
+	err = s.setupCloudClient(region)
+	if err != nil {
+		return nil, err
+	}
+
+	vmSgIDs, err := s.cloudClient.GetSecurityGroupsOfVM(vmID)
+	if err != nil {
+		return nil, err
+	}
+	if len(vmSgIDs) == 0 {
+		return nil, fmt.Errorf("no security groups were found for VM %v", vmID)
+	}
+
+	invisinetsSgIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.SG, nil, sdk.ResourceQuery{Region: region})
+	if err != nil {
+		return nil, err
+	}
+	if len(invisinetsSgIDs) == 0 {
+		return nil, fmt.Errorf("no invisinets security groups were found for VM %v", vmID)
+	}
+
+	// pick invisinets SG out of VM's SGs.
+	for _, invisinetsSG := range invisinetsSgIDs {
+		if sdk.DoesSliceContain(vmSgIDs, invisinetsSG) {
+			vmInvisinetsSgID = invisinetsSG
+			break // optimization: result found.
+		}
+	}
+
+	vpcID, err := s.cloudClient.VmID2VpcID(vmID)
+	if err != nil {
+		return nil, err
+	}
+	// get subnets in the VM's VPC
+	invisinetsSubnetsOfVpc, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.SUBNET, []string{vpcID}, sdk.ResourceQuery{})
+	if err != nil {
+		return nil, err
+	}
+	// aggregate the address spaces of subnets in the VM's VPC
+	for _, invSubnet := range invisinetsSubnetsOfVpc {
+		cidr, err := s.cloudClient.GetSubnetCidr(invSubnet)
+		if err != nil {
+			return nil, err
+		}
+		subnetsCIDRs = append(subnetsCIDRs, cidr)
+	}
+
+	rulesHashValues := make(map[int64]bool)
+	// get current rules in SG and record their hash values
+	sgRules, err := s.cloudClient.GetSecurityRulesOfSG(vmInvisinetsSgID)
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.getUniqueSgRules(sgRules, rulesHashValues)
+	if err != nil {
+		return nil, err
+	}
+
+	// translate invisinets rules to IBM rules to compare hash values with current rules.
+	ibmRulesToAdd, err := invisinetsRules2IbmRules(vmInvisinetsSgID, pl.Rules)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ibmRule := range ibmRulesToAdd {
+		isSubset := false
+		// checks if the rule's remote IP/CIDR is within any of the VPC's subnets
+		for _, subnetSpace := range subnetsCIDRs {
+			isSubset, err = sdk.IsRemoteInCidr(ibmRule.Remote, subnetSpace)
 			if err != nil {
 				return nil, err
 			}
-			if _, ruleExists := rulesHashValues[int64(ruleHashValue)]; !ruleExists {
-				permitList.Rules = append(permitList.Rules, rule)
-				rulesHashValues[int64(ruleHashValue)] = true
+			if isSubset {
+				// remote is inside the instance's VPC
+				break
+			}
+		}
+		// the rule's remote resides in a different VPC, connect the VPCs.
+		if !isSubset {
+			return nil, fmt.Errorf(`rule's remote "%v" is outside of the resource's VPC. `+
+				`Inter VPC connectivity isn't currently supported.`, ibmRule.Remote)
+			/*TODO:
+			   remote isn't from within the VM's VPC.
+			1. find invisinets subnets that have cidr blocks that this remote is a part of.
+				 if none were found return err.
+			2. find the vpc of the subnet.
+			3. connect vpcs via transit gateway.
+			*/
+		}
+		ruleHashValue, err := getStructHash(ibmRule, []string{"ID"})
+		if err != nil {
+			return nil, err
+		}
+		if _, ruleExists := rulesHashValues[int64(ruleHashValue)]; !ruleExists {
+			err := s.cloudClient.AddSecurityGroupRule(ibmRule)
+			if err != nil {
+				return nil, err
+			}
+			logger.Log.Printf("attached rule %+v", ibmRule)
+		}
+	}
+	return &invisinetspb.BasicResponse{Success: true, Message: "successfully attached specified rules to VM's security group"}, nil
+}
+
+func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
+	var vmInvisinetsSgID string // security group to delete rules from
+	resourceIDInfo, err := getResourceIDInfo(pl.AssociatedResource)
+	if err != nil {
+		return nil, err
+	}
+	region, vmID := resourceIDInfo.Region, resourceIDInfo.ResourceID
+	if !sdk.IsRegionValid(region) {
+		return nil, fmt.Errorf("region %v isn't valid", region)
+	}
+
+	err = s.setupCloudClient(region)
+	if err != nil {
+		return nil, err
+	}
+
+	vmSgIDs, err := s.cloudClient.GetSecurityGroupsOfVM(vmID)
+	if err != nil {
+		return nil, err
+	}
+	if len(vmSgIDs) == 0 {
+		return nil, fmt.Errorf("no security groups were found for VM %v", vmID)
+	}
+
+	invisinetsSgIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.SG, nil, sdk.ResourceQuery{Region: region})
+	if err != nil {
+		return nil, err
+	}
+	if len(invisinetsSgIDs) == 0 {
+		return nil, fmt.Errorf("no invisinets security groups were found for VM %v", vmID)
+	}
+
+	// pick invisinets SG out of VM's SGs.
+	for _, invisinetsSG := range invisinetsSgIDs {
+		if sdk.DoesSliceContain(vmSgIDs, invisinetsSG) {
+			vmInvisinetsSgID = invisinetsSG
+			break // optimization: result found.
+		}
+	}
+
+	ibmRulesToDelete, err := invisinetsRules2IbmRules(vmInvisinetsSgID, pl.Rules)
+	if err != nil {
+		return nil, err
+	}
+	rulesIDs, err := s.fetchRulesIDs(ibmRulesToDelete, vmInvisinetsSgID)
+	if err != nil {
+		return nil, err
+	}
+	for _, ruleID := range rulesIDs {
+		err = s.cloudClient.DeleteSecurityGroupRule(vmInvisinetsSgID, ruleID)
+		if err != nil {
+			return nil, err
+		}
+		logger.Log.Printf("deleted rule %v", ruleID)
+	}
+	return &invisinetspb.BasicResponse{Success: true, Message: "successfully deleted rules from permit list"}, nil
+
+}
+
+func (s *ibmPluginServer) fetchRulesIDs(rules []sdk.SecurityGroupRule, sgID string) ([]string, error) {
+	var rulesIDs []string
+	sgRules, err := s.cloudClient.GetSecurityRulesOfSG(sgID)
+	if err != nil {
+		return nil, err
+	}
+	for _, sgRule := range sgRules {
+		for _, rule := range rules {
+			if sdk.AreStructsEqual(rule, sgRule, []string{"ID", "SgID"}) {
+				rulesIDs = append(rulesIDs, sgRule.ID)
+				// found matching rule, continue to the next sgRule
+				break
 			}
 		}
 	}
-	return permitList, nil
+	return rulesIDs, nil
+}
+
+// return the specified rules without duplicates, while keeping the rules hash values updated for future use.
+func (s *ibmPluginServer) getUniqueSgRules(rules []sdk.SecurityGroupRule, rulesHashValues map[int64]bool) ([]sdk.SecurityGroupRule, error) {
+	var res []sdk.SecurityGroupRule
+	for _, rule := range rules {
+		// exclude unique field "ID" from hash calculation.
+		ruleHashValue, err := getStructHash(rule, []string{"ID"})
+		if err != nil {
+			return nil, err
+		}
+		if _, ruleExists := rulesHashValues[int64(ruleHashValue)]; !ruleExists {
+			res = append(res, rule)
+			rulesHashValues[int64(ruleHashValue)] = true
+		}
+	}
+	return res, nil
 }
 
 // starts up the plugin server and stores the frontend server address.

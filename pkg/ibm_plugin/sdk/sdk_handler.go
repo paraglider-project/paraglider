@@ -365,6 +365,14 @@ func (c *IBMCloudClient) DeleteSubnets(vpcID string) error {
 	return nil
 }
 
+func (c *IBMCloudClient) GetSubnetCidr(subnetID string) (string, error) {
+	subnet, _, err := c.vpcService.GetSubnet(c.vpcService.NewGetSubnetOptions(subnetID))
+	if err != nil {
+		return "", err
+	}
+	return *subnet.Ipv4CIDRBlock, nil
+}
+
 // creates ssh keys and registers them if absent.
 // returns key id of registered public key.
 func (c *IBMCloudClient) setupAuthentication() (string, error) {
@@ -612,7 +620,7 @@ func (c *IBMCloudClient) GetSecurityRulesOfSG(sgID string) ([]SecurityGroupRule,
 	if err != nil {
 		return nil, err
 	}
-	return c.translateSecurityGroupRules(rules.Rules, &sgID)
+	return c.translateSecurityGroupRules(rules.Rules, sgID)
 }
 
 // returns true when instance is completely removed from
@@ -717,7 +725,7 @@ the "vpcv1.SecurityGroupRuleIntf" interface to the SecurityGroupRule struct
 */
 
 func (c *IBMCloudClient) translateSecurityGroupRules(
-	ibmRules []vpcv1.SecurityGroupRuleIntf, sgID *string) ([]SecurityGroupRule, error) {
+	ibmRules []vpcv1.SecurityGroupRuleIntf, sgID string) ([]SecurityGroupRule, error) {
 
 	rules := make([]SecurityGroupRule, len(ibmRules))
 	for i, ibmRule := range ibmRules {
@@ -732,7 +740,7 @@ func (c *IBMCloudClient) translateSecurityGroupRules(
 }
 
 func (c *IBMCloudClient) translateSecurityGroupRule(
-	ibmRule vpcv1.SecurityGroupRuleIntf, sgID *string) (*SecurityGroupRule, error) {
+	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
 	switch ibmRule.(type) {
 	case *vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAll:
 		return c.translateSecurityGroupRuleGroupRuleProtocolAll(ibmRule, sgID)
@@ -745,7 +753,7 @@ func (c *IBMCloudClient) translateSecurityGroupRule(
 }
 
 func (c *IBMCloudClient) translateSecurityGroupRuleGroupRuleProtocolAll(
-	ibmRule vpcv1.SecurityGroupRuleIntf, sgID *string) (*SecurityGroupRule, error) {
+	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
 
 	ibmRuleProtoAll := ibmRule.(*vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAll)
 	remote, remoteType, err := c.translateSecurityGroupRuleRemote(ibmRuleProtoAll.Remote)
@@ -757,20 +765,20 @@ func (c *IBMCloudClient) translateSecurityGroupRuleGroupRuleProtocolAll(
 		isEgress = true
 	}
 	rule := SecurityGroupRule{
-		ID:         ibmRuleProtoAll.ID,
-		Protocol:   ibmRuleProtoAll.Protocol,
+		ID:         *ibmRuleProtoAll.ID,
+		Protocol:   *ibmRuleProtoAll.Protocol,
 		SgID:       sgID,
 		Remote:     remote,
 		RemoteType: remoteType,
-		Egress:     &isEgress,
-		PortMin:    core.Int64Ptr(int64(-1)),
-		PortMax:    core.Int64Ptr(int64(-1)),
+		Egress:     isEgress,
+		PortMin:    int64(-1),
+		PortMax:    int64(-1),
 	}
 	return &rule, nil
 }
 
 func (c *IBMCloudClient) translateSecurityGroupRuleGroupRuleProtocolIcmp(
-	ibmRule vpcv1.SecurityGroupRuleIntf, sgID *string) (*SecurityGroupRule, error) {
+	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
 
 	ibmRuleIcmp := ibmRule.(*vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolIcmp)
 	remote, remoteType, err := c.translateSecurityGroupRuleRemote(ibmRuleIcmp.Remote)
@@ -790,20 +798,20 @@ func (c *IBMCloudClient) translateSecurityGroupRuleGroupRuleProtocolIcmp(
 		icmpType = *ibmRuleIcmp.Type
 	}
 	rule := SecurityGroupRule{
-		ID:         ibmRuleIcmp.ID,
-		Protocol:   ibmRuleIcmp.Protocol,
+		ID:         *ibmRuleIcmp.ID,
+		Protocol:   *ibmRuleIcmp.Protocol,
 		SgID:       sgID,
 		Remote:     remote,
 		RemoteType: remoteType,
-		IcmpCode:   &icmpCode,
-		IcmpType:   &icmpType,
-		Egress:     &isEgress,
+		IcmpCode:   icmpCode,
+		IcmpType:   icmpType,
+		Egress:     isEgress,
 	}
 	return &rule, nil
 }
 
 func (c *IBMCloudClient) translateSecurityGroupRuleGroupRuleProtocolTcpudp(
-	ibmRule vpcv1.SecurityGroupRuleIntf, sgID *string) (*SecurityGroupRule, error) {
+	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
 
 	ibmRuleTcpUdp := ibmRule.(*vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolTcpudp)
 	remote, remoteType, err := c.translateSecurityGroupRuleRemote(ibmRuleTcpUdp.Remote)
@@ -815,20 +823,20 @@ func (c *IBMCloudClient) translateSecurityGroupRuleGroupRuleProtocolTcpudp(
 		isEgress = true
 	}
 	rule := SecurityGroupRule{
-		ID:         ibmRuleTcpUdp.ID,
-		Protocol:   ibmRuleTcpUdp.Protocol,
+		ID:         *ibmRuleTcpUdp.ID,
+		Protocol:   *ibmRuleTcpUdp.Protocol,
 		SgID:       sgID,
 		Remote:     remote,
 		RemoteType: remoteType,
-		PortMin:    ibmRuleTcpUdp.PortMin,
-		PortMax:    ibmRuleTcpUdp.PortMax,
-		Egress:     &isEgress,
+		PortMin:    *ibmRuleTcpUdp.PortMin,
+		PortMax:    *ibmRuleTcpUdp.PortMax,
+		Egress:     isEgress,
 	}
 	return &rule, nil
 }
 
 func (c *IBMCloudClient) translateSecurityGroupRuleRemote(
-	ibmRuleRemoteIntf vpcv1.SecurityGroupRuleRemoteIntf) (*string, *string, error) {
+	ibmRuleRemoteIntf vpcv1.SecurityGroupRuleRemoteIntf) (string, string, error) {
 
 	switch v := ibmRuleRemoteIntf.(type) {
 	// According to the docs, the interface should map to a specific type,
@@ -836,23 +844,136 @@ func (c *IBMCloudClient) translateSecurityGroupRuleRemote(
 	case *vpcv1.SecurityGroupRuleRemote:
 		ibmRuleRemote := ibmRuleRemoteIntf.(*vpcv1.SecurityGroupRuleRemote)
 		if ibmRuleRemote.Address != nil {
-			return ibmRuleRemote.Address, core.StringPtr("IP"), nil
+			return *ibmRuleRemote.Address, "IP", nil
 		}
 		if ibmRuleRemote.CIDRBlock != nil {
-			return ibmRuleRemote.CIDRBlock, core.StringPtr("CIDR"), nil
+			return *ibmRuleRemote.CIDRBlock, "CIDR", nil
 		}
 		// For IBM Cloud, it is common to have an inbound rule accepting traffic
 		// from a security group (sometimes the same where the rule belongs)
 		if ibmRuleRemote.ID != nil {
-			return ibmRuleRemote.ID, core.StringPtr("SG"), nil
+			return *ibmRuleRemote.ID, "SG", nil
 		}
 	default:
-		return nil, nil, fmt.Errorf(
+		return "", "", fmt.Errorf(
 			"unexpected type for security group rule remote [%T]", v,
 		)
 	}
-	return nil, nil, fmt.Errorf(
+	return "", "", fmt.Errorf(
 		"unexpected type for security group rule remote [%T]",
 		ibmRuleRemoteIntf,
 	)
+}
+
+/*
+The following functions are responsible for assigning SecurityGroupRules
+to a security group.
+*/
+func (c *IBMCloudClient) AddSecurityGroupRule(rule SecurityGroupRule) error {
+	var remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf
+	if len(rule.Remote) == 0 {
+		return fmt.Errorf("SecurityGroupRule is missing remote value")
+	}
+	remote, err := GetRemoteType(rule.Remote)
+	if err != nil {
+		return err
+	}
+
+	if remote == "IP" {
+		remotePrototype = &vpcv1.SecurityGroupRuleRemotePrototypeIP{Address: &rule.Remote}
+	} else { // CIDR
+		remotePrototype = &vpcv1.SecurityGroupRuleRemotePrototypeCIDR{CIDRBlock: &rule.Remote}
+	}
+
+	// remotePrototype := &vpcv1.SecurityGroupRuleRemotePrototypeIP{Address: rule.Remote}
+	direction := getEgressDirection(rule.Egress)
+	switch rule.Protocol {
+	case "all":
+		return c.AddAnyProtoSecurityGroupRule(rule.SgID, remotePrototype, direction)
+	case "tcp", "udp":
+		return c.addTcpUdpSecurityGroupRule(rule.SgID, remotePrototype, rule.Protocol, rule.PortMin, rule.PortMax, direction)
+	case "icmp":
+		return c.addIcmpSecurityGroupRule(rule.SgID, remotePrototype, rule.IcmpType, rule.IcmpCode, direction)
+	}
+	return nil
+}
+
+func (c *IBMCloudClient) addTcpUdpSecurityGroupRule(
+	sgID string,
+	remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf,
+	protocol string,
+	portMin, portMax int64,
+	direction *string,
+) error {
+
+	prototype := vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolTcpudp{
+		Direction: direction,
+		Protocol:  &protocol,
+		PortMin:   &portMin,
+		PortMax:   &portMax,
+		Remote:    remotePrototype,
+	}
+	return c.addSecurityGroupRule(sgID, &prototype)
+}
+
+func (c *IBMCloudClient) addIcmpSecurityGroupRule(
+	sgID string,
+	remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf,
+	icmpType, icmpCode int64,
+	direction *string,
+) error {
+
+	// In IBM Cloud, -1 is not accepted to signal "all types and codes", and
+	// a nil pointer is used instead
+	if icmpType != -1 && icmpCode != -1 {
+		return fmt.Errorf(`invisinets PermitListRule doesn't support 
+			icmp with specific codes/types.`)
+	}
+
+	// remote := vpcv1.SecurityGroupRuleRemotePrototypeCIDR{CIDRBlock: cidrBlock}
+	prototype := vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp{
+		Direction: direction,
+		Protocol:  core.StringPtr("icmp"),
+		Type:      &icmpType,
+		Code:      &icmpCode,
+		Remote:    remotePrototype,
+	}
+	return c.addSecurityGroupRule(sgID, &prototype)
+}
+
+func (c *IBMCloudClient) AddAnyProtoSecurityGroupRule(
+	sgID string,
+	remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf,
+	direction *string,
+) error {
+	prototype := vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolAll{
+		Direction: direction,
+		Protocol:  core.StringPtr("all"),
+		Remote:    remotePrototype,
+	}
+	return c.addSecurityGroupRule(sgID, &prototype)
+}
+
+func (c *IBMCloudClient) addSecurityGroupRule(
+	sgID string,
+	prototype vpcv1.SecurityGroupRulePrototypeIntf,
+) error {
+
+	options := vpcv1.CreateSecurityGroupRuleOptions{
+		SecurityGroupID:            &sgID,
+		SecurityGroupRulePrototype: prototype,
+	}
+	_, _, err := c.vpcService.CreateSecurityGroupRule(&options)
+	return err
+}
+
+func (c *IBMCloudClient) DeleteSecurityGroupRule(
+	sgID, ruleID string,
+) error {
+	options := vpcv1.DeleteSecurityGroupRuleOptions{
+		SecurityGroupID: &sgID,
+		ID:              &ruleID,
+	}
+	_, err := c.vpcService.DeleteSecurityGroupRule(&options)
+	return err
 }
