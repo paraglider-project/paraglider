@@ -80,7 +80,7 @@ func (s *tagServiceServer) isDescendent(c context.Context, tag string, potential
 	return false, nil
 }
 
-func isLastLevelTagMapping(mapping *tagservicepb.TagMapping) (bool, error) {
+func isLeafTagMapping(mapping *tagservicepb.TagMapping) (bool, error) {
 	hasChildren := len(mapping.ChildTags) > 0
 	hasUriOrIp := mapping.Uri != nil || mapping.Ip != nil
 	if hasChildren && hasUriOrIp {
@@ -90,17 +90,17 @@ func isLastLevelTagMapping(mapping *tagservicepb.TagMapping) (bool, error) {
 	return !hasChildren && hasUriOrIp, nil
 }
 
-func (s *tagServiceServer) isLastLevelTag(c context.Context, tag *tagservicepb.Tag) (bool, error) {
+func (s *tagServiceServer) isLeafTag(c context.Context, tag *tagservicepb.Tag) (bool, error) {
 	recordType, err := s.client.Type(c, tag.TagName).Result()
 	if err != nil {
-		return false, fmt.Errorf("isLastLevelTag TYPE %s: %v", tag.TagName, err)
+		return false, fmt.Errorf("isLeafTag TYPE %s: %v", tag.TagName, err)
 	}
 	return recordType == "hash", nil
 }
 
 // Record tag by storing mapping to URI and IP
-func (s *tagServiceServer) _setLastLevelTag(c context.Context, mapping *tagservicepb.TagMapping) error {
-	// TODO @smcclure20: Make it so that you can only set the last-level tag once?
+func (s *tagServiceServer) _setLeafTag(c context.Context, mapping *tagservicepb.TagMapping) error {
+	// TODO @smcclure20: Make it so that you can only set the leaf tag once?
 	err := s.client.HSet(c, mapping.TagName, map[string]string{"uri": *mapping.Uri, "ip": *mapping.Ip}).Err()
 	if err != nil {
 		return err
@@ -110,20 +110,20 @@ func (s *tagServiceServer) _setLastLevelTag(c context.Context, mapping *tagservi
 
 // Set tag relationship by adding child tag to parent tag's set
 func (s *tagServiceServer) SetTag(c context.Context, mapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
-	// If tag is last-level entry (no children), set as a hash record and return
-	isLastLevel, err := isLastLevelTagMapping(mapping)
+	// If tag is leaf entry (no children), set as a hash record and return
+	isLeaf, err := isLeafTagMapping(mapping)
 	if err != nil {
 		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
 	}
-	if isLastLevel {
-		err := s._setLastLevelTag(c, mapping)
+	if isLeaf {
+		err := s._setLeafTag(c, mapping)
 		if err != nil {
 			return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
 		}
 		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Created/updated tag: %s", mapping.TagName)}, nil
 	}
 
-	// If tag is not last-level entry, set as a set record and return
+	// If tag is not leaf entry, set as a set record and return
 	// Prevent cycles by checking if the parent tag is a descendent of any child tags
 	for _, child := range mapping.ChildTags {
 		parentTagIsDescendent, err := s.isDescendent(c, child, mapping.TagName)
@@ -146,14 +146,14 @@ func (s *tagServiceServer) SetTag(c context.Context, mapping *tagservicepb.TagMa
 
 // Get the members of a tag
 func (s *tagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMapping, error) {
-	// Determine if the tag is a last-level tag or not
-	isLastLevel, err := s.isLastLevelTag(c, &tagservicepb.Tag{TagName: tag.TagName})
+	// Determine if the tag is a leaf tag or not
+	isLeaf, err := s.isLeafTag(c, &tagservicepb.Tag{TagName: tag.TagName})
 	if err != nil {
 		return nil, fmt.Errorf("GetTag %s: %v", tag.TagName, err)
 	}
 
 	// If it is, retrieve the hash record
-	if isLastLevel {
+	if isLeaf {
 		info, err := s.client.HGetAll(c, tag.TagName).Result()
 		if err != nil {
 			return nil, fmt.Errorf("GetTag %s: %v", tag.TagName, err)
@@ -233,8 +233,8 @@ func (s *tagServiceServer) DeleteTagMember(c context.Context, mapping *tagservic
 	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Deleted members from tag: %s", mapping.TagName)}, nil
 }
 
-// Delete a last-level record for a tag
-func (s *tagServiceServer) _deleteLastLevelTag(c context.Context, tag *tagservicepb.Tag) error {
+// Delete a leaf record for a tag
+func (s *tagServiceServer) _deleteLeafTag(c context.Context, tag *tagservicepb.Tag) error {
 	keys, err := s.client.HKeys(c, tag.TagName).Result()
 	if err != nil {
 		return err
@@ -249,13 +249,13 @@ func (s *tagServiceServer) _deleteLastLevelTag(c context.Context, tag *tagservic
 
 // Delete a tag and its relationship to its children tags
 func (s *tagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error) {
-	// If the tag is a last-level tag, delete the hash record
-	isLastLevel, err := s.isLastLevelTag(c, tag)
+	// If the tag is a leaf tag, delete the hash record
+	isLeaf, err := s.isLeafTag(c, tag)
 	if err != nil {
 		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteTag %s: %v", tag.TagName, err)
 	}
-	if isLastLevel {
-		err := s._deleteLastLevelTag(c, tag)
+	if isLeaf {
+		err := s._deleteLeafTag(c, tag)
 		if err != nil {
 			return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteTag %s: %v", tag.TagName, err)
 		}

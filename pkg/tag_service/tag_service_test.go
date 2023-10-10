@@ -84,38 +84,38 @@ func TestIsDescendent(t *testing.T) {
 	}
 }
 
-func TestIsLastLevelTagMapping(t *testing.T) {
-	lastLevelTag := &tagservicepb.TagMapping{TagName: "tagname", ChildTags: []string{}, Uri: &uriVal, Ip: &ipVal}
-	notLastLevelTag := &tagservicepb.TagMapping{TagName: "tagname", ChildTags: []string{"child"}}
+func TestIsLeafTagMapping(t *testing.T) {
+	leafTag := &tagservicepb.TagMapping{TagName: "tagname", ChildTags: []string{}, Uri: &uriVal, Ip: &ipVal}
+	notLeafTag := &tagservicepb.TagMapping{TagName: "tagname", ChildTags: []string{"child"}}
 	malformedTag := &tagservicepb.TagMapping{TagName: "tagname", ChildTags: []string{"child"}, Uri: &uriVal, Ip: &ipVal}
 
-	result, err := isLastLevelTagMapping(lastLevelTag)
+	result, err := isLeafTagMapping(leafTag)
 	assert.True(t, result)
 	assert.Nil(t, err)
 
-	result, err = isLastLevelTagMapping(notLastLevelTag)
+	result, err = isLeafTagMapping(notLeafTag)
 	assert.False(t, result)
 	assert.Nil(t, err)
 
-	result, err = isLastLevelTagMapping(malformedTag)
+	result, err = isLeafTagMapping(malformedTag)
 	assert.False(t, result)
 	assert.NotNil(t, err)
 }
 
-func TestIsLastLevelTag(t *testing.T) {
+func TestIsLeafTag(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
-	lastLevelTag := &tagservicepb.Tag{TagName: "lastlevel"}
-	mock.ExpectType(lastLevelTag.TagName).SetVal("hash")
+	leafTag := &tagservicepb.Tag{TagName: "leaf"}
+	mock.ExpectType(leafTag.TagName).SetVal("hash")
 
-	result, _ := server.isLastLevelTag(context.Background(), lastLevelTag)
+	result, _ := server.isLeafTag(context.Background(), leafTag)
 	assert.True(t, result)
 
-	nonLastLevelTag := &tagservicepb.Tag{TagName: "nonlastlevel"}
-	mock.ExpectType(nonLastLevelTag.TagName).SetVal("set")
+	nonLeafTag := &tagservicepb.Tag{TagName: "nonleaflevel"}
+	mock.ExpectType(nonLeafTag.TagName).SetVal("set")
 
-	result, _ = server.isLastLevelTag(context.Background(), nonLastLevelTag)
+	result, _ = server.isLeafTag(context.Background(), nonLeafTag)
 	assert.False(t, result)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -123,14 +123,14 @@ func TestIsLastLevelTag(t *testing.T) {
 	}
 }
 
-func TestSetLastLevelTag(t *testing.T) {
+func TestSetLeafTag(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
 	newTag := tagservicepb.TagMapping{TagName: "tag", Uri: &uriVal, Ip: &ipVal}
 	mock.ExpectHSet(newTag.TagName, map[string]string{"uri": *newTag.Uri, "ip": *newTag.Ip}).SetVal(0)
 
-	err := server._setLastLevelTag(context.Background(), &newTag)
+	err := server._setLeafTag(context.Background(), &newTag)
 
 	assert.Nil(t, err)
 
@@ -156,7 +156,7 @@ func TestSetTag(t *testing.T) {
 		t.Error(err)
 	}
 
-	// Last-level tag mapping
+	// Leaf tag mapping
 	newTag = tagservicepb.TagMapping{TagName: "tag", Uri: &uriVal, Ip: &ipVal}
 	mock.ExpectHSet(newTag.TagName, map[string]string{"uri": *newTag.Uri, "ip": *newTag.Ip}).SetVal(0)
 
@@ -173,7 +173,7 @@ func TestGetTag(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
-	// Non-last-level tag
+	// Non-leaf tag
 	tag := &tagservicepb.TagMapping{TagName: "parent", ChildTags: []string{"child"}}
 	mock.ExpectType(tag.TagName).SetVal("set")
 	mock.ExpectSMembers(tag.TagName).SetVal(tag.ChildTags)
@@ -184,7 +184,7 @@ func TestGetTag(t *testing.T) {
 		t.Error(err)
 	}
 
-	// Last-level tag
+	// Leaf tag
 	tag = &tagservicepb.TagMapping{TagName: "tag", Uri: &uriVal, Ip: &ipVal}
 	mock.ExpectType(tag.TagName).SetVal("hash")
 	mock.ExpectHGetAll(tag.TagName).SetVal(map[string]string{"uri": *tag.Uri, "ip": *tag.Ip})
@@ -291,7 +291,7 @@ func TestDeleteTag(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
-	// Non-last-level tag
+	// Non-leaf tag
 	tag := &tagservicepb.TagMapping{TagName: "parent", ChildTags: []string{"child1", "child2"}}
 	mock.ExpectType(tag.TagName).SetVal("set")
 	mock.ExpectSMembers(tag.TagName).SetVal(tag.ChildTags)
@@ -303,7 +303,7 @@ func TestDeleteTag(t *testing.T) {
 		t.Error(err)
 	}
 
-	// Last-level tag
+	// Leaf tag
 	tag = &tagservicepb.TagMapping{TagName: "tag", Uri: &uriVal, Ip: &ipVal}
 	keys := []string{"uri", "ip"}
 	mock.ExpectType(tag.TagName).SetVal("hash")
@@ -333,7 +333,7 @@ func TestDeleteTagNotPresent(t *testing.T) {
 	}
 }
 
-func TestDeleteLastLevelTag(t *testing.T) {
+func TestDeleteLeafTag(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
@@ -341,7 +341,7 @@ func TestDeleteLastLevelTag(t *testing.T) {
 	nameMapping := &tagservicepb.TagMapping{TagName: "example", Uri: &uriVal, Ip: &ipVal}
 	mock.ExpectHKeys(nameMapping.TagName).SetVal(keys)
 	mock.ExpectHDel(nameMapping.TagName, keys...).SetVal(0)
-	err := server._deleteLastLevelTag(context.Background(), &tagservicepb.Tag{TagName: nameMapping.TagName})
+	err := server._deleteLeafTag(context.Background(), &tagservicepb.Tag{TagName: nameMapping.TagName})
 	assert.Nil(t, err)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
