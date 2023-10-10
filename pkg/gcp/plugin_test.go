@@ -336,6 +336,23 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 	return
 }
 
+// Cleans up fake http server and fake GCP compute clients
+func teardown(fakeServer *httptest.Server, fakeClients fakeClients) {
+	fakeServer.Close()
+	if fakeClients.firewallsClient != nil {
+		fakeClients.firewallsClient.Close()
+	}
+	if fakeClients.instancesClient != nil {
+		fakeClients.instancesClient.Close()
+	}
+	if fakeClients.networksClient != nil {
+		fakeClients.networksClient.Close()
+	}
+	if fakeClients.subnetworksClient != nil {
+		fakeClients.subnetworksClient.Close()
+	}
+}
+
 func TestGetPermitList(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		instance: getFakeInstance(),
