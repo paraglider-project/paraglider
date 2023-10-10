@@ -36,6 +36,7 @@ var (
 const (
 	GCP   = "gcp"
 	AZURE = "azure"
+	IBM = "ibm"
 )
 
 // Private address spaces as defined in RFC 1918

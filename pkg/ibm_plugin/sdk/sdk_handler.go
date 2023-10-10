@@ -9,7 +9,7 @@ import (
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
-	logger "github.com/NetSys/invisinets/pkg/logger"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
 type IBMCloudClient struct {
@@ -43,7 +43,7 @@ func NewIbmCloudClient(region string) (*IBMCloudClient, error) {
 	}
 	api, err := vpcv1.NewVpcV1(&options)
 	if err != nil {
-		logger.Log.Println("Failed to create vpc service client with error:\n", err)
+		utils.Log.Println("Failed to create vpc service client with error:\n", err)
 		return nil, err
 	}
 
@@ -51,7 +51,7 @@ func NewIbmCloudClient(region string) (*IBMCloudClient, error) {
 		Authenticator: authenticator,
 	})
 	if err != nil {
-		logger.Log.Println("Failed to create global search client with error:\n", err)
+		utils.Log.Println("Failed to create global search client with error:\n", err)
 		return nil, err
 	}
 
@@ -59,7 +59,7 @@ func NewIbmCloudClient(region string) (*IBMCloudClient, error) {
 		Authenticator: authenticator,
 	})
 	if err != nil {
-		logger.Log.Println("Failed to create tagging client with error:\n", err)
+		utils.Log.Println("Failed to create tagging client with error:\n", err)
 		return nil, err
 	}
 
@@ -99,7 +99,7 @@ func (c *IBMCloudClient) CreateVpc(vpcName string, cidrBlock string) (*vpcv1.VPC
 
 	vpc, response, err := c.vpcService.CreateVPC(&options)
 	if err != nil {
-		logger.Log.Println("Failed to create VPC with error:", err,
+		utils.Log.Println("Failed to create VPC with error:", err,
 			"\nResponse:\n", response)
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (c *IBMCloudClient) CreateVpc(vpcName string, cidrBlock string) (*vpcv1.VPC
 			addressSpace = addressPrefixes[i]
 			_, err := c.CreateSubnet(*vpc.ID, zone, addressSpace)
 			if err != nil {
-				logger.Log.Println("Failed to create subnet with error:",
+				utils.Log.Println("Failed to create subnet with error:",
 					err)
 				return nil, err
 			}
@@ -149,10 +149,10 @@ func (c *IBMCloudClient) CreateVpc(vpcName string, cidrBlock string) (*vpcv1.VPC
 	}
 	err = c.attachTag(vpc.CRN, vpcTags)
 	if err != nil {
-		logger.Log.Print("Failed to tag VPC with error:", err)
+		utils.Log.Print("Failed to tag VPC with error:", err)
 		return nil, err
 	}
-	logger.Log.Printf("Created VPC:%v with ID:%v", *vpc.Name, *vpc.ID)
+	utils.Log.Printf("Created VPC:%v with ID:%v", *vpc.Name, *vpc.ID)
 	return vpc, nil
 }
 
@@ -196,7 +196,7 @@ func (c *IBMCloudClient) TerminateVPC(vpcID string) error {
 		return err
 	}
 
-	logger.Log.Printf("VPC %v deleted successfully", vpcID)
+	utils.Log.Printf("VPC %v deleted successfully", vpcID)
 	return nil
 }
 
@@ -205,7 +205,7 @@ func (c *IBMCloudClient) GetVpcByID(vpcID string) (*vpcv1.VPC, error) {
 		ID: &vpcID,
 	})
 	if err != nil {
-		logger.Log.Println("Failed to retrieve VPC.\n Error:", err, "\nResponse\n", response)
+		utils.Log.Println("Failed to retrieve VPC.\n Error:", err, "\nResponse\n", response)
 		return nil, err
 	}
 	return vpc, nil
@@ -235,7 +235,7 @@ func (c *IBMCloudClient) CreateSubnet(
 	addressPrefixes, _, err :=
 		c.vpcService.ListVPCAddressPrefixes(listVpcAddressPrefixesOptions)
 	if err != nil {
-		logger.Log.Println("No address prefixes were found in vpc: ", vpcID,
+		utils.Log.Println("No address prefixes were found in vpc: ", vpcID,
 			"with error:\n", err)
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func (c *IBMCloudClient) CreateSubnet(
 	}
 
 	if cidrBlock == nil {
-		logger.Log.Println("Failed to locate CIDR block for subnet")
+		utils.Log.Println("Failed to locate CIDR block for subnet")
 		return nil, fmt.Errorf("failed to locate CIDR block for subnet")
 	}
 
@@ -287,14 +287,14 @@ func (c *IBMCloudClient) CreateSubnet(
 	options := vpcv1.CreateSubnetOptions{SubnetPrototype: &subnetPrototype}
 	subnet, _, err := c.vpcService.CreateSubnet(&options)
 	if err != nil {
-		logger.Log.Println("Failed to create subnet with error:\n", err)
+		utils.Log.Println("Failed to create subnet with error:\n", err)
 		return nil, err
 	}
-	logger.Log.Printf("Created subnet %v with id %v", subnetName, *subnet.ID)
+	utils.Log.Printf("Created subnet %v with id %v", subnetName, *subnet.ID)
 
 	err = c.attachTag(subnet.CRN, subnetTags)
 	if err != nil {
-		logger.Log.Print("Failed to tag subnet with error:", err)
+		utils.Log.Print("Failed to tag subnet with error:", err)
 		return nil, err
 	}
 
@@ -357,7 +357,7 @@ func (c *IBMCloudClient) DeleteSubnets(vpcID string) error {
 		options := &vpcv1.DeleteSubnetOptions{ID: subnet.ID}
 		_, err := c.vpcService.DeleteSubnet(options)
 		if err != nil {
-			logger.Log.Printf("Failed to delete subnet %v with error:%v",
+			utils.Log.Printf("Failed to delete subnet %v with error:%v",
 				subnet.ID, err)
 			return err
 		}
@@ -395,14 +395,14 @@ func (c *IBMCloudClient) setupAuthentication() (string, error) {
 
 	if err != nil {
 		if strings.Contains(err.Error(), "fingerprint already exists") {
-			logger.Log.Println("Reusing registered local SSH key")
+			utils.Log.Println("Reusing registered local SSH key")
 			keyID, err = c.getKeyByPublicKey(publicKeyData)
 			if err != nil {
-				logger.Log.Println("Failed to reuse registered local SSH key")
+				utils.Log.Println("Failed to reuse registered local SSH key")
 				return "", err
 			}
 		} else {
-			logger.Log.Println("Failed to register SSH key\n", err)
+			utils.Log.Println("Failed to register SSH key\n", err)
 			return "", err
 		}
 
@@ -421,13 +421,13 @@ func (c *IBMCloudClient) getKeyByPublicKey(publicKeyData string) (string, error)
 
 	keys, _, err := c.vpcService.ListKeys(listKeysOptions)
 	if err != nil {
-		logger.Log.Println(err)
+		utils.Log.Println(err)
 		return "", nil
 	}
 
 	for _, key := range keys.Keys {
 		if *key.PublicKey == publicKeyData {
-			logger.Log.Println("Found matching registered key:", *key.ID)
+			utils.Log.Println("Found matching registered key:", *key.ID)
 			return *key.ID, nil
 		}
 	}
@@ -439,7 +439,7 @@ func (c *IBMCloudClient) getKeyByPublicKey(publicKeyData string) (string, error)
 func (c *IBMCloudClient) getDefaultImageID() (imageID string, err error) {
 	result, _, err := c.vpcService.ListImages(&vpcv1.ListImagesOptions{})
 	if err != nil {
-		logger.Log.Println("Failed to fetch VPC image collection with the",
+		utils.Log.Println("Failed to fetch VPC image collection with the",
 			"following error:\n", err)
 		return "", err
 	}
@@ -449,7 +449,7 @@ func (c *IBMCloudClient) getDefaultImageID() (imageID string, err error) {
 			return *image.ID, nil
 		}
 	}
-	logger.Log.Println("Failed to retrieve image named by prefix: ", defaultImage)
+	utils.Log.Println("Failed to retrieve image named by prefix: ", defaultImage)
 	return "", nil
 }
 
@@ -460,7 +460,7 @@ func (c *IBMCloudClient) CreateVM(vpcID, subnetID,
 	zone, name, profile string) (*vpcv1.Instance, error) {
 	keyID, err := c.setupAuthentication()
 	if err != nil {
-		logger.Log.Println("failed to setup authentication")
+		utils.Log.Println("failed to setup authentication")
 		return nil, err
 	}
 	if profile == "" {
@@ -468,11 +468,11 @@ func (c *IBMCloudClient) CreateVM(vpcID, subnetID,
 	}
 	imageID, err := c.getDefaultImageID()
 	if imageID == "" || err != nil {
-		logger.Log.Println("Failed to retrieve default image")
+		utils.Log.Println("Failed to retrieve default image")
 		return nil, err
 	}
 	if err != nil {
-		logger.Log.Println("Failed to set up IBM",
+		utils.Log.Println("Failed to set up IBM",
 			"authentication with error: ", err)
 		return nil, err
 	}
@@ -480,7 +480,7 @@ func (c *IBMCloudClient) CreateVM(vpcID, subnetID,
 	if subnetID == "" {
 		subnetIDs, err := c.GetInvisinetsTaggedResources(SUBNET, []string{vpcID}, ResourceQuery{Zone: zone})
 		if err != nil || len(subnetIDs) == 0 {
-			logger.Log.Println("Failed to create VM. No subnets found in ", zone)
+			utils.Log.Println("Failed to create VM. No subnets found in ", zone)
 			return nil, err
 		}
 		subnetID = subnetIDs[0]
@@ -492,7 +492,7 @@ func (c *IBMCloudClient) CreateVM(vpcID, subnetID,
 
 	securityGroup, err := c.createSecurityGroup(vpcID)
 	if err != nil {
-		logger.Log.Println("Failed to create security group for VM with error: ", err)
+		utils.Log.Println("Failed to create security group for VM with error: ", err)
 		return nil, err
 	}
 
@@ -502,7 +502,7 @@ func (c *IBMCloudClient) CreateVM(vpcID, subnetID,
 	instance, err := c.createVM(imageID, profile, keyID, vpcID,
 		subnetID, zone, name, sgGrps)
 	if err != nil {
-		logger.Log.Println("Failed to launch instance with error:\n", err)
+		utils.Log.Println("Failed to launch instance with error:\n", err)
 		return nil, err
 	}
 	return instance, nil
@@ -538,11 +538,11 @@ func (c *IBMCloudClient) createVM(
 	if err != nil {
 		return nil, err
 	}
-	logger.Log.Printf("VM %v was launched with ID: %v", name, *instance.ID)
+	utils.Log.Printf("VM %v was launched with ID: %v", name, *instance.ID)
 
 	err = c.attachTag(instance.CRN, instanceTags)
 	if err != nil {
-		logger.Log.Print("Failed to tag VPC with error:", err)
+		utils.Log.Print("Failed to tag VPC with error:", err)
 		return nil, err
 	}
 	return instance, nil
@@ -573,15 +573,15 @@ func (c *IBMCloudClient) DeleteFloatingIPsOfVM(vm *vpcv1.Instance) {
 		options := c.vpcService.NewListInstanceNetworkInterfaceFloatingIpsOptions(*vm.ID, *nic.ID)
 		ips, _, err := c.vpcService.ListInstanceNetworkInterfaceFloatingIps(options)
 		if err != nil {
-			logger.Log.Println(err)
+			utils.Log.Println(err)
 		}
 		for _, ip := range ips.FloatingIps {
 			if strings.Contains(recyclableResource, *ip.Name) {
 				_, err := c.vpcService.DeleteFloatingIP(c.vpcService.NewDeleteFloatingIPOptions(*ip.ID))
 				if err != nil {
-					logger.Log.Println(err)
+					utils.Log.Println(err)
 				}
-				logger.Log.Println("Deleted recyclable IP: ", *ip.Address)
+				utils.Log.Println("Deleted recyclable IP: ", *ip.Address)
 			}
 		}
 	}
@@ -603,11 +603,11 @@ func (c *IBMCloudClient) createSecurityGroup(
 	if err != nil {
 		return nil, err
 	}
-	logger.Log.Printf("Created security group %v with id %v", sgName, *sg.ID)
+	utils.Log.Printf("Created security group %v with id %v", sgName, *sg.ID)
 
 	err = c.attachTag(sg.CRN, sgTags)
 	if err != nil {
-		logger.Log.Print("Failed to tag VPC with error:", err)
+		utils.Log.Print("Failed to tag VPC with error:", err)
 		return nil, err
 	}
 	return sg, nil
@@ -704,7 +704,7 @@ func (c *IBMCloudClient) getInvisinetsResourceByTags(resourceType string,
 
 	result, response, err := c.globalSearch.Search(searchOptions)
 	if err != nil {
-		logger.Log.Println("tags search was invalid. Response\n", response)
+		utils.Log.Println("tags search was invalid. Response\n", response)
 		return nil, err
 	}
 	items := result.Items

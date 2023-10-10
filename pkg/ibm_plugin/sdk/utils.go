@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/IBM/go-sdk-core/v5/core"
-	logger "github.com/NetSys/invisinets/pkg/logger"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v3"
@@ -95,14 +95,14 @@ func getLocalPubKey() (string, error) {
 	var publicKeyData string
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		logger.Log.Println("Failed to generate home path: \n", err)
+		utils.Log.Println("Failed to generate home path: \n", err)
 		return "", err
 	}
 
 	pubKeyPath := filepath.Join(homeDir, publicSSHKey)
 	err = os.MkdirAll(filepath.Dir(filepath.Join(homeDir, publicSSHKey)), 0700)
 	if err != nil {
-		logger.Log.Println("Failed to create ssh key folder\n", err)
+		utils.Log.Println("Failed to create ssh key folder\n", err)
 		return "", err
 	}
 
@@ -115,18 +115,18 @@ func getLocalPubKey() (string, error) {
 			data, keyGenErr := createSSHKeys(filepath.Join(homeDir, privateSSHKey))
 			publicKeyData = data
 			if keyGenErr != nil {
-				logger.Log.Println("Failed to generate ssh keys.\nError:", keyGenErr)
+				utils.Log.Println("Failed to generate ssh keys.\nError:", keyGenErr)
 				return "", err
 			}
 		} else { // Non expected error
-			logger.Log.Println("Failed to verify if ssh keys exist", err)
+			utils.Log.Println("Failed to verify if ssh keys exist", err)
 			return "", err
 		}
 	} else { // ssh keys exist
 		data, err := os.ReadFile(pubKeyPath)
 		publicKeyData = string(data)
 		if err != nil { // failed to read public ssh key data
-			logger.Log.Println(err)
+			utils.Log.Println(err)
 			return "", err
 		}
 	}
@@ -168,7 +168,7 @@ func createSSHKeys(privateKeyPath string) (string, error) {
 	defer publicKeyFile.Close()
 	publicKeyFile.WriteString(pubKeyStr)
 
-	logger.Log.Println("Created SSH keys at ", filepath.Dir(privateKeyPath))
+	utils.Log.Println("Created SSH keys at ", filepath.Dir(privateKeyPath))
 	return pubKeyStr, nil
 }
 
@@ -226,7 +226,7 @@ func Zone2Region(zone string) (string, error) {
 func CRN2ID(crn string) string {
 	index := strings.LastIndex(crn, ":")
 	if index == -1 {
-		logger.Log.Fatalf("CRN: %v isn't of valid format", crn)
+		utils.Log.Fatalf("CRN: %v isn't of valid format", crn)
 	}
 	return crn[index+1:]
 }

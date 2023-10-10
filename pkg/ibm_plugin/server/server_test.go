@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"testing"
 
+	utils "github.com/NetSys/invisinets/pkg/utils"
+
 	"github.com/NetSys/invisinets/pkg/fake"
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
@@ -28,14 +30,14 @@ var premitList1 []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRule{
 		SrcPort:   443,
 		DstPort:   443,
 		Protocol:  6,
-		Tag:       []string{"10.0.0.0/18"},
+		Tags:      []string{"10.0.0.0/18"},
 	},
 	{
 		Direction: invisinetspb.Direction_OUTBOUND,
 		SrcPort:   8080,
 		DstPort:   8080,
 		Protocol:  6,
-		Tag:       []string{"10.0.128.12"},
+		Tags:      []string{"10.0.128.12"},
 	},
 	//All protocol rules
 	{
@@ -43,14 +45,14 @@ var premitList1 []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRule{
 		SrcPort:   -1,
 		DstPort:   -1,
 		Protocol:  -1,
-		Tag:       []string{"10.0.64.0/22"},
+		Tags:      []string{"10.0.64.0/22"},
 	},
 	{
 		Direction: invisinetspb.Direction_OUTBOUND,
 		SrcPort:   -1,
 		DstPort:   -1,
 		Protocol:  -1,
-		Tag:       []string{"10.0.64.1"},
+		Tags:      []string{"10.0.64.1"},
 	},
 }
 
@@ -67,7 +69,7 @@ func init() {
 // NOTE: use sdk's TestTerminateVPC to delete the VPC post run.
 func TestCreateResourceVMNewDeployment(t *testing.T) {
 
-	fakeControllerServerAddr, err := fake.SetupFakeControllerServer()
+	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.IBM)
 	if err != nil {
 		t.Fatal(err)
 	}

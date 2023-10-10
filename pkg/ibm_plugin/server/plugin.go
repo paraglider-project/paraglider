@@ -6,7 +6,7 @@ import (
 	"net"
 	"os"
 
-	logger "github.com/NetSys/invisinets/pkg/logger"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
@@ -23,7 +23,7 @@ type ibmPluginServer struct {
 func (s *ibmPluginServer) setupCloudClient(region string) error {
 	client, err := sdk.NewIbmCloudClient(region)
 	if err != nil {
-		logger.Log.Println("Failed to set up IBM clients with error:", err)
+		utils.Log.Println("Failed to set up IBM clients with error:", err)
 		return err
 	}
 	s.cloudClient = client
@@ -44,7 +44,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 
 	region, err := sdk.Zone2Region(vmFields.Zone)
 	if err != nil {
-		logger.Log.Println("Invalid region:", region)
+		utils.Log.Println("Invalid region:", region)
 		return nil, err
 	}
 	err = s.setupCloudClient(region)
@@ -64,7 +64,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	if len(vpcIDs) != 0 {
 		// currently assuming a single VPC per region
 		vpcID = vpcIDs[0]
-		logger.Log.Printf("Reusing invisinets VPC with ID: %v in region %v", vpcID, region)
+		utils.Log.Printf("Reusing invisinets VPC with ID: %v in region %v", vpcID, region)
 	} else {
 		conn, err := grpc.Dial(s.frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
@@ -294,7 +294,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 			if err != nil {
 				return nil, err
 			}
-			logger.Log.Printf("attached rule %+v", ibmRule)
+			utils.Log.Printf("attached rule %+v", ibmRule)
 		}
 	}
 	return &invisinetspb.BasicResponse{Success: true, Message: "successfully attached specified rules to VM's security group"}, nil
@@ -353,7 +353,7 @@ func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, pl *invisin
 		if err != nil {
 			return nil, err
 		}
-		logger.Log.Printf("deleted rule %v", ruleID)
+		utils.Log.Printf("deleted rule %v", ruleID)
 	}
 	return &invisinetspb.BasicResponse{Success: true, Message: "successfully deleted rules from permit list"}, nil
 

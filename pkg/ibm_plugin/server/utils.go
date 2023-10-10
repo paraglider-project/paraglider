@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
-	logger "github.com/NetSys/invisinets/pkg/logger"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 )
@@ -82,7 +82,7 @@ func getInstanceData(resourceDesc *invisinetspb.ResourceDescription) (InstanceDa
 		return InstanceData{}, fmt.Errorf("failed to unmarshal resource description:%+v", err)
 	}
 	if vmFields.Zone == "" {
-		logger.Log.Println("Missing mandatory field: 'zone' to launch a VM")
+		utils.Log.Println("Missing mandatory field: 'zone' in instance data")
 		return InstanceData{}, err
 	}
 	return vmFields, nil
@@ -101,7 +101,7 @@ func sgRules2InvisinetsRules(rules []sdk.SecurityGroupRule) ([]*invisinetspb.Per
 		srcPort, dstPort := rule.PortMin, rule.PortMin
 
 		permitListRule := &invisinetspb.PermitListRule{
-			Tag:       []string{rule.Remote},
+			Tags:       []string{rule.Remote},
 			Id:        rule.ID,
 			Direction: ibmToInvisinetsDirection[rule.Egress],
 			SrcPort:   int32(srcPort),
@@ -120,10 +120,10 @@ func invisinetsRules2IbmRules(securityGroupID string, rules []*invisinetspb.Perm
 	[]sdk.SecurityGroupRule, error) {
 	var sgRules []sdk.SecurityGroupRule
 	for _, rule := range rules {
-		if len(rule.Tag) == 0 {
+		if len(rule.Tags) == 0 {
 			return nil, fmt.Errorf("PermitListRule is missing Tag value")
 		}
-		remote := rule.Tag[0]
+		remote := rule.Tags[0]
 		remoteType, err := sdk.GetRemoteType(remote)
 		if err != nil {
 			return nil, err
