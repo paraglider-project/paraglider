@@ -90,10 +90,10 @@ func isIpAddrOrCidr(value string) bool {
 }
 
 // Retrieve the IPs from a list of name mappings
-func getIPsFromResolvedTag(mappings []*tagservicepb.NameMapping) []string {
+func getIPsFromResolvedTag(mappings []*tagservicepb.TagMapping) []string {
 	ips := make([]string, len(mappings))
 	for i, mapping := range mappings {
-		ips[i] = mapping.Ip
+		ips[i] = *mapping.Ip
 	}
 	return ips
 }
@@ -725,13 +725,12 @@ func (s *ControllerServer) updateSubscribers(tag string) error {
 
 // Set tag mapping in local db and update subscribers to membership change
 func (s *ControllerServer) setTag(c *gin.Context) {
-	parentTag := c.Param("tag")
-	var childTags []string
-	if err := c.BindJSON(&childTags); err != nil {
+	// Parse data
+	var tagMapping tagservicepb.TagMapping
+	if err := c.BindJSON(&tagMapping); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	tagMapping := &tagservicepb.TagMapping{ParentTag: parentTag, ChildTags: childTags}
 
 	// Call SetTag
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -742,46 +741,14 @@ func (s *ControllerServer) setTag(c *gin.Context) {
 	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
-	response, err := client.SetTag(context.Background(), tagMapping)
+	response, err := client.SetTag(context.Background(), &tagMapping)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
 	// Look up subscribers and re-resolve the tag
-	if err := s.updateSubscribers(tagMapping.ParentTag); err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"response": response.Message,
-	})
-}
-
-// Set tag name in local db
-func (s *ControllerServer) setName(c *gin.Context) {
-	tagName := c.Param("tag")
-
-	// Parse data
-	var nameMapping tagservicepb.NameMapping
-	if err := c.BindJSON(&nameMapping); err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-	nameMapping.TagName = tagName
-
-	// Call SetName
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-	defer conn.Close()
-
-	client := tagservicepb.NewTagServiceClient(conn)
-	response, err := client.SetName(context.Background(), &nameMapping)
-	if err != nil {
+	if err := s.updateSubscribers(tagMapping.TagName); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
@@ -831,7 +798,7 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	tagMapping := &tagservicepb.TagMapping{ParentTag: parentTag, ChildTags: childTags}
+	tagMapping := &tagservicepb.TagMapping{TagName: parentTag, ChildTags: childTags}
 
 	// Call DeleteTagMember
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -849,31 +816,7 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	}
 
 	// Look up subscribers and re-resolve the tag
-	if err := s.updateSubscribers(tagMapping.ParentTag); err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"response": response.Message,
-	})
-}
-
-// Delete tag name in local db
-func (s *ControllerServer) deleteName(c *gin.Context) {
-	tagName := c.Param("tag")
-
-	// Call DeleteName
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-	defer conn.Close()
-
-	client := tagservicepb.NewTagServiceClient(conn)
-	response, err := client.DeleteName(context.Background(), &tagservicepb.Tag{TagName: tagName})
-	if err != nil {
+	if err := s.updateSubscribers(tagMapping.TagName); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
@@ -922,10 +865,8 @@ func Setup(configPath string) {
 	router.GET("/tags/:tag", server.getTag)
 	router.GET("/tags/:tag/resolve", server.resolveTag)
 	router.POST("/tags/:tag", server.setTag)
-	router.POST("/tags/:tag/name", server.setName)
 	router.DELETE("/tags/:tag", server.deleteTag)
 	router.DELETE("/tags/:tag/members/", server.deleteTagMember)
-	router.DELETE("/tags/:tag/name", server.deleteName)
 
 	// Run server
 	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
