@@ -173,6 +173,11 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 	))[:firewallNameMaxLength]
 }
 
+// Gets a GCP VPC name
+func getVpcName(namespace string) string {
+	return namespace + "-" + vpcName
+}
+
 // Gets a GCP network tag for a GCP resource
 func getGCPNetworkTag(gcpResourceId uint64) string {
 	return networkTagPrefix + strconv.FormatUint(gcpResourceId, 10)
@@ -284,8 +289,33 @@ func parseDescriptionTags(description string) []string {
 	return tags
 }
 
+func instanceIsInNamespace(instance *computepb.Instance, namespace string) bool {
+	return strings.Contains(*instance.NetworkInterfaces[0].Network, namespace)
+}
+
+func (s *GCPPluginServer) getAndCheckInstanceNamespace(ctx context.Context, instancesClient *compute.InstancesClient, instance string, project string, zone string, namespace string) error {
+	instanceRequest := &computepb.GetInstanceRequest{
+		Instance: instance,
+		Project:  project,
+		Zone:     zone,
+	}
+	instanceResponse, err := instancesClient.Get(ctx, instanceRequest)
+	if err != nil {
+		return fmt.Errorf("unable to get instance: %w", err)
+	}
+	if !instanceIsInNamespace(instanceResponse, namespace) {
+		return fmt.Errorf("instance is not in namespace")
+	}
+	return nil
+}
+
 func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
 	project, zone, instance := parseInstanceId(resourceID.Id)
+
+	err := s.getAndCheckInstanceNamespace(ctx, instancesClient, instance, project, zone, resourceID.Namespace)
+	if err != nil {
+		return nil, err
+	}
 
 	req := &computepb.GetEffectiveFirewallsInstanceRequest{
 		Instance:         instance,
@@ -363,6 +393,11 @@ func (s *GCPPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 
 func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.BasicResponse, error) {
 	project, zone, instance := parseInstanceId(permitList.AssociatedResource)
+
+	err := s.getAndCheckInstanceNamespace(ctx, instancesClient, instance, project, zone, permitList.Namespace)
+	if err != nil {
+		return nil, err
+	}
 
 	// Get existing firewalls
 	getEffectiveFirewallsReq := &computepb.GetEffectiveFirewallsInstanceRequest{
@@ -499,6 +534,11 @@ func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, permitList *in
 func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.BasicResponse, error) {
 	project, zone, instance := parseInstanceId(permitList.AssociatedResource)
 
+	err := s.getAndCheckInstanceNamespace(ctx, instancesClient, instance, project, zone, permitList.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	// Get existing firewalls
 	getEffectiveFirewallsReq := &computepb.GetEffectiveFirewallsInstanceRequest{
 		Instance:         instance,
@@ -569,8 +609,9 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	subnetExists := false
 
 	// Check if Invisinets specific VPC already exists
+	nsVpcName := getVpcName(resourceDescription.Namespace)
 	getNetworkReq := &computepb.GetNetworkRequest{
-		Network: vpcName,
+		Network: nsVpcName,
 		Project: project,
 	}
 	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
@@ -579,7 +620,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 			insertNetworkRequest := &computepb.InsertNetworkRequest{
 				Project: project,
 				NetworkResource: &computepb.Network{
-					Name:                  proto.String(vpcName),
+					Name:                  proto.String(nsVpcName),
 					Description:           proto.String("VPC for Invisinets"),
 					AutoCreateSubnetworks: proto.Bool(false),
 					RoutingConfig: &computepb.NetworkRoutingConfig{
@@ -715,8 +756,9 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsD
 	project := parseGCPURL(invisinetsDeployment.Id)["projects"]
 	addressSpaceList := &invisinetspb.AddressSpaceList{}
 
+	nsVpcName := getVpcName(invisinetsDeployment.Namespace)
 	getNetworkReq := &computepb.GetNetworkRequest{
-		Network: vpcName,
+		Network: nsVpcName,
 		Project: project,
 	}
 	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)

@@ -72,6 +72,7 @@ type ControllerServer struct {
 	usedAddressSpaces map[string][]string
 	localTagService   string
 	config            Config
+	namespace         string
 }
 
 func createErrorResponse(message string) gin.H {
@@ -883,6 +884,17 @@ func (s *ControllerServer) deleteName(c *gin.Context) {
 	})
 }
 
+func (s *ControllerServer) getNamespace(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"namespace": s.namespace,
+	})
+}
+
+func (s *ControllerServer) setNamespace(c *gin.Context) {
+	s.namespace = c.Param("namespace")
+	c.Status(http.StatusOK)
+}
+
 // Setup and run the server
 func Setup(configPath string) {
 	// Read the config
@@ -900,7 +912,7 @@ func Setup(configPath string) {
 	}
 
 	// Populate server info
-	server := ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string][]string)}
+	server := ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string][]string), namespace: "default"}
 	server.config = cfg
 	server.localTagService = cfg.TagService.Host + ":" + cfg.TagService.Port
 
@@ -926,6 +938,8 @@ func Setup(configPath string) {
 	router.DELETE("/tags/:tag", server.deleteTag)
 	router.DELETE("/tags/:tag/members/", server.deleteTagMember)
 	router.DELETE("/tags/:tag/name", server.deleteName)
+	router.GET("/namespace/", server.getNamespace)
+	router.POST("/namespace/:namespace/", server.setNamespace)
 
 	// Run server
 	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
