@@ -477,6 +477,11 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 	require.Nil(t, err)
 	assert.Equal(t, address.Address, "10.1.0.0/16")
 
+	// Different Namespace
+	address, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: "other"})
+	require.Nil(t, err)
+	assert.Equal(t, address.Address, "10.0.0.0/16")
+
 	// Out of addresses
 	frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.255.0.0/16"}
 	_, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
@@ -1026,6 +1031,11 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP},
 		{AddressSpaces: azure_address_spaces, Cloud: utils.AZURE},
 	})
+
+	// Empty namespace
+	addressSpaces, err = frontendServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: "empty"})
+	require.Nil(t, err)
+	assert.Equal(t, 0, len(addressSpaces.AddressSpaceMappings))
 }
 
 func TestGetNamespace(t *testing.T) {
