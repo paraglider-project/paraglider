@@ -160,7 +160,7 @@ func newTagServer() *mockTagServiceServer {
 }
 
 func newFrontendServer() *ControllerServer {
-	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string][]string)}
+	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string][]string), namespace: "default"}
 	return s
 }
 
@@ -1021,4 +1021,41 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP},
 		{AddressSpaces: azure_address_spaces, Cloud: utils.AZURE},
 	})
+}
+
+func TestGetNamespace(t *testing.T) {
+	frontendServer := newFrontendServer()
+
+	r := SetUpRouter()
+	r.GET("/namespace/", frontendServer.getNamespace)
+
+	url := "/namespace/"
+	req, _ := http.NewRequest("GET", url, nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	responseData, _ := io.ReadAll(w.Body)
+	var jsonMap map[string]string
+	err := json.Unmarshal(responseData, &jsonMap)
+	require.Nil(t, err)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, frontendServer.namespace, jsonMap["namespace"])
+}
+
+func TestSetNamespace(t *testing.T) {
+	frontendServer := newFrontendServer()
+
+	r := SetUpRouter()
+	r.POST("/namespace/:namespace", frontendServer.setNamespace)
+
+	newNamespace := "newnamespace"
+	url := fmt.Sprintf("/namespace/%s", newNamespace)
+	req, _ := http.NewRequest("POST", url, nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, newNamespace, frontendServer.namespace)
 }
