@@ -300,6 +300,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 	return &invisinetspb.BasicResponse{Success: true, Message: "successfully attached specified rules to VM's security group"}, nil
 }
 
+// deletes security group rules matching the attributes of the rules contained in the relevant Security group
 func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
 	var vmInvisinetsSgID string // security group to delete rules from
 	resourceIDInfo, err := getResourceIDInfo(pl.AssociatedResource)

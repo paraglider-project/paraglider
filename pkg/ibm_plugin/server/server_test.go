@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// user flags
+// test cli flags
 var vmID string   // (optional flag) existing invisinets VM ID.
 var region string // (optional flag) existing invisinets VM ID.
 var zone string   // (optional flag) zone to launch a VM in.
@@ -60,7 +60,7 @@ func init() {
 	flag.StringVar(&vmID, "vmID", "", "Existing invisinets VM ID")
 	flag.StringVar(&region, "region", "", "IBM region")
 	flag.StringVar(&zone, "zone", "", "IBM zone")
-	flag.BoolVar(&delVPC, "delVPC", false, "if specified, terminates vpc after tests ends")
+	flag.BoolVar(&delVPC, "delVPC", false, "if specified, terminates vpc after tests end")
 }
 
 // to terminate the created vpc specify -delVPC.
@@ -68,15 +68,14 @@ func init() {
 // go test -run TestCreateResourceVMNewDeployment -delVPC -zone=eu-de-1
 // NOTE: use sdk's TestTerminateVPC to delete the VPC post run.
 func TestCreateResourceVMNewDeployment(t *testing.T) {
-
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.IBM)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// choose default zone if not specified
 	if zone == "" {
-		zone = "us-east-1"
+		println("(TestGetPermitList skipped - missing argument: zone)")
+		t.Skip("TestCreateResourceVMExsitingVPC skipped - missing arguments")
 	}
 
 	instanceData := InstanceData{
@@ -107,13 +106,9 @@ func TestCreateResourceVMNewDeployment(t *testing.T) {
 
 // usage: go test -run TestGetPermitList -region=<value> -vmID=<value>
 func TestGetPermitList(t *testing.T) {
-	if vmID == "" {
+	if vmID == "" || region == "" {
 		println("(TestGetPermitList skipped - missing arguments)")
 		t.Skip("TestCreateResourceVMExsitingVPC skipped - missing arguments")
-	}
-	// choose default region if not specified
-	if region == "" {
-		region = "us-east"
 	}
 
 	s := &ibmPluginServer{}
@@ -132,13 +127,9 @@ func TestGetPermitList(t *testing.T) {
 
 // usage: go test -run TestAddPermitListRules -region=<value> -vmID=<value>
 func TestAddPermitListRules(t *testing.T) {
-	if vmID == "" {
+	if vmID == "" || region == "" {
 		println("(TestGetPermitList skipped - missing arguments)")
 		t.Skip("TestCreateResourceVMExsitingVPC skipped - missing arguments")
-	}
-	// choose default region if not specified
-	if region == "" {
-		region = "us-east"
 	}
 
 	permitList := &invisinetspb.PermitList{
@@ -157,13 +148,9 @@ func TestAddPermitListRules(t *testing.T) {
 
 // usage: go test -run TestDeletePermitListRules -region=<value> -vmID=<value>
 func TestDeletePermitListRules(t *testing.T) {
-	if vmID == "" {
+	if vmID == "" || region == "" {
 		println("(TestGetPermitList skipped - missing arguments)")
 		t.Skip("TestCreateResourceVMExsitingVPC skipped - missing arguments")
-	}
-	// choose default region if not specified
-	if region == "" {
-		region = "us-east"
 	}
 
 	permitList := &invisinetspb.PermitList{
