@@ -50,6 +50,7 @@ const addressSpaceAddress = "10.0.0.0/16"
 const exampleCloudName = "example"
 const resolvedTagIp = "1.2.3.4"
 const validTagName = "validTagName"
+const defaultNamespace = "default"
 
 var exampleRule = &invisinetspb.PermitListRule{Id: "example-rule", Tags: []string{validTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
 
@@ -160,7 +161,7 @@ func newTagServer() *mockTagServiceServer {
 }
 
 func newFrontendServer() *ControllerServer {
-	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string][]string), namespace: "default"}
+	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string]map[string][]string), namespace: defaultNamespace}
 	return s
 }
 
@@ -378,7 +379,8 @@ func TestCreateResource(t *testing.T) {
 	frontendServer := newFrontendServer()
 	port := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
-	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.1.0.0/24"}
+	frontendServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
+	frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.1.0.0/24"}
 
 	setupPluginServer(port)
 
@@ -389,7 +391,8 @@ func TestCreateResource(t *testing.T) {
 	id := "123"
 	resource := &invisinetspb.ResourceDescriptionString{
 		Id:          id,
-		Description: "description"}
+		Description: "description",
+	}
 	jsonValue, _ := json.Marshal(resource)
 
 	url := fmt.Sprintf("/cloud/%s/resources/%s/", exampleCloudName, id)
@@ -427,11 +430,11 @@ func TestGetAddressSpaces(t *testing.T) {
 	setupPluginServer(port)
 
 	// Well-formed call
-	addressList, _ := frontendServer.getAddressSpaces(exampleCloudName, "id")
+	addressList, _ := frontendServer.getAddressSpaces(exampleCloudName, "id", defaultNamespace)
 	assert.Equal(t, addressList.AddressSpaces[0], addressSpaceAddress)
 
 	// Bad cloud name
-	emptyList, err := frontendServer.getAddressSpaces("wrong", "id")
+	emptyList, err := frontendServer.getAddressSpaces("wrong", "id", defaultNamespace)
 	require.NotNil(t, err)
 
 	require.Nil(t, emptyList)
@@ -447,36 +450,36 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	// Valid cloud list
 	cloud := Cloud{Name: exampleCloudName, Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	frontendServer.config = Config{Clouds: []Cloud{cloud}}
-	err := frontendServer.updateUsedAddressSpacesMap()
+	err := frontendServer.updateUsedAddressSpacesMap(defaultNamespace)
 	require.Nil(t, err)
-	assert.Equal(t, frontendServer.usedAddressSpaces[exampleCloudName][0], addressSpaceAddress)
+	assert.Equal(t, frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName][0], addressSpaceAddress)
 
 	// Invalid cloud list
 	cloud = Cloud{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	frontendServer.config = Config{Clouds: []Cloud{cloud}}
-	err = frontendServer.updateUsedAddressSpacesMap()
+	err = frontendServer.updateUsedAddressSpacesMap(defaultNamespace)
 
 	require.NotNil(t, err)
 }
 
 func TestFindUnusedAddressSpace(t *testing.T) {
 	frontendServer := newFrontendServer()
+	frontendServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
 
 	// No entries in address space map
-	frontendServer.usedAddressSpaces = make(map[string][]string)
-	address, err := frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+	address, err := frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
 	require.Nil(t, err)
 	assert.Equal(t, address.Address, "10.0.0.0/16")
 
 	// Next entry
-	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.0.0.0/16"}
-	address, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+	frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.0.0.0/16"}
+	address, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
 	require.Nil(t, err)
 	assert.Equal(t, address.Address, "10.1.0.0/16")
 
 	// Out of addresses
-	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.255.0.0/16"}
-	_, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+	frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.255.0.0/16"}
+	_, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
 	require.NotNil(t, err)
 }
 
@@ -1011,11 +1014,13 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 	gcp_address_spaces := []string{"10.0.0.0/16", "10.1.0.0/16"}
 	azure_address_spaces := []string{"10.2.0.0/16", "10.3.0.0/16"}
-	frontendServer.usedAddressSpaces = map[string][]string{
-		utils.GCP:   {"10.0.0.0/16", "10.1.0.0/16"},
-		utils.AZURE: {"10.2.0.0/16", "10.3.0.0/16"},
+	frontendServer.usedAddressSpaces = map[string]map[string][]string{
+		defaultNamespace: {
+			utils.GCP:   {"10.0.0.0/16", "10.1.0.0/16"},
+			utils.AZURE: {"10.2.0.0/16", "10.3.0.0/16"},
+		},
 	}
-	addressSpaces, err := frontendServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	addressSpaces, err := frontendServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
 	require.Nil(t, err)
 	assert.ElementsMatch(t, addressSpaces.AddressSpaceMappings, []*invisinetspb.AddressSpaceMapping{
 		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP},

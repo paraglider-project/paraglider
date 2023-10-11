@@ -33,7 +33,7 @@ type FakeControllerServer struct {
 	Counter int
 }
 
-func (f *FakeControllerServer) FindUnusedAddressSpace(ctx context.Context, e *invisinetspb.Empty) (*invisinetspb.AddressSpace, error) {
+func (f *FakeControllerServer) FindUnusedAddressSpace(ctx context.Context, namespace *invisinetspb.Namespace) (*invisinetspb.AddressSpace, error) {
 	if f.Counter == 256 {
 		return nil, fmt.Errorf("ran out of address spaces")
 	}
@@ -42,7 +42,7 @@ func (f *FakeControllerServer) FindUnusedAddressSpace(ctx context.Context, e *in
 	return &invisinetspb.AddressSpace{Address: address}, nil
 }
 
-func (f *FakeControllerServer) GetUsedAddressSpaces(ctx context.Context, e *invisinetspb.Empty) (*invisinetspb.AddressSpaceMappingList, error) {
+func (f *FakeControllerServer) GetUsedAddressSpaces(ctx context.Context, namespace *invisinetspb.Namespace) (*invisinetspb.AddressSpaceMappingList, error) {
 	addressSpaces := make([]string, f.Counter)
 	for i := 0; i < f.Counter; i++ {
 		addressSpaces[i] = fmt.Sprintf("10.%d.0.0/16", i)

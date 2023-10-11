@@ -31,13 +31,17 @@ service CloudPlugin {
 }
 
 service Controller {
-    rpc FindUnusedAddressSpace(Empty) returns (AddressSpace) {} // TODO now: this should be scoped to a namespace
-    rpc GetUsedAddressSpaces(Empty) returns (AddressSpaceMappingList) {}
+    rpc FindUnusedAddressSpace(Namespace) returns (AddressSpace) {} // TODO now: this should be scoped to a namespace
+    rpc GetUsedAddressSpaces(Namespace) returns (AddressSpaceMappingList) {}
     rpc ConnectClouds(ConnectCloudsRequest) returns (BasicResponse) {}
 }
 
 message Empty {
 
+}
+
+message Namespace {
+    string namespace = 1;
 }
 
 // Provides the necessary URI/ID to find the Invisinets networks (eg, subscription + resource group in Azure or project in GCP)
