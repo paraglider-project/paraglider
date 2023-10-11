@@ -426,21 +426,21 @@ func TestGetInvisinetsVnet(t *testing.T) {
 
 	// Test case: Success, vnet already existed
 	t.Run("GetInvisinetsVnet: Success, vnet exists", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation, "namespace")
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
 
 	// Test case: Success, vnet doesn't exist, create new one
 	t.Run("GetInvisinetsVnet: Success, create new vnet", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, notFoundVnetName, testLocation)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, notFoundVnetName, testLocation, "namespace")
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
 
 	// Test case: Failure, error when getting vnet
 	t.Run("GetInvisinetsVnet: Failure, error when getting vnet", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, invalidVnetName, testLocation)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, invalidVnetName, testLocation, "namespace")
 		require.Error(t, err)
 		require.Nil(t, vnet)
 	})

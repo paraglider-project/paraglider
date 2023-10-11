@@ -189,7 +189,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	}
 	defer controllerConn.Close()
 	controllerClient := invisinetspb.NewControllerClient(controllerConn)
-	usedAddressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	usedAddressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: pl.Namespace})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
@@ -340,7 +340,7 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 		return nil, err
 	}
 
-	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(c, getVnetName(*invisinetsVm.Location, resourceDesc.Namespace), *invisinetsVm.Location)
+	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(c, getVnetName(*invisinetsVm.Location, resourceDesc.Namespace), *invisinetsVm.Location, resourceDesc.Namespace)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
 		return nil, err
@@ -671,7 +671,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, deployment *in
 	}
 
 	// Create gateway subnet
-	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, getVnetName(vpnLocation, deployment.Namespace), vpnLocation)
+	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, getVnetName(vpnLocation, deployment.Namespace), vpnLocation, deployment.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get invisinets vnet: %w", err)
 	}

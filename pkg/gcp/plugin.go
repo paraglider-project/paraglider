@@ -454,7 +454,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 	}
 	defer controllerConn.Close()
 	controllerClient := invisinetspb.NewControllerClient(controllerConn)
-	usedAddressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	usedAddressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: permitList.Namespace})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
@@ -663,7 +663,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		}
 		defer conn.Close()
 		client := invisinetspb.NewControllerClient(conn)
-		response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+		response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: resourceDescription.Namespace})
 		if err != nil {
 			return nil, fmt.Errorf("unable to find unused address space: %w", err)
 		}

@@ -43,7 +43,7 @@ type AzureSDKHandler interface {
 	GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interface, error)
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
-	GetInvisinetsVnet(ctx context.Context, vnetName string, location string) (*armnetwork.VirtualNetwork, error)
+	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string) (*armnetwork.VirtualNetwork, error)
 	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error)
 	CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error)
 	CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error)
@@ -418,7 +418,7 @@ func (h *azureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) 
 
 // GetInvisinetsVnet returns a valid invisinets vnet, an invisinets vnet is a vnet with a default subnet with the same
 // address space as the vnet and there is only one vnet per location
-func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string, location string) (*armnetwork.VirtualNetwork, error) {
+func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string) (*armnetwork.VirtualNetwork, error) {
 	// Get the virtual network
 	res, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, &armnetwork.VirtualNetworksClientGetOptions{Expand: nil})
 
@@ -433,7 +433,7 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 			}
 			defer conn.Close()
 			client := invisinetspb.NewControllerClient(conn)
-			response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+			response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: namespace})
 			if err != nil {
 				return nil, err
 			}

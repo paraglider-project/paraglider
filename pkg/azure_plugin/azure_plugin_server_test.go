@@ -145,8 +145,8 @@ func (m *mockAzureSDKHandler) CreateVirtualMachine(ctx context.Context, paramete
 	return vm.(*armcompute.VirtualMachine), args.Error(1)
 }
 
-func (m *mockAzureSDKHandler) GetInvisinetsVnet(ctx context.Context, prefix string, location string) (*armnetwork.VirtualNetwork, error) {
-	args := m.Called(ctx, prefix, location)
+func (m *mockAzureSDKHandler) GetInvisinetsVnet(ctx context.Context, prefix string, location string, namespace string) (*armnetwork.VirtualNetwork, error) {
+	args := m.Called(ctx, prefix, location, namespace)
 	vnet := args.Get(0)
 	if vnet == nil {
 		return nil, args.Error(1)
@@ -296,7 +296,7 @@ func TestCreateResource(t *testing.T) {
 		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("GetInvisinetsVnet", ctx, vnetName, testLocation).Return(&armnetwork.VirtualNetwork{
+		mockAzureHandler.On("GetInvisinetsVnet", ctx, vnetName, testLocation, namespace).Return(&armnetwork.VirtualNetwork{
 			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 				Subnets: []*armnetwork.Subnet{
 					{
@@ -852,7 +852,7 @@ func TestCreateVpnGateway(t *testing.T) {
 	}
 
 	fakeVnetName := getVnetName(vpnLocation, defaultNamespace)
-	mockAzureHandler.On("GetInvisinetsVnet", ctx, fakeVnetName, vpnLocation).Return(
+	mockAzureHandler.On("GetInvisinetsVnet", ctx, fakeVnetName, vpnLocation, defaultNamespace).Return(
 		&armnetwork.VirtualNetwork{
 			Name: to.Ptr(fakeVnetName),
 			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
