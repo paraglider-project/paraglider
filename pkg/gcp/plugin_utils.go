@@ -380,9 +380,3 @@ func RunPingConnectivityTest(t *testing.T, teardownInfo *GcpTestTeardownInfo, pr
 
 	require.True(t, reachable)
 }
-
-// Returns VPC for Invisinets in a shortened GCP URI format
-// TODO @seankimkdy: should return full URI
-func GetVpcUri() string {
-	return "global/networks/" + vpcName
-}

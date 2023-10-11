@@ -124,7 +124,7 @@ func init() {
 
 // Checks if GCP firewall rule is an Invisinets permit list rule
 func isInvisinetsPermitListRule(firewall *computepb.Firewall) bool {
-	return strings.HasSuffix(*firewall.Network, GetVpcUri()) && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
+	return strings.HasSuffix(*firewall.Network, vpcName) && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
 }
 
 // Checks if GCP firewall rule is equivalent to an Invisinets permit list rule
@@ -171,6 +171,12 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 		strings.Join(permitListRule.Tags, ""),
 		strings.Join(permitListRule.Targets, ""),
 	))[:firewallNameMaxLength]
+}
+
+// Returns VPC for Invisinets in a shortened GCP URI format
+// TODO @seankimkdy: should return full URI
+func GetVpcUri(namespace string) string {
+	return "global/networks/" + getVpcName(namespace)
 }
 
 // Gets a GCP VPC name
@@ -477,7 +483,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			Description: proto.String(getRuleDescription(permitListRule.Tags)),
 			Direction:   proto.String(firewallDirectionMapInvisinetsToGCP[permitListRule.Direction]),
 			Name:        proto.String(firewallName),
-			Network:     proto.String(GetVpcUri()),
+			Network:     proto.String(GetVpcUri(permitList.Namespace)),
 			TargetTags:  []string{networkTag},
 		}
 		if permitListRule.DstPort != -1 {
@@ -668,7 +674,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 			SubnetworkResource: &computepb.Subnetwork{
 				Name:        proto.String(subnetName),
 				Description: proto.String("Invisinets subnetwork for " + region),
-				Network:     proto.String(GetVpcUri()),
+				Network:     proto.String(GetVpcUri(resourceDescription.Namespace)),
 				IpCidrRange: proto.String(response.Address),
 			},
 		}
@@ -684,7 +690,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	// Configure network settings to Invisinets VPC and corresponding subnet
 	insertInstanceRequest.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
-			Network:    proto.String(GetVpcUri()),
+			Network:    proto.String(GetVpcUri(resourceDescription.Namespace)),
 			Subnetwork: proto.String("regions/" + region + "/subnetworks/" + subnetName),
 		},
 	}
@@ -814,7 +820,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, deployment *inv
 		VpnGatewayResource: &computepb.VpnGateway{
 			Name:        proto.String(vpnGwName),
 			Description: proto.String("Invisinets VPN gateway for multicloud connections"),
-			Network:     proto.String(GetVpcUri()),
+			Network:     proto.String(GetVpcUri(deployment.Namespace)),
 		},
 	}
 	insertVpnGatewayOp, err := vpnGatewaysClient.Insert(ctx, insertVpnGatewayReq)
@@ -835,7 +841,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, deployment *inv
 		RouterResource: &computepb.Router{
 			Name:        proto.String(routerName),
 			Description: proto.String("Invisinets router for multicloud connections"),
-			Network:     proto.String(GetVpcUri()),
+			Network:     proto.String(GetVpcUri(deployment.Namespace)),
 			Bgp: &computepb.RouterBgp{
 				Asn: proto.Uint32(vpnGwAsn),
 			},
