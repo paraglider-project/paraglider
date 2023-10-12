@@ -413,6 +413,21 @@ func TestGetPermitListMissingInstance(t *testing.T) {
 	require.Nil(t, resp)
 }
 
+func TestGetPermitListWrongNamespace(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		instance: getFakeInstance(true),
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
+
+	s := &GCPPluginServer{}
+	resource := &invisinetspb.ResourceID{Id: fakeResourceId, Namespace: "wrongnamespace"}
+
+	resp, err := s._GetPermitList(ctx, resource, fakeClients.instancesClient)
+	require.Error(t, err)
+	require.Nil(t, resp)
+}
+
 func TestAddPermitListRules(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		instance: getFakeInstance(true),
@@ -452,6 +467,7 @@ func TestAddPermitListRules(t *testing.T) {
 				Tags:      []string{"tag"},
 			},
 		},
+		Namespace: fakeNamespace,
 	}
 
 	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
@@ -481,6 +497,34 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 				Targets:   []string{"10.5.6.0/24"},
 			},
 		},
+		Namespace: fakeNamespace,
+	}
+
+	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
+	require.Error(t, err)
+	require.Nil(t, resp)
+}
+
+func TestAddPermitListRulesWrongNamespace(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		instance: getFakeInstance(true),
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
+
+	s := &GCPPluginServer{}
+	permitList := &invisinetspb.PermitList{
+		AssociatedResource: fakeMissingResourceId,
+		Rules: []*invisinetspb.PermitListRule{
+			{
+				Direction: invisinetspb.Direction_INBOUND,
+				SrcPort:   -1,
+				DstPort:   443,
+				Protocol:  6,
+				Targets:   []string{"10.5.6.0/24"},
+			},
+		},
+		Namespace: "wrongnamespace",
 	}
 
 	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
@@ -520,6 +564,7 @@ func TestDeletePermitListRules(t *testing.T) {
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: fakeResourceId,
 		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1, fakePermitListRule2},
+		Namespace:          fakeNamespace,
 	}
 
 	resp, err := s._DeletePermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
@@ -536,6 +581,33 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: fakeMissingResourceId,
 		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1},
+	}
+
+	resp, err := s._DeletePermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
+	require.Error(t, err)
+	require.Nil(t, resp)
+}
+
+func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		instance: getFakeInstance(true),
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
+
+	s := &GCPPluginServer{}
+	permitList := &invisinetspb.PermitList{
+		AssociatedResource: fakeMissingResourceId,
+		Rules: []*invisinetspb.PermitListRule{
+			{
+				Direction: invisinetspb.Direction_INBOUND,
+				SrcPort:   -1,
+				DstPort:   443,
+				Protocol:  6,
+				Targets:   []string{"10.5.6.0/24"},
+			},
+		},
+		Namespace: "wrongnamespace",
 	}
 
 	resp, err := s._DeletePermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
@@ -712,4 +784,28 @@ func TestCreateVpnConnections(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.True(t, resp.Success)
+}
+
+func TestGetAndCheckResourceNamespace(t *testing.T) {
+	// getAndCheckInstanceNamespace(ctx context.Context, instancesClient *compute.InstancesClient, instance string, project string, zone string, namespace string)
+	fakeServerState := &fakeServerState{
+		instance: getFakeInstance(true),
+		network: &computepb.Network{
+			Name:        proto.String(vpcName),
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
+		},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
+
+	s := &GCPPluginServer{}
+
+	err := s.getAndCheckInstanceNamespace(ctx, fakeClients.instancesClient, fakeInstanceName, fakeProject, fakeZone, fakeNamespace)
+	require.NoError(t, err)
+
+	err = s.getAndCheckInstanceNamespace(ctx, fakeClients.instancesClient, fakeInstanceName, fakeProject, fakeZone, "othernamespace")
+	require.Error(t, err)
+
+	err = s.getAndCheckInstanceNamespace(ctx, fakeClients.instancesClient, fakeInstanceName, fakeProject, fakeZone, "")
+	require.Error(t, err)
 }

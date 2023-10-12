@@ -453,13 +453,18 @@ func (s *azurePluginServer) getNSGFromResource(c context.Context, resourceID str
 	return nsg, nil
 }
 
-// TODO now: move this
+// Extract the Vnet name from the subnet ID
 func getVnetFromSubnetId(subnetId string) string {
 	parts := strings.Split(subnetId, "/")
-	return parts[8] // TODO now: is there any way to make this less brittle?
+	return parts[8] // TODO @smcclure20: do this in a less brittle way
 }
 
+// Check if the resource is in a vnet for the given namespace
 func (s *azurePluginServer) getAndCheckResourceNamespace(c context.Context, resourceID string, namespace string) error {
+	if namespace == "" {
+		return fmt.Errorf("namespace cannot be empty")
+	}
+
 	// get the vnet associated with the resource
 	nic, err := s.azureHandler.GetResourceNIC(c, resourceID)
 	if err != nil {

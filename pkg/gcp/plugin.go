@@ -300,6 +300,10 @@ func instanceIsInNamespace(instance *computepb.Instance, namespace string) bool 
 }
 
 func (s *GCPPluginServer) getAndCheckInstanceNamespace(ctx context.Context, instancesClient *compute.InstancesClient, instance string, project string, zone string, namespace string) error {
+	if namespace == "" {
+		return fmt.Errorf("namespace is empty")
+	}
+
 	instanceRequest := &computepb.GetInstanceRequest{
 		Instance: instance,
 		Project:  project,

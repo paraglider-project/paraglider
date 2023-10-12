@@ -407,9 +407,6 @@ func TestGetPermitList(t *testing.T) {
 		mockHandlerSetup(mockAzureHandler)
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakePl.GetAssociatedResource(), fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 
-		// Set up mock for determining the namespace from the VNET name
-		mockAzureHandler.On("GetResourceNIC", ctx, fakeResource.GetId()).Return(fakeNic, nil)
-
 		// make suret that the GetPermitListRuleFromNSGRule is called on all the invisinets rules
 		for i, rule := range fakeNsg.Properties.SecurityRules {
 			if strings.HasPrefix(*rule.Name, invisinetsPrefix) {
@@ -465,6 +462,25 @@ func TestGetPermitList(t *testing.T) {
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakePl.GetAssociatedResource(), fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 		mockAzureHandler.On("GetPermitListRuleFromNSGRule", mock.Anything).Return(nil, fmt.Errorf("error while getting permit list rule"))
 
+		permitList, err := server.GetPermitList(ctx, fakeResource)
+
+		// check the error
+		require.Error(t, err)
+		require.Nil(t, permitList)
+	})
+
+	// Test Case 5: Fail due to resource being in different namespace
+	t.Run("TestGetPermitList: Fail due to mismatching namespace", func(t *testing.T) {
+		server, mockAzureHandler, ctx := setupAzurePluginServer()
+
+		// Set up mock behavior for the Azure SDK handler
+		mockHandlerSetup(mockAzureHandler)
+
+		// Set up NIC to be in a subnet not in the current namespace
+		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr("/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/vnet123/subnets/subnet123")
+		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakePl.GetAssociatedResource(), fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
+
+		// Call the GetPermitList function
 		permitList, err := server.GetPermitList(ctx, fakeResource)
 
 		// check the error
@@ -613,6 +629,25 @@ func TestAddPermitListRules(t *testing.T) {
 		require.NotNil(t, err)
 		require.Nil(t, resp)
 	})
+
+	// Test Case 8: Fail due to resource being in different namespace
+	t.Run("AddPermitListRules: Fail due to mismatching namespace", func(t *testing.T) {
+		server, mockAzureHandler, ctx := setupAzurePluginServer()
+
+		// Set up mock behavior for the Azure SDK handler
+		mockHandlerSetup(mockAzureHandler)
+
+		// Setup fake NIC to belong to subnet not in current namespace
+		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr("/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/vnet123/subnets/subnet123")
+		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakePl.GetAssociatedResource(), fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
+
+		// Call the GetPermitList function
+		permitList, err := server.AddPermitListRules(ctx, fakePl)
+
+		// check the error
+		require.Error(t, err)
+		require.Nil(t, permitList)
+	})
 }
 
 func TestDeleteDeletePermitListRules(t *testing.T) {
@@ -732,6 +767,25 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		require.NotNil(t, err)
 		require.Nil(t, resp)
 	})
+
+	// Test Case 7: Fail due to resource being in different namespace
+	t.Run("DeletePermitListRules: Fail due to mismatching namespace", func(t *testing.T) {
+		server, mockAzureHandler, ctx := setupAzurePluginServer()
+
+		// Set up mock behavior for the Azure SDK handler
+		mockHandlerSetup(mockAzureHandler)
+
+		// Setup fake NIC to belong to subnet not in current namespace
+		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr("/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/vnet123/subnets/subnet123")
+		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakePl.GetAssociatedResource(), fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
+
+		// Call the GetPermitList function
+		permitList, err := server.DeletePermitListRules(ctx, fakePl)
+
+		// check the error
+		require.Error(t, err)
+		require.Nil(t, permitList)
+	})
 }
 
 func TestGetUsedAddressSpaces(t *testing.T) {
@@ -747,6 +801,32 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	require.NotNil(t, addressList)
 	require.Len(t, addressList.AddressSpaces, 1)
 	assert.Equal(t, validAddressSpace, addressList.AddressSpaces[0])
+}
+
+func TestGetAndCheckResourceNamespace(t *testing.T) {
+	fakeNic := getFakeNIC()
+	resourceID := "resourceID"
+
+	server, mockAzureHandler, ctx := setupAzurePluginServer()
+	mockHandlerSetup(mockAzureHandler)
+	mockAzureHandler.On("GetResourceNIC", ctx, resourceID).Return(fakeNic, nil)
+
+	err := server.getAndCheckResourceNamespace(ctx, resourceID, defaultNamespace)
+	require.Nil(t, err)
+
+	err = server.getAndCheckResourceNamespace(ctx, resourceID, "othernamespace")
+	require.NotNil(t, err)
+
+	err = server.getAndCheckResourceNamespace(ctx, resourceID, "")
+	require.NotNil(t, err)
+}
+
+func TestGetVnetFromSubnetId(t *testing.T) {
+	subnetId := "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/vnet123/subnets/subnet123"
+	expectedVnet := "vnet123"
+
+	vnet := getVnetFromSubnetId(subnetId)
+	assert.Equal(t, expectedVnet, vnet)
 }
 
 func TestGetResourceIDInfo(t *testing.T) {
