@@ -136,6 +136,7 @@ func TestMulticloud(t *testing.T) {
 				Targets:   []string{"0.0.0.0/0"},
 			},
 		},
+		Namespace: "default",
 	}
 	gcpAddPermitListRulesResp, err := gcpServer.AddPermitListRules(ctx, gcpVmPermitList)
 	require.NoError(t, err)
@@ -171,6 +172,7 @@ func TestMulticloud(t *testing.T) {
 				Targets:   []string{"0.0.0.0/0"},
 			},
 		},
+		Namespace: "default",
 	}
 	azureAddPermitListRulesResp, err := azureServer.AddPermitListRules(ctx, azureVmPermitList)
 	require.NoError(t, err)

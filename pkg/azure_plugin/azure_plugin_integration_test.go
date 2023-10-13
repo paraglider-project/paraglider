@@ -92,6 +92,7 @@ func testAddAndGetPermitList(t *testing.T) {
 				Protocol:  6,
 			},
 		},
+		Namespace: "default",
 	}
 	addPermitListResp, err := s.AddPermitListRules(ctx, permitList)
 	require.NoError(t, err)

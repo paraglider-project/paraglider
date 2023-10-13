@@ -152,6 +152,7 @@ func TestIntegration(t *testing.T) {
 					Targets:   []string{vm2Ip},
 				},
 			},
+			Namespace: "default",
 		},
 		{
 			AssociatedResource: vm2Id,
@@ -171,6 +172,7 @@ func TestIntegration(t *testing.T) {
 					Targets:   []string{vm1Ip},
 				},
 			},
+			Namespace: "default",
 		},
 	}
 	for i, vmId := range vmIds {
