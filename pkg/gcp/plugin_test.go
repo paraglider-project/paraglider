@@ -446,8 +446,7 @@ func TestAddPermitListRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	FrontendServerAddr = fakeControllerServerAddr
-	s := &GCPPluginServer{}
+	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: fakeResourceId,
 		Rules: []*invisinetspb.PermitListRule{
@@ -484,8 +483,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	FrontendServerAddr = fakeControllerServerAddr
-	s := &GCPPluginServer{}
+	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: fakeMissingResourceId,
 		Rules: []*invisinetspb.PermitListRule{
@@ -544,8 +542,7 @@ func TestAddPermitListRulesDuplicate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	FrontendServerAddr = fakeControllerServerAddr
-	s := &GCPPluginServer{}
+	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: fakeMissingResourceId,
 		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1},
@@ -651,8 +648,7 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	FrontendServerAddr = fakeControllerServerAddr
-	s := &GCPPluginServer{}
+	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
 		Zone:             fakeZone,
@@ -680,9 +676,8 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	FrontendServerAddr = fakeControllerServerAddr
 
-	s := &GCPPluginServer{}
+	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
 		Zone:             fakeZone,

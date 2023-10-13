@@ -64,9 +64,8 @@ func testAddAndGetPermitList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	FrontendServerAddr = fakeControllerServerAddr
 
-	s := InitializeServer()
+	s := InitializeServer(fakeControllerServerAddr)
 	ctx := context.Background()
 
 	parameters := GetTestVmParameters(vmLocation)

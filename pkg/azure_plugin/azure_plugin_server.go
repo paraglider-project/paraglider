@@ -49,7 +49,8 @@ type ResourceIDInfo struct {
 
 type azurePluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
-	azureHandler AzureSDKHandler
+	azureHandler       AzureSDKHandler
+	frontendServerAddr string
 }
 
 // TODO @seankimkdy: replace these
@@ -183,7 +184,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	resourceAddress := *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
 
 	// Get used address spaces of all clouds
-	controllerConn, err := grpc.Dial(FrontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	controllerConn, err := grpc.Dial(s.frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
 	}
@@ -340,7 +341,7 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 		return nil, err
 	}
 
-	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(c, getVnetName(*invisinetsVm.Location, resourceDesc.Namespace), *invisinetsVm.Location, resourceDesc.Namespace)
+	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(c, getVnetName(*invisinetsVm.Location, resourceDesc.Namespace), *invisinetsVm.Location, resourceDesc.Namespace, s.frontendServerAddr)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
 		return nil, err
@@ -676,7 +677,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, deployment *in
 	}
 
 	// Create gateway subnet
-	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, getVnetName(vpnLocation, deployment.Namespace), vpnLocation, deployment.Namespace)
+	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, getVnetName(vpnLocation, deployment.Namespace), vpnLocation, deployment.Namespace, s.frontendServerAddr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get invisinets vnet: %w", err)
 	}
@@ -853,21 +854,20 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 	return &invisinetspb.BasicResponse{Success: true}, nil
 }
 
-func Setup(port int) (*azurePluginServer, string) {
+func Setup(port int, frontendServerAddr string) {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
 	azureServer := &azurePluginServer{
-		azureHandler: &azureSDKHandler{},
+		azureHandler:       &azureSDKHandler{},
+		frontendServerAddr: frontendServerAddr,
 	}
 	invisinetspb.RegisterCloudPluginServer(grpcServer, azureServer)
 	fmt.Println("Starting server on port :", port)
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			fmt.Println(err.Error())
-		}
-	}()
-	return azureServer, lis.Addr().String()
+
+	if err := grpcServer.Serve(lis); err != nil {
+		fmt.Println(err.Error())
+	}
 }

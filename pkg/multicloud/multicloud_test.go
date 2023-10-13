@@ -35,12 +35,15 @@ import (
 
 // TODO @seankimkdy: should this be turned into a system test where we actually call the cloud plugins through the controller GRPC?
 func TestMulticloud(t *testing.T) {
+	azurePluginPort := 1000
+	gcpPluginPort := 1001
+
 	// Setup Azure
 	azureSubscriptionId := azure_plugin.GetAzureSubscriptionId()
 	azureResourceGroupName := utils.GetGitHubRunPrefix() + "invisinets-multicloud-test"
 	azure_plugin.SetupAzureTesting(azureSubscriptionId, azureResourceGroupName)
 	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
-	azureServer, azureServerAddr := azure_plugin.Setup(0)
+	go azure_plugin.Setup(azurePluginPort, controllerServerAddr)
 	fmt.Println("Setup Azure server")
 
 	// Setup GCP
@@ -50,7 +53,7 @@ func TestMulticloud(t *testing.T) {
 		InsertInstanceReqs: make([]*computepb.InsertInstanceRequest, 0),
 	}
 	defer gcp.TeardownGcpTesting(gcpTeardownInfo)
-	gcpServer, gcpServerAddr := gcp.Setup(0)
+	go gcp.Setup(gcpPluginPort, controllerServerAddr)
 	fmt.Println("Setup GCP server")
 
 	// Setup controller server
@@ -58,21 +61,19 @@ func TestMulticloud(t *testing.T) {
 		Clouds: []frontend.Cloud{
 			{
 				Name:          utils.AZURE,
-				Host:          strings.Split(azureServerAddr, ":")[0],
-				Port:          strings.Split(azureServerAddr, ":")[1],
+				Host:          "localhost",
+				Port:          azurePluginPort
 				InvDeployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName),
 			},
 			{
 				Name:          utils.GCP,
-				Host:          strings.Split(gcpServerAddr, ":")[0],
-				Port:          strings.Split(gcpServerAddr, ":")[1],
+				Host:          "localhost",
+				Port:          gcpPluginPort,
 				InvDeployment: fmt.Sprintf("projects/%s", gcpProject),
 			},
 		},
 	}
 	controllerServerAddr := frontend.SetupControllerServer(controllerServerConfig)
-	azure_plugin.FrontendServerAddr = controllerServerAddr
-	gcp.FrontendServerAddr = controllerServerAddr
 	fmt.Println("Setup controller server")
 
 	ctx := context.Background()

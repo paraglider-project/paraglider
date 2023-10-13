@@ -48,12 +48,11 @@ func checkPermitListsEqual(pl1, pl2 *invisinetspb.PermitList) bool {
 func TestIntegration(t *testing.T) {
 	// Setup
 	project := GetGcpProject()
-	s := &GCPPluginServer{}
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	FrontendServerAddr = fakeControllerServerAddr
+	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
 
 	// Teardown
 	teardownInfo := &GcpTestTeardownInfo{
@@ -191,12 +190,12 @@ func TestIntegration(t *testing.T) {
 	// Connectivity tests that ping the two VMs
 	vm1Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm1Ip,
-		Network:   "projects/" + project + "/" + GetVpcUri(),
+		Network:   "projects/" + project + "/" + GetVpcUri("default"),
 		ProjectId: project,
 	}
 	vm2Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm2Ip,
-		Network:   "projects/" + project + "/" + GetVpcUri(),
+		Network:   "projects/" + project + "/" + GetVpcUri("default"),
 		ProjectId: project,
 	}
 
