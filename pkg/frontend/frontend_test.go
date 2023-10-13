@@ -46,11 +46,17 @@ import (
 var portNum = 10000
 
 // Mock values
+var tagUri = "uri"
+var tagIp = "ip"
+var resolvedTagIp = "1.2.3.4"
+
 const addressSpaceAddress = "10.0.0.0/16"
 const exampleCloudName = "example"
-const resolvedTagIp = "1.2.3.4"
+
 const validTagName = "validTagName"
 const defaultNamespace = "default"
+const validLastLevelTagName = "validLastLevelTagName"
+const validParentTagName = "validParentTagName"
 
 var exampleRule = &invisinetspb.PermitListRule{Id: "example-rule", Tags: []string{validTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
 
@@ -59,25 +65,25 @@ type mockTagServiceServer struct {
 }
 
 func (s *mockTagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMapping, error) {
-	if strings.HasPrefix(tag.TagName, validTagName) {
-		return &tagservicepb.TagMapping{ParentTag: tag.TagName, ChildTags: []string{"child"}}, nil
+	if strings.HasPrefix(tag.TagName, validLastLevelTagName) {
+		return &tagservicepb.TagMapping{TagName: tag.TagName, Uri: &tagUri, Ip: &tagIp}, nil
+	}
+	if strings.HasPrefix(tag.TagName, validParentTagName) {
+		return &tagservicepb.TagMapping{TagName: tag.TagName, ChildTags: []string{"child"}}, nil
 	}
 	return nil, fmt.Errorf("GetTag: Invalid tag name")
 }
 
-func (s *mockTagServiceServer) ResolveTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.NameMappingList, error) {
+func (s *mockTagServiceServer) ResolveTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMappingList, error) {
 	if strings.HasPrefix(tag.TagName, validTagName) {
-		return &tagservicepb.NameMappingList{Mappings: []*tagservicepb.NameMapping{&tagservicepb.NameMapping{TagName: tag.TagName, Uri: "uri/" + tag.TagName, Ip: resolvedTagIp}}}, nil
+		newUri := "uri/" + tag.TagName
+		return &tagservicepb.TagMappingList{Mappings: []*tagservicepb.TagMapping{&tagservicepb.TagMapping{TagName: tag.TagName, Uri: &newUri, Ip: &resolvedTagIp}}}, nil
 	}
 	return nil, fmt.Errorf("ResolveTag: Invalid tag name")
 }
 
 func (s *mockTagServiceServer) SetTag(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully created tag: %s", tagMapping.ParentTag)}, nil
-}
-
-func (s *mockTagServiceServer) SetName(c context.Context, nameMapping *tagservicepb.NameMapping) (*tagservicepb.BasicResponse, error) {
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully created name: %s", nameMapping.TagName)}, nil
+	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully created tag: %s", tagMapping.TagName)}, nil
 }
 
 func (s *mockTagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error) {
@@ -87,16 +93,9 @@ func (s *mockTagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Ta
 	return &tagservicepb.BasicResponse{Success: false, Message: fmt.Sprintf("tag %s does not exist", tag.TagName)}, fmt.Errorf("tag does not exist")
 }
 
-func (s *mockTagServiceServer) DeleteName(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error) {
-	if strings.HasPrefix(tag.TagName, validTagName) {
-		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted name: %s", tag.TagName)}, nil
-	}
-	return &tagservicepb.BasicResponse{Success: false, Message: fmt.Sprintf("successfully deleted name: %s", tag.TagName)}, fmt.Errorf("tag does not exist")
-}
-
 func (s *mockTagServiceServer) DeleteTagMember(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
-	if strings.HasPrefix(tagMapping.ParentTag, validTagName) {
-		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted member %s from tag %s", tagMapping.ChildTags[0], tagMapping.ParentTag)}, nil
+	if strings.HasPrefix(tagMapping.TagName, validTagName) {
+		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted member %s from tag %s", tagMapping.ChildTags[0], tagMapping.TagName)}, nil
 	}
 	return &tagservicepb.BasicResponse{Success: false, Message: "parent tag does not exist"}, fmt.Errorf("parentTag does not exist")
 }
@@ -498,9 +497,9 @@ func TestGetTag(t *testing.T) {
 	r := SetUpRouter()
 	r.GET("/tags/:tag", frontendServer.getTag)
 
-	// Well-formed request
-	tag := validTagName
-	expectedResult := &tagservicepb.TagMapping{ParentTag: tag, ChildTags: []string{"child"}}
+	// Well-formed request for non-last-level tag
+	tag := validParentTagName
+	expectedResult := &tagservicepb.TagMapping{TagName: tag, ChildTags: []string{"child"}}
 
 	url := fmt.Sprintf("/tags/%s", tag)
 	req, _ := http.NewRequest("GET", url, nil)
@@ -514,6 +513,23 @@ func TestGetTag(t *testing.T) {
 	require.Nil(t, err)
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, expectedResult, tagMap)
+
+	// Well-formed request for last-level tag
+	tag = validLastLevelTagName
+	expectedResult = &tagservicepb.TagMapping{TagName: tag, Uri: &tagUri, Ip: &tagIp}
+
+	url = fmt.Sprintf("/tags/%s", tag)
+	req, _ = http.NewRequest("GET", url, nil)
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	responseData, _ = io.ReadAll(w.Body)
+	var newTagMap *tagservicepb.TagMapping
+	err = json.Unmarshal(responseData, &newTagMap)
+
+	require.Nil(t, err)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, expectedResult, newTagMap)
 
 	// Request for non-existent tag
 	tag = "badtag"
@@ -539,7 +555,8 @@ func TestResolveTag(t *testing.T) {
 
 	// Well-formed request
 	tag := validTagName
-	expectedResult := &tagservicepb.NameMapping{TagName: tag, Uri: "uri/" + tag, Ip: resolvedTagIp}
+	newUri := "uri/" + tag
+	expectedResult := &tagservicepb.TagMapping{TagName: tag, Uri: &newUri, Ip: &resolvedTagIp}
 
 	url := fmt.Sprintf("/tags/%s/resolve", tag)
 	req, _ := http.NewRequest("GET", url, nil)
@@ -547,7 +564,7 @@ func TestResolveTag(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	responseData, _ := io.ReadAll(w.Body)
-	var nameMaps *tagservicepb.NameMappingList
+	var nameMaps *tagservicepb.TagMappingList
 	err := json.Unmarshal(responseData, &nameMaps)
 
 	require.Nil(t, err)
@@ -580,10 +597,10 @@ func TestSetTag(t *testing.T) {
 	r.POST("/tags/:tag", frontendServer.setTag)
 
 	// Well-formed request
-	tagMapping := &tagservicepb.TagMapping{ParentTag: validTagName, ChildTags: []string{validTagName + "child"}}
-	jsonValue, _ := json.Marshal(tagMapping.ChildTags)
+	tagMapping := &tagservicepb.TagMapping{TagName: validTagName, ChildTags: []string{validTagName + "child"}}
+	jsonValue, _ := json.Marshal(tagMapping)
 
-	url := fmt.Sprintf("/tags/%s", tagMapping.ParentTag)
+	url := fmt.Sprintf("/tags/%s", tagMapping.TagName)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -596,49 +613,9 @@ func TestSetTag(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Malformed request
-	jsonValue, _ = json.Marshal(tagMapping)
+	jsonValue, _ = json.Marshal(tagMapping.ChildTags)
 
-	url = fmt.Sprintf("/tags/%s", tagMapping.ParentTag)
-	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
-	w = httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-	responseData, _ = io.ReadAll(w.Body)
-	err = json.Unmarshal(responseData, &jsonMap)
-
-	require.Nil(t, err)
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestSetName(t *testing.T) {
-	frontendServer := newFrontendServer()
-	tagServerPort := getNewPortNumber()
-	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
-	setupTagServer(tagServerPort)
-
-	r := SetUpRouter()
-	r.POST("/tags/:tag/name", frontendServer.setName)
-
-	// Well-formed request
-	nameMapping := &tagservicepb.NameMapping{TagName: "tag", Uri: "uri/tag", Ip: "1.2.3.4"}
-	jsonValue, _ := json.Marshal(nameMapping)
-
-	url := fmt.Sprintf("/tags/%s/name", nameMapping.TagName)
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-	responseData, _ := io.ReadAll(w.Body)
-	var jsonMap map[string]string
-	err := json.Unmarshal(responseData, &jsonMap)
-
-	require.Nil(t, err)
-	assert.Equal(t, http.StatusOK, w.Code)
-
-	// Malformed request
-	jsonValue, _ = json.Marshal(nameMapping.Ip)
-
-	url = fmt.Sprintf("/tags/%s/name", nameMapping.TagName)
+	url = fmt.Sprintf("/tags/%s", tagMapping.TagName)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -664,10 +641,10 @@ func TestDeleteTagMember(t *testing.T) {
 	r.DELETE("/tags/:tag/members", frontendServer.deleteTagMember)
 
 	// Well-formed request
-	tagMapping := &tagservicepb.TagMapping{ParentTag: validTagName, ChildTags: []string{"child"}}
+	tagMapping := &tagservicepb.TagMapping{TagName: validTagName, ChildTags: []string{"child"}}
 	jsonValue, _ := json.Marshal(tagMapping.ChildTags)
 
-	url := fmt.Sprintf("/tags/%s/members", tagMapping.ParentTag)
+	url := fmt.Sprintf("/tags/%s/members", tagMapping.TagName)
 	req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -680,10 +657,10 @@ func TestDeleteTagMember(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Non-existent tag
-	tagMapping = &tagservicepb.TagMapping{ParentTag: "badtag", ChildTags: []string{"child"}}
+	tagMapping = &tagservicepb.TagMapping{TagName: "badtag", ChildTags: []string{"child"}}
 	jsonValue, _ = json.Marshal(tagMapping.ChildTags)
 
-	url = fmt.Sprintf("/tags/%s/members", tagMapping.ParentTag)
+	url = fmt.Sprintf("/tags/%s/members", tagMapping.TagName)
 	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -694,7 +671,7 @@ func TestDeleteTagMember(t *testing.T) {
 	// Malformed request
 	jsonValue, _ = json.Marshal(tagMapping)
 
-	url = fmt.Sprintf("/tags/%s/members", tagMapping.ParentTag)
+	url = fmt.Sprintf("/tags/%s/members", tagMapping.TagName)
 	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -746,43 +723,6 @@ func TestDeleteTag(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestDeleteName(t *testing.T) {
-	frontendServer := newFrontendServer()
-	tagServerPort := getNewPortNumber()
-	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
-
-	setupTagServer(tagServerPort)
-
-	r := SetUpRouter()
-	r.DELETE("/tags/:tag/name", frontendServer.deleteName)
-
-	// Well-formed request
-	tag := validTagName
-
-	url := fmt.Sprintf("/tags/%s/name", tag)
-	req, _ := http.NewRequest("DELETE", url, nil)
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-	responseData, _ := io.ReadAll(w.Body)
-	var jsonMap map[string]string
-	err := json.Unmarshal(responseData, &jsonMap)
-	require.Nil(t, err)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-
-	// Tag name that does not exist
-	tag = "badtag"
-
-	url = fmt.Sprintf("/tags/%s/name", tag)
-	req, _ = http.NewRequest("DELETE", url, nil)
-	w = httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
 func TestResolvePermitListRules(t *testing.T) {
 	// Setup
 	frontendServer := newFrontendServer()
@@ -820,9 +760,11 @@ func TestResolvePermitListRules(t *testing.T) {
 func TestGetIPsFromResolvedTag(t *testing.T) {
 	ip1 := "1.2.3.4"
 	ip2 := "2.3.4.5"
-	mappings := []*tagservicepb.NameMapping{
-		&tagservicepb.NameMapping{TagName: "name1", Uri: "uri/name1", Ip: ip1},
-		&tagservicepb.NameMapping{TagName: "name2", Uri: "uri/name2", Ip: ip2},
+	uri1 := "uri/name1"
+	uri2 := "uri/name2"
+	mappings := []*tagservicepb.TagMapping{
+		&tagservicepb.TagMapping{TagName: "name1", Uri: &uri1, Ip: &ip1},
+		&tagservicepb.TagMapping{TagName: "name2", Uri: &uri2, Ip: &ip2},
 	}
 	expectedIps := []string{ip1, ip2}
 

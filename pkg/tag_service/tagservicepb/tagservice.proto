@@ -21,12 +21,10 @@ option go_package="github.com/NetSys/invisinets/pkg/tag_service/tagservicepb";
 
 service TagService {
     rpc SetTag(TagMapping) returns (BasicResponse) {}
-    rpc SetName(NameMapping) returns (BasicResponse) {}
     rpc GetTag(Tag) returns (TagMapping) {}
-    rpc ResolveTag(Tag) returns (NameMappingList) {}
+    rpc ResolveTag(Tag) returns (TagMappingList) {}
     rpc DeleteTagMember(TagMapping) returns (BasicResponse) {}
     rpc DeleteTag(Tag) returns (BasicResponse) {}
-    rpc DeleteName(Tag) returns (BasicResponse) {}
     rpc Subscribe(Subscription) returns (BasicResponse) {}
     rpc Unsubscribe(Subscription) returns (BasicResponse) {}
     rpc GetSubscribers(Tag) returns (SubscriberList) {}
@@ -45,19 +43,15 @@ message Tag {
     string tag_name = 1;
 }
 
-message NameMapping {
-    string tag_name = 1;
-    string uri = 2;
-    string ip = 3;
-}
-
-message NameMappingList {
-    repeated NameMapping mappings = 1;
+message TagMappingList {
+    repeated TagMapping mappings = 1;
 }
 
 message TagMapping {
-    string parent_tag = 1;
+    string tag_name = 1;
     repeated string child_tags = 2;
+    optional string uri = 3;
+    optional string ip = 4;
 }
 
 message BasicResponse {
