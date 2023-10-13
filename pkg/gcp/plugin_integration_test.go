@@ -182,7 +182,7 @@ func TestIntegration(t *testing.T) {
 		require.NotNil(t, addPermitListRulesResp)
 		assert.True(t, addPermitListRulesResp.Success)
 
-		getPermitListAfterAddResp, err := s.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: vmId})
+		getPermitListAfterAddResp, err := s.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: vmId, Namespace: "default"})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterAddResp)
 		// TODO @seankimkdy: use this in all of the codebase to ensure permitlists are being compared properly

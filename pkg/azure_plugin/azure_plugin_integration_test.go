@@ -75,6 +75,7 @@ func testAddAndGetPermitList(t *testing.T) {
 	createResourceResp, err := s.CreateResource(ctx, &invisinetspb.ResourceDescription{
 		Id:          vmID,
 		Description: descriptionJson,
+		Namespace:   "default",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, createResourceResp)
