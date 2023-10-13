@@ -70,7 +70,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription1 := &invisinetspb.ResourceDescription{Description: insertInstanceReq1Bytes}
+	resourceDescription1 := &invisinetspb.ResourceDescription{Description: insertInstanceReq1Bytes, Namespace: "default"}
 	createResource1Resp, err := s.CreateResource(
 		context.Background(),
 		resourceDescription1,
@@ -88,7 +88,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription2 := &invisinetspb.ResourceDescription{Description: insertInstanceReq2Bytes}
+	resourceDescription2 := &invisinetspb.ResourceDescription{Description: insertInstanceReq2Bytes, Namespace: "default"}
 	createResource2Resp, err := s.CreateResource(
 		context.Background(),
 		resourceDescription2,
@@ -103,7 +103,7 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	getNetworkReq := &computepb.GetNetworkRequest{
-		Network: vpcName,
+		Network: getVpcName("default"),
 		Project: project,
 	}
 	getNetworkResp, err := networksClient.Get(context.Background(), getNetworkReq)
