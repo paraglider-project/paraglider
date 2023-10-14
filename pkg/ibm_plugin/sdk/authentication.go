@@ -181,7 +181,10 @@ func createSSHKeys(privateKeyPath string) (string, error) {
 		return "", err
 	}
 	defer publicKeyFile.Close()
-	publicKeyFile.WriteString(pubKeyStr)
+	_, err = publicKeyFile.WriteString(pubKeyStr)
+	if err != nil {
+		return "", err
+	}
 
 	utils.Log.Println("Created SSH keys at ", filepath.Dir(privateKeyPath))
 	return pubKeyStr, nil

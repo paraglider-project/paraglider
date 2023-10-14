@@ -100,7 +100,8 @@ func TestCreateResourceVMNewDeployment(t *testing.T) {
 	if delVPC {
 		vpcID, err := s.cloudClient.VmID2VpcID(resp.UpdatedResource.Id)
 		require.NoError(t, err)
-		defer s.cloudClient.TerminateVPC(vpcID)
+		err = s.cloudClient.TerminateVPC(vpcID)
+		require.NoError(t, err)
 	}
 }
 
@@ -108,7 +109,7 @@ func TestCreateResourceVMNewDeployment(t *testing.T) {
 func TestGetPermitList(t *testing.T) {
 	if vmID == "" || region == "" {
 		println("(TestGetPermitList skipped - missing arguments)")
-		t.Skip("TestCreateResourceVMExsitingVPC skipped - missing arguments")
+		t.Skip("TestGetPermitList skipped - missing arguments")
 	}
 
 	s := &ibmPluginServer{}
@@ -118,14 +119,12 @@ func TestGetPermitList(t *testing.T) {
 	resp, err := s.GetPermitList(context.Background(), resourceID)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	// uncomment to print permit fetched.
-	// printPermitRules(t, resp)
-}
-func printPermitRules(t *testing.T, resp *invisinetspb.PermitList) {
+
 	b, err := json.MarshalIndent(resp, "", "  ")
 	require.NoError(t, err)
 	// Note: direction:0(inbound) will not be printed.
-	fmt.Printf("Permit rules of instance %v are:\n%v", vmID, string(b))
+	utils.Log.Printf("Permit rules of instance %v are:\n%v", vmID, string(b))
+
 }
 
 // usage: go test -run TestAddPermitListRules -region=<value> -vmID=<value>

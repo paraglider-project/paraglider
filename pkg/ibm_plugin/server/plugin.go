@@ -35,7 +35,6 @@ func (s *ibmPluginServer) setupCloudClient(region string) error {
 // Default instance name will be auto-generated unless specified.
 func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
 	var vpcID string
-	var subnetID string
 
 	vmFields, err := getInstanceData(resourceDesc)
 	if err != nil {
@@ -84,7 +83,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		vpcID = *vpc.ID
 	}
 
-	// look for an invisinets subnet that's tagged with the above VPC ID.
+	// Retrieving an invisinets subnet that's tagged with the above VPC ID in the specified zone.
 	requiredTags := []string{vpcID}
 	subnetsIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.SUBNET, requiredTags,
 		sdk.ResourceQuery{Zone: vmFields.Zone})
@@ -95,7 +94,8 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		// No invisinets subnets were found matching vpc and zone
 		return nil, fmt.Errorf("invisinets subnet wasn't found")
 	}
-	subnetID = subnetsIDs[0]
+	// Assuming one invisinets subnet per zone
+	subnetID := subnetsIDs[0]
 
 	vm, err := s.cloudClient.CreateVM(vpcID, subnetID,
 		vmFields.Zone, vmFields.Name, vmFields.Profile)
@@ -174,7 +174,7 @@ func (s *ibmPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 		return nil, err
 	}
 
-	permitList.Rules = append(permitList.Rules, invisinetsRules...)
+	permitList.Rules = invisinetsRules
 	return permitList, nil
 }
 

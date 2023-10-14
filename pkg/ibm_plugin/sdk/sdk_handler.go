@@ -24,9 +24,13 @@ func (c *IBMCloudClient) Region() string {
 }
 
 // updates the vpc service's url service to the specified region
-func (c *IBMCloudClient) UpdateRegion(region string) {
+func (c *IBMCloudClient) UpdateRegion(region string) error {
 	c.region = region
-	c.vpcService.SetServiceURL(endpointURL(region))
+	err := c.vpcService.SetServiceURL(endpointURL(region))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // returns IBMCloudClient instance with initialized clients

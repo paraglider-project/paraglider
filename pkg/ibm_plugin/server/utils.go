@@ -19,7 +19,7 @@ type ResourceIDInfo struct {
 	ResourceID      string `json:"ResourceID"`
 }
 
-// InstanceFields is a temporary solution until invisinetspb.ResourceDescription.Description
+// InstanceData is a temporary solution until invisinetspb.ResourceDescription.Description
 // will be replaced with a concrete type.
 type InstanceData struct {
 	Profile string `json:"profile"` // optional

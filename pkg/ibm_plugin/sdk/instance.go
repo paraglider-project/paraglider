@@ -154,7 +154,7 @@ func (c *IBMCloudClient) deleteFloatingIPsOfVM(vm *vpcv1.Instance) {
 // returns true when instance is completely removed from
 // the subnet.
 func (c *IBMCloudClient) poll_instance_exist(vmID string) bool {
-	sleepDuration := 3 * time.Second
+	sleepDuration := 10 * time.Second
 	for tries := 15; tries > 0; tries -= 1 {
 		_, _, err := c.vpcService.GetInstance(c.vpcService.NewGetInstanceOptions(vmID))
 		if err != nil {

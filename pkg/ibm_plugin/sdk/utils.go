@@ -59,7 +59,10 @@ func GetRegions() ([]string, error) {
 		return nil, err
 	}
 	var data map[string]interface{}
-	json.Unmarshal([]byte(responseBody), &data)
+	err = json.Unmarshal([]byte(responseBody), &data)
+	if err != nil {
+		return nil, err
+	}
 	for regionName := range data["service-endpoints"].(map[string]interface{})["regional"].(map[string]interface{}) {
 		regionCache = append(regionCache, regionName)
 	}
