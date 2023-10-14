@@ -51,11 +51,8 @@ func (c *IBMCloudClient) CreateVM(vpcID, subnetID,
 		return nil, err
 	}
 
-	sgGrps := []vpcv1.SecurityGroupIdentityIntf{
-		&vpcv1.SecurityGroupIdentityByID{ID: securityGroup.ID}}
-
 	instance, err := c.createVM(imageID, profile, keyID, vpcID,
-		subnetID, zone, name, sgGrps)
+		subnetID, zone, name, securityGroup)
 	if err != nil {
 		utils.Log.Println("Failed to launch instance with error:\n", err)
 		return nil, err
@@ -66,15 +63,18 @@ func (c *IBMCloudClient) CreateVM(vpcID, subnetID,
 
 func (c *IBMCloudClient) createVM(
 	imageID, profile, keyID, vpcID, subnetID, zone, name string,
-	securityGroups []vpcv1.SecurityGroupIdentityIntf) (
+	securityGroup *vpcv1.SecurityGroup) (
 	*vpcv1.Instance, error) {
 	instanceTags := []string{vpcID}
+
+	sgGrps := []vpcv1.SecurityGroupIdentityIntf{
+		&vpcv1.SecurityGroupIdentityByID{ID: securityGroup.ID}}
 
 	subnetIdentity := vpcv1.SubnetIdentityByID{ID: &subnetID}
 
 	nicPrototype := vpcv1.NetworkInterfacePrototype{
 		Subnet:         &subnetIdentity,
-		SecurityGroups: securityGroups,
+		SecurityGroups: sgGrps,
 	}
 	keyIdentity := vpcv1.KeyIdentityByID{ID: &keyID}
 	imageIdentity := vpcv1.ImageIdentityByID{ID: &imageID}
@@ -97,9 +97,17 @@ func (c *IBMCloudClient) createVM(
 
 	err = c.attachTag(instance.CRN, instanceTags)
 	if err != nil {
-		utils.Log.Print("Failed to tag VPC with error:", err)
+		utils.Log.Print("Failed to tag VM with error:", err)
 		return nil, err
 	}
+
+	// add VM ID tag to security group
+	err = c.attachTag(securityGroup.CRN, []string{*instance.ID})
+	if err != nil {
+		utils.Log.Print("Failed to tag SG with error:", err)
+		return nil, err
+	}
+
 	return instance, nil
 }
 

@@ -91,13 +91,11 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	if err != nil {
 		return nil, err
 	}
-	if len(subnetsIDs) != 0 {
-		// at least one invisinets subnet that fits the query was found. Use a random one.
-		subnetID = subnetsIDs[0]
-	} else {
-		// No invisinets subnets were found matching vpc and zone, currently er
+	if len(subnetsIDs) == 0 {
+		// No invisinets subnets were found matching vpc and zone
 		return nil, fmt.Errorf("invisinets subnet wasn't found")
 	}
+	subnetID = subnetsIDs[0]
 
 	vm, err := s.cloudClient.CreateVM(vpcID, subnetID,
 		vmFields.Zone, vmFields.Name, vmFields.Profile)
@@ -182,7 +180,7 @@ func (s *ibmPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 
 // Attaches SG rules to the specified instance in PermitList.AssociatedResource.
 func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	var vmInvisinetsSgID string // security group to add rules to
+	// var vmInvisinetsSgID string // security group to add rules to
 	var subnetsCIDRs []string
 	resourceIDInfo, err := getResourceIDInfo(pl.AssociatedResource)
 	if err != nil {
@@ -194,29 +192,15 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 		return nil, err
 	}
 
-	vmSgIDs, err := s.cloudClient.GetSecurityGroupsOfVM(vmID)
-	if err != nil {
-		return nil, err
-	}
-	if len(vmSgIDs) == 0 {
-		return nil, fmt.Errorf("no security groups were found for VM %v", vmID)
-	}
-
-	invisinetsSgIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.SG, nil, sdk.ResourceQuery{Region: region})
+	invisinetsSgIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
 	if err != nil {
 		return nil, err
 	}
 	if len(invisinetsSgIDs) == 0 {
-		return nil, fmt.Errorf("no invisinets security groups were found for VM %v", vmID)
+		return nil, fmt.Errorf("no security groups were found for VM %v", vmID)
 	}
-
-	// pick invisinets SG out of VM's SGs.
-	for _, invisinetsSG := range invisinetsSgIDs {
-		if sdk.DoesSliceContain(vmSgIDs, invisinetsSG) {
-			vmInvisinetsSgID = invisinetsSG
-			break // optimization: result found.
-		}
-	}
+	// assuming up to a single invisinets subnet can exist per zone
+	vmInvisinetsSgID := invisinetsSgIDs[0]
 
 	vpcID, err := s.cloudClient.VmID2VpcID(vmID)
 	if err != nil {
@@ -295,7 +279,6 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 
 // deletes security group rules matching the attributes of the rules contained in the relevant Security group
 func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	var vmInvisinetsSgID string // security group to delete rules from
 	resourceIDInfo, err := getResourceIDInfo(pl.AssociatedResource)
 	if err != nil {
 		return nil, err
@@ -306,29 +289,15 @@ func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, pl *invisin
 		return nil, err
 	}
 
-	vmSgIDs, err := s.cloudClient.GetSecurityGroupsOfVM(vmID)
-	if err != nil {
-		return nil, err
-	}
-	if len(vmSgIDs) == 0 {
-		return nil, fmt.Errorf("no security groups were found for VM %v", vmID)
-	}
-
-	invisinetsSgIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.SG, nil, sdk.ResourceQuery{Region: region})
+	invisinetsSgIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
 	if err != nil {
 		return nil, err
 	}
 	if len(invisinetsSgIDs) == 0 {
-		return nil, fmt.Errorf("no invisinets security groups were found for VM %v", vmID)
+		return nil, fmt.Errorf("no security groups were found for VM %v", vmID)
 	}
-
-	// pick invisinets SG out of VM's SGs.
-	for _, invisinetsSG := range invisinetsSgIDs {
-		if sdk.DoesSliceContain(vmSgIDs, invisinetsSG) {
-			vmInvisinetsSgID = invisinetsSG
-			break // optimization: result found.
-		}
-	}
+	// assuming up to a single invisinets subnet can exist per zone
+	vmInvisinetsSgID := invisinetsSgIDs[0]
 
 	ibmRulesToDelete, err := invisinetsRules2IbmRules(vmInvisinetsSgID, pl.Rules)
 	if err != nil {
