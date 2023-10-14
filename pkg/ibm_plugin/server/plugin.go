@@ -21,7 +21,7 @@ type ibmPluginServer struct {
 }
 
 func (s *ibmPluginServer) setupCloudClient(region string) error {
-	client, err := sdk.NewIbmCloudClient(region)
+	client, err := sdk.NewIBMCloudClient(region)
 	if err != nil {
 		utils.Log.Println("Failed to set up IBM clients with error:", err)
 		return err
@@ -44,7 +44,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 
 	region, err := sdk.Zone2Region(vmFields.Zone)
 	if err != nil {
-		utils.Log.Println("Invalid region:", region)
+		utils.Log.Println("Failed to convert zone to region:", region)
 		return nil, err
 	}
 	err = s.setupCloudClient(region)
@@ -146,9 +146,6 @@ func (s *ibmPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 		return nil, err
 	}
 	region, vmID := resourceIDInfo.Region, resourceIDInfo.ResourceID
-	if !sdk.IsRegionValid(region) {
-		return nil, fmt.Errorf("region %v isn't valid", region)
-	}
 	err = s.setupCloudClient(region)
 	if err != nil {
 		return nil, err
@@ -192,10 +189,6 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 		return nil, err
 	}
 	region, vmID := resourceIDInfo.Region, resourceIDInfo.ResourceID
-	if !sdk.IsRegionValid(region) {
-		return nil, fmt.Errorf("region %v isn't valid", region)
-	}
-
 	err = s.setupCloudClient(region)
 	if err != nil {
 		return nil, err
@@ -308,10 +301,6 @@ func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, pl *invisin
 		return nil, err
 	}
 	region, vmID := resourceIDInfo.Region, resourceIDInfo.ResourceID
-	if !sdk.IsRegionValid(region) {
-		return nil, fmt.Errorf("region %v isn't valid", region)
-	}
-
 	err = s.setupCloudClient(region)
 	if err != nil {
 		return nil, err

@@ -1,8 +1,11 @@
 package ibm
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"net/netip"
 	"reflect"
 	"strconv"
@@ -38,8 +41,30 @@ type ResourceQuery struct {
 	Zone   string
 }
 
-var Regions = [10]string{"us-south", "us-east", "eu-de", "eu-gb", "eu-es", "ca-tor", "au-syd",
-	"br-sao", "jp-osa", "jp-tok"}
+// cache of regions, initialized by GetRegions().shouldn't be accessed directly.
+var regionCache []string
+
+// returns regionCache. if regionCache is empty, it's first initialized.
+func GetRegions() ([]string, error) {
+	if len(regionCache) != 0 {
+		return regionCache, nil
+	}
+	response, err := http.Get("https://control.cloud-object-storage.cloud.ibm.com/v2/endpoints")
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	responseBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+	var data map[string]interface{}
+	json.Unmarshal([]byte(responseBody), &data)
+	for regionName := range data["service-endpoints"].(map[string]interface{})["regional"].(map[string]interface{}) {
+		regionCache = append(regionCache, regionName)
+	}
+	return regionCache, nil
+}
 
 // returns true if a slice contains an item
 func DoesSliceContain[T comparable](slice []T, target T) bool {
@@ -52,8 +77,12 @@ func DoesSliceContain[T comparable](slice []T, target T) bool {
 }
 
 // returns true if region is a valid IBM region
-func IsRegionValid(region string) bool {
-	return DoesSliceContain(Regions[:], region)
+func IsRegionValid(region string) (bool, error) {
+	regions, err := GetRegions()
+	if err != nil {
+		return false, err
+	}
+	return DoesSliceContain(regions[:], region), nil
 }
 
 // returns url of IBM region
@@ -64,7 +93,7 @@ func endpointURL(region string) string {
 // returns zones of region
 func GetZonesOfRegion(region string) ([]string, error) {
 	zonesPerRegion := 3
-	if !IsRegionValid(region) {
+	if isRegionValid, err := IsRegionValid(region); !isRegionValid || err != nil {
 		return nil, fmt.Errorf("region %v isn't valid", region)
 	}
 	res := make([]string, zonesPerRegion)
@@ -76,6 +105,11 @@ func GetZonesOfRegion(region string) ([]string, error) {
 
 // returns region of zone
 func Zone2Region(zone string) (string, error) {
+	regions, err := GetRegions()
+	if err != nil {
+		return "", err
+	}
+
 	lastDashIndex := strings.LastIndex(zone, "-")
 
 	if lastDashIndex == -1 {
@@ -83,7 +117,7 @@ func Zone2Region(zone string) (string, error) {
 	}
 	regionVal := zone[:lastDashIndex]
 
-	for _, region := range Regions {
+	for _, region := range regions {
 		if regionVal == region {
 			return regionVal, nil
 		}

@@ -30,8 +30,11 @@ func (c *IBMCloudClient) UpdateRegion(region string) {
 }
 
 // returns IBMCloudClient instance with initialized clients
-func NewIbmCloudClient(region string) (*IBMCloudClient, error) {
-	creds, err := get_ibm_cred()
+func NewIBMCloudClient(region string) (*IBMCloudClient, error) {
+	if isRegionValid, err := IsRegionValid(region); !isRegionValid || err != nil {
+		return nil, fmt.Errorf("region %v isn't valid", region)
+	}
+	creds, err := getIBMCred()
 	if err != nil {
 		return nil, err
 	}

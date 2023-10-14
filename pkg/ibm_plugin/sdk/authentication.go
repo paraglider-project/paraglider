@@ -85,7 +85,7 @@ func (c *IBMCloudClient) getKeyByPublicKey(publicKeyData string) (string, error)
 }
 
 // returns "Credentials" object loaded from "credentialsPath"
-func get_ibm_cred() (Credentials, error) {
+func getIBMCred() (Credentials, error) {
 	var credentials Credentials
 
 	homeDir, err := os.UserHomeDir()
