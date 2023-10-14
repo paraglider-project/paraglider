@@ -101,7 +101,7 @@ func sgRules2InvisinetsRules(rules []sdk.SecurityGroupRule) ([]*invisinetspb.Per
 		srcPort, dstPort := rule.PortMin, rule.PortMin
 
 		permitListRule := &invisinetspb.PermitListRule{
-			Tags:      []string{rule.Remote},
+			Targets:   []string{rule.Remote},
 			Id:        rule.ID,
 			Direction: ibmToInvisinetsDirection[rule.Egress],
 			SrcPort:   int32(srcPort),
@@ -120,11 +120,11 @@ func invisinetsRules2IbmRules(securityGroupID string, rules []*invisinetspb.Perm
 	[]sdk.SecurityGroupRule, error) {
 	var sgRules []sdk.SecurityGroupRule
 	for _, rule := range rules {
-		if len(rule.Tags) == 0 {
+		if len(rule.Targets) == 0 {
 			return nil, fmt.Errorf("PermitListRule is missing Tag value. Rule:%+v", rule)
 		}
-		for _, tag := range rule.Tags {
-			remote := tag
+		for _, target := range rule.Targets {
+			remote := target
 			remoteType, err := sdk.GetRemoteType(remote)
 			if err != nil {
 				return nil, err

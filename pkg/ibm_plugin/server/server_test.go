@@ -30,14 +30,14 @@ var premitList1 []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRule{
 		SrcPort:   443,
 		DstPort:   443,
 		Protocol:  6,
-		Tags:      []string{"10.0.0.0/18"},
+		Targets:   []string{"10.0.0.0/18"},
 	},
 	{
 		Direction: invisinetspb.Direction_OUTBOUND,
 		SrcPort:   8080,
 		DstPort:   8080,
 		Protocol:  6,
-		Tags:      []string{"10.0.128.12"},
+		Targets:   []string{"10.0.128.12", "10.0.128.13"},
 	},
 	//All protocol rules
 	{
@@ -45,14 +45,14 @@ var premitList1 []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRule{
 		SrcPort:   -1,
 		DstPort:   -1,
 		Protocol:  -1,
-		Tags:      []string{"10.0.64.0/22"},
+		Targets:   []string{"10.0.64.0/22", "10.0.64.0/24"},
 	},
 	{
 		Direction: invisinetspb.Direction_OUTBOUND,
 		SrcPort:   -1,
 		DstPort:   -1,
 		Protocol:  -1,
-		Tags:      []string{"10.0.64.1"},
+		Targets:   []string{"10.0.64.1"},
 	},
 }
 
