@@ -101,7 +101,7 @@ func sgRules2InvisinetsRules(rules []sdk.SecurityGroupRule) ([]*invisinetspb.Per
 		srcPort, dstPort := rule.PortMin, rule.PortMin
 
 		permitListRule := &invisinetspb.PermitListRule{
-			Tags:       []string{rule.Remote},
+			Tags:      []string{rule.Remote},
 			Id:        rule.ID,
 			Direction: ibmToInvisinetsDirection[rule.Egress],
 			SrcPort:   int32(srcPort),
@@ -121,28 +121,29 @@ func invisinetsRules2IbmRules(securityGroupID string, rules []*invisinetspb.Perm
 	var sgRules []sdk.SecurityGroupRule
 	for _, rule := range rules {
 		if len(rule.Tags) == 0 {
-			return nil, fmt.Errorf("PermitListRule is missing Tag value")
+			return nil, fmt.Errorf("PermitListRule is missing Tag value. Rule:%+v", rule)
 		}
-		remote := rule.Tags[0]
-		remoteType, err := sdk.GetRemoteType(remote)
-		if err != nil {
-			return nil, err
+		for _, tag := range rule.Tags {
+			remote := tag
+			remoteType, err := sdk.GetRemoteType(remote)
+			if err != nil {
+				return nil, err
+			}
+			sgRule := sdk.SecurityGroupRule{
+				ID:         rule.Id,
+				SgID:       securityGroupID,
+				Protocol:   invisinetsToIBMprotocol[rule.Protocol],
+				Remote:     remote,
+				RemoteType: remoteType,
+				PortMin:    int64(rule.SrcPort),
+				PortMax:    int64(rule.SrcPort),
+				Egress:     invisinetsToIBMDirection[rule.Direction],
+				// explicitly setting value to 0. other icmp values have meaning.
+				IcmpType: 0,
+				IcmpCode: 0,
+			}
+			sgRules = append(sgRules, sgRule)
 		}
-
-		sgRule := sdk.SecurityGroupRule{
-			ID:         rule.Id,
-			SgID:       securityGroupID,
-			Protocol:   invisinetsToIBMprotocol[rule.Protocol],
-			Remote:     remote,
-			RemoteType: remoteType,
-			PortMin:    int64(rule.SrcPort),
-			PortMax:    int64(rule.SrcPort),
-			Egress:     invisinetsToIBMDirection[rule.Direction],
-			// explicitly setting value to 0. other icmp values have meaning.
-			IcmpType:   0,
-			IcmpCode:   0,
-		}
-		sgRules = append(sgRules, sgRule)
 	}
 	return sgRules, nil
 }
