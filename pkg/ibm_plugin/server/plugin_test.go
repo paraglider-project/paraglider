@@ -118,10 +118,13 @@ func TestGetPermitList(t *testing.T) {
 	resp, err := s.GetPermitList(context.Background(), resourceID)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-
+	// uncomment to print permit fetched.
+	// printPermitRules(t, resp)
+}
+func printPermitRules(t *testing.T, resp *invisinetspb.PermitList) {
 	b, err := json.MarshalIndent(resp, "", "  ")
 	require.NoError(t, err)
-	// Please note: direction:0(inbound) will not be printed.
+	// Note: direction:0(inbound) will not be printed.
 	fmt.Printf("Permit rules of instance %v are:\n%v", vmID, string(b))
 }
 
@@ -129,7 +132,7 @@ func TestGetPermitList(t *testing.T) {
 func TestAddPermitListRules(t *testing.T) {
 	if vmID == "" || region == "" {
 		println("(TestGetPermitList skipped - missing arguments)")
-		t.Skip("TestCreateResourceVMExsitingVPC skipped - missing arguments")
+		t.Skip("TestAddPermitListRules skipped - missing arguments")
 	}
 
 	permitList := &invisinetspb.PermitList{

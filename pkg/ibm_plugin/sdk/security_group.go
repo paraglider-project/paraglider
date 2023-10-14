@@ -94,17 +94,14 @@ func (c *IBMCloudClient) translateSecurityGroupRuleGroupRuleProtocolAll(
 	if err != nil {
 		return nil, err
 	}
-	isEgress := false
-	if *ibmRuleProtoAll.Direction == "outbound" {
-		isEgress = true
-	}
+
 	rule := SecurityGroupRule{
 		ID:         *ibmRuleProtoAll.ID,
 		Protocol:   *ibmRuleProtoAll.Protocol,
 		SgID:       sgID,
 		Remote:     remote,
 		RemoteType: remoteType,
-		Egress:     isEgress,
+		Egress:     *ibmRuleProtoAll.Direction == "outbound",
 		PortMin:    int64(-1),
 		PortMax:    int64(-1),
 	}

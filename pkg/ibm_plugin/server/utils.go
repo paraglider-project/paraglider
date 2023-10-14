@@ -55,6 +55,8 @@ var ibmToInvisinetsProtocol = map[string]int32{
 	"udp":  17,
 }
 
+// returns ResourceIDInfo out of an agreed upon formatted string: 
+// "/ResourceGroupID/{ResourceGroupID}/Region/{Region}/ResourceID/{ResourceID}"
 func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	parts := strings.Split(resourceID, "/")
 	if len(parts) < 5 {

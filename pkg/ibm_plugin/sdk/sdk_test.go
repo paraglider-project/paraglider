@@ -29,7 +29,7 @@ func TestTerminateVPC(t *testing.T) {
 
 // Testing a function that returns true if cidr1 is a subset of cidr2,
 // i.e. all ips in cidr1 exist within cidr2
-func TestCiderSubset(t *testing.T) {
+func TestCidrSubset(t *testing.T) {
 	cidr1 := "10.10.10.8/29"  // 10.10.10.8 - 10.10.10.151
 	cidr2 := "10.10.10.0/24"  // 10.10.10.0 - 10.10.10.255
 	cidr3 := "192.50.64.0/17" // 192.50.0.0 - 192.50.127.255
@@ -49,7 +49,7 @@ func TestCiderSubset(t *testing.T) {
 
 // Testing a function that returns true if cidr1 and cidr2 overlap,
 // i.e. the CIDRs share at least one ip
-func TestCiderOverlap(t *testing.T) {
+func TestCidrOverlap(t *testing.T) {
 	cidr1 := "10.10.10.8/29"  // 10.10.10.8 - 10.10.10.151
 	cidr2 := "10.10.10.0/24"  // 10.10.10.0 - 10.10.10.255
 	cidr3 := "192.50.64.0/17" // 192.50.0.0 - 192.50.127.255
