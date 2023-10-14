@@ -21,7 +21,7 @@ func TestTerminateVPC(t *testing.T) {
 		println("(TestTerminateVPC skipped - missing arguments)")
 		t.Skip("TestTerminateVPC skipped - missing arguments")
 	}
-	cloudClient, err := NewIbmCloudClient(vpcRegion)
+	cloudClient, err := NewIBMCloudClient(vpcRegion)
 	require.NoError(t, err)
 	err = cloudClient.TerminateVPC(vpcID)
 	require.NoError(t, err)
