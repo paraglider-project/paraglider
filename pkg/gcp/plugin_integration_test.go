@@ -53,6 +53,7 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
+	ctx := context.Background()
 
 	// Teardown
 	teardownInfo := &GcpTestTeardownInfo{
@@ -72,7 +73,7 @@ func TestIntegration(t *testing.T) {
 	}
 	resourceDescription1 := &invisinetspb.ResourceDescription{Description: insertInstanceReq1Bytes, Namespace: "default"}
 	createResource1Resp, err := s.CreateResource(
-		context.Background(),
+		ctx,
 		resourceDescription1,
 	)
 	require.NoError(t, err)
@@ -90,7 +91,7 @@ func TestIntegration(t *testing.T) {
 	}
 	resourceDescription2 := &invisinetspb.ResourceDescription{Description: insertInstanceReq2Bytes, Namespace: "default"}
 	createResource2Resp, err := s.CreateResource(
-		context.Background(),
+		ctx,
 		resourceDescription2,
 	)
 	require.NoError(t, err)
@@ -98,7 +99,7 @@ func TestIntegration(t *testing.T) {
 	assert.True(t, createResource2Resp.Success)
 
 	// Check VPC and subnetworks
-	networksClient, err := compute.NewNetworksRESTClient(context.Background())
+	networksClient, err := compute.NewNetworksRESTClient(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +107,7 @@ func TestIntegration(t *testing.T) {
 		Network: getVpcName("default"),
 		Project: project,
 	}
-	getNetworkResp, err := networksClient.Get(context.Background(), getNetworkReq)
+	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
 	require.NoError(t, err)
 	require.NotNil(t, getNetworkResp)
 	subnetworks := make([]string, len(getNetworkResp.Subnetworks))
@@ -119,10 +120,23 @@ func TestIntegration(t *testing.T) {
 		subnetworks,
 	)
 
+	// Check default deny all egress rule exists
+	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	getFirewallReq := &computepb.GetFirewallRequest{
+		Project:  project,
+		Firewall: getDenyAllIngressFirewallName(),
+	}
+	getFirewallResp, err := firewallsClient.Get(ctx, getFirewallReq)
+	require.NoError(t, err)
+	require.NotNil(t, getFirewallResp)
+
 	// Add bidirectional PING permit list rules
 	vm1Id := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, vm1Zone, vm1Name)
 	vm2Id := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, vm2Zone, vm2Name)
-	instancesClient, err := compute.NewInstancesRESTClient(context.Background())
+	instancesClient, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +191,7 @@ func TestIntegration(t *testing.T) {
 	}
 	for i, vmId := range vmIds {
 		permitList := permitLists[i]
-		addPermitListRulesResp, err := s.AddPermitListRules(context.Background(), permitList)
+		addPermitListRulesResp, err := s.AddPermitListRules(ctx, permitList)
 		require.NoError(t, err)
 		require.NotNil(t, addPermitListRulesResp)
 		assert.True(t, addPermitListRulesResp.Success)
@@ -208,7 +222,7 @@ func TestIntegration(t *testing.T) {
 	// Delete permit lists
 	for i, vmId := range vmIds {
 		permitList := permitLists[i]
-		deletePermitListRulesResp, err := s.DeletePermitListRules(context.Background(), permitList)
+		deletePermitListRulesResp, err := s.DeletePermitListRules(ctx, permitList)
 		require.NoError(t, err)
 		require.NotNil(t, deletePermitListRulesResp)
 		assert.True(t, deletePermitListRulesResp.Success)

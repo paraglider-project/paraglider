@@ -50,9 +50,9 @@ type GCPPluginServer struct {
 var (
 	vpcName                       = "invisinets-vpc" // Invisinets VPC name
 	subnetworkNamePrefix          = "invisinets-"
-	networkTagPrefix              = "invisinets-permitlist-" // Prefix for GCP tags related to invisinets
-	firewallNamePrefix            = "fw-" + networkTagPrefix // Prefix for firewall names related to invisinets
-	firewallRuleDescriptionPrefix = "invisinets rule"        // GCP firewall rule prefix for description
+	networkTagPrefix              = "invisinets-vm-"  // Prefix for GCP tags related to invisinets
+	firewallNamePrefix            = "invisinets-fw-"  // Prefix for firewall names related to invisinets
+	firewallRuleDescriptionPrefix = "invisinets rule" // GCP firewall rule prefix for description
 	vpnGwName                     = "invisinets-vpn-gw"
 	routerName                    = "invisinets-router"
 	peerGwNamePrefix              = "invisinets-"
@@ -169,6 +169,7 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 	))[:firewallNameMaxLength]
 }
 
+
 // Returns VPC for Invisinets in a shortened GCP URI format
 // TODO @seankimkdy: should return full URI
 func GetVpcUri(namespace string) string {
@@ -178,6 +179,10 @@ func GetVpcUri(namespace string) string {
 // Gets a GCP VPC name
 func getVpcName(namespace string) string {
 	return namespace + "-" + vpcName
+
+// Returns name of firewall for denying all egress traffic
+func getDenyAllIngressFirewallName() string {
+	return firewallNamePrefix + "deny-all-egress"
 }
 
 // Gets a GCP network tag for a GCP resource
@@ -343,7 +348,8 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 	}
 
 	for _, firewall := range resp.Firewalls {
-		if isInvisinetsPermitListRule(firewall) {
+		// Exclude default deny all egress from being included since it applies to every VM
+		if isInvisinetsPermitListRule(firewall) && *firewall.Name != getDenyAllIngressFirewallName() {
 			permitListRules := make([]*invisinetspb.PermitListRule, len(firewall.Allowed))
 			for i, rule := range firewall.Allowed {
 				protocolNumber, err := getProtocolNumber(*rule.IPProtocol)
@@ -601,7 +607,7 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, permitList 
 	return s._DeletePermitListRules(ctx, permitList, firewallsClient, instancesClient)
 }
 
-func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.BasicResponse, error) {
+func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient) (*invisinetspb.BasicResponse, error) {
 	// Validate user-provided description
 	insertInstanceRequest := &computepb.InsertInstanceRequest{}
 	err := json.Unmarshal(resourceDescription.Description, insertInstanceRequest)
@@ -642,6 +648,30 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 				return nil, fmt.Errorf("unable to insert network: %w", err)
 			}
 			if err = insertNetworkOp.Wait(ctx); err != nil {
+				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
+			}
+			// Deny all egress traffic since GCP implicitly allows all egress traffic
+			insertFirewallReq := &computepb.InsertFirewallRequest{
+				Project: project,
+				FirewallResource: &computepb.Firewall{
+					Denied: []*computepb.Denied{
+						{
+							IPProtocol: proto.String("all"),
+						},
+					},
+					Description:       proto.String("Invisinets deny all traffic"),
+					DestinationRanges: []string{"0.0.0.0/0"},
+					Direction:         proto.String(computepb.Firewall_EGRESS.String()),
+					Name:              proto.String(getDenyAllIngressFirewallName()),
+					Network:           proto.String(GetVpcUri()),
+					Priority:          proto.Int32(65534),
+				},
+			}
+			insertFirewallOp, err := firewallsClient.Insert(ctx, insertFirewallReq)
+			if err != nil {
+				return nil, fmt.Errorf("unable to create firewall rule: %w", err)
+			}
+			if err = insertFirewallOp.Wait(ctx); err != nil {
 				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 			}
 		} else {
@@ -745,20 +775,22 @@ func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescriptio
 		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
 	}
 	defer instancesClient.Close()
-
 	networksClient, err := compute.NewNetworksRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewNetworksRESTClient: %w", err)
 	}
 	defer networksClient.Close()
-
 	subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewSubnetworksRESTClient: %w", err)
 	}
 	defer subnetworksClient.Close()
+	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewFirewallsRESTClient: %w", err)
+	}
 
-	return s._CreateResource(ctx, resourceDescription, instancesClient, networksClient, subnetworksClient)
+	return s._CreateResource(ctx, resourceDescription, instancesClient, networksClient, subnetworksClient, firewallsClient)
 }
 
 func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsDeployment *invisinetspb.InvisinetsDeployment, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.AddressSpaceList, error) {
