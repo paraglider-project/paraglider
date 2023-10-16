@@ -663,7 +663,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 					DestinationRanges: []string{"0.0.0.0/0"},
 					Direction:         proto.String(computepb.Firewall_EGRESS.String()),
 					Name:              proto.String(getDenyAllIngressFirewallName()),
-					Network:           proto.String(GetVpcUri()),
+					Network:           proto.String(GetVpcUri(resourceDescription.Namespace)),
 					Priority:          proto.Int32(65534),
 				},
 			}
