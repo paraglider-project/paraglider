@@ -169,7 +169,6 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
 	))[:firewallNameMaxLength]
 }
 
-
 // Returns VPC for Invisinets in a shortened GCP URI format
 // TODO @seankimkdy: should return full URI
 func GetVpcUri(namespace string) string {
@@ -179,6 +178,7 @@ func GetVpcUri(namespace string) string {
 // Gets a GCP VPC name
 func getVpcName(namespace string) string {
 	return namespace + "-" + vpcName
+}
 
 // Returns name of firewall for denying all egress traffic
 func getDenyAllIngressFirewallName() string {
