@@ -119,7 +119,7 @@ func TeardownGcpTesting(teardownInfo *GcpTestTeardownInfo) {
 	// Firewalls
 	getEffectiveFirewallsReq := &computepb.GetEffectiveFirewallsNetworkRequest{
 		Project: teardownInfo.Project,
-		Network: vpcName,
+		Network: getVpcName("default"),
 	}
 	getEffectiveFirewallsResp, err := networksClient.GetEffectiveFirewalls(ctx, getEffectiveFirewallsReq)
 	if err != nil {
@@ -263,7 +263,7 @@ func TeardownGcpTesting(teardownInfo *GcpTestTeardownInfo) {
 	// VPC
 	deleteNetworkReq := &computepb.DeleteNetworkRequest{
 		Project: teardownInfo.Project,
-		Network: vpcName,
+		Network: getVpcName("default"),
 	}
 	deleteNetworkOp, err := networksClient.Delete(ctx, deleteNetworkReq)
 	if err != nil {
