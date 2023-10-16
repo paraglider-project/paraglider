@@ -339,6 +339,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: resourceID.Id,
 		Rules:              []*invisinetspb.PermitListRule{},
+		Namespace:          resourceID.Namespace,
 	}
 
 	for _, firewall := range resp.Firewalls {

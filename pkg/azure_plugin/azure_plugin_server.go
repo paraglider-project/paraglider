@@ -118,6 +118,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invis
 	pl := &invisinetspb.PermitList{
 		AssociatedResource: resourceID.Id,
 		Rules:              []*invisinetspb.PermitListRule{},
+		Namespace:          resourceID.Namespace,
 	}
 
 	// get the NSG rules
