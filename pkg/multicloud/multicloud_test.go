@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
@@ -62,7 +61,7 @@ func TestMulticloud(t *testing.T) {
 			{
 				Name:          utils.AZURE,
 				Host:          "localhost",
-				Port:          azurePluginPort
+				Port:          azurePluginPort,
 				InvDeployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName),
 			},
 			{
