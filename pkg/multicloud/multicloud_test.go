@@ -81,16 +81,16 @@ func TestMulticloud(t *testing.T) {
 	azureVmLocation := "westus"
 	azureVmParameters := azure_plugin.GetTestVmParameters(azureVmLocation)
 	azureVmDescription, err := json.Marshal(azureVmParameters)
-	azureVmId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + "invisinets-vm-test"
+	azureVmResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + "invisinets-vm-test"
 	azureCreateResourceResp, err := azureServer.CreateResource(
 		ctx,
-		&invisinetspb.ResourceDescription{Id: azureVmId, Description: azureVmDescription},
+		&invisinetspb.ResourceDescription{Id: azureVmResourceId, Description: azureVmDescription},
 	)
 	require.NoError(t, err)
 	require.NoError(t, err)
 	require.NotNil(t, azureCreateResourceResp)
 	assert.True(t, azureCreateResourceResp.Success)
-	assert.Equal(t, azureCreateResourceResp.UpdatedResource.Id, azureVmId)
+	assert.Equal(t, azureCreateResourceResp.UpdatedResource.Id, azureVmResourceId)
 	fmt.Println("Created Azure VM")
 	// Create GCP VM
 	gcpVmZone := "us-west1-a"
@@ -108,7 +108,7 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Created GCP VM")
 
 	// Create GCP permit list
-	azureVmIpAddress, err := azure_plugin.GetVmIpAddress(azureVmId)
+	azureVmIpAddress, err := azure_plugin.GetVmIpAddress(azureVmResourceId)
 	require.NoError(t, err)
 	gcpVmPermitList := &invisinetspb.PermitList{
 		AssociatedResource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProject, gcpVmZone, gcpVmName),
@@ -146,7 +146,7 @@ func TestMulticloud(t *testing.T) {
 	gcpVmIpAddress, err := gcp.GetInstanceIpAddress(gcpProject, gcpVmZone, gcpVmName)
 	require.NoError(t, err)
 	azureVmPermitList := &invisinetspb.PermitList{
-		AssociatedResource: azureVmId,
+		AssociatedResource: azureVmResourceId,
 		Rules: []*invisinetspb.PermitListRule{
 			{
 				Direction: invisinetspb.Direction_INBOUND,
@@ -178,16 +178,19 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Added Azure permit list rules")
 
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
-	gcpVmEndpoint := &networkmanagementpb.Endpoint{
+	gcpConnectivityTestGcpVmEndpoint := &networkmanagementpb.Endpoint{
 		IpAddress: gcpVmIpAddress,
 		Network:   "projects/" + gcpProject + "/" + gcp.GetVpcUri(),
 		ProjectId: gcpProject,
 	}
-	azureVmEndpoint := &networkmanagementpb.Endpoint{
+	gcpConnectivityTestAzureVmEndpoint := &networkmanagementpb.Endpoint{
 		IpAddress:   azureVmIpAddress,
 		NetworkType: networkmanagementpb.Endpoint_NON_GCP_NETWORK,
 	}
-	gcp.RunPingConnectivityTest(t, gcpTeardownInfo, gcpProject, "gcp-azure", gcpVmEndpoint, azureVmEndpoint)
+	gcp.RunPingConnectivityTest(t, gcpTeardownInfo, gcpProject, "gcp-azure", gcpConnectivityTestGcpVmEndpoint, gcpConnectivityTestAzureVmEndpoint)
 
-	// TODO @seankimkdy: add Azure network watcher test
+	// Run Azure connectivity check (ping from Azure VM to GCP VM)
+	azureConnectivityCheck, err := azure_plugin.RunPingConnectivityCheck(azureVmResourceId, gcpVmIpAddress)
+	require.Nil(t, err)
+	require.True(t, azureConnectivityCheck)
 }

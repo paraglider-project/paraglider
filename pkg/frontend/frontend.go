@@ -422,7 +422,7 @@ func (s *ControllerServer) updateUsedAddressSpacesMap() error {
 	for _, cloud := range s.config.Clouds {
 		addressList, err := s.getAddressSpaces(cloud.Name, cloud.InvDeployment)
 		if err != nil {
-			return fmt.Errorf("Could not retrieve address spaces for cloud %s", cloud)
+			return fmt.Errorf("Could not retrieve address spaces for cloud %s: %w", cloud, err)
 		}
 
 		s.usedAddressSpaces[cloud.Name] = addressList.AddressSpaces
