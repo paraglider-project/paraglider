@@ -78,7 +78,7 @@ var (
 			},
 		},
 		Direction:    proto.String(computepb.Firewall_INGRESS.String()),
-		Name:         proto.String(getFirewallName(fakePermitListRule1)),
+		Name:         proto.String(getFirewallName(fakePermitListRule1, 1)),
 		Network:      proto.String(GetVpcUri(fakeNamespace)),
 		SourceRanges: []string{"10.1.2.0/24"},
 		TargetTags:   []string{fakeNetworkTag},
@@ -100,7 +100,7 @@ var (
 		},
 		DestinationRanges: []string{"10.3.4.0/24"},
 		Direction:         proto.String(computepb.Firewall_EGRESS.String()),
-		Name:              proto.String(getFirewallName(fakePermitListRule2)),
+		Name:              proto.String(getFirewallName(fakePermitListRule2, 2)),
 		Network:           proto.String(GetVpcUri(fakeNamespace)),
 		TargetTags:        []string{fakeNetworkTag},
 	}

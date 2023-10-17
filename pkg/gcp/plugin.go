@@ -158,8 +158,9 @@ func hash(values ...string) string {
 
 // Gets a GCP firewall rule name for an Invisinets permit list rule
 // If two Invisinets permit list rules are equal, then they will have the same GCP firewall rule name.
-func getFirewallName(permitListRule *invisinetspb.PermitListRule) string {
+func getFirewallName(permitListRule *invisinetspb.PermitListRule, instanceId uint64) string {
 	return (firewallNamePrefix + hash(
+		strconv.FormatUint(instanceId, 10),
 		strconv.Itoa(int(permitListRule.Protocol)),
 		strconv.Itoa(int(permitListRule.DstPort)),
 		strconv.Itoa(int(permitListRule.SrcPort)),
@@ -185,9 +186,9 @@ func getDenyAllIngressFirewallName() string {
 	return firewallNamePrefix + "deny-all-egress"
 }
 
-// Gets a GCP network tag for a GCP resource
-func getGCPNetworkTag(gcpResourceId uint64) string {
-	return networkTagPrefix + strconv.FormatUint(gcpResourceId, 10)
+// Gets a GCP network tag for a GCP instance
+func getGCPNetworkTag(instanceId uint64) string {
+	return networkTagPrefix + strconv.FormatUint(instanceId, 10)
 }
 
 // Gets a GCP subnetwork name for Invisinets based on region
@@ -219,8 +220,8 @@ func parseGCPURL(url string) map[string]string {
 	return parsedURL
 }
 
-// Splits a instance id which follows the GCP URL form the form of projects/{project}/zones/{zone}/instances/{instance}
-func parseInstanceId(instanceId string) (string, string, string) {
+// Splits a instance id which follows the GCP URI of the form projects/{project}/zones/{zone}/instances/{instance}
+func parseInstanceUri(instanceId string) (string, string, string) {
 	parsedInstanceId := parseGCPURL(instanceId)
 	return parsedInstanceId["projects"], parsedInstanceId["zones"], parsedInstanceId["instances"]
 }
@@ -322,7 +323,7 @@ func (s *GCPPluginServer) getAndCheckInstanceNamespace(ctx context.Context, inst
 
 func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
 	utils.Log.Printf("resource id: %s", resourceID.Id)
-	project, zone, instance := parseInstanceId(resourceID.Id)
+	project, zone, instance := parseInstanceUri(resourceID.Id)
 	utils.Log.Printf("project: %s, zone: %s, instance: %s", project, zone, instance)
 
 	err := s.getAndCheckInstanceNamespace(ctx, instancesClient, instance, project, zone, resourceID.Namespace)
@@ -407,7 +408,7 @@ func (s *GCPPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 }
 
 func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.BasicResponse, error) {
-	project, zone, instance := parseInstanceId(permitList.AssociatedResource)
+	project, zone, instance := parseInstanceUri(permitList.AssociatedResource)
 
 	err := s.getAndCheckInstanceNamespace(ctx, instancesClient, instance, project, zone, permitList.Namespace)
 	if err != nil {
@@ -470,7 +471,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 
 	for _, permitListRule := range permitList.Rules {
 		// TODO @seankimkdy: should we throw an error/warning if user specifies a srcport since GCP doesn't support srcport based firewalls?
-		firewallName := getFirewallName(permitListRule)
+		firewallName := getFirewallName(permitListRule, *getInstanceResp.Id)
 
 		// Skip existing permit lists rules
 		if existingFirewalls[firewallName] {
@@ -547,11 +548,22 @@ func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, permitList *in
 }
 
 func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.BasicResponse, error) {
-	project, zone, instance := parseInstanceId(permitList.AssociatedResource)
+	project, zone, instance := parseInstanceUri(permitList.AssociatedResource)
 
 	err := s.getAndCheckInstanceNamespace(ctx, instancesClient, instance, project, zone, permitList.Namespace)
 	if err != nil {
 		return nil, err
+	}
+
+	// Get instance
+	getInstanceReq := &computepb.GetInstanceRequest{
+		Instance: instance,
+		Project:  project,
+		Zone:     zone,
+	}
+	getInstanceResp, err := instancesClient.Get(ctx, getInstanceReq)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get instance: %w", err)
 	}
 
 	// Get existing firewalls
@@ -572,7 +584,7 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList
 		firewallMap[*firewall.Name] = firewall
 	}
 	for _, permitListRule := range permitList.Rules {
-		firewall, ok := firewallMap[getFirewallName(permitListRule)]
+		firewall, ok := firewallMap[getFirewallName(permitListRule, *getInstanceResp.Id)]
 		if ok && isInvisinetsPermitListRule(firewall) && isFirewallEqPermitListRule(firewall, permitListRule) {
 			deleteFirewallReq := &computepb.DeleteFirewallRequest{
 				Firewall: *firewall.Name,

@@ -19,7 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
+	"strconv"
 	"testing"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
@@ -62,13 +62,13 @@ func TestMulticloud(t *testing.T) {
 			{
 				Name:          utils.AZURE,
 				Host:          "localhost",
-				Port:          azurePluginPort
+				Port:          strconv.Itoa(azurePluginPort),
 				InvDeployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName),
 			},
 			{
 				Name:          utils.GCP,
 				Host:          "localhost",
-				Port:          gcpPluginPort,
+				Port:          strconv.Itoa(gcpPluginPort),
 				InvDeployment: fmt.Sprintf("projects/%s", gcpProject),
 			},
 		},
