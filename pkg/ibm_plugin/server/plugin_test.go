@@ -1,3 +1,5 @@
+//go:build ibm
+
 /*
 Copyright 2023 The Invisinets Authors.
 

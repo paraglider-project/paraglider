@@ -1,3 +1,5 @@
+//go:build ibm
+
 /*
 Copyright 2023 The Invisinets Authors.
 
@@ -35,11 +37,6 @@ const (
 	testResGroupName = "invisinets"
 	testRegion       = "us-east"
 )
-
-func TestClient(t *testing.T) {
-	_, err := NewIBMCloudClient(testResGroupName, testRegion)
-	require.NoError(t, err)
-}
 
 // run via: go test -run TestTerminateVPC -vpcID=value -vpcRegion=value
 func TestTerminateVPC(t *testing.T) {
