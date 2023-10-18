@@ -35,26 +35,14 @@ import (
 
 // TODO @seankimkdy: should this be turned into a system test where we actually call the cloud plugins through the controller GRPC?
 func TestMulticloud(t *testing.T) {
+	// Azure config
 	azurePluginPort := 1000
-	gcpPluginPort := 1001
-
-	// Setup Azure
 	azureSubscriptionId := azure_plugin.GetAzureSubscriptionId()
 	azureResourceGroupName := utils.GetGitHubRunPrefix() + "invisinets-multicloud-test"
-	azure_plugin.SetupAzureTesting(azureSubscriptionId, azureResourceGroupName)
-	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
-	go azure_plugin.Setup(azurePluginPort, controllerServerAddr)
-	fmt.Println("Setup Azure server")
 
-	// Setup GCP
+	// GCP config
+	gcpPluginPort := 1001
 	gcpProject := gcp.GetGcpProject()
-	gcpTeardownInfo := &gcp.GcpTestTeardownInfo{
-		Project:            gcpProject,
-		InsertInstanceReqs: make([]*computepb.InsertInstanceRequest, 0),
-	}
-	defer gcp.TeardownGcpTesting(gcpTeardownInfo)
-	go gcp.Setup(gcpPluginPort, controllerServerAddr)
-	fmt.Println("Setup GCP server")
 
 	// Setup controller server
 	controllerServerConfig := frontend.Config{
@@ -73,8 +61,23 @@ func TestMulticloud(t *testing.T) {
 			},
 		},
 	}
-	_ := frontend.SetupControllerServer(controllerServerConfig)
+	controllerServerAddr := frontend.SetupControllerServer(controllerServerConfig)
 	fmt.Println("Setup controller server")
+
+	// Setup Azure
+	azure_plugin.SetupAzureTesting(azureSubscriptionId, azureResourceGroupName)
+	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
+	azureServer := azure_plugin.Setup(azurePluginPort, controllerServerAddr)
+	fmt.Println("Setup Azure server")
+
+	// Setup GCP
+	gcpTeardownInfo := &gcp.GcpTestTeardownInfo{
+		Project:            gcpProject,
+		InsertInstanceReqs: make([]*computepb.InsertInstanceRequest, 0),
+	}
+	defer gcp.TeardownGcpTesting(gcpTeardownInfo)
+	gcpServer := gcp.Setup(gcpPluginPort, controllerServerAddr)
+	fmt.Println("Setup GCP server")
 
 	ctx := context.Background()
 

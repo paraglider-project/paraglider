@@ -1075,7 +1075,7 @@ func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, req *invisin
 	return s._CreateVpnConnections(ctx, req, externalVpnGatewaysClient, vpnTunnelsClient, routersClient)
 }
 
-func Setup(port int, frontendServerAddr string) {
+func Setup(port int, frontendServerAddr string) *GCPPluginServer {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
@@ -1085,7 +1085,10 @@ func Setup(port int, frontendServerAddr string) {
 	gcpServer.frontendServerAddr = frontendServerAddr
 	invisinetspb.RegisterCloudPluginServer(grpcServer, gcpServer)
 	fmt.Println("Starting server on port :", port)
-	if err := grpcServer.Serve(lis); err != nil {
-		fmt.Println(err.Error())
-	}
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
+	return gcpServer
 }
