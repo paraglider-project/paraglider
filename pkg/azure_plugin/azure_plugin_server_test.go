@@ -16,9 +16,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// TODO now: add tests cases for wrong namespace
-// TODO now: add test for new helper function
-
 package azure_plugin
 
 import (

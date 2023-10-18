@@ -31,7 +31,7 @@ service CloudPlugin {
 }
 
 service Controller {
-    rpc FindUnusedAddressSpace(Namespace) returns (AddressSpace) {} // TODO now: this should be scoped to a namespace
+    rpc FindUnusedAddressSpace(Namespace) returns (AddressSpace) {}
     rpc GetUsedAddressSpaces(Namespace) returns (AddressSpaceMappingList) {}
     rpc ConnectClouds(ConnectCloudsRequest) returns (BasicResponse) {}
 }

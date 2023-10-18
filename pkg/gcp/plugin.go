@@ -298,7 +298,7 @@ func parseDescriptionTags(description string) []string {
 }
 
 func instanceIsInNamespace(instance *computepb.Instance, namespace string) bool {
-	return strings.Contains(*instance.NetworkInterfaces[0].Network, namespace)
+	return strings.HasSuffix(*instance.NetworkInterfaces[0].Network, getVpcName(namespace))
 }
 
 func (s *GCPPluginServer) getAndCheckInstanceNamespace(ctx context.Context, instancesClient *compute.InstancesClient, instance string, project string, zone string, namespace string) error {
@@ -322,9 +322,7 @@ func (s *GCPPluginServer) getAndCheckInstanceNamespace(ctx context.Context, inst
 }
 
 func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
-	utils.Log.Printf("resource id: %s", resourceID.Id)
 	project, zone, instance := parseInstanceUri(resourceID.Id)
-	utils.Log.Printf("project: %s, zone: %s, instance: %s", project, zone, instance)
 
 	err := s.getAndCheckInstanceNamespace(ctx, instancesClient, instance, project, zone, resourceID.Namespace)
 	if err != nil {

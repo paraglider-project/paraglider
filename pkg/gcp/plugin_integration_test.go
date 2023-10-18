@@ -200,7 +200,7 @@ func TestIntegration(t *testing.T) {
 		require.NotNil(t, addPermitListRulesResp)
 		assert.True(t, addPermitListRulesResp.Success)
 
-		getPermitListAfterAddResp, err := s.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: vmUri, Namespace: "default"})
+		getPermitListAfterAddResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmUri, Namespace: "default"})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterAddResp)
 
@@ -232,7 +232,7 @@ func TestIntegration(t *testing.T) {
 		require.NotNil(t, deletePermitListRulesResp)
 		assert.True(t, deletePermitListRulesResp.Success)
 
-		getPermitListAfterDeleteResp, err := s.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: vmId, Namespace: "default"})
+		getPermitListAfterDeleteResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmId, Namespace: "default"})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterDeleteResp)
 		assert.Equal(t, permitList.AssociatedResource, getPermitListAfterDeleteResp.AssociatedResource)

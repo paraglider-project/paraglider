@@ -616,7 +616,7 @@ func TestCreateResource(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		instance: getFakeInstance(false), // Include instance in server state since CreateResource will fetch after creating to add the tag
 		network: &computepb.Network{
-			Name:        proto.String(vpcName),
+			Name:        proto.String(getVpcName(fakeNamespace)),
 			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
 		},
 	}
@@ -667,7 +667,7 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		instance: getFakeInstance(false), // Include instance in server state since CreateResource will fetch after creating to add the tag
-		network:  &computepb.Network{Name: proto.String(vpcName)},
+		network:  &computepb.Network{Name: proto.String(getVpcName(fakeNamespace))},
 	}
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
@@ -686,7 +686,7 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{Description: description}
+	resource := &invisinetspb.ResourceDescription{Description: description, Namespace: fakeNamespace}
 
 	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient)
 	require.NoError(t, err)
@@ -696,7 +696,7 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 func TestGetUsedAddressSpaces(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		network: &computepb.Network{
-			Name: proto.String(vpcName),
+			Name: proto.String(getVpcName(fakeNamespace)),
 			Subnetworks: []string{
 				"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-fake1/subnetworks/invisinets-us-fake1-subnet",
 			},
@@ -711,7 +711,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	s := &GCPPluginServer{}
 
 	usedAddressSpacesExpected := []string{"10.1.2.0/24"}
-	addressSpaceList, err := s._GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject}, fakeClients.networksClient, fakeClients.subnetworksClient)
+	addressSpaceList, err := s._GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace}, fakeClients.networksClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
 	require.NotNil(t, addressSpaceList)
 	assert.ElementsMatch(t, usedAddressSpacesExpected, addressSpaceList.AddressSpaces)
@@ -786,7 +786,7 @@ func TestGetAndCheckResourceNamespace(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		instance: getFakeInstance(true),
 		network: &computepb.Network{
-			Name:        proto.String(vpcName),
+			Name:        proto.String(getVpcName(fakeNamespace)),
 			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
 		},
 	}
