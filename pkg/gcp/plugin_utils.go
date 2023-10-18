@@ -27,6 +27,8 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	networkmanagement "cloud.google.com/go/networkmanagement/apiv1"
 	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
+	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
+	"cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -44,6 +46,19 @@ func GetGcpProject() string {
 		panic("INVISINETS_GCP_PROJECT must be set")
 	}
 	return project
+}
+
+func SetupGcpTesting(projectId string) string {
+	ctx := context.Background()
+	projectsClient, err := resourcemanager.NewProjectsClient(ctx, nil)
+	if err != nil {
+		panic(fmt.Errorf("unable to create projects client: %w", err))
+	}
+	createProjectReq := &resourcemanagerpb.CreateProjectRequest{
+		Project: &resourcemanagerpb.Project{
+			ProjectId: projectId,
+		},
+	}
 }
 
 func teardownPanic(msg string, err error) {
