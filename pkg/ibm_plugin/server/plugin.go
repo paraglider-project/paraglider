@@ -6,12 +6,12 @@ import (
 	"net"
 	"os"
 
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
 type ibmPluginServer struct {
@@ -20,8 +20,8 @@ type ibmPluginServer struct {
 	frontendServerAddr string
 }
 
-func (s *ibmPluginServer) setupCloudClient(region string) error {
-	client, err := sdk.NewIBMCloudClient(region)
+func (s *ibmPluginServer) setupCloudClient(name, region string) error {
+	client, err := sdk.NewIBMCloudClient(name, region)
 	if err != nil {
 		utils.Log.Println("Failed to set up IBM clients with error:", err)
 		return err
@@ -36,6 +36,11 @@ func (s *ibmPluginServer) setupCloudClient(region string) error {
 func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
 	var vpcID string
 
+	rInfo, err := getResourceIDInfo(resourceDesc.Id)
+	if err != nil {
+		return nil, err
+	}
+
 	vmFields, err := getInstanceData(resourceDesc)
 	if err != nil {
 		return nil, err
@@ -46,7 +51,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		utils.Log.Println("Failed to convert zone to region:", region)
 		return nil, err
 	}
-	err = s.setupCloudClient(region)
+	err = s.setupCloudClient(rInfo.ResourceGroupID, rInfo.Region)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +103,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	subnetID := subnetsIDs[0]
 
 	vm, err := s.cloudClient.CreateVM(vpcID, subnetID,
-		vmFields.Zone, vmFields.Name, vmFields.Profile)
+		vmFields.Zone, rInfo.ResourceID, vmFields.Profile)
 	if err != nil {
 		return nil, err
 	}
@@ -106,11 +111,15 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		UpdatedResource: &invisinetspb.ResourceID{Id: *vm.ID}}, nil
 }
 
-// returns a list of address spaces used by either user's or invisinets' sunbets,
+// GetUsedAddressSpaces returns a list of address spaces used by either user's or invisinets' sunbets,
 // for each invisinets vpc.
 func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
 	var invisinetsAddressSpaces []string
-	err := s.setupCloudClient("")
+	resID, err := getResourceIDInfo(deployment.Id)
+	if err != nil {
+		return nil, err
+	}
+	err = s.setupCloudClient(resID.ResourceGroupID, resID.Region)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +127,10 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 	// TODO future multi deployment support will require sending deployment id as tag, currently using static tag.
 	deploymentVpcIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.VPC, nil, sdk.ResourceQuery{})
 	if err != nil {
+		utils.Log.Print("Failed to get invisinets tagged VPCs")
 		return nil, err
 	}
+	utils.Log.Print(deploymentVpcIDs)
 	// for each vpc, collect the address space of all subnets, including users'.
 	for _, vpcID := range deploymentVpcIDs {
 		subnets, err := s.cloudClient.GetSubnetsInVPC(vpcID)
@@ -139,17 +150,17 @@ func (s *ibmPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 		AssociatedResource: resourceID.Id,
 		Rules:              []*invisinetspb.PermitListRule{},
 	}
-	resourceIDInfo, err := getResourceIDInfo(resourceID.Id)
-	if err != nil {
-		return nil, err
-	}
-	region, vmID := resourceIDInfo.Region, resourceIDInfo.ResourceID
-	err = s.setupCloudClient(region)
+	rInfo, err := getResourceIDInfo(resourceID.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	securityGroups, err := s.cloudClient.GetSecurityGroupsOfVM(vmID)
+	err = s.setupCloudClient(rInfo.ResourceGroupID, rInfo.Region)
+	if err != nil {
+		return nil, err
+	}
+
+	securityGroups, err := s.cloudClient.GetInstanceSecurityGroups(rInfo.ResourceID)
 	if err != nil {
 		return nil, err
 	}
@@ -182,17 +193,23 @@ func (s *ibmPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
 	// var vmInvisinetsSgID string // security group to add rules to
 	var subnetsCIDRs []string
-	resourceIDInfo, err := getResourceIDInfo(pl.AssociatedResource)
-	if err != nil {
-		return nil, err
-	}
-	region, vmID := resourceIDInfo.Region, resourceIDInfo.ResourceID
-	err = s.setupCloudClient(region)
+	rInfo, err := getResourceIDInfo(pl.AssociatedResource)
 	if err != nil {
 		return nil, err
 	}
 
-	invisinetsSgIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
+	err = s.setupCloudClient(rInfo.ResourceGroupID, rInfo.Region)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the VM ID from the resource ID (typically refers to VM Name)
+	vmID, err := s.cloudClient.GetInstanceID(rInfo.ResourceID)
+	if err != nil {
+		return nil, err
+	}
+
+	invisinetsSgIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: rInfo.Region})
 	if err != nil {
 		return nil, err
 	}
@@ -279,22 +296,27 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 
 // deletes security group rules matching the attributes of the rules contained in the relevant Security group
 func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	resourceIDInfo, err := getResourceIDInfo(pl.AssociatedResource)
+	rInfo, err := getResourceIDInfo(pl.AssociatedResource)
 	if err != nil {
 		return nil, err
 	}
-	region, vmID := resourceIDInfo.Region, resourceIDInfo.ResourceID
-	err = s.setupCloudClient(region)
+	err = s.setupCloudClient(rInfo.ResourceGroupID, rInfo.Region)
 	if err != nil {
 		return nil, err
 	}
 
-	invisinetsSgIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
+	// Get the VM ID from the resource ID (typically refers to VM Name)
+	vmID, err := s.cloudClient.GetInstanceID(rInfo.ResourceID)
+	if err != nil {
+		return nil, err
+	}
+
+	invisinetsSgIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: rInfo.Region})
 	if err != nil {
 		return nil, err
 	}
 	if len(invisinetsSgIDs) == 0 {
-		return nil, fmt.Errorf("no security groups were found for VM %v", vmID)
+		return nil, fmt.Errorf("no security groups were found for VM %v", rInfo.ResourceID)
 	}
 	// assuming up to a single invisinets subnet can exist per zone
 	vmInvisinetsSgID := invisinetsSgIDs[0]
@@ -353,7 +375,7 @@ func (s *ibmPluginServer) getUniqueSgRules(rules []sdk.SecurityGroupRule, rulesH
 	return res, nil
 }
 
-// starts up the plugin server and stores the frontend server address.
+// Setup starts up the plugin server and stores the frontend server address.
 func Setup(port int, frontendAddress string) {
 	pluginServerAddress := "localhost"
 	lis, err := net.Listen("tcp", fmt.Sprintf("%v:%d", pluginServerAddress, port))

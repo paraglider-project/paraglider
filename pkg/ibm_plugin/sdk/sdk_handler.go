@@ -34,7 +34,7 @@ func (c *IBMCloudClient) UpdateRegion(region string) error {
 }
 
 // returns IBMCloudClient instance with initialized clients
-func NewIBMCloudClient(region string) (*IBMCloudClient, error) {
+func NewIBMCloudClient(name, region string) (*IBMCloudClient, error) {
 	if isRegionValid, err := IsRegionValid(region); !isRegionValid || err != nil {
 		return nil, fmt.Errorf("region %v isn't valid", region)
 	}
@@ -42,7 +42,8 @@ func NewIBMCloudClient(region string) (*IBMCloudClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	apiKey, resourceGroupID := creds.APIKey, creds.ResourceGroupID
+
+	apiKey := creds.APIKey
 	authenticator := &core.IamAuthenticator{ApiKey: apiKey}
 	options := vpcv1.VpcV1Options{
 		Authenticator: authenticator,
@@ -70,7 +71,12 @@ func NewIBMCloudClient(region string) (*IBMCloudClient, error) {
 		return nil, err
 	}
 
-	resourceGroupIdentity := &vpcv1.ResourceGroupIdentityByID{ID: &resourceGroupID}
+	resourceGroupID, err := getResourceID(authenticator, name)
+	if err != nil {
+		return nil, err
+	}
+
+	resourceGroupIdentity := &vpcv1.ResourceGroupIdentityByID{ID: resourceGroupID}
 
 	client := IBMCloudClient{
 		vpcService:     api,
@@ -80,6 +86,19 @@ func NewIBMCloudClient(region string) (*IBMCloudClient, error) {
 		resourceGroup:  resourceGroupIdentity,
 	}
 	return &client, nil
+}
+
+// GetInstanceID returns an instance ID given that name
+func (c *IBMCloudClient) GetInstanceID(name string) (string, error) {
+	options := &vpcv1.ListInstancesOptions{Name: &name}
+	collection, _, err := c.vpcService.ListInstances(options)
+	if err != nil {
+		return "", err
+	}
+	if len(collection.Instances) == 0 {
+		return "", fmt.Errorf("instance %s not found", name)
+	}
+	return *collection.Instances[0].ID, nil
 }
 
 // return image ID of default image

@@ -15,13 +15,23 @@ func init() {
 	flag.StringVar(&vpcRegion, "vpcRegion", "", "vpc region")
 }
 
+const (
+	testResGroupName = "invisinets"
+	testRegion       = "us-east"
+)
+
+func TestClient(t *testing.T) {
+	_, err := NewIBMCloudClient(testResGroupName, testRegion)
+	require.NoError(t, err)
+}
+
 // run via: go test -run TestTerminateVPC -vpcID=value -vpcRegion=value
 func TestTerminateVPC(t *testing.T) {
 	if vpcID == "" || vpcRegion == "" {
 		println("(TestTerminateVPC skipped - missing arguments)")
 		t.Skip("TestTerminateVPC skipped - missing arguments")
 	}
-	cloudClient, err := NewIBMCloudClient(vpcRegion)
+	cloudClient, err := NewIBMCloudClient(testResGroupName, vpcRegion)
 	require.NoError(t, err)
 	err = cloudClient.TerminateVPC(vpcID)
 	require.NoError(t, err)

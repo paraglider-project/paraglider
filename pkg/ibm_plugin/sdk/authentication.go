@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/resourcemanagerv2"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"golang.org/x/crypto/ssh"
@@ -188,4 +190,23 @@ func createSSHKeys(privateKeyPath string) (string, error) {
 
 	utils.Log.Println("Created SSH keys at ", filepath.Dir(privateKeyPath))
 	return pubKeyStr, nil
+}
+
+// getResourceID retrieves the ID of the resource group name
+func getResourceID(authenticator *core.IamAuthenticator, name string) (*string, error) {
+	serviceClientOptions := &resourcemanagerv2.ResourceManagerV2Options{
+		Authenticator: authenticator,
+	}
+	serviceClient, err := resourcemanagerv2.NewResourceManagerV2UsingExternalConfig(serviceClientOptions)
+	if err != nil {
+		return nil, err
+	}
+	listResourceGroupOptions := &resourcemanagerv2.ListResourceGroupsOptions{
+		Name: &name,
+	}
+	resourceGroupList, _, err := serviceClient.ListResourceGroups(listResourceGroupOptions)
+	if err != nil {
+		return nil, err
+	}
+	return resourceGroupList.Resources[0].ID, nil
 }

@@ -112,8 +112,14 @@ func (c *IBMCloudClient) createVM(
 }
 
 // return security group ids that are associated with the VM's network interfaces
-func (c *IBMCloudClient) GetSecurityGroupsOfVM(vmID string) ([]string, error) {
+func (c *IBMCloudClient) GetInstanceSecurityGroups(vmName string) ([]string, error) {
 	var sgGroups []string
+
+	vmID, err := c.GetInstanceID(vmName)
+	if err != nil {
+		return nil, err
+	}
+
 	nics, _, err := c.vpcService.ListInstanceNetworkInterfaces(
 		&vpcv1.ListInstanceNetworkInterfacesOptions{InstanceID: &vmID})
 	if err != nil {
