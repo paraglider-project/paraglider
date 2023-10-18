@@ -73,7 +73,7 @@ func TestMulticloud(t *testing.T) {
 			},
 		},
 	}
-	controllerServerAddr := frontend.SetupControllerServer(controllerServerConfig)
+	_ := frontend.SetupControllerServer(controllerServerConfig)
 	fmt.Println("Setup controller server")
 
 	ctx := context.Background()
