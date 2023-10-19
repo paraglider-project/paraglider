@@ -86,24 +86,3 @@ def create_vm_gcp(vm_name, project, zone):
         "id": "",
         "description": description_json
     }
-
-"""
-        {{
-            "instance_resource": {{ 
-                "disks": [{{ 
-                    "auto_delete": true,
-                    "boot": true,
-                    "initialize_params": {{
-                        "disk_size_gb": 10,
-                        "source_image": "projects/debian-cloud/global/images/family/debian-10"
-                    }},
-                    "type": "PERSISTENT"
-                }}],
-                "machine_type": "zones/{}/machineTypes/f1-micro",
-                "name": {}
-            }},
-            "project": {},
-            "zone": {}
-
-        }}
-"""

@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/netip"
 	"os"
@@ -54,8 +55,9 @@ type Cloud struct {
 
 type Config struct {
 	Server struct {
-		Port string `yaml:"port"`
-		Host string `yaml:"host"`
+		Port    string `yaml:"port"`
+		Host    string `yaml:"host"`
+		RpcPort string `yaml:"rpcPort"`
 	} `yaml:"server"`
 
 	TagService struct {
@@ -190,7 +192,7 @@ func (s *ControllerServer) _permitListGet(pluginAddress string, id string) (*inv
 
 // Get specified PermitList from given cloud
 func (s *ControllerServer) permitListGet(c *gin.Context) {
-	id := c.Param("id")
+	id := strings.TrimPrefix(c.Param("id"), "/") // Gin adds an extra slash to parameters with *
 	cloud := c.Param("cloud")
 
 	// Ensure correct cloud name
@@ -851,6 +853,20 @@ func Setup(configPath string) {
 		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port
 	}
 
+	// Setup GRPC server
+	lis, err := net.Listen("tcp", cfg.Server.Host+":"+cfg.Server.RpcPort)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	invisinetspb.RegisterControllerServer(grpcServer, &server)
+
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
+
 	// Setup URL router
 	router := gin.Default()
 	router.GET("/ping", func(c *gin.Context) {
@@ -858,10 +874,10 @@ func Setup(configPath string) {
 			"message": "pong",
 		})
 	})
-	router.GET("/cloud/:cloud/resources/:id/permit-list/", server.permitListGet)
-	router.POST("/cloud/:cloud/resources/:id/permit-list/rules/", server.permitListRulesAdd)
-	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules/", server.permitListRulesDelete)
-	router.POST("/cloud/:cloud/resources/:id/", server.resourceCreate)
+	router.GET("/cloud/:cloud/permit-list/*id", server.permitListGet)
+	router.POST("/cloud/:cloud/permit-list/rules/", server.permitListRulesAdd)
+	router.DELETE("/cloud/:cloud/permit-list/rules/", server.permitListRulesDelete)
+	router.POST("/cloud/:cloud/resources/", server.resourceCreate)
 	router.GET("/tags/:tag", server.getTag)
 	router.GET("/tags/:tag/resolve", server.resolveTag)
 	router.POST("/tags/:tag", server.setTag)

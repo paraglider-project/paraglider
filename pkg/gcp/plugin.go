@@ -41,6 +41,7 @@ import (
 
 type GCPPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
+	frontendServerAddr string
 }
 
 // GCP naming conventions
@@ -102,11 +103,6 @@ var gcpProtocolNumberMap = map[string]int{
 	"sctp": 132,
 	"ipip": 94,
 }
-
-// Frontend server address
-// TODO @seankimkdy: dynamically configure with config
-// TODO @seankimkdy: temporarily exported until we figure a better way to set this from another package (e.g. multicloud tests)
-var FrontendServerAddr string
 
 func init() {
 	githubRunPrefix := utils.GetGitHubRunPrefix()
@@ -407,7 +403,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 	subnetworkAddressSpace := *getSubnetworkResp.IpCidrRange
 
 	// Get used address spaces of all clouds
-	controllerConn, err := grpc.Dial(FrontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	controllerConn, err := grpc.Dial(s.frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
 	}
@@ -471,7 +467,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 		existingFirewalls[firewallName] = true
 	}
 
-	return &invisinetspb.BasicResponse{Success: true}, nil
+	return &invisinetspb.BasicResponse{Success: true, Message: "Succesfully added rules"}, nil
 }
 
 func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
@@ -533,7 +529,7 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList
 		}
 	}
 
-	return &invisinetspb.BasicResponse{Success: true}, nil
+	return &invisinetspb.BasicResponse{Success: true, Message: "Successfully deleted rules"}, nil
 }
 
 func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
@@ -610,7 +606,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 
 	if !subnetExists {
 		// Find unused address spaces
-		conn, err := grpc.Dial(FrontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.Dial(s.frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
 		}
@@ -686,7 +682,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		return nil, fmt.Errorf("unable to wait for the operation")
 	}
 
-	return &invisinetspb.BasicResponse{Success: true}, nil
+	return &invisinetspb.BasicResponse{Success: true, Message: "Successfully created resource"}, nil
 }
 
 func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
@@ -982,19 +978,16 @@ func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, req *invisin
 	return s._CreateVpnConnections(ctx, req, externalVpnGatewaysClient, vpnTunnelsClient, routersClient)
 }
 
-func Setup(port int) (*GCPPluginServer, string) {
+func Setup(port int, frontendAddr string) {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
-	gcpServer := &GCPPluginServer{}
+	gcpServer := &GCPPluginServer{frontendServerAddr: frontendAddr}
 	invisinetspb.RegisterCloudPluginServer(grpcServer, gcpServer)
 	fmt.Println("Starting server on port :", port)
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			fmt.Println(err.Error())
-		}
-	}()
-	return gcpServer, lis.Addr().String()
+	if err := grpcServer.Serve(lis); err != nil {
+		fmt.Println(err.Error())
+	}
 }
