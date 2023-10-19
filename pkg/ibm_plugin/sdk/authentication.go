@@ -36,8 +36,7 @@ import (
 
 // Credentials extracted from local credential file
 type Credentials struct {
-	APIKey          string `yaml:"iam_api_key"`
-	ResourceGroupID string `yaml:"resource_group_id"`
+	APIKey string `yaml:"iam_api_key"`
 }
 
 // creates ssh keys and registers them if absent.
