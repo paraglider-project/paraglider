@@ -88,7 +88,7 @@ func TestMulticloud(t *testing.T) {
 	azureVmId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + "invisinets-vm-test"
 	azureCreateResourceResp, err := azureServer.CreateResource(
 		ctx,
-		&invisinetspb.ResourceDescription{Id: azureVmId, Description: azureVmDescription},
+		&invisinetspb.ResourceDescription{Id: azureVmId, Description: azureVmDescription, Namespace: "default"},
 	)
 	require.NoError(t, err)
 	require.NoError(t, err)
@@ -104,7 +104,7 @@ func TestMulticloud(t *testing.T) {
 	gcpVmDescription, err := json.Marshal(gcpVmParameters)
 	gcpCreateResourceResp, err := gcpServer.CreateResource(
 		ctx,
-		&invisinetspb.ResourceDescription{Description: gcpVmDescription},
+		&invisinetspb.ResourceDescription{Description: gcpVmDescription, Namespace: "default"},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, gcpCreateResourceResp)

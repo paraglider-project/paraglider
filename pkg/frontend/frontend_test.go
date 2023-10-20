@@ -970,8 +970,8 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	addressSpaces, err := frontendServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
 	require.Nil(t, err)
 	assert.ElementsMatch(t, addressSpaces.AddressSpaceMappings, []*invisinetspb.AddressSpaceMapping{
-		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP},
-		{AddressSpaces: azure_address_spaces, Cloud: utils.AZURE},
+		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP, Namespace: defaultNamespace},
+		{AddressSpaces: azure_address_spaces, Cloud: utils.AZURE, Namespace: defaultNamespace},
 	})
 
 	// Empty namespace

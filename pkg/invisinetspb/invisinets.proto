@@ -61,6 +61,7 @@ message AddressSpaceList {
 message AddressSpaceMapping{
     repeated string address_spaces = 1;
     string cloud = 2;
+    string namespace = 3;
 }
 
 message AddressSpaceMappingList {
@@ -116,6 +117,8 @@ message ConnectCloudsRequest{
     string cloudB = 2;
     string cloudAAddressSpace = 3;
     string cloudBAddressSpace = 4;
+    string cloudANamespace = 5;
+    string cloudBNamespace = 6;
 }
 
 // TODO @seankimkdy: check naming of all of these to be as cloud neutral as possible

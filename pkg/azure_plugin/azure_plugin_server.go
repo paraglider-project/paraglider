@@ -233,7 +233,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		}
 		seen[ruleDesc] = true
 
-		err = utils.CheckAndConnectClouds(utils.AZURE, subnetAddressPrefix, ctx, rule, usedAddressSpaceMappings, controllerClient)
+		err = utils.CheckAndConnectClouds(utils.AZURE, subnetAddressPrefix, pl.Namespace, ctx, rule, usedAddressSpaceMappings, controllerClient)
 		if err != nil {
 			return nil, fmt.Errorf("unable to check and connect clouds: %w", err)
 		}
