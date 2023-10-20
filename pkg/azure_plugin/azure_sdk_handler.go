@@ -58,7 +58,9 @@ type AzureSDKHandler interface {
 	CreateOrUpdateVirtualNetworkGateway(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGateway) (*armnetwork.VirtualNetworkGateway, error)
 	GetVirtualNetworkGateway(ctx context.Context, name string) (*armnetwork.VirtualNetworkGateway, error)
 	CreatePublicIPAddress(ctx context.Context, name string, parameters armnetwork.PublicIPAddress) (*armnetwork.PublicIPAddress, error)
+	GetPublicIPAddress(ctx context.Context, name string) (*armnetwork.PublicIPAddress, error)
 	CreateSubnet(ctx context.Context, virtualNetworkName string, subnetName string, parameters armnetwork.Subnet) (*armnetwork.Subnet, error)
+	GetSubnet(ctx context.Context, virtualNetworkName string, subnetName string) (*armnetwork.Subnet, error)
 	CreateLocalNetworkGateway(ctx context.Context, name string, parameters armnetwork.LocalNetworkGateway) (*armnetwork.LocalNetworkGateway, error)
 	GetLocalNetworkGateway(ctx context.Context, name string) (*armnetwork.LocalNetworkGateway, error)
 	CreateVirtualNetworkGatewayConnection(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGatewayConnection) (*armnetwork.VirtualNetworkGatewayConnection, error)
@@ -618,12 +620,28 @@ func (h *azureSDKHandler) CreatePublicIPAddress(ctx context.Context, name string
 	return &resp.PublicIPAddress, nil
 }
 
+func (h *azureSDKHandler) GetPublicIPAddress(ctx context.Context, name string) (*armnetwork.PublicIPAddress, error) {
+	resp, err := h.publicIPAddressesClient.Get(ctx, h.resourceGroupName, name, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.PublicIPAddress, nil
+}
+
 func (h *azureSDKHandler) CreateSubnet(ctx context.Context, virtualNetworkName string, subnetName string, parameters armnetwork.Subnet) (*armnetwork.Subnet, error) {
 	pollerResponse, err := h.subnetsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, virtualNetworkName, subnetName, parameters, nil)
 	if err != nil {
 		return nil, err
 	}
 	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.Subnet, nil
+}
+
+func (h *azureSDKHandler) GetSubnet(ctx context.Context, virtualNetworkName string, subnetName string) (*armnetwork.Subnet, error) {
+	resp, err := h.subnetsClient.Get(ctx, h.resourceGroupName, virtualNetworkName, subnetName, nil)
 	if err != nil {
 		return nil, err
 	}
