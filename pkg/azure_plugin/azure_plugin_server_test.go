@@ -204,8 +204,26 @@ func (m *mockAzureSDKHandler) CreatePublicIPAddress(ctx context.Context, name st
 	return publicIPAddress.(*armnetwork.PublicIPAddress), args.Error(1)
 }
 
+func (m *mockAzureSDKHandler) GetPublicIPAddress(ctx context.Context, name string) (*armnetwork.PublicIPAddress, error) {
+	args := m.Called(ctx, name)
+	publicIPAddress := args.Get(0)
+	if publicIPAddress == nil {
+		return nil, args.Error(1)
+	}
+	return publicIPAddress.(*armnetwork.PublicIPAddress), args.Error(1)
+}
+
 func (m *mockAzureSDKHandler) CreateSubnet(ctx context.Context, virtualNetworkName string, subnetName string, parameters armnetwork.Subnet) (*armnetwork.Subnet, error) {
 	args := m.Called(ctx, virtualNetworkName, subnetName, parameters)
+	subnet := args.Get(0)
+	if subnet == nil {
+		return nil, args.Error(1)
+	}
+	return subnet.(*armnetwork.Subnet), args.Error(1)
+}
+
+func (m *mockAzureSDKHandler) GetSubnet(ctx context.Context, virtualNetworkName string, subnetName string) (*armnetwork.Subnet, error) {
+	args := m.Called(ctx, virtualNetworkName, subnetName)
 	subnet := args.Get(0)
 	if subnet == nil {
 		return nil, args.Error(1)
@@ -828,7 +846,12 @@ func TestCreateVpnGateway(t *testing.T) {
 
 	fakePublicIPAddresses := []string{"172.178.88.1", "172.178.88.2"}
 	for i := 0; i < vpnNumConnections; i++ {
-		mockAzureHandler.On("CreatePublicIPAddress", ctx, getVPNGatewayIPAddressName(i), mock.Anything).Return(
+		vpnGatewayIPAddressName := getVPNGatewayIPAddressName(i)
+		mockAzureHandler.On("GetPublicIPAddress", ctx, vpnGatewayIPAddressName).Return(
+			nil,
+			&azcore.ResponseError{StatusCode: http.StatusNotFound},
+		)
+		mockAzureHandler.On("CreatePublicIPAddress", ctx, vpnGatewayIPAddressName, mock.Anything).Return(
 			&armnetwork.PublicIPAddress{
 				ID: to.Ptr(fmt.Sprintf("public-ip-address-%d", i)),
 				Properties: &armnetwork.PublicIPAddressPropertiesFormat{
@@ -852,11 +875,19 @@ func TestCreateVpnGateway(t *testing.T) {
 		nil,
 	)
 
+	mockAzureHandler.On("GetSubnet", ctx, fakeVnetName, gatewaySubnetName).Return(
+		nil,
+		&azcore.ResponseError{StatusCode: http.StatusNotFound},
+	)
 	mockAzureHandler.On("CreateSubnet", ctx, fakeVnetName, gatewaySubnetName, mock.Anything).Return(
 		&armnetwork.Subnet{ID: to.Ptr("gateway-subnet-id")},
 		nil,
 	)
 
+	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName()).Return(
+		nil,
+		&azcore.ResponseError{StatusCode: http.StatusNotFound},
+	)
 	mockAzureHandler.On("CreateOrUpdateVirtualNetworkGateway", ctx, getVpnGatewayName(), mock.Anything).Return(
 		&armnetwork.VirtualNetworkGateway{},
 		nil,
@@ -879,7 +910,12 @@ func TestCreateVpnBgpSessions(t *testing.T) {
 					{ID: to.Ptr("ip-config-1")},
 					{ID: to.Ptr("ip-config-2")},
 				},
-				BgpSettings: &armnetwork.BgpSettings{},
+				BgpSettings: &armnetwork.BgpSettings{
+					BgpPeeringAddresses: []*armnetwork.IPConfigurationBgpPeeringAddress{
+						{CustomBgpIPAddresses: []*string{}},
+						{CustomBgpIPAddresses: []*string{}},
+					},
+				},
 			},
 		},
 		nil,
@@ -902,7 +938,12 @@ func TestCreateVpnConnections(t *testing.T) {
 
 	fakeCloudName := "fake-cloud"
 	for i := 0; i < vpnNumConnections; i++ {
-		mockAzureHandler.On("CreateLocalNetworkGateway", ctx, getLocalNetworkGatewayName(fakeCloudName, i), mock.Anything).Return(
+		localNetworkGatewayName := getLocalNetworkGatewayName(fakeCloudName, i)
+		mockAzureHandler.On("GetLocalNetworkGateway", ctx, localNetworkGatewayName).Return(
+			nil,
+			&azcore.ResponseError{StatusCode: http.StatusNotFound},
+		)
+		mockAzureHandler.On("CreateLocalNetworkGateway", ctx, localNetworkGatewayName, mock.Anything).Return(
 			&armnetwork.LocalNetworkGateway{},
 			nil,
 		)
