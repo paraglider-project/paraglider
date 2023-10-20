@@ -27,7 +27,7 @@ if input("Create GCP VM? (y/n):") == "y":
 # Create a VM in Azure
 if input("Create Azure VM? (y/n):") == "y":
     vm_request_json = utils.create_vm_azure(SUBID, RESOURCE_GROUP_NAME, AZ_VM_NAME, AZURE_REGION, VM_PW)
-    print("Request JSON: ", vm_request_json)
+    print("Request JSON: ", json.dumps(vm_request_json, indent=2))
     r = requests.post("http://{}/cloud/{}/resources/".format(CONTROLLER_ADDR, "azure"),
                     headers={"Content-Type": "application/json"}, json=vm_request_json)
     print(r.text)
@@ -46,7 +46,7 @@ AZURE_VM_IP = input("Enter the IP of the Azure VM: ")
 # Connect the VMs
 if input("Add to Azure VM's permit list? (y/n):") == "y":
     azure_permit_list = utils.create_ping_permit_list(utils.create_azure_vm_id(SUBID, RESOURCE_GROUP_NAME, AZ_VM_NAME), remote_ip=GCP_VM_IP)
-    print("Request JSON: ", azure_permit_list)
+    print("Request JSON: ", json.dumps(azure_permit_list, indent=2))
     print("Creating multicloud connection (this may take some time)...")
     r = requests.post("http://{}/cloud/{}/permit-list/rules/".format(CONTROLLER_ADDR, "azure"),
                     headers={"Content-Type": "application/json"}, json=azure_permit_list)
@@ -55,7 +55,7 @@ if input("Add to Azure VM's permit list? (y/n):") == "y":
 
 if input("Add to GCP VM's permit list? (y/n):") == "y":
     gcp_permit_list = utils.create_ping_permit_list(resource=utils.create_gcp_vm_id(GCP_PROJECT, GCP_ZONE, GCP_VM_NAME), remote_ip=AZURE_VM_IP, local_ssh_access_cidr=GCP_VM_SUBNET_CIDR)
-    print("Request JSON: ", gcp_permit_list)
+    print("Request JSON: ", json.dumps(gcp_permit_list, indent=2))
     print("Checking multicloud connection (this may take some time)...")
     r = requests.post("http://{}/cloud/{}/permit-list/rules/".format(CONTROLLER_ADDR, "gcp"),
                     headers={"Content-Type": "application/json"}, json=gcp_permit_list)
@@ -71,7 +71,7 @@ if input("Add to GCP VM's permit list? (y/n):") == "y":
 # Remove one of the rules to prevent ping from working
 if input("Remove from GCP VM's permit list? (y/n):") == "y":
     gcp_permit_list_remove = utils.create_ping_permit_list(resource=utils.create_gcp_vm_id(GCP_PROJECT, GCP_ZONE, GCP_VM_NAME), remote_ip=AZURE_VM_IP)
-    print("Request JSON: ", gcp_permit_list_remove)
+    print("Request JSON: ", json.dumps(gcp_permit_list_remove, indent=2))
     r = requests.delete("http://{}/cloud/{}/permit-list/rules/".format(CONTROLLER_ADDR, "gcp"),
                         headers={"Content-Type": "application/json"}, json=gcp_permit_list_remove)
     print(r.text)
