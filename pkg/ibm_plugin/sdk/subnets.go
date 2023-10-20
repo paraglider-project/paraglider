@@ -24,9 +24,9 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
-// create subnet in specified vpc and zone.
+// CreateSubnet creates subnet in specified vpc and zone.
 // tag subnet with invisinets prefix and vpc ID.
-func (c *IBMCloudClient) CreateSubnet(
+func (c *CloudClient) CreateSubnet(
 	vpcID, zone, addressSpace string) (*vpcv1.Subnet, error) {
 	var cidrBlock *string
 	subnetTags := []string{vpcID}
@@ -48,13 +48,13 @@ func (c *IBMCloudClient) CreateSubnet(
 			if addressSpace == "" {
 				cidrBlock = addressPrefix.CIDR
 			} else {
-				doesAddressFitInVPC, err := IsCidrSubset(addressSpace, *addressPrefix.CIDR)
+				doesAddressFitInVPC, err := IsCIDRSubset(addressSpace, *addressPrefix.CIDR)
 				if err != nil {
 					return nil, err
 				}
 				if doesAddressFitInVPC {
 					// before picking a CIDR block verify that it does not overlap with the vpc's subnets
-					doesOverlap, err := c.DoSubnetsInVpcOverlapCIDR(vpcID, addressSpace)
+					doesOverlap, err := c.DoSubnetsInVPCOverlapCIDR(vpcID, addressSpace)
 					if err != nil {
 						return nil, err
 					}
@@ -107,8 +107,8 @@ func (c *IBMCloudClient) CreateSubnet(
 	return subnet, nil
 }
 
-// returns all subnets in vpc, user's and invisinets'.
-func (c *IBMCloudClient) GetSubnetsInVPC(vpcID string) ([]vpcv1.Subnet, error) {
+// GetSubnetsInVPC returns all subnets in vpc, user's and invisinets'.
+func (c *CloudClient) GetSubnetsInVPC(vpcID string) ([]vpcv1.Subnet, error) {
 	var subnetsList []vpcv1.Subnet
 	routingTableCollection, _, err := c.vpcService.ListVPCRoutingTables(
 		c.vpcService.NewListVPCRoutingTablesOptions(vpcID))
@@ -129,9 +129,9 @@ func (c *IBMCloudClient) GetSubnetsInVPC(vpcID string) ([]vpcv1.Subnet, error) {
 	return subnetsList, nil
 }
 
-// return true if any of the specified vpc's subnets'
+// DoSubnetsInVPCOverlapCIDR returns true if any of the specified vpc's subnets'
 // address space overlap with given cidr
-func (c *IBMCloudClient) DoSubnetsInVpcOverlapCIDR(vpcID string,
+func (c *CloudClient) DoSubnetsInVPCOverlapCIDR(vpcID string,
 	CIDR string) (bool, error) {
 	subnets, err := c.GetSubnetsInVPC(vpcID)
 	if err != nil {
@@ -139,7 +139,7 @@ func (c *IBMCloudClient) DoSubnetsInVpcOverlapCIDR(vpcID string,
 	}
 
 	for _, subnet := range subnets {
-		doesOverlap, err := DoCidrOverlap(*subnet.Ipv4CIDRBlock, CIDR)
+		doesOverlap, err := DoCIDROverlap(*subnet.Ipv4CIDRBlock, CIDR)
 		if err != nil {
 			return true, err
 		}
@@ -150,8 +150,8 @@ func (c *IBMCloudClient) DoSubnetsInVpcOverlapCIDR(vpcID string,
 	return false, nil
 }
 
-// deletes all subnets in the specified VPC.
-func (c *IBMCloudClient) DeleteSubnets(vpcID string) error {
+// DeleteSubnets deletes all subnets in the specified VPC.
+func (c *CloudClient) DeleteSubnets(vpcID string) error {
 	subnets, err := c.GetSubnetsInVPC(vpcID)
 	if err != nil {
 		return err
@@ -169,8 +169,8 @@ func (c *IBMCloudClient) DeleteSubnets(vpcID string) error {
 	return nil
 }
 
-// returns address space of subnet
-func (c *IBMCloudClient) GetSubnetCidr(subnetID string) (string, error) {
+// GetSubnetCIDR returns address space of subnet
+func (c *CloudClient) GetSubnetCIDR(subnetID string) (string, error) {
 	subnet, _, err := c.vpcService.GetSubnet(c.vpcService.NewGetSubnetOptions(subnetID))
 	if err != nil {
 		return "", err

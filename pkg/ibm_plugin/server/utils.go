@@ -106,7 +106,7 @@ func getInstanceData(resourceDesc *invisinetspb.ResourceDescription) (InstanceDa
 	return vmFields, nil
 }
 
-func sgRules2InvisinetsRules(rules []sdk.SecurityGroupRule) ([]*invisinetspb.PermitListRule, error) {
+func ibmToInvisinetsRules(rules []sdk.SecurityGroupRule) ([]*invisinetspb.PermitListRule, error) {
 	var invisinetsRules []*invisinetspb.PermitListRule
 
 	for _, rule := range rules {
@@ -134,7 +134,7 @@ func sgRules2InvisinetsRules(rules []sdk.SecurityGroupRule) ([]*invisinetspb.Per
 
 // Translate invisinets permit rules to SecurityGroupRule struct containing all IBM permit rules data
 // NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code
-func invisinetsRules2IbmRules(securityGroupID string, rules []*invisinetspb.PermitListRule) (
+func invisinetsToIBMRules(securityGroupID string, rules []*invisinetspb.PermitListRule) (
 	[]sdk.SecurityGroupRule, error) {
 	var sgRules []sdk.SecurityGroupRule
 	for _, rule := range rules {

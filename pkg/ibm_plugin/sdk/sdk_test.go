@@ -52,17 +52,17 @@ func TestTerminateVPC(t *testing.T) {
 
 // Testing a function that returns true if cidr1 is a subset of cidr2,
 // i.e. all ips in cidr1 exist within cidr2
-func TestCidrSubset(t *testing.T) {
+func TestCIDRSubset(t *testing.T) {
 	cidr1 := "10.10.10.8/29"  // 10.10.10.8 - 10.10.10.151
 	cidr2 := "10.10.10.0/24"  // 10.10.10.0 - 10.10.10.255
 	cidr3 := "192.50.64.0/17" // 192.50.0.0 - 192.50.127.255
-	res1, err := IsCidrSubset(cidr1, cidr2)
+	res1, err := IsCIDRSubset(cidr1, cidr2)
 	require.NoError(t, err)
-	res2, err := IsCidrSubset(cidr2, cidr1)
+	res2, err := IsCIDRSubset(cidr2, cidr1)
 	require.NoError(t, err)
-	res3, err := IsCidrSubset(cidr1, cidr1)
+	res3, err := IsCIDRSubset(cidr1, cidr1)
 	require.NoError(t, err)
-	res4, err := IsCidrSubset(cidr3, cidr1)
+	res4, err := IsCIDRSubset(cidr3, cidr1)
 	require.NoError(t, err)
 	require.True(t, res1)
 	require.False(t, res2)
@@ -72,19 +72,19 @@ func TestCidrSubset(t *testing.T) {
 
 // Testing a function that returns true if cidr1 and cidr2 overlap,
 // i.e. the CIDRs share at least one ip
-func TestCidrOverlap(t *testing.T) {
+func TestCIDROverlap(t *testing.T) {
 	cidr1 := "10.10.10.8/29"  // 10.10.10.8 - 10.10.10.151
 	cidr2 := "10.10.10.0/24"  // 10.10.10.0 - 10.10.10.255
 	cidr3 := "192.50.64.0/17" // 192.50.0.0 - 192.50.127.255
-	res1, err := DoCidrOverlap(cidr1, cidr2)
+	res1, err := DoCIDROverlap(cidr1, cidr2)
 	require.NoError(t, err)
-	res2, err := DoCidrOverlap(cidr2, cidr1)
+	res2, err := DoCIDROverlap(cidr2, cidr1)
 	require.NoError(t, err)
-	res3, err := DoCidrOverlap(cidr1, cidr1)
+	res3, err := DoCIDROverlap(cidr1, cidr1)
 	require.NoError(t, err)
-	res4, err := DoCidrOverlap(cidr1, cidr3)
+	res4, err := DoCIDROverlap(cidr1, cidr3)
 	require.NoError(t, err)
-	res5, err := DoCidrOverlap(cidr2, cidr3)
+	res5, err := DoCIDROverlap(cidr2, cidr3)
 	require.NoError(t, err)
 	require.True(t, res1)
 	require.True(t, res2)

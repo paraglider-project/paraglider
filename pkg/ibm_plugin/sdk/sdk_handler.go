@@ -27,7 +27,8 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
-type IBMCloudClient struct {
+// CloudClient is the client used to interact with IBM Cloud SDK
+type CloudClient struct {
 	vpcService     *vpcv1.VpcV1
 	region         string // region resources will be created in/fetched from
 	globalSearch   *globalsearchv2.GlobalSearchV2
@@ -35,12 +36,12 @@ type IBMCloudClient struct {
 	resourceGroup  *vpcv1.ResourceGroupIdentityByID
 }
 
-func (c *IBMCloudClient) Region() string {
+func (c *CloudClient) Region() string {
 	return c.region
 }
 
 // updates the vpc service's url service to the specified region
-func (c *IBMCloudClient) UpdateRegion(region string) error {
+func (c *CloudClient) UpdateRegion(region string) error {
 	c.region = region
 	err := c.vpcService.SetServiceURL(endpointURL(region))
 	if err != nil {
@@ -49,8 +50,8 @@ func (c *IBMCloudClient) UpdateRegion(region string) error {
 	return nil
 }
 
-// returns IBMCloudClient instance with initialized clients
-func NewIBMCloudClient(name, region string) (*IBMCloudClient, error) {
+// returns CloudClient instance with initialized clients
+func NewIBMCloudClient(name, region string) (*CloudClient, error) {
 	if isRegionValid, err := IsRegionValid(region); !isRegionValid || err != nil {
 		return nil, fmt.Errorf("region %v isn't valid", region)
 	}
@@ -94,7 +95,7 @@ func NewIBMCloudClient(name, region string) (*IBMCloudClient, error) {
 
 	resourceGroupIdentity := &vpcv1.ResourceGroupIdentityByID{ID: resourceGroupID}
 
-	client := IBMCloudClient{
+	client := CloudClient{
 		vpcService:     api,
 		region:         region,
 		globalSearch:   globalSearch,
@@ -105,7 +106,7 @@ func NewIBMCloudClient(name, region string) (*IBMCloudClient, error) {
 }
 
 // GetInstanceID returns an instance ID given that name
-func (c *IBMCloudClient) GetInstanceID(name string) (string, error) {
+func (c *CloudClient) GetInstanceID(name string) (string, error) {
 	options := &vpcv1.ListInstancesOptions{Name: &name}
 	collection, _, err := c.vpcService.ListInstances(options)
 	if err != nil {
@@ -118,7 +119,7 @@ func (c *IBMCloudClient) GetInstanceID(name string) (string, error) {
 }
 
 // return image ID of default image
-func (c *IBMCloudClient) getDefaultImageID() (imageID string, err error) {
+func (c *CloudClient) getDefaultImageID() (imageID string, err error) {
 	result, _, err := c.vpcService.ListImages(&vpcv1.ListImagesOptions{})
 	if err != nil {
 		utils.Log.Println("Failed to fetch VPC image collection with the",
@@ -135,7 +136,7 @@ func (c *IBMCloudClient) getDefaultImageID() (imageID string, err error) {
 	return "", nil
 }
 
-func (c *IBMCloudClient) attachTag(CRN *string, tags []string) error {
+func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 	tags = append(tags, ResourcePrefix)
 	userTypeTag := globaltaggingv1.AttachTagOptionsTagTypeUserConst
 	resourceModel := &globaltaggingv1.Resource{
@@ -157,7 +158,7 @@ func (c *IBMCloudClient) attachTag(CRN *string, tags []string) error {
 // Arg resourceType: type of VPC resource, e.g. subnet, security group, instance.
 // Arg tags: labels set by dev, e.g. {<vpcID>,<deploymentID>}
 // Args customQueryMap: map of attributes to filter by, e.g. {"region":"<regionName>"}
-func (c *IBMCloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceType, tags []string,
+func (c *CloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceType, tags []string,
 	customQuery ResourceQuery) ([]string, error) {
 	// parse tags
 	var tagsStr string
@@ -186,7 +187,7 @@ func (c *IBMCloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourc
 }
 
 // returns IDs of resources filtered by tags and query
-func (c *IBMCloudClient) getInvisinetsResourceByTags(resourceType string,
+func (c *CloudClient) getInvisinetsResourceByTags(resourceType string,
 	tags string, customQueryStr string) ([]string, error) {
 	var taggedResources []string
 

@@ -31,27 +31,40 @@ import (
 	"github.com/google/uuid"
 )
 
-// indicate the type of tagged resource to fetch
+// TaggedResourceType indicates the type of tagged resource to fetch
 type TaggedResourceType string
+
+// InstanceProfile indicates the profile of an instance
 type InstanceProfile string
 
 const (
-	VPC               TaggedResourceType = "vpc"
-	SUBNET            TaggedResourceType = "subnet"
-	VM                TaggedResourceType = "instance"
-	SG                TaggedResourceType = "security-group"
-	credentialsPath   string             = ".ibm/credentials.yaml"
-	publicSSHKey                         = ".ibm/keys/invisinets-key.pub"
-	privateSSHKey                        = ".ibm/keys/invisinets-key"
-	defaultImage                         = "ibm-ubuntu-22-04"
-	imageArchitecture                    = "amd64"
-	ResourcePrefix                       = "invisinets"
-	LowCPU            InstanceProfile    = "bx2-2x8"
-	HighCPU           InstanceProfile    = "bx2-8x32"
-	GPU               InstanceProfile    = "gx2-8x64x1v100"
+	// VPC is virtual private cloud
+	VPC TaggedResourceType = "vpc"
+	// SUBNET is a IP Adress space
+	SUBNET TaggedResourceType = "subnet"
+	// VM is an instance/resource
+	VM TaggedResourceType = "instance"
+	// SG is a security group
+	SG TaggedResourceType = "security-group"
+
+	credentialsPath   string = ".ibm/credentials.yaml"
+	publicSSHKey             = ".ibm/keys/invisinets-key.pub"
+	privateSSHKey            = ".ibm/keys/invisinets-key"
+	defaultImage             = "ibm-ubuntu-22-04"
+	imageArchitecture        = "amd64"
+
+	// ResourcePrefix is used to prefix a resource
+	ResourcePrefix = "invisinets"
+
+	// LowCPU is bx2-2x8
+	LowCPU InstanceProfile = "bx2-2x8"
+	// HighCPU is bx2-8x32
+	HighCPU InstanceProfile = "bx2-8x32"
+	// GPU is gx2-8x64x1v100
+	GPU InstanceProfile = "gx2-8x64x1v100"
 )
 
-// Used to extend query for tagged resources
+// ResourceQuery is used to extend query for tagged resources
 type ResourceQuery struct {
 	Region string
 	Zone   string
@@ -60,7 +73,7 @@ type ResourceQuery struct {
 // cache of regions, initialized by GetRegions().shouldn't be accessed directly.
 var regionCache []string
 
-// returns regionCache. if regionCache is empty, it's first initialized.
+// GetRegions returns regionCache. if regionCache is empty, it's initialized.
 func GetRegions() ([]string, error) {
 	if len(regionCache) != 0 {
 		return regionCache, nil
@@ -85,7 +98,7 @@ func GetRegions() ([]string, error) {
 	return regionCache, nil
 }
 
-// returns true if a slice contains an item
+// DoesSliceContain returns true if a slice contains an item
 func DoesSliceContain[T comparable](slice []T, target T) bool {
 	for _, val := range slice {
 		if val == target {
@@ -95,7 +108,7 @@ func DoesSliceContain[T comparable](slice []T, target T) bool {
 	return false
 }
 
-// returns true if region is a valid IBM region
+// IsRegionValid returns true if region is a valid IBM region
 func IsRegionValid(region string) (bool, error) {
 	regions, err := GetRegions()
 	if err != nil {
@@ -109,7 +122,7 @@ func endpointURL(region string) string {
 	return fmt.Sprintf("https://%s.iaas.cloud.ibm.com/v1", region)
 }
 
-// returns zones of region
+// GetZonesOfRegion returns the zones of a specfied region
 func GetZonesOfRegion(region string) ([]string, error) {
 	zonesPerRegion := 3
 	if isRegionValid, err := IsRegionValid(region); !isRegionValid || err != nil {
@@ -122,29 +135,7 @@ func GetZonesOfRegion(region string) ([]string, error) {
 	return res, nil
 }
 
-// returns region of zone
-func Zone2Region(zone string) (string, error) {
-	regions, err := GetRegions()
-	if err != nil {
-		return "", err
-	}
-
-	lastDashIndex := strings.LastIndex(zone, "-")
-
-	if lastDashIndex == -1 {
-		return "", fmt.Errorf("zone: %v isn't in a valid IBM zone format", zone)
-	}
-	regionVal := zone[:lastDashIndex]
-
-	for _, region := range regions {
-		if regionVal == region {
-			return regionVal, nil
-		}
-	}
-	return "", fmt.Errorf("zone specified: %v not valid", zone)
-}
-
-// returns ID of resource based on its CRN
+// CRN2ID returns ID of resource based on its CRN
 func CRN2ID(crn string) string {
 	index := strings.LastIndex(crn, ":")
 	if index == -1 {
@@ -153,14 +144,14 @@ func CRN2ID(crn string) string {
 	return crn[index+1:]
 }
 
-// returns unique invisinets resource name
+// GenerateResourceName returns unique invisinets resource name
 func GenerateResourceName(name string) string {
 	return fmt.Sprintf("%v-%v-%v", ResourcePrefix, name, uuid.New().String()[:8])
 }
 
-// returns false if cidr blocks don't share a single ip,
+// DoCIDROverlap returns false if cidr blocks don't share a single ip,
 // i.e. they don't overlap.
-func DoCidrOverlap(cidr1, cidr2 string) (bool, error) {
+func DoCIDROverlap(cidr1, cidr2 string) (bool, error) {
 	netCIDR1, err := netip.ParsePrefix(cidr1)
 	if err != nil {
 		return true, err
@@ -176,8 +167,8 @@ func DoCidrOverlap(cidr1, cidr2 string) (bool, error) {
 	return false, nil
 }
 
-// returns true if cidr1 is a subset (including equal) to cidr2
-func IsCidrSubset(cidr1, cidr2 string) (bool, error) {
+// IsCIDRSubset returns true if cidr1 is a subset (including equal) to cidr2
+func IsCIDRSubset(cidr1, cidr2 string) (bool, error) {
 	firstIP1, netCidr1, err := net.ParseCIDR(cidr1)
 	// ParseCIDR() example from Docs: for CIDR="192.0.2.1/24"
 	// IP=192.0.2.1 and network mask 192.0.2.0/24 are returned
@@ -198,9 +189,9 @@ func IsCidrSubset(cidr1, cidr2 string) (bool, error) {
 	return netCidr2.Contains(firstIP1) && maskSize1 >= maskSize2, nil
 }
 
-// splits given cidr 3 ways, so the last cidr is as large as the first 2 combined:
+// SplitCIDR splits given cidr 3 ways, so the last cidr is as large as the first 2 combined:
 // x.x.x.x/y+2, x.x.64.x/y+2, x.x.128.x/y+1 for cidr=x.x.x.x/y.
-func SplitCidr3Ways(cidr string) ([]string, error) {
+func SplitCIDR(cidr string) ([]string, error) {
 	cidrParts := strings.Split(cidr, "/")
 	netmask, err := strconv.Atoi(cidrParts[1])
 	if err != nil {
@@ -225,7 +216,7 @@ func SplitCidr3Ways(cidr string) ([]string, error) {
 	}, nil
 }
 
-// returns true if two given structs of the same type have matching fields values
+// AreStructsEqual returns true if two given structs of the same type have matching fields values
 // on all types except those listed in fieldsToExclude
 func AreStructsEqual(s1, s2 interface{}, fieldsToExclude []string) bool {
 	v1 := reflect.ValueOf(s1)

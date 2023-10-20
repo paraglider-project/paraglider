@@ -24,10 +24,10 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
-// creates VM in a the specified subnet and zone.
+// CreateVM creates a VM in the specified subnet and zone.
 // if subnet id isn't specified, the VM will be created
 // on a random subnet in the selected zone.
-func (c *IBMCloudClient) CreateVM(vpcID, subnetID,
+func (c *CloudClient) CreateVM(vpcID, subnetID,
 	zone, name, profile string) (*vpcv1.Instance, error) {
 	keyID, err := c.setupAuthentication()
 	if err != nil {
@@ -47,7 +47,7 @@ func (c *IBMCloudClient) CreateVM(vpcID, subnetID,
 			"authentication with error: ", err)
 		return nil, err
 	}
-	// pick a subnet if non was provided
+	// pick a subnet if none was provided
 	if subnetID == "" {
 		subnetIDs, err := c.GetInvisinetsTaggedResources(SUBNET, []string{vpcID}, ResourceQuery{Zone: zone})
 		if err != nil || len(subnetIDs) == 0 {
@@ -77,7 +77,7 @@ func (c *IBMCloudClient) CreateVM(vpcID, subnetID,
 
 }
 
-func (c *IBMCloudClient) createVM(
+func (c *CloudClient) createVM(
 	imageID, profile, keyID, vpcID, subnetID, zone, name string,
 	securityGroup *vpcv1.SecurityGroup) (
 	*vpcv1.Instance, error) {
@@ -127,8 +127,8 @@ func (c *IBMCloudClient) createVM(
 	return instance, nil
 }
 
-// return security group ids that are associated with the VM's network interfaces
-func (c *IBMCloudClient) GetInstanceSecurityGroups(name string) ([]string, error) {
+// GetInstanceSecurityGroups returns security group IDs that are associated with the VM's network interfaces
+func (c *CloudClient) GetInstanceSecurityGroups(name string) ([]string, error) {
 	var sgGroups []string
 
 	vmID, err := c.GetInstanceID(name)
@@ -152,7 +152,7 @@ func (c *IBMCloudClient) GetInstanceSecurityGroups(name string) ([]string, error
 // NOTE: Currently not in use, as public ips are not provisioned.
 // deletes floating ips marked recyclable, that are attached to
 // any interface associated with given VM
-func (c *IBMCloudClient) deleteFloatingIPsOfVM(vm *vpcv1.Instance) {
+func (c *CloudClient) deleteFloatingIPsOfVM(vm *vpcv1.Instance) {
 	recyclableResource := "recyclable" // placeholder indicator
 
 	for _, nic := range vm.NetworkInterfaces {
@@ -173,11 +173,10 @@ func (c *IBMCloudClient) deleteFloatingIPsOfVM(vm *vpcv1.Instance) {
 	}
 }
 
-// returns true when instance is completely removed from
-// the subnet.
-func (c *IBMCloudClient) poll_instance_exist(vmID string) bool {
+// returns true when instance is completely removed from the subnet.
+func (c *CloudClient) waitForInstanceRemoval(vmID string) bool {
 	sleepDuration := 10 * time.Second
-	for tries := 15; tries > 0; tries -= 1 {
+	for tries := 15; tries > 0; tries-- {
 		_, _, err := c.vpcService.GetInstance(c.vpcService.NewGetInstanceOptions(vmID))
 		if err != nil {
 			return true
@@ -187,8 +186,8 @@ func (c *IBMCloudClient) poll_instance_exist(vmID string) bool {
 	return false
 }
 
-// returns VPC id of specified instance
-func (c *IBMCloudClient) VmID2VpcID(vmID string) (string, error) {
+// VMToVPCID returns VPC id of specified instance
+func (c *CloudClient) VMToVPCID(vmID string) (string, error) {
 	instance, _, err := c.vpcService.GetInstance(
 		&vpcv1.GetInstanceOptions{ID: &vmID})
 	if err != nil {

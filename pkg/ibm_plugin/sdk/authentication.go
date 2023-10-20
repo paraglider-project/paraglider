@@ -41,7 +41,7 @@ type Credentials struct {
 
 // creates ssh keys and registers them if absent.
 // returns key id of registered public key.
-func (c *IBMCloudClient) setupAuthentication() (string, error) {
+func (c *CloudClient) setupAuthentication() (string, error) {
 	var keyID string
 	keyNameToRegister := GenerateResourceName("key")
 
@@ -79,7 +79,7 @@ func (c *IBMCloudClient) setupAuthentication() (string, error) {
 }
 
 // returns key id of a registered key matching the public key data.
-func (c *IBMCloudClient) getKeyByPublicKey(publicKeyData string) (string, error) {
+func (c *CloudClient) getKeyByPublicKey(publicKeyData string) (string, error) {
 	var resultLimit int64 = 100 // number of results per API response
 	publicKeyData = strings.TrimSpace(publicKeyData)
 	listKeysOptions := &vpcv1.ListKeysOptions{Limit: &resultLimit}
