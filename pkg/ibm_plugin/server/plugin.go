@@ -30,6 +30,9 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
+// FrontendServerAddr is exported temporarily until a common way is defined
+var FrontendServerAddr string
+
 type ibmPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
 	cloudClient        *sdk.CloudClient
@@ -385,7 +388,7 @@ func (s *ibmPluginServer) getUniqueSGRules(rules []sdk.SecurityGroupRule, rulesH
 }
 
 // Setup starts up the plugin server and stores the frontend server address.
-func Setup(port int, frontendAddress string) {
+func Setup(port int) {
 	pluginServerAddress := "localhost"
 	lis, err := net.Listen("tcp", fmt.Sprintf("%v:%d", pluginServerAddress, port))
 	if err != nil {
@@ -394,11 +397,11 @@ func Setup(port int, frontendAddress string) {
 	grpcServer := grpc.NewServer()
 	ibmServer := ibmPluginServer{
 		cloudClient:        &sdk.CloudClient{},
-		frontendServerAddr: fmt.Sprintf("%v:%v", frontendAddress, port),
+		frontendServerAddr: fmt.Sprintf("%v:%v", FrontendServerAddr, port),
 	}
 	invisinetspb.RegisterCloudPluginServer(grpcServer, &ibmServer)
-	fmt.Printf("Starting plugin server on: %v:%v\n", pluginServerAddress, port)
-	fmt.Println("Received frontend Server address:", frontendAddress)
+	fmt.Printf("Starting plugin server on: %v:%v", pluginServerAddress, port)
+	fmt.Printf("Frontend Server address: %s", FrontendServerAddr)
 	err = grpcServer.Serve(lis)
 	if err != nil {
 		fmt.Println(err.Error())
