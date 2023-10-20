@@ -48,11 +48,11 @@ const (
 	// SG is a security group
 	SG TaggedResourceType = "security-group"
 
-	credentialsPath   string = ".ibm/credentials.yaml"
-	publicSSHKey             = ".ibm/keys/invisinets-key.pub"
-	privateSSHKey            = ".ibm/keys/invisinets-key"
-	defaultImage             = "ibm-ubuntu-22-04"
-	imageArchitecture        = "amd64"
+	credentialsPath   = ".ibm/credentials.yaml"
+	publicSSHKey      = ".ibm/keys/invisinets-key.pub"
+	privateSSHKey     = ".ibm/keys/invisinets-key"
+	defaultImage      = "ibm-ubuntu-22-04"
+	imageArchitecture = "amd64"
 
 	// ResourcePrefix is used to prefix a resource
 	ResourcePrefix = "invisinets"
