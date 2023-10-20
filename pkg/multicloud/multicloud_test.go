@@ -36,12 +36,12 @@ import (
 // TODO @seankimkdy: should this be turned into a system test where we actually call the cloud plugins through the controller GRPC?
 func TestMulticloud(t *testing.T) {
 	// Azure config
-	azurePluginPort := 1000
+	azurePluginPort := 7991
 	azureSubscriptionId := azure_plugin.GetAzureSubscriptionId()
 	azureResourceGroupName := utils.GetGitHubRunPrefix() + "invisinets-multicloud-test"
 
 	// GCP config
-	gcpPluginPort := 1001
+	gcpPluginPort := 7992
 	gcpProject := gcp.GetGcpProject()
 
 	// Setup controller server
