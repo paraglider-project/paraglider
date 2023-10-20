@@ -91,7 +91,7 @@ func init() {
 
 // to terminate the created vpc specify -delVPC.
 // to launch VM in a specific zone specify -zone=<zoneName>, e.g.:
-// go test -run TestCreateResourceVMNewDeployment -delVPC
+// go test --tags=ibm  -run TestCreateResourceVMNewDeployment -delVPC
 // NOTE: use sdk's TestTerminateVPC to delete the VPC post run.
 func TestCreateResourceVMNewDeployment(t *testing.T) {
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.IBM)
@@ -119,14 +119,14 @@ func TestCreateResourceVMNewDeployment(t *testing.T) {
 	require.NotNil(t, resp)
 
 	if delVPC {
-		vpcID, err := s.cloudClient.VmID2VpcID(resp.UpdatedResource.Id)
+		vpcID, err := s.cloudClient.VMToVPCID(resp.UpdatedResource.Id)
 		require.NoError(t, err)
 		err = s.cloudClient.TerminateVPC(vpcID)
 		require.NoError(t, err)
 	}
 }
 
-// usage: go test -run TestGetPermitList
+// usage: go test --tags=ibm -run TestGetPermitList
 func TestGetPermitList(t *testing.T) {
 	resourceID := &invisinetspb.ResourceID{Id: testResourceID}
 
@@ -142,7 +142,7 @@ func TestGetPermitList(t *testing.T) {
 	utils.Log.Printf("Permit rules of instance %v are:\n%v", vmID, string(b))
 }
 
-// usage: go test -run TestAddPermitListRules
+// usage: go test --tags=ibm -run TestAddPermitListRules
 func TestAddPermitListRules(t *testing.T) {
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: testResourceID,
@@ -158,7 +158,7 @@ func TestAddPermitListRules(t *testing.T) {
 	utils.Log.Printf("Response: %v", resp)
 }
 
-// usage: go test -run TestDeletePermitListRule
+// usage: go test --tags=ibm -run TestDeletePermitListRule
 func TestDeletePermitListRules(t *testing.T) {
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: testResourceID,
@@ -174,7 +174,7 @@ func TestDeletePermitListRules(t *testing.T) {
 	utils.Log.Printf("Response: %v", resp)
 }
 
-// usage: go test -run TestGetUsedAddressSpaces
+// usage: go test --tags=ibm -run TestGetUsedAddressSpaces
 func TestGetUsedAddressSpaces(t *testing.T) {
 	deployment := &invisinetspb.InvisinetsDeployment{Id: testResourceID}
 

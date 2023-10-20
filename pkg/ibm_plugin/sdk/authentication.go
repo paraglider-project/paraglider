@@ -29,9 +29,10 @@ import (
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/resourcemanagerv2"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
-	utils "github.com/NetSys/invisinets/pkg/utils"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v3"
+
+	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
 // Credentials extracted from local credential file

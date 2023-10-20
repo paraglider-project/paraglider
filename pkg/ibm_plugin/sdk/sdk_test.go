@@ -38,7 +38,7 @@ const (
 	testRegion       = "us-east"
 )
 
-// run via: go test -run TestTerminateVPC -vpcID=value -vpcRegion=value
+// run via: go test --tags=ibm -run TestTerminateVPC -vpcID=value -vpcRegion=value
 func TestTerminateVPC(t *testing.T) {
 	if vpcID == "" || vpcRegion == "" {
 		println("(TestTerminateVPC skipped - missing arguments)")

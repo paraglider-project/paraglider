@@ -24,11 +24,11 @@ import (
 	"strings"
 
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
-	utils "github.com/NetSys/invisinets/pkg/utils"
-
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
+// ResourceIDInfo defines the necessary fields of a resource
 type ResourceIDInfo struct {
 	ResourceGroupID string `json:"ResourceGroupID"`
 	Region          string `json:"Region"`

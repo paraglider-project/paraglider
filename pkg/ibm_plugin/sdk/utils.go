@@ -27,8 +27,9 @@ import (
 	"strconv"
 	"strings"
 
-	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/google/uuid"
+
+	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
 // TaggedResourceType indicates the type of tagged resource to fetch

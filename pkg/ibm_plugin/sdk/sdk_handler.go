@@ -24,6 +24,7 @@ import (
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
+
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
