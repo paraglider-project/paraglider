@@ -14,12 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package rule
 
 import (
-	cli "github.com/NetSys/invisinets/internal/cli/inv"
+	"github.com/NetSys/invisinets/internal/cli/inv/rule/add"
+	"github.com/NetSys/invisinets/internal/cli/inv/rule/delete"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cli.Execute()
+func NewCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rule",
+		Short: "Perform operations on rules",
+	}
+
+	cmd.AddCommand(add.NewCommand())
+	cmd.AddCommand(delete.NewCommand())
+
+	return cmd
 }

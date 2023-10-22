@@ -14,12 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package get
 
 import (
-	cli "github.com/NetSys/invisinets/internal/cli/inv"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cli.Execute()
+func NewCommand() *cobra.Command {
+	executor := &executor{}
+	return &cobra.Command{
+		Use:     "get",
+		Short:   "Get a rule",
+		Args:    cobra.ExactArgs(1),
+		PreRunE: executor.Validate,
+		RunE:    executor.Execute,
+	}
+}
+
+type executor struct {
+}
+
+func (e *executor) Validate(cmd *cobra.Command, args []string) error {
+	return nil
+}
+
+func (e *executor) Execute(cmd *cobra.Command, args []string) error {
+	return nil
 }
