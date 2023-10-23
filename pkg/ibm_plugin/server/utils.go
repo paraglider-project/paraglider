@@ -86,30 +86,30 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 func getZone(proto vpcv1.InstancePrototypeIntf) (string, error) {
 	var zone vpcv1.ZoneIdentityIntf
 
-	switch proto.(type) {
+	switch iproto := proto.(type) {
 	case *vpcv1.InstancePrototypeInstanceByCatalogOffering:
-		zone = proto.(*vpcv1.InstancePrototypeInstanceByCatalogOffering).Zone
+		zone = iproto.Zone
 	case *vpcv1.InstancePrototypeInstanceByImage:
-		zone = proto.(*vpcv1.InstancePrototypeInstanceByImage).Zone
+		zone = iproto.Zone
 	case *vpcv1.InstancePrototypeInstanceBySourceSnapshot:
-		zone = proto.(*vpcv1.InstancePrototypeInstanceBySourceSnapshot).Zone
+		zone = iproto.Zone
 	case *vpcv1.InstancePrototypeInstanceBySourceTemplate:
-		zone = proto.(*vpcv1.InstancePrototypeInstanceBySourceTemplate).Zone
+		zone = iproto.Zone
 	case *vpcv1.InstancePrototypeInstanceByVolume:
-		zone = proto.(*vpcv1.InstancePrototypeInstanceByVolume).Zone
+		zone = iproto.Zone
 	default:
-		return "", fmt.Errorf("unable to determine time of InstancePrototype")
+		return "", fmt.Errorf("unable to determine type of InstancePrototype")
 	}
 
-	switch zone.(type) {
+	switch izone := zone.(type) {
 	case *vpcv1.ZoneIdentityByHref:
-		href := zone.(*vpcv1.ZoneIdentityByHref).Href
+		href := izone.Href
 		hrefZone := strings.Split(*href, "/")
 		return hrefZone[len(hrefZone)-1], nil
 	case *vpcv1.ZoneIdentityByName:
-		return *zone.(*vpcv1.ZoneIdentityByName).Name, nil
+		return *izone.Name, nil
 	default:
-		return "", fmt.Errorf("unable to determine time of ZoneIdentity")
+		return "", fmt.Errorf("unable to determine type of ZoneIdentity")
 	}
 }
 
