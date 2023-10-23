@@ -119,24 +119,6 @@ func (c *CloudClient) GetInstanceID(name string) (string, error) {
 	return *collection.Instances[0].ID, nil
 }
 
-// return image ID of default image
-func (c *CloudClient) getDefaultImageID() (imageID string, err error) {
-	result, _, err := c.vpcService.ListImages(&vpcv1.ListImagesOptions{})
-	if err != nil {
-		utils.Log.Println("Failed to fetch VPC image collection with the",
-			"following error:\n", err)
-		return "", err
-	}
-	for _, image := range result.Images {
-		if strings.HasPrefix(*image.Name, defaultImage) &&
-			*image.OperatingSystem.Architecture == imageArchitecture {
-			return *image.ID, nil
-		}
-	}
-	utils.Log.Println("Failed to retrieve image named by prefix: ", defaultImage)
-	return "", nil
-}
-
 func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 	tags = append(tags, ResourcePrefix)
 	userTypeTag := globaltaggingv1.AttachTagOptionsTagTypeUserConst
@@ -155,7 +137,7 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 	return nil
 }
 
-// returns slice of IDs of tagged resources
+// GetInvisinetsTaggedResources returns slice of IDs of tagged resources
 // Arg resourceType: type of VPC resource, e.g. subnet, security group, instance.
 // Arg tags: labels set by dev, e.g. {<vpcID>,<deploymentID>}
 // Args customQueryMap: map of attributes to filter by, e.g. {"region":"<regionName>"}

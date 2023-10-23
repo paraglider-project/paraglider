@@ -35,6 +35,8 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
+const keyType = "key"
+
 // Credentials extracted from local credential file
 type Credentials struct {
 	APIKey string `yaml:"iam_api_key"`
@@ -44,7 +46,7 @@ type Credentials struct {
 // returns key id of registered public key.
 func (c *CloudClient) setupAuth() (string, error) {
 	var keyID string
-	keyNameToRegister := GenerateResourceName("key")
+	keyNameToRegister := GenerateResourceName(keyType)
 
 	publicKeyData, err := getLocalPubKey()
 	if err != nil {

@@ -152,7 +152,7 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 	}
 	// get all VPCs in the deployment.
 	// TODO future multi deployment support will require sending deployment id as tag, currently using static tag.
-	deploymentVpcIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.VPC, nil, sdk.ResourceQuery{})
+	deploymentVpcIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.VPC, nil, sdk.ResourceQuery{Region: resID.Region})
 	if err != nil {
 		utils.Log.Print("Failed to get invisinets tagged VPCs")
 		return nil, err
@@ -168,6 +168,7 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 			invisinetsAddressSpaces = append(invisinetsAddressSpaces, *subnet.Ipv4CIDRBlock)
 		}
 	}
+	utils.Log.Printf("Used Address Spaces : %+v", invisinetsAddressSpaces)
 	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetsAddressSpaces}, nil
 }
 

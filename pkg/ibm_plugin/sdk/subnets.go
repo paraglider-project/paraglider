@@ -25,6 +25,8 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
+const subnetType = "subnet"
+
 // CreateSubnet creates subnet in specified vpc and zone.
 // tag subnet with invisinets prefix and vpc ID.
 func (c *CloudClient) CreateSubnet(
@@ -79,7 +81,7 @@ func (c *CloudClient) CreateSubnet(
 
 	zoneIdentity := vpcv1.ZoneIdentity{Name: &zone}
 	vpcIdentity := vpcv1.VPCIdentityByID{ID: &vpcID}
-	subnetName := GenerateResourceName("subnet")
+	subnetName := GenerateResourceName(subnetType)
 
 	subnetPrototype := vpcv1.SubnetPrototype{
 		Zone:          &zoneIdentity,
@@ -109,25 +111,40 @@ func (c *CloudClient) CreateSubnet(
 }
 
 // GetSubnetsInVPC returns all subnets in vpc, user's and invisinets'.
+// func (c *CloudClient) GetSubnetsInVPC(vpcID string) ([]vpcv1.Subnet, error) {
+// 	var subnetsList []vpcv1.Subnet
+// 	utils.Log.Printf("Getting subnets for vpc : %s", vpcID)
+// 	routingTableCollection, resp, err := c.vpcService.ListVPCRoutingTables(
+// 		c.vpcService.NewListVPCRoutingTablesOptions(vpcID))
+// 	if err != nil {
+// 		utils.Log.Printf("%s", resp)
+// 		return nil, err
+// 	}
+// 	// get all subnets associated with given routing table
+// 	for _, routingTable := range routingTableCollection.RoutingTables {
+// 		options := &vpcv1.ListSubnetsOptions{
+// 			RoutingTableID:  routingTable.ID,
+// 			ResourceGroupID: c.resourceGroup.ID}
+// 		subnets, _, err := c.vpcService.ListSubnets(options)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		subnetsList = append(subnetsList, subnets.Subnets...)
+// 	}
+// 	return subnetsList, nil
+// }
+
+// GetSubnetsInVPC returns all subnets in vpc, user's and invisinets'.
 func (c *CloudClient) GetSubnetsInVPC(vpcID string) ([]vpcv1.Subnet, error) {
-	var subnetsList []vpcv1.Subnet
-	routingTableCollection, _, err := c.vpcService.ListVPCRoutingTables(
-		c.vpcService.NewListVPCRoutingTablesOptions(vpcID))
+	subnetOptions := &vpcv1.ListSubnetsOptions{VPCID: &vpcID}
+	utils.Log.Printf("Getting subnets for vpc : %s", vpcID)
+	subnets, resp, err := c.vpcService.ListSubnets(subnetOptions)
 	if err != nil {
+		utils.Log.Printf("%s", resp)
 		return nil, err
 	}
-	// get all subnets associated with given routing table
-	for _, routingTable := range routingTableCollection.RoutingTables {
-		options := &vpcv1.ListSubnetsOptions{
-			RoutingTableID:  routingTable.ID,
-			ResourceGroupID: c.resourceGroup.ID}
-		subnets, _, err := c.vpcService.ListSubnets(options)
-		if err != nil {
-			return nil, err
-		}
-		subnetsList = append(subnetsList, subnets.Subnets...)
-	}
-	return subnetsList, nil
+	utils.Log.Printf("subnets: %+v", subnets)
+	return subnets.Subnets, nil
 }
 
 // DoSubnetsInVPCOverlapCIDR returns true if any of the specified vpc's subnets'

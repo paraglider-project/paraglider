@@ -24,6 +24,8 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
+const vpcType = "vpc"
+
 // CreateVPC creates a vpc and a subnet in each zone. resources are tagged.
 // if cidr Block isn't specified, auto-generated address prefixes for the zones are chosen,
 // other wise the vpc's zones will span over it.
@@ -32,7 +34,7 @@ func (c *CloudClient) CreateVPC(vpcName string, cidrBlock string) (*vpcv1.VPC, e
 	var prefixManagement string
 	var addressPrefixes []string
 	if vpcName == "" {
-		vpcName = GenerateResourceName("vpc")
+		vpcName = GenerateResourceName(vpcType)
 	}
 	if cidrBlock != "" {
 		prefixManagement = vpcv1.CreateVPCOptionsAddressPrefixManagementManualConst

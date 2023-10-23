@@ -48,7 +48,6 @@ func (c *CloudClient) CreateInstance(vpcID, subnetID string,
 		return nil, err
 	}
 	return instance, nil
-
 }
 
 func (c *CloudClient) createInstance(keyID, vpcID, subnetID string, instanceOptions *vpcv1.CreateInstanceOptions, securityGroup *vpcv1.SecurityGroup) (
@@ -73,9 +72,8 @@ func (c *CloudClient) createInstance(keyID, vpcID, subnetID string, instanceOpti
 
 	utils.Log.Printf("Creating instance : %+v", instanceOptions.InstancePrototype)
 
-	instance, resp, err := c.vpcService.CreateInstance(instanceOptions)
+	instance, _, err := c.vpcService.CreateInstance(instanceOptions)
 	if err != nil {
-		utils.Log.Printf("%s", resp)
 		return nil, err
 	}
 	utils.Log.Printf("VM %s was launched with ID: %v", *instance.Name, *instance.ID)

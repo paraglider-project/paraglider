@@ -31,6 +31,8 @@ const (
 	cidrType = "CIDR"
 	sgType   = "SG"
 
+	sgResType = "sg"
+
 	inboundType  = "inbound"
 	outboundType = "outbound"
 )
@@ -55,14 +57,15 @@ func (c *CloudClient) createSecurityGroup(
 	sgTags := []string{vpcID}
 
 	vpcIdentity := vpcv1.VPCIdentityByID{ID: &vpcID}
-	sgName := GenerateResourceName("sg")
+	sgName := GenerateResourceName(sgResType)
 	options := vpcv1.CreateSecurityGroupOptions{
 		VPC:           &vpcIdentity,
 		ResourceGroup: c.resourceGroup,
 		Name:          &sgName,
 	}
-	sg, _, err := c.vpcService.CreateSecurityGroup(&options)
+	sg, resp, err := c.vpcService.CreateSecurityGroup(&options)
 	if err != nil {
+		utils.Log.Printf("%s", resp)
 		return nil, err
 	}
 	utils.Log.Printf("Created security group %v with id %v", sgName, *sg.ID)
@@ -129,7 +132,7 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolAll(
 		SgID:       sgID,
 		Remote:     remote,
 		RemoteType: remoteType,
-		Egress:     *ibmRuleProtoAll.Direction == "outbound",
+		Egress:     *ibmRuleProtoAll.Direction == outboundType,
 		PortMin:    int64(-1),
 		PortMax:    int64(-1),
 	}

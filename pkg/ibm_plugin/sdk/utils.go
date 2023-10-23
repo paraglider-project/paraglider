@@ -35,9 +35,6 @@ import (
 // TaggedResourceType indicates the type of tagged resource to fetch
 type TaggedResourceType string
 
-// InstanceProfile indicates the profile of an instance
-type InstanceProfile string
-
 const (
 	// VPC is virtual private cloud
 	VPC TaggedResourceType = "vpc"
@@ -48,21 +45,12 @@ const (
 	// SG is a security group
 	SG TaggedResourceType = "security-group"
 
-	credentialsPath   = ".ibm/credentials.yaml"
-	publicSSHKey      = ".ibm/keys/invisinets-key.pub"
-	privateSSHKey     = ".ibm/keys/invisinets-key"
-	defaultImage      = "ibm-ubuntu-22-04"
-	imageArchitecture = "amd64"
+	credentialsPath = ".ibm/credentials.yaml"
+	publicSSHKey    = ".ibm/keys/invisinets-key.pub"
+	privateSSHKey   = ".ibm/keys/invisinets-key"
 
 	// ResourcePrefix is used to prefix a resource
 	ResourcePrefix = "invisinets"
-
-	// LowCPU is bx2-2x8
-	LowCPU InstanceProfile = "bx2-2x8"
-	// HighCPU is bx2-8x32
-	HighCPU InstanceProfile = "bx2-8x32"
-	// GPU is gx2-8x64x1v100
-	GPU InstanceProfile = "gx2-8x64x1v100"
 )
 
 // ResourceQuery is used to extend query for tagged resources
