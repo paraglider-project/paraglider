@@ -18,6 +18,7 @@ package ibm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -25,6 +26,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/IBM/vpc-go-sdk/vpcv1"
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
@@ -54,17 +56,30 @@ func (s *ibmPluginServer) setupCloudClient(name, region string) error {
 // Default instance name will be auto-generated unless specified.
 func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
 	var vpcID string
+	resFields := vpcv1.CreateInstanceOptions{}
+
+	// TODO : Support unmarshalling to other struct types of InstancePrototype interface
+	resFields.InstancePrototype = &vpcv1.InstancePrototypeInstanceByImage{
+		Image:         &vpcv1.ImageIdentityByID{},
+		Zone:          &vpcv1.ZoneIdentityByName{},
+		Profile:       &vpcv1.InstanceProfileIdentityByName{},
+		ResourceGroup: &vpcv1.ResourceGroupIdentityByID{},
+	}
+
+	err := json.Unmarshal(resourceDesc.Description, &resFields)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
+	}
 
 	rInfo, err := getResourceIDInfo(resourceDesc.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	vmFields, err := getInstanceData(resourceDesc)
+	zone, err := getZone(resFields.InstancePrototype)
 	if err != nil {
 		return nil, err
 	}
-
 	err = s.setupCloudClient(rInfo.ResourceGroupID, rInfo.Region)
 	if err != nil {
 		return nil, err
@@ -104,7 +119,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	// Retrieving an invisinets subnet that's tagged with the above VPC ID in the specified zone.
 	requiredTags := []string{vpcID}
 	subnetsIDs, err := s.cloudClient.GetInvisinetsTaggedResources(sdk.SUBNET, requiredTags,
-		sdk.ResourceQuery{Zone: vmFields.Zone})
+		sdk.ResourceQuery{Zone: zone})
 	if err != nil {
 		return nil, err
 	}
@@ -115,12 +130,11 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	// Assuming one invisinets subnet per zone
 	subnetID := subnetsIDs[0]
 
-	vm, err := s.cloudClient.CreateVM(vpcID, subnetID,
-		vmFields.Zone, rInfo.ResourceID, vmFields.Profile)
+	vm, err := s.cloudClient.CreateInstance(vpcID, subnetID, &resFields)
 	if err != nil {
 		return nil, err
 	}
-	return &invisinetspb.BasicResponse{Success: true, Message: "successfully created VM",
+	return &invisinetspb.BasicResponse{Success: true, Message: "successfully created instance",
 		UpdatedResource: &invisinetspb.ResourceID{Id: *vm.ID}}, nil
 }
 

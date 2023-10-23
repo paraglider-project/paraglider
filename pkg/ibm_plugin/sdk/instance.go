@@ -25,41 +25,15 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
-// CreateVM creates a VM in the specified subnet and zone.
+// CreateInstance creates a VM in the specified subnet and zone.
 // if subnet id isn't specified, the VM will be created
 // on a random subnet in the selected zone.
-func (c *CloudClient) CreateVM(vpcID, subnetID,
-	zone, name, profile string) (*vpcv1.Instance, error) {
-	keyID, err := c.setupAuthentication()
+func (c *CloudClient) CreateInstance(vpcID, subnetID string,
+	instanceOptions *vpcv1.CreateInstanceOptions) (*vpcv1.Instance, error) {
+	keyID, err := c.setupAuth()
 	if err != nil {
 		utils.Log.Println("failed to setup authentication")
 		return nil, err
-	}
-	if profile == "" {
-		profile = string(LowCPU)
-	}
-	imageID, err := c.getDefaultImageID()
-	if imageID == "" || err != nil {
-		utils.Log.Println("Failed to retrieve default image")
-		return nil, err
-	}
-	if err != nil {
-		utils.Log.Println("Failed to set up IBM",
-			"authentication with error: ", err)
-		return nil, err
-	}
-	// pick a subnet if none was provided
-	if subnetID == "" {
-		subnetIDs, err := c.GetInvisinetsTaggedResources(SUBNET, []string{vpcID}, ResourceQuery{Zone: zone})
-		if err != nil || len(subnetIDs) == 0 {
-			utils.Log.Println("Failed to create VM. No subnets found in ", zone)
-			return nil, err
-		}
-		subnetID = subnetIDs[0]
-	}
-	// generate a random VM name if non was provided
-	if name == "" {
-		name = GenerateResourceName("vm")
 	}
 
 	securityGroup, err := c.createSecurityGroup(vpcID)
@@ -68,8 +42,7 @@ func (c *CloudClient) CreateVM(vpcID, subnetID,
 		return nil, err
 	}
 
-	instance, err := c.createVM(imageID, profile, keyID, vpcID,
-		subnetID, zone, name, securityGroup)
+	instance, err := c.createInstance(keyID, vpcID, subnetID, instanceOptions, securityGroup)
 	if err != nil {
 		utils.Log.Println("Failed to launch instance with error:\n", err)
 		return nil, err
@@ -78,9 +51,7 @@ func (c *CloudClient) CreateVM(vpcID, subnetID,
 
 }
 
-func (c *CloudClient) createVM(
-	imageID, profile, keyID, vpcID, subnetID, zone, name string,
-	securityGroup *vpcv1.SecurityGroup) (
+func (c *CloudClient) createInstance(keyID, vpcID, subnetID string, instanceOptions *vpcv1.CreateInstanceOptions, securityGroup *vpcv1.SecurityGroup) (
 	*vpcv1.Instance, error) {
 	instanceTags := []string{vpcID}
 
@@ -94,23 +65,20 @@ func (c *CloudClient) createVM(
 		SecurityGroups: sgGrps,
 	}
 	keyIdentity := vpcv1.KeyIdentityByID{ID: &keyID}
-	imageIdentity := vpcv1.ImageIdentityByID{ID: &imageID}
-	zoneIdentity := vpcv1.ZoneIdentityByName{Name: &zone}
-	prototype := vpcv1.InstancePrototypeInstanceByImage{
-		Image:                   &imageIdentity,
-		Keys:                    []vpcv1.KeyIdentityIntf{&keyIdentity},
-		PrimaryNetworkInterface: &nicPrototype,
-		Zone:                    &zoneIdentity,
-		Name:                    &name,
-		Profile:                 &vpcv1.InstanceProfileIdentityByName{Name: &profile},
-		ResourceGroup:           c.resourceGroup,
-	}
-	options := vpcv1.CreateInstanceOptions{InstancePrototype: &prototype}
-	instance, _, err := c.vpcService.CreateInstance(&options)
+	proto := instanceOptions.InstancePrototype
+
+	proto.(*vpcv1.InstancePrototypeInstanceByImage).Keys = []vpcv1.KeyIdentityIntf{&keyIdentity}
+	proto.(*vpcv1.InstancePrototypeInstanceByImage).PrimaryNetworkInterface = &nicPrototype
+	proto.(*vpcv1.InstancePrototypeInstanceByImage).ResourceGroup = c.resourceGroup
+
+	utils.Log.Printf("Creating instance : %+v", instanceOptions.InstancePrototype)
+
+	instance, resp, err := c.vpcService.CreateInstance(instanceOptions)
 	if err != nil {
+		utils.Log.Printf("%s", resp)
 		return nil, err
 	}
-	utils.Log.Printf("VM %v was launched with ID: %v", name, *instance.ID)
+	utils.Log.Printf("VM %s was launched with ID: %v", *instance.Name, *instance.ID)
 
 	err = c.attachTag(instance.CRN, instanceTags)
 	if err != nil {

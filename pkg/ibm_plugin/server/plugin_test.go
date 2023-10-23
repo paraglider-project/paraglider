@@ -24,6 +24,8 @@ import (
 	"flag"
 	"testing"
 
+	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -46,6 +48,9 @@ const (
 	testInstanceName = "invisinets-vm"
 
 	testResourceID = "/ResourceGroupID/" + testResGroupName + "/Region/" + testRegion + "/ResourceID/" + testInstanceName
+
+	testImageID = "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb"
+	testProfile = sdk.LowCPU
 )
 
 // permit list example
@@ -91,23 +96,27 @@ func init() {
 
 // to terminate the created vpc specify -delVPC.
 // to launch VM in a specific zone specify -zone=<zoneName>, e.g.:
-// go test --tags=ibm  -run TestCreateResourceVMNewDeployment -delVPC
+// go test --tags=ibm -run TestCreateResource -delVPC
 // NOTE: use sdk's TestTerminateVPC to delete the VPC post run.
-func TestCreateResourceVMNewDeployment(t *testing.T) {
+func TestCreateResource(t *testing.T) {
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.IBM)
 	if err != nil {
 		t.Fatal(err)
 	}
+	imageIdentity := vpcv1.ImageIdentityByID{ID: core.StringPtr(testImageID)}
+	zoneIdentity := vpcv1.ZoneIdentityByName{Name: core.StringPtr(testZone)}
+	myTestProfile := string(testProfile)
 
-	instanceData := InstanceData{
-		Zone:    testZone,
-		Profile: string(sdk.LowCPU),
-		Name:    "",
+	testPrototype := &vpcv1.InstancePrototypeInstanceByImage{
+		Image:   &imageIdentity,
+		Zone:    &zoneIdentity,
+		Name:    core.StringPtr(testInstanceName),
+		Profile: &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
 	}
 
 	s := &ibmPluginServer{
 		frontendServerAddr: fakeControllerServerAddr}
-	description, err := json.Marshal(instanceData)
+	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)
 
 	resource := &invisinetspb.ResourceDescription{Id: testResourceID, Description: description}
@@ -139,7 +148,7 @@ func TestGetPermitList(t *testing.T) {
 	b, err := json.MarshalIndent(resp, "", "  ")
 	require.NoError(t, err)
 	// Note: direction:0(inbound) will not be printed.
-	utils.Log.Printf("Permit rules of instance %v are:\n%v", vmID, string(b))
+	utils.Log.Printf("Permit rules of instance %v are:\n%v", testInstanceName, string(b))
 }
 
 // usage: go test --tags=ibm -run TestAddPermitListRules

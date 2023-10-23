@@ -42,7 +42,7 @@ type Credentials struct {
 
 // creates ssh keys and registers them if absent.
 // returns key id of registered public key.
-func (c *CloudClient) setupAuthentication() (string, error) {
+func (c *CloudClient) setupAuth() (string, error) {
 	var keyID string
 	keyNameToRegister := GenerateResourceName("key")
 
