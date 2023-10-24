@@ -14,24 +14,42 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rule
+package get
 
 import (
-	"github.com/NetSys/invisinets/internal/cli/inv/rule/add"
-	"github.com/NetSys/invisinets/internal/cli/inv/rule/delete"
-	"github.com/NetSys/invisinets/internal/cli/inv/rule/get"
+	"fmt"
+	"net/http"
+
 	"github.com/spf13/cobra"
 )
 
 func NewCommand() *cobra.Command {
+	executor := &executor{}
 	cmd := &cobra.Command{
-		Use:   "rule",
-		Short: "Perform operations on rules",
+		Use:     "get",
+		Short:   "Get a rule",
+		Args:    cobra.ExactArgs(2),
+		PreRunE: executor.Validate,
+		RunE:    executor.Execute,
 	}
-
-	cmd.AddCommand(add.NewCommand())
-	cmd.AddCommand(delete.NewCommand())
-	cmd.AddCommand(get.NewCommand())
-
 	return cmd
+}
+
+type executor struct {
+}
+
+func (e *executor) Validate(cmd *cobra.Command, args []string) error {
+	return nil
+}
+
+func (e *executor) Execute(cmd *cobra.Command, args []string) error {
+	// Get the rules from the server
+	url := fmt.Sprintf("http://0.0.0.0:8080/cloud/%s/permit-list/%s", args[0], args[1])
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	fmt.Println(resp)
+
+	return nil
 }
