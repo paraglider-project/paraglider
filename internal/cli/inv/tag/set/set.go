@@ -17,27 +17,56 @@ limitations under the License.
 package set
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+
+	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 	"github.com/spf13/cobra"
 )
 
 func NewCommand() *cobra.Command {
 	executor := &executor{}
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "set",
-		Short:   "Set a rule",
+		Short:   "Set a tag",
 		Args:    cobra.ExactArgs(1),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
+	cmd.Flags().StringSlice("children", []string{}, "List of child tags")
+	cmd.MarkFlagRequired("children")
+	return cmd
 }
 
 type executor struct {
+	children []string
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
+	var err error
+	e.children, err = cmd.Flags().GetStringSlice("children")
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
+	tagMapping := &tagservicepb.TagMapping{TagName: args[0], ChildTags: e.children}
+	body, err := json.Marshal(tagMapping)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("http://0.0.0.0:8080/tags/%s", args[0])
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(resp)
 	return nil
 }
