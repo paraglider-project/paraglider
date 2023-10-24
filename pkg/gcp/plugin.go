@@ -301,7 +301,7 @@ func instanceIsInNamespace(instance *computepb.Instance, namespace string) bool 
 	return strings.HasSuffix(*instance.NetworkInterfaces[0].Network, getVpcName(namespace))
 }
 
-func (s *GCPPluginServer) getAndCheckInstanceNamespace(ctx context.Context, instancesClient *compute.InstancesClient, instance string, project string, zone string, namespace string) error {
+func (s *GCPPluginServer) checkInstanceNamespace(ctx context.Context, instancesClient *compute.InstancesClient, instance string, project string, zone string, namespace string) error {
 	if namespace == "" {
 		return fmt.Errorf("namespace is empty")
 	}
@@ -324,7 +324,7 @@ func (s *GCPPluginServer) getAndCheckInstanceNamespace(ctx context.Context, inst
 func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
 	project, zone, instance := parseInstanceUri(resourceID.Id)
 
-	err := s.getAndCheckInstanceNamespace(ctx, instancesClient, instance, project, zone, resourceID.Namespace)
+	err := s.checkInstanceNamespace(ctx, instancesClient, instance, project, zone, resourceID.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -408,7 +408,7 @@ func (s *GCPPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.BasicResponse, error) {
 	project, zone, instance := parseInstanceUri(permitList.AssociatedResource)
 
-	err := s.getAndCheckInstanceNamespace(ctx, instancesClient, instance, project, zone, permitList.Namespace)
+	err := s.checkInstanceNamespace(ctx, instancesClient, instance, project, zone, permitList.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -548,7 +548,7 @@ func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, permitList *in
 func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.BasicResponse, error) {
 	project, zone, instance := parseInstanceUri(permitList.AssociatedResource)
 
-	err := s.getAndCheckInstanceNamespace(ctx, instancesClient, instance, project, zone, permitList.Namespace)
+	err := s.checkInstanceNamespace(ctx, instancesClient, instance, project, zone, permitList.Namespace)
 	if err != nil {
 		return nil, err
 	}
