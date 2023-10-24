@@ -135,8 +135,8 @@ func (s *mockCloudPluginServer) DeletePermitListRules(c context.Context, permitL
 	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
 }
 
-func (s *mockCloudPluginServer) CreateResource(c context.Context, resource *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
-	return &invisinetspb.BasicResponse{Success: true, Message: resource.Id}, nil
+func (s *mockCloudPluginServer) CreateResource(c context.Context, resource *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
+	return &invisinetspb.CreateResourceResponse{Name: "resource_name", Uri: resource.Id}, nil
 }
 
 func (s *mockCloudPluginServer) GetUsedAddressSpaces(c context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
@@ -376,10 +376,13 @@ func TestCreateResource(t *testing.T) {
 	// Setup
 	frontendServer := newFrontendServer()
 	port := getNewPortNumber()
+	tagServerPort := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.1.0.0/24"}
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
 	setupPluginServer(port)
+	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
 	r.POST("/cloud/:cloud/resources/:id/", frontendServer.resourceCreate)

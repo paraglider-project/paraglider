@@ -21,7 +21,7 @@ option go_package="github.com/NetSys/invisinets/pkg/invisinetspb";
 
 service CloudPlugin {
     rpc GetUsedAddressSpaces(InvisinetsDeployment) returns (AddressSpaceList) {}
-    rpc CreateResource(ResourceDescription) returns (BasicResponse) {}
+    rpc CreateResource(ResourceDescription) returns (CreateResourceResponse) {}
     rpc GetPermitList(ResourceID) returns (PermitList) {}
     rpc AddPermitListRules(PermitList) returns (BasicResponse) {}
     rpc DeletePermitListRules(PermitList) returns (BasicResponse) {}
@@ -38,6 +38,12 @@ service Controller {
 
 message Empty {
 
+}
+
+message CreateResourceResponse {
+    string name = 1;
+    string uri = 2;
+    string ip = 3;
 }
 
 // Provides the necessary URI/ID to find the Invisinets networks (eg, subscription + resource group in Azure or project in GCP)

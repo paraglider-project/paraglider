@@ -533,8 +533,10 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 }
 
 func TestCreateResource(t *testing.T) {
+	serverInstance := getFakeInstance()
+	serverInstance.NetworkInterfaces = []*computepb.NetworkInterface{&computepb.NetworkInterface{NetworkIP: proto.String("10.1.1.1")}}
 	fakeServerState := &fakeServerState{
-		instance: getFakeInstance(), // Include instance in server state since CreateResource will fetch after creating to add the tag
+		instance: serverInstance, // Include instance in server state since CreateResource will fetch after creating to add the tag (needs network info to get the IP)
 		network: &computepb.Network{
 			Name:        proto.String(vpcName),
 			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
@@ -561,7 +563,9 @@ func TestCreateResource(t *testing.T) {
 
 func TestCreateResourceMissingNetwork(t *testing.T) {
 	// Include instance in server state since CreateResource will fetch after creating to add the tag
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance()})
+	serverInstance := getFakeInstance()
+	serverInstance.NetworkInterfaces = []*computepb.NetworkInterface{&computepb.NetworkInterface{NetworkIP: proto.String("10.1.1.1")}}
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: serverInstance})
 	defer teardown(fakeServer, fakeClients)
 
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
@@ -586,8 +590,10 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 }
 
 func TestCreateResourceMissingSubnetwork(t *testing.T) {
+	serverInstance := getFakeInstance()
+	serverInstance.NetworkInterfaces = []*computepb.NetworkInterface{&computepb.NetworkInterface{NetworkIP: proto.String("10.1.1.1")}}
 	fakeServerState := &fakeServerState{
-		instance: getFakeInstance(), // Include instance in server state since CreateResource will fetch after creating to add the tag
+		instance: serverInstance, // Include instance in server state since CreateResource will fetch after creating to add the tag
 		network:  &computepb.Network{Name: proto.String(vpcName)},
 	}
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)

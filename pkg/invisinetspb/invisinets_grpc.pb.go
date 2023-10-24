@@ -49,7 +49,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CloudPluginClient interface {
 	GetUsedAddressSpaces(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*AddressSpaceList, error)
-	CreateResource(ctx context.Context, in *ResourceDescription, opts ...grpc.CallOption) (*BasicResponse, error)
+	CreateResource(ctx context.Context, in *ResourceDescription, opts ...grpc.CallOption) (*CreateResourceResponse, error)
 	GetPermitList(ctx context.Context, in *ResourceID, opts ...grpc.CallOption) (*PermitList, error)
 	AddPermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error)
 	DeletePermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error)
@@ -75,8 +75,8 @@ func (c *cloudPluginClient) GetUsedAddressSpaces(ctx context.Context, in *Invisi
 	return out, nil
 }
 
-func (c *cloudPluginClient) CreateResource(ctx context.Context, in *ResourceDescription, opts ...grpc.CallOption) (*BasicResponse, error) {
-	out := new(BasicResponse)
+func (c *cloudPluginClient) CreateResource(ctx context.Context, in *ResourceDescription, opts ...grpc.CallOption) (*CreateResourceResponse, error) {
+	out := new(CreateResourceResponse)
 	err := c.cc.Invoke(ctx, CloudPlugin_CreateResource_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -143,7 +143,7 @@ func (c *cloudPluginClient) CreateVpnConnections(ctx context.Context, in *Create
 // for forward compatibility
 type CloudPluginServer interface {
 	GetUsedAddressSpaces(context.Context, *InvisinetsDeployment) (*AddressSpaceList, error)
-	CreateResource(context.Context, *ResourceDescription) (*BasicResponse, error)
+	CreateResource(context.Context, *ResourceDescription) (*CreateResourceResponse, error)
 	GetPermitList(context.Context, *ResourceID) (*PermitList, error)
 	AddPermitListRules(context.Context, *PermitList) (*BasicResponse, error)
 	DeletePermitListRules(context.Context, *PermitList) (*BasicResponse, error)
@@ -160,7 +160,7 @@ type UnimplementedCloudPluginServer struct {
 func (UnimplementedCloudPluginServer) GetUsedAddressSpaces(context.Context, *InvisinetsDeployment) (*AddressSpaceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUsedAddressSpaces not implemented")
 }
-func (UnimplementedCloudPluginServer) CreateResource(context.Context, *ResourceDescription) (*BasicResponse, error) {
+func (UnimplementedCloudPluginServer) CreateResource(context.Context, *ResourceDescription) (*CreateResourceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateResource not implemented")
 }
 func (UnimplementedCloudPluginServer) GetPermitList(context.Context, *ResourceID) (*PermitList, error) {
