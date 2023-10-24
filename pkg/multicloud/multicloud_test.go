@@ -89,8 +89,7 @@ func TestMulticloud(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, err)
 	require.NotNil(t, azureCreateResourceResp)
-	assert.True(t, azureCreateResourceResp.Success)
-	assert.Equal(t, azureCreateResourceResp.UpdatedResource.Id, azureVmId)
+	assert.Equal(t, azureCreateResourceResp.Uri, azureVmId)
 	fmt.Println("Created Azure VM")
 	// Create GCP VM
 	gcpVmZone := "us-west1-a"
@@ -104,7 +103,6 @@ func TestMulticloud(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, gcpCreateResourceResp)
-	assert.True(t, gcpCreateResourceResp.Success)
 	fmt.Println("Created GCP VM")
 
 	// Create GCP permit list
