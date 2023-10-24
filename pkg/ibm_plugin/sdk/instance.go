@@ -26,8 +26,6 @@ import (
 )
 
 // CreateInstance creates a VM in the specified subnet and zone.
-// if subnet id isn't specified, the VM will be created
-// on a random subnet in the selected zone.
 func (c *CloudClient) CreateInstance(vpcID, subnetID string,
 	instanceOptions *vpcv1.CreateInstanceOptions) (*vpcv1.Instance, error) {
 	keyID, err := c.setupAuth()
