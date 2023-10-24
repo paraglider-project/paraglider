@@ -781,8 +781,7 @@ func TestCreateVpnConnections(t *testing.T) {
 	require.True(t, resp.Success)
 }
 
-func TestGetAndCheckResourceNamespace(t *testing.T) {
-	// getAndCheckInstanceNamespace(ctx context.Context, instancesClient *compute.InstancesClient, instance string, project string, zone string, namespace string)
+func TestCheckResourceNamespace(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		instance: getFakeInstance(true),
 		network: &computepb.Network{
@@ -795,12 +794,12 @@ func TestGetAndCheckResourceNamespace(t *testing.T) {
 
 	s := &GCPPluginServer{}
 
-	err := s.getAndCheckInstanceNamespace(ctx, fakeClients.instancesClient, fakeInstanceName, fakeProject, fakeZone, fakeNamespace)
+	err := s.checkInstanceNamespace(ctx, fakeClients.instancesClient, fakeInstanceName, fakeProject, fakeZone, fakeNamespace)
 	require.NoError(t, err)
 
-	err = s.getAndCheckInstanceNamespace(ctx, fakeClients.instancesClient, fakeInstanceName, fakeProject, fakeZone, "othernamespace")
+	err = s.checkInstanceNamespace(ctx, fakeClients.instancesClient, fakeInstanceName, fakeProject, fakeZone, "othernamespace")
 	require.Error(t, err)
 
-	err = s.getAndCheckInstanceNamespace(ctx, fakeClients.instancesClient, fakeInstanceName, fakeProject, fakeZone, "")
+	err = s.checkInstanceNamespace(ctx, fakeClients.instancesClient, fakeInstanceName, fakeProject, fakeZone, "")
 	require.Error(t, err)
 }
