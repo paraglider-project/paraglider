@@ -108,7 +108,9 @@ func (c *CloudClient) GetInstanceSecurityGroups(name string) ([]string, error) {
 	}
 	for _, nic := range nics.NetworkInterfaces {
 		for _, sg := range nic.SecurityGroups {
-			sgGroups = append(sgGroups, *sg.ID)
+			if IsInvisinetsResource(*sg.Name) {
+				sgGroups = append(sgGroups, *sg.ID)
+			}
 		}
 	}
 	return sgGroups, nil

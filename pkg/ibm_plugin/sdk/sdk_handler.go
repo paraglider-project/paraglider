@@ -120,7 +120,7 @@ func (c *CloudClient) GetInstanceID(name string) (string, error) {
 }
 
 func (c *CloudClient) attachTag(CRN *string, tags []string) error {
-	tags = append(tags, ResourcePrefix)
+	tags = append(tags, InvResourcePrefix)
 	userTypeTag := globaltaggingv1.AttachTagOptionsTagTypeUserConst
 	resourceModel := &globaltaggingv1.Resource{
 		ResourceID:   CRN,
@@ -146,7 +146,7 @@ func (c *CloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceTy
 	// parse tags
 	var tagsStr string
 	var queryStr string
-	tags = append(tags, ResourcePrefix) // append the invisinets tag
+	tags = append(tags, InvResourcePrefix) // append the invisinets tag
 	for _, tag := range tags {
 		tagsStr += fmt.Sprintf("tags:%v AND ", tag)
 	}

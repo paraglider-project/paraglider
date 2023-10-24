@@ -50,7 +50,7 @@ const (
 	privateSSHKey   = ".ibm/keys/invisinets-key"
 
 	// ResourcePrefix is used to prefix a resource
-	ResourcePrefix = "invisinets"
+	InvResourcePrefix = "invisinets"
 )
 
 // ResourceQuery is used to extend query for tagged resources
@@ -135,7 +135,12 @@ func CRN2ID(crn string) string {
 
 // GenerateResourceName returns unique invisinets resource name
 func GenerateResourceName(name string) string {
-	return fmt.Sprintf("%v-%v-%v", ResourcePrefix, name, uuid.New().String()[:8])
+	return fmt.Sprintf("%v-%v-%v", InvResourcePrefix, name, uuid.New().String()[:8])
+}
+
+// IsInvisinetsResource returns if a given resource (e.g. permit list) belongs to invisinets
+func IsInvisinetsResource(name string) bool {
+	return strings.HasPrefix(name, InvResourcePrefix)
 }
 
 // DoCIDROverlap returns false if cidr blocks don't share a single ip,
