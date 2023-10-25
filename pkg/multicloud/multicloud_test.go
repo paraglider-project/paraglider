@@ -103,6 +103,7 @@ func TestMulticloud(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, gcpCreateResourceResp)
+	assert.Equal(t, gcpCreateResourceResp.Name, gcpVmName)
 	fmt.Println("Created GCP VM")
 
 	// Create GCP permit list
