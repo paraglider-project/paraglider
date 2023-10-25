@@ -31,7 +31,7 @@ import (
 func NewCommand() *cobra.Command {
 	executor := &executor{}
 	return &cobra.Command{
-		Use:     "create",
+		Use:     "create <cloud> <resource_id> <resource_description_file>",
 		Short:   "Create a resource",
 		Args:    cobra.ExactArgs(3),
 		PreRunE: executor.Validate,
