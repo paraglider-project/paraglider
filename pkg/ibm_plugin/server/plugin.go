@@ -314,12 +314,12 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 		if !isSubset {
 			return nil, fmt.Errorf(`rule's remote "%v" is outside of the resource's VPC. `+
 				`Inter VPC connectivity isn't currently supported.`, ibmRule.Remote)
-			/*TODO:
+			/* TODO @praveingk:
 			   remote isn't from within the VM's VPC.
 			1. find invisinets subnets that have cidr blocks that this remote is a part of.
 				 if none were found return err.
-			2. find the vpc of the subnet.
-			3. connect vpcs via transit gateway.
+			2. find the VPC of the subnet.
+			3. connect VPCs via transit gateway.
 			*/
 		}
 		ruleHashValue, err := getStructHash(ibmRule, []string{"ID"})

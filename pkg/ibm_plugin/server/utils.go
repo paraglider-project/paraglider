@@ -86,6 +86,7 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	return info, nil
 }
 
+// TODO @praveingk : Need to handle permitList tags. One option is to encode them in SG rule ID, since there is no description/metadata
 func ibmToInvisinetsRules(rules []sdk.SecurityGroupRule) ([]*invisinetspb.PermitListRule, error) {
 	var invisinetsRules []*invisinetspb.PermitListRule
 

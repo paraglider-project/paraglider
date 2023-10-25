@@ -50,6 +50,8 @@ const (
 
 	// InvResourcePrefix is used to prefix a resource
 	InvResourcePrefix = "invisinets"
+
+	endpointsURL = "https://control.cloud-object-storage.cloud.ibm.com/v2/endpoints"
 )
 
 // ResourceQuery is used to extend query for tagged resources
@@ -66,7 +68,7 @@ func GetRegions() ([]string, error) {
 	if len(regionCache) != 0 {
 		return regionCache, nil
 	}
-	response, err := http.Get("https://control.cloud-object-storage.cloud.ibm.com/v2/endpoints")
+	response, err := http.Get(endpointsURL)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +178,7 @@ func IsCIDRSubset(cidr1, cidr2 string) (bool, error) {
 	// number of significant bits in the subnet mask
 	maskSize1, _ := netCidr1.Mask.Size()
 	maskSize2, _ := netCidr2.Mask.Size()
-	//cidr1 is a subset of cidr2 if the first user ip of cidr1 within cidr2
+	// cidr1 is a subset of cidr2 if the first user ip of cidr1 within cidr2
 	// and the network mask of cidr1 is no smaller than that of cidr2, as
 	// fewer bits is left for user address space.
 	return netCidr2.Contains(firstIP1) && maskSize1 >= maskSize2, nil

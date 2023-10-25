@@ -38,6 +38,8 @@ const (
 	testRegion       = "us-east"
 )
 
+// TODO @praveingk: Expand tests of SDK functions
+
 // run via: go test --tags=ibm -run TestCleanup
 func TestCleanup(t *testing.T) {
 	cloudClient, err := NewIBMCloudClient(testResGroupName, testRegion)

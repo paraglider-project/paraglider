@@ -245,7 +245,6 @@ func (c *CloudClient) AddSecurityGroupRule(rule SecurityGroupRule) error {
 		remotePrototype = &vpcv1.SecurityGroupRuleRemotePrototypeCIDR{CIDRBlock: &rule.Remote}
 	}
 
-	// remotePrototype := &vpcv1.SecurityGroupRuleRemotePrototypeIP{Address: rule.Remote}
 	direction := getEgressDirection(rule.Egress)
 	switch rule.Protocol {
 	case "all":
@@ -290,7 +289,6 @@ func (c *CloudClient) addIcmpSecurityGroupRule(
 			icmp with specific codes and types`)
 	}
 
-	// remote := vpcv1.SecurityGroupRuleRemotePrototypeCIDR{CIDRBlock: cidrBlock}
 	prototype := vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp{
 		Direction: direction,
 		Protocol:  core.StringPtr("icmp"),

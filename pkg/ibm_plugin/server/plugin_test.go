@@ -84,6 +84,8 @@ var testPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRu
 	},
 }
 
+// TODO @praveingk: Change the tests to use fake IBM handlers
+
 // go test --tags=ibm -run TestCreateResourceNewVPC
 func TestCreateResourceNewVPC(t *testing.T) {
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.IBM)

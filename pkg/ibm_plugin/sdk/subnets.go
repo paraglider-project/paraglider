@@ -70,7 +70,7 @@ func (c *CloudClient) CreateSubnet(
 		return nil, err
 	}
 
-	// TODO If required, attach the subnet to a gateway:
+	// TODO @praveingk: If required, attach the subnet to a gateway:
 	// 1. if a public gateway doesn't already exist in the zone, create it.
 	// 2. attach subnet to gateway.
 	return subnet, nil
@@ -87,6 +87,27 @@ func (c *CloudClient) GetSubnetsInVPC(vpcID string) ([]vpcv1.Subnet, error) {
 	}
 	utils.Log.Printf("subnets: %+v", subnets)
 	return subnets.Subnets, nil
+}
+
+// DoSubnetsInVPCOverlapCIDR returns true if any of the specified vpc's subnets'
+// address space overlap with given cidr
+func (c *CloudClient) DoSubnetsInVPCOverlapCIDR(vpcID string,
+	CIDR string) (bool, error) {
+	subnets, err := c.GetSubnetsInVPC(vpcID)
+	if err != nil {
+		return true, err
+	}
+
+	for _, subnet := range subnets {
+		doesOverlap, err := DoCIDROverlap(*subnet.Ipv4CIDRBlock, CIDR)
+		if err != nil {
+			return true, err
+		}
+		if doesOverlap {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // DeleteSubnets deletes all subnets in the specified VPC.

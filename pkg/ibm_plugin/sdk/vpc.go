@@ -59,7 +59,7 @@ func (c *CloudClient) CreateVPC() (*vpcv1.VPC, error) {
 
 // TerminateVPC terminates a vpc, deleting its associated instances and subnets
 func (c *CloudClient) TerminateVPC(vpcID string) error {
-	// fetch instances of specified VPC
+	// Fetch instances of specified VPC
 	instanceList, _, err := c.vpcService.ListInstances(&vpcv1.ListInstancesOptions{
 		VPCID:           &vpcID,
 		ResourceGroupID: c.resourceGroup.ID,
