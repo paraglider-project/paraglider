@@ -22,7 +22,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/IBM/vpc-go-sdk/vpcv1"
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 )
@@ -30,7 +29,7 @@ import (
 // ResourceIDInfo defines the necessary fields of a resource
 type ResourceIDInfo struct {
 	ResourceGroupID string `json:"ResourceGroupID"`
-	Region          string `json:"Region"`
+	Zone            string `json:"Zone"`
 	ResourceID      string `json:"ResourceID"`
 }
 
@@ -67,50 +66,20 @@ var ibmToInvisinetsProtocol = map[string]int32{
 func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	parts := strings.Split(resourceID, "/")
 	if len(parts) < 5 {
-		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected at least 5 parts in the format of '/ResourceGroupID/{ResourceGroupID}/Region/{Region}/ResourceID/{ResourceID}', got %d", len(parts))
+		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected at least 5 parts in the format of '/ResourceGroupID/{ResourceGroupID}/Zone/{Zone}/ResourceID/{ResourceID}', got %d", len(parts))
 	}
 
-	if parts[0] != "" || parts[1] != "ResourceGroupID" || parts[3] != "Region" {
-		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/ResourceGroupID/{ResourceGroupID}/Region/{Region}/ResourceID/{ResourceID}', got '%s'", resourceID)
+	if parts[0] != "" || parts[1] != "ResourceGroupID" || parts[3] != "Zone" {
+		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/ResourceGroupID/{ResourceGroupID}/Zone/{Zone}/ResourceID/{ResourceID}', got '%s'", resourceID)
 	}
 
 	info := ResourceIDInfo{
 		ResourceGroupID: parts[2],
-		Region:          parts[4],
+		Zone:            parts[4],
 		ResourceID:      parts[6],
 	}
 
 	return info, nil
-}
-
-func getZone(proto vpcv1.InstancePrototypeIntf) (string, error) {
-	var zone vpcv1.ZoneIdentityIntf
-
-	switch iproto := proto.(type) {
-	case *vpcv1.InstancePrototypeInstanceByCatalogOffering:
-		zone = iproto.Zone
-	case *vpcv1.InstancePrototypeInstanceByImage:
-		zone = iproto.Zone
-	case *vpcv1.InstancePrototypeInstanceBySourceSnapshot:
-		zone = iproto.Zone
-	case *vpcv1.InstancePrototypeInstanceBySourceTemplate:
-		zone = iproto.Zone
-	case *vpcv1.InstancePrototypeInstanceByVolume:
-		zone = iproto.Zone
-	default:
-		return "", fmt.Errorf("unable to determine type of InstancePrototype")
-	}
-
-	switch izone := zone.(type) {
-	case *vpcv1.ZoneIdentityByHref:
-		href := izone.Href
-		hrefZone := strings.Split(*href, "/")
-		return hrefZone[len(hrefZone)-1], nil
-	case *vpcv1.ZoneIdentityByName:
-		return *izone.Name, nil
-	default:
-		return "", fmt.Errorf("unable to determine type of ZoneIdentity")
-	}
 }
 
 func ibmToInvisinetsRules(rules []sdk.SecurityGroupRule) ([]*invisinetspb.PermitListRule, error) {

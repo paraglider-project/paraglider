@@ -21,7 +21,6 @@ package ibm
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"testing"
 
 	"github.com/IBM/go-sdk-core/v5/core"
@@ -33,19 +32,20 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
-// test cli flags
-var vmID string   // (optional flag) existing invisinets VM ID.
-var region string // (optional flag) existing invisinets VM ID.
-var zone string   // (optional flag) zone to launch a VM in.
-var delVPC bool   // (optional flag) if set to true cleans resources after test.
-
 const (
-	testResGroupName = "invisinets"
-	testRegion       = "us-east"
-	testZone         = testRegion + "-1"
-	testInstanceName = "invisinets-vm"
+	testResGroupName  = "invisinets"
+	testUSRegion      = "us-east"
+	testUSZone1       = testUSRegion + "-1"
+	testUSZone2       = testUSRegion + "-2"
+	testEURegion      = "eu-de"
+	testEUZone1       = testEURegion + "-1"
+	testInstanceName1 = "invisinets-vm-1"
+	testInstanceName2 = "invisinets-vm-2"
 
-	testResourceID = "/ResourceGroupID/" + testResGroupName + "/Region/" + testRegion + "/ResourceID/" + testInstanceName
+	testResourceID1 = "/ResourceGroupID/" + testResGroupName + "/Zone/" + testUSZone1 + "/ResourceID/" + testInstanceName1
+	testResourceID2 = "/ResourceGroupID/" + testResGroupName + "/Zone/" + testUSZone2 + "/ResourceID/" + testInstanceName2
+
+	testResourceID1 = "/ResourceGroupID/" + testResGroupName + "/Region/" + testUSZone1
 
 	testImageID = "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb" // Ubuntu 22.04
 	testProfile = "bx2-2x8"
@@ -85,30 +85,20 @@ var testPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRu
 	},
 }
 
-func init() {
-	flag.StringVar(&vmID, "vmID", "", "Existing invisinets VM ID")
-	flag.StringVar(&region, "region", "", "IBM region")
-	flag.StringVar(&zone, "zone", "", "IBM zone")
-	flag.BoolVar(&delVPC, "delVPC", false, "if specified, terminates vpc after tests end")
-}
-
-// to terminate the created vpc specify -delVPC.
-// to launch VM in a specific zone specify -zone=<zoneName>, e.g.:
-// go test --tags=ibm -run TestCreateResource -delVPC
-// NOTE: use sdk's TestTerminateVPC to delete the VPC post run.
-func TestCreateResource(t *testing.T) {
+// go test --tags=ibm -run TestCreateResource
+func TestCreateResourceNewVPC(t *testing.T) {
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.IBM)
 	if err != nil {
 		t.Fatal(err)
 	}
 	imageIdentity := vpcv1.ImageIdentityByID{ID: core.StringPtr(testImageID)}
-	zoneIdentity := vpcv1.ZoneIdentityByName{Name: core.StringPtr(testZone)}
+	zoneIdentity := vpcv1.ZoneIdentityByName{Name: core.StringPtr(testUSZone2)}
 	myTestProfile := string(testProfile)
 
 	testPrototype := &vpcv1.InstancePrototypeInstanceByImage{
 		Image:   &imageIdentity,
 		Zone:    &zoneIdentity,
-		Name:    core.StringPtr(testInstanceName),
+		Name:    core.StringPtr(testInstanceName1),
 		Profile: &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
 	}
 
@@ -117,25 +107,49 @@ func TestCreateResource(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: testResourceID, Description: description}
+	resource := &invisinetspb.ResourceDescription{Id: testResourceID1, Description: description}
 	resp, err := s.CreateResource(context.Background(), resource)
 	if err != nil {
 		println(err)
 	}
 	require.NoError(t, err)
 	require.NotNil(t, resp)
+}
 
-	if delVPC {
-		vpcID, err := s.cloudClient.VMToVPCID(resp.UpdatedResource.Id)
-		require.NoError(t, err)
-		err = s.cloudClient.TerminateVPC(vpcID)
-		require.NoError(t, err)
+// go test --tags=ibm -run TestCreateResourceExistingVPC
+func TestCreateResourceExistingVPC(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
 	}
+	imageIdentity := vpcv1.ImageIdentityByID{ID: core.StringPtr(testImageID)}
+	zoneIdentity := vpcv1.ZoneIdentityByName{Name: core.StringPtr(testUSZone2)}
+	myTestProfile := string(testProfile)
+
+	testPrototype := &vpcv1.InstancePrototypeInstanceByImage{
+		Image:   &imageIdentity,
+		Zone:    &zoneIdentity,
+		Name:    core.StringPtr(testInstanceName2),
+		Profile: &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
+	}
+
+	s := &ibmPluginServer{
+		frontendServerAddr: fakeControllerServerAddr}
+	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
+	require.NoError(t, err)
+
+	resource := &invisinetspb.ResourceDescription{Id: testResourceID2, Description: description}
+	resp, err := s.CreateResource(context.Background(), resource)
+	if err != nil {
+		println(err)
+	}
+	require.NoError(t, err)
+	require.NotNil(t, resp)
 }
 
 // usage: go test --tags=ibm -run TestGetPermitList
 func TestGetPermitList(t *testing.T) {
-	resourceID := &invisinetspb.ResourceID{Id: testResourceID}
+	resourceID := &invisinetspb.ResourceID{Id: testResourceID1}
 
 	s := &ibmPluginServer{}
 
@@ -146,13 +160,13 @@ func TestGetPermitList(t *testing.T) {
 	b, err := json.MarshalIndent(resp, "", "  ")
 	require.NoError(t, err)
 	// Note: direction:0(inbound) will not be printed.
-	utils.Log.Printf("Permit rules of instance %v are:\n%v", testInstanceName, string(b))
+	utils.Log.Printf("Permit rules of instance %v are:\n%v", testInstanceName1, string(b))
 }
 
 // usage: go test --tags=ibm -run TestAddPermitListRules
 func TestAddPermitListRules(t *testing.T) {
 	permitList := &invisinetspb.PermitList{
-		AssociatedResource: testResourceID,
+		AssociatedResource: testResourceID1,
 		Rules:              testPermitList,
 	}
 
@@ -168,7 +182,7 @@ func TestAddPermitListRules(t *testing.T) {
 // usage: go test --tags=ibm -run TestDeletePermitListRule
 func TestDeletePermitListRules(t *testing.T) {
 	permitList := &invisinetspb.PermitList{
-		AssociatedResource: testResourceID,
+		AssociatedResource: testResourceID1,
 		Rules:              testPermitList,
 	}
 
@@ -183,7 +197,7 @@ func TestDeletePermitListRules(t *testing.T) {
 
 // usage: go test --tags=ibm -run TestGetUsedAddressSpaces
 func TestGetUsedAddressSpaces(t *testing.T) {
-	deployment := &invisinetspb.InvisinetsDeployment{Id: testResourceID}
+	deployment := &invisinetspb.InvisinetsDeployment{Id: testResourceID1}
 
 	s := &ibmPluginServer{}
 

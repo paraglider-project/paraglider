@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"net/netip"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -49,7 +48,7 @@ const (
 	publicSSHKey    = ".ibm/keys/invisinets-key.pub"
 	privateSSHKey   = ".ibm/keys/invisinets-key"
 
-	// ResourcePrefix is used to prefix a resource
+	// InvResourcePrefix is used to prefix a resource
 	InvResourcePrefix = "invisinets"
 )
 
@@ -181,33 +180,6 @@ func IsCIDRSubset(cidr1, cidr2 string) (bool, error) {
 	// and the network mask of cidr1 is no smaller than that of cidr2, as
 	// fewer bits is left for user address space.
 	return netCidr2.Contains(firstIP1) && maskSize1 >= maskSize2, nil
-}
-
-// SplitCIDR splits given cidr 3 ways, so the last cidr is as large as the first 2 combined:
-// x.x.x.x/y+2, x.x.64.x/y+2, x.x.128.x/y+1 for cidr=x.x.x.x/y.
-func SplitCIDR(cidr string) ([]string, error) {
-	cidrParts := strings.Split(cidr, "/")
-	netmask, err := strconv.Atoi(cidrParts[1])
-	if err != nil {
-		return nil, err
-	}
-	netmaskZone1Zone2 := netmask + 2
-	netmaskZone3 := netmask + 1
-	ip := cidrParts[0]
-	ipOctets := strings.Split(ip, ".")
-	zone2Octets := make([]string, 4)
-	copy(zone2Octets, ipOctets)
-	zone2Octets[2] = "64"
-	ipZone2 := strings.Join(zone2Octets, ".")
-	zone3Octets := make([]string, 4)
-	copy(zone3Octets, ipOctets)
-	zone3Octets[2] = "128"
-	ipZone3 := strings.Join(zone3Octets, ".")
-	return []string{
-		fmt.Sprintf("%s/%d", ip, netmaskZone1Zone2),
-		fmt.Sprintf("%s/%d", ipZone2, netmaskZone1Zone2),
-		fmt.Sprintf("%s/%d", ipZone3, netmaskZone3),
-	}, nil
 }
 
 // AreStructsEqual returns true if two given structs of the same type have matching fields values

@@ -17,7 +17,6 @@ limitations under the License.
 package ibm
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
@@ -31,61 +30,28 @@ const subnetType = "subnet"
 // tag subnet with invisinets prefix and vpc ID.
 func (c *CloudClient) CreateSubnet(
 	vpcID, zone, addressSpace string) (*vpcv1.Subnet, error) {
-	var cidrBlock *string
-	subnetTags := []string{vpcID}
+	subnetTags := []string{InvTag, vpcID}
 	zone = strings.TrimSpace(zone)
-	listVpcAddressPrefixesOptions := &vpcv1.ListVPCAddressPrefixesOptions{
-		VPCID: &vpcID,
-	}
-
-	addressPrefixes, _, err :=
-		c.vpcService.ListVPCAddressPrefixes(listVpcAddressPrefixesOptions)
-	if err != nil {
-		utils.Log.Println("No address prefixes were found in vpc: ", vpcID,
-			"with error:\n", err)
-		return nil, err
-	}
-
-	for _, addressPrefix := range addressPrefixes.AddressPrefixes {
-		if zone == *addressPrefix.Zone.Name {
-			if addressSpace == "" {
-				cidrBlock = addressPrefix.CIDR
-			} else {
-				doesAddressFitInVPC, err := IsCIDRSubset(addressSpace, *addressPrefix.CIDR)
-				if err != nil {
-					return nil, err
-				}
-				if doesAddressFitInVPC {
-					// before picking a CIDR block verify that it does not overlap with the vpc's subnets
-					doesOverlap, err := c.DoSubnetsInVPCOverlapCIDR(vpcID, addressSpace)
-					if err != nil {
-						return nil, err
-					}
-					if !doesOverlap {
-						cidrBlock = &addressSpace
-					}
-				}
-			}
-
-			if cidrBlock != nil {
-				// Optimize by exiting when a CIDR block was chosen
-				break
-			}
-		}
-	}
-
-	if cidrBlock == nil {
-		utils.Log.Println("Failed to locate CIDR block for subnet")
-		return nil, fmt.Errorf("failed to locate CIDR block for subnet")
-	}
 
 	zoneIdentity := vpcv1.ZoneIdentity{Name: &zone}
 	vpcIdentity := vpcv1.VPCIdentityByID{ID: &vpcID}
 	subnetName := GenerateResourceName(subnetType)
 
+	// Before creating a subnet, we must create an address prefix in the VPC
+	addressPrefixOptions := vpcv1.CreateVPCAddressPrefixOptions{
+		VPCID: &vpcID,
+		CIDR:  &addressSpace,
+		Zone:  &zoneIdentity,
+	}
+
+	_, _, err := c.vpcService.CreateVPCAddressPrefix(&addressPrefixOptions)
+	if err != nil {
+		return nil, err
+	}
+
 	subnetPrototype := vpcv1.SubnetPrototype{
 		Zone:          &zoneIdentity,
-		Ipv4CIDRBlock: cidrBlock,
+		Ipv4CIDRBlock: &addressSpace,
 		VPC:           &vpcIdentity,
 		Name:          &subnetName,
 		ResourceGroup: c.resourceGroup,
@@ -111,30 +77,6 @@ func (c *CloudClient) CreateSubnet(
 }
 
 // GetSubnetsInVPC returns all subnets in vpc, user's and invisinets'.
-// func (c *CloudClient) GetSubnetsInVPC(vpcID string) ([]vpcv1.Subnet, error) {
-// 	var subnetsList []vpcv1.Subnet
-// 	utils.Log.Printf("Getting subnets for vpc : %s", vpcID)
-// 	routingTableCollection, resp, err := c.vpcService.ListVPCRoutingTables(
-// 		c.vpcService.NewListVPCRoutingTablesOptions(vpcID))
-// 	if err != nil {
-// 		utils.Log.Printf("%s", resp)
-// 		return nil, err
-// 	}
-// 	// get all subnets associated with given routing table
-// 	for _, routingTable := range routingTableCollection.RoutingTables {
-// 		options := &vpcv1.ListSubnetsOptions{
-// 			RoutingTableID:  routingTable.ID,
-// 			ResourceGroupID: c.resourceGroup.ID}
-// 		subnets, _, err := c.vpcService.ListSubnets(options)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		subnetsList = append(subnetsList, subnets.Subnets...)
-// 	}
-// 	return subnetsList, nil
-// }
-
-// GetSubnetsInVPC returns all subnets in vpc, user's and invisinets'.
 func (c *CloudClient) GetSubnetsInVPC(vpcID string) ([]vpcv1.Subnet, error) {
 	subnetOptions := &vpcv1.ListSubnetsOptions{VPCID: &vpcID}
 	utils.Log.Printf("Getting subnets for vpc : %s", vpcID)
@@ -145,27 +87,6 @@ func (c *CloudClient) GetSubnetsInVPC(vpcID string) ([]vpcv1.Subnet, error) {
 	}
 	utils.Log.Printf("subnets: %+v", subnets)
 	return subnets.Subnets, nil
-}
-
-// DoSubnetsInVPCOverlapCIDR returns true if any of the specified vpc's subnets'
-// address space overlap with given cidr
-func (c *CloudClient) DoSubnetsInVPCOverlapCIDR(vpcID string,
-	CIDR string) (bool, error) {
-	subnets, err := c.GetSubnetsInVPC(vpcID)
-	if err != nil {
-		return true, err
-	}
-
-	for _, subnet := range subnets {
-		doesOverlap, err := DoCIDROverlap(*subnet.Ipv4CIDRBlock, CIDR)
-		if err != nil {
-			return true, err
-		}
-		if doesOverlap {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 // DeleteSubnets deletes all subnets in the specified VPC.

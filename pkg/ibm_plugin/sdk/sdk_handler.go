@@ -28,6 +28,11 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
+const (
+	// InvTag is the default tag attached to all inv resources
+	InvTag = "inv"
+)
+
 // CloudClient is the client used to interact with IBM Cloud SDK
 type CloudClient struct {
 	vpcService     *vpcv1.VpcV1

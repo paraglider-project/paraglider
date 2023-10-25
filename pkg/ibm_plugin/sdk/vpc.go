@@ -26,21 +26,15 @@ import (
 
 const vpcType = "vpc"
 
-// CreateVPC creates a vpc and a subnet in each zone. resources are tagged.
-// if cidr Block isn't specified, auto-generated address prefixes for the zones are chosen,
-// other wise the vpc's zones will span over it.
-func (c *CloudClient) CreateVPC(vpcName string, cidrBlock string) (*vpcv1.VPC, error) {
-	vpcTags := []string{}
+// CreateVPC creates an Invisinets VPC for a region resources are tagged.
+func (c *CloudClient) CreateVPC() (*vpcv1.VPC, error) {
+	vpcTags := []string{InvTag}
 	var prefixManagement string
-	var addressPrefixes []string
-	if vpcName == "" {
-		vpcName = GenerateResourceName(vpcType)
-	}
-	if cidrBlock != "" {
-		prefixManagement = vpcv1.CreateVPCOptionsAddressPrefixManagementManualConst
-	} else {
-		prefixManagement = vpcv1.CreateVPCOptionsAddressPrefixManagementAutoConst
-	}
+
+	vpcName := GenerateResourceName(vpcType)
+
+	// Prefix Management is done when subnet are created separately
+	prefixManagement = vpcv1.CreateVPCOptionsAddressPrefixManagementManualConst
 
 	options := vpcv1.CreateVPCOptions{
 		Name:                    &vpcName,
@@ -53,50 +47,6 @@ func (c *CloudClient) CreateVPC(vpcName string, cidrBlock string) (*vpcv1.VPC, e
 		utils.Log.Println("Failed to create VPC with error:", err,
 			"\nResponse:\n", response)
 		return nil, err
-	}
-
-	if cidrBlock != "" {
-		//split the provided cidr block 3-ways and create 3 address prefixes.
-		addressPrefixes, err = SplitCIDR(cidrBlock)
-		if err != nil {
-			return nil, err
-		}
-		zones, err := GetZonesOfRegion(c.region)
-		if err != nil {
-			return nil, err
-		}
-
-		for i, zone := range zones {
-			zoneIdentity := vpcv1.ZoneIdentity{Name: &zone}
-			addressPrefixOptions := vpcv1.CreateVPCAddressPrefixOptions{
-				VPCID: vpc.ID,
-				CIDR:  &addressPrefixes[i],
-				Zone:  &zoneIdentity,
-			}
-			_, _, err = c.vpcService.CreateVPCAddressPrefix(&addressPrefixOptions)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	zones, err := GetZonesOfRegion(c.region)
-	if err != nil {
-		return nil, err
-	}
-	addressSpace := ""
-	for i, zone := range zones {
-		if addressPrefixes != nil {
-			addressSpace = addressPrefixes[i]
-			_, err := c.CreateSubnet(*vpc.ID, zone, addressSpace)
-			if err != nil {
-				utils.Log.Println("Failed to create subnet with error:",
-					err)
-				return nil, err
-			}
-
-		}
-
 	}
 	err = c.attachTag(vpc.CRN, vpcTags)
 	if err != nil {
