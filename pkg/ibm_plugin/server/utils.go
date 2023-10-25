@@ -61,6 +61,10 @@ var ibmToInvisinetsProtocol = map[string]int32{
 	"udp":  17,
 }
 
+func getClientMapKey(resGroup, region string) string {
+	return resGroup + "-" + region
+}
+
 // returns ResourceIDInfo out of an agreed upon formatted string:
 // "/ResourceGroupID/{ResourceGroupID}/Region/{Region}/ResourceID/{ResourceID}"
 func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {

@@ -38,15 +38,13 @@ const (
 	testRegion       = "us-east"
 )
 
-// run via: go test --tags=ibm -run TestTerminateVPC -vpcID=value -vpcRegion=value
-func TestTerminateVPC(t *testing.T) {
-	if vpcID == "" || vpcRegion == "" {
-		println("(TestTerminateVPC skipped - missing arguments)")
-		t.Skip("TestTerminateVPC skipped - missing arguments")
-	}
-	cloudClient, err := NewIBMCloudClient(testResGroupName, vpcRegion)
+// run via: go test --tags=ibm -run TestCleanup
+func TestCleanup(t *testing.T) {
+	cloudClient, err := NewIBMCloudClient(testResGroupName, testRegion)
 	require.NoError(t, err)
-	err = cloudClient.TerminateVPC(vpcID)
+	vpcIDs, err := cloudClient.GetInvisinetsTaggedResources(VPC, []string{InvTag}, ResourceQuery{Region: testRegion})
+	require.NoError(t, err)
+	err = cloudClient.TerminateVPC(vpcIDs[0])
 	require.NoError(t, err)
 }
 

@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/NetSys/invisinets/pkg/fake"
+	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
@@ -44,8 +45,6 @@ const (
 
 	testResourceID1 = "/ResourceGroupID/" + testResGroupName + "/Zone/" + testUSZone1 + "/ResourceID/" + testInstanceName1
 	testResourceID2 = "/ResourceGroupID/" + testResGroupName + "/Zone/" + testUSZone2 + "/ResourceID/" + testInstanceName2
-
-	testResourceID1 = "/ResourceGroupID/" + testResGroupName + "/Region/" + testUSZone1
 
 	testImageID = "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb" // Ubuntu 22.04
 	testProfile = "bx2-2x8"
@@ -85,14 +84,14 @@ var testPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRu
 	},
 }
 
-// go test --tags=ibm -run TestCreateResource
+// go test --tags=ibm -run TestCreateResourceNewVPC
 func TestCreateResourceNewVPC(t *testing.T) {
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.IBM)
 	if err != nil {
 		t.Fatal(err)
 	}
 	imageIdentity := vpcv1.ImageIdentityByID{ID: core.StringPtr(testImageID)}
-	zoneIdentity := vpcv1.ZoneIdentityByName{Name: core.StringPtr(testUSZone2)}
+	zoneIdentity := vpcv1.ZoneIdentityByName{Name: core.StringPtr(testUSZone1)}
 	myTestProfile := string(testProfile)
 
 	testPrototype := &vpcv1.InstancePrototypeInstanceByImage{
@@ -103,7 +102,9 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	}
 
 	s := &ibmPluginServer{
-		frontendServerAddr: fakeControllerServerAddr}
+		frontendServerAddr: fakeControllerServerAddr,
+		cloudClient:        make(map[string]*sdk.CloudClient)}
+
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)
 
@@ -134,7 +135,8 @@ func TestCreateResourceExistingVPC(t *testing.T) {
 	}
 
 	s := &ibmPluginServer{
-		frontendServerAddr: fakeControllerServerAddr}
+		frontendServerAddr: fakeControllerServerAddr,
+		cloudClient:        make(map[string]*sdk.CloudClient)}
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)
 
@@ -151,7 +153,7 @@ func TestCreateResourceExistingVPC(t *testing.T) {
 func TestGetPermitList(t *testing.T) {
 	resourceID := &invisinetspb.ResourceID{Id: testResourceID1}
 
-	s := &ibmPluginServer{}
+	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
 	resp, err := s.GetPermitList(context.Background(), resourceID)
 	require.NoError(t, err)
@@ -170,7 +172,7 @@ func TestAddPermitListRules(t *testing.T) {
 		Rules:              testPermitList,
 	}
 
-	s := &ibmPluginServer{}
+	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
 	resp, err := s.AddPermitListRules(context.Background(), permitList)
 	require.NoError(t, err)
@@ -186,7 +188,7 @@ func TestDeletePermitListRules(t *testing.T) {
 		Rules:              testPermitList,
 	}
 
-	s := &ibmPluginServer{}
+	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
 	resp, err := s.DeletePermitListRules(context.Background(), permitList)
 	require.NoError(t, err)
@@ -199,7 +201,7 @@ func TestDeletePermitListRules(t *testing.T) {
 func TestGetUsedAddressSpaces(t *testing.T) {
 	deployment := &invisinetspb.InvisinetsDeployment{Id: testResourceID1}
 
-	s := &ibmPluginServer{}
+	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
 	usedAddressSpace, err := s.GetUsedAddressSpaces(context.Background(), deployment)
 	require.NoError(t, err)
