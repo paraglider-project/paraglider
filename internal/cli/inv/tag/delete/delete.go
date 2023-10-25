@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/spf13/cobra"
@@ -34,17 +35,17 @@ func NewCommand() *cobra.Command {
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
-	cmd.Flags().String("member", "", "The member to delete")
+	cmd.Flags().StringSlice("members", []string{}, "The member(s) to delete")
 	return cmd
 }
 
 type executor struct {
-	member string
+	members []string
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	var err error
-	e.member, err = cmd.Flags().GetString("member")
+	e.members, err = cmd.Flags().GetStringSlice("members")
 	if err != nil {
 		return err
 	}
@@ -54,23 +55,37 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	// Delete the tag from the server
 	var url string
-	if e.member == "" {
+	var req *http.Request
+	if len(e.members) == 0 {
 		url = fmt.Sprintf("http://0.0.0.0:8080/tags/%s", args[0])
+		var err error
+		req, err = http.NewRequest(http.MethodDelete, url, nil)
+		if err != nil {
+			return err
+		}
 	} else {
-		url = fmt.Sprintf("http://0.0.0.0:8080/tags/%s/members/%s", args[0], e.member)
+		url = fmt.Sprintf("http://0.0.0.0:8080/tags/%s/members/", args[0])
+		body, err := json.Marshal(e.members)
+		if err != nil {
+			return err
+		}
+		req, err = http.NewRequest(http.MethodDelete, url, bytes.NewBuffer(body))
+		if err != nil {
+			return err
+		}
 	}
 
-	members := []string{e.member}
-	body, err := json.Marshal(members)
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
+	fmt.Println("Status Code: ", resp.StatusCode)
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
-
-	fmt.Println(resp)
+	fmt.Println("Response Body: ", string(bodyBytes))
 	return nil
 }

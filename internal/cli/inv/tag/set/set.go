@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
@@ -36,12 +37,15 @@ func NewCommand() *cobra.Command {
 		RunE:    executor.Execute,
 	}
 	cmd.Flags().StringSlice("children", []string{}, "List of child tags")
-	cmd.MarkFlagRequired("children")
+	cmd.Flags().String("uri", "", "URI of the tag")
+	cmd.Flags().String("ip", "", "IP of the tag")
 	return cmd
 }
 
 type executor struct {
 	children []string
+	uri      string
+	ip       string
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
@@ -50,6 +54,24 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	e.uri, err = cmd.Flags().GetString("uri")
+	if err != nil {
+		return err
+	}
+
+	e.ip, err = cmd.Flags().GetString("ip")
+	if err != nil {
+		return err
+	}
+
+	if len(e.children) == 0 && e.uri == "" && e.ip == "" {
+		return fmt.Errorf("must specify at least one of --children, --uri, or --ip")
+	}
+	if len(e.children) > 0 && (e.uri != "" || e.ip != "") {
+		return fmt.Errorf("cannot specify --children with --uri or --ip")
+	}
+
 	return nil
 }
 
@@ -66,6 +88,13 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("Status Code: ", resp.StatusCode)
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Response Body: ", string(bodyBytes))
 
 	fmt.Println(resp)
 	return nil

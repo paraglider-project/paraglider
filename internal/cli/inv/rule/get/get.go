@@ -18,6 +18,7 @@ package get
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/spf13/cobra"
@@ -49,7 +50,13 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(resp)
+
+	fmt.Println("Status Code: ", resp.StatusCode)
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Response Body: ", string(bodyBytes))
 
 	return nil
 }

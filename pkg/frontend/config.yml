@@ -1,6 +1,7 @@
 server: 
   host: "localhost"
   port: 8080
+  rpcPort: 8081
 
 cloudPlugins:
   - name: "example"
