@@ -23,12 +23,16 @@ import (
 	"strings"
 	"testing"
 
+	billing "cloud.google.com/go/billing/apiv1"
+	billingpb "cloud.google.com/go/billing/apiv1/billingpb"
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	networkmanagement "cloud.google.com/go/networkmanagement/apiv1"
-	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
+	networkmanagementpb "cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
-	"cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
+	resourcemanagerpb "cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
+	serviceusage "cloud.google.com/go/serviceusage/apiv1"
+	"cloud.google.com/go/serviceusage/apiv1/serviceusagepb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -48,16 +52,60 @@ func GetGcpProject() string {
 	return project
 }
 
-func SetupGcpTesting(projectId string) string {
+func SetupGcpTesting(projectId string) {
 	ctx := context.Background()
-	projectsClient, err := resourcemanager.NewProjectsClient(ctx, nil)
+	projectsClient, err := resourcemanager.NewProjectsClient(ctx)
 	if err != nil {
 		panic(fmt.Errorf("unable to create projects client: %w", err))
 	}
+	// Create project
 	createProjectReq := &resourcemanagerpb.CreateProjectRequest{
 		Project: &resourcemanagerpb.Project{
 			ProjectId: projectId,
+			Parent:    "folders/196733425304", // TODO @seankimkdy: replace
+			// TODO @seankimkdy: specify name
 		},
+	}
+	createProjectOp, err := projectsClient.CreateProject(ctx, createProjectReq)
+	if err != nil {
+		panic(fmt.Errorf("unable to create project: %w", err))
+	}
+	_, err = createProjectOp.Wait(ctx)
+	if err != nil {
+		panic(fmt.Errorf("unable to wait on create project op: %w", err))
+	}
+
+	// Enable billing
+	cloudBillingClient, err := billing.NewCloudBillingRESTClient(ctx)
+	if err != nil {
+		panic(fmt.Errorf("unable to create cloud billing client: %w", err))
+	}
+	updateProjectBillingInfoReq := &billingpb.UpdateProjectBillingInfoRequest{
+		Name: "projects/" + projectId,
+		ProjectBillingInfo: &billingpb.ProjectBillingInfo{
+			BillingAccountName: "billingAccounts/01B55C-326918-375053", // TODO @seankimkdy: replace
+		},
+	}
+	_, err = cloudBillingClient.UpdateProjectBillingInfo(ctx, updateProjectBillingInfoReq)
+	if err != nil {
+		panic(fmt.Errorf("unable to update project billing info: %w", err))
+	}
+	// Enable services
+	serviceUsageClient, err := serviceusage.NewRESTClient(ctx)
+	if err != nil {
+		panic(fmt.Errorf("unable to create serviceusage client: %w", err))
+	}
+	batchEnableServicesReq := &serviceusagepb.BatchEnableServicesRequest{
+		Parent:     "projects/" + projectId,
+		ServiceIds: []string{"cloudbilling.googleapis.com", "compute.googleapis.com"},
+	}
+	batchEnableServicesOp, err := serviceUsageClient.BatchEnableServices(ctx, batchEnableServicesReq)
+	if err != nil {
+		panic(fmt.Errorf("unable to batch enable services: %w", err))
+	}
+	_, err = batchEnableServicesOp.Wait(ctx)
+	if err != nil {
+		panic(fmt.Errorf("unable to wait on batch enable services op: %w", err))
 	}
 }
 
