@@ -319,7 +319,10 @@ func TestCreateResource(t *testing.T) {
 			},
 		}, nil)
 		mockAzureHandler.On("CreateNetworkInterface", ctx, defaultSubnetID, testLocation, mock.Anything).Return(&armnetwork.Interface{ID: to.Ptr(validNicId)}, nil)
-		mockAzureHandler.On("CreateVirtualMachine", ctx, vm, mock.Anything).Return(&armcompute.VirtualMachine{ID: to.Ptr(vmResourceID)}, nil)
+		vmName := "vm_name"
+		mockAzureHandler.On("CreateVirtualMachine", ctx, vm, mock.Anything).Return(&armcompute.VirtualMachine{ID: to.Ptr(vmResourceID), Name: &vmName}, nil)
+		fakeNic := getFakeNIC()
+		mockAzureHandler.On("GetResourceNIC", ctx, vmResourceID).Return(fakeNic, nil)
 
 		vm.Properties.NetworkProfile = &armcompute.NetworkProfile{
 			NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
@@ -336,7 +339,7 @@ func TestCreateResource(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, response)
-		assert.Equal(t, vmResourceID, response.UpdatedResource.Id)
+		assert.Equal(t, vmResourceID, response.Uri)
 	})
 
 	t.Run("TestCreateResource: Failure, invalid json", func(t *testing.T) {

@@ -79,8 +79,7 @@ func testAddAndGetPermitList(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, createResourceResp)
-	assert.True(t, createResourceResp.Success)
-	assert.Equal(t, createResourceResp.UpdatedResource.Id, vmID)
+	assert.Equal(t, createResourceResp.Uri, vmID)
 
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: vmID,
