@@ -1,4 +1,4 @@
-# Invisinets Multicloud Demo
+# Invisinets Demo
 
 **Goals:**
 * Create two VMs in Azure in different regions and connect them together
@@ -6,6 +6,7 @@
 
 ## Setup
 * Run `invd frontend <path_to_config>` to start the frontend server
+* Run `invd tagserve 6379 <port #> <clear_keys>` to start the tag service
 * Run `invd az <port #> <frontend_rpc_addr>` to start the Azure plugin
 * Run `invd gcp <port #> <frontend_rpc_addr> ` to start the GCP plugin
 
@@ -17,7 +18,7 @@ Invisinets requests are shown in <span style="color:cornflowerblue">blue</span>.
 2. <span style="color:cornflowerblue">Create VM B in Azure </span>
     * `inv resource create azure <resource_id> <file_to_description>`
 3. <span style="color:cornflowerblue">Set the permit list on VM A to allow SSH and pings to VM B </span>
-    * `inv rule add azure <vm_a_uri> --ssh <ip_range>`
+    * `inv rule add azure <vm_a_uri> --ssh <ip_range> --ping <vm_b_name>`
 4. Log into VM A and try to ping VM B <span style="color:firebrick">(*this should fail*) </span>
 5. <span style="color:cornflowerblue">Set the permit list on VM B to allow pings from VM A</span>
     * `inv rule add azure <vm_b_uri> --ssh <ip_range>`
