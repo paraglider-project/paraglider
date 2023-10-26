@@ -218,6 +218,10 @@ func parseInstanceId(instanceId string) (string, string, string) {
 	return parsedInstanceId["projects"], parsedInstanceId["zones"], parsedInstanceId["instances"]
 }
 
+func getInstanceUri(project, zone, instance string) string {
+	return fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instance)
+}
+
 func getVpnGwUri(project, region, vpnGwName string) string {
 	return computeURLPrefix + fmt.Sprintf("projects/%s/regions/%s/vpnGateways/%s", project, region, vpnGwName)
 }
@@ -558,7 +562,7 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, permitList 
 	return s._DeletePermitListRules(ctx, permitList, firewallsClient, instancesClient)
 }
 
-func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient) (*invisinetspb.BasicResponse, error) {
+func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient) (*invisinetspb.CreateResourceResponse, error) {
 	// Validate user-provided description
 	insertInstanceRequest := &computepb.InsertInstanceRequest{}
 	err := json.Unmarshal(resourceDescription.Description, insertInstanceRequest)
@@ -716,10 +720,10 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		return nil, fmt.Errorf("unable to wait for the operation")
 	}
 
-	return &invisinetspb.BasicResponse{Success: true}, nil
+	return &invisinetspb.CreateResourceResponse{Name: instance, Uri: getInstanceUri(project, zone, instance), Ip: *getInstanceResp.NetworkInterfaces[0].NetworkIP}, nil
 }
 
-func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
+func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
 	instancesClient, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
