@@ -108,21 +108,19 @@ var (
 
 // Fake instance
 func getFakeInstance(includeNetwork bool) *computepb.Instance {
-	if includeNetwork {
-		return &computepb.Instance{
-			Id:                proto.Uint64(fakeInstanceId),
-			Name:              proto.String(fakeInstanceName),
-			Tags:              &computepb.Tags{Items: []string{fakeNetworkTag}},
-			NetworkInterfaces: []*computepb.NetworkInterface{&computepb.NetworkInterface{Network: proto.String(GetVpcUri(fakeNamespace))}},
-		}
-	}
-
-	return &computepb.Instance{
+	instance := &computepb.Instance{
 		Id:   proto.Uint64(fakeInstanceId),
 		Name: proto.String(fakeInstanceName),
 		Tags: &computepb.Tags{Items: []string{fakeNetworkTag}},
 	}
-
+	if includeNetwork {
+		instance.NetworkInterfaces = []*computepb.NetworkInterface{
+			&computepb.NetworkInterface{
+				NetworkIP: proto.String("10.1.1.1"),
+				Network:   proto.String(GetVpcUri(fakeNamespace)),
+			}}
+	}
+	return instance
 }
 
 // Portions of GCP API URLs
@@ -614,7 +612,7 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 
 func TestCreateResource(t *testing.T) {
 	fakeServerState := &fakeServerState{
-		instance: getFakeInstance(false), // Include instance in server state since CreateResource will fetch after creating to add the tag
+		instance: getFakeInstance(true), // Include instance in server state since CreateResource will fetch after creating to add the tag
 		network: &computepb.Network{
 			Name:        proto.String(getVpcName(fakeNamespace)),
 			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
@@ -641,7 +639,7 @@ func TestCreateResource(t *testing.T) {
 
 func TestCreateResourceMissingNetwork(t *testing.T) {
 	// Include instance in server state since CreateResource will fetch after creating to add the tag
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance(false)})
+	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance(true)})
 	defer teardown(fakeServer, fakeClients)
 
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
@@ -666,7 +664,7 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 
 func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	fakeServerState := &fakeServerState{
-		instance: getFakeInstance(false), // Include instance in server state since CreateResource will fetch after creating to add the tag
+		instance: getFakeInstance(true), // Include instance in server state since CreateResource will fetch after creating to add the tag
 		network:  &computepb.Network{Name: proto.String(getVpcName(fakeNamespace))},
 	}
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)

@@ -78,7 +78,7 @@ func TestIntegration(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, createResource1Resp)
-	assert.True(t, createResource1Resp.Success)
+	assert.Equal(t, createResource1Resp.Name, vm1Name)
 
 	// Create VM in different region (i.e. requires new subnet to be created)
 	vm2Name := utils.GetGitHubRunPrefix() + "vm-invisinets-test-2"
@@ -96,7 +96,7 @@ func TestIntegration(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, createResource2Resp)
-	assert.True(t, createResource2Resp.Success)
+	assert.Equal(t, createResource2Resp.Name, vm2Name)
 
 	// Check VPC and subnetworks
 	networksClient, err := compute.NewNetworksRESTClient(ctx)

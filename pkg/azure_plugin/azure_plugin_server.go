@@ -324,7 +324,7 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 // CreateResource does the mapping from Invisinets to Azure to create an invisinets enabled resource
 // which means the resource should be added to a valid invisinets network, the attachement to an invisinets network
 // is determined by the resource's location.
-func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
+func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
 	invisinetsVm, err := getVmFromResourceDesc(resourceDesc.Description)
 	if err != nil {
 		utils.Log.Printf("Resource description is invalid:%+v", err)
@@ -368,7 +368,13 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 		return nil, err
 	}
 
-	return &invisinetspb.BasicResponse{Success: true, Message: "successfully created resource", UpdatedResource: &invisinetspb.ResourceID{Id: *invisinetsVm.ID}}, nil
+	nic, err = s.azureHandler.GetResourceNIC(c, *invisinetsVm.ID)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting the network interface:%+v", err)
+		return nil, err
+	}
+
+	return &invisinetspb.CreateResourceResponse{Name: *invisinetsVm.Name, Uri: *invisinetsVm.ID, Ip: *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress}, nil
 }
 
 // GetUsedAddressSpaces returns the address spaces used by invisinets which are the address spaces of the invisinets vnets

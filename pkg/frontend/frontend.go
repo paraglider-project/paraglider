@@ -633,15 +633,28 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	// Send RPC to create the resource
 	resource := invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description), Namespace: s.namespace}
 	client := invisinetspb.NewCloudPluginClient(conn)
-	response, err := client.CreateResource(context.Background(), &resource)
+	resourceResp, err := client.CreateResource(context.Background(), &resource)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"response": response.Message,
-	})
+	// Automatically set tag (need the IP address, we have the name and URI)
+	conn, err = grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	tagClient := tagservicepb.NewTagServiceClient(conn)
+	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: resourceResp.Name, Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error())) // TODO @smcclure20: change this to a warning?
+		return
+	}
+
+	c.JSON(http.StatusOK, resourceResp)
 }
 
 // Get tag from local tag service
