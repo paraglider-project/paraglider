@@ -38,6 +38,7 @@ func init() {
 	rootCmd.AddCommand(NewTagServCommand())
 	rootCmd.AddCommand(NewAZCommand())
 	rootCmd.AddCommand(NewGCPCommand())
+	rootCmd.AddCommand(NewStartupCommand())
 	rootCmd.AddCommand(common.NewVersionCommand())
 }
 

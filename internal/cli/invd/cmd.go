@@ -18,15 +18,77 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 
 	az "github.com/NetSys/invisinets/pkg/azure_plugin"
 	"github.com/NetSys/invisinets/pkg/frontend"
 	gcp "github.com/NetSys/invisinets/pkg/gcp"
 	tagservice "github.com/NetSys/invisinets/pkg/tag_service"
 )
+
+func NewStartupCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "startup",
+		Aliases: []string{"startup"},
+		Short:   "Starts all the microservices with given config file",
+		Args:    cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			// Read the config
+			f, err := os.Open(args[0])
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+			defer f.Close()
+
+			var cfg frontend.Config
+			decoder := yaml.NewDecoder(f)
+			err = decoder.Decode(&cfg)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+
+			tagPort, err := strconv.Atoi(cfg.TagService.Port)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+
+			for _, cloud := range cfg.Clouds {
+				if cloud.Name == "gcp" {
+					port, err := strconv.Atoi(cloud.Port)
+					if err != nil {
+						fmt.Println(err.Error())
+						return
+					}
+					go func() {
+						gcp.Setup(port, cfg.Server.Host+":"+cfg.Server.Port)
+					}()
+				} else if cloud.Name == "azure" {
+					port, err := strconv.Atoi(cloud.Port)
+					if err != nil {
+						fmt.Println(err.Error())
+						return
+					}
+					go func() {
+						az.Setup(port, cfg.Server.Host+":"+cfg.Server.Port)
+					}()
+				}
+			}
+
+			go func() {
+				tagservice.Setup(6379, tagPort, true)
+			}()
+			frontend.Setup(args[0])
+		},
+	}
+	return cmd
+}
 
 func NewFrontendCommand() *cobra.Command {
 	return &cobra.Command{
