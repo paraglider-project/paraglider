@@ -402,7 +402,6 @@ func TestCreateResource(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-	print(w.Body.String())
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
