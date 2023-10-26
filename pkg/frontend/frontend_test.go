@@ -214,7 +214,7 @@ func TestPermitListGet(t *testing.T) {
 	setupPluginServer(port)
 
 	r := SetUpRouter()
-	r.GET("/cloud/:cloud/resources/:id/permit-list/", frontendServer.permitListGet)
+	r.GET("/cloud/:cloud/permit-list/:id", frontendServer.permitListGet)
 
 	// Well-formed request
 	id := "123"
@@ -223,7 +223,7 @@ func TestPermitListGet(t *testing.T) {
 		PermitList: &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{exampleRule}},
 	}
 
-	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/", exampleCloudName, id)
+	url := fmt.Sprintf("/cloud/%s/permit-list/%s", exampleCloudName, id)
 	req, _ := http.NewRequest("GET", url, nil)
 	w := httptest.NewRecorder()
 
@@ -238,7 +238,7 @@ func TestPermitListGet(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/", "wrong", id)
+	url = fmt.Sprintf("/cloud/%s/permit-list/%s", "wrong", id)
 	req, _ = http.NewRequest("GET", url, nil)
 	w = httptest.NewRecorder()
 
@@ -258,7 +258,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST("/cloud/:cloud/resources/:id/permit-list/rules", frontendServer.permitListRulesAdd)
+	r.POST("/cloud/:cloud/permit-list/rules", frontendServer.permitListRulesAdd)
 
 	// Well-formed request
 	id := "123"
@@ -273,7 +273,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
 	jsonValue, _ := json.Marshal(rulesList)
 
-	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
+	url := fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -292,7 +292,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	rulesList = &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
 	jsonValue, _ = json.Marshal(rulesList)
 
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
+	url = fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -300,7 +300,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "wrong", id)
+	url = fmt.Sprintf("/cloud/%s/permit-list/rules", "wrong")
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -310,7 +310,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
+	url = fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -330,7 +330,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.DELETE("/cloud/:cloud/resources/:id/permit-list/rules", frontendServer.permitListRulesDelete)
+	r.DELETE("/cloud/:cloud/permit-list/rules", frontendServer.permitListRulesDelete)
 
 	// Well-formed request
 	id := "123"
@@ -346,7 +346,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 
 	jsonValue, _ := json.Marshal(rulesList)
 
-	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
+	url := fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
 	req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -355,7 +355,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "wrong", id)
+	url = fmt.Sprintf("/cloud/%s/permit-list/rules", "wrong")
 	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -365,7 +365,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
+	url = fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
 	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -378,6 +378,7 @@ func TestCreateResource(t *testing.T) {
 	frontendServer := newFrontendServer()
 	port := getNewPortNumber()
 	tagServerPort := getNewPortNumber()
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 	frontendServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
 	frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.1.0.0/24"}
@@ -386,7 +387,7 @@ func TestCreateResource(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST("/cloud/:cloud/resources/:id/", frontendServer.resourceCreate)
+	r.POST("/cloud/:cloud/resources/", frontendServer.resourceCreate)
 
 	// Well-formed request
 	id := "123"
@@ -396,15 +397,16 @@ func TestCreateResource(t *testing.T) {
 	}
 	jsonValue, _ := json.Marshal(resource)
 
-	url := fmt.Sprintf("/cloud/%s/resources/%s/", exampleCloudName, id)
+	url := fmt.Sprintf("/cloud/%s/resources/", exampleCloudName)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
+	print(w.Body.String())
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf("/cloud/%s/resources/%s/", "wrong", id)
+	url = fmt.Sprintf("/cloud/%s/resources/", "wrong")
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -414,7 +416,7 @@ func TestCreateResource(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf("/cloud/%s/resources/%s/", exampleCloudName, id)
+	url = fmt.Sprintf("/cloud/%s/resources/", exampleCloudName)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
