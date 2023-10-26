@@ -24,6 +24,11 @@ import (
 	"syscall"
 
 	common "github.com/NetSys/invisinets/internal/cli/common"
+	"github.com/NetSys/invisinets/internal/cli/invd/az"
+	"github.com/NetSys/invisinets/internal/cli/invd/frontend"
+	"github.com/NetSys/invisinets/internal/cli/invd/gcp"
+	"github.com/NetSys/invisinets/internal/cli/invd/startup"
+	"github.com/NetSys/invisinets/internal/cli/invd/tagserv"
 	"github.com/spf13/cobra"
 )
 
@@ -34,11 +39,16 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(NewFrontendCommand())
-	rootCmd.AddCommand(NewTagServCommand())
-	rootCmd.AddCommand(NewAZCommand())
-	rootCmd.AddCommand(NewGCPCommand())
-	rootCmd.AddCommand(NewStartupCommand())
+	// rootCmd.AddCommand(NewFrontendCommand())
+	// rootCmd.AddCommand(NewTagServCommand())
+	// rootCmd.AddCommand(NewAZCommand())
+	// rootCmd.AddCommand(NewGCPCommand())
+	// rootCmd.AddCommand(NewStartupCommand())
+	rootCmd.AddCommand(az.NewCommand())
+	rootCmd.AddCommand(gcp.NewCommand())
+	rootCmd.AddCommand(frontend.NewCommand())
+	rootCmd.AddCommand(tagserv.NewCommand())
+	rootCmd.AddCommand(startup.NewCommand())
 	rootCmd.AddCommand(common.NewVersionCommand())
 }
 

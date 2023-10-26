@@ -84,6 +84,7 @@ func NewStartupCommand() *cobra.Command {
 			go func() {
 				tagservice.Setup(6379, tagPort, true)
 			}()
+
 			frontend.Setup(args[0])
 		},
 	}
