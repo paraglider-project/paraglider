@@ -47,9 +47,8 @@ func checkPermitListsEqual(pl1, pl2 *invisinetspb.PermitList) bool {
 // Tests creating two vms in separate regions and basic add/delete/get permit list functionality
 func TestIntegration(t *testing.T) {
 	// Setup
-	project := "adjvkdznker-zcxvqeradfa"
-	SetupGcpTesting(project)
-	return
+	projectId := SetupGcpTesting()
+	defer TeardownGcpTesting(projectId)
 	s := &GCPPluginServer{}
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
 	if err != nil {
@@ -58,18 +57,10 @@ func TestIntegration(t *testing.T) {
 	FrontendServerAddr = fakeControllerServerAddr
 	ctx := context.Background()
 
-	// Teardown
-	teardownInfo := &GcpTestTeardownInfo{
-		Project:            project,
-		InsertInstanceReqs: make([]*computepb.InsertInstanceRequest, 0),
-	}
-	// defer TeardownGcpTesting(teardownInfo)
-
 	// Create VM in a clean state (i.e. no VPC or subnet)
-	vm1Name := utils.GetGitHubRunPrefix() + "vm-invisinets-test-1"
+	vm1Name := "vm-invisinets-test-1"
 	vm1Zone := "us-west1-a"
-	insertInstanceReq1 := GetTestVmParameters(project, vm1Zone, vm1Name)
-	teardownInfo.InsertInstanceReqs = append(teardownInfo.InsertInstanceReqs, insertInstanceReq1)
+	insertInstanceReq1 := GetTestVmParameters(projectId, vm1Zone, vm1Name)
 	insertInstanceReq1Bytes, err := json.Marshal(insertInstanceReq1)
 	if err != nil {
 		t.Fatal(err)
@@ -84,10 +75,9 @@ func TestIntegration(t *testing.T) {
 	assert.Equal(t, createResource1Resp.Name, vm1Name)
 
 	// Create VM in different region (i.e. requires new subnet to be created)
-	vm2Name := utils.GetGitHubRunPrefix() + "vm-invisinets-test-2"
+	vm2Name := "vm-invisinets-test-2"
 	vm2Zone := "us-east1-b"
-	insertInstanceReq2 := GetTestVmParameters(project, vm2Zone, vm2Name)
-	teardownInfo.InsertInstanceReqs = append(teardownInfo.InsertInstanceReqs, insertInstanceReq2)
+	insertInstanceReq2 := GetTestVmParameters(projectId, vm2Zone, vm2Name)
 	insertInstanceReq2Bytes, err := json.Marshal(insertInstanceReq2)
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +98,7 @@ func TestIntegration(t *testing.T) {
 	}
 	getNetworkReq := &computepb.GetNetworkRequest{
 		Network: vpcName,
-		Project: project,
+		Project: projectId,
 	}
 	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
 	require.NoError(t, err)
@@ -129,7 +119,7 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	getFirewallReq := &computepb.GetFirewallRequest{
-		Project:  project,
+		Project:  projectId,
 		Firewall: getDenyAllIngressFirewallName(),
 	}
 	getFirewallResp, err := firewallsClient.Get(ctx, getFirewallReq)
@@ -137,16 +127,16 @@ func TestIntegration(t *testing.T) {
 	require.NotNil(t, getFirewallResp)
 
 	// Add bidirectional PING permit list rules
-	vm1Id := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, vm1Zone, vm1Name)
-	vm2Id := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, vm2Zone, vm2Name)
+	vm1Id := fmt.Sprintf("projects/%s/zones/%s/instances/%s", projectId, vm1Zone, vm1Name)
+	vm2Id := fmt.Sprintf("projects/%s/zones/%s/instances/%s", projectId, vm2Zone, vm2Name)
 	instancesClient, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer instancesClient.Close()
-	vm1Ip, err := GetInstanceIpAddress(project, vm1Zone, vm1Name)
+	vm1Ip, err := GetInstanceIpAddress(projectId, vm1Zone, vm1Name)
 	require.NoError(t, err)
-	vm2Ip, err := GetInstanceIpAddress(project, vm2Zone, vm2Name)
+	vm2Ip, err := GetInstanceIpAddress(projectId, vm2Zone, vm2Name)
 	require.NoError(t, err)
 
 	vmIds := []string{vm1Id, vm2Id}
@@ -207,18 +197,18 @@ func TestIntegration(t *testing.T) {
 	// Connectivity tests that ping the two VMs
 	vm1Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm1Ip,
-		Network:   "projects/" + project + "/" + GetVpcUri(),
-		ProjectId: project,
+		Network:   "projects/" + projectId + "/" + GetVpcUri(),
+		ProjectId: projectId,
 	}
 	vm2Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm2Ip,
-		Network:   "projects/" + project + "/" + GetVpcUri(),
-		ProjectId: project,
+		Network:   "projects/" + projectId + "/" + GetVpcUri(),
+		ProjectId: projectId,
 	}
 
 	// Run connectivity tests on both directions between vm1 and vm2
-	RunPingConnectivityTest(t, teardownInfo, project, "1to2", vm1Endpoint, vm2Endpoint)
-	RunPingConnectivityTest(t, teardownInfo, project, "2to1", vm2Endpoint, vm1Endpoint)
+	RunPingConnectivityTest(t, projectId, "1to2", vm1Endpoint, vm2Endpoint)
+	RunPingConnectivityTest(t, projectId, "2to1", vm2Endpoint, vm1Endpoint)
 
 	// Delete permit lists
 	for i, vmId := range vmIds {
