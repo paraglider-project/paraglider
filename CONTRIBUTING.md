@@ -75,8 +75,9 @@ If you would like to run these locally, you will need to be authenticated. The f
 **Google Cloud**
 
 1. [Install the gcloud CLI](https://cloud.google.com/sdk/docs/install). If you're using the dev container, this will already be installed for you.
-2. [Set up your application default credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc).
-3. Set the environment variable `INVISINETS_GCP_PROJECT`. Setting this every time may get tedious, so we advise you set this in your shell config or use [direnv](https://direnv.net). Note that this is due to a known limitation where the [Go OAuth2 package does not return the project ID when using application default credentials](https://github.com/golang/oauth2/issues). 
+1. [Set up your application default credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc).
+1. The tests will automatically create (and delete) new projects for each test run. If you'd like them to be created in a certain parent, set the environment variable `INVISINETS_GCP_PROJECT_PARENT` to the appropriate parameter (i.e. the `parent` field of the ["Project" resource](https://cloud.google.com/resource-manager/reference/rest/v3/projects#resource:-project)). **Please note that this requires privileges of creating projects and linking billing accounts.** 
+1. If you want to use your own project, set the environment variable `INVISINETS_GCP_PROJECT`. **However, resources will not automatically be cleaned up for you.** The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.
 
 **Azure**
 

@@ -37,12 +37,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type GcpTestTeardownInfo struct {
-	Project               string
-	InsertInstanceReqs    []*computepb.InsertInstanceRequest
-	ConnectivityTestNames []string
-}
-
 func generateProjectName() string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	key := make([]byte, 19)
@@ -128,11 +122,6 @@ func SetupGcpTesting() string {
 		}
 	}
 	return projectId
-}
-
-func teardownPanic(msg string, err error) {
-	const docstringMsg = "see docstring of TeardownGcpTesting on how to manually delete resources"
-	panic(fmt.Sprintf("%s (%s): %v", msg, docstringMsg, err))
 }
 
 func TeardownGcpTesting(projectId string) {

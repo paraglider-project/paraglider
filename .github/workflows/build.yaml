@@ -219,8 +219,8 @@ jobs:
         uses: google-github-actions/auth@v1    
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         with:
-          workload_identity_provider: 'projects/594071265942/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider'
-          service_account: 'github-actions@invisinets-playground.iam.gserviceaccount.com'
+          workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider'
+          service_account: 'invisinets-cicd@invisinets-cicd.iam.gserviceaccount.com'
       - name: 'Az CLI login'
         uses: azure/login@v1
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
