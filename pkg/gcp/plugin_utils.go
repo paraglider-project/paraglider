@@ -96,7 +96,7 @@ func SetupGcpTesting() string {
 		updateProjectBillingInfoReq := &billingpb.UpdateProjectBillingInfoRequest{
 			Name: "projects/" + projectId,
 			ProjectBillingInfo: &billingpb.ProjectBillingInfo{
-				BillingAccountName: os.Getenv("INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME"), // TODO @seankimkdy: replace
+				BillingAccountName: os.Getenv("INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME"),
 			},
 		}
 		_, err = cloudBillingClient.UpdateProjectBillingInfo(ctx, updateProjectBillingInfoReq)
