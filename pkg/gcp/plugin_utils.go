@@ -37,17 +37,18 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func generateProjectName() string {
+func generateProjectId(projectIdPrefix string) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	key := make([]byte, 19)
+	const projectIdMaxLength = 30
+	key := make([]byte, projectIdMaxLength-len(projectIdPrefix))
 	_, err := rand.Read(key)
 	if err != nil {
-		panic("could not generate random bytes")
+		panic(fmt.Errorf("could not generate random bytes: %w", err))
 	}
 	for i, v := range key {
 		key[i] = charset[v%byte(len(charset))]
 	}
-	return "invisinets-" + string(key)
+	return projectIdPrefix + string(key)
 }
 
 func SetupGcpTesting() string {
@@ -59,10 +60,10 @@ func SetupGcpTesting() string {
 		if os.Getenv("GH_RUN_ID") != "" {
 			// Include run id since run number can reset after a workflow changes, meaning it could result in duplicate project IDs which GCP doesn't allow (even after deletion).
 			// Run attempt is also included since neither run id nor run number reset on a re-run.
-			projectId = "invisinets-gh-" + os.Getenv("GH_RUN_ID") + "-" + os.Getenv("GH_RUN_NUMBER") + "-" + os.Getenv("GH_RUN_ATTEMPT")
+			projectId = generateProjectId("invisinets-gh-" + os.Getenv("GH_RUN_ID") + "-" + os.Getenv("GH_RUN_NUMBER") + "-" + os.Getenv("GH_RUN_ATTEMPT") + "-")
 			projectDisplayName = "Invisinets GitHub Run " + os.Getenv("GH_RUN_NUMBER")
 		} else {
-			projectId = generateProjectName()
+			projectId = generateProjectId("invisinets-loc-")
 			projectDisplayName = projectId
 		}
 		ctx := context.Background()
@@ -95,7 +96,7 @@ func SetupGcpTesting() string {
 		updateProjectBillingInfoReq := &billingpb.UpdateProjectBillingInfoRequest{
 			Name: "projects/" + projectId,
 			ProjectBillingInfo: &billingpb.ProjectBillingInfo{
-				BillingAccountName: "billingAccounts/01B55C-326918-375053", // TODO @seankimkdy: replace
+				BillingAccountName: os.Getenv("INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME"), // TODO @seankimkdy: replace
 			},
 		}
 		_, err = cloudBillingClient.UpdateProjectBillingInfo(ctx, updateProjectBillingInfoReq)

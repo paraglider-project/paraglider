@@ -30,6 +30,11 @@ env:
   GH_RUN_NUMBER: ${{ github.run_number }}
   GH_RUN_ATTEMPT: ${{ github.run_attempt }}
 
+  # Cloud account fields
+  INVISINETS_GCP_PROJECT_PARENT: ${{ secrets.GCP_FOLDER_ID }}
+  INVISINETS_GCP_BILLING_ACCOUNT_NAME: ${{ secrets.GCP_BILLING_ACCOUNT_NAME }}
+  INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
 jobs:
   build:
     name: Build ${{ matrix.target_os }}_${{ matrix.target_arch }} binaries
@@ -228,15 +233,9 @@ jobs:
             creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: Run integration tests
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        env:
-          INVISINETS_GCP_PROJECT_PARENT: ${{ secrets.GCP_FOLDER_ID }}
-          INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
           make integration-test
       - name: Run multicloud tests
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        env:
-          INVISINETS_GCP_PROJECT_PARENT: ${{ secrets.GCP_FOLDER_ID }}
-          INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
           make multicloud-test
