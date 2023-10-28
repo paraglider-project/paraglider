@@ -60,6 +60,7 @@ func SetupGcpTesting() string {
 		if os.Getenv("GH_RUN_ID") != "" {
 			// Include run id since run number can reset after a workflow changes, meaning it could result in duplicate project IDs which GCP doesn't allow (even after deletion).
 			// Run attempt is also included since neither run id nor run number reset on a re-run.
+			// Randomness is added because one GitHub Actions workflow run may create multiple projects.
 			projectId = generateProjectId("invisinets-gh-" + os.Getenv("GH_RUN_ID") + "-" + os.Getenv("GH_RUN_NUMBER") + "-" + os.Getenv("GH_RUN_ATTEMPT") + "-")
 			projectDisplayName = "Invisinets GitHub Run " + os.Getenv("GH_RUN_NUMBER")
 		} else {
