@@ -47,7 +47,7 @@ func checkPermitListsEqual(pl1, pl2 *invisinetspb.PermitList) bool {
 // Tests creating two vms in separate regions and basic add/delete/get permit list functionality
 func TestIntegration(t *testing.T) {
 	// Setup
-	projectId := SetupGcpTesting()
+	projectId := SetupGcpTesting("integration")
 	defer TeardownGcpTesting(projectId)
 	s := &GCPPluginServer{}
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)

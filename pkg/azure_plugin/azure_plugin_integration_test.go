@@ -46,8 +46,7 @@ var (
 // as a subtest, this is to ensure that the setup and teardown is done only once before or after all the tests
 func TestAzurePluginIntegration(t *testing.T) {
 	subscriptionId = GetAzureSubscriptionId()
-	resourceGroupName = invisinetsPrefix + "-integration-test" // Must be defined within a test and not as a global var as invisinetsPrefix is subject to change in init()
-	SetupAzureTesting(subscriptionId, resourceGroupName)
+	resourceGroupName := SetupAzureTesting(subscriptionId, "integration")
 	defer TeardownAzureTesting(subscriptionId, resourceGroupName)
 
 	t.Run("TestAddAndGetPermitList", testAddAndGetPermitList)

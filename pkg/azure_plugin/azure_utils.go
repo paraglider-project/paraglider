@@ -52,7 +52,11 @@ func createResourceGroupsClient(subscriptionId string) *armresources.ResourceGro
 	return clientFactory.NewResourceGroupsClient()
 }
 
-func SetupAzureTesting(subscriptionId string, resourceGroupName string) {
+func SetupAzureTesting(subscriptionId string, testName string) string {
+	resourceGroupName := "inv-" + testName
+	if os.Getenv("GH_RUN_NUMBER") != "" {
+		resourceGroupName += "-" + os.Getenv("GH_RUN_NUMBER")
+	}
 	resourceGroupsClient := createResourceGroupsClient(subscriptionId)
 	_, err := resourceGroupsClient.CreateOrUpdate(context.Background(), resourceGroupName, armresources.ResourceGroup{
 		Location: to.Ptr("westus"),
@@ -60,6 +64,7 @@ func SetupAzureTesting(subscriptionId string, resourceGroupName string) {
 	if err != nil {
 		panic(fmt.Sprintf("Error while creating resource group: %v", err))
 	}
+	return resourceGroupName
 }
 
 func TeardownAzureTesting(subscriptionId string, resourceGroupName string) {

@@ -37,34 +37,40 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func generateProjectId(projectIdPrefix string) string {
+func generateProjectId(testName string) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	const projectIdMaxLength = 30
-	key := make([]byte, projectIdMaxLength-len(projectIdPrefix))
-	_, err := rand.Read(key)
-	if err != nil {
-		panic(fmt.Errorf("could not generate random bytes: %w", err))
+	prefix := "inv-" + testName
+	var suffix string
+	if os.Getenv("GH_RUN_ID") != "" {
+		// Use run ID as part of the project ID since run number can reset after a workflow changes, meaning it could result in duplicate project IDs which GCP doesn't allow (even after deletion).
+		// Run attempt is also included since run ID does not reset on re-runs.
+		suffix = hash(os.Getenv("GH_RUN_ID"), os.Getenv("GH_RUN_ATTEMPT"))
+	} else {
+		key := make([]byte, projectIdMaxLength)
+		_, err := rand.Read(key)
+		if err != nil {
+			panic(fmt.Errorf("could not generate random bytes: %w", err))
+		}
+		for i, v := range key {
+			key[i] = charset[v%byte(len(charset))]
+		}
+		suffix = string(key)
 	}
-	for i, v := range key {
-		key[i] = charset[v%byte(len(charset))]
-	}
-	return projectIdPrefix + string(key)
+	return (prefix + "-" + suffix)[:projectIdMaxLength]
 }
 
-func SetupGcpTesting() string {
+func SetupGcpTesting(testName string) string {
 	var projectId string
 	if os.Getenv("INVISINETS_GCP_PROJECT") != "" {
 		projectId = os.Getenv("INVISINETS_GCP_PROJECT")
 	} else {
 		var projectDisplayName string
-		if os.Getenv("GH_RUN_ID") != "" {
-			// Include run id since run number can reset after a workflow changes, meaning it could result in duplicate project IDs which GCP doesn't allow (even after deletion).
-			// Run attempt is also included since neither run id nor run number reset on a re-run.
-			// Randomness is added because one GitHub Actions workflow run may create multiple projects.
-			projectId = generateProjectId("invisinets-gh-" + os.Getenv("GH_RUN_ID") + "-" + os.Getenv("GH_RUN_NUMBER") + "-" + os.Getenv("GH_RUN_ATTEMPT") + "-")
+		projectId = generateProjectId(testName)
+		if os.Getenv("GH_RUN_NUMBER") != "" {
+			// Use run number in project display name since it's more human readable
 			projectDisplayName = "Invisinets GitHub Run " + os.Getenv("GH_RUN_NUMBER")
 		} else {
-			projectId = generateProjectId("invisinets-loc-")
 			projectDisplayName = projectId
 		}
 		ctx := context.Background()

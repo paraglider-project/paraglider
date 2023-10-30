@@ -36,14 +36,13 @@ import (
 func TestMulticloud(t *testing.T) {
 	// Setup Azure
 	azureSubscriptionId := azure_plugin.GetAzureSubscriptionId()
-	azureResourceGroupName := utils.GetGitHubRunPrefix() + "invisinets-multicloud-test"
-	azure_plugin.SetupAzureTesting(azureSubscriptionId, azureResourceGroupName)
+	azureResourceGroupName := azure_plugin.SetupAzureTesting(azureSubscriptionId, "multicloud")
 	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
 	azureServer, azureServerAddr := azure_plugin.Setup(0)
 	fmt.Println("Setup Azure server")
 
 	// Setup GCP
-	gcpProjectId := gcp.SetupGcpTesting()
+	gcpProjectId := gcp.SetupGcpTesting("multicloud")
 	defer gcp.TeardownGcpTesting(gcpProjectId)
 	gcpServer, gcpServerAddr := gcp.Setup(0)
 	fmt.Println("Setup GCP server")
