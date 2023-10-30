@@ -101,10 +101,6 @@ jobs:
         with:
           version: 'latest'
           args: --timeout=10m
-          - name: Setup tmate session
-      - name: Setup tmate session
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        uses: mxschmitt/action-tmate@v3
       - name: Run make test (unit tests)
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         env:
@@ -114,6 +110,9 @@ jobs:
           go install gotest.tools/gotestsum@v${{ env.GOTESTSUMVERSION }}
           mkdir -p ./dist/unit_test
           make test
+      - name: Setup tmate session
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        uses: mxschmitt/action-tmate@v3
       # The test results file output by gotestsum is missing file and line number on the XML elements
       # which is needed for the annotations to work. This script adds the missing information.
       - name: 'Transform unit test results'
