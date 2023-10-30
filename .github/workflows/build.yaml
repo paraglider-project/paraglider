@@ -66,6 +66,7 @@ jobs:
       issues: read
       pull-requests: write
     steps:
+    steps:
       - name: Check out repo
         uses: actions/checkout@v3
       - name: Set up Go ${{ env.GOVER }}
@@ -100,6 +101,10 @@ jobs:
         with:
           version: 'latest'
           args: --timeout=10m
+          - name: Setup tmate session
+      - name: Setup tmate session
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        uses: mxschmitt/action-tmate@v3
       - name: Run make test (unit tests)
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         env:
