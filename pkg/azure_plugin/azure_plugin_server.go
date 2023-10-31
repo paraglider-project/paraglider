@@ -734,17 +734,17 @@ func (s *azurePluginServer) CreateVpnBgpSessions(ctx context.Context, req *invis
 	if err != nil {
 		return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
 	}
-	changed := false
+	bgpConfigurationChanged := false
 	for i := 0; i < vpnNumConnections; i++ {
 		if len(virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses[i].CustomBgpIPAddresses) == 0 {
 			virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses[i] = &armnetwork.IPConfigurationBgpPeeringAddress{
 				CustomBgpIPAddresses: []*string{to.Ptr(vpnGwBgpIpAddrs[i])},
 				IPConfigurationID:    virtualNetworkGateway.Properties.IPConfigurations[i].ID,
 			}
-			changed = true
+			bgpConfigurationChanged = true
 		}
 	}
-	if changed {
+	if bgpConfigurationChanged {
 		_, err = s.azureHandler.CreateOrUpdateVirtualNetworkGateway(ctx, virtualNetworkGatewayName, *virtualNetworkGateway)
 		if err != nil {
 			return nil, fmt.Errorf("unable to add bgp settings to VPN gateway: %w", err)
