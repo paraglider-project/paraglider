@@ -1,2 +1,3 @@
 set_environ.sh
 config.yml
+*.json
