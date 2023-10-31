@@ -49,7 +49,8 @@ type ResourceIDInfo struct {
 
 type azurePluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
-	azureHandler AzureSDKHandler
+	azureHandler       AzureSDKHandler
+	frontendServerAddr string
 }
 
 // TODO @seankimkdy: replace these
@@ -100,6 +101,12 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invis
 		return nil, err
 	}
 
+	// make sure the resource is in the right namespace
+	err = s.getAndCheckResourceNamespace(ctx, resourceId, resourceID.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	// get the nsg associated with the resource
 	nsg, err := s.getNSGFromResource(ctx, resourceId)
 	if err != nil {
@@ -111,6 +118,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, resourceID *invis
 	pl := &invisinetspb.PermitList{
 		AssociatedResource: resourceID.Id,
 		Rules:              []*invisinetspb.PermitListRule{},
+		Namespace:          resourceID.Namespace,
 	}
 
 	// get the NSG rules
@@ -138,6 +146,12 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		return nil, err
 	}
 	err = s.setupAzureHandler(resourceIdInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	// make sure the resource is in the right namespace
+	err = s.getAndCheckResourceNamespace(ctx, resourceID, pl.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -171,19 +185,19 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	resourceAddress := *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
 
 	// Get used address spaces of all clouds
-	controllerConn, err := grpc.Dial(FrontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	controllerConn, err := grpc.Dial(s.frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
 	}
 	defer controllerConn.Close()
 	controllerClient := invisinetspb.NewControllerClient(controllerConn)
-	usedAddressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	usedAddressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: pl.Namespace})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
 
 	// get the vnet to be able to get both the address space as well as the peering when needed
-	resourceVnet, err := s.azureHandler.GetVNet(ctx, getVnetName(*nic.Location))
+	resourceVnet, err := s.azureHandler.GetVNet(ctx, getVnetName(*nic.Location, pl.Namespace))
 	if err != nil {
 		utils.Log.Printf("An error occured while getting resource vnet:%+v", err)
 		return nil, err
@@ -204,7 +218,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		return nil, fmt.Errorf("unable to get subnet address prefix")
 	}
 
-	invisinetsVnetsMap, err := s.azureHandler.GetVNetsAddressSpaces(ctx, invisinetsPrefix)
+	invisinetsVnetsMap, err := s.azureHandler.GetVNetsAddressSpaces(ctx, getVnetPrefix(pl.Namespace))
 	if err != nil {
 		utils.Log.Printf("An error occured while getting invisinets vnets address spaces:%+v", err)
 		return nil, err
@@ -219,13 +233,13 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		}
 		seen[ruleDesc] = true
 
-		err = utils.CheckAndConnectClouds(utils.AZURE, subnetAddressPrefix, ctx, rule, usedAddressSpaceMappings, controllerClient)
+		err = utils.CheckAndConnectClouds(utils.AZURE, subnetAddressPrefix, pl.Namespace, ctx, rule, usedAddressSpaceMappings, controllerClient)
 		if err != nil {
 			return nil, fmt.Errorf("unable to check and connect clouds: %w", err)
 		}
 
 		// TODO @seankimkdy: merge this process with the checking address spaces across all clouds to avoid duplicate checking of Azure address spaces
-		err := s.checkAndCreatePeering(ctx, resourceVnet, rule, invisinetsVnetsMap)
+		err := s.checkAndCreatePeering(ctx, resourceVnet, rule, invisinetsVnetsMap, pl.Namespace)
 		if err != nil {
 			utils.Log.Printf("An error occured while checking network peering:%+v", err)
 			return nil, err
@@ -263,6 +277,12 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, pl *invisin
 		return nil, err
 	}
 	err = s.setupAzureHandler(resourceIdInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	// make sure the resource is in the right namespace
+	err = s.getAndCheckResourceNamespace(c, resourceID, pl.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +342,7 @@ func (s *azurePluginServer) CreateResource(c context.Context, resourceDesc *invi
 		return nil, err
 	}
 
-	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(c, getVnetName(*invisinetsVm.Location), *invisinetsVm.Location)
+	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(c, getVnetName(*invisinetsVm.Location, resourceDesc.Namespace), *invisinetsVm.Location, resourceDesc.Namespace, s.frontendServerAddr)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
 		return nil, err
@@ -369,7 +389,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment
 		return nil, err
 	}
 
-	addressSpaces, err := s.azureHandler.GetVNetsAddressSpaces(ctx, invisinetsPrefix)
+	addressSpaces, err := s.azureHandler.GetVNetsAddressSpaces(ctx, getVnetPrefix(deployment.Namespace))
 	if err != nil {
 		utils.Log.Printf("An error occured while getting address spaces:%+v", err)
 		return nil, err
@@ -439,6 +459,33 @@ func (s *azurePluginServer) getNSGFromResource(c context.Context, resourceID str
 	}
 
 	return nsg, nil
+}
+
+// Extract the Vnet name from the subnet ID
+func getVnetFromSubnetId(subnetId string) string {
+	parts := strings.Split(subnetId, "/")
+	return parts[8] // TODO @smcclure20: do this in a less brittle way
+}
+
+// Check if the resource is in a vnet for the given namespace
+func (s *azurePluginServer) getAndCheckResourceNamespace(c context.Context, resourceID string, namespace string) error {
+	if namespace == "" {
+		return fmt.Errorf("namespace cannot be empty")
+	}
+
+	// get the vnet associated with the resource
+	nic, err := s.azureHandler.GetResourceNIC(c, resourceID)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting nic for resource %s: %+v", resourceID, err)
+		return err
+	}
+	vnet := getVnetFromSubnetId(*nic.Properties.IPConfigurations[0].Properties.Subnet.ID)
+
+	if !strings.HasPrefix(vnet, getVnetPrefix(namespace)) {
+		return fmt.Errorf("resource %s is not in the namespace %s", resourceID, namespace)
+	}
+
+	return nil
 }
 
 // fillRulesSet fills the given map with the rules in the given permit list as a string
@@ -538,7 +585,7 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 
 // checkAndCreatePeering checks whether the given rule has a tag that is in the address space of any of the invisinets vnets
 // and if requires a peering or not
-func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceVnet *armnetwork.VirtualNetwork, rule *invisinetspb.PermitListRule, invisinetsVnetsMap map[string]string) error {
+func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceVnet *armnetwork.VirtualNetwork, rule *invisinetspb.PermitListRule, invisinetsVnetsMap map[string]string, namespace string) error {
 	for _, target := range rule.Targets {
 		isTagInResourceAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(target, *resourceVnet.Properties.AddressSpace.AddressPrefixes[0])
 		if err != nil {
@@ -558,14 +605,14 @@ func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceV
 			if isTagInVnetAddressSpace {
 				peeringExists := false
 				for _, peeredVnet := range resourceVnet.Properties.VirtualNetworkPeerings {
-					if strings.HasSuffix(*peeredVnet.Properties.RemoteVirtualNetwork.ID, getVnetName(vnetLocation)) {
+					if strings.HasSuffix(*peeredVnet.Properties.RemoteVirtualNetwork.ID, getVnetName(vnetLocation, namespace)) {
 						peeringExists = true
 						break
 					}
 				}
 
 				if !peeringExists {
-					err := s.azureHandler.CreateVnetPeering(ctx, getVnetName(vnetLocation), getVnetName(*resourceVnet.Location))
+					err := s.azureHandler.CreateVnetPeering(ctx, getVnetName(vnetLocation, namespace), getVnetName(*resourceVnet.Location, namespace))
 					if err != nil {
 						return err
 					}
@@ -580,10 +627,14 @@ func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceV
 	return nil
 }
 
+func getVnetPrefix(namespace string) string {
+	return invisinetsPrefix + "-" + namespace
+}
+
 // getVnetName returns the name of the invisinets vnet in the given location
 // since an invisients vnet is unique per location
-func getVnetName(location string) string {
-	return invisinetsPrefix + "-" + location + "-vnet"
+func getVnetName(location string, namespace string) string {
+	return getVnetPrefix(namespace) + "-" + location + "-vnet"
 }
 
 func getVpnGatewayName() string {
@@ -633,7 +684,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, deployment *in
 	}
 
 	// Create gateway subnet
-	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, getVnetName(vpnLocation), vpnLocation)
+	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, getVnetName(vpnLocation, deployment.Namespace), vpnLocation, deployment.Namespace, s.frontendServerAddr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get invisinets vnet: %w", err)
 	}
@@ -810,21 +861,23 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 	return &invisinetspb.BasicResponse{Success: true}, nil
 }
 
-func Setup(port int) (*azurePluginServer, string) {
+func Setup(port int, frontendServerAddr string) *azurePluginServer {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
 	azureServer := &azurePluginServer{
-		azureHandler: &azureSDKHandler{},
+		azureHandler:       &azureSDKHandler{},
+		frontendServerAddr: frontendServerAddr,
 	}
 	invisinetspb.RegisterCloudPluginServer(grpcServer, azureServer)
 	fmt.Println("Starting server on port :", port)
+
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
 			fmt.Println(err.Error())
 		}
 	}()
-	return azureServer, lis.Addr().String()
+	return azureServer
 }

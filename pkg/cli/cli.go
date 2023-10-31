@@ -65,14 +65,14 @@ var azCmd = &cobra.Command{
 	Use:     "az",
 	Aliases: []string{"az"},
 	Short:   "Starts the Azure plugin server on given port",
-	Args:    cobra.ExactArgs(1),
+	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		port, err := strconv.Atoi(args[0])
 		if err != nil {
 			fmt.Println("Invalid port.")
 			return
 		}
-		az.Setup(port)
+		az.Setup(port, args[1])
 	},
 }
 
@@ -80,14 +80,14 @@ var gcpCmd = &cobra.Command{
 	Use:     "gcp",
 	Aliases: []string{"gcp"},
 	Short:   "Starts the GCP plugin server with given config file",
-	Args:    cobra.ExactArgs(1),
+	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		port, err := strconv.Atoi(args[0])
 		if err != nil {
 			fmt.Println("Invalid port.")
 			return
 		}
-		gcp.Setup(port)
+		gcp.Setup(port, args[1])
 	},
 }
 
