@@ -100,8 +100,15 @@ func (s *tagServiceServer) isLeafTag(c context.Context, tag *tagservicepb.Tag) (
 
 // Record tag by storing mapping to URI and IP
 func (s *tagServiceServer) _setLeafTag(c context.Context, mapping *tagservicepb.TagMapping) error {
-	// TODO @smcclure20: Make it so that you can only set the leaf tag once?
-	err := s.client.HSet(c, mapping.TagName, map[string]string{"uri": *mapping.Uri, "ip": *mapping.Ip}).Err()
+	exists, err := s.client.HExists(c, mapping.TagName, "uri").Result()
+	if err != nil {
+		return err
+	}
+	if exists {
+		return fmt.Errorf("Cannot set tag %s as a leaf tag because it already exists.", mapping.TagName)
+	}
+
+	err = s.client.HSet(c, mapping.TagName, map[string]string{"uri": *mapping.Uri, "ip": *mapping.Ip}).Err()
 	if err != nil {
 		return err
 	}
