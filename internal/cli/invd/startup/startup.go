@@ -63,7 +63,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	e.controllerAddr = cfg.Server.Host + ":" + cfg.Server.Port
+	e.controllerAddr = cfg.Server.Host + ":" + cfg.Server.RpcPort
 
 	e.tagPort, err = strconv.Atoi(cfg.TagService.Port)
 	if err != nil {
@@ -100,5 +100,6 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	}()
 
 	frontend.Setup(args[0])
+
 	return nil
 }

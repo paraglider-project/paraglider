@@ -448,14 +448,28 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 // CreateInvisinetsVirtualNetwork creates a new invisinets virtual network with a default subnet with the same address
 // space as the vnet
 func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
+	// Virtual network address spaces
+	addressSpaces := []*string{
+		to.Ptr(addressSpace),
+	}
+
+	// List the virtual networks in the resource group
+	pager := h.virtualNetworksClient.NewListPager(h.resourceGroupName, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if len(page.Value) == 0 && len(addressSpaces) == 1 {
+			addressSpaces = append(addressSpaces, to.Ptr(gatewaySubnetAddressPrefix))
+		}
+	}
+
 	parameters := armnetwork.VirtualNetwork{
 		Location: to.Ptr(location),
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 			AddressSpace: &armnetwork.AddressSpace{
-				AddressPrefixes: []*string{
-					to.Ptr(addressSpace),
-					to.Ptr(gatewaySubnetAddressPrefix),
-				},
+				AddressPrefixes: addressSpaces,
 			},
 			Subnets: []*armnetwork.Subnet{
 				{

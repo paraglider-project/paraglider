@@ -17,12 +17,6 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-
 	common "github.com/NetSys/invisinets/internal/cli/common"
 	"github.com/NetSys/invisinets/internal/cli/invd/az"
 	"github.com/NetSys/invisinets/internal/cli/invd/frontend"
@@ -39,11 +33,6 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	// rootCmd.AddCommand(NewFrontendCommand())
-	// rootCmd.AddCommand(NewTagServCommand())
-	// rootCmd.AddCommand(NewAZCommand())
-	// rootCmd.AddCommand(NewGCPCommand())
-	// rootCmd.AddCommand(NewStartupCommand())
 	rootCmd.AddCommand(az.NewCommand())
 	rootCmd.AddCommand(gcp.NewCommand())
 	rootCmd.AddCommand(frontend.NewCommand())
@@ -53,16 +42,5 @@ func init() {
 }
 
 func Execute() {
-	// Cancel gracefully on SIGINT and SIGTERM.
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
-
-	err := rootCmd.ExecuteContext(ctx)
-	if err != nil && err == ctx.Err() {
-		fmt.Fprintln(os.Stderr, "Cancelled.")
-		os.Exit(1)
-	} else if err != nil {
-		fmt.Fprintf(os.Stderr, "Whoops. There was an error while executing your command: \n\n%s\n", err)
-		os.Exit(1)
-	}
+	rootCmd.Execute()
 }

@@ -5,47 +5,49 @@
 * Create a third VM in GCP and connect to one of the Azure VMs
 
 ## Setup
-* Run `invd frontend <path_to_config>` to start the frontend server
-* Run `invd tagserve 6379 <port #> <clear_keys>` to start the tag service
-* Run `invd az <port #> <frontend_rpc_addr>` to start the Azure plugin
-* Run `invd gcp <port #> <frontend_rpc_addr> ` to start the GCP plugin
+* Run `invd startup <path_to_config>` to start all the microservices
 
-## Phase 1 (Live)
+## Phase 0: Multi-cloud Prep (Pre-recorded)
 ### Steps
 Invisinets requests are shown in <span style="color:cornflowerblue">blue</span>.
 1. <span style="color:cornflowerblue">Create VM A in Azure</span>
-    * `inv resource create azure <resource_id> <file_to_description>`
-2. <span style="color:cornflowerblue">Create VM B in Azure </span>
-    * `inv resource create azure <resource_id> <file_to_description>`
-3. <span style="color:cornflowerblue">Set the permit list on VM A to allow SSH and pings to VM B </span>
-    * `inv rule add azure <vm_a_uri> --ssh <ip_range> --ping <vm_b_name>`
-4. Log into VM A and try to ping VM B <span style="color:firebrick">(*this should fail*) </span>
-5. <span style="color:cornflowerblue">Set the permit list on VM B to allow pings from VM A</span>
-    * `inv rule add azure <vm_b_uri> --ssh <ip_range>`
-6. Try to ping VM B from VM A <span style="color:forestgreen">(*this should succeed*) </span>
+    * `inv resource create azure $AZURE_VM_URI/vm-a azure-vm-westus.json`
+2. <span style="color:cornflowerblue">Create VM C in GCP</span>
+    * `inv resource create gcp "" gcp-vm.json`
+3. <span style="color:cornflowerblue">Log into VM C and try to ping VM A</span> <span style="color:firebrick">(*this should fail*) </span>
+    * `inv rule add gcp $GCP_VM_URI/vm-c --ssh 35.235.240.0/20`
+4. <span style="color:cornflowerblue">Set the permit list on VM C to allow pings from VM A.</span> This will set up the multicloud infrastructure (takes some time)
+    * `inv rule add gcp $GCP_VM_URI/vm-c --ping vm-a`
 
-## Phase 2 (Pre-recorded)
+## Phase 1: Multi-region connectivity (Live)
 ### Steps
 Invisinets requests are shown in <span style="color:cornflowerblue">blue</span>.
-1. <span style="color:cornflowerblue">Create VM C in GCP</span>
-    * `inv resource create gcp "" <file_to_description>`
-2. Log into VM C and try to ping VM A <span style="color:firebrick">(*this should fail*) </span>
-3. <span style="color:cornflowerblue">Set the permit lists on both VMs to allow pings from the other's IP</span>
-    * `inv rule add azure <vm_a_uri> --ping <vm_c_name>`
-    * `inv rule add gcp <vm_b_uri> --ping <vm_a_name>`
-4. Try to ping VM A from VM C <span style="color:forestgreen">(*this should succeed*) </span>
-5. <span style="color:cornflowerblue">Remove the permit list rules allowing pings from VM C's permit list</span>
-    * `inv rule delete gcp <vm_c_uri> --ping <vm_a_name>`
-6. Try to ping VM A from VM C <span style="color:firebrick">(*this should fail*) </span>
+1. <span style="color:cornflowerblue">Create VM B in Azure </span>
+    * `inv resource create azure $AZURE_VM_URI/vm-b azure-vm-eastus.json`
+2. <span style="color:cornflowerblue">Set the permit list on VM A to allow SSH and pings to VM B </span>
+    * `inv rule add azure $AZURE_VM_URI/vm-a --ping vm-b`
+3. Log into VM A and try to ping VM B <span style="color:firebrick">(*this should fail*) </span>
+4. <span style="color:cornflowerblue">Set the permit list on VM B to allow pings from VM A</span>
+    * `inv rule add azure $AZURE_VM_URI/vm-b --ping vm-a`
+5. Try to ping VM B from VM A <span style="color:forestgreen">(*this should succeed*) </span>
 
-## Phase 3 (Live)
+## Phase 2: Multi-cloud connectivity (Live)
 ### Steps
-1. Show the resources up in each cloud portal
-2. Try to ping VM A from VM C <span style="color:firebrick">(*this should fail*) </span>
-3. <span style="color:cornflowerblue">Add the permit list rules allowing the pings back to VM C</span>
-    * `inv rule add gcp <vm_c_uri> --ping <vm_a_name>`
-4. Try to ping VM A from VM C <span style="color:forestgreen">(*this should succeed*) </span>
-5. Try to ping VM B from VM C <span style="color:firebrick">(*this should fail*) </span>
+1. Try to ping VM A from VM C <span style="color:firebrick">(*this should fail*) </span>
+2. <span style="color:cornflowerblue">Set the permit list on VM A to allow pings from VM C</span>
+    * `inv rule add azure $AZURE_VM_URI/vm-a --ping vm-c`
+3. Try to ping VM A from VM C <span style="color:forestgreen">(*this should succeed*) </span>
+4. <span style="color:cornflowerblue">Remove the permit list rules allowing pings from VM C's permit list</span>
+    * `inv rule delete gcp $GCP_VM_URI/vm-c --ping vm-a`
+5. Try to ping VM A from VM C <span style="color:firebrick">(*this should fail*) </span>
+
+## Phase 3: Check final connectivity (Live)
+### Steps
+1. Try to ping VM A from VM C <span style="color:firebrick">(*this should fail*) </span>
+2. <span style="color:cornflowerblue">Add the permit list rules allowing the pings back to VM C</span>
+    * `inv rule add gcp $GCP_VM_URI/vm-c --ping vm-a`
+3. Try to ping VM A from VM C <span style="color:forestgreen">(*this should succeed*) </span>
+4. Try to ping VM B from VM C <span style="color:firebrick">(*this should fail*) </span>
 
 
 ### Phase 4 (Live)

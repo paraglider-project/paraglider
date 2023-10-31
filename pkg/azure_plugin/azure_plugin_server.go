@@ -252,7 +252,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		utils.Log.Printf("Successfully created network security rule: %s", *securityRule.ID)
 	}
 
-	return &invisinetspb.BasicResponse{Success: true, Message: "successfully added non duplicate rules if any", UpdatedResource: &invisinetspb.ResourceID{Id: resourceID}}, nil
+	return &invisinetspb.BasicResponse{Success: true, Message: "successfully added rules", UpdatedResource: &invisinetspb.ResourceID{Id: resourceID}}, nil
 }
 
 // DeletePermitListRules does the mapping from Invisinets to Azure by deleting NSG rules for the given resource.
@@ -849,7 +849,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 func Setup(port int, frontendAddr string) {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
+		fmt.Fprintf(os.Stderr, "[AZURE SERVER] failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
 	azureServer := &azurePluginServer{
@@ -857,7 +857,7 @@ func Setup(port int, frontendAddr string) {
 		frontendServerAddr: frontendAddr,
 	}
 	invisinetspb.RegisterCloudPluginServer(grpcServer, azureServer)
-	fmt.Println("Starting server on port :", port)
+	fmt.Println("[AZURE SERVER] Starting Azure server on port :", port)
 	if err := grpcServer.Serve(lis); err != nil {
 		fmt.Println(err.Error())
 	}

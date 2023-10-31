@@ -325,12 +325,12 @@ func Setup(dbPort int, serverPort int, clearKeys bool) {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", serverPort))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("[TAG SERVICE] failed to listen: %v", err)
 	}
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
 	tagservicepb.RegisterTagServiceServer(grpcServer, newServer(client))
-	fmt.Printf("Serving TagService at localhost:%d", serverPort)
+	fmt.Printf("[TAG SERVICE] Serving TagService at localhost:%d", serverPort)
 	err = grpcServer.Serve(lis)
 	if err != nil {
 		fmt.Println(err.Error())
