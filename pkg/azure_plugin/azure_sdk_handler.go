@@ -43,7 +43,7 @@ type AzureSDKHandler interface {
 	GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interface, error)
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
-	GetInvisinetsVnet(ctx context.Context, vnetName string, location string) (*armnetwork.VirtualNetwork, error)
+	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, frontendAddr string) (*armnetwork.VirtualNetwork, error)
 	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error)
 	CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error)
 	CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error)
@@ -127,11 +127,6 @@ var azureToInvisinetsDirection = map[armnetwork.SecurityRuleDirection]invisinets
 	armnetwork.SecurityRuleDirectionInbound:  invisinetspb.Direction_INBOUND,
 	armnetwork.SecurityRuleDirectionOutbound: invisinetspb.Direction_OUTBOUND,
 }
-
-// Frontend server address
-// TODO @seankimkdy: dynamically configure with config
-// TODO @seankimkdy: temporarily exported until we figure a better way to set this from another package (e.g. multicloud tests)
-var FrontendServerAddr string
 
 // InitializeClients initializes the necessary azure clients for the necessary operations
 func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
@@ -418,7 +413,7 @@ func (h *azureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) 
 
 // GetInvisinetsVnet returns a valid invisinets vnet, an invisinets vnet is a vnet with a default subnet with the same
 // address space as the vnet and there is only one vnet per location
-func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string, location string) (*armnetwork.VirtualNetwork, error) {
+func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, frontendAddr string) (*armnetwork.VirtualNetwork, error) {
 	// Get the virtual network
 	res, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, &armnetwork.VirtualNetworksClientGetOptions{Expand: nil})
 
@@ -427,13 +422,14 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 		if isErrorNotFound(err) {
 			// Create the virtual network if it doesn't exist
 			// Get the address space from the controller service
-			conn, err := grpc.Dial(FrontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.Dial(frontendAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
+				utils.Log.Printf("could not dial the frontend")
 				return nil, err
 			}
 			defer conn.Close()
 			client := invisinetspb.NewControllerClient(conn)
-			response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+			response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: namespace})
 			if err != nil {
 				return nil, err
 			}

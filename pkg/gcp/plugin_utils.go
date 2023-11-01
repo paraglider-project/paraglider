@@ -119,7 +119,7 @@ func TeardownGcpTesting(teardownInfo *GcpTestTeardownInfo) {
 	// Firewalls
 	getEffectiveFirewallsReq := &computepb.GetEffectiveFirewallsNetworkRequest{
 		Project: teardownInfo.Project,
-		Network: vpcName,
+		Network: getVpcName("default"),
 	}
 	getEffectiveFirewallsResp, err := networksClient.GetEffectiveFirewalls(ctx, getEffectiveFirewallsReq)
 	if err != nil {
@@ -263,7 +263,7 @@ func TeardownGcpTesting(teardownInfo *GcpTestTeardownInfo) {
 	// VPC
 	deleteNetworkReq := &computepb.DeleteNetworkRequest{
 		Project: teardownInfo.Project,
-		Network: vpcName,
+		Network: getVpcName("default"),
 	}
 	deleteNetworkOp, err := networksClient.Delete(ctx, deleteNetworkReq)
 	if err != nil {
@@ -333,6 +333,24 @@ func GetInstanceIpAddress(project string, zone string, instanceName string) (str
 	return *instance.NetworkInterfaces[0].NetworkIP, nil
 }
 
+func GetInstanceId(project string, zone string, instanceName string) (uint64, error) {
+	ctx := context.Background()
+	instancesClient, err := compute.NewInstancesRESTClient(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("NewInstancesRESTClient: %w", err)
+	}
+	getInstanceReq := &computepb.GetInstanceRequest{
+		Instance: instanceName,
+		Project:  project,
+		Zone:     zone,
+	}
+	instance, err := instancesClient.Get(ctx, getInstanceReq)
+	if err != nil {
+		return 0, fmt.Errorf("unable to get instance: %w", err)
+	}
+	return *instance.Id, nil
+}
+
 // Runs connectivity test between two endpoints
 func RunPingConnectivityTest(t *testing.T, teardownInfo *GcpTestTeardownInfo, project string, name string, srcEndpoint *networkmanagementpb.Endpoint, dstEndpoint *networkmanagementpb.Endpoint) {
 	ctx := context.Background()
@@ -379,10 +397,4 @@ func RunPingConnectivityTest(t *testing.T, teardownInfo *GcpTestTeardownInfo, pr
 	}
 
 	require.True(t, reachable)
-}
-
-// Returns VPC for Invisinets in a shortened GCP URI format
-// TODO @seankimkdy: should return full URI
-func GetVpcUri() string {
-	return "global/networks/" + vpcName
 }

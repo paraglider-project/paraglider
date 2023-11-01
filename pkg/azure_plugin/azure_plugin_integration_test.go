@@ -64,9 +64,8 @@ func testAddAndGetPermitList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	FrontendServerAddr = fakeControllerServerAddr
 
-	s := InitializeServer()
+	s := InitializeServer(fakeControllerServerAddr)
 	ctx := context.Background()
 
 	parameters := GetTestVmParameters(vmLocation)
@@ -76,11 +75,11 @@ func testAddAndGetPermitList(t *testing.T) {
 	createResourceResp, err := s.CreateResource(ctx, &invisinetspb.ResourceDescription{
 		Id:          vmID,
 		Description: descriptionJson,
+		Namespace:   "default",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, createResourceResp)
-	assert.True(t, createResourceResp.Success)
-	assert.Equal(t, createResourceResp.UpdatedResource.Id, vmID)
+	assert.Equal(t, createResourceResp.Uri, vmID)
 
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: vmID,
@@ -93,6 +92,7 @@ func testAddAndGetPermitList(t *testing.T) {
 				Protocol:  6,
 			},
 		},
+		Namespace: "default",
 	}
 	addPermitListResp, err := s.AddPermitListRules(ctx, permitList)
 	require.NoError(t, err)
@@ -101,7 +101,7 @@ func testAddAndGetPermitList(t *testing.T) {
 	assert.Equal(t, addPermitListResp.UpdatedResource.Id, vmID)
 
 	// Assert the NSG created is equivalent to the pl rules by using the get permit list api
-	getPermitListResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmID})
+	getPermitListResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmID, Namespace: "default"})
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListResp)
 
@@ -117,7 +117,7 @@ func testAddAndGetPermitList(t *testing.T) {
 	assert.True(t, deletePermitListResp.Success)
 
 	// Assert the rule is deleted by using the get permit list api
-	getPermitListResp, err = s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmID})
+	getPermitListResp, err = s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmID, Namespace: "default"})
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListResp)
 
