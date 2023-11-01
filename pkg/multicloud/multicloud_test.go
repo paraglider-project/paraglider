@@ -88,12 +88,12 @@ func TestMulticloud(t *testing.T) {
 	azureVmResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + "invisinets-vm-test"
 	azureCreateResourceResp, err := azureServer.CreateResource(
 		ctx,
-		&invisinetspb.ResourceDescription{Id: azureVmId, Description: azureVmDescription, Namespace: "default"},
+		&invisinetspb.ResourceDescription{Id: azureVmResourceId, Description: azureVmDescription, Namespace: "default"},
 	)
 	require.NoError(t, err)
 	require.NoError(t, err)
 	require.NotNil(t, azureCreateResourceResp)
-	assert.Equal(t, azureCreateResourceResp.Uri, azureVmId)
+	assert.Equal(t, azureCreateResourceResp.Uri, azureVmResourceId)
 	fmt.Println("Created Azure VM")
 	// Create GCP VM
 	gcpVmZone := "us-west1-a"
