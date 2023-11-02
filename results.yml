@@ -1,0 +1,46 @@
+router.Interfaces: []
+[_CreateVpnBgpSessions GET]: 287.500804ms
+patchRouterRequest.RouterResource.Interfaces: [ip_range:"169.254.21.2/30" linked_vpn_tunnel:"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-west1/vpnTunnels/invisinets-azure-tunnel-0" name:"invisinets-
+azure-tunnel-0-int-0" ip_range:"169.254.22.2/30" linked_vpn_tunnel:"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-west1/vpnTunnels/invisinets-azure-tunnel-1" name:"invisinets-azure-tunnel-1-int-1"]
+[_CreateVpnBgpSessions PATCH]: 11.05872962s
+router.BgpPeers: []
+[_CreateVpnConnections GET]: 207.908087ms
+patchRouterRequest.RouterResource.BgpPeers: [name:"invisinets-bgp-peer-azure-0" peer_asn:65515 peer_ip_address:"169.254.21.1" name:"invisinets-bgp-peer-azure-1" peer_asn:65515 peer_ip_address:"169.254.22.1"]
+[_CreateVpnConnections PATCH]: 11.757576154s
+router.Interfaces: [ip_range:"169.254.21.2/30" linked_vpn_tunnel:"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-west1/vpnTunnels/invisinets-azure-tunnel-0" name:"invisinets-azure-tunnel-0-int-0" ip_ra
+nge:"169.254.22.2/30" linked_vpn_tunnel:"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-west1/vpnTunnels/invisinets-azure-tunnel-1" name:"invisinets-azure-tunnel-1-int-1"]
+[_CreateVpnBgpSessions GET]: 307.514094ms
+patchRouterRequest.RouterResource.Interfaces: [ip_range:"169.254.21.2/30" linked_vpn_tunnel:"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-west1/vpnTunnels/invisinets-azure-tunnel-0" name:"invisinets-
+azure-tunnel-0-int-0" ip_range:"169.254.22.2/30" linked_vpn_tunnel:"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-west1/vpnTunnels/invisinets-azure-tunnel-1" name:"invisinets-azure-tunnel-1-int-1"]
+[_CreateVpnBgpSessions PATCH]: 866.867573ms
+router.BgpPeers: [bfd:{min_receive_interval:1000 min_transmit_interval:1000 multiplier:5 session_initialization_mode:"DISABLED"} enable:"TRUE" enable_ipv6:false interface_name:"invisinets-azure-tunnel-0-int-0" ip_address:"169.254.21.2
+" name:"invisinets-bgp-peer-azure-0" peer_asn:65515 peer_ip_address:"169.254.21.1" bfd:{min_receive_interval:1000 min_transmit_interval:1000 multiplier:5 session_initialization_mode:"DISABLED"} enable:"TRUE" enable_ipv6:false interfac
+e_name:"invisinets-azure-tunnel-1-int-1" ip_address:"169.254.22.2" name:"invisinets-bgp-peer-azure-1" peer_asn:65515 peer_ip_address:"169.254.22.1"]
+[_CreateVpnConnections GET]: 227.180639ms
+patchRouterRequest.RouterResource.BgpPeers: [name:"invisinets-bgp-peer-azure-0" peer_asn:65515 peer_ip_address:"169.254.21.1" name:"invisinets-bgp-peer-azure-1" peer_asn:65515 peer_ip_address:"169.254.22.1"]
+[_CreateVpnConnections PATCH]: 4.992857227s
+Added GCP permit list rules
+router.Interfaces: [ip_range:"169.254.21.2/30" linked_vpn_tunnel:"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-west1/vpnTunnels/invisinets-azure-tunnel-0" name:"invisinets-azure-tunnel-0-int-0" ip_ra
+nge:"169.254.22.2/30" linked_vpn_tunnel:"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-west1/vpnTunnels/invisinets-azure-tunnel-1" name:"invisinets-azure-tunnel-1-int-1"]
+[_CreateVpnBgpSessions GET]: 218.820865ms
+patchRouterRequest.RouterResource.Interfaces: [ip_range:"169.254.21.2/30" linked_vpn_tunnel:"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-west1/vpnTunnels/invisinets-azure-tunnel-0" name:"invisinets-
+azure-tunnel-0-int-0" ip_range:"169.254.22.2/30" linked_vpn_tunnel:"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-west1/vpnTunnels/invisinets-azure-tunnel-1" name:"invisinets-azure-tunnel-1-int-1"]
+[_CreateVpnBgpSessions PATCH]: 666.094ms
+router.BgpPeers: [bfd:{min_receive_interval:1000 min_transmit_interval:1000 multiplier:5 session_initialization_mode:"DISABLED"} enable:"TRUE" enable_ipv6:false interface_name:"invisinets-azure-tunnel-0-int-0" ip_address:"169.254.21.2
+" name:"invisinets-bgp-peer-azure-0" peer_asn:65515 peer_ip_address:"169.254.21.1" bfd:{min_receive_interval:1000 min_transmit_interval:1000 multiplier:5 session_initialization_mode:"DISABLED"} enable:"TRUE" enable_ipv6:false interfac
+e_name:"invisinets-azure-tunnel-1-int-1" ip_address:"169.254.22.2" name:"invisinets-bgp-peer-azure-1" peer_asn:65515 peer_ip_address:"169.254.22.1"]
+[_CreateVpnConnections GET]: 194.562371ms
+patchRouterRequest.RouterResource.BgpPeers: [name:"invisinets-bgp-peer-azure-0" peer_asn:65515 peer_ip_address:"169.254.21.1" name:"invisinets-bgp-peer-azure-1" peer_asn:65515 peer_ip_address:"169.254.22.1"]
+[_CreateVpnConnections PATCH]: 4.037564517s
+router.Interfaces: [ip_range:"169.254.21.2/30" linked_vpn_tunnel:"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-west1/vpnTunnels/invisinets-azure-tunnel-0" name:"invisinets-azure-tunnel-0-int-0" ip_ra
+nge:"169.254.22.2/30" linked_vpn_tunnel:"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-west1/vpnTunnels/invisinets-azure-tunnel-1" name:"invisinets-azure-tunnel-1-int-1"]
+[_CreateVpnBgpSessions GET]: 231.428236ms
+patchRouterRequest.RouterResource.Interfaces: [ip_range:"169.254.21.2/30" linked_vpn_tunnel:"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-west1/vpnTunnels/invisinets-azure-tunnel-0" name:"invisinets-
+azure-tunnel-0-int-0" ip_range:"169.254.22.2/30" linked_vpn_tunnel:"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-west1/vpnTunnels/invisinets-azure-tunnel-1" name:"invisinets-azure-tunnel-1-int-1"]
+[_CreateVpnBgpSessions PATCH]: 624.966617ms
+router.BgpPeers: [bfd:{min_receive_interval:1000 min_transmit_interval:1000 multiplier:5 session_initialization_mode:"DISABLED"} enable:"TRUE" enable_ipv6:false interface_name:"invisinets-azure-tunnel-0-int-0" ip_address:"169.254.21.2
+" name:"invisinets-bgp-peer-azure-0" peer_asn:65515 peer_ip_address:"169.254.21.1" bfd:{min_receive_interval:1000 min_transmit_interval:1000 multiplier:5 session_initialization_mode:"DISABLED"} enable:"TRUE" enable_ipv6:false interfac
+e_name:"invisinets-azure-tunnel-1-int-1" ip_address:"169.254.22.2" name:"invisinets-bgp-peer-azure-1" peer_asn:65515 peer_ip_address:"169.254.22.1"]
+[_CreateVpnConnections GET]: 213.958988ms
+patchRouterRequest.RouterResource.BgpPeers: [name:"invisinets-bgp-peer-azure-0" peer_asn:65515 peer_ip_address:"169.254.21.1" name:"invisinets-bgp-peer-azure-1" peer_asn:65515 peer_ip_address:"169.254.22.1"]
+[_CreateVpnConnections PATCH]: 8.921254218s
