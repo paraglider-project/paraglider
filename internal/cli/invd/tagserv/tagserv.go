@@ -27,7 +27,7 @@ import (
 func NewCommand() *cobra.Command {
 	executor := &executor{}
 	return &cobra.Command{
-		Use:     "tagserv",
+		Use:     "tagserv <database port> <server port> <clear keys>",
 		Aliases: []string{"tagserv"},
 		Short:   "Starts the tag server on given ports",
 		Args:    cobra.ExactArgs(3),

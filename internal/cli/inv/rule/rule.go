@@ -19,6 +19,8 @@ package rule
 import (
 	"github.com/NetSys/invisinets/internal/cli/inv/rule/add"
 	"github.com/NetSys/invisinets/internal/cli/inv/rule/delete"
+	"github.com/NetSys/invisinets/internal/cli/inv/rule/get"
+
 	"github.com/spf13/cobra"
 )
 
@@ -30,6 +32,7 @@ func NewCommand() *cobra.Command {
 
 	cmd.AddCommand(add.NewCommand())
 	cmd.AddCommand(delete.NewCommand())
+	cmd.AddCommand(get.NewCommand())
 
 	return cmd
 }

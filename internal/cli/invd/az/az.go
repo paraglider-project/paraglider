@@ -28,7 +28,7 @@ import (
 func NewCommand() *cobra.Command {
 	executor := &executor{}
 	return &cobra.Command{
-		Use:     "az",
+		Use:     "az <port> <central controller address>",
 		Aliases: []string{"az"},
 		Short:   "Starts the Azure plugin server on given port",
 		Args:    cobra.ExactArgs(2),

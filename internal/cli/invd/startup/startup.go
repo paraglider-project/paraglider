@@ -32,7 +32,7 @@ import (
 func NewCommand() *cobra.Command {
 	executor := &executor{}
 	return &cobra.Command{
-		Use:     "startup",
+		Use:     "startup <path to config>",
 		Aliases: []string{"startup"},
 		Short:   "Starts all the microservices with given config file",
 		Args:    cobra.ExactArgs(1),

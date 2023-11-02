@@ -19,7 +19,6 @@ package tag
 import (
 	"github.com/NetSys/invisinets/internal/cli/inv/tag/delete"
 	"github.com/NetSys/invisinets/internal/cli/inv/tag/get"
-	"github.com/NetSys/invisinets/internal/cli/inv/tag/list"
 	"github.com/NetSys/invisinets/internal/cli/inv/tag/set"
 	"github.com/spf13/cobra"
 )
@@ -32,7 +31,6 @@ func NewCommand() *cobra.Command {
 
 	cmd.AddCommand(delete.NewCommand())
 	cmd.AddCommand(get.NewCommand())
-	cmd.AddCommand(list.NewCommand())
 	cmd.AddCommand(set.NewCommand())
 
 	return cmd

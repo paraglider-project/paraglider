@@ -25,7 +25,7 @@ import (
 func NewCommand() *cobra.Command {
 	executor := &executor{}
 	return &cobra.Command{
-		Use:     "frontend",
+		Use:     "frontend <path to config>",
 		Aliases: []string{"frontend"},
 		Short:   "Starts the frontend server with given config file",
 		Args:    cobra.ExactArgs(1),
