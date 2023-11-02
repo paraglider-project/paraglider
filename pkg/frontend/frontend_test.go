@@ -54,6 +54,7 @@ const addressSpaceAddress = "10.0.0.0/16"
 const exampleCloudName = "example"
 
 const validTagName = "validTagName"
+const defaultNamespace = "default"
 const validLastLevelTagName = "validLastLevelTagName"
 const validParentTagName = "validParentTagName"
 
@@ -135,8 +136,8 @@ func (s *mockCloudPluginServer) DeletePermitListRules(c context.Context, permitL
 	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
 }
 
-func (s *mockCloudPluginServer) CreateResource(c context.Context, resource *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
-	return &invisinetspb.BasicResponse{Success: true, Message: resource.Id}, nil
+func (s *mockCloudPluginServer) CreateResource(c context.Context, resource *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
+	return &invisinetspb.CreateResourceResponse{Name: "resource_name", Uri: resource.Id}, nil
 }
 
 func (s *mockCloudPluginServer) GetUsedAddressSpaces(c context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
@@ -159,7 +160,7 @@ func newTagServer() *mockTagServiceServer {
 }
 
 func newFrontendServer() *ControllerServer {
-	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string][]string)}
+	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string]map[string][]string), namespace: defaultNamespace}
 	return s
 }
 
@@ -213,7 +214,7 @@ func TestPermitListGet(t *testing.T) {
 	setupPluginServer(port)
 
 	r := SetUpRouter()
-	r.GET("/cloud/:cloud/resources/:id/permit-list/", frontendServer.permitListGet)
+	r.GET("/cloud/:cloud/permit-list/:id", frontendServer.permitListGet)
 
 	// Well-formed request
 	id := "123"
@@ -222,7 +223,7 @@ func TestPermitListGet(t *testing.T) {
 		PermitList: &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{exampleRule}},
 	}
 
-	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/", exampleCloudName, id)
+	url := fmt.Sprintf("/cloud/%s/permit-list/%s", exampleCloudName, id)
 	req, _ := http.NewRequest("GET", url, nil)
 	w := httptest.NewRecorder()
 
@@ -237,7 +238,7 @@ func TestPermitListGet(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/", "wrong", id)
+	url = fmt.Sprintf("/cloud/%s/permit-list/%s", "wrong", id)
 	req, _ = http.NewRequest("GET", url, nil)
 	w = httptest.NewRecorder()
 
@@ -257,7 +258,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST("/cloud/:cloud/resources/:id/permit-list/rules", frontendServer.permitListRulesAdd)
+	r.POST("/cloud/:cloud/permit-list/rules", frontendServer.permitListRulesAdd)
 
 	// Well-formed request
 	id := "123"
@@ -272,7 +273,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
 	jsonValue, _ := json.Marshal(rulesList)
 
-	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
+	url := fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -291,7 +292,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	rulesList = &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
 	jsonValue, _ = json.Marshal(rulesList)
 
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
+	url = fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -299,7 +300,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "wrong", id)
+	url = fmt.Sprintf("/cloud/%s/permit-list/rules", "wrong")
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -309,7 +310,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
+	url = fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -329,7 +330,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.DELETE("/cloud/:cloud/resources/:id/permit-list/rules", frontendServer.permitListRulesDelete)
+	r.DELETE("/cloud/:cloud/permit-list/rules", frontendServer.permitListRulesDelete)
 
 	// Well-formed request
 	id := "123"
@@ -345,7 +346,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 
 	jsonValue, _ := json.Marshal(rulesList)
 
-	url := fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
+	url := fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
 	req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -354,7 +355,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", "wrong", id)
+	url = fmt.Sprintf("/cloud/%s/permit-list/rules", "wrong")
 	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -364,7 +365,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf("/cloud/%s/resources/%s/permit-list/rules", exampleCloudName, id)
+	url = fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
 	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -376,22 +377,27 @@ func TestCreateResource(t *testing.T) {
 	// Setup
 	frontendServer := newFrontendServer()
 	port := getNewPortNumber()
+	tagServerPort := getNewPortNumber()
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
-	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.1.0.0/24"}
+	frontendServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
+	frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.1.0.0/24"}
 
 	setupPluginServer(port)
+	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST("/cloud/:cloud/resources/:id/", frontendServer.resourceCreate)
+	r.POST("/cloud/:cloud/resources/", frontendServer.resourceCreate)
 
 	// Well-formed request
 	id := "123"
 	resource := &invisinetspb.ResourceDescriptionString{
 		Id:          id,
-		Description: "description"}
+		Description: "description",
+	}
 	jsonValue, _ := json.Marshal(resource)
 
-	url := fmt.Sprintf("/cloud/%s/resources/%s/", exampleCloudName, id)
+	url := fmt.Sprintf("/cloud/%s/resources/", exampleCloudName)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -399,7 +405,7 @@ func TestCreateResource(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf("/cloud/%s/resources/%s/", "wrong", id)
+	url = fmt.Sprintf("/cloud/%s/resources/", "wrong")
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -409,7 +415,7 @@ func TestCreateResource(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf("/cloud/%s/resources/%s/", exampleCloudName, id)
+	url = fmt.Sprintf("/cloud/%s/resources/", exampleCloudName)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -426,11 +432,11 @@ func TestGetAddressSpaces(t *testing.T) {
 	setupPluginServer(port)
 
 	// Well-formed call
-	addressList, _ := frontendServer.getAddressSpaces(exampleCloudName, "id")
+	addressList, _ := frontendServer.getAddressSpaces(exampleCloudName, "id", defaultNamespace)
 	assert.Equal(t, addressList.AddressSpaces[0], addressSpaceAddress)
 
 	// Bad cloud name
-	emptyList, err := frontendServer.getAddressSpaces("wrong", "id")
+	emptyList, err := frontendServer.getAddressSpaces("wrong", "id", defaultNamespace)
 	require.NotNil(t, err)
 
 	require.Nil(t, emptyList)
@@ -446,36 +452,41 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	// Valid cloud list
 	cloud := Cloud{Name: exampleCloudName, Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	frontendServer.config = Config{Clouds: []Cloud{cloud}}
-	err := frontendServer.updateUsedAddressSpacesMap()
+	err := frontendServer.updateUsedAddressSpacesMap(defaultNamespace)
 	require.Nil(t, err)
-	assert.Equal(t, frontendServer.usedAddressSpaces[exampleCloudName][0], addressSpaceAddress)
+	assert.Equal(t, frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName][0], addressSpaceAddress)
 
 	// Invalid cloud list
 	cloud = Cloud{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	frontendServer.config = Config{Clouds: []Cloud{cloud}}
-	err = frontendServer.updateUsedAddressSpacesMap()
+	err = frontendServer.updateUsedAddressSpacesMap(defaultNamespace)
 
 	require.NotNil(t, err)
 }
 
 func TestFindUnusedAddressSpace(t *testing.T) {
 	frontendServer := newFrontendServer()
+	frontendServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
 
 	// No entries in address space map
-	frontendServer.usedAddressSpaces = make(map[string][]string)
-	address, err := frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+	address, err := frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
 	require.Nil(t, err)
 	assert.Equal(t, address.Address, "10.0.0.0/16")
 
 	// Next entry
-	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.0.0.0/16"}
-	address, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+	frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.0.0.0/16"}
+	address, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
 	require.Nil(t, err)
 	assert.Equal(t, address.Address, "10.1.0.0/16")
 
+	// Different Namespace
+	address, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: "other"})
+	require.Nil(t, err)
+	assert.Equal(t, address.Address, "10.0.0.0/16")
+
 	// Out of addresses
-	frontendServer.usedAddressSpaces[exampleCloudName] = []string{"10.255.0.0/16"}
-	_, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+	frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.255.0.0/16"}
+	_, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
 	require.NotNil(t, err)
 }
 
@@ -953,14 +964,58 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 	gcp_address_spaces := []string{"10.0.0.0/16", "10.1.0.0/16"}
 	azure_address_spaces := []string{"10.2.0.0/16", "10.3.0.0/16"}
-	frontendServer.usedAddressSpaces = map[string][]string{
-		utils.GCP:   {"10.0.0.0/16", "10.1.0.0/16"},
-		utils.AZURE: {"10.2.0.0/16", "10.3.0.0/16"},
+	frontendServer.usedAddressSpaces = map[string]map[string][]string{
+		defaultNamespace: {
+			utils.GCP:   {"10.0.0.0/16", "10.1.0.0/16"},
+			utils.AZURE: {"10.2.0.0/16", "10.3.0.0/16"},
+		},
 	}
-	addressSpaces, err := frontendServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	addressSpaces, err := frontendServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
 	require.Nil(t, err)
 	assert.ElementsMatch(t, addressSpaces.AddressSpaceMappings, []*invisinetspb.AddressSpaceMapping{
-		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP},
-		{AddressSpaces: azure_address_spaces, Cloud: utils.AZURE},
+		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP, Namespace: defaultNamespace},
+		{AddressSpaces: azure_address_spaces, Cloud: utils.AZURE, Namespace: defaultNamespace},
 	})
+
+	// Empty namespace
+	addressSpaces, err = frontendServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: "empty"})
+	require.Nil(t, err)
+	assert.Equal(t, 0, len(addressSpaces.AddressSpaceMappings))
+}
+
+func TestGetNamespace(t *testing.T) {
+	frontendServer := newFrontendServer()
+
+	r := SetUpRouter()
+	r.GET("/namespace/", frontendServer.getNamespace)
+
+	url := "/namespace/"
+	req, _ := http.NewRequest("GET", url, nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	responseData, _ := io.ReadAll(w.Body)
+	var jsonMap map[string]string
+	err := json.Unmarshal(responseData, &jsonMap)
+	require.Nil(t, err)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, frontendServer.namespace, jsonMap["namespace"])
+}
+
+func TestSetNamespace(t *testing.T) {
+	frontendServer := newFrontendServer()
+
+	r := SetUpRouter()
+	r.POST("/namespace/:namespace", frontendServer.setNamespace)
+
+	newNamespace := "newnamespace"
+	url := fmt.Sprintf("/namespace/%s", newNamespace)
+	req, _ := http.NewRequest("POST", url, nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, newNamespace, frontendServer.namespace)
 }

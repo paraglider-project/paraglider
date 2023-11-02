@@ -26,7 +26,7 @@ import (
 func SetupControllerServer(cfg Config) string {
 	controllerServer := &ControllerServer{
 		pluginAddresses:   make(map[string]string),
-		usedAddressSpaces: make(map[string][]string),
+		usedAddressSpaces: make(map[string]map[string][]string),
 		config:            cfg,
 	}
 	for _, c := range controllerServer.config.Clouds {

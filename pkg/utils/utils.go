@@ -102,7 +102,7 @@ func IsAddressPrivate(addressString string) (bool, error) {
 }
 
 // Checks and connect clouds as necessary
-func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string, ctx context.Context, permitListRule *invisinetspb.PermitListRule, usedAddressSpaceMappings *invisinetspb.AddressSpaceMappingList, controllerClient invisinetspb.ControllerClient) error {
+func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string, currentCloudNamespace string, ctx context.Context, permitListRule *invisinetspb.PermitListRule, usedAddressSpaceMappings *invisinetspb.AddressSpaceMappingList, controllerClient invisinetspb.ControllerClient) error {
 	for _, target := range permitListRule.Targets {
 		isPrivate, err := IsAddressPrivate(target)
 		if err != nil {
@@ -115,7 +115,7 @@ func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string,
 				return fmt.Errorf("unable to determine if tag is in current address space: %w", err)
 			}
 			if !contained {
-				var peeringCloud, peeringCloudAddressSpace string
+				var peeringCloud, peeringCloudAddressSpace, peeringCloudNamespace string
 				for _, usedAddressSpaceMapping := range usedAddressSpaceMappings.AddressSpaceMappings {
 					for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
 						contained, err := IsPermitListRuleTagInAddressSpace(target, addressSpace)
@@ -125,6 +125,7 @@ func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string,
 						if contained {
 							peeringCloud = usedAddressSpaceMapping.Cloud
 							peeringCloudAddressSpace = addressSpace
+							peeringCloudNamespace = usedAddressSpaceMapping.Namespace
 							break
 						}
 					}
@@ -135,8 +136,10 @@ func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string,
 					connectCloudsRequest := &invisinetspb.ConnectCloudsRequest{
 						CloudA:             currentCloud,
 						CloudAAddressSpace: currentCloudAddressSpace,
+						CloudANamespace:    currentCloudNamespace,
 						CloudB:             peeringCloud,
 						CloudBAddressSpace: peeringCloudAddressSpace,
+						CloudBNamespace:    peeringCloudNamespace,
 					}
 					_, err := controllerClient.ConnectClouds(ctx, connectCloudsRequest)
 					if err != nil {

@@ -21,7 +21,7 @@ option go_package="github.com/NetSys/invisinets/pkg/invisinetspb";
 
 service CloudPlugin {
     rpc GetUsedAddressSpaces(InvisinetsDeployment) returns (AddressSpaceList) {}
-    rpc CreateResource(ResourceDescription) returns (BasicResponse) {}
+    rpc CreateResource(ResourceDescription) returns (CreateResourceResponse) {}
     rpc GetPermitList(ResourceID) returns (PermitList) {}
     rpc AddPermitListRules(PermitList) returns (BasicResponse) {}
     rpc DeletePermitListRules(PermitList) returns (BasicResponse) {}
@@ -31,8 +31,8 @@ service CloudPlugin {
 }
 
 service Controller {
-    rpc FindUnusedAddressSpace(Empty) returns (AddressSpace) {}
-    rpc GetUsedAddressSpaces(Empty) returns (AddressSpaceMappingList) {}
+    rpc FindUnusedAddressSpace(Namespace) returns (AddressSpace) {}
+    rpc GetUsedAddressSpaces(Namespace) returns (AddressSpaceMappingList) {}
     rpc ConnectClouds(ConnectCloudsRequest) returns (BasicResponse) {}
 }
 
@@ -40,9 +40,20 @@ message Empty {
 
 }
 
+message Namespace {
+    string namespace = 1;
+}
+
+message CreateResourceResponse {
+    string name = 1;
+    string uri = 2;
+    string ip = 3;
+}
+
 // Provides the necessary URI/ID to find the Invisinets networks (eg, subscription + resource group in Azure or project in GCP)
 message InvisinetsDeployment {
     string id = 1;
+    string namespace = 2;
 }
 
 message AddressSpace {
@@ -56,6 +67,7 @@ message AddressSpaceList {
 message AddressSpaceMapping{
     repeated string address_spaces = 1;
     string cloud = 2;
+    string namespace = 3;
 }
 
 message AddressSpaceMappingList {
@@ -64,11 +76,13 @@ message AddressSpaceMappingList {
 
 message ResourceID {
     string id = 1;
+    string namespace = 2;
 }
 
 message ResourceDescription {
     string id = 1;
     bytes description = 2;
+    string namespace = 3;
 }
 
 message ResourceDescriptionString {
@@ -101,6 +115,7 @@ message PermitListRule {
 message PermitList {
     string associated_resource = 1; 
     repeated PermitListRule rules = 2;
+    string namespace = 3;
 }
 
 message ConnectCloudsRequest{
@@ -108,6 +123,8 @@ message ConnectCloudsRequest{
     string cloudB = 2;
     string cloudAAddressSpace = 3;
     string cloudBAddressSpace = 4;
+    string cloudANamespace = 5;
+    string cloudBNamespace = 6;
 }
 
 // TODO @seankimkdy: check naming of all of these to be as cloud neutral as possible

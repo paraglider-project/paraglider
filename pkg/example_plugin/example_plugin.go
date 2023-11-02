@@ -28,8 +28,8 @@ import (
 )
 
 var (
-	port = flag.Int("port", 1002, "The server port")
-	print = true
+	port      = flag.Int("port", 1002, "The server port")
+	print     = true
 	storeData = true
 )
 
@@ -63,8 +63,8 @@ func (s *cloudPluginServer) DeletePermitListRules(c context.Context, permitList 
 	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
 }
 
-func (s *cloudPluginServer) CreateResource(c context.Context, resource *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
-	return &invisinetspb.BasicResponse{Success: true, Message: resource.Id}, nil
+func (s *cloudPluginServer) CreateResource(c context.Context, resource *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
+	return &invisinetspb.CreateResourceResponse{Name: "vm"}, nil
 }
 
 func (s *cloudPluginServer) GetUsedAddressSpaces(c context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
