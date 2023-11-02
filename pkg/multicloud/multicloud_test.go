@@ -66,7 +66,7 @@ func TestMulticloud(t *testing.T) {
 
 	// Setup Azure
 	azure_plugin.SetupAzureTesting(azureSubscriptionId, azureResourceGroupName)
-	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
+	// defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
 	azureServer := azure_plugin.Setup(azurePluginPort, controllerServerAddr)
 	fmt.Println("Setup Azure server")
 
@@ -75,7 +75,7 @@ func TestMulticloud(t *testing.T) {
 		Project:            gcpProject,
 		InsertInstanceReqs: make([]*computepb.InsertInstanceRequest, 0),
 	}
-	defer gcp.TeardownGcpTesting(gcpTeardownInfo)
+	// defer gcp.TeardownGcpTesting(gcpTeardownInfo)
 	gcpServer := gcp.Setup(gcpPluginPort, controllerServerAddr)
 	fmt.Println("Setup GCP server")
 
