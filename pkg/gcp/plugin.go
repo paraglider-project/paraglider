@@ -877,37 +877,26 @@ func (s *GCPPluginServer) CreateVpnGateway(ctx context.Context, deployment *invi
 func (s *GCPPluginServer) _CreateVpnBgpSessions(ctx context.Context, req *invisinetspb.CreateVpnBgpSessionsRequest, routersClient *compute.RoutersClient) (*invisinetspb.CreateVpnBgpSessionsResponse, error) {
 	project := parseGCPURL(req.Deployment.Id)["projects"]
 
-	getRouterReq := &computepb.GetRouterRequest{
-		Project: project,
-		Region:  vpnRegion,
-		Router:  routerName,
+	patchRouterReq := &computepb.PatchRouterRequest{
+		Project:        project,
+		Region:         vpnRegion,
+		Router:         routerName,
+		RouterResource: &computepb.Router{},
 	}
-	router, err := routersClient.Get(ctx, getRouterReq)
+	patchRouterReq.RouterResource.Interfaces = make([]*computepb.RouterInterface, vpnNumConnections)
+	for i := 0; i < vpnNumConnections; i++ {
+		patchRouterReq.RouterResource.Interfaces[i] = &computepb.RouterInterface{
+			Name:            proto.String(getVpnTunnelInterfaceName(req.Cloud, i, i)),
+			IpRange:         proto.String(vpnGwBgpIpAddrs[i] + "/30"),
+			LinkedVpnTunnel: proto.String(getVpnTunnelUri(project, vpnRegion, getVpnTunnelName(req.Cloud, i))),
+		}
+	}
+	patchRouterOp, err := routersClient.Patch(ctx, patchRouterReq)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get router: %w", err)
+		return nil, fmt.Errorf("unable to patch router: %w", err)
 	}
-	if len(router.Interfaces) != vpnNumConnections {
-		patchRouterReq := &computepb.PatchRouterRequest{
-			Project:        project,
-			Region:         vpnRegion,
-			Router:         routerName,
-			RouterResource: &computepb.Router{},
-		}
-		patchRouterReq.RouterResource.Interfaces = make([]*computepb.RouterInterface, vpnNumConnections)
-		for i := 0; i < vpnNumConnections; i++ {
-			patchRouterReq.RouterResource.Interfaces[i] = &computepb.RouterInterface{
-				Name:            proto.String(getVpnTunnelInterfaceName(req.Cloud, i, i)),
-				IpRange:         proto.String(vpnGwBgpIpAddrs[i] + "/30"),
-				LinkedVpnTunnel: proto.String(getVpnTunnelUri(project, vpnRegion, getVpnTunnelName(req.Cloud, i))),
-			}
-		}
-		patchRouterOp, err := routersClient.Patch(ctx, patchRouterReq)
-		if err != nil {
-			return nil, fmt.Errorf("unable to patch router: %w", err)
-		}
-		if err = patchRouterOp.Wait(ctx); err != nil {
-			return nil, fmt.Errorf("unable to wait on patch router operation: %w", err)
-		}
+	if err = patchRouterOp.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("unable to wait on patch router operation: %w", err)
 	}
 
 	return &invisinetspb.CreateVpnBgpSessionsResponse{BgpIpAddresses: vpnGwBgpIpAddrs}, nil
@@ -981,37 +970,26 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *invisi
 		}
 	}
 
-	getRouterReq := &computepb.GetRouterRequest{
-		Project: project,
-		Region:  vpnRegion,
-		Router:  routerName,
+	patchRouterRequest := &computepb.PatchRouterRequest{
+		Project:        project,
+		Region:         vpnRegion,
+		Router:         routerName,
+		RouterResource: &computepb.Router{},
 	}
-	router, err := routersClient.Get(ctx, getRouterReq)
+	patchRouterRequest.RouterResource.BgpPeers = make([]*computepb.RouterBgpPeer, vpnNumConnections)
+	for i := 0; i < vpnNumConnections; i++ {
+		patchRouterRequest.RouterResource.BgpPeers[i] = &computepb.RouterBgpPeer{
+			Name:          proto.String(getBgpPeerName(req.Cloud, i)),
+			PeerIpAddress: proto.String(req.BgpIpAddresses[i]),
+			PeerAsn:       proto.Uint32(uint32(req.Asn)),
+		}
+	}
+	patchRouterOp, err := routersClient.Patch(ctx, patchRouterRequest)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get router: %w", err)
+		return nil, fmt.Errorf("unable to setup bgp sessions: %w", err)
 	}
-	if len(router.BgpPeers) != vpnNumConnections {
-		patchRouterRequest := &computepb.PatchRouterRequest{
-			Project:        project,
-			Region:         vpnRegion,
-			Router:         routerName,
-			RouterResource: &computepb.Router{},
-		}
-		patchRouterRequest.RouterResource.BgpPeers = make([]*computepb.RouterBgpPeer, vpnNumConnections)
-		for i := 0; i < vpnNumConnections; i++ {
-			patchRouterRequest.RouterResource.BgpPeers[i] = &computepb.RouterBgpPeer{
-				Name:          proto.String(getBgpPeerName(req.Cloud, i)),
-				PeerIpAddress: proto.String(req.BgpIpAddresses[i]),
-				PeerAsn:       proto.Uint32(uint32(req.Asn)),
-			}
-		}
-		patchRouterOp, err := routersClient.Patch(ctx, patchRouterRequest)
-		if err != nil {
-			return nil, fmt.Errorf("unable to setup bgp sessions: %w", err)
-		}
-		if err = patchRouterOp.Wait(ctx); err != nil {
-			return nil, fmt.Errorf("unable to wait on setting up bgp sessions operation: %w", err)
-		}
+	if err = patchRouterOp.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("unable to wait on setting up bgp sessions operation: %w", err)
 	}
 
 	return &invisinetspb.BasicResponse{Success: true}, nil
