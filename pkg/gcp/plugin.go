@@ -28,7 +28,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
@@ -883,40 +882,33 @@ func (s *GCPPluginServer) _CreateVpnBgpSessions(ctx context.Context, req *invisi
 		Region:  vpnRegion,
 		Router:  routerName,
 	}
-	getStartTime := time.Now()
 	router, err := routersClient.Get(ctx, getRouterReq)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get router: %w", err)
 	}
-	getElapsedTime := time.Since(getStartTime)
-	fmt.Printf("router.Interfaces: %+v\n", router.Interfaces)
-	fmt.Printf("[_CreateVpnBgpSessions GET]: %v\n", getElapsedTime)
-	patchRouterReq := &computepb.PatchRouterRequest{
-		Project:        project,
-		Region:         vpnRegion,
-		Router:         routerName,
-		RouterResource: &computepb.Router{},
-	}
-	patchRouterReq.RouterResource.Interfaces = make([]*computepb.RouterInterface, vpnNumConnections)
-	for i := 0; i < vpnNumConnections; i++ {
-		patchRouterReq.RouterResource.Interfaces[i] = &computepb.RouterInterface{
-			Name:            proto.String(getVpnTunnelInterfaceName(req.Cloud, i, i)),
-			IpRange:         proto.String(vpnGwBgpIpAddrs[i] + "/30"),
-			LinkedVpnTunnel: proto.String(getVpnTunnelUri(project, vpnRegion, getVpnTunnelName(req.Cloud, i))),
+	if len(router.Interfaces) != vpnNumConnections {
+		patchRouterReq := &computepb.PatchRouterRequest{
+			Project:        project,
+			Region:         vpnRegion,
+			Router:         routerName,
+			RouterResource: &computepb.Router{},
+		}
+		patchRouterReq.RouterResource.Interfaces = make([]*computepb.RouterInterface, vpnNumConnections)
+		for i := 0; i < vpnNumConnections; i++ {
+			patchRouterReq.RouterResource.Interfaces[i] = &computepb.RouterInterface{
+				Name:            proto.String(getVpnTunnelInterfaceName(req.Cloud, i, i)),
+				IpRange:         proto.String(vpnGwBgpIpAddrs[i] + "/30"),
+				LinkedVpnTunnel: proto.String(getVpnTunnelUri(project, vpnRegion, getVpnTunnelName(req.Cloud, i))),
+			}
+		}
+		patchRouterOp, err := routersClient.Patch(ctx, patchRouterReq)
+		if err != nil {
+			return nil, fmt.Errorf("unable to patch router: %w", err)
+		}
+		if err = patchRouterOp.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("unable to wait on patch router operation: %w", err)
 		}
 	}
-	fmt.Printf("patchRouterRequest.RouterResource.Interfaces: %+v\n", patchRouterReq.RouterResource.Interfaces)
-	patchStartTime := time.Now()
-	patchRouterOp, err := routersClient.Patch(ctx, patchRouterReq)
-	if err != nil {
-		return nil, fmt.Errorf("unable to patch router: %w", err)
-	}
-	if err = patchRouterOp.Wait(ctx); err != nil {
-		return nil, fmt.Errorf("unable to wait on patch router operation: %w", err)
-	}
-	patchElapsedTime := time.Since(patchStartTime)
-	fmt.Printf("[_CreateVpnBgpSessions PATCH]: %v\n", patchElapsedTime)
-	// }
 
 	return &invisinetspb.CreateVpnBgpSessionsResponse{BgpIpAddresses: vpnGwBgpIpAddrs}, nil
 }
@@ -994,40 +986,33 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *invisi
 		Region:  vpnRegion,
 		Router:  routerName,
 	}
-	getStartTime := time.Now()
 	router, err := routersClient.Get(ctx, getRouterReq)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get router: %w", err)
 	}
-	getElapsedTime := time.Since(getStartTime)
-	fmt.Printf("router.BgpPeers: %+v\n", router.BgpPeers)
-	fmt.Printf("[_CreateVpnConnections GET]: %v\n", getElapsedTime)
-	patchRouterRequest := &computepb.PatchRouterRequest{
-		Project:        project,
-		Region:         vpnRegion,
-		Router:         routerName,
-		RouterResource: &computepb.Router{},
-	}
-	patchRouterRequest.RouterResource.BgpPeers = make([]*computepb.RouterBgpPeer, vpnNumConnections)
-	for i := 0; i < vpnNumConnections; i++ {
-		patchRouterRequest.RouterResource.BgpPeers[i] = &computepb.RouterBgpPeer{
-			Name:          proto.String(getBgpPeerName(req.Cloud, i)),
-			PeerIpAddress: proto.String(req.BgpIpAddresses[i]),
-			PeerAsn:       proto.Uint32(uint32(req.Asn)),
+	if len(router.BgpPeers) != vpnNumConnections {
+		patchRouterRequest := &computepb.PatchRouterRequest{
+			Project:        project,
+			Region:         vpnRegion,
+			Router:         routerName,
+			RouterResource: &computepb.Router{},
+		}
+		patchRouterRequest.RouterResource.BgpPeers = make([]*computepb.RouterBgpPeer, vpnNumConnections)
+		for i := 0; i < vpnNumConnections; i++ {
+			patchRouterRequest.RouterResource.BgpPeers[i] = &computepb.RouterBgpPeer{
+				Name:          proto.String(getBgpPeerName(req.Cloud, i)),
+				PeerIpAddress: proto.String(req.BgpIpAddresses[i]),
+				PeerAsn:       proto.Uint32(uint32(req.Asn)),
+			}
+		}
+		patchRouterOp, err := routersClient.Patch(ctx, patchRouterRequest)
+		if err != nil {
+			return nil, fmt.Errorf("unable to setup bgp sessions: %w", err)
+		}
+		if err = patchRouterOp.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("unable to wait on setting up bgp sessions operation: %w", err)
 		}
 	}
-	fmt.Printf("patchRouterRequest.RouterResource.BgpPeers: %+v\n", patchRouterRequest.RouterResource.BgpPeers)
-	patchStartTime := time.Now()
-	patchRouterOp, err := routersClient.Patch(ctx, patchRouterRequest)
-	if err != nil {
-		return nil, fmt.Errorf("unable to setup bgp sessions: %w", err)
-	}
-	if err = patchRouterOp.Wait(ctx); err != nil {
-		return nil, fmt.Errorf("unable to wait on setting up bgp sessions operation: %w", err)
-	}
-	patchElapsedTime := time.Since(patchStartTime)
-	fmt.Printf("[_CreateVpnConnections PATCH]: %v\n", patchElapsedTime)
-	// }
 
 	return &invisinetspb.BasicResponse{Success: true}, nil
 }
