@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/NetSys/invisinets/internal/cli/inv/settings"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/spf13/cobra"
 )
@@ -101,7 +102,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 
 	// Send the rules to the server
 	permitList := &invisinetspb.PermitList{AssociatedResource: args[1], Rules: rules}
-	url := fmt.Sprintf("http://0.0.0.0:8080/cloud/%s/permit-list/rules", args[0])
+	url := fmt.Sprintf("http://%s/cloud/%s/permit-list/rules", settings.ServerAddr, args[0])
 
 	body, err := json.Marshal(permitList)
 	if err != nil {

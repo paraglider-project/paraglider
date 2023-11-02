@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/NetSys/invisinets/internal/cli/inv/settings"
 	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 	"github.com/spf13/cobra"
 )
@@ -82,7 +83,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	url := fmt.Sprintf("http://0.0.0.0:8080/tags/%s", args[0])
+	url := fmt.Sprintf("http://%s/tags/%s", settings.ServerAddr, args[0])
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {

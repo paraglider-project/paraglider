@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/NetSys/invisinets/internal/cli/inv/settings"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/spf13/cobra"
 )
@@ -63,7 +64,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	url := fmt.Sprintf("http://0.0.0.0:8080/cloud/%s/resources/", args[0])
+	url := fmt.Sprintf("http://%s/cloud/%s/resources/", settings.ServerAddr, args[0])
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		return err

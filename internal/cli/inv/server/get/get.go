@@ -18,23 +18,21 @@ package get
 
 import (
 	"fmt"
-	"io"
-	"net/http"
+
+	"github.com/spf13/cobra"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	"github.com/spf13/cobra"
 )
 
 func NewCommand() *cobra.Command {
 	executor := &executor{}
-	cmd := &cobra.Command{
-		Use:     "get <cloud> <resource uri>",
-		Short:   "Get rules of a resource permit list",
-		Args:    cobra.ExactArgs(2),
+	return &cobra.Command{
+		Use:     "get",
+		Short:   "Get current server settings",
+		Args:    cobra.ExactArgs(0),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
-	return cmd
 }
 
 type executor struct {
@@ -45,19 +43,6 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	// Get the rules from the server
-	url := fmt.Sprintf("http://%s/cloud/%s/permit-list/%s", settings.ServerAddr, args[0], args[1])
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Status Code: ", resp.StatusCode)
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	fmt.Println("Response Body: ", string(bodyBytes))
-
+	fmt.Println("Server address: ", settings.ServerAddr)
 	return nil
 }

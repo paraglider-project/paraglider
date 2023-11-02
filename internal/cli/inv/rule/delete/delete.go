@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/NetSys/invisinets/internal/cli/inv/settings"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/spf13/cobra"
 )
@@ -31,8 +32,8 @@ import (
 func NewCommand() *cobra.Command {
 	executor := &executor{}
 	cmd := &cobra.Command{
-		Use:     "delete",
-		Short:   "Delete a rule",
+		Use:     "delete <cloud> <resource uri> [--rulefile <path to rule json file> | --ping <tag> | --ssh <tag>]",
+		Short:   "Delete a rule from a resource permit list",
 		Args:    cobra.ExactArgs(2),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
@@ -95,7 +96,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 
 	// Send the rules to the server
 	permitList := &invisinetspb.PermitList{AssociatedResource: args[1], Rules: rules}
-	url := fmt.Sprintf("http://0.0.0.0:8080/cloud/%s/permit-list/rules", args[0])
+	url := fmt.Sprintf("http://%s/cloud/%s/permit-list/rules", settings.ServerAddr, args[0])
 
 	body, err := json.Marshal(permitList)
 	if err != nil {

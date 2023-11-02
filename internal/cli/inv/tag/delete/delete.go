@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/NetSys/invisinets/internal/cli/inv/settings"
 	"github.com/spf13/cobra"
 )
 
@@ -57,14 +58,14 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	var url string
 	var req *http.Request
 	if len(e.members) == 0 {
-		url = fmt.Sprintf("http://0.0.0.0:8080/tags/%s", args[0])
+		url = fmt.Sprintf("http://%s/tags/%s", settings.ServerAddr, args[0])
 		var err error
 		req, err = http.NewRequest(http.MethodDelete, url, nil)
 		if err != nil {
 			return err
 		}
 	} else {
-		url = fmt.Sprintf("http://0.0.0.0:8080/tags/%s/members/", args[0])
+		url = fmt.Sprintf("http://%s/tags/%s/members/", settings.ServerAddr, args[0])
 		body, err := json.Marshal(e.members)
 		if err != nil {
 			return err

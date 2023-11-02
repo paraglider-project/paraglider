@@ -26,6 +26,7 @@ import (
 	common "github.com/NetSys/invisinets/internal/cli/common"
 	"github.com/NetSys/invisinets/internal/cli/inv/resource"
 	"github.com/NetSys/invisinets/internal/cli/inv/rule"
+	"github.com/NetSys/invisinets/internal/cli/inv/server"
 	"github.com/NetSys/invisinets/internal/cli/inv/tag"
 	"github.com/spf13/cobra"
 )
@@ -41,6 +42,7 @@ func init() {
 	rootCmd.AddCommand(rule.NewCommand())
 	rootCmd.AddCommand(tag.NewCommand())
 	rootCmd.AddCommand(common.NewVersionCommand())
+	rootCmd.AddCommand(server.NewCommand())
 }
 
 func Execute() {

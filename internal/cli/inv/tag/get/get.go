@@ -21,6 +21,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/NetSys/invisinets/internal/cli/inv/settings"
 	"github.com/spf13/cobra"
 )
 
@@ -54,9 +55,9 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	// Get the tag from the server
 	var url string
 	if !e.resolveFlag {
-		url = fmt.Sprintf("http://0.0.0.0:8080/tags/%s", args[0])
+		url = fmt.Sprintf("http://%stags/%s", settings.ServerAddr, args[0])
 	} else {
-		url = fmt.Sprintf("http://0.0.0.0:8080/tags/%s/resolve", args[0])
+		url = fmt.Sprintf("http://%s/tags/%s/resolve", settings.ServerAddr, args[0])
 	}
 
 	resp, err := http.Get(url)
