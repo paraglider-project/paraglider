@@ -66,8 +66,6 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Setup controller server")
 
 	// Setup Azure
-	azure_plugin.SetupAzureTesting(azureSubscriptionId, azureResourceGroupName)
-	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
 	azureServer := azure_plugin.Setup(azurePluginPort, controllerServerAddr)
 	fmt.Println("Setup Azure server")
 
