@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/netip"
 	"os"
@@ -54,8 +55,9 @@ type Cloud struct {
 
 type Config struct {
 	Server struct {
-		Port string `yaml:"port"`
-		Host string `yaml:"host"`
+		Port    string `yaml:"port"`
+		Host    string `yaml:"host"`
+		RpcPort string `yaml:"rpcPort"`
 	} `yaml:"server"`
 
 	TagService struct {
@@ -69,9 +71,10 @@ type Config struct {
 type ControllerServer struct {
 	invisinetspb.UnimplementedControllerServer
 	pluginAddresses   map[string]string
-	usedAddressSpaces map[string][]string
+	usedAddressSpaces map[string]map[string][]string
 	localTagService   string
 	config            Config
+	namespace         string
 }
 
 func createErrorResponse(message string) gin.H {
@@ -178,7 +181,7 @@ func (s *ControllerServer) _permitListGet(pluginAddress string, id string) (*inv
 
 	// Send the GetPermitList RPC
 	client := invisinetspb.NewCloudPluginClient(conn)
-	emptyresourceId := invisinetspb.ResourceID{Id: id}
+	emptyresourceId := invisinetspb.ResourceID{Id: id, Namespace: s.namespace}
 
 	response, err := client.GetPermitList(context.Background(), &emptyresourceId)
 	if err != nil {
@@ -190,7 +193,7 @@ func (s *ControllerServer) _permitListGet(pluginAddress string, id string) (*inv
 
 // Get specified PermitList from given cloud
 func (s *ControllerServer) permitListGet(c *gin.Context) {
-	id := c.Param("id")
+	id := strings.TrimPrefix(c.Param("id"), "/") // Gin adds an extra slash to parameters with *
 	cloud := c.Param("cloud")
 
 	// Ensure correct cloud name
@@ -253,6 +256,7 @@ func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
+	permitListRules.Namespace = s.namespace
 
 	response, err := s._permitListRulesAdd(cloudClient, permitListRules, cloud)
 	if err != nil {
@@ -342,6 +346,7 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
+	permitListRules.Namespace = s.namespace
 
 	// Create connection to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -394,7 +399,7 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 }
 
 // Get used address spaces from a specified cloud
-func (s *ControllerServer) getAddressSpaces(cloud string, deploymentId string) (*invisinetspb.AddressSpaceList, error) {
+func (s *ControllerServer) getAddressSpaces(cloud string, deploymentId string, namespace string) (*invisinetspb.AddressSpaceList, error) {
 	// Ensure correct cloud name
 	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
@@ -410,35 +415,38 @@ func (s *ControllerServer) getAddressSpaces(cloud string, deploymentId string) (
 
 	// Send the RPC to get the address spaces
 	client := invisinetspb.NewCloudPluginClient(conn)
-	deployment := invisinetspb.InvisinetsDeployment{Id: deploymentId}
+	deployment := invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace}
 	addressSpaces, err := client.GetUsedAddressSpaces(context.Background(), &deployment)
 
 	return addressSpaces, err
 }
 
 // Update local address space map by getting used address spaces from each cloud plugin
-func (s *ControllerServer) updateUsedAddressSpacesMap() error {
+func (s *ControllerServer) updateUsedAddressSpacesMap(namespace string) error {
 	// Call each cloud to get address spaces used
 	for _, cloud := range s.config.Clouds {
-		addressList, err := s.getAddressSpaces(cloud.Name, cloud.InvDeployment)
+		addressList, err := s.getAddressSpaces(cloud.Name, cloud.InvDeployment, namespace)
 		if err != nil {
-			return fmt.Errorf("Could not retrieve address spaces for cloud %s", cloud)
+			return fmt.Errorf("Could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
 		}
 
-		s.usedAddressSpaces[cloud.Name] = addressList.AddressSpaces
+		if _, ok := s.usedAddressSpaces[namespace]; !ok {
+			s.usedAddressSpaces[namespace] = make(map[string][]string)
+		}
+		s.usedAddressSpaces[namespace][cloud.Name] = addressList.AddressSpaces
 	}
 	return nil
 }
 
 // Get a new address block for a new virtual network
 // TODO @smcclure20: Later, this should allocate more efficiently and with different size address blocks (eg, GCP needs larger than Azure since a VPC will span all regions)
-func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, e *invisinetspb.Empty) (*invisinetspb.AddressSpace, error) {
-	err := s.updateUsedAddressSpacesMap()
+func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, ns *invisinetspb.Namespace) (*invisinetspb.AddressSpace, error) {
+	err := s.updateUsedAddressSpacesMap(ns.Namespace)
 	if err != nil {
 		return nil, err
 	}
 	highestBlockUsed := -1
-	for _, addressList := range s.usedAddressSpaces {
+	for _, addressList := range s.usedAddressSpaces[ns.Namespace] {
 		for _, address := range addressList {
 			blockNumber, err := strconv.Atoi(strings.Split(address, ".")[1])
 			if err != nil {
@@ -459,19 +467,20 @@ func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, e *invisine
 }
 
 // Gets unused address spaces across all clouds
-func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, e *invisinetspb.Empty) (*invisinetspb.AddressSpaceMappingList, error) {
-	err := s.updateUsedAddressSpacesMap()
+func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, ns *invisinetspb.Namespace) (*invisinetspb.AddressSpaceMappingList, error) {
+	err := s.updateUsedAddressSpacesMap(ns.Namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	usedAddressSpaceMappings := &invisinetspb.AddressSpaceMappingList{}
-	usedAddressSpaceMappings.AddressSpaceMappings = make([]*invisinetspb.AddressSpaceMapping, len(s.usedAddressSpaces))
+	usedAddressSpaceMappings.AddressSpaceMappings = make([]*invisinetspb.AddressSpaceMapping, len(s.usedAddressSpaces[ns.Namespace]))
 	i := 0
-	for cloud, addressSpaces := range s.usedAddressSpaces {
+	for cloud, addressSpaces := range s.usedAddressSpaces[ns.Namespace] {
 		usedAddressSpaceMappings.AddressSpaceMappings[i] = &invisinetspb.AddressSpaceMapping{
 			AddressSpaces: addressSpaces,
 			Cloud:         cloud,
+			Namespace:     ns.Namespace,
 		}
 		i++
 	}
@@ -532,12 +541,12 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 
 		ctx := context.Background()
 
-		cloudAInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudInvDeployment(req.CloudA)}
+		cloudAInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudInvDeployment(req.CloudA), Namespace: req.CloudANamespace}
 		cloudACreateVpnGatewayResp, err := cloudAClient.CreateVpnGateway(ctx, cloudAInvisinetsDeployment)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create vpn gateway in cloud %s: %w", req.CloudA, err)
 		}
-		cloudBInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudInvDeployment(req.CloudB)}
+		cloudBInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudInvDeployment(req.CloudB), Namespace: req.CloudBNamespace}
 		cloudBCreateVpnGatewayResp, err := cloudBClient.CreateVpnGateway(ctx, cloudBInvisinetsDeployment)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create vpn gateway in cloud %s: %w", req.CloudB, err)
@@ -622,7 +631,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	defer conn.Close()
 
 	// Send RPC to create the resource
-	resource := invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description)}
+	resource := invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description), Namespace: s.namespace}
 	client := invisinetspb.NewCloudPluginClient(conn)
 	resourceResp, err := client.CreateResource(context.Background(), &resource)
 	if err != nil {
@@ -840,6 +849,17 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	})
 }
 
+func (s *ControllerServer) getNamespace(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"namespace": s.namespace,
+	})
+}
+
+func (s *ControllerServer) setNamespace(c *gin.Context) {
+	s.namespace = c.Param("namespace")
+	c.Status(http.StatusOK)
+}
+
 // Setup and run the server
 func Setup(configPath string) {
 	// Read the config
@@ -857,13 +877,27 @@ func Setup(configPath string) {
 	}
 
 	// Populate server info
-	server := ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string][]string)}
+	server := ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string]map[string][]string), namespace: "default"}
 	server.config = cfg
 	server.localTagService = cfg.TagService.Host + ":" + cfg.TagService.Port
 
 	for _, c := range server.config.Clouds {
 		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port
 	}
+
+	// Setup GRPC server
+	lis, err := net.Listen("tcp", cfg.Server.Host+":"+cfg.Server.RpcPort)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	invisinetspb.RegisterControllerServer(grpcServer, &server)
+
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
 
 	// Setup URL router
 	router := gin.Default()
@@ -872,15 +906,17 @@ func Setup(configPath string) {
 			"message": "pong",
 		})
 	})
-	router.GET("/cloud/:cloud/resources/:id/permit-list/", server.permitListGet)
-	router.POST("/cloud/:cloud/resources/:id/permit-list/rules/", server.permitListRulesAdd)
-	router.DELETE("/cloud/:cloud/resources/:id/permit-list/rules/", server.permitListRulesDelete)
-	router.POST("/cloud/:cloud/resources/:id/", server.resourceCreate)
+	router.GET("/cloud/:cloud/permit-list/*id", server.permitListGet)
+	router.POST("/cloud/:cloud/permit-list/rules/", server.permitListRulesAdd)
+	router.DELETE("/cloud/:cloud/permit-list/rules/", server.permitListRulesDelete)
+	router.POST("/cloud/:cloud/resources/", server.resourceCreate)
 	router.GET("/tags/:tag", server.getTag)
 	router.GET("/tags/:tag/resolve", server.resolveTag)
 	router.POST("/tags/:tag", server.setTag)
 	router.DELETE("/tags/:tag", server.deleteTag)
 	router.DELETE("/tags/:tag/members/", server.deleteTagMember)
+	router.GET("/namespace/", server.getNamespace)
+	router.POST("/namespace/:namespace/", server.setNamespace)
 
 	// Run server
 	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)

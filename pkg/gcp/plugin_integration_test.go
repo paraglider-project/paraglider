@@ -37,9 +37,9 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-func checkPermitListsEqual(pl1, pl2 *invisinetspb.PermitList) bool {
+func checkPermitListsEqual(instanceId uint64, pl1 *invisinetspb.PermitList, pl2 *invisinetspb.PermitList) bool {
 	sortPermitListRuleOpt := protocmp.SortRepeated(func(plr1, plr2 *invisinetspb.PermitListRule) bool {
-		return getFirewallName(plr1) < getFirewallName(plr2)
+		return getFirewallName(plr1, instanceId) < getFirewallName(plr2, instanceId)
 	})
 	return cmp.Diff(pl1, pl2, protocmp.Transform(), sortPermitListRuleOpt) == ""
 }
@@ -47,14 +47,12 @@ func checkPermitListsEqual(pl1, pl2 *invisinetspb.PermitList) bool {
 // Tests creating two vms in separate regions and basic add/delete/get permit list functionality
 func TestIntegration(t *testing.T) {
 	// Setup
-	projectId := SetupGcpTesting("integration")
-	defer TeardownGcpTesting(projectId)
-	s := &GCPPluginServer{}
+	project := GetGcpProject()
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	FrontendServerAddr = fakeControllerServerAddr
+	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
 	ctx := context.Background()
 
 	// Create VM in a clean state (i.e. no VPC or subnet)
@@ -65,7 +63,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription1 := &invisinetspb.ResourceDescription{Description: insertInstanceReq1Bytes}
+	resourceDescription1 := &invisinetspb.ResourceDescription{Description: insertInstanceReq1Bytes, Namespace: "default"}
 	createResource1Resp, err := s.CreateResource(
 		ctx,
 		resourceDescription1,
@@ -82,7 +80,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription2 := &invisinetspb.ResourceDescription{Description: insertInstanceReq2Bytes}
+	resourceDescription2 := &invisinetspb.ResourceDescription{Description: insertInstanceReq2Bytes, Namespace: "default"}
 	createResource2Resp, err := s.CreateResource(
 		ctx,
 		resourceDescription2,
@@ -97,7 +95,7 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	getNetworkReq := &computepb.GetNetworkRequest{
-		Network: vpcName,
+		Network: getVpcName("default"),
 		Project: projectId,
 	}
 	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
@@ -127,22 +125,17 @@ func TestIntegration(t *testing.T) {
 	require.NotNil(t, getFirewallResp)
 
 	// Add bidirectional PING permit list rules
-	vm1Id := fmt.Sprintf("projects/%s/zones/%s/instances/%s", projectId, vm1Zone, vm1Name)
-	vm2Id := fmt.Sprintf("projects/%s/zones/%s/instances/%s", projectId, vm2Zone, vm2Name)
-	instancesClient, err := compute.NewInstancesRESTClient(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer instancesClient.Close()
+	vm1Uri := fmt.Sprintf("projects/%s/zones/%s/instances/%s", projectId, vm1Zone, vm1Name)
+	vm2Uri := fmt.Sprintf("projects/%s/zones/%s/instances/%s", projectId, vm2Zone, vm2Name)
 	vm1Ip, err := GetInstanceIpAddress(projectId, vm1Zone, vm1Name)
 	require.NoError(t, err)
 	vm2Ip, err := GetInstanceIpAddress(projectId, vm2Zone, vm2Name)
 	require.NoError(t, err)
 
-	vmIds := []string{vm1Id, vm2Id}
+	vmUris := []string{vm1Uri, vm2Uri}
 	permitLists := [2]*invisinetspb.PermitList{
 		{
-			AssociatedResource: vm1Id,
+			AssociatedResource: vm1Uri,
 			Rules: []*invisinetspb.PermitListRule{
 				{
 					Direction: invisinetspb.Direction_INBOUND,
@@ -159,9 +152,10 @@ func TestIntegration(t *testing.T) {
 					Targets:   []string{vm2Ip},
 				},
 			},
+			Namespace: "default",
 		},
 		{
-			AssociatedResource: vm2Id,
+			AssociatedResource: vm2Uri,
 			Rules: []*invisinetspb.PermitListRule{
 				{
 					Direction: invisinetspb.Direction_INBOUND,
@@ -178,31 +172,42 @@ func TestIntegration(t *testing.T) {
 					Targets:   []string{vm1Ip},
 				},
 			},
+			Namespace: "default",
 		},
 	}
-	for i, vmId := range vmIds {
+	vm1Id, err := GetInstanceId(project, vm1Zone, vm1Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vm2Id, err := GetInstanceId(project, vm2Zone, vm2Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vmIds := []uint64{vm1Id, vm2Id}
+	for i, vmUri := range vmUris {
 		permitList := permitLists[i]
 		addPermitListRulesResp, err := s.AddPermitListRules(ctx, permitList)
 		require.NoError(t, err)
 		require.NotNil(t, addPermitListRulesResp)
 		assert.True(t, addPermitListRulesResp.Success)
 
-		getPermitListAfterAddResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmId})
+		getPermitListAfterAddResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmUri, Namespace: "default"})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterAddResp)
+
 		// TODO @seankimkdy: use this in all of the codebase to ensure permitlists are being compared properly
-		assert.True(t, checkPermitListsEqual(permitList, getPermitListAfterAddResp))
+		assert.True(t, checkPermitListsEqual(vmIds[i], permitList, getPermitListAfterAddResp))
 	}
 
 	// Connectivity tests that ping the two VMs
 	vm1Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm1Ip,
-		Network:   "projects/" + projectId + "/" + GetVpcUri(),
+		Network:   "projects/" + projectId + "/" + GetVpcUri("default"),
 		ProjectId: projectId,
 	}
 	vm2Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm2Ip,
-		Network:   "projects/" + projectId + "/" + GetVpcUri(),
+		Network:   "projects/" + projectId + "/" + GetVpcUri("default"),
 		ProjectId: projectId,
 	}
 
@@ -211,14 +216,14 @@ func TestIntegration(t *testing.T) {
 	RunPingConnectivityTest(t, projectId, "2to1", vm2Endpoint, vm1Endpoint)
 
 	// Delete permit lists
-	for i, vmId := range vmIds {
+	for i, vmId := range vmUris {
 		permitList := permitLists[i]
 		deletePermitListRulesResp, err := s.DeletePermitListRules(ctx, permitList)
 		require.NoError(t, err)
 		require.NotNil(t, deletePermitListRulesResp)
 		assert.True(t, deletePermitListRulesResp.Success)
 
-		getPermitListAfterDeleteResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmId})
+		getPermitListAfterDeleteResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmId, Namespace: "default"})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterDeleteResp)
 		assert.Equal(t, permitList.AssociatedResource, getPermitListAfterDeleteResp.AssociatedResource)

@@ -104,9 +104,10 @@ func GetTestVmParameters(location string) armcompute.VirtualMachine {
 	}
 }
 
-func InitializeServer() *azurePluginServer {
+func InitializeServer(frontendAddr string) *azurePluginServer {
 	return &azurePluginServer{
-		azureHandler: &azureSDKHandler{},
+		azureHandler:       &azureSDKHandler{},
+		frontendServerAddr: frontendAddr,
 	}
 }
 
