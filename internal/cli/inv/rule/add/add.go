@@ -25,31 +25,30 @@ import (
 	"os"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/NetSys/invisinets/internal/cli/inv/utils"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/spf13/cobra"
 )
 
-func NewCommand() *cobra.Command {
+func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{}
 	cmd := &cobra.Command{
-		Use:     "add <cloud> <resource uri> [--rulefile <path to rule json file> | --ping <tag> | --ssh <tag>]",
+		Use:     "add <cloud> <resource uri> [--rulefile <path to rule json file>] [--ping <tag>] [--ssh <tag>]",
 		Short:   "Add a rule to a resource's permit list",
 		Args:    cobra.ExactArgs(2),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
-	cmd.Flags().Bool("bidirectional", false, "Whether the rule should be bidirectional")
 	cmd.Flags().String("rulefile", "", "The file containing the rules to add")
 	cmd.Flags().String("ping", "", "IP/tag to allow ping to")
 	cmd.Flags().String("ssh", "", "IP/tag to allow SSH to")
-	return cmd
+	return cmd, executor
 }
 
 type executor struct {
-	ruleFile      string
-	pingTag       string
-	sshTag        string
-	bidirectional bool
+	ruleFile string
+	pingTag  string
+	sshTag   string
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
@@ -63,10 +62,6 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	e.sshTag, err = cmd.Flags().GetString("ssh")
-	if err != nil {
-		return err
-	}
-	e.bidirectional, err = cmd.Flags().GetBool("bidirectional")
 	if err != nil {
 		return err
 	}
@@ -102,7 +97,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 
 	// Send the rules to the server
 	permitList := &invisinetspb.PermitList{AssociatedResource: args[1], Rules: rules}
-	url := fmt.Sprintf("http://%s/cloud/%s/permit-list/rules", settings.ServerAddr, args[0])
+	url := fmt.Sprintf("%s/cloud/%s/permit-list/rules", settings.ServerAddr, args[0])
 
 	body, err := json.Marshal(permitList)
 	if err != nil {
@@ -113,12 +108,10 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println("Status Code: ", resp.StatusCode)
-	bodyBytes, err := io.ReadAll(resp.Body)
+	err = utils.ProcessResponse(resp)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Response Body: ", string(bodyBytes))
 
 	return nil
 }

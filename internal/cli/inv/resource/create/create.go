@@ -25,19 +25,21 @@ import (
 	"os"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/NetSys/invisinets/internal/cli/inv/utils"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/spf13/cobra"
 )
 
-func NewCommand() *cobra.Command {
+func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{}
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "create <cloud> <resource_id> <resource_description_file>",
 		Short:   "Create a resource",
 		Args:    cobra.ExactArgs(3),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
+	return cmd, executor
 }
 
 type executor struct {
@@ -64,16 +66,16 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	url := fmt.Sprintf("http://%s/cloud/%s/resources/", settings.ServerAddr, args[0])
+	url := fmt.Sprintf("%s/cloud/%s/resources/", settings.ServerAddr, args[0])
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}
-	fmt.Println("Status Code: ", resp.StatusCode)
-	bodyBytes, err := io.ReadAll(resp.Body)
+
+	err = utils.ProcessResponse(resp)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Response Body: ", string(bodyBytes))
+
 	return nil
 }

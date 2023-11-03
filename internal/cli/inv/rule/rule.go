@@ -30,7 +30,8 @@ func NewCommand() *cobra.Command {
 		Short: "Perform operations on rules",
 	}
 
-	cmd.AddCommand(add.NewCommand())
+	addCmd, _ := add.NewCommand()
+	cmd.AddCommand(addCmd)
 	cmd.AddCommand(delete.NewCommand())
 	cmd.AddCommand(get.NewCommand())
 

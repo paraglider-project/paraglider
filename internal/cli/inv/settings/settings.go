@@ -17,5 +17,6 @@ limitations under the License.
 package settings
 
 var (
-	ServerAddr string = "localhost:8080"
+	ServerAddr  string = "localhost:8080"
+	PrintOutput bool   = true
 )

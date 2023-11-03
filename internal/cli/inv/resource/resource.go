@@ -27,7 +27,8 @@ func NewCommand() *cobra.Command {
 		Short: "Perform operations on resources",
 	}
 
-	cmd.AddCommand(create.NewCommand())
+	createCmd, _ := create.NewCommand()
+	cmd.AddCommand(createCmd)
 
 	return cmd
 }
