@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"testing"
 
-	"cloud.google.com/go/compute/apiv1/computepb"
 	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	azure_plugin "github.com/NetSys/invisinets/pkg/azure_plugin"
 	frontend "github.com/NetSys/invisinets/pkg/frontend"
@@ -40,14 +39,11 @@ func TestMulticloud(t *testing.T) {
 	azureSubscriptionId := azure_plugin.GetAzureSubscriptionId()
 	azureResourceGroupName := azure_plugin.SetupAzureTesting(azureSubscriptionId, "multicloud")
 	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
-	azureServer, azureServerAddr := azure_plugin.Setup(0)
-	fmt.Println("Setup Azure server")
 
-	// Setup GCP
+	// GCP config
+	gcpPluginPort := 7992
 	gcpProjectId := gcp.SetupGcpTesting("multicloud")
 	defer gcp.TeardownGcpTesting(gcpProjectId)
-	gcpServer, gcpServerAddr := gcp.Setup(0)
-	fmt.Println("Setup GCP server")
 
 	// Setup controller server
 	controllerServerConfig := frontend.Config{
@@ -76,11 +72,6 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Setup Azure server")
 
 	// Setup GCP
-	gcpTeardownInfo := &gcp.GcpTestTeardownInfo{
-		Project:            gcpProject,
-		InsertInstanceReqs: make([]*computepb.InsertInstanceRequest, 0),
-	}
-	defer gcp.TeardownGcpTesting(gcpTeardownInfo)
 	gcpServer := gcp.Setup(gcpPluginPort, controllerServerAddr)
 	fmt.Println("Setup GCP server")
 
@@ -102,7 +93,7 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Created Azure VM")
 	// Create GCP VM
 	gcpVmZone := "us-west1-a"
-	gcpVmName := "vm-invisinets-test"
+	gcpVmName := utils.GetGitHubRunPrefix() + "vm-invisinets-test"
 	gcpVmParameters := gcp.GetTestVmParameters(gcpProjectId, gcpVmZone, gcpVmName)
 	gcpVmDescription, err := json.Marshal(gcpVmParameters)
 	gcpCreateResourceResp, err := gcpServer.CreateResource(

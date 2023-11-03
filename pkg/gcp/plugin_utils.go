@@ -21,7 +21,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 
 	billing "cloud.google.com/go/billing/apiv1"
@@ -70,7 +69,7 @@ func SetupGcpTesting(testName string) string {
 		projectId = generateProjectId(testName)
 		if os.Getenv("GH_RUN_NUMBER") != "" {
 			// Use run number in project display name since it's more human readable
-			projectDisplayName = fmt.Sprintf("Invisinets %s (GitHub Run %s)", strings.Title(testName), os.Getenv("GH_RUN_NUMBER"))
+			projectDisplayName = fmt.Sprintf("Invisinets %s (GitHub Run %s)", testName, os.Getenv("GH_RUN_NUMBER"))
 		} else {
 			projectDisplayName = projectId
 		}
