@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"testing"
 
-	"cloud.google.com/go/compute/apiv1/computepb"
 	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	azure_plugin "github.com/NetSys/invisinets/pkg/azure_plugin"
 	frontend "github.com/NetSys/invisinets/pkg/frontend"
@@ -38,11 +37,13 @@ func TestMulticloud(t *testing.T) {
 	// Azure config
 	azurePluginPort := 7991
 	azureSubscriptionId := azure_plugin.GetAzureSubscriptionId()
-	azureResourceGroupName := utils.GetGitHubRunPrefix() + "invisinets-multicloud-test"
+	azureResourceGroupName := azure_plugin.SetupAzureTesting(azureSubscriptionId, "multicloud")
+	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
 
 	// GCP config
 	gcpPluginPort := 7992
-	gcpProject := gcp.GetGcpProject()
+	gcpProjectId := gcp.SetupGcpTesting("multicloud")
+	defer gcp.TeardownGcpTesting(gcpProjectId)
 
 	// Setup controller server
 	controllerServerConfig := frontend.Config{
@@ -57,7 +58,7 @@ func TestMulticloud(t *testing.T) {
 				Name:          utils.GCP,
 				Host:          "localhost",
 				Port:          strconv.Itoa(gcpPluginPort),
-				InvDeployment: fmt.Sprintf("projects/%s", gcpProject),
+				InvDeployment: fmt.Sprintf("projects/%s", gcpProjectId),
 			},
 		},
 	}
@@ -65,17 +66,10 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Setup controller server")
 
 	// Setup Azure
-	azure_plugin.SetupAzureTesting(azureSubscriptionId, azureResourceGroupName)
-	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
 	azureServer := azure_plugin.Setup(azurePluginPort, controllerServerAddr)
 	fmt.Println("Setup Azure server")
 
 	// Setup GCP
-	gcpTeardownInfo := &gcp.GcpTestTeardownInfo{
-		Project:            gcpProject,
-		InsertInstanceReqs: make([]*computepb.InsertInstanceRequest, 0),
-	}
-	defer gcp.TeardownGcpTesting(gcpTeardownInfo)
 	gcpServer := gcp.Setup(gcpPluginPort, controllerServerAddr)
 	fmt.Println("Setup GCP server")
 
@@ -98,8 +92,7 @@ func TestMulticloud(t *testing.T) {
 	// Create GCP VM
 	gcpVmZone := "us-west1-a"
 	gcpVmName := utils.GetGitHubRunPrefix() + "vm-invisinets-test"
-	gcpVmParameters := gcp.GetTestVmParameters(gcpProject, gcpVmZone, gcpVmName)
-	gcpTeardownInfo.InsertInstanceReqs = append(gcpTeardownInfo.InsertInstanceReqs, gcpVmParameters)
+	gcpVmParameters := gcp.GetTestVmParameters(gcpProjectId, gcpVmZone, gcpVmName)
 	gcpVmDescription, err := json.Marshal(gcpVmParameters)
 	gcpCreateResourceResp, err := gcpServer.CreateResource(
 		ctx,
@@ -114,7 +107,7 @@ func TestMulticloud(t *testing.T) {
 	azureVmIpAddress, err := azure_plugin.GetVmIpAddress(azureVmId)
 	require.NoError(t, err)
 	gcpVmPermitList := &invisinetspb.PermitList{
-		AssociatedResource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProject, gcpVmZone, gcpVmName),
+		AssociatedResource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProjectId, gcpVmZone, gcpVmName),
 		Rules: []*invisinetspb.PermitListRule{
 			{
 				Direction: invisinetspb.Direction_INBOUND,
@@ -147,7 +140,7 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Added GCP permit list rules")
 
 	// Create Azure permit list
-	gcpVmIpAddress, err := gcp.GetInstanceIpAddress(gcpProject, gcpVmZone, gcpVmName)
+	gcpVmIpAddress, err := gcp.GetInstanceIpAddress(gcpProjectId, gcpVmZone, gcpVmName)
 	require.NoError(t, err)
 	azureVmPermitList := &invisinetspb.PermitList{
 		AssociatedResource: azureVmId,
@@ -185,14 +178,14 @@ func TestMulticloud(t *testing.T) {
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
 	gcpVmEndpoint := &networkmanagementpb.Endpoint{
 		IpAddress: gcpVmIpAddress,
-		Network:   "projects/" + gcpProject + "/" + gcp.GetVpcUri("default"),
-		ProjectId: gcpProject,
+		Network:   "projects/" + gcpProjectId + "/" + gcp.GetVpcUri("default"),
+		ProjectId: gcpProjectId,
 	}
 	azureVmEndpoint := &networkmanagementpb.Endpoint{
 		IpAddress:   azureVmIpAddress,
 		NetworkType: networkmanagementpb.Endpoint_NON_GCP_NETWORK,
 	}
-	gcp.RunPingConnectivityTest(t, gcpTeardownInfo, gcpProject, "gcp-azure", gcpVmEndpoint, azureVmEndpoint)
+	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure", gcpVmEndpoint, azureVmEndpoint)
 
 	// TODO @seankimkdy: add Azure network watcher test
 }

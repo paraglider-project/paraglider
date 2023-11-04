@@ -45,9 +45,7 @@ type GCPPluginServer struct {
 }
 
 // GCP naming conventions
-// Those declared var may be modified in init() for integration testing
-// None of these should be used to define other global variables. If needed, make a separate function (like getVPCURL).
-var (
+const (
 	vpcName                       = "invisinets-vpc" // Invisinets VPC name
 	subnetworkNamePrefix          = "invisinets-"
 	networkTagPrefix              = "invisinets-vm-"  // Prefix for GCP tags related to invisinets
@@ -102,20 +100,6 @@ var gcpProtocolNumberMap = map[string]int{
 	"ah":   51,
 	"sctp": 132,
 	"ipip": 94,
-}
-
-func init() {
-	githubRunPrefix := utils.GetGitHubRunPrefix()
-	// Prefix resource names with GitHub workflow run numbers to avoid resource name clashes during integration tests
-	vpcName = githubRunPrefix + vpcName
-	subnetworkNamePrefix = githubRunPrefix + subnetworkNamePrefix
-	networkTagPrefix = githubRunPrefix + networkTagPrefix
-	firewallNamePrefix = githubRunPrefix + firewallNamePrefix
-	vpnGwName = githubRunPrefix + vpnGwName
-	routerName = githubRunPrefix + routerName
-	peerGwNamePrefix = githubRunPrefix + peerGwNamePrefix
-	vpnTunnelNamePrefix = githubRunPrefix + vpnTunnelNamePrefix
-	bgpPeerNamePrefix = githubRunPrefix + bgpPeerNamePrefix
 }
 
 // Checks if GCP firewall rule is an Invisinets permit list rule
