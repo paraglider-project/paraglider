@@ -26,7 +26,7 @@ test: ## Runs unit tests in the internal and pkg folders
 
 .PHONY: integration-test
 integration-test:
-	$(GOTEST_CMD) -tags=integration
+	$(GOTEST_CMD) -tags=integration -timeout 20m
 
 .PHONY: multicloud-test
 multicloud-test:

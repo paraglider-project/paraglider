@@ -86,9 +86,11 @@ func GetTestVmParameters(location string) armcompute.VirtualMachine {
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{
 				ImageReference: &armcompute.ImageReference{
-					Offer:     to.Ptr("debian-10"),
-					Publisher: to.Ptr("Debian"),
-					SKU:       to.Ptr("10"),
+					// When changing, make sure it's compatible with the Network Watcher Agent extension which is needed for connectivity checks
+					// https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/network-watcher-linux?toc=%2Fazure%2Fnetwork-watcher#operating-system
+					Offer:     to.Ptr("0001-com-ubuntu-minimal-jammy"),
+					Publisher: to.Ptr("canonical"),
+					SKU:       to.Ptr("minimal-22_04-lts-gen2"),
 					Version:   to.Ptr("latest"),
 				},
 			},
@@ -146,4 +148,71 @@ func GetVmIpAddress(vmId string) (string, error) {
 	}
 
 	return *networkInterface.Properties.IPConfigurations[0].Properties.PrivateIPAddress, nil
+}
+
+func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress string) (bool, error) {
+	resourceIDInfo, err := getResourceIDInfo(sourceVmResourceID)
+	if err != nil {
+		return false, fmt.Errorf("unable to parse resource ID: %w", err)
+	}
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		return false, fmt.Errorf("unable to get azure credentials: %w", err)
+	}
+	ctx := context.Background()
+
+	// Fetch source virtual machine for location
+	virtualMachinesClient, err := armcompute.NewVirtualMachinesClient(resourceIDInfo.SubscriptionID, cred, nil)
+	if err != nil {
+		return false, fmt.Errorf("unable to create virtual machines client: %w", err)
+	}
+	vm, err := virtualMachinesClient.Get(ctx, resourceIDInfo.ResourceGroupName, resourceIDInfo.ResourceName, &armcompute.VirtualMachinesClientGetOptions{Expand: nil})
+	if err != nil {
+		return false, fmt.Errorf("unable to get virtual machine: %w", err)
+	}
+
+	// Install Network Watcher Agent VM extension
+	virtualMachineExtensionsClient, err := armcompute.NewVirtualMachineExtensionsClient(resourceIDInfo.SubscriptionID, cred, nil)
+	if err != nil {
+		return false, fmt.Errorf("unable to create virtual machine extensions client: %w", err)
+	}
+	extensionParameters := armcompute.VirtualMachineExtension{
+		Location: vm.Location,
+		Properties: &armcompute.VirtualMachineExtensionProperties{
+			Publisher:          to.Ptr("Microsoft.Azure.NetworkWatcher"),
+			Type:               to.Ptr("NetworkWatcherAgentLinux"),
+			TypeHandlerVersion: to.Ptr("1.4"),
+		},
+	}
+	vmExtensionPollerResponse, err := virtualMachineExtensionsClient.BeginCreateOrUpdate(ctx, resourceIDInfo.ResourceGroupName, resourceIDInfo.ResourceName, "network-watcher-agent-linux", extensionParameters, nil)
+	if err != nil {
+		return false, fmt.Errorf("unable to create or update virtual machine extension: %w", err)
+	}
+	_, err = vmExtensionPollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("unable to poll create or update virtual machine extension: %w", err)
+	}
+
+	// Run connectivity check
+	watchersClient, err := armnetwork.NewWatchersClient(resourceIDInfo.SubscriptionID, cred, nil)
+	if err != nil {
+		return false, fmt.Errorf("unable to create watchers client: %w", err)
+	}
+	connectivityParameters := armnetwork.ConnectivityParameters{
+		Destination:        &armnetwork.ConnectivityDestination{Address: to.Ptr(destinationIPAddress)},
+		Source:             &armnetwork.ConnectivitySource{ResourceID: to.Ptr(sourceVmResourceID)},
+		PreferredIPVersion: to.Ptr(armnetwork.IPVersionIPv4),
+		Protocol:           to.Ptr(armnetwork.ProtocolIcmp),
+	}
+	checkConnectivityPollerResponse, err := watchersClient.BeginCheckConnectivity(ctx, "NetworkWatcherRG", fmt.Sprintf("NetworkWatcher_%s", *vm.Location), connectivityParameters, nil)
+	if err != nil {
+		return false, err
+	}
+	resp, err := checkConnectivityPollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+
+	// TODO @seankimkdy: Unclear why ConnectionStatus returns "Reachable" which is not a valid armnetwork.ConnectionStatus constant (https://github.com/Azure/azure-sdk-for-go/issues/21777)
+	return *resp.ConnectivityInformation.ConnectionStatus == armnetwork.ConnectionStatus("Reachable"), nil
 }
