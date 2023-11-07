@@ -1,5 +1,13 @@
 # How to run the Invisinets Controller
-The controller consists of a central orchestrating controller that sends requests to per-cloud plugins/controllers and a tag service. 
+The controller consists of a central orchestrating controller that sends requests to per-cloud plugins/controllers and a tag service. These services can be started individually or all at once on the localhost.
+
+## Build / Install
+Run the following command to build and install the CLI locally.
+
+`make build install`
+
+## CLI
+All of the services can be started using the `invd` CLI. For additional help, look at the help docs in the CLI.
 
 ## Configuration
 The central controller takes a configuration file in the following format.
@@ -30,30 +38,35 @@ The `invDeployment` parameter in the cloud plugin specification includes the min
 
 If no tags are used, the `tagService` does not have to be running for requests to complete.
 
-## Central Controller
-To run the central controller from the `/cmd/inv` directory, run:
+## Startup All Services
+Using the CLI, run:
 
-`go run main.go frontend <path_to_config>`
+`invd startup <path_to_config>`
+
+## Central Controller
+Using the CLI, run:
+
+`invd frontend <path_to_config>`
 
 ## Cloud Plugins
 
 ### Azure
-To run the azure plugin from the `/cmd/inv` directory, run:
-`go run main.go az <port> <central_controller_address>`
+Using the CLI, run:
+`invd az <port> <central_controller_address>`
 
 The `central_controller_address` should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is "localhost:8081".
 
 ### GCP 
-To run the azure plugin from the `/cmd/inv` directory, run:
+Using the CLI, run:
 
-`go run main.go gcp <port> <central_controller_address>`
+`invd gcp <port> <central_controller_address>`
 
 The `central_controller_address` should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is "localhost:8081".
 
 ## Tag Service
-To run the azure plugin from the `/cmd/inv` directory, run:
+Using the CLI, run:
 
-`go run main.go tagserv <redis_port> <server_port> <clear_keys>`
+`invd tagserv <redis_port> <server_port> <clear_keys>`
 
 `clear_keys` is a bool ("true" or "false") which determines whether the database state should be cleared on startup or not.
 
@@ -70,6 +83,4 @@ In order for the cloud plugins to correctly use their SDKs, ensure that these st
 1. [Install the gcloud CLI](https://cloud.google.com/sdk/docs/install). If you're using the dev container, this will already be installed for you.
 2. [Set up your application default credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc).
 3. Set the environment variable `INVISINETS_GCP_PROJECT`. Setting this every time may get tedious, so we advise you set this in your shell config or use [direnv](https://direnv.net). Note that this is due to a known limitation where the [Go OAuth2 package does not return the project ID when using application default credentials](https://github.com/golang/oauth2/issues). 
-
-
 
