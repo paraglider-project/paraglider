@@ -20,13 +20,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/NetSys/invisinets/internal/cli/inv/utils"
 	"github.com/spf13/cobra"
 )
 
-func NewCommand() *cobra.Command {
-	executor := &executor{}
+func NewCommand() (*cobra.Command, *executor) {
+	executor := &executor{writer: os.Stdout}
 	cmd := &cobra.Command{
 		Use:     "get <tag name> [--resolve]",
 		Short:   "Get a tag",
@@ -35,11 +37,17 @@ func NewCommand() *cobra.Command {
 		RunE:    executor.Execute,
 	}
 	cmd.Flags().Bool("resolve", false, "Resolve the tag to a list of IP addresses")
-	return cmd
+	return cmd, executor
 }
 
 type executor struct {
+	utils.CommandExecutor
+	writer      io.Writer
 	resolveFlag bool
+}
+
+func (e *executor) SetOutput(w io.Writer) {
+	e.writer = w
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
@@ -55,9 +63,9 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	// Get the tag from the server
 	var url string
 	if !e.resolveFlag {
-		url = fmt.Sprintf("http://%stags/%s", settings.ServerAddr, args[0])
+		url = fmt.Sprintf("%s/tags/%s", settings.ServerAddr, args[0])
 	} else {
-		url = fmt.Sprintf("http://%s/tags/%s/resolve", settings.ServerAddr, args[0])
+		url = fmt.Sprintf("%s/tags/%s/resolve", settings.ServerAddr, args[0])
 	}
 
 	resp, err := http.Get(url)
@@ -65,11 +73,10 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println("Status Code: ", resp.StatusCode)
-	bodyBytes, err := io.ReadAll(resp.Body)
+	err = utils.ProcessResponse(resp, e.writer)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Response Body: ", string(bodyBytes))
+
 	return nil
 }

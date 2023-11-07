@@ -18,24 +18,34 @@ package get
 
 import (
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/NetSys/invisinets/internal/cli/inv/utils"
 )
 
-func NewCommand() *cobra.Command {
-	executor := &executor{}
-	return &cobra.Command{
+func NewCommand() (*cobra.Command, *executor) {
+	executor := &executor{writer: os.Stdout}
+	cmd := &cobra.Command{
 		Use:     "get",
 		Short:   "Get current server settings",
 		Args:    cobra.ExactArgs(0),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
+	return cmd, executor
 }
 
 type executor struct {
+	utils.CommandExecutor
+	writer io.Writer
+}
+
+func (e *executor) SetOutput(w io.Writer) {
+	e.writer = w
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
@@ -43,6 +53,6 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	fmt.Println("Server address: ", settings.ServerAddr)
+	fmt.Fprintln(e.writer, "Server address: ", settings.ServerAddr)
 	return nil
 }

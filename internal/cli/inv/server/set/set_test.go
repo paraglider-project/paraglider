@@ -14,24 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package set
 
 import (
-	"github.com/NetSys/invisinets/internal/cli/inv/server/get"
-	"github.com/NetSys/invisinets/internal/cli/inv/server/set"
-	"github.com/spf13/cobra"
+	"testing"
+
+	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/stretchr/testify/assert"
 )
 
-func NewCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "server",
-		Short: "Configure server settings",
-	}
+func TestServerSetExecute(t *testing.T) {
+	settings.ServerAddr = "serverAddrBefore"
 
-	getCmd, _ := get.NewCommand()
-	cmd.AddCommand(getCmd)
-	setCmd, _ := set.NewCommand()
-	cmd.AddCommand(setCmd)
+	newAddr := "serverAddrAfter"
+	cmd, executor := NewCommand()
 
-	return cmd
+	err := executor.Execute(cmd, []string{newAddr})
+
+	assert.Nil(t, err)
+	assert.Equal(t, newAddr, settings.ServerAddr)
 }

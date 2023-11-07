@@ -32,8 +32,10 @@ func NewCommand() *cobra.Command {
 
 	addCmd, _ := add.NewCommand()
 	cmd.AddCommand(addCmd)
-	cmd.AddCommand(delete.NewCommand())
-	cmd.AddCommand(get.NewCommand())
+	deleteCmd, _ := delete.NewCommand()
+	cmd.AddCommand(deleteCmd)
+	getCmd, _ := get.NewCommand()
+	cmd.AddCommand(getCmd)
 
 	return cmd
 }

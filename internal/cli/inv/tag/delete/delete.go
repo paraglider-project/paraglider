@@ -22,13 +22,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/NetSys/invisinets/internal/cli/inv/utils"
 	"github.com/spf13/cobra"
 )
 
-func NewCommand() *cobra.Command {
-	executor := &executor{}
+func NewCommand() (*cobra.Command, *executor) {
+	executor := &executor{writer: os.Stdout}
 	cmd := &cobra.Command{
 		Use:     "delete <tag name> [-members <member list>]",
 		Short:   "Delete a tag",
@@ -37,11 +39,17 @@ func NewCommand() *cobra.Command {
 		RunE:    executor.Execute,
 	}
 	cmd.Flags().StringSlice("members", []string{}, "The member(s) to delete")
-	return cmd
+	return cmd, executor
 }
 
 type executor struct {
+	utils.CommandExecutor
+	writer  io.Writer
 	members []string
+}
+
+func (e *executor) SetOutput(w io.Writer) {
+	e.writer = w
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
@@ -58,14 +66,14 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	var url string
 	var req *http.Request
 	if len(e.members) == 0 {
-		url = fmt.Sprintf("http://%s/tags/%s", settings.ServerAddr, args[0])
+		url = fmt.Sprintf("%s/tags/%s", settings.ServerAddr, args[0])
 		var err error
 		req, err = http.NewRequest(http.MethodDelete, url, nil)
 		if err != nil {
 			return err
 		}
 	} else {
-		url = fmt.Sprintf("http://%s/tags/%s/members/", settings.ServerAddr, args[0])
+		url = fmt.Sprintf("%s/tags/%s/members/", settings.ServerAddr, args[0])
 		body, err := json.Marshal(e.members)
 		if err != nil {
 			return err
@@ -82,11 +90,10 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println("Status Code: ", resp.StatusCode)
-	bodyBytes, err := io.ReadAll(resp.Body)
+	err = utils.ProcessResponse(resp, e.writer)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Response Body: ", string(bodyBytes))
+
 	return nil
 }

@@ -17,6 +17,9 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
+	"os"
+
 	common "github.com/NetSys/invisinets/internal/cli/common"
 	"github.com/NetSys/invisinets/internal/cli/invd/az"
 	"github.com/NetSys/invisinets/internal/cli/invd/frontend"
@@ -42,5 +45,9 @@ func init() {
 }
 
 func Execute() {
-	rootCmd.Execute()
+	err := rootCmd.Execute()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "There was an error while executing your command: \n\n%s\n", err)
+		os.Exit(1)
+	}
 }

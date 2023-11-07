@@ -22,14 +22,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/NetSys/invisinets/internal/cli/inv/utils"
 	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 	"github.com/spf13/cobra"
 )
 
-func NewCommand() *cobra.Command {
-	executor := &executor{}
+func NewCommand() (*cobra.Command, *executor) {
+	executor := &executor{writer: os.Stdout}
 	cmd := &cobra.Command{
 		Use:     "set <tag name> [--children <child tag list> | --uri <uri> | --ip <ip>]",
 		Short:   "Set a tag",
@@ -40,10 +42,12 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringSlice("children", []string{}, "List of child tags")
 	cmd.Flags().String("uri", "", "URI of the tag")
 	cmd.Flags().String("ip", "", "IP of the tag")
-	return cmd
+	return cmd, executor
 }
 
 type executor struct {
+	utils.CommandExecutor
+	writer   io.Writer
 	children []string
 	uri      string
 	ip       string
@@ -77,26 +81,35 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	tagMapping := &tagservicepb.TagMapping{TagName: args[0], ChildTags: e.children}
+	var uri *string
+	var ip *string
+	if e.uri == "" {
+		uri = nil
+	} else {
+		uri = &e.uri
+	}
+	if e.ip == "" {
+		ip = nil
+	} else {
+		ip = &e.ip
+	}
+
+	tagMapping := &tagservicepb.TagMapping{TagName: args[0], ChildTags: e.children, Uri: uri, Ip: ip}
 	body, err := json.Marshal(tagMapping)
 	if err != nil {
 		return err
 	}
 
-	url := fmt.Sprintf("http://%s/tags/%s", settings.ServerAddr, args[0])
+	url := fmt.Sprintf("%s/tags/%s", settings.ServerAddr, args[0])
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Status Code: ", resp.StatusCode)
-	bodyBytes, err := io.ReadAll(resp.Body)
+	err = utils.ProcessResponse(resp, e.writer)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Response Body: ", string(bodyBytes))
-
-	fmt.Println(resp)
 	return nil
 }

@@ -31,7 +31,7 @@ import (
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{}
+	executor := &executor{writer: os.Stdout}
 	cmd := &cobra.Command{
 		Use:     "add <cloud> <resource uri> [--rulefile <path to rule json file>] [--ping <tag>] [--ssh <tag>]",
 		Short:   "Add a rule to a resource's permit list",
@@ -46,9 +46,15 @@ func NewCommand() (*cobra.Command, *executor) {
 }
 
 type executor struct {
+	utils.CommandExecutor
+	writer   io.Writer
 	ruleFile string
 	pingTag  string
 	sshTag   string
+}
+
+func (e *executor) SetOutput(w io.Writer) {
+	e.writer = w
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
@@ -82,7 +88,10 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		// Parse the rules
-		json.Unmarshal(fileRules, &rules)
+		err = json.Unmarshal(fileRules, &rules)
+		if err != nil {
+			return err
+		}
 	}
 	if e.pingTag != "" {
 		// Add the rules to allow ping
@@ -108,7 +117,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = utils.ProcessResponse(resp)
+	err = utils.ProcessResponse(resp, e.writer)
 	if err != nil {
 		return err
 	}

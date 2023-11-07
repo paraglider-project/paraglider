@@ -29,9 +29,12 @@ func NewCommand() *cobra.Command {
 		Short: "Perform operations on tags",
 	}
 
-	cmd.AddCommand(delete.NewCommand())
-	cmd.AddCommand(get.NewCommand())
-	cmd.AddCommand(set.NewCommand())
+	deleteCmd, _ := delete.NewCommand()
+	cmd.AddCommand(deleteCmd)
+	getCmd, _ := get.NewCommand()
+	cmd.AddCommand(getCmd)
+	setCmd, _ := set.NewCommand()
+	cmd.AddCommand(setCmd)
 
 	return cmd
 }

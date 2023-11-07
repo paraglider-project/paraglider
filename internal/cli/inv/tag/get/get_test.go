@@ -14,59 +14,52 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package add
+package get
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
 	utils "github.com/NetSys/invisinets/internal/cli/inv/utils/testutils"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRuleAddValidate(t *testing.T) {
+func TestTagGetValidate(t *testing.T) {
 	cmd, executor := NewCommand()
 
-	args := []string{utils.CloudName, "uri"}
-	ruleFile := "not-a-file.json"
-	tag := "tag"
-	err := cmd.Flags().Set("rulefile", ruleFile)
+	args := []string{"tag"}
+
+	err := cmd.Flags().Set("resolve", "true")
+
 	require.Nil(t, err)
-	err = cmd.Flags().Set("ping", tag)
-	require.Nil(t, err)
-	err = cmd.Flags().Set("ssh", tag)
-	require.Nil(t, err)
+
 	err = executor.Validate(cmd, args)
 
 	assert.Nil(t, err)
-	assert.Equal(t, executor.ruleFile, ruleFile)
-	assert.Equal(t, executor.pingTag, tag)
-	assert.Equal(t, executor.sshTag, tag)
+	assert.True(t, executor.resolveFlag)
 }
 
-func TestRuleAddExecute(t *testing.T) {
+func TestTagGetExecute(t *testing.T) {
 	settings.PrintOutput = false
 	server := &utils.FakeFrontendServer{}
 	server.SetupFakeServer()
 
 	cmd, executor := NewCommand()
-	executor.pingTag = "pingTag"
-	executor.sshTag = "sshTag"
+	executor.resolveFlag = false
 
-	args := []string{utils.CloudName, "uri"}
+	// Get the tag
+	args := []string{"tag"}
 	err := executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
+	assert.Equal(t, "GET", server.GetLastRequestMethod())
 
-	request := server.GetLastRequestBody()
-	content := &invisinetspb.PermitList{}
-	err = json.Unmarshal(request, content)
+	// Resolve the tag
+	executor.resolveFlag = true
+	err = executor.Execute(cmd, args)
 
-	require.Nil(t, err)
+	assert.Nil(t, err)
 
-	assert.Equal(t, "POST", server.GetLastRequestMethod())
-	assert.Equal(t, 4, len(content.Rules))
+	assert.Equal(t, "GET", server.GetLastRequestMethod()) // TODO now: we should diambiguate between these
 }

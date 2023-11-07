@@ -25,12 +25,13 @@ import (
 	"os"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/NetSys/invisinets/internal/cli/inv/utils"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/spf13/cobra"
 )
 
-func NewCommand() *cobra.Command {
-	executor := &executor{}
+func NewCommand() (*cobra.Command, *executor) {
+	executor := &executor{writer: os.Stdout}
 	cmd := &cobra.Command{
 		Use:     "delete <cloud> <resource uri> [--rulefile <path to rule json file> | --ping <tag> | --ssh <tag>]",
 		Short:   "Delete a rule from a resource permit list",
@@ -41,13 +42,19 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().String("rulefile", "", "The file containing the rules to add")
 	cmd.Flags().String("ping", "", "IP/tag to allow ping to")
 	cmd.Flags().String("ssh", "", "IP/tag to allow SSH to")
-	return cmd
+	return cmd, executor
 }
 
 type executor struct {
+	utils.CommandExecutor
+	writer   io.Writer
 	ruleFile string
 	pingTag  string
 	sshTag   string
+}
+
+func (e *executor) SetOutput(w io.Writer) {
+	e.writer = w
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
@@ -81,7 +88,10 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		// Parse the rules
-		json.Unmarshal(fileRules, &rules)
+		err = json.Unmarshal(fileRules, &rules)
+		if err != nil {
+			return err
+		}
 	}
 	if e.pingTag != "" {
 		// Add the rules to allow ping
@@ -96,7 +106,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 
 	// Send the rules to the server
 	permitList := &invisinetspb.PermitList{AssociatedResource: args[1], Rules: rules}
-	url := fmt.Sprintf("http://%s/cloud/%s/permit-list/rules", settings.ServerAddr, args[0])
+	url := fmt.Sprintf("%s/cloud/%s/permit-list/rules", settings.ServerAddr, args[0])
 
 	body, err := json.Marshal(permitList)
 	if err != nil {
@@ -113,12 +123,10 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println("Status Code: ", resp.StatusCode)
-	bodyBytes, err := io.ReadAll(resp.Body)
+	err = utils.ProcessResponse(resp, e.writer)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Response Body: ", string(bodyBytes))
 
 	return nil
 }

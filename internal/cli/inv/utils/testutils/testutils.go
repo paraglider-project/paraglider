@@ -18,6 +18,7 @@ package testutils
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -46,15 +47,38 @@ func (s *FakeFrontendServer) GetLastRequestBody() []byte {
 func (s *FakeFrontendServer) SetupFakeServer() {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		body := make([]byte, r.ContentLength)
-		r.Body.Read(body)
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
+			return
+		}
 		s.lastRequestMethod = r.Method
 		s.lastRequestBody = body
+
 		switch {
 		case strings.Contains(path, fmt.Sprintf("cloud/%s/resources/", CloudName)):
 			w.WriteHeader(http.StatusOK)
 			return
 		case strings.Contains(path, fmt.Sprintf("cloud/%s/permit-list/rules", CloudName)):
+			if r.Method == http.MethodPost {
+				w.WriteHeader(http.StatusOK)
+			}
+			if r.Method == http.MethodDelete {
+				w.WriteHeader(http.StatusOK)
+			}
+			return
+		case strings.Contains(path, fmt.Sprintf("cloud/%s/permit-list/uri", CloudName)):
+			if r.Method == http.MethodGet {
+				w.WriteHeader(http.StatusOK) // TODO @smcclure20: should we include a body?
+			}
+			return
+		case strings.Contains(path, "tags/"):
+			if r.Method == http.MethodDelete {
+				w.WriteHeader(http.StatusOK)
+			}
+			if r.Method == http.MethodGet {
+				w.WriteHeader(http.StatusOK)
+			}
 			if r.Method == http.MethodPost {
 				w.WriteHeader(http.StatusOK)
 			}

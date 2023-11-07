@@ -14,59 +14,60 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package add
+package delete
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
 	utils "github.com/NetSys/invisinets/internal/cli/inv/utils/testutils"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRuleAddValidate(t *testing.T) {
+func TestTagDeleteValidate(t *testing.T) {
 	cmd, executor := NewCommand()
 
-	args := []string{utils.CloudName, "uri"}
-	ruleFile := "not-a-file.json"
-	tag := "tag"
-	err := cmd.Flags().Set("rulefile", ruleFile)
+	args := []string{"tag"}
+	members := []string{"child1", "child2"}
+
+	err := cmd.Flags().Set("members", strings.Join(members, ","))
 	require.Nil(t, err)
-	err = cmd.Flags().Set("ping", tag)
-	require.Nil(t, err)
-	err = cmd.Flags().Set("ssh", tag)
-	require.Nil(t, err)
+
 	err = executor.Validate(cmd, args)
 
 	assert.Nil(t, err)
-	assert.Equal(t, executor.ruleFile, ruleFile)
-	assert.Equal(t, executor.pingTag, tag)
-	assert.Equal(t, executor.sshTag, tag)
+	assert.Equal(t, members, executor.members)
 }
 
-func TestRuleAddExecute(t *testing.T) {
+func TestTagDeleteExecute(t *testing.T) {
 	settings.PrintOutput = false
 	server := &utils.FakeFrontendServer{}
 	server.SetupFakeServer()
 
 	cmd, executor := NewCommand()
-	executor.pingTag = "pingTag"
-	executor.sshTag = "sshTag"
 
-	args := []string{utils.CloudName, "uri"}
+	// Delete entire tag
+	args := []string{"tag"}
 	err := executor.Execute(cmd, args)
+
+	assert.Nil(t, err)
+	assert.Equal(t, "DELETE", server.GetLastRequestMethod())
+
+	// Delete members of tag
+	executor.members = []string{"child1", "child2"}
+	err = executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
 
 	request := server.GetLastRequestBody()
-	content := &invisinetspb.PermitList{}
-	err = json.Unmarshal(request, content)
+	content := []string{}
+	err = json.Unmarshal(request, &content)
 
 	require.Nil(t, err)
 
-	assert.Equal(t, "POST", server.GetLastRequestMethod())
-	assert.Equal(t, 4, len(content.Rules))
+	assert.Equal(t, "DELETE", server.GetLastRequestMethod())
+	assert.Equal(t, executor.members, content)
 }

@@ -31,7 +31,7 @@ import (
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{}
+	executor := &executor{writer: os.Stdout}
 	cmd := &cobra.Command{
 		Use:     "create <cloud> <resource_id> <resource_description_file>",
 		Short:   "Create a resource",
@@ -43,7 +43,13 @@ func NewCommand() (*cobra.Command, *executor) {
 }
 
 type executor struct {
+	utils.CommandExecutor
+	writer      io.Writer
 	description []byte
+}
+
+func (e *executor) SetOutput(w io.Writer) {
+	e.writer = w
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
@@ -72,7 +78,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = utils.ProcessResponse(resp)
+	err = utils.ProcessResponse(resp, e.writer)
 	if err != nil {
 		return err
 	}

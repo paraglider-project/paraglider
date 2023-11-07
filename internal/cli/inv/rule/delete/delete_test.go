@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package add
+package delete
 
 import (
 	"encoding/json"
@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRuleAddValidate(t *testing.T) {
+func TestRuleDeleteValidate(t *testing.T) {
 	cmd, executor := NewCommand()
 
 	args := []string{utils.CloudName, "uri"}
@@ -47,7 +47,7 @@ func TestRuleAddValidate(t *testing.T) {
 	assert.Equal(t, executor.sshTag, tag)
 }
 
-func TestRuleAddExecute(t *testing.T) {
+func TestRuleDeleteExecute(t *testing.T) {
 	settings.PrintOutput = false
 	server := &utils.FakeFrontendServer{}
 	server.SetupFakeServer()
@@ -67,6 +67,6 @@ func TestRuleAddExecute(t *testing.T) {
 
 	require.Nil(t, err)
 
-	assert.Equal(t, "POST", server.GetLastRequestMethod())
+	assert.Equal(t, "DELETE", server.GetLastRequestMethod())
 	assert.Equal(t, 4, len(content.Rules))
 }

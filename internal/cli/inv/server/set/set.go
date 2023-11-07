@@ -17,22 +17,33 @@ limitations under the License.
 package set
 
 import (
+	"io"
+	"os"
+
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/NetSys/invisinets/internal/cli/inv/utils"
 	"github.com/spf13/cobra"
 )
 
-func NewCommand() *cobra.Command {
-	executor := &executor{}
-	return &cobra.Command{
+func NewCommand() (*cobra.Command, *executor) {
+	executor := &executor{writer: os.Stdout}
+	cmd := &cobra.Command{
 		Use:     "set <server address>",
 		Short:   "Set the server settings",
 		Args:    cobra.ExactArgs(0),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
+	return cmd, executor
 }
 
 type executor struct {
+	utils.CommandExecutor
+	writer io.Writer
+}
+
+func (e *executor) SetOutput(w io.Writer) {
+	e.writer = w
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
