@@ -1,5 +1,5 @@
 # Invisinets Design
-<img src="logo.png" alt="Invisinets Logo" width="200"/>
+<img src="img/logo.png" alt="Invisinets Logo" width="200"/>
 
 ## What is Invisinets?
 Invisinets is a control plane for cloud networking resources designed to simplify the tenant networking experience. The Invisinets Controller exposes the Invisinets API to tenants and uses public cloud APIs to manage the tenant's cloud network.
@@ -20,7 +20,7 @@ To use Invisinets, a tenant would run the Invisinets Controller and use the Invi
 The Invisinets Controller uses public cloud APIs to deploy networking resources (eg, VPCs, subnets, security rules, VPN gateways) as necessary to match the high-level intents specified via the Invisinets API. [MORE?]
 
 ### Controller Design
-<img src="architecture.png" alt="Invisinets Controller Diagram" width="600"/>
+<img src="img/architecture.png" alt="Invisinets Controller Diagram" width="600"/>
 
 #### Overview
 The Invisinets Controller consists of several microservices: a Central Controller, a Tag Service, and potentially multiple Cloud Plugins. Each service is described below.

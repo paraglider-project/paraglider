@@ -1,18 +1,36 @@
 # Invisinets API
+<img src="img/logo.png" alt="Invisinets Logo" width="200"/>
 
 ## Namespace Operations
-
+Changes or gets the active namespace on the Invisinets Controller.
 
 ### Set
+---
+**CLI:**
+`inv namespace set <namespace>`
 
+Parameters:
+* `namespace`: namespace to set on the controller
+
+**HTTP:**
+`POST /namespace/<namespace>/`
+
+Parameters:
+* `namespace`: namespace to set on the controller
 
 ### Get 
+---
+**CLI:**
+`inv namespace get`
 
+**HTTP:**
+`GET /namespace/`
 
 
 ## Resource Operations
 
 ### Create
+---
 Creates a resource according to the description provided in the speciied cloud. Some clouds may require a URI before resource creation and others may leave this field blank. Note that a tag is automatically created for the resource with the name `<namespace>.<cloud>.<vm_name>`.
 
 **CLI:**
@@ -23,7 +41,7 @@ Parameters:
 * `uri` : URI of the resource to create (required by Azure for metadata, can be left blank for GCP)
 * `path_to_json`: path to JSON file describing the resource to be created (excluding networking details)
 
-**HTTPS:** 
+**REST:** 
 `POST /cloud/<cloud>/resources/` 
 
 * Example JSON:
@@ -65,6 +83,7 @@ Parameters:
 These operations interact with the permit list associated with a given resource by adding/deleting/getting rules.
 
 ### Get
+---
 Gets the rules associated with a resource.
 
 **CLI:**
@@ -74,7 +93,7 @@ Parameters:
 * `cloud`: name of the cloud that the resource is in
 * `uri`: URI of the resource
 
-**HTTPS:**
+**REST:**
 `GET /cloud/<cloud>/permit-list/<uri>` 
 
 Parameters:
@@ -82,6 +101,7 @@ Parameters:
 * `uri`: URI of the resource
 
 ### Add 
+---
 Adds one or many rules to the permit list associated with a resource.
 
 **CLI:** 
@@ -93,7 +113,7 @@ Parameters:
 * `path_to_file`: path to JSON file describing rules to add
 * `tag`: Invisinets tag or IP to allow SSH/ICMP traffic to/from
 
-**HTTPS:**
+**REST:**
 `POST /cloud/:cloud/permit-list/rules/` 
 
 * Example JSON:
@@ -120,6 +140,7 @@ Parameters:
 * `rules`: list of rules to add to the permit list
 
 ### Delete
+---
 Deletes one or many rules from the permit list associated with the specified resource.
 
 **CLI:** 
@@ -131,7 +152,7 @@ Parameters:
 * `path_to_file`: path to JSON file describing rules to add
 * `tag`: Invisinets tag or IP to allow SSH/ICMP traffic to/from
 
-**HTTPS:**
+**REST:**
 `DELETE /cloud/:cloud/permit-list/rules/` 
 
     ```
@@ -159,6 +180,7 @@ Parameters:
 Operations on Invisinets tags.
 
 ### Get
+---
 Gets the children tags associated with a tag or resolves the tag down to last-level entries (IPs).
 
 **CLI:**
@@ -168,13 +190,14 @@ Parameters:
 * `tag`: tag to get
 * `resolve`: true/false value indicating whether to resolve to last-level tags or not
 
-**HTTPS:** 
+**REST:** 
 `GET /tags/<tag>/` or `GET /tags/<tag>/resolve`
 
 Parameters:
 * `tag`: tag to get
 
 ### Set
+---
 Adds children tags to a parent tag or creates a last-level tag that associates a names with an URI and/or IP.
 
 **CLI:** 
@@ -186,7 +209,7 @@ Parameters:
 * `uri`: uri to associate with tag
 * `ip`: ip to associate with tag
 
-**HTTPS:**
+**REST:**
 `POST /tags/<tag>/`
 
     ```
@@ -204,6 +227,7 @@ Parameters:
 * `ip`: ip to associate with tag
 
 ### Delete
+---
 Deletes a tag or the association of members tags to that tag.
 
 **CLI:**
@@ -213,7 +237,7 @@ Parameters:
 * `tag`: tag to delete
 * `members`: list of child tags to remove membership
 
-HTTPS: 
+**REST:**
 `DELETE /tags/<tag>/` (no json) or `DELETE /tags/<tag>/members`
 
     ```
