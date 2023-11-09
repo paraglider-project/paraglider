@@ -83,6 +83,14 @@ func (s *FakeFrontendServer) SetupFakeServer() {
 				w.WriteHeader(http.StatusOK)
 			}
 			return
+		case strings.Contains(path, "namespace/"):
+			if r.Method == http.MethodGet {
+				w.WriteHeader(http.StatusOK)
+			}
+			if r.Method == http.MethodPost {
+				w.WriteHeader(http.StatusOK)
+			}
+			return
 		}
 		fmt.Printf("unsupported request: %s %s\n", r.Method, path)
 		http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)

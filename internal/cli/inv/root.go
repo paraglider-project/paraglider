@@ -24,6 +24,7 @@ import (
 	"syscall"
 
 	common "github.com/NetSys/invisinets/internal/cli/common"
+	"github.com/NetSys/invisinets/internal/cli/inv/namespace"
 	"github.com/NetSys/invisinets/internal/cli/inv/resource"
 	"github.com/NetSys/invisinets/internal/cli/inv/rule"
 	"github.com/NetSys/invisinets/internal/cli/inv/server"
@@ -43,6 +44,7 @@ func init() {
 	rootCmd.AddCommand(tag.NewCommand())
 	rootCmd.AddCommand(common.NewVersionCommand())
 	rootCmd.AddCommand(server.NewCommand())
+	rootCmd.AddCommand(namespace.NewCommand())
 }
 
 func Execute() {
