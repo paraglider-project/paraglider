@@ -396,6 +396,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 				return nil, fmt.Errorf("unable to create VPN gateway vnet: %w", err)
 			}
 		} else {
+			return nil, fmt.Errorf("unable to get VPN gateway vnet: %w", err)
 		}
 	}
 
@@ -404,21 +405,34 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 	// - Peerings are only charge based on amount of data transferred, so this will not incur extra charge until the VPN gateway is created.
 	// - VPN gateway transit relationship cannot be established before the VPN gateway creation.
 	// - If the VPN gateway hasn't been created, then the gateway transit relationship will be established on VPN gateway creation.
-	vpnGwName := getVpnGatewayName(resourceDesc.Namespace)
-	_, err = s.azureHandler.GetVirtualNetworkGateway(ctx, vpnGwName)
+	_, err = s.azureHandler.GetVirtualNetworkPeering(ctx, vnetName, vpnGwVnetName)
+	var peeringExists bool
 	if err != nil {
 		if isErrorNotFound(err) {
-			err = s.azureHandler.CreateVnetPeering(ctx, vnetName, vpnGwVnetName)
-			if err != nil {
-				return nil, fmt.Errorf("unable to create vnet peerings between VM vnet and VPN gateway vnet: %w", err)
-			}
+			peeringExists = false
 		} else {
-			return nil, fmt.Errorf("unable to get VPN gateway: %w", err)
+			return nil, fmt.Errorf("unable to get vnet peering between VM vnet and VPN gateway vnet: %w", err)
 		}
 	} else {
-		err = s.azureHandler.CreateOrUpdateVnetPeeringRemoteGateway(ctx, vnetName, vpnGwVnetName, nil, nil)
+		peeringExists = true
+	}
+	if !peeringExists {
+		vpnGwName := getVpnGatewayName(resourceDesc.Namespace)
+		_, err = s.azureHandler.GetVirtualNetworkGateway(ctx, vpnGwName)
 		if err != nil {
-			return nil, fmt.Errorf("unable to create vnet peerings (with gateway transit) between VM vnet and VPN gateway vnet: %w", err)
+			if isErrorNotFound(err) {
+				err = s.azureHandler.CreateVnetPeering(ctx, vnetName, vpnGwVnetName)
+				if err != nil {
+					return nil, fmt.Errorf("unable to create vnet peerings between VM vnet and VPN gateway vnet: %w", err)
+				}
+			} else {
+				return nil, fmt.Errorf("unable to get VPN gateway: %w", err)
+			}
+		} else {
+			err = s.azureHandler.CreateOrUpdateVnetPeeringRemoteGateway(ctx, vnetName, vpnGwVnetName, nil, nil)
+			if err != nil {
+				return nil, fmt.Errorf("unable to create vnet peerings (with gateway transit) between VM vnet and VPN gateway vnet: %w", err)
+			}
 		}
 	}
 
