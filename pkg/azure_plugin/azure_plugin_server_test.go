@@ -124,6 +124,24 @@ func (m *mockAzureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context
 	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
 }
 
+func (m *mockAzureSDKHandler) CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error) {
+	args := m.Called(ctx, name, parameters)
+	vnet := args.Get(0)
+	if vnet == nil {
+		return nil, args.Error(1)
+	}
+	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
+}
+
+func (m *mockAzureSDKHandler) GetVirtualNetwork(ctx context.Context, name string) (*armnetwork.VirtualNetwork, error) {
+	args := m.Called(ctx, name)
+	vnet := args.Get(0)
+	if vnet == nil {
+		return nil, args.Error(1)
+	}
+	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
+}
+
 func (m *mockAzureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error) {
 	args := m.Called(ctx, subnetID, location, nicName)
 	nic := args.Get(0)
@@ -170,6 +188,43 @@ func (m *mockAzureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1 strin
 	return args.Error(0)
 }
 
+func (m *mockAzureSDKHandler) CreateOrUpdateVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string, parameters armnetwork.VirtualNetworkPeering) (*armnetwork.VirtualNetworkPeering, error) {
+	args := m.Called(ctx, virtualNetworkName, virtualNetworkPeeringName, parameters)
+	virtualNetworkPeering := args.Get(0)
+	if virtualNetworkPeering == nil {
+		return nil, args.Error(1)
+	}
+	return virtualNetworkPeering.(*armnetwork.VirtualNetworkPeering), args.Error(1)
+}
+
+func (m *mockAzureSDKHandler) GetVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string) (*armnetwork.VirtualNetworkPeering, error) {
+	args := m.Called(ctx, virtualNetworkName, virtualNetworkPeeringName)
+	virtualNetworkPeering := args.Get(0)
+	if virtualNetworkPeering == nil {
+		return nil, args.Error(1)
+	}
+	return virtualNetworkPeering.(*armnetwork.VirtualNetworkPeering), args.Error(1)
+}
+
+func (m *mockAzureSDKHandler) ListVirtualNetworkPeerings(ctx context.Context, virtualNetworkName string) ([]*armnetwork.VirtualNetworkPeering, error) {
+	args := m.Called(ctx, virtualNetworkName)
+	virtualNetworkPeerings := args.Get(0)
+	if virtualNetworkPeerings == nil {
+		return nil, args.Error(1)
+	}
+	return virtualNetworkPeerings.([]*armnetwork.VirtualNetworkPeering), args.Error(1)
+}
+
+func (m *mockAzureSDKHandler) CreateVnetPeeringGatewayVnet(ctx context.Context, vnetName string, gatewayVnetName string) error {
+	args := m.Called(ctx, vnetName, gatewayVnetName)
+	return args.Error(0)
+}
+
+func (m *mockAzureSDKHandler) CreateOrUpdateVnetPeeringRemoteGateway(ctx context.Context, vnetName string, gatewayVnetName string, vnetToGatewayVnetPeering *armnetwork.VirtualNetworkPeering, gatewayVnetToVnetPeering *armnetwork.VirtualNetworkPeering) error {
+	args := m.Called(ctx, vnetName, gatewayVnetName, vnetToGatewayVnetPeering, gatewayVnetToVnetPeering)
+	return args.Error(0)
+}
+
 func (m *mockAzureSDKHandler) GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error) {
 	args := m.Called(ctx, vnetName)
 	vnet := args.Get(0)
@@ -206,8 +261,26 @@ func (m *mockAzureSDKHandler) CreatePublicIPAddress(ctx context.Context, name st
 	return publicIPAddress.(*armnetwork.PublicIPAddress), args.Error(1)
 }
 
+func (m *mockAzureSDKHandler) GetPublicIPAddress(ctx context.Context, name string) (*armnetwork.PublicIPAddress, error) {
+	args := m.Called(ctx, name)
+	publicIPAddress := args.Get(0)
+	if publicIPAddress == nil {
+		return nil, args.Error(1)
+	}
+	return publicIPAddress.(*armnetwork.PublicIPAddress), args.Error(1)
+}
+
 func (m *mockAzureSDKHandler) CreateSubnet(ctx context.Context, virtualNetworkName string, subnetName string, parameters armnetwork.Subnet) (*armnetwork.Subnet, error) {
 	args := m.Called(ctx, virtualNetworkName, subnetName, parameters)
+	subnet := args.Get(0)
+	if subnet == nil {
+		return nil, args.Error(1)
+	}
+	return subnet.(*armnetwork.Subnet), args.Error(1)
+}
+
+func (m *mockAzureSDKHandler) GetSubnet(ctx context.Context, virtualNetworkName string, subnetName string) (*armnetwork.Subnet, error) {
+	args := m.Called(ctx, virtualNetworkName, subnetName)
 	subnet := args.Get(0)
 	if subnet == nil {
 		return nil, args.Error(1)
@@ -309,6 +382,10 @@ func TestCreateResource(t *testing.T) {
 		mockAzureHandler.On("CreateVirtualMachine", ctx, vm, mock.Anything).Return(&armcompute.VirtualMachine{ID: to.Ptr(vmResourceID), Name: &vmName}, nil)
 		fakeNic := getFakeNIC()
 		mockAzureHandler.On("GetResourceNIC", ctx, vmResourceID).Return(fakeNic, nil)
+		vpnGwVnetName := getVpnGatewayVnetName(namespace)
+		mockAzureHandler.On("GetVirtualNetwork", ctx, vpnGwVnetName).Return(&armnetwork.VirtualNetwork{}, nil)
+		mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(namespace)).Return(&armnetwork.VirtualNetworkGateway{}, nil)
+		mockAzureHandler.On("CreateOrUpdateVnetPeeringRemoteGateway", ctx, vnetName, vpnGwVnetName, (*armnetwork.VirtualNetworkPeering)(nil), (*armnetwork.VirtualNetworkPeering)(nil)).Return(nil)
 
 		vm.Properties.NetworkProfile = &armcompute.NetworkProfile{
 			NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
@@ -926,9 +1003,14 @@ func TestCreateVpnGateway(t *testing.T) {
 	server, mockAzureHandler, ctx := setupAzurePluginServer()
 	mockHandlerSetup(mockAzureHandler)
 
+	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
+		nil,
+		&azcore.ResponseError{StatusCode: http.StatusNotFound},
+	)
+
 	fakePublicIPAddresses := []string{"172.178.88.1", "172.178.88.2"}
 	for i := 0; i < vpnNumConnections; i++ {
-		mockAzureHandler.On("CreatePublicIPAddress", ctx, getVPNGatewayIPAddressName(i), mock.Anything).Return(
+		mockAzureHandler.On("CreatePublicIPAddress", ctx, getVPNGatewayIPAddressName(defaultNamespace, i), mock.Anything).Return(
 			&armnetwork.PublicIPAddress{
 				ID: to.Ptr(fmt.Sprintf("public-ip-address-%d", i)),
 				Properties: &armnetwork.PublicIPAddressPropertiesFormat{
@@ -952,16 +1034,31 @@ func TestCreateVpnGateway(t *testing.T) {
 		nil,
 	)
 
-	mockAzureHandler.On("CreateSubnet", ctx, fakeVnetName, gatewaySubnetName, mock.Anything).Return(
+	vpnGwVnetName := getVpnGatewayVnetName(defaultNamespace)
+	mockAzureHandler.On("GetSubnet", ctx, vpnGwVnetName, gatewaySubnetName).Return(
 		&armnetwork.Subnet{ID: to.Ptr("gateway-subnet-id")},
 		nil,
 	)
 
-	mockAzureHandler.On("CreateOrUpdateVirtualNetworkGateway", ctx, getVpnGatewayName(), mock.Anything).Return(
+	mockAzureHandler.On("CreateOrUpdateVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace), mock.Anything).Return(
 		&armnetwork.VirtualNetworkGateway{},
 		nil,
 	)
 
+	vnetName := "vnet"
+	mockAzureHandler.On("ListVirtualNetworkPeerings", ctx, vpnGwVnetName).Return(
+		[]*armnetwork.VirtualNetworkPeering{
+			{Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{RemoteVirtualNetwork: &armnetwork.SubResource{ID: to.Ptr("/subscriptions/123/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/" + vnetName)}}},
+		},
+		nil,
+	)
+	mockAzureHandler.On("GetVirtualNetworkPeering", ctx, vnetName, getPeeringName(vnetName, vpnGwVnetName)).Return(
+		&armnetwork.VirtualNetworkPeering{},
+		nil,
+	)
+	mockAzureHandler.On("CreateOrUpdateVnetPeeringRemoteGateway", ctx, vnetName, vpnGwVnetName, mock.Anything, mock.Anything).Return(
+		nil,
+	)
 	resp, err := server.CreateVpnGateway(ctx, &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -972,7 +1069,7 @@ func TestCreateVpnBgpSessions(t *testing.T) {
 	server, mockAzureHandler, ctx := setupAzurePluginServer()
 	mockHandlerSetup(mockAzureHandler)
 
-	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName()).Return(
+	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
 		&armnetwork.VirtualNetworkGateway{
 			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
 				IPConfigurations: []*armnetwork.VirtualNetworkGatewayIPConfiguration{
@@ -985,12 +1082,12 @@ func TestCreateVpnBgpSessions(t *testing.T) {
 		nil,
 	)
 
-	mockAzureHandler.On("CreateOrUpdateVirtualNetworkGateway", ctx, getVpnGatewayName(), mock.Anything).Return(
+	mockAzureHandler.On("CreateOrUpdateVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace), mock.Anything).Return(
 		&armnetwork.VirtualNetworkGateway{},
 		nil,
 	)
 
-	resp, err := server.CreateVpnBgpSessions(ctx, &invisinetspb.CreateVpnBgpSessionsRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/sub123/resourceGroups/rg123"}})
+	resp, err := server.CreateVpnBgpSessions(ctx, &invisinetspb.CreateVpnBgpSessionsRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/sub123/resourceGroups/rg123", Namespace: defaultNamespace}})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Equal(t, resp.BgpIpAddresses, vpnGwBgpIpAddrs)
@@ -1008,7 +1105,7 @@ func TestCreateVpnConnections(t *testing.T) {
 		)
 	}
 
-	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName()).Return(
+	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
 		&armnetwork.VirtualNetworkGateway{},
 		nil,
 	)
@@ -1026,7 +1123,7 @@ func TestCreateVpnConnections(t *testing.T) {
 	}
 
 	req := &invisinetspb.CreateVpnConnectionsRequest{
-		Deployment:         &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg"},
+		Deployment:         &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
 		Cloud:              fakeCloudName,
 		Asn:                123,
 		AddressSpace:       "10.0.0.0/16",

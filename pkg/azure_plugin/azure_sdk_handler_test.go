@@ -254,12 +254,12 @@ func initializeReqRespMap() map[string]interface{} {
 					},
 				},
 			}},
-		fmt.Sprintf("%s/%s/virtualNetworkPeerings/%s", vnetsInRgUrl, validVnetName, validVnetName+"-link"): armnetwork.VirtualNetworkPeeringsClientGetResponse{},
-		fmt.Sprintf("%s/%s", virtualNetworkGatewayUrl, validVirtualNetworkGatewayName):                     armnetwork.VirtualNetworkGateway{},
-		fmt.Sprintf("%s/%s", publicIpAddressUrl, validPublicIpAddressName):                                 armnetwork.PublicIPAddress{},
-		fmt.Sprintf("%s/%s", subnetUrl, validSubnetName):                                                   armnetwork.Subnet{},
-		fmt.Sprintf("%s/%s", localNetworkGatewayUrl, validLocalNetworkGatewayName):                         armnetwork.LocalNetworkGateway{},
-		fmt.Sprintf("%s/%s", virtualNetworkGatewayConnectionUrl, validVirtualNetworkGatewayConnectionName): armnetwork.VirtualNetworkGatewayConnection{},
+		fmt.Sprintf("%s/%s/virtualNetworkPeerings/%s", vnetsInRgUrl, validVnetName, getPeeringName(validVnetName, validVnetName)): armnetwork.VirtualNetworkPeeringsClientGetResponse{},
+		fmt.Sprintf("%s/%s", virtualNetworkGatewayUrl, validVirtualNetworkGatewayName):                                            armnetwork.VirtualNetworkGateway{},
+		fmt.Sprintf("%s/%s", publicIpAddressUrl, validPublicIpAddressName):                                                        armnetwork.PublicIPAddress{},
+		fmt.Sprintf("%s/%s", subnetUrl, validSubnetName):                                                                          armnetwork.Subnet{},
+		fmt.Sprintf("%s/%s", localNetworkGatewayUrl, validLocalNetworkGatewayName):                                                armnetwork.LocalNetworkGateway{},
+		fmt.Sprintf("%s/%s", virtualNetworkGatewayConnectionUrl, validVirtualNetworkGatewayConnectionName):                        armnetwork.VirtualNetworkGatewayConnection{},
 	}
 	return urlToResponse
 }

@@ -45,10 +45,16 @@ type AzureSDKHandler interface {
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
 	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, frontendAddr string) (*armnetwork.VirtualNetwork, error)
 	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error)
+	CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error)
+	GetVirtualNetwork(ctx context.Context, name string) (*armnetwork.VirtualNetwork, error)
 	CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error)
 	CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error)
 	GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string]string, error)
+	CreateOrUpdateVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string, parameters armnetwork.VirtualNetworkPeering) (*armnetwork.VirtualNetworkPeering, error)
+	GetVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string) (*armnetwork.VirtualNetworkPeering, error)
+	ListVirtualNetworkPeerings(ctx context.Context, virtualNetworkName string) ([]*armnetwork.VirtualNetworkPeering, error)
 	CreateVnetPeering(ctx context.Context, vnet1Name string, vnet2Name string) error
+	CreateOrUpdateVnetPeeringRemoteGateway(ctx context.Context, vnetName string, gatewayVnetName string, vnetToGatewayVnetPeering *armnetwork.VirtualNetworkPeering, gatewayVnetToVnetPeering *armnetwork.VirtualNetworkPeering) error
 	GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error)
 	GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error)
 	GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string
@@ -58,7 +64,9 @@ type AzureSDKHandler interface {
 	CreateOrUpdateVirtualNetworkGateway(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGateway) (*armnetwork.VirtualNetworkGateway, error)
 	GetVirtualNetworkGateway(ctx context.Context, name string) (*armnetwork.VirtualNetworkGateway, error)
 	CreatePublicIPAddress(ctx context.Context, name string, parameters armnetwork.PublicIPAddress) (*armnetwork.PublicIPAddress, error)
+	GetPublicIPAddress(ctx context.Context, name string) (*armnetwork.PublicIPAddress, error)
 	CreateSubnet(ctx context.Context, virtualNetworkName string, subnetName string, parameters armnetwork.Subnet) (*armnetwork.Subnet, error)
+	GetSubnet(ctx context.Context, virtualNetworkName string, subnetName string) (*armnetwork.Subnet, error)
 	CreateLocalNetworkGateway(ctx context.Context, name string, parameters armnetwork.LocalNetworkGateway) (*armnetwork.LocalNetworkGateway, error)
 	GetLocalNetworkGateway(ctx context.Context, name string) (*armnetwork.LocalNetworkGateway, error)
 	CreateVirtualNetworkGatewayConnection(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGatewayConnection) (*armnetwork.VirtualNetworkGatewayConnection, error)
@@ -326,39 +334,111 @@ func (h *azureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix stri
 // For peering to work, two peering links must be created. By selecting remote virtual network, Azure will create both peering links.
 func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name string, vnet2Name string) error {
 	// create first link from vnet1 to vnet2
-	err := h.createOnePeeringLink(ctx, vnet1Name, vnet2Name)
+	vnet1ToVnet2PeeringParameters := armnetwork.VirtualNetworkPeering{
+		Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
+			AllowForwardedTraffic:     to.Ptr(false),
+			AllowGatewayTransit:       to.Ptr(false),
+			AllowVirtualNetworkAccess: to.Ptr(true),
+			RemoteVirtualNetwork: &armnetwork.SubResource{
+				ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", h.subscriptionID, h.resourceGroupName, vnet2Name)),
+			},
+			UseRemoteGateways: to.Ptr(false),
+		},
+	}
+	_, err := h.CreateOrUpdateVirtualNetworkPeering(ctx, vnet1Name, getPeeringName(vnet1Name, vnet2Name), vnet1ToVnet2PeeringParameters)
 	if err != nil {
 		return err
 	}
 	// create second link from vnet2 to vnet1
-	err = h.createOnePeeringLink(ctx, vnet2Name, vnet1Name)
+	vnet2ToVnet1PeeringParameters := armnetwork.VirtualNetworkPeering{
+		Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
+			AllowForwardedTraffic:     to.Ptr(false),
+			AllowGatewayTransit:       to.Ptr(false),
+			AllowVirtualNetworkAccess: to.Ptr(true),
+			RemoteVirtualNetwork: &armnetwork.SubResource{
+				ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", h.subscriptionID, h.resourceGroupName, vnet1Name)),
+			},
+			UseRemoteGateways: to.Ptr(false),
+		},
+	}
+	_, err = h.CreateOrUpdateVirtualNetworkPeering(ctx, vnet2Name, getPeeringName(vnet2Name, vnet1Name), vnet2ToVnet1PeeringParameters)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// createOnePerringLink creates a unidirectional peering link between two VNets given the source and destination VNet names
-func (h *azureSDKHandler) createOnePeeringLink(ctx context.Context, sourceVnet string, destVnet string) error {
-	poller, err := h.networkPeeringClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, sourceVnet, sourceVnet+"-link", armnetwork.VirtualNetworkPeering{
-		Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
-			AllowForwardedTraffic:     to.Ptr(false),
-			AllowGatewayTransit:       to.Ptr(false),
-			AllowVirtualNetworkAccess: to.Ptr(true),
-			RemoteVirtualNetwork: &armnetwork.SubResource{
-				ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", h.subscriptionID, h.resourceGroupName, destVnet)),
+// Creates (if not exists) or updates vnet peering to use remote gateway
+func (h *azureSDKHandler) CreateOrUpdateVnetPeeringRemoteGateway(ctx context.Context, vnetName string, gatewayVnetName string, vnetToGatewayVnetPeering *armnetwork.VirtualNetworkPeering, gatewayVnetToVnetPeering *armnetwork.VirtualNetworkPeering) error {
+	// Order matters here
+	if gatewayVnetToVnetPeering == nil {
+		gatewayVnetToVnetPeering = &armnetwork.VirtualNetworkPeering{
+			Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
+				AllowVirtualNetworkAccess: to.Ptr(true),
+				RemoteVirtualNetwork: &armnetwork.SubResource{
+					ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", h.subscriptionID, h.resourceGroupName, vnetName)),
+				},
 			},
-			UseRemoteGateways: to.Ptr(false),
-		},
-	}, nil)
+		}
+	}
+	gatewayVnetToVnetPeering.Properties.AllowForwardedTraffic = to.Ptr(true)
+	gatewayVnetToVnetPeering.Properties.AllowGatewayTransit = to.Ptr(true)
+	_, err := h.CreateOrUpdateVirtualNetworkPeering(ctx, gatewayVnetName, getPeeringName(gatewayVnetName, vnetName), *gatewayVnetToVnetPeering)
 	if err != nil {
 		return err
 	}
-	_, err = poller.PollUntilDone(ctx, nil)
+	if vnetToGatewayVnetPeering == nil {
+		vnetToGatewayVnetPeering = &armnetwork.VirtualNetworkPeering{
+			Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
+				AllowVirtualNetworkAccess: to.Ptr(true),
+				RemoteVirtualNetwork: &armnetwork.SubResource{
+					ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", h.subscriptionID, h.resourceGroupName, gatewayVnetName)),
+				},
+			},
+		}
+	}
+	vnetToGatewayVnetPeering.Properties.AllowForwardedTraffic = to.Ptr(true)
+	vnetToGatewayVnetPeering.Properties.UseRemoteGateways = to.Ptr(true)
+	_, err = h.CreateOrUpdateVirtualNetworkPeering(ctx, vnetName, getPeeringName(vnetName, gatewayVnetName), *vnetToGatewayVnetPeering)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (h *azureSDKHandler) CreateOrUpdateVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string, parameters armnetwork.VirtualNetworkPeering) (*armnetwork.VirtualNetworkPeering, error) {
+	poller, err := h.networkPeeringClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, virtualNetworkName, virtualNetworkPeeringName, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.VirtualNetworkPeering, nil
+}
+
+func (h *azureSDKHandler) GetVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string) (*armnetwork.VirtualNetworkPeering, error) {
+	resp, err := h.networkPeeringClient.Get(ctx, h.resourceGroupName, virtualNetworkName, virtualNetworkPeeringName, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.VirtualNetworkPeering, nil
+}
+
+func (h *azureSDKHandler) ListVirtualNetworkPeerings(ctx context.Context, virtualNetworkName string) ([]*armnetwork.VirtualNetworkPeering, error) {
+	pager := h.networkPeeringClient.NewListPager(h.resourceGroupName, virtualNetworkName, nil)
+	var virtualNetworkPeerings []*armnetwork.VirtualNetworkPeering
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, virtualNetworkPeering := range page.Value {
+			virtualNetworkPeerings = append(virtualNetworkPeerings, virtualNetworkPeering)
+		}
+	}
+	return virtualNetworkPeerings, nil
 }
 
 // GetPermitListRuleFromNSGRule returns a permit list rule from a network security group (NSG) rule.
@@ -447,13 +527,13 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 // CreateInvisinetsVirtualNetwork creates a new invisinets virtual network with a default subnet with the same address
 // space as the vnet
 func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
+	// TODO @seankimkdy: delete and consolidate calls to this method with CreateInvisinetsVirtualNetwork
 	parameters := armnetwork.VirtualNetwork{
 		Location: to.Ptr(location),
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 			AddressSpace: &armnetwork.AddressSpace{
 				AddressPrefixes: []*string{
 					to.Ptr(addressSpace),
-					to.Ptr(gatewaySubnetAddressPrefix),
 				},
 			},
 			Subnets: []*armnetwork.Subnet{
@@ -477,6 +557,26 @@ func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, lo
 		return nil, err
 	}
 
+	return &resp.VirtualNetwork, nil
+}
+
+func (h *azureSDKHandler) CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error) {
+	pollerResponse, err := h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.VirtualNetwork, nil
+}
+
+func (h *azureSDKHandler) GetVirtualNetwork(ctx context.Context, name string) (*armnetwork.VirtualNetwork, error) {
+	resp, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, name, nil)
+	if err != nil {
+		return nil, err
+	}
 	return &resp.VirtualNetwork, nil
 }
 
@@ -614,12 +714,28 @@ func (h *azureSDKHandler) CreatePublicIPAddress(ctx context.Context, name string
 	return &resp.PublicIPAddress, nil
 }
 
+func (h *azureSDKHandler) GetPublicIPAddress(ctx context.Context, name string) (*armnetwork.PublicIPAddress, error) {
+	resp, err := h.publicIPAddressesClient.Get(ctx, h.resourceGroupName, name, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.PublicIPAddress, nil
+}
+
 func (h *azureSDKHandler) CreateSubnet(ctx context.Context, virtualNetworkName string, subnetName string, parameters armnetwork.Subnet) (*armnetwork.Subnet, error) {
 	pollerResponse, err := h.subnetsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, virtualNetworkName, subnetName, parameters, nil)
 	if err != nil {
 		return nil, err
 	}
 	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.Subnet, nil
+}
+
+func (h *azureSDKHandler) GetSubnet(ctx context.Context, virtualNetworkName string, subnetName string) (*armnetwork.Subnet, error) {
+	resp, err := h.subnetsClient.Get(ctx, h.resourceGroupName, virtualNetworkName, subnetName, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -732,4 +848,9 @@ func isErrorNotFound(err error) bool {
 	var azError *azcore.ResponseError
 	ok := errors.As(err, &azError)
 	return ok && azError.StatusCode == http.StatusNotFound
+}
+
+// Returns peering name from local vnet to remote vnet
+func getPeeringName(localVnetName string, remoteVnetName string) string {
+	return localVnetName + "-to-" + remoteVnetName
 }
