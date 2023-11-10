@@ -33,7 +33,7 @@ type InvisinetsControllerClient interface {
 	AddPermitListRules(cloud string, permitList *invisinetspb.PermitList) error
 	DeletePermitListRules(cloud string, permitList *invisinetspb.PermitList) error
 	CreateResource(cloud string, resource *invisinetspb.ResourceDescriptionString) error
-	GetTag(tag string) (*tagservicepb.TagMapping, error)
+	GetTag(tag string) (*[]tagservicepb.TagMapping, error)
 	ResolveTag(tag string) ([]*tagservicepb.TagMapping, error)
 	SetTag(tag string, tagMapping *tagservicepb.TagMapping) error
 	DeleteTag(tag string) error
@@ -65,7 +65,7 @@ func (c *Client) processResponse(resp *http.Response) ([]byte, error) {
 func (c *Client) sendRequest(url string, method string, body io.Reader) ([]byte, error) {
 	client := &http.Client{}
 
-	url = fmt.Sprintf("http://%s%s", c.ControllerAddress, url)
+	url = c.ControllerAddress + url
 
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
@@ -155,7 +155,7 @@ func (c *Client) CreateResource(cloud string, resource *invisinetspb.ResourceDes
 }
 
 // Get the members of a tag
-func (c *Client) GetTag(tag string) (*tagservicepb.TagMapping, error) {
+func (c *Client) GetTag(tag string) ([]*tagservicepb.TagMapping, error) {
 	path := fmt.Sprintf(frontend.GetFormatterString(frontend.GetTagURL), tag)
 
 	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
@@ -163,13 +163,13 @@ func (c *Client) GetTag(tag string) (*tagservicepb.TagMapping, error) {
 		return nil, err
 	}
 
-	tagMapping := &tagservicepb.TagMapping{}
-	err = json.Unmarshal(respBytes, tagMapping)
+	tagMappings := []*tagservicepb.TagMapping{}
+	err = json.Unmarshal(respBytes, &tagMappings)
 	if err != nil {
 		return nil, err
 	}
 
-	return tagMapping, nil
+	return tagMappings, nil
 }
 
 // Resolve a tag down to all IP/URI members
@@ -245,21 +245,22 @@ func (c *Client) GetNamespace() (string, error) {
 		return "", err
 	}
 
-	namespace := string(respBytes)
+	namespaceDict := map[string]string{}
+	err = json.Unmarshal(respBytes, &namespaceDict)
+	if err != nil {
+		return "", err
+	}
 
-	return namespace, nil
+	return namespaceDict["namespace"], nil
 }
 
 // Set the namespace of the controller
 func (c *Client) SetNamespace(namespace string) error {
 	path := frontend.GetFormatterString(frontend.SetNamespaceURL)
 
-	reqBody, err := json.Marshal(namespace)
-	if err != nil {
-		return err
-	}
+	path = fmt.Sprintf(path, namespace)
 
-	_, err = c.sendRequest(path, http.MethodPost, bytes.NewBuffer(reqBody))
+	_, err := c.sendRequest(path, http.MethodPost, nil)
 	if err != nil {
 		return err
 	}

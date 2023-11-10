@@ -98,7 +98,7 @@ type ControllerServer struct {
 func GetFormatterString(url URL) string {
 	new_tokens := []string{}
 	for _, token := range strings.Split(string(url), "/") {
-		if strings.Contains(token, ":") {
+		if strings.Contains(token, ":") || strings.Contains(token, "*") {
 			new_tokens = append(new_tokens, "%s")
 		} else {
 			new_tokens = append(new_tokens, token)
