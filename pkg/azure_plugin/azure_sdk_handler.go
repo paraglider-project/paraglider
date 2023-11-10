@@ -434,9 +434,7 @@ func (h *azureSDKHandler) ListVirtualNetworkPeerings(ctx context.Context, virtua
 		if err != nil {
 			return nil, err
 		}
-		for _, virtualNetworkPeering := range page.Value {
-			virtualNetworkPeerings = append(virtualNetworkPeerings, virtualNetworkPeering)
-		}
+		virtualNetworkPeerings = page.Value
 	}
 	return virtualNetworkPeerings, nil
 }
