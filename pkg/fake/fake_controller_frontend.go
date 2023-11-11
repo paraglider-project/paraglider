@@ -124,7 +124,7 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 
 		switch {
 		// Create Resources
-		case urlMatches(path, string(frontend.CreateResourceURL)) && r.Method == http.MethodPost:
+		case urlMatches(path, frontend.CreateResourceURL) && r.Method == http.MethodPost:
 			resource := &invisinetspb.ResourceDescriptionString{}
 			err := json.Unmarshal(body, resource)
 			if err != nil {
@@ -133,7 +133,7 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 			w.WriteHeader(http.StatusOK)
 			return
 		// Add/Delete Permit List Rules
-		case urlMatches(path, string(frontend.AddPermitListRulesURL)) && (r.Method == http.MethodPost || r.Method == http.MethodDelete):
+		case urlMatches(path, frontend.AddPermitListRulesURL) && (r.Method == http.MethodPost || r.Method == http.MethodDelete):
 			permitList := &invisinetspb.PermitList{}
 			err := json.Unmarshal(body, permitList)
 			if err != nil {
@@ -143,7 +143,7 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 			w.WriteHeader(http.StatusOK)
 			return
 		// Get Permit List Rules
-		case urlMatches(path, string(frontend.GetPermitListRulesURL)) && r.Method == http.MethodGet:
+		case urlMatches(path, frontend.GetPermitListRulesURL) && r.Method == http.MethodGet:
 			permitList := GetFakePermitList(getURLParams(path, string(frontend.GetPermitListRulesURL))["id"])
 			err := s.writeResponse(w, permitList)
 			if err != nil {
@@ -152,7 +152,7 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 			}
 			return
 		// Tag Set/Get/Delete
-		case urlMatches(path, string(frontend.GetTagURL)):
+		case urlMatches(path, frontend.GetTagURL):
 			if r.Method == http.MethodPost || r.Method == http.MethodDelete {
 				tags := []*tagservicepb.TagMapping{}
 				err := s.writeResponse(w, tags)
@@ -172,7 +172,7 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 				return
 			}
 		// Delete Tag Mambers
-		case urlMatches(path, string(frontend.DeleteTagMembersURL)) && r.Method == http.MethodDelete:
+		case urlMatches(path, frontend.DeleteTagMembersURL) && r.Method == http.MethodDelete:
 			tags := []*tagservicepb.TagMapping{}
 			err := s.writeResponse(w, tags)
 			if err != nil {
@@ -182,7 +182,7 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 			w.WriteHeader(http.StatusOK)
 			return
 		// Resolve Tag
-		case urlMatches(path, string(frontend.ResolveTagURL)) && r.Method == http.MethodGet:
+		case urlMatches(path, frontend.ResolveTagURL) && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
 			err := s.writeResponse(w, GetFakeTagMappingLeafTags(getURLParams(path, string(frontend.ResolveTagURL))["tag"]))
 			if err != nil {
@@ -191,7 +191,7 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 			}
 			return
 		// Namespace Get
-		case urlMatches(path, string(frontend.GetNamespaceURL)) && r.Method == http.MethodGet:
+		case urlMatches(path, frontend.GetNamespaceURL) && r.Method == http.MethodGet:
 			err := s.writeResponse(w, map[string]string{"namespace": Namespace})
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
@@ -200,7 +200,7 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 			w.WriteHeader(http.StatusOK)
 			return
 		// Namespace Set
-		case urlMatches(path, string(frontend.SetNamespaceURL)) && r.Method == http.MethodPost:
+		case urlMatches(path, frontend.SetNamespaceURL) && r.Method == http.MethodPost:
 			w.WriteHeader(http.StatusOK)
 			return
 		}

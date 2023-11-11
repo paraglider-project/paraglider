@@ -41,20 +41,18 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
-type URL string
-
 const (
-	GetPermitListRulesURL    URL = "/cloud/:cloud/permitlist/*id"
-	AddPermitListRulesURL    URL = "/cloud/:cloud/permitlist/rules/"
-	DeletePermitListRulesURL URL = "/cloud/:cloud/permitlist/rules/"
-	CreateResourceURL        URL = "/cloud/:cloud/resources/"
-	GetTagURL                URL = "/tags/:tag/"
-	ResolveTagURL            URL = "/tags/:tag/resolve/"
-	SetTagURL                URL = "/tags/:tag/"
-	DeleteTagURL             URL = "/tags/:tag/"
-	DeleteTagMembersURL      URL = "/tags/:tag/members/"
-	GetNamespaceURL          URL = "/namespace/"
-	SetNamespaceURL          URL = "/namespace/:namespace/"
+	GetPermitListRulesURL    string = "/cloud/:cloud/permitlist/*id"
+	AddPermitListRulesURL    string = "/cloud/:cloud/permitlist/rules/"
+	DeletePermitListRulesURL string = "/cloud/:cloud/permitlist/rules/"
+	CreateResourceURL        string = "/cloud/:cloud/resources/"
+	GetTagURL                string = "/tags/:tag/"
+	ResolveTagURL            string = "/tags/:tag/resolve/"
+	SetTagURL                string = "/tags/:tag/"
+	DeleteTagURL             string = "/tags/:tag/"
+	DeleteTagMembersURL      string = "/tags/:tag/members/"
+	GetNamespaceURL          string = "/namespace/"
+	SetNamespaceURL          string = "/namespace/:namespace/"
 )
 
 type Warning struct {
@@ -94,7 +92,7 @@ type ControllerServer struct {
 }
 
 // Return a string usable with Sprintf for inserting URL params
-func GetFormatterString(url URL) string {
+func GetFormatterString(url string) string {
 	new_tokens := []string{}
 	for _, token := range strings.Split(string(url), "/") {
 		if strings.Contains(token, ":") || strings.Contains(token, "*") {
