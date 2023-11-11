@@ -250,6 +250,13 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			if r.Method == "POST" || r.Method == "PATCH" {
 				sendResponseFakeOperation(w)
 				return
+			} else if r.Method == "GET" {
+				if fakeServerState.router != nil {
+					sendResponse(w, fakeServerState.router)
+				} else {
+					http.Error(w, "no router found", http.StatusNotFound)
+				}
+				return
 			}
 		// Operations
 		case path == urlProject+"/global/operations/"+fakeOperation:
@@ -278,6 +285,7 @@ type fakeServerState struct {
 	firewallMap map[string]*computepb.Firewall
 	instance    *computepb.Instance
 	network     *computepb.Network
+	router      *computepb.Router
 	subnetwork  *computepb.Subnetwork
 	vpnGateway  *computepb.VpnGateway
 }
@@ -739,7 +747,7 @@ func TestCreateVpnGateway(t *testing.T) {
 }
 
 func TestCreateVpnBgpSessions(t *testing.T) {
-	fakeServerState := &fakeServerState{}
+	fakeServerState := &fakeServerState{router: &computepb.Router{}}
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
@@ -757,7 +765,7 @@ func TestCreateVpnBgpSessions(t *testing.T) {
 }
 
 func TestCreateVpnConnections(t *testing.T) {
-	fakeServerState := &fakeServerState{}
+	fakeServerState := &fakeServerState{router: &computepb.Router{}}
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
