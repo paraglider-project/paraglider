@@ -256,9 +256,7 @@ func (c *Client) GetNamespace() (string, error) {
 
 // Set the namespace of the controller
 func (c *Client) SetNamespace(namespace string) error {
-	path := frontend.GetFormatterString(frontend.SetNamespaceURL)
-
-	path = fmt.Sprintf(path, namespace)
+	path := fmt.Sprintf(frontend.GetFormatterString(frontend.SetNamespaceURL), namespace)
 
 	_, err := c.sendRequest(path, http.MethodPost, nil)
 	if err != nil {

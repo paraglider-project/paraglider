@@ -43,8 +43,6 @@ import (
 
 type URL string
 
-// Add a function that populates these
-
 const (
 	GetPermitListRulesURL    URL = "/cloud/:cloud/permitlist/*id"
 	AddPermitListRulesURL    URL = "/cloud/:cloud/permitlist/rules/"
@@ -95,6 +93,7 @@ type ControllerServer struct {
 	namespace         string
 }
 
+// Return a string usable with Sprintf for inserting URL params
 func GetFormatterString(url URL) string {
 	new_tokens := []string{}
 	for _, token := range strings.Split(string(url), "/") {
