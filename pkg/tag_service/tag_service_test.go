@@ -128,6 +128,7 @@ func TestSetLeafTag(t *testing.T) {
 	server := newTagServiceServer(db)
 
 	newTag := tagservicepb.TagMapping{TagName: "tag", Uri: &uriVal, Ip: &ipVal}
+	mock.ExpectHExists(newTag.TagName, "uri").SetVal(false)
 	mock.ExpectHSet(newTag.TagName, map[string]string{"uri": *newTag.Uri, "ip": *newTag.Ip}).SetVal(0)
 
 	err := server._setLeafTag(context.Background(), &newTag)
@@ -135,6 +136,17 @@ func TestSetLeafTag(t *testing.T) {
 	assert.Nil(t, err)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Error(err)
+	}
+
+	// Test tag already exists
+	mock.ExpectHExists(newTag.TagName, "uri").SetVal(true)
+
+	err = server._setLeafTag(context.Background(), &newTag)
+
+	assert.NotNil(t, err)
+
+	if err = mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
 	}
 }
@@ -158,6 +170,7 @@ func TestSetTag(t *testing.T) {
 
 	// Leaf tag mapping
 	newTag = tagservicepb.TagMapping{TagName: "tag", Uri: &uriVal, Ip: &ipVal}
+	mock.ExpectHExists(newTag.TagName, "uri").SetVal(false)
 	mock.ExpectHSet(newTag.TagName, map[string]string{"uri": *newTag.Uri, "ip": *newTag.Ip}).SetVal(0)
 
 	resp, _ = server.SetTag(context.Background(), &newTag)
