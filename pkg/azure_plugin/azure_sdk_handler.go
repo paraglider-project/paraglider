@@ -102,6 +102,7 @@ const (
 	permitListPortAny          = -1
 	denyAllNsgRulePrefix       = "invisinets-deny-all"
 	nsgRuleDescriptionPrefix   = "invisinets rule"
+	virtualNetworkResourceID   = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s"
 )
 
 // mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
@@ -340,7 +341,7 @@ func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name strin
 			AllowGatewayTransit:       to.Ptr(false),
 			AllowVirtualNetworkAccess: to.Ptr(true),
 			RemoteVirtualNetwork: &armnetwork.SubResource{
-				ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", h.subscriptionID, h.resourceGroupName, vnet2Name)),
+				ID: to.Ptr(fmt.Sprintf(virtualNetworkResourceID, h.subscriptionID, h.resourceGroupName, vnet2Name)),
 			},
 			UseRemoteGateways: to.Ptr(false),
 		},
@@ -356,7 +357,7 @@ func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name strin
 			AllowGatewayTransit:       to.Ptr(false),
 			AllowVirtualNetworkAccess: to.Ptr(true),
 			RemoteVirtualNetwork: &armnetwork.SubResource{
-				ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", h.subscriptionID, h.resourceGroupName, vnet1Name)),
+				ID: to.Ptr(fmt.Sprintf(virtualNetworkResourceID, h.subscriptionID, h.resourceGroupName, vnet1Name)),
 			},
 			UseRemoteGateways: to.Ptr(false),
 		},
@@ -370,13 +371,13 @@ func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name strin
 
 // Creates (if not exists) or updates vnet peering to use remote gateway
 func (h *azureSDKHandler) CreateOrUpdateVnetPeeringRemoteGateway(ctx context.Context, vnetName string, gatewayVnetName string, vnetToGatewayVnetPeering *armnetwork.VirtualNetworkPeering, gatewayVnetToVnetPeering *armnetwork.VirtualNetworkPeering) error {
-	// Order matters here
+	// Gateway vnet to vnet peering must be created/updated first to allow gateway transit before creating/updating vnet to gateway vnet peering
 	if gatewayVnetToVnetPeering == nil {
 		gatewayVnetToVnetPeering = &armnetwork.VirtualNetworkPeering{
 			Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
 				AllowVirtualNetworkAccess: to.Ptr(true),
 				RemoteVirtualNetwork: &armnetwork.SubResource{
-					ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", h.subscriptionID, h.resourceGroupName, vnetName)),
+					ID: to.Ptr(fmt.Sprintf(virtualNetworkResourceID, h.subscriptionID, h.resourceGroupName, vnetName)),
 				},
 			},
 		}
@@ -392,7 +393,7 @@ func (h *azureSDKHandler) CreateOrUpdateVnetPeeringRemoteGateway(ctx context.Con
 			Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
 				AllowVirtualNetworkAccess: to.Ptr(true),
 				RemoteVirtualNetwork: &armnetwork.SubResource{
-					ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", h.subscriptionID, h.resourceGroupName, gatewayVnetName)),
+					ID: to.Ptr(fmt.Sprintf(virtualNetworkResourceID, h.subscriptionID, h.resourceGroupName, gatewayVnetName)),
 				},
 			},
 		}

@@ -416,11 +416,13 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 	} else {
 		peeringExists = true
 	}
+	// Only add peering if it doesn't exist
 	if !peeringExists {
 		vpnGwName := getVpnGatewayName(resourceDesc.Namespace)
 		_, err = s.azureHandler.GetVirtualNetworkGateway(ctx, vpnGwName)
 		if err != nil {
 			if isErrorNotFound(err) {
+				// Create regular peering which will be augmented with gateway transit relationship later on VPN gateway creation
 				err = s.azureHandler.CreateVnetPeering(ctx, vnetName, vpnGwVnetName)
 				if err != nil {
 					return nil, fmt.Errorf("unable to create vnet peerings between VM vnet and VPN gateway vnet: %w", err)
@@ -429,6 +431,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 				return nil, fmt.Errorf("unable to get VPN gateway: %w", err)
 			}
 		} else {
+			// Create peering with gateway transit relationship if VPN gateway already exists
 			err = s.azureHandler.CreateOrUpdateVnetPeeringRemoteGateway(ctx, vnetName, vpnGwVnetName, nil, nil)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create vnet peerings (with gateway transit) between VM vnet and VPN gateway vnet: %w", err)

@@ -47,7 +47,7 @@ var (
 func TestAzurePluginIntegration(t *testing.T) {
 	subscriptionId = GetAzureSubscriptionId()
 	resourceGroupName = SetupAzureTesting(subscriptionId, "integration")
-	// defer TeardownAzureTesting(subscriptionId, resourceGroupName)
+	defer TeardownAzureTesting(subscriptionId, resourceGroupName)
 
 	t.Run("TestAddAndGetPermitList", testAddAndGetPermitList)
 }
