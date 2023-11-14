@@ -41,6 +41,20 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
+const (
+	GetPermitListRulesURL    string = "/cloud/:cloud/permitlist/*id"
+	AddPermitListRulesURL    string = "/cloud/:cloud/permitlist/rules/"
+	DeletePermitListRulesURL string = "/cloud/:cloud/permitlist/rules/"
+	CreateResourceURL        string = "/cloud/:cloud/resources/"
+	GetTagURL                string = "/tags/:tag/"
+	ResolveTagURL            string = "/tags/:tag/resolve/"
+	SetTagURL                string = "/tags/:tag/"
+	DeleteTagURL             string = "/tags/:tag/"
+	DeleteTagMembersURL      string = "/tags/:tag/members/"
+	GetNamespaceURL          string = "/namespace/"
+	SetNamespaceURL          string = "/namespace/:namespace/"
+)
+
 type Warning struct {
 	Message string
 }
@@ -75,6 +89,19 @@ type ControllerServer struct {
 	localTagService   string
 	config            Config
 	namespace         string
+}
+
+// Return a string usable with Sprintf for inserting URL params
+func GetFormatterString(url string) string {
+	new_tokens := []string{}
+	for _, token := range strings.Split(string(url), "/") {
+		if strings.Contains(token, ":") || strings.Contains(token, "*") {
+			new_tokens = append(new_tokens, "%s")
+		} else {
+			new_tokens = append(new_tokens, token)
+		}
+	}
+	return strings.Join(new_tokens, "/")
 }
 
 func createErrorResponse(message string) gin.H {
@@ -906,17 +933,17 @@ func Setup(configPath string) {
 			"message": "pong",
 		})
 	})
-	router.GET("/cloud/:cloud/permit-list/*id", server.permitListGet)
-	router.POST("/cloud/:cloud/permit-list/rules/", server.permitListRulesAdd)
-	router.DELETE("/cloud/:cloud/permit-list/rules/", server.permitListRulesDelete)
-	router.POST("/cloud/:cloud/resources/", server.resourceCreate)
-	router.GET("/tags/:tag", server.getTag)
-	router.GET("/tags/:tag/resolve", server.resolveTag)
-	router.POST("/tags/:tag", server.setTag)
-	router.DELETE("/tags/:tag", server.deleteTag)
-	router.DELETE("/tags/:tag/members/", server.deleteTagMember)
-	router.GET("/namespace/", server.getNamespace)
-	router.POST("/namespace/:namespace/", server.setNamespace)
+	router.GET(string(GetPermitListRulesURL), server.permitListGet)
+	router.POST(string(AddPermitListRulesURL), server.permitListRulesAdd)
+	router.DELETE(string(DeletePermitListRulesURL), server.permitListRulesDelete)
+	router.POST(string(CreateResourceURL), server.resourceCreate)
+	router.GET(string(GetTagURL), server.getTag)
+	router.GET(string(ResolveTagURL), server.resolveTag)
+	router.POST(string(SetTagURL), server.setTag)
+	router.DELETE(string(DeleteTagURL), server.deleteTag)
+	router.DELETE(string(DeleteTagMembersURL), server.deleteTagMember)
+	router.GET(string(GetNamespaceURL), server.getNamespace)
+	router.POST(string(SetNamespaceURL), server.setNamespace)
 
 	// Run server
 	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
