@@ -25,6 +25,16 @@ env:
   # gotestsum version - see: https://github.com/gotestyourself/gotestsum
   GOTESTSUMVERSION: 1.10.0
 
+  # github contexts
+  GH_RUN_ID: ${{ github.run_id }}
+  GH_RUN_NUMBER: ${{ github.run_number }}
+  GH_RUN_ATTEMPT: ${{ github.run_attempt }}
+
+  # Cloud account fields
+  INVISINETS_GCP_PROJECT_PARENT: ${{ secrets.GCP_FOLDER_ID }}
+  INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME: ${{ secrets.GCP_BILLING_ACCOUNT_NAME }}
+  INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
 jobs:
   build:
     name: Build ${{ matrix.target_os }}_${{ matrix.target_arch }} binaries
@@ -214,8 +224,8 @@ jobs:
         uses: google-github-actions/auth@v1    
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         with:
-          workload_identity_provider: 'projects/594071265942/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider'
-          service_account: 'github-actions@invisinets-playground.iam.gserviceaccount.com'
+          workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider'
+          service_account: 'invisinets-cicd@invisinets-cicd.iam.gserviceaccount.com'
       - name: 'Az CLI login'
         uses: azure/login@v1
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
@@ -223,17 +233,9 @@ jobs:
             creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: Run integration tests
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        env:
-          INVISINETS_GCP_PROJECT: 'invisinets-playground'
-          GH_RUN_NUMBER: ${{ github.run_number }}
-          INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
           make integration-test
       - name: Run multicloud tests
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        env:
-          INVISINETS_GCP_PROJECT: 'invisinets-playground'
-          GH_RUN_NUMBER: ${{ github.run_number }}
-          INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
           make multicloud-test

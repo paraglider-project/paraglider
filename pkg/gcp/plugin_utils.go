@@ -18,277 +18,137 @@ package gcp
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 
+	billing "cloud.google.com/go/billing/apiv1"
+	billingpb "cloud.google.com/go/billing/apiv1/billingpb"
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	networkmanagement "cloud.google.com/go/networkmanagement/apiv1"
-	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	networkmanagementpb "cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
+	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
+	resourcemanagerpb "cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
+	serviceusage "cloud.google.com/go/serviceusage/apiv1"
+	"cloud.google.com/go/serviceusage/apiv1/serviceusagepb"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
 
-type GcpTestTeardownInfo struct {
-	Project               string
-	InsertInstanceReqs    []*computepb.InsertInstanceRequest
-	ConnectivityTestNames []string
-}
-
-func GetGcpProject() string {
-	project := os.Getenv("INVISINETS_GCP_PROJECT")
-	if project == "" {
-		panic("INVISINETS_GCP_PROJECT must be set")
-	}
-	return project
-}
-
-func teardownPanic(msg string, err error) {
-	const docstringMsg = "see docstring of TeardownGcpTesting on how to manually delete resources"
-	panic(fmt.Sprintf("%s (%s): %v", msg, docstringMsg, err))
-}
-
-// Cleans up any resources that were created
-// If you got a panic while the tests ran, you may need to manually clean up resources.
-// Here is the order for deleting resources when deleting through the console
-// - instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC
-func TeardownGcpTesting(teardownInfo *GcpTestTeardownInfo) {
-	ctx := context.Background()
-
-	// Instances
-	instancesClient, err := compute.NewInstancesRESTClient(ctx)
-	if err != nil {
-		teardownPanic("unable to create instances client", err)
-	}
-	defer instancesClient.Close()
-	for _, insertInstanceReq := range teardownInfo.InsertInstanceReqs {
-		deleteInstanceReq := &computepb.DeleteInstanceRequest{
-			Project:  insertInstanceReq.Project,
-			Zone:     insertInstanceReq.Zone,
-			Instance: *insertInstanceReq.InstanceResource.Name,
-		}
-		deleteInstanceReqOp, err := instancesClient.Delete(ctx, deleteInstanceReq)
+func generateProjectId(testName string) string {
+	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+	const projectIdMaxLength = 30
+	prefix := "inv-" + testName
+	var suffix string
+	if os.Getenv("GH_RUN_ID") != "" {
+		// Use run ID as part of the project ID since run number can reset after a workflow changes, meaning it could result in duplicate project IDs which GCP doesn't allow (even after deletion).
+		// Run attempt is also included since run ID does not reset on re-runs.
+		suffix = hash(os.Getenv("GH_RUN_ID"), os.Getenv("GH_RUN_ATTEMPT"))
+	} else {
+		key := make([]byte, projectIdMaxLength)
+		_, err := rand.Read(key)
 		if err != nil {
-			if !isErrorNotFound(err) {
-				teardownPanic("unable to delete instance", err)
-			}
+			panic(fmt.Errorf("could not generate random bytes: %w", err))
+		}
+		for i, v := range key {
+			key[i] = charset[v%byte(len(charset))]
+		}
+		suffix = string(key)
+	}
+	return (prefix + "-" + suffix)[:projectIdMaxLength]
+}
+
+func SetupGcpTesting(testName string) string {
+	var projectId string
+	if os.Getenv("INVISINETS_GCP_PROJECT") != "" {
+		projectId = os.Getenv("INVISINETS_GCP_PROJECT")
+	} else {
+		var projectDisplayName string
+		projectId = generateProjectId(testName)
+		if os.Getenv("GH_RUN_NUMBER") != "" {
+			// Use run number in project display name since it's more human readable
+			projectDisplayName = fmt.Sprintf("invisinets-gh-%s-%s", os.Getenv("GH_RUN_NUMBER"), testName)
 		} else {
-			if err = deleteInstanceReqOp.Wait(ctx); err != nil {
-				teardownPanic("unable to wait on delete instance operation", err)
-			}
+			projectDisplayName = projectId
 		}
-	}
-
-	// Subnetworks
-	networksClient, err := compute.NewNetworksRESTClient(ctx)
-	if err != nil {
-		teardownPanic("unable to create networks client", err)
-	}
-	defer networksClient.Close()
-	subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
-	if err != nil {
-		teardownPanic("unable to create subnetworks client", err)
-	}
-	defer subnetworksClient.Close()
-	deletedSubnetworkRegions := map[string]bool{}
-	for _, insertInstanceReq := range teardownInfo.InsertInstanceReqs {
-		region := insertInstanceReq.Zone[:strings.LastIndex(insertInstanceReq.Zone, "-")]
-		if !deletedSubnetworkRegions[region] {
-			deleteSubnetworkReq := &computepb.DeleteSubnetworkRequest{
-				Project:    teardownInfo.Project,
-				Region:     region,
-				Subnetwork: getGCPSubnetworkName(region),
-			}
-			deleteSubnetworkOp, err := subnetworksClient.Delete(ctx, deleteSubnetworkReq)
-			if err != nil {
-				if !isErrorNotFound(err) {
-					teardownPanic("unable to delete subnetwork", err)
-				}
-			} else {
-				if err = deleteSubnetworkOp.Wait(ctx); err != nil {
-					teardownPanic("unable to wait on delete subnetwork operation", err)
-				}
-			}
-			deletedSubnetworkRegions[region] = true
-		}
-	}
-
-	// Firewalls
-	getEffectiveFirewallsReq := &computepb.GetEffectiveFirewallsNetworkRequest{
-		Project: teardownInfo.Project,
-		Network: getVpcName("default"),
-	}
-	getEffectiveFirewallsResp, err := networksClient.GetEffectiveFirewalls(ctx, getEffectiveFirewallsReq)
-	if err != nil {
-		teardownPanic("unable to get effective firewalls", err)
-	}
-	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
-	if err != nil {
-		teardownPanic("unable to create firewalls client", err)
-	}
-	defer firewallsClient.Close()
-	for _, firewall := range getEffectiveFirewallsResp.Firewalls {
-		deleteFirewallReq := &computepb.DeleteFirewallRequest{
-			Firewall: *firewall.Name,
-			Project:  teardownInfo.Project,
-		}
-		deleteFirewallOp, err := firewallsClient.Delete(ctx, deleteFirewallReq)
+		ctx := context.Background()
+		projectsClient, err := resourcemanager.NewProjectsClient(ctx)
 		if err != nil {
-			if !isErrorNotFound(err) {
-				teardownPanic("unable to delete firewall", err)
-			}
-		} else {
-			if err = deleteFirewallOp.Wait(ctx); err != nil {
-				teardownPanic("unable to wait on delete firewall operation", err)
-			}
+			panic(fmt.Errorf("unable to create projects client: %w", err))
 		}
-	}
-
-	// VPN tunnels, router
-	routersClient, err := compute.NewRoutersRESTClient(ctx)
-	if err != nil {
-		teardownPanic("unable to create routers client", err)
-	}
-	defer routersClient.Close()
-	externalVpnGatewayNames := map[string]bool{}
-	getRouterReq := &computepb.GetRouterRequest{
-		Project: teardownInfo.Project,
-		Region:  vpnRegion,
-		Router:  routerName,
-	}
-	router, err := routersClient.Get(ctx, getRouterReq)
-	if err != nil {
-		if !isErrorNotFound(err) {
-			teardownPanic("unable to get router", err)
+		// Create project
+		createProjectReq := &resourcemanagerpb.CreateProjectRequest{
+			Project: &resourcemanagerpb.Project{
+				ProjectId:   projectId,
+				DisplayName: projectDisplayName,
+				Parent:      os.Getenv("INVISINETS_GCP_PROJECT_PARENT"),
+			},
 		}
-	} else {
-		vpnTunnelsClient, err := compute.NewVpnTunnelsRESTClient(ctx)
+		createProjectOp, err := projectsClient.CreateProject(ctx, createProjectReq)
 		if err != nil {
-			teardownPanic("unable to create vpn tunnels client", err)
+			panic(fmt.Errorf("unable to create project: %w", err))
 		}
-		defer vpnTunnelsClient.Close()
-		for _, routerInterface := range router.Interfaces {
-			vpnTunnelName := parseGCPURL(*routerInterface.LinkedVpnTunnel)["vpnTunnels"]
-			getVpnTunnelReq := &computepb.GetVpnTunnelRequest{
-				Project:   teardownInfo.Project,
-				Region:    vpnRegion,
-				VpnTunnel: vpnTunnelName,
-			}
-			vpnTunnel, err := vpnTunnelsClient.Get(ctx, getVpnTunnelReq)
-			if err != nil {
-				// No ErrorNotFound checking here since vpn tunnel is expected to exist according to the router
-				teardownPanic("unable to get vpn tunnel", err)
-			}
-			// TODO @seankimkdy: use parseGCPURL once it's fixed to work with global resources since external vpn gateways are global
-			externalVpnGatewayUriSplit := strings.Split(*vpnTunnel.PeerExternalGateway, "/")
-			externalVpnGatewayName := externalVpnGatewayUriSplit[len(externalVpnGatewayUriSplit)-1]
-			if externalVpnGatewayName != "" && !externalVpnGatewayNames[externalVpnGatewayName] {
-				externalVpnGatewayNames[externalVpnGatewayName] = true
-			}
-			deleteVpnTunnelReq := &computepb.DeleteVpnTunnelRequest{
-				Project:   teardownInfo.Project,
-				Region:    vpnRegion,
-				VpnTunnel: vpnTunnelName,
-			}
-			deleteVpnTunnelOp, err := vpnTunnelsClient.Delete(ctx, deleteVpnTunnelReq)
-			if err != nil {
-				teardownPanic("unable to delete vpn tunnel", err)
-			}
-			if err = deleteVpnTunnelOp.Wait(ctx); err != nil {
-				teardownPanic("unable to wait on delete vpn tunnel operation", err)
-			}
-		}
-
-		deleteRouterReq := &computepb.DeleteRouterRequest{
-			Project: teardownInfo.Project,
-			Region:  vpnRegion,
-			Router:  routerName,
-		}
-		deleteRouterOp, err := routersClient.Delete(ctx, deleteRouterReq)
+		_, err = createProjectOp.Wait(ctx)
 		if err != nil {
-			// No ErrorNotFound checking here since the GET request for router succeeded
-			teardownPanic("unable to delete router", err)
+			panic(fmt.Errorf("unable to wait on create project op: %w", err))
 		}
-		if err = deleteRouterOp.Wait(ctx); err != nil {
-			teardownPanic("unable to wait on delete router operation", err)
-		}
-	}
 
-	// External VPN gateway
-	externalVpnGatewaysClient, err := compute.NewExternalVpnGatewaysRESTClient(ctx)
-	if err != nil {
-		teardownPanic("unable to create external vpn gateways client", err)
-	}
-	defer externalVpnGatewaysClient.Close()
-	for externalVpnGatewayName := range externalVpnGatewayNames {
-		deleteExternalVpnGatewayReq := &computepb.DeleteExternalVpnGatewayRequest{
-			Project:            teardownInfo.Project,
-			ExternalVpnGateway: externalVpnGatewayName,
-		}
-		deleteExternalVpnGatewayOp, err := externalVpnGatewaysClient.Delete(ctx, deleteExternalVpnGatewayReq)
+		// Enable billing
+		cloudBillingClient, err := billing.NewCloudBillingRESTClient(ctx)
 		if err != nil {
-			// No ErrorNotFound checking here since external vpn gateway definitvely exists
-			teardownPanic("unable to delete external vpn gateway", err)
+			panic(fmt.Errorf("unable to create cloud billing client: %w", err))
 		}
-		if err = deleteExternalVpnGatewayOp.Wait(ctx); err != nil {
-			teardownPanic("unable to wait on delete external vpn gateway operation", err)
+		updateProjectBillingInfoReq := &billingpb.UpdateProjectBillingInfoRequest{
+			Name: "projects/" + projectId,
+			ProjectBillingInfo: &billingpb.ProjectBillingInfo{
+				BillingAccountName: os.Getenv("INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME"),
+			},
 		}
-	}
-
-	// VPN gateway
-	vpnGatewaysClient, err := compute.NewVpnGatewaysRESTClient(ctx)
-	if err != nil {
-		teardownPanic("unable to create vpn gateways client", err)
-	}
-	defer vpnGatewaysClient.Close()
-	deleteVpnGatewayReq := &computepb.DeleteVpnGatewayRequest{
-		Project:    teardownInfo.Project,
-		Region:     vpnRegion,
-		VpnGateway: vpnGwName,
-	}
-	deleteVpnGatewayOp, err := vpnGatewaysClient.Delete(ctx, deleteVpnGatewayReq)
-	if err != nil {
-		if !isErrorNotFound(err) {
-			teardownPanic("unable to delete vpn gateway", err)
-		}
-	} else {
-		if err = deleteVpnGatewayOp.Wait(ctx); err != nil {
-			teardownPanic("unable to wait on delete vpn gateway operation", err)
-		}
-	}
-
-	// VPC
-	deleteNetworkReq := &computepb.DeleteNetworkRequest{
-		Project: teardownInfo.Project,
-		Network: getVpcName("default"),
-	}
-	deleteNetworkOp, err := networksClient.Delete(ctx, deleteNetworkReq)
-	if err != nil {
-		if !isErrorNotFound(err) {
-			teardownPanic("unable to delete network", err)
-		}
-	} else {
-		if err = deleteNetworkOp.Wait(ctx); err != nil {
-			teardownPanic("unable to wait on delete network operation", err)
-		}
-	}
-
-	// Connectivity tests
-	reachabilityClient, err := networkmanagement.NewReachabilityClient(ctx) // Can't use REST client for some reason (filed as bug within Google internally)
-	if err != nil {
-		teardownPanic("unable to create reachability client", err)
-	}
-	for _, connectivityTestName := range teardownInfo.ConnectivityTestNames {
-		deleteConnectivityTestReq := &networkmanagementpb.DeleteConnectivityTestRequest{Name: connectivityTestName}
-		deleteConnectivityTestOp, err := reachabilityClient.DeleteConnectivityTest(ctx, deleteConnectivityTestReq)
+		_, err = cloudBillingClient.UpdateProjectBillingInfo(ctx, updateProjectBillingInfoReq)
 		if err != nil {
-			teardownPanic("unable to delete connectivity test", err)
+			panic(fmt.Errorf("unable to update project billing info: %w", err))
 		}
-		if err = deleteConnectivityTestOp.Wait(ctx); err != nil {
-			teardownPanic("unable to wait on delete connectivity test operation", err)
+
+		// Enable necessary API services
+		serviceUsageClient, err := serviceusage.NewClient(ctx) // Can't use REST client for some reason (filed as bug within Google internally)
+		if err != nil {
+			panic(fmt.Errorf("unable to create serviceusage client: %w", err))
+		}
+		batchEnableServicesReq := &serviceusagepb.BatchEnableServicesRequest{
+			Parent:     "projects/" + projectId,
+			ServiceIds: []string{"cloudbilling.googleapis.com", "compute.googleapis.com", "networkmanagement.googleapis.com"},
+		}
+		batchEnableServicesOp, err := serviceUsageClient.BatchEnableServices(ctx, batchEnableServicesReq)
+		if err != nil {
+			panic(fmt.Errorf("unable to batch enable services: %w", err))
+		}
+		_, err = batchEnableServicesOp.Wait(ctx)
+		if err != nil {
+			panic(fmt.Errorf("unable to wait on batch enable services op: %w", err))
+		}
+	}
+	return projectId
+}
+
+func TeardownGcpTesting(projectId string) {
+	if projectId != os.Getenv("INVISINETS_GCP_PROJECT") {
+		ctx := context.Background()
+		projectsClient, err := resourcemanager.NewProjectsClient(ctx)
+		if err != nil {
+			panic(fmt.Errorf("unable to create projects client: %w", err))
+		}
+		deleteProjectReq := &resourcemanagerpb.DeleteProjectRequest{
+			Name: "projects/" + projectId,
+		}
+		deleteProjectOp, err := projectsClient.DeleteProject(ctx, deleteProjectReq)
+		if err != nil {
+			panic(fmt.Errorf("unable to delete project: %w", err))
+		}
+		_, err = deleteProjectOp.Wait(ctx)
+		if err != nil {
+			panic(fmt.Errorf("unable to wait on delete project op: %w", err))
 		}
 	}
 }
@@ -352,13 +212,13 @@ func GetInstanceId(project string, zone string, instanceName string) (uint64, er
 }
 
 // Runs connectivity test between two endpoints
-func RunPingConnectivityTest(t *testing.T, teardownInfo *GcpTestTeardownInfo, project string, name string, srcEndpoint *networkmanagementpb.Endpoint, dstEndpoint *networkmanagementpb.Endpoint) {
+func RunPingConnectivityTest(t *testing.T, project string, name string, srcEndpoint *networkmanagementpb.Endpoint, dstEndpoint *networkmanagementpb.Endpoint) {
 	ctx := context.Background()
 	reachabilityClient, err := networkmanagement.NewReachabilityClient(ctx) // Can't use REST client for some reason (filed as bug within Google internally)
 	if err != nil {
 		t.Fatal(err)
 	}
-	connectivityTestId := utils.GetGitHubRunPrefix() + "connectivity-test-" + name
+	connectivityTestId := "connectivity-test-" + name
 	createConnectivityTestReq := &networkmanagementpb.CreateConnectivityTestRequest{
 		Parent: "projects/" + project + "/locations/global",
 		TestId: connectivityTestId,
@@ -377,7 +237,6 @@ func RunPingConnectivityTest(t *testing.T, teardownInfo *GcpTestTeardownInfo, pr
 	if err != nil {
 		t.Fatal(err)
 	}
-	teardownInfo.ConnectivityTestNames = append(teardownInfo.ConnectivityTestNames, connectivityTest.Name)
 
 	reachable := connectivityTest.ReachabilityDetails.Result == networkmanagementpb.ReachabilityDetails_REACHABLE
 	// Retry up to five times

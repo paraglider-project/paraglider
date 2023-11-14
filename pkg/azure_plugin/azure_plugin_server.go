@@ -37,7 +37,7 @@ import (
 
 const maxPriority = 4096
 
-var (
+const (
 	invisinetsPrefix = "invisinets"
 )
 
@@ -63,13 +63,6 @@ const (
 )
 
 var vpnGwBgpIpAddrs = []string{"169.254.21.1", "169.254.22.1"}
-
-func init() {
-	// For integration testing, add the run number to the prefix to avoid conflicts
-	// if multiple runs are running at the same time to ensure each run has its own resources
-	githubRunPrefix := utils.GetGitHubRunPrefix()
-	invisinetsPrefix = githubRunPrefix + invisinetsPrefix
-}
 
 func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) error {
 	cred, err := s.azureHandler.GetAzureCredentials()
