@@ -17,24 +17,25 @@ limitations under the License.
 package get
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	utils "github.com/NetSys/invisinets/internal/cli/inv/utils/testutils"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRuleGetExecute(t *testing.T) {
-	settings.PrintOutput = false
-	server := &utils.FakeFrontendServer{}
-	server.SetupFakeServer()
+	server := &fake.FakeFrontendServer{}
+	settings.ServerAddr = server.SetupFakeFrontendServer()
 
 	cmd, executor := NewCommand()
+	var output bytes.Buffer
+	executor.writer = &output
 
-	args := []string{utils.CloudName, "uri"}
+	args := []string{fake.CloudName, "uri"}
 	err := executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
-
-	assert.Equal(t, "GET", server.GetLastRequestMethod())
+	assert.Contains(t, output.String(), fake.GetFakePermitList("uri").AssociatedResource)
 }

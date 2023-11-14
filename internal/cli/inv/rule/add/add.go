@@ -17,15 +17,13 @@ limitations under the License.
 package add
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
-	"net/http"
 	"os"
 
+	common "github.com/NetSys/invisinets/internal/cli/common"
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	"github.com/NetSys/invisinets/internal/cli/inv/utils"
+	"github.com/NetSys/invisinets/pkg/client"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/spf13/cobra"
 )
@@ -46,7 +44,7 @@ func NewCommand() (*cobra.Command, *executor) {
 }
 
 type executor struct {
-	utils.CommandExecutor
+	common.CommandExecutor
 	writer   io.Writer
 	ruleFile string
 	pingTag  string
@@ -106,21 +104,9 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 
 	// Send the rules to the server
 	permitList := &invisinetspb.PermitList{AssociatedResource: args[1], Rules: rules}
-	url := fmt.Sprintf("%s/cloud/%s/permit-list/rules", settings.ServerAddr, args[0])
 
-	body, err := json.Marshal(permitList)
-	if err != nil {
-		return err
-	}
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		return err
-	}
+	c := client.Client{ControllerAddress: settings.ServerAddr}
+	err := c.AddPermitListRules(args[0], permitList)
 
-	err = utils.ProcessResponse(resp, e.writer)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }

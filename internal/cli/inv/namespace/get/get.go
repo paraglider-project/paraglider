@@ -19,11 +19,11 @@ package get
 import (
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 
+	common "github.com/NetSys/invisinets/internal/cli/common"
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	"github.com/NetSys/invisinets/internal/cli/inv/utils"
+	"github.com/NetSys/invisinets/pkg/client"
 	"github.com/spf13/cobra"
 )
 
@@ -40,7 +40,7 @@ func NewCommand() (*cobra.Command, *executor) {
 }
 
 type executor struct {
-	utils.CommandExecutor
+	common.CommandExecutor
 	writer io.Writer
 }
 
@@ -53,16 +53,14 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	url := fmt.Sprintf("%s/namespace/", settings.ServerAddr)
-	resp, err := http.Get(url)
+	c := client.Client{ControllerAddress: settings.ServerAddr}
+	namespace, err := c.GetNamespace()
+
 	if err != nil {
 		return err
 	}
 
-	err = utils.ProcessResponse(resp, e.writer)
-	if err != nil {
-		return err
-	}
+	fmt.Fprintf(e.writer, "Current namespace: %s\n", namespace)
 
 	return nil
 }

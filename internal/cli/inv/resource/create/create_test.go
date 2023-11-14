@@ -17,20 +17,17 @@ limitations under the License.
 package create
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	utils "github.com/NetSys/invisinets/internal/cli/inv/utils/testutils"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestResourceCreateValidate(t *testing.T) {
 	cmd, executor := NewCommand()
 
-	args := []string{utils.CloudName, "uri", "not-a-file.json"}
+	args := []string{fake.CloudName, "uri", "not-a-file.json"}
 	err := executor.Validate(cmd, args)
 
 	assert.NotNil(t, err)
@@ -39,25 +36,14 @@ func TestResourceCreateValidate(t *testing.T) {
 }
 
 func TestResourceCreateExecute(t *testing.T) {
-	settings.PrintOutput = false
-	server := &utils.FakeFrontendServer{}
-	server.SetupFakeServer()
+	server := &fake.FakeFrontendServer{}
+	settings.ServerAddr = server.SetupFakeFrontendServer()
 
 	cmd, executor := NewCommand()
 	executor.description = []byte(`descriptionstring`)
 
-	args := []string{utils.CloudName, "uri", ""}
+	args := []string{fake.CloudName, "uri", ""}
 	err := executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
-
-	request := server.GetLastRequestBody()
-	content := &invisinetspb.ResourceDescriptionString{}
-	err = json.Unmarshal(request, content)
-
-	require.Nil(t, err)
-
-	assert.Equal(t, "POST", server.GetLastRequestMethod())
-	assert.Equal(t, "descriptionstring", content.Description)
-	assert.Equal(t, "uri", content.Id)
 }

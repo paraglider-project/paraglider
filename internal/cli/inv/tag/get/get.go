@@ -19,11 +19,11 @@ package get
 import (
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 
+	common "github.com/NetSys/invisinets/internal/cli/common"
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	"github.com/NetSys/invisinets/internal/cli/inv/utils"
+	"github.com/NetSys/invisinets/pkg/client"
 	"github.com/spf13/cobra"
 )
 
@@ -41,7 +41,7 @@ func NewCommand() (*cobra.Command, *executor) {
 }
 
 type executor struct {
-	utils.CommandExecutor
+	common.CommandExecutor
 	writer      io.Writer
 	resolveFlag bool
 }
@@ -61,21 +61,24 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	// Get the tag from the server
-	var url string
-	if !e.resolveFlag {
-		url = fmt.Sprintf("%s/tags/%s", settings.ServerAddr, args[0])
+	c := client.Client{ControllerAddress: settings.ServerAddr}
+
+	if e.resolveFlag {
+		tagMappings, err := c.ResolveTag(args[0])
+		if err != nil {
+			return err
+		}
+
+		// Print the tag
+		fmt.Fprintf(e.writer, "Tag %s:\n %v", args[0], tagMappings)
 	} else {
-		url = fmt.Sprintf("%s/tags/%s/resolve", settings.ServerAddr, args[0])
-	}
+		tagMapping, err := c.GetTag(args[0])
+		if err != nil {
+			return err
+		}
 
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-
-	err = utils.ProcessResponse(resp, e.writer)
-	if err != nil {
-		return err
+		// Print the tag
+		fmt.Fprintln(e.writer, tagMapping)
 	}
 
 	return nil

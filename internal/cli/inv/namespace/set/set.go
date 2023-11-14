@@ -17,13 +17,12 @@ limitations under the License.
 package set
 
 import (
-	"fmt"
 	"io"
-	"net/http"
 	"os"
 
+	common "github.com/NetSys/invisinets/internal/cli/common"
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	"github.com/NetSys/invisinets/internal/cli/inv/utils"
+	"github.com/NetSys/invisinets/pkg/client"
 	"github.com/spf13/cobra"
 )
 
@@ -40,7 +39,7 @@ func NewCommand() (*cobra.Command, *executor) {
 }
 
 type executor struct {
-	utils.CommandExecutor
+	common.CommandExecutor
 	writer io.Writer
 }
 
@@ -53,16 +52,8 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	url := fmt.Sprintf("%s/namespace/%s/", settings.ServerAddr, args[0])
-	resp, err := http.Post(url, "", nil)
-	if err != nil {
-		return err
-	}
+	c := client.Client{ControllerAddress: settings.ServerAddr}
+	err := c.SetNamespace(args[0])
 
-	err = utils.ProcessResponse(resp, e.writer)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }

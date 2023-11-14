@@ -17,15 +17,12 @@ limitations under the License.
 package delete
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
 	"io"
-	"net/http"
 	"os"
 
+	common "github.com/NetSys/invisinets/internal/cli/common"
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	"github.com/NetSys/invisinets/internal/cli/inv/utils"
+	"github.com/NetSys/invisinets/pkg/client"
 	"github.com/spf13/cobra"
 )
 
@@ -43,7 +40,7 @@ func NewCommand() (*cobra.Command, *executor) {
 }
 
 type executor struct {
-	utils.CommandExecutor
+	common.CommandExecutor
 	writer  io.Writer
 	members []string
 }
@@ -63,37 +60,12 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	// Delete the tag from the server
-	var url string
-	var req *http.Request
+	c := client.Client{ControllerAddress: settings.ServerAddr}
 	if len(e.members) == 0 {
-		url = fmt.Sprintf("%s/tags/%s", settings.ServerAddr, args[0])
-		var err error
-		req, err = http.NewRequest(http.MethodDelete, url, nil)
-		if err != nil {
-			return err
-		}
+		err := c.DeleteTag(args[0])
+		return err
 	} else {
-		url = fmt.Sprintf("%s/tags/%s/members/", settings.ServerAddr, args[0])
-		body, err := json.Marshal(e.members)
-		if err != nil {
-			return err
-		}
-		req, err = http.NewRequest(http.MethodDelete, url, bytes.NewBuffer(body))
-		if err != nil {
-			return err
-		}
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
+		err := c.DeleteTagMembers(args[0], e.members)
 		return err
 	}
-
-	err = utils.ProcessResponse(resp, e.writer)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

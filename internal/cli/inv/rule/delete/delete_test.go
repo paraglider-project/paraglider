@@ -17,12 +17,10 @@ limitations under the License.
 package delete
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	utils "github.com/NetSys/invisinets/internal/cli/inv/utils/testutils"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,7 +28,7 @@ import (
 func TestRuleDeleteValidate(t *testing.T) {
 	cmd, executor := NewCommand()
 
-	args := []string{utils.CloudName, "uri"}
+	args := []string{fake.CloudName, "uri"}
 	ruleFile := "not-a-file.json"
 	tag := "tag"
 	err := cmd.Flags().Set("rulefile", ruleFile)
@@ -48,25 +46,15 @@ func TestRuleDeleteValidate(t *testing.T) {
 }
 
 func TestRuleDeleteExecute(t *testing.T) {
-	settings.PrintOutput = false
-	server := &utils.FakeFrontendServer{}
-	server.SetupFakeServer()
+	server := &fake.FakeFrontendServer{}
+	settings.ServerAddr = server.SetupFakeFrontendServer()
 
 	cmd, executor := NewCommand()
 	executor.pingTag = "pingTag"
 	executor.sshTag = "sshTag"
 
-	args := []string{utils.CloudName, "uri"}
+	args := []string{fake.CloudName, "uri"}
 	err := executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
-
-	request := server.GetLastRequestBody()
-	content := &invisinetspb.PermitList{}
-	err = json.Unmarshal(request, content)
-
-	require.Nil(t, err)
-
-	assert.Equal(t, "DELETE", server.GetLastRequestMethod())
-	assert.Equal(t, 4, len(content.Rules))
 }

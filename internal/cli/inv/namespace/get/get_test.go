@@ -17,23 +17,24 @@ limitations under the License.
 package get
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	utils "github.com/NetSys/invisinets/internal/cli/inv/utils/testutils"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNamespaceGetExecute(t *testing.T) {
-	settings.PrintOutput = false
-	server := &utils.FakeFrontendServer{}
-	server.SetupFakeServer()
+	server := &fake.FakeFrontendServer{}
+	settings.ServerAddr = server.SetupFakeFrontendServer()
 
 	cmd, executor := NewCommand()
+	var output bytes.Buffer
+	executor.writer = &output
 
 	err := executor.Execute(cmd, []string{})
 
 	assert.Nil(t, err)
-
-	assert.Equal(t, "GET", server.GetLastRequestMethod())
+	assert.Contains(t, output.String(), fake.Namespace)
 }

@@ -17,15 +17,13 @@ limitations under the License.
 package set
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 
+	common "github.com/NetSys/invisinets/internal/cli/common"
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	"github.com/NetSys/invisinets/internal/cli/inv/utils"
+	"github.com/NetSys/invisinets/pkg/client"
 	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 	"github.com/spf13/cobra"
 )
@@ -46,7 +44,7 @@ func NewCommand() (*cobra.Command, *executor) {
 }
 
 type executor struct {
-	utils.CommandExecutor
+	common.CommandExecutor
 	writer   io.Writer
 	children []string
 	uri      string
@@ -95,21 +93,8 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	}
 
 	tagMapping := &tagservicepb.TagMapping{TagName: args[0], ChildTags: e.children, Uri: uri, Ip: ip}
-	body, err := json.Marshal(tagMapping)
-	if err != nil {
-		return err
-	}
 
-	url := fmt.Sprintf("%s/tags/%s", settings.ServerAddr, args[0])
-
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		return err
-	}
-
-	err = utils.ProcessResponse(resp, e.writer)
-	if err != nil {
-		return err
-	}
-	return nil
+	c := client.Client{ControllerAddress: settings.ServerAddr}
+	err := c.SetTag(args[0], tagMapping)
+	return err
 }

@@ -17,15 +17,12 @@ limitations under the License.
 package create
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
 	"io"
-	"net/http"
 	"os"
 
+	common "github.com/NetSys/invisinets/internal/cli/common"
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	"github.com/NetSys/invisinets/internal/cli/inv/utils"
+	"github.com/NetSys/invisinets/pkg/client"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/spf13/cobra"
 )
@@ -43,7 +40,7 @@ func NewCommand() (*cobra.Command, *executor) {
 }
 
 type executor struct {
-	utils.CommandExecutor
+	common.CommandExecutor
 	writer      io.Writer
 	description []byte
 }
@@ -67,21 +64,9 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	resource := &invisinetspb.ResourceDescriptionString{Id: args[1], Description: string(e.description)}
-	body, err := json.Marshal(resource)
-	if err != nil {
-		return err
-	}
 
-	url := fmt.Sprintf("%s/cloud/%s/resources/", settings.ServerAddr, args[0])
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		return err
-	}
+	c := client.Client{ControllerAddress: settings.ServerAddr}
+	err := c.CreateResource(args[0], resource)
 
-	err = utils.ProcessResponse(resp, e.writer)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }

@@ -17,13 +17,11 @@ limitations under the License.
 package set
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	utils "github.com/NetSys/invisinets/internal/cli/inv/utils/testutils"
-	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -71,9 +69,8 @@ func TestTagSetValidate(t *testing.T) {
 }
 
 func TestTagSetExecute(t *testing.T) {
-	settings.PrintOutput = false
-	server := &utils.FakeFrontendServer{}
-	server.SetupFakeServer()
+	server := &fake.FakeFrontendServer{}
+	settings.ServerAddr = server.SetupFakeFrontendServer()
 
 	cmd, executor := NewCommand()
 
@@ -84,16 +81,6 @@ func TestTagSetExecute(t *testing.T) {
 	err := executor.Execute(cmd, args)
 	assert.Nil(t, err)
 
-	request := server.GetLastRequestBody()
-	expected := &tagservicepb.TagMapping{TagName: args[0], ChildTags: executor.children}
-	content := &tagservicepb.TagMapping{}
-	err = json.Unmarshal(request, content)
-
-	require.Nil(t, err)
-
-	assert.Equal(t, "POST", server.GetLastRequestMethod())
-	assert.Equal(t, expected, content)
-
 	// Just URI/IP set
 	executor.children = []string{}
 	executor.uri = "uri"
@@ -101,14 +88,4 @@ func TestTagSetExecute(t *testing.T) {
 
 	err = executor.Execute(cmd, args)
 	assert.Nil(t, err)
-
-	request = server.GetLastRequestBody()
-	expected = &tagservicepb.TagMapping{TagName: args[0], Uri: &executor.uri, Ip: &executor.ip}
-	content = &tagservicepb.TagMapping{}
-	err = json.Unmarshal(request, content)
-
-	require.Nil(t, err)
-
-	assert.Equal(t, "POST", server.GetLastRequestMethod())
-	assert.Equal(t, expected, content)
 }

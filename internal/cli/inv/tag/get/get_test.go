@@ -17,10 +17,11 @@ limitations under the License.
 package get
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	utils "github.com/NetSys/invisinets/internal/cli/inv/utils/testutils"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,25 +42,29 @@ func TestTagGetValidate(t *testing.T) {
 }
 
 func TestTagGetExecute(t *testing.T) {
-	settings.PrintOutput = false
-	server := &utils.FakeFrontendServer{}
-	server.SetupFakeServer()
+	server := &fake.FakeFrontendServer{}
+	settings.ServerAddr = server.SetupFakeFrontendServer()
 
 	cmd, executor := NewCommand()
+	var output bytes.Buffer
+	executor.writer = &output
 	executor.resolveFlag = false
 
 	// Get the tag
-	args := []string{"tag"}
+	tagName := "tag1"
+	args := []string{tagName}
 	err := executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
-	assert.Equal(t, "GET", server.GetLastRequestMethod())
+	assert.Contains(t, output.String(), tagName)
+	assert.Contains(t, output.String(), fake.GetFakeTagMapping(tagName).TagName)
+	assert.Contains(t, output.String(), fake.GetFakeTagMapping(tagName).ChildTags[0])
 
 	// Resolve the tag
 	executor.resolveFlag = true
 	err = executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
-
-	assert.Equal(t, "GET", server.GetLastRequestMethod()) // TODO now: we should diambiguate between these
+	assert.Contains(t, output.String(), tagName)
+	assert.Contains(t, output.String(), fake.GetFakeTagMappingLeafTags(tagName)[0].TagName)
 }

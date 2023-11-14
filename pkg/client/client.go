@@ -33,7 +33,7 @@ type InvisinetsControllerClient interface {
 	AddPermitListRules(cloud string, permitList *invisinetspb.PermitList) error
 	DeletePermitListRules(cloud string, permitList *invisinetspb.PermitList) error
 	CreateResource(cloud string, resource *invisinetspb.ResourceDescriptionString) error
-	GetTag(tag string) (*[]tagservicepb.TagMapping, error)
+	GetTag(tag string) (*tagservicepb.TagMapping, error)
 	ResolveTag(tag string) ([]*tagservicepb.TagMapping, error)
 	SetTag(tag string, tagMapping *tagservicepb.TagMapping) error
 	DeleteTag(tag string) error
@@ -155,7 +155,7 @@ func (c *Client) CreateResource(cloud string, resource *invisinetspb.ResourceDes
 }
 
 // Get the members of a tag
-func (c *Client) GetTag(tag string) ([]*tagservicepb.TagMapping, error) {
+func (c *Client) GetTag(tag string) (*tagservicepb.TagMapping, error) {
 	path := fmt.Sprintf(frontend.GetFormatterString(frontend.GetTagURL), tag)
 
 	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
@@ -163,13 +163,13 @@ func (c *Client) GetTag(tag string) ([]*tagservicepb.TagMapping, error) {
 		return nil, err
 	}
 
-	tagMappings := []*tagservicepb.TagMapping{}
-	err = json.Unmarshal(respBytes, &tagMappings)
+	tagMapping := &tagservicepb.TagMapping{}
+	err = json.Unmarshal(respBytes, &tagMapping)
 	if err != nil {
 		return nil, err
 	}
 
-	return tagMappings, nil
+	return tagMapping, nil
 }
 
 // Resolve a tag down to all IP/URI members

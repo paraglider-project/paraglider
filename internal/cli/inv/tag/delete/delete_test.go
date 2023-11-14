@@ -17,12 +17,11 @@ limitations under the License.
 package delete
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	utils "github.com/NetSys/invisinets/internal/cli/inv/utils/testutils"
+	fake "github.com/NetSys/invisinets/pkg/fake"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -43,9 +42,8 @@ func TestTagDeleteValidate(t *testing.T) {
 }
 
 func TestTagDeleteExecute(t *testing.T) {
-	settings.PrintOutput = false
-	server := &utils.FakeFrontendServer{}
-	server.SetupFakeServer()
+	server := &fake.FakeFrontendServer{}
+	settings.ServerAddr = server.SetupFakeFrontendServer()
 
 	cmd, executor := NewCommand()
 
@@ -54,20 +52,10 @@ func TestTagDeleteExecute(t *testing.T) {
 	err := executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
-	assert.Equal(t, "DELETE", server.GetLastRequestMethod())
 
 	// Delete members of tag
 	executor.members = []string{"child1", "child2"}
 	err = executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
-
-	request := server.GetLastRequestBody()
-	content := []string{}
-	err = json.Unmarshal(request, &content)
-
-	require.Nil(t, err)
-
-	assert.Equal(t, "DELETE", server.GetLastRequestMethod())
-	assert.Equal(t, executor.members, content)
 }
