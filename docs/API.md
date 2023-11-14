@@ -5,7 +5,7 @@
 Changes or gets the active namespace on the Invisinets Controller.
 
 ### Set
----
+
 **CLI:**
 `inv namespace set <namespace>`
 
@@ -19,7 +19,7 @@ Parameters:
 * `namespace`: namespace to set on the controller
 
 ### Get 
----
+
 **CLI:**
 `inv namespace get`
 
@@ -30,8 +30,8 @@ Parameters:
 ## Resource Operations
 
 ### Create
----
-Creates a resource according to the description provided in the speciied cloud. Some clouds may require a URI before resource creation and others may leave this field blank. Note that a tag is automatically created for the resource with the name `<namespace>.<cloud>.<vm_name>`.
+
+Creates a resource according to the description provided in the speciied cloud. Some clouds may require a URI before resource creation and others may leave this field blank. Note that a tag is automatically created for the resource with the name `<namespace>.<cloud>.<vm_name>` (where `vm_name` is pulled from the name field in the resource description).
 
 **CLI:**
 `inv resource create <cloud> <uri> <path_to_json>`
@@ -83,7 +83,7 @@ Parameters:
 These operations interact with the permit list associated with a given resource by adding/deleting/getting rules.
 
 ### Get
----
+
 Gets the rules associated with a resource.
 
 **CLI:**
@@ -101,7 +101,7 @@ Parameters:
 * `uri`: URI of the resource
 
 ### Add 
----
+
 Adds one or many rules to the permit list associated with a resource.
 
 **CLI:** 
@@ -140,7 +140,7 @@ Parameters:
 * `rules`: list of rules to add to the permit list
 
 ### Delete
----
+
 Deletes one or many rules from the permit list associated with the specified resource.
 
 **CLI:** 
@@ -180,7 +180,7 @@ Parameters:
 Operations on Invisinets tags.
 
 ### Get
----
+
 Gets the children tags associated with a tag or resolves the tag down to last-level entries (IPs).
 
 **CLI:**
@@ -197,7 +197,7 @@ Parameters:
 * `tag`: tag to get
 
 ### Set
----
+
 Adds children tags to a parent tag or creates a last-level tag that associates a names with an URI and/or IP.
 
 **CLI:** 
@@ -227,7 +227,7 @@ Parameters:
 * `ip`: ip to associate with tag
 
 ### Delete
----
+
 Deletes a tag or the association of members tags to that tag.
 
 **CLI:**
