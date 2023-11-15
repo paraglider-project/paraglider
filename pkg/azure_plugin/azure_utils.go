@@ -204,15 +204,21 @@ func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress st
 		PreferredIPVersion: to.Ptr(armnetwork.IPVersionIPv4),
 		Protocol:           to.Ptr(armnetwork.ProtocolIcmp),
 	}
-	checkConnectivityPollerResponse, err := watchersClient.BeginCheckConnectivity(ctx, "NetworkWatcherRG", fmt.Sprintf("NetworkWatcher_%s", *vm.Location), connectivityParameters, nil)
-	if err != nil {
-		return false, err
-	}
-	resp, err := checkConnectivityPollerResponse.PollUntilDone(ctx, nil)
-	if err != nil {
-		return false, err
+	// Retries up to 5 times
+	for i := 0; i < 5; i++ {
+		checkConnectivityPollerResponse, err := watchersClient.BeginCheckConnectivity(ctx, "NetworkWatcherRG", fmt.Sprintf("NetworkWatcher_%s", *vm.Location), connectivityParameters, nil)
+		if err != nil {
+			return false, err
+		}
+		resp, err := checkConnectivityPollerResponse.PollUntilDone(ctx, nil)
+		if err != nil {
+			return false, err
+		}
+		// TODO @seankimkdy: Unclear why ConnectionStatus returns "Reachable" which is not a valid armnetwork.ConnectionStatus constant (https://github.com/Azure/azure-sdk-for-go/issues/21777)
+		if *resp.ConnectivityInformation.ConnectionStatus == armnetwork.ConnectionStatus("Reachable") {
+			return true, nil
+		}
 	}
 
-	// TODO @seankimkdy: Unclear why ConnectionStatus returns "Reachable" which is not a valid armnetwork.ConnectionStatus constant (https://github.com/Azure/azure-sdk-for-go/issues/21777)
-	return *resp.ConnectivityInformation.ConnectionStatus == armnetwork.ConnectionStatus("Reachable"), nil
+	return false, nil
 }
