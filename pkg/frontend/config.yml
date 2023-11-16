@@ -4,18 +4,15 @@ server:
   rpcPort: 8081
 
 cloudPlugins:
-  # - name: "example"
-  #   host: "localhost"
-  #   port: 1002
-  #   invDeployment: ""
   - name: "gcp"
     host: "localhost"
     port: 1001
-    invDeployment: ""
-  # - name: "azure"
-  #   host: "localhost"
-  #   port: 1000
-  #   invDeployment: ""
+
+namespaces: 
+  default:
+    cloudDeployments:
+      - name: "gcp"
+        deployment: "projects/project-name"
 
 tagService:
   host: "localhost"

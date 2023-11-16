@@ -19,17 +19,18 @@ package frontend
 import (
 	"net"
 
+	config "github.com/NetSys/invisinets/pkg/frontend/config"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	grpc "google.golang.org/grpc"
 )
 
-func SetupControllerServer(cfg Config) string {
+func SetupControllerServer(cfg config.Config) string {
 	controllerServer := &ControllerServer{
 		pluginAddresses:   make(map[string]string),
 		usedAddressSpaces: make(map[string]map[string][]string),
 		config:            cfg,
 	}
-	for _, c := range controllerServer.config.Clouds {
+	for _, c := range controllerServer.config.CloudPlugins {
 		controllerServer.pluginAddresses[c.Name] = c.Host + ":" + c.Port
 	}
 	l, err := net.Listen("tcp", "localhost:0")
