@@ -217,16 +217,11 @@ func (c *Client) DeleteTag(tag string) error {
 	return nil
 }
 
-// Delete member(s) from a tag
-func (c *Client) DeleteTagMembers(tag string, members []string) error {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.DeleteTagMembersURL), tag)
+// Delete member from a tag
+func (c *Client) DeleteTagMembers(tag string, member string) error {
+	path := fmt.Sprintf(frontend.GetFormatterString(frontend.DeleteTagMemberURL), tag, member)
 
-	reqBody, err := json.Marshal(members)
-	if err != nil {
-		return err
-	}
-
-	_, err = c.sendRequest(path, http.MethodDelete, bytes.NewBuffer(reqBody))
+	_, err := c.sendRequest(path, http.MethodDelete, nil)
 	if err != nil {
 		return err
 	}

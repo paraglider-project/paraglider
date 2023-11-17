@@ -661,14 +661,13 @@ func TestDeleteTagMember(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.DELETE(DeleteTagMembersURL, frontendServer.deleteTagMember)
+	r.DELETE(DeleteTagMemberURL, frontendServer.deleteTagMember)
 
 	// Well-formed request
 	tagMapping := &tagservicepb.TagMapping{TagName: validTagName, ChildTags: []string{"child"}}
-	jsonValue, _ := json.Marshal(tagMapping.ChildTags)
 
-	url := fmt.Sprintf(GetFormatterString(DeleteTagMembersURL), tagMapping.TagName)
-	req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
+	url := fmt.Sprintf(GetFormatterString(DeleteTagMemberURL), tagMapping.TagName, tagMapping.ChildTags[0])
+	req, _ := http.NewRequest("DELETE", url, nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -681,28 +680,13 @@ func TestDeleteTagMember(t *testing.T) {
 
 	// Non-existent tag
 	tagMapping = &tagservicepb.TagMapping{TagName: "badtag", ChildTags: []string{"child"}}
-	jsonValue, _ = json.Marshal(tagMapping.ChildTags)
 
-	url = fmt.Sprintf(GetFormatterString(DeleteTagMembersURL), tagMapping.TagName)
-	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
+	url = fmt.Sprintf(GetFormatterString(DeleteTagMemberURL), tagMapping.TagName, tagMapping.ChildTags[0])
+	req, _ = http.NewRequest("DELETE", url, nil)
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-
-	// Malformed request
-	jsonValue, _ = json.Marshal(tagMapping)
-
-	url = fmt.Sprintf(GetFormatterString(DeleteTagMembersURL), tagMapping.TagName)
-	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
-	w = httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-	responseData, _ = io.ReadAll(w.Body)
-	err = json.Unmarshal(responseData, &jsonMap)
-
-	require.Nil(t, err)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 

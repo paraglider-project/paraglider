@@ -145,13 +145,17 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 			return
 		// Tag Set/Get/Delete
 		case urlMatches(path, frontend.GetTagURL):
-			if r.Method == http.MethodPost || r.Method == http.MethodDelete {
+			if r.Method == http.MethodPost {
 				tags := []*tagservicepb.TagMapping{}
 				err := s.writeResponse(w, tags)
 				if err != nil {
 					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 					return
 				}
+				return
+			}
+			if r.Method == http.MethodDelete {
+				w.WriteHeader(http.StatusOK)
 				return
 			}
 			if r.Method == http.MethodGet {
@@ -163,13 +167,8 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 				return
 			}
 		// Delete Tag Mambers
-		case urlMatches(path, frontend.DeleteTagMembersURL) && r.Method == http.MethodDelete:
-			tags := []*tagservicepb.TagMapping{}
-			err := s.writeResponse(w, tags)
-			if err != nil {
-				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
-				return
-			}
+		case urlMatches(path, frontend.DeleteTagMemberURL) && r.Method == http.MethodDelete:
+			w.WriteHeader(http.StatusOK)
 			return
 		// Resolve Tag
 		case urlMatches(path, frontend.ResolveTagURL) && r.Method == http.MethodGet:

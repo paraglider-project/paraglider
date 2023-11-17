@@ -125,7 +125,7 @@ func TestDeleteTagMembers(t *testing.T) {
 	client := Client{ControllerAddress: controllerAddress}
 
 	tagName := "tag"
-	err := client.DeleteTagMembers(tagName, []string{"member1", "member2"})
+	err := client.DeleteTagMembers(tagName, "member1")
 
 	assert.Nil(t, err)
 }

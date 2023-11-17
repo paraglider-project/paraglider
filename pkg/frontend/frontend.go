@@ -51,7 +51,7 @@ const (
 	ResolveTagURL            string = "/tags/:tag/resolve/"
 	SetTagURL                string = "/tags/:tag/"
 	DeleteTagURL             string = "/tags/:tag/"
-	DeleteTagMembersURL      string = "/tags/:tag/m"
+	DeleteTagMemberURL       string = "/tags/:tag/members/:member"
 )
 
 type Warning struct {
@@ -862,12 +862,8 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 // Delete members of tag in local db and update subscribers to membership change
 func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	parentTag := c.Param("tag")
-	var childTags []string
-	if err := c.BindJSON(&childTags); err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-	tagMapping := &tagservicepb.TagMapping{TagName: parentTag, ChildTags: childTags}
+	memberTag := c.Param("member")
+	tagMapping := &tagservicepb.TagMapping{TagName: parentTag, ChildTags: []string{memberTag}}
 
 	// Call DeleteTagMember
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -949,7 +945,7 @@ func Setup(configPath string) {
 	router.GET(string(ResolveTagURL), server.resolveTag)
 	router.POST(string(SetTagURL), server.setTag)
 	router.DELETE(string(DeleteTagURL), server.deleteTag)
-	router.DELETE(string(DeleteTagMembersURL), server.deleteTagMember)
+	router.DELETE(string(DeleteTagMemberURL), server.deleteTagMember)
 
 	// Run server
 	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
