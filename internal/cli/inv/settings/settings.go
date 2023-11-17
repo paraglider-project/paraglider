@@ -14,12 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package settings
 
-import (
-	cli "github.com/NetSys/invisinets/internal/cli/inv"
+var (
+	ServerAddr string = "localhost:8080"
 )
-
-func main() {
-	cli.Execute()
-}

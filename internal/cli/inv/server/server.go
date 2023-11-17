@@ -14,12 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package server
 
 import (
-	cli "github.com/NetSys/invisinets/internal/cli/inv"
+	"github.com/NetSys/invisinets/internal/cli/inv/server/get"
+	"github.com/NetSys/invisinets/internal/cli/inv/server/set"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cli.Execute()
+func NewCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "server",
+		Short: "Configure server settings",
+	}
+
+	getCmd, _ := get.NewCommand()
+	cmd.AddCommand(getCmd)
+	setCmd, _ := set.NewCommand()
+	cmd.AddCommand(setCmd)
+
+	return cmd
 }

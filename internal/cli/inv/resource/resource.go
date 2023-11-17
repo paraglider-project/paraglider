@@ -14,12 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package resource
 
 import (
-	cli "github.com/NetSys/invisinets/internal/cli/inv"
+	"github.com/NetSys/invisinets/internal/cli/inv/resource/create"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cli.Execute()
+func NewCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "resource",
+		Short: "Perform operations on resources",
+	}
+
+	createCmd, _ := create.NewCommand()
+	cmd.AddCommand(createCmd)
+
+	return cmd
 }

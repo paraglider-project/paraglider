@@ -14,12 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package get
 
 import (
-	cli "github.com/NetSys/invisinets/internal/cli/inv"
+	"bytes"
+	"testing"
+
+	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/stretchr/testify/assert"
 )
 
-func main() {
-	cli.Execute()
+func TestServerGetExecute(t *testing.T) {
+	settings.ServerAddr = "serverAddr"
+
+	cmd, executor := NewCommand()
+	var b bytes.Buffer
+	executor.writer = &b
+
+	err := executor.Execute(cmd, []string{})
+
+	assert.Nil(t, err)
+	assert.Contains(t, b.String(), "serverAddr")
 }

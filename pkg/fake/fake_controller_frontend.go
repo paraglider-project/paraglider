@@ -74,12 +74,10 @@ func GetFakePermitListRules() []*invisinetspb.PermitListRule {
 	}
 }
 
-func GetFakeTagMapping(tagName string) []*tagservicepb.TagMapping {
-	return []*tagservicepb.TagMapping{
-		{
-			TagName:   tagName,
-			ChildTags: []string{"member1", "member2"},
-		},
+func GetFakeTagMapping(tagName string) *tagservicepb.TagMapping {
+	return &tagservicepb.TagMapping{
+		TagName:   tagName,
+		ChildTags: []string{"member1", "member2"},
 	}
 }
 
@@ -152,8 +150,6 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 					return
 				}
-				return
-			}
 			if r.Method == http.MethodDelete {
 				w.WriteHeader(http.StatusOK)
 				return
