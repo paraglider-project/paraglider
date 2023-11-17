@@ -25,9 +25,15 @@ import (
 	"strings"
 
 	"github.com/NetSys/invisinets/pkg/frontend"
+	"github.com/NetSys/invisinets/pkg/frontend/config"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 	"google.golang.org/protobuf/proto"
+)
+
+const (
+	CloudName = "fakecloud"
+	Namespace = "fakenamespace"
 )
 
 type FakeFrontendServer struct {
@@ -38,7 +44,13 @@ func urlMatches(url string, pattern string) bool {
 	urlTokens := strings.Split(url, "/")
 	patternTokens := strings.Split(pattern, "/")
 	for i, token := range patternTokens {
-		if urlTokens[i] != token && !strings.HasPrefix(token, ":") && !strings.HasPrefix(token, "*") {
+		if urlTokens[i] != token && !strings.HasPrefix(token, ":") {
+			return false
+		}
+		if strings.HasPrefix(token, ":") && strings.Contains(urlTokens[i], "cloud") && token != CloudName {
+			return false
+		}
+		if strings.HasPrefix(token, ":") && strings.Contains(urlTokens[i], "namespace") && token != Namespace {
 			return false
 		}
 	}
@@ -87,6 +99,19 @@ func GetFakeTagMappingLeafTags(tagName string) []*tagservicepb.TagMapping {
 			TagName: tagName,
 			Uri:     proto.String("resource/uri"),
 			Ip:      proto.String("3.3.3.3"),
+		},
+	}
+}
+
+func GetFakeNamespaces() map[string]config.Namespace {
+	return map[string]config.Namespace{
+		"namespace1": {
+			CloudDeployments: []config.CloudDeployment{
+				{
+					Name:       "cloud1",
+					Deployment: "deployment1",
+				},
+			},
 		},
 	}
 }
@@ -172,6 +197,14 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 		case urlMatches(path, frontend.ResolveTagURL) && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
 			err := s.writeResponse(w, GetFakeTagMappingLeafTags(getURLParams(path, string(frontend.ResolveTagURL))["tag"]))
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+				return
+			}
+			return
+		// List Namespaces
+		case urlMatches(path, frontend.ListNamespacesURL) && r.Method == http.MethodGet:
+			err := s.writeResponse(w, GetFakeNamespaces())
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 				return

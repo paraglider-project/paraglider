@@ -52,6 +52,7 @@ const (
 	SetTagURL                string = "/tags/:tag"
 	DeleteTagURL             string = "/tags/:tag"
 	DeleteTagMemberURL       string = "/tags/:tag/members/:member"
+	ListNamespacesURL        string = "/namespaces"
 )
 
 type Warning struct {
@@ -700,7 +701,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, resourceResp)
+	c.JSON(http.StatusOK, resourceResp) // TODO @smcclure20: What should the behavior be if the name in the description and URL do not match? Maybe in redoing the rpc interfaces we should have the name come with the request so the plugin can check
 }
 
 // Get tag from local tag service
@@ -891,6 +892,11 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	})
 }
 
+// List all configured namespaces
+func (s *ControllerServer) listNamespaces(c *gin.Context) {
+	c.JSON(http.StatusOK, s.config.Namespaces)
+}
+
 // Setup and run the server
 func Setup(configPath string) {
 	// Read the config
@@ -946,6 +952,7 @@ func Setup(configPath string) {
 	router.POST(string(SetTagURL), server.setTag)
 	router.DELETE(string(DeleteTagURL), server.deleteTag)
 	router.DELETE(string(DeleteTagMemberURL), server.deleteTagMember)
+	router.GET(string(ListNamespacesURL), server.listNamespaces)
 
 	// Run server
 	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)

@@ -14,18 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package get
+package list
 
 import (
 	"bytes"
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	fake "github.com/NetSys/invisinets/pkg/fake"
+	"github.com/NetSys/invisinets/pkg/fake"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRuleGetExecute(t *testing.T) {
+func TestNamespaceListExecute(t *testing.T) {
 	server := &fake.FakeFrontendServer{}
 	settings.ServerAddr = server.SetupFakeFrontendServer()
 
@@ -33,9 +33,10 @@ func TestRuleGetExecute(t *testing.T) {
 	var output bytes.Buffer
 	executor.writer = &output
 
-	args := []string{fake.CloudName, "uri"}
-	err := executor.Execute(cmd, args)
+	err := executor.Execute(cmd, []string{})
 
 	assert.Nil(t, err)
-	assert.Contains(t, output.String(), fake.GetFakePermitListRules()[0].Id)
+	for namespace, _ := range fake.GetFakeNamespaces() {
+		assert.Contains(t, output.String(), namespace)
+	}
 }

@@ -24,18 +24,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	namespace = "namespace"
-	cloud     = "cloud"
-)
-
 func TestGetPermitList(t *testing.T) {
 	s := fake.FakeFrontendServer{}
 	controllerAddress := s.SetupFakeFrontendServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	resourceName := "resourceName"
-	rules, err := client.GetPermitList(namespace, cloud, resourceName)
+	rules, err := client.GetPermitList(fake.Namespace, fake.CloudName, resourceName)
 
 	assert.Nil(t, err)
 	assert.Equal(t, fake.GetFakePermitListRules()[0].Id, rules[0].Id)
@@ -46,7 +41,7 @@ func TestAddPermitListRules(t *testing.T) {
 	controllerAddress := s.SetupFakeFrontendServer()
 	client := Client{ControllerAddress: controllerAddress}
 
-	err := client.AddPermitListRules(namespace, cloud, "resourceName", fake.GetFakePermitListRules())
+	err := client.AddPermitListRules(fake.Namespace, fake.CloudName, "resourceName", fake.GetFakePermitListRules())
 
 	assert.Nil(t, err)
 }
@@ -56,7 +51,7 @@ func TestDeletePermitListRules(t *testing.T) {
 	controllerAddress := s.SetupFakeFrontendServer()
 	client := Client{ControllerAddress: controllerAddress}
 
-	err := client.DeletePermitListRules(namespace, cloud, "resourceName", fake.GetFakePermitListRules())
+	err := client.DeletePermitListRules(fake.Namespace, fake.CloudName, "resourceName", fake.GetFakePermitListRules())
 
 	assert.Nil(t, err)
 }
@@ -66,7 +61,7 @@ func TestCreateResource(t *testing.T) {
 	controllerAddress := s.SetupFakeFrontendServer()
 	client := Client{ControllerAddress: controllerAddress}
 
-	err := client.CreateResource(namespace, cloud, "resourceName", &invisinetspb.ResourceDescriptionString{Id: "uri"})
+	err := client.CreateResource(fake.Namespace, fake.CloudName, "resourceName", &invisinetspb.ResourceDescriptionString{Id: "uri"})
 
 	assert.Nil(t, err)
 }
@@ -128,4 +123,15 @@ func TestDeleteTagMembers(t *testing.T) {
 	err := client.DeleteTagMembers(tagName, "member1")
 
 	assert.Nil(t, err)
+}
+
+func TestListNamespaces(t *testing.T) {
+	s := fake.FakeFrontendServer{}
+	controllerAddress := s.SetupFakeFrontendServer()
+	client := Client{ControllerAddress: controllerAddress}
+
+	namespaces, err := client.ListNamespaces()
+
+	assert.Nil(t, err)
+	assert.Equal(t, fake.GetFakeNamespaces(), namespaces)
 }

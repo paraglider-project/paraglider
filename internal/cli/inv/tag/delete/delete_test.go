@@ -17,7 +17,6 @@ limitations under the License.
 package delete
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
@@ -30,15 +29,15 @@ func TestTagDeleteValidate(t *testing.T) {
 	cmd, executor := NewCommand()
 
 	args := []string{"tag"}
-	members := []string{"child1", "child2"}
+	member := "child1"
 
-	err := cmd.Flags().Set("members", strings.Join(members, ","))
+	err := cmd.Flags().Set("member", member)
 	require.Nil(t, err)
 
 	err = executor.Validate(cmd, args)
 
 	assert.Nil(t, err)
-	assert.Equal(t, members, executor.members)
+	assert.Equal(t, member, executor.member)
 }
 
 func TestTagDeleteExecute(t *testing.T) {
@@ -54,7 +53,7 @@ func TestTagDeleteExecute(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Delete members of tag
-	executor.members = []string{"child1", "child2"}
+	executor.member = "child"
 	err = executor.Execute(cmd, args)
 
 	assert.Nil(t, err)

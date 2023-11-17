@@ -31,7 +31,7 @@ import (
 func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{writer: os.Stdout}
 	cmd := &cobra.Command{
-		Use:     "delete <cloud> <resource uri> [--rulefile <path to rule json file> | --ping <tag> | --ssh <tag>]",
+		Use:     "delete <cloud> <resource name> [--rulefile <path to rule json file> | --ping <tag> | --ssh <tag>]",
 		Short:   "Delete a rule from a resource permit list",
 		Args:    cobra.ExactArgs(2),
 		PreRunE: executor.Validate,
@@ -103,8 +103,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Send the rules to the server
-	permitList := &invisinetspb.PermitList{AssociatedResource: args[1], Rules: rules}
 	c := client.Client{ControllerAddress: settings.ServerAddr}
-	err := c.DeletePermitListRules(args[0], permitList)
+	err := c.DeletePermitListRules(settings.ActiveNamespace, args[0], args[1], rules)
 	return err
 }

@@ -30,7 +30,7 @@ import (
 func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{writer: os.Stdout}
 	cmd := &cobra.Command{
-		Use:     "create <cloud> <resource_id> <resource_description_file>",
+		Use:     "create <cloud> <resource_name> <resource_description_file>",
 		Short:   "Create a resource",
 		Args:    cobra.ExactArgs(3),
 		PreRunE: executor.Validate,
@@ -63,10 +63,10 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	resource := &invisinetspb.ResourceDescriptionString{Id: args[1], Description: string(e.description)}
+	resource := &invisinetspb.ResourceDescriptionString{Description: string(e.description)}
 
 	c := client.Client{ControllerAddress: settings.ServerAddr}
-	err := c.CreateResource(args[0], resource)
+	err := c.CreateResource(args[0], settings.ActiveNamespace, args[1], resource)
 
 	return err
 }

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package get
+package list
 
 import (
 	"fmt"
@@ -30,9 +30,9 @@ import (
 func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{writer: os.Stdout}
 	cmd := &cobra.Command{
-		Use:     "get <cloud> <resource name>",
-		Short:   "Get rules of a resource permit list",
-		Args:    cobra.ExactArgs(2),
+		Use:     "list",
+		Short:   "List all configured namespaces",
+		Args:    cobra.ExactArgs(0),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
@@ -53,15 +53,14 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	// Get the rules from the server
 	c := client.Client{ControllerAddress: settings.ServerAddr}
-	permitList, err := c.GetPermitList(settings.ActiveNamespace, args[0], args[1])
+	namespaces, err := c.ListNamespaces()
+
 	if err != nil {
 		return err
 	}
 
-	// Print the rules
-	fmt.Fprintf(e.writer, "Permit list for %s:\n", permitList)
+	fmt.Fprintf(e.writer, "%v", namespaces)
 
 	return nil
 }

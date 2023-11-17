@@ -31,7 +31,7 @@ import (
 func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{writer: os.Stdout}
 	cmd := &cobra.Command{
-		Use:     "add <cloud> <resource uri> [--rulefile <path to rule json file>] [--ping <tag>] [--ssh <tag>]",
+		Use:     "add <cloud> <resource name> [--rulefile <path to rule json file>] [--ping <tag>] [--ssh <tag>]",
 		Short:   "Add a rule to a resource's permit list",
 		Args:    cobra.ExactArgs(2),
 		PreRunE: executor.Validate,
@@ -102,11 +102,8 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		rules = append(rules, &invisinetspb.PermitListRule{Id: "allow-ssh-outbound", Tags: []string{e.sshTag}, Protocol: 6, Direction: 1, DstPort: -1, SrcPort: 22})
 	}
 
-	// Send the rules to the server
-	permitList := &invisinetspb.PermitList{AssociatedResource: args[1], Rules: rules}
-
 	c := client.Client{ControllerAddress: settings.ServerAddr}
-	err := c.AddPermitListRules(args[0], permitList)
+	err := c.AddPermitListRules(settings.ActiveNamespace, args[0], args[1], rules)
 
 	return err
 }

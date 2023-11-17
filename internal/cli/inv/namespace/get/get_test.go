@@ -21,14 +21,10 @@ import (
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	fake "github.com/NetSys/invisinets/pkg/fake"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNamespaceGetExecute(t *testing.T) {
-	server := &fake.FakeFrontendServer{}
-	settings.ServerAddr = server.SetupFakeFrontendServer()
-
 	cmd, executor := NewCommand()
 	var output bytes.Buffer
 	executor.writer = &output
@@ -36,5 +32,5 @@ func TestNamespaceGetExecute(t *testing.T) {
 	err := executor.Execute(cmd, []string{})
 
 	assert.Nil(t, err)
-	assert.Contains(t, output.String(), fake.Namespace)
+	assert.Contains(t, output.String(), settings.ActiveNamespace)
 }

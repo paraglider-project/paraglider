@@ -22,7 +22,6 @@ import (
 
 	common "github.com/NetSys/invisinets/internal/cli/common"
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	"github.com/NetSys/invisinets/pkg/client"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +29,7 @@ func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{writer: os.Stdout}
 	cmd := &cobra.Command{
 		Use:     "set",
-		Short:   "Set current namespace",
+		Short:   "Set active namespace",
 		Args:    cobra.ExactArgs(1),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
@@ -52,8 +51,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	c := client.Client{ControllerAddress: settings.ServerAddr}
-	err := c.SetNamespace(args[0])
+	settings.ActiveNamespace = args[0]
 
-	return err
+	return nil
 }

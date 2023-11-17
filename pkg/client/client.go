@@ -24,6 +24,7 @@ import (
 	"net/http"
 
 	"github.com/NetSys/invisinets/pkg/frontend"
+	"github.com/NetSys/invisinets/pkg/frontend/config"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 )
@@ -38,6 +39,7 @@ type InvisinetsControllerClient interface {
 	SetTag(tag string, tagMapping *tagservicepb.TagMapping) error
 	DeleteTag(tag string) error
 	DeleteTagMembers(tag string, members []string) error
+	ListNamespaces() (map[string]config.Namespace, error)
 }
 
 type Client struct {
@@ -48,7 +50,7 @@ type Client struct {
 // Proccess the response from the controller and return the body
 func (c *Client) processResponse(resp *http.Response) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Request failed with status code %d", resp.StatusCode)
+		return nil, fmt.Errorf("request failed with status code %d", resp.StatusCode)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
@@ -227,4 +229,20 @@ func (c *Client) DeleteTagMembers(tag string, member string) error {
 	}
 
 	return nil
+}
+
+// List all configured namespaces
+func (c *Client) ListNamespaces() (map[string]config.Namespace, error) {
+	result, err := c.sendRequest(frontend.ListNamespacesURL, http.MethodGet, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	namespaces := map[string]config.Namespace{}
+	err = json.Unmarshal(result, &namespaces)
+	if err != nil {
+		return nil, err
+	}
+
+	return namespaces, nil
 }

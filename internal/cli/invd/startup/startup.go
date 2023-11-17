@@ -25,6 +25,7 @@ import (
 
 	az "github.com/NetSys/invisinets/pkg/azure_plugin"
 	frontend "github.com/NetSys/invisinets/pkg/frontend"
+	config "github.com/NetSys/invisinets/pkg/frontend/config"
 	gcp "github.com/NetSys/invisinets/pkg/gcp"
 	tagservice "github.com/NetSys/invisinets/pkg/tag_service"
 )
@@ -56,7 +57,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	}
 	defer f.Close()
 
-	var cfg frontend.Config
+	var cfg config.Config
 	decoder := yaml.NewDecoder(f)
 	err = decoder.Decode(&cfg)
 	if err != nil {
@@ -70,7 +71,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	for _, cloud := range cfg.Clouds {
+	for _, cloud := range cfg.CloudPlugins {
 		if cloud.Name == "gcp" {
 			e.gcpPort, err = strconv.Atoi(cloud.Port)
 			if err != nil {

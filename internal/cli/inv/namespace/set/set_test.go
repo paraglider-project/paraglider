@@ -20,17 +20,15 @@ import (
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	fake "github.com/NetSys/invisinets/pkg/fake"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNamespaceSetExecute(t *testing.T) {
-	server := &fake.FakeFrontendServer{}
-	settings.ServerAddr = server.SetupFakeFrontendServer()
 
 	cmd, executor := NewCommand()
 
 	err := executor.Execute(cmd, []string{"new-namespace"})
 
 	assert.Nil(t, err)
+	assert.Equal(t, "new-namespace", settings.ActiveNamespace)
 }
