@@ -24,7 +24,7 @@ import (
 
 	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	azure_plugin "github.com/NetSys/invisinets/pkg/azure_plugin"
-	frontend "github.com/NetSys/invisinets/pkg/frontend"
+	config "github.com/NetSys/invisinets/pkg/frontend/config"
 	gcp "github.com/NetSys/invisinets/pkg/gcp"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
@@ -46,19 +46,26 @@ func TestMulticloud(t *testing.T) {
 	defer gcp.TeardownGcpTesting(gcpProjectId)
 
 	// Setup controller server
-	controllerServerConfig := frontend.Config{
-		Clouds: []frontend.Cloud{
+	controllerServerConfig := config.Config{
+		CloudPlugins: []config.CloudPlugin{
 			{
-				Name:          utils.AZURE,
-				Host:          "localhost",
-				Port:          strconv.Itoa(azurePluginPort),
-				InvDeployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName),
+				Name: utils.AZURE,
+				Host: "localhost",
+				Port: strconv.Itoa(azurePluginPort),
 			},
 			{
-				Name:          utils.GCP,
-				Host:          "localhost",
-				Port:          strconv.Itoa(gcpPluginPort),
-				InvDeployment: fmt.Sprintf("projects/%s", gcpProjectId),
+				Name: utils.GCP,
+				Host: "localhost",
+				Port: strconv.Itoa(gcpPluginPort),
+			},
+		CloudDeployments: []frontend.CloudDeployment{
+			{
+				Name:       utils.AZURE,
+				Deployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName),
+			},
+			{
+				Name:        utils.GCP,
+				ßDeployment: fmt.Sprintf("projects/%s", gcpProjectId),
 			},
 		},
 	}
