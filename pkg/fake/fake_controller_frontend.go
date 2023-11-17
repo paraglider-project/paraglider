@@ -30,11 +30,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const (
-	CloudName = "example-cloud"
-	Namespace = "example-namespace"
-)
-
 type FakeFrontendServer struct {
 	server *httptest.Server
 }
@@ -65,19 +60,16 @@ func getURLParams(url string, pattern string) map[string]string {
 	return params
 }
 
-func GetFakePermitList(resourceUri string) *invisinetspb.PermitList {
-	return &invisinetspb.PermitList{
-		AssociatedResource: resourceUri,
-		Rules: []*invisinetspb.PermitListRule{
-			{
-				Id:        "id",
-				Targets:   []string{"1.1.1.1", "2.2.2.2"},
-				Direction: invisinetspb.Direction_INBOUND,
-				SrcPort:   1,
-				DstPort:   1,
-				Protocol:  1,
-				Tags:      []string{"tag1", "tag2"},
-			},
+func GetFakePermitListRules() []*invisinetspb.PermitListRule {
+	return []*invisinetspb.PermitListRule{
+		{
+			Id:        "id",
+			Targets:   []string{"1.1.1.1", "2.2.2.2"},
+			Direction: invisinetspb.Direction_INBOUND,
+			SrcPort:   1,
+			DstPort:   1,
+			Protocol:  1,
+			Tags:      []string{"tag1", "tag2"},
 		},
 	}
 }
@@ -134,8 +126,8 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 			return
 		// Add/Delete Permit List Rules
 		case urlMatches(path, frontend.AddPermitListRulesURL) && (r.Method == http.MethodPost || r.Method == http.MethodDelete):
-			permitList := &invisinetspb.PermitList{}
-			err := json.Unmarshal(body, permitList)
+			rules := []*invisinetspb.PermitListRule{}
+			err := json.Unmarshal(body, &rules)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 				return
@@ -144,7 +136,7 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 			return
 		// Get Permit List Rules
 		case urlMatches(path, frontend.GetPermitListRulesURL) && r.Method == http.MethodGet:
-			permitList := GetFakePermitList(getURLParams(path, string(frontend.GetPermitListRulesURL))["id"])
+			permitList := GetFakePermitListRules()
 			err := s.writeResponse(w, permitList)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
@@ -160,7 +152,6 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 					return
 				}
-				w.WriteHeader(http.StatusOK)
 				return
 			}
 			if r.Method == http.MethodGet {
@@ -179,7 +170,6 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 				return
 			}
-			w.WriteHeader(http.StatusOK)
 			return
 		// Resolve Tag
 		case urlMatches(path, frontend.ResolveTagURL) && r.Method == http.MethodGet:
@@ -189,19 +179,6 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 				return
 			}
-			return
-		// Namespace Get
-		case urlMatches(path, frontend.GetNamespaceURL) && r.Method == http.MethodGet:
-			err := s.writeResponse(w, map[string]string{"namespace": Namespace})
-			if err != nil {
-				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
-				return
-			}
-			w.WriteHeader(http.StatusOK)
-			return
-		// Namespace Set
-		case urlMatches(path, frontend.SetNamespaceURL) && r.Method == http.MethodPost:
-			w.WriteHeader(http.StatusOK)
 			return
 		}
 		fmt.Printf("unsupported request: %s %s\n", r.Method, path)

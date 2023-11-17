@@ -29,17 +29,15 @@ import (
 )
 
 type InvisinetsControllerClient interface {
-	GetPermitList(cloud string, id string) (*invisinetspb.PermitList, error)
-	AddPermitListRules(cloud string, permitList *invisinetspb.PermitList) error
-	DeletePermitListRules(cloud string, permitList *invisinetspb.PermitList) error
-	CreateResource(cloud string, resource *invisinetspb.ResourceDescriptionString) error
+	GetPermitList(namespace string, cloud string, resourceName string) ([]*invisinetspb.PermitListRule, error)
+	AddPermitListRules(namespace string, cloud string, resourceName string, rules []*invisinetspb.PermitListRule) error
+	DeletePermitListRules(namespace string, cloud string, resourceName string, rules []*invisinetspb.PermitListRule) error
+	CreateResource(namespace string, cloud string, resourceName string, resource *invisinetspb.ResourceDescriptionString) error
 	GetTag(tag string) (*[]tagservicepb.TagMapping, error)
 	ResolveTag(tag string) ([]*tagservicepb.TagMapping, error)
 	SetTag(tag string, tagMapping *tagservicepb.TagMapping) error
 	DeleteTag(tag string) error
 	DeleteTagMembers(tag string, members []string) error
-	GetNamespace() (string, error)
-	SetNamespace(namespace string) error
 }
 
 type Client struct {
@@ -86,28 +84,28 @@ func (c *Client) sendRequest(url string, method string, body io.Reader) ([]byte,
 }
 
 // Get a permit list for a resource
-func (c *Client) GetPermitList(cloud string, id string) (*invisinetspb.PermitList, error) {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.GetPermitListRulesURL), cloud, id)
+func (c *Client) GetPermitList(namespace string, cloud string, resourceName string) ([]*invisinetspb.PermitListRule, error) {
+	path := fmt.Sprintf(frontend.GetFormatterString(frontend.GetPermitListRulesURL), namespace, cloud, resourceName)
 
 	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	permitList := &invisinetspb.PermitList{}
-	err = json.Unmarshal(respBytes, permitList)
+	rules := []*invisinetspb.PermitListRule{}
+	err = json.Unmarshal(respBytes, &rules)
 	if err != nil {
 		return nil, err
 	}
 
-	return permitList, nil
+	return rules, nil
 }
 
 // Add permit list rules to a resource
-func (c *Client) AddPermitListRules(cloud string, permitList *invisinetspb.PermitList) error {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.AddPermitListRulesURL), cloud)
+func (c *Client) AddPermitListRules(namespace string, cloud string, resourceName string, rules []*invisinetspb.PermitListRule) error {
+	path := fmt.Sprintf(frontend.GetFormatterString(frontend.AddPermitListRulesURL), namespace, cloud, resourceName)
 
-	reqBody, err := json.Marshal(permitList)
+	reqBody, err := json.Marshal(rules)
 	if err != nil {
 		return err
 	}
@@ -121,10 +119,10 @@ func (c *Client) AddPermitListRules(cloud string, permitList *invisinetspb.Permi
 }
 
 // Delete permit list rules from a resource
-func (c *Client) DeletePermitListRules(cloud string, permitList *invisinetspb.PermitList) error {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.DeletePermitListRulesURL), cloud)
+func (c *Client) DeletePermitListRules(namespace string, cloud string, resourceName string, rules []*invisinetspb.PermitListRule) error {
+	path := fmt.Sprintf(frontend.GetFormatterString(frontend.DeletePermitListRulesURL), namespace, cloud, resourceName)
 
-	reqBody, err := json.Marshal(permitList)
+	reqBody, err := json.Marshal(rules)
 	if err != nil {
 		return err
 	}
@@ -138,8 +136,8 @@ func (c *Client) DeletePermitListRules(cloud string, permitList *invisinetspb.Pe
 }
 
 // Create a resource
-func (c *Client) CreateResource(cloud string, resource *invisinetspb.ResourceDescriptionString) error {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.CreateResourceURL), cloud)
+func (c *Client) CreateResource(namespace string, cloud string, resourceName string, resource *invisinetspb.ResourceDescriptionString) error {
+	path := fmt.Sprintf(frontend.GetFormatterString(frontend.CreateResourceURL), namespace, cloud, resourceName)
 
 	reqBody, err := json.Marshal(resource)
 	if err != nil {
@@ -229,36 +227,6 @@ func (c *Client) DeleteTagMembers(tag string, members []string) error {
 	}
 
 	_, err = c.sendRequest(path, http.MethodDelete, bytes.NewBuffer(reqBody))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Get the current namespace of the controller
-func (c *Client) GetNamespace() (string, error) {
-	path := frontend.GetFormatterString(frontend.GetNamespaceURL)
-
-	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
-	if err != nil {
-		return "", err
-	}
-
-	namespaceDict := map[string]string{}
-	err = json.Unmarshal(respBytes, &namespaceDict)
-	if err != nil {
-		return "", err
-	}
-
-	return namespaceDict["namespace"], nil
-}
-
-// Set the namespace of the controller
-func (c *Client) SetNamespace(namespace string) error {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.SetNamespaceURL), namespace)
-
-	_, err := c.sendRequest(path, http.MethodPost, nil)
 	if err != nil {
 		return err
 	}

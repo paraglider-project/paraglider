@@ -28,13 +28,13 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	grpc "google.golang.org/grpc"
 
+	config "github.com/NetSys/invisinets/pkg/frontend/config"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 
@@ -65,7 +65,7 @@ type mockTagServiceServer struct {
 }
 
 func (s *mockTagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMapping, error) {
-	if strings.HasPrefix(tag.TagName, validLastLevelTagName) {
+	if strings.HasPrefix(tag.TagName, validLastLevelTagName) || strings.HasSuffix(tag.TagName, validLastLevelTagName) {
 		return &tagservicepb.TagMapping{TagName: tag.TagName, Uri: &tagUri, Ip: &tagIp}, nil
 	}
 	if strings.HasPrefix(tag.TagName, validParentTagName) {
@@ -113,7 +113,7 @@ func (s *mockTagServiceServer) Unsubscribe(c context.Context, sub *tagservicepb.
 
 func (s *mockTagServiceServer) GetSubscribers(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.SubscriberList, error) {
 	if strings.HasPrefix(tag.TagName, validTagName) {
-		return &tagservicepb.SubscriberList{Subscribers: []string{exampleCloudName + ">uri"}}, nil
+		return &tagservicepb.SubscriberList{Subscribers: []string{createSubscriberName(defaultNamespace, exampleCloudName, "uri")}}, nil
 	}
 	return nil, fmt.Errorf("Tag does not exist")
 }
@@ -160,7 +160,7 @@ func newTagServer() *mockTagServiceServer {
 }
 
 func newFrontendServer() *ControllerServer {
-	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string]map[string][]string), namespace: defaultNamespace}
+	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string]map[string][]string)}
 	return s
 }
 
@@ -200,45 +200,38 @@ func SetUpRouter() *gin.Engine {
 	return router
 }
 
-type PermitListGetResponse struct {
-	Id         string                   `json:"id"`
-	PermitList *invisinetspb.PermitList `json:"permitlist"`
-}
-
 func TestPermitListGet(t *testing.T) {
 	// Setup
 	frontendServer := newFrontendServer()
-	port := getNewPortNumber()
-	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+	pluginPort := getNewPortNumber()
+	tagPort := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", pluginPort)
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagPort)
 
-	setupPluginServer(port)
+	setupPluginServer(pluginPort)
+	setupTagServer(tagPort)
 
 	r := SetUpRouter()
-	r.GET("/cloud/:cloud/permit-list/:id", frontendServer.permitListGet)
+	r.GET(GetPermitListRulesURL, frontendServer.permitListGet)
 
 	// Well-formed request
-	id := "123"
-	expectedResponse := PermitListGetResponse{
-		Id:         id,
-		PermitList: &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{exampleRule}},
-	}
+	name := validLastLevelTagName
+	expectedResponse := []*invisinetspb.PermitListRule{exampleRule}
 
-	url := fmt.Sprintf("/cloud/%s/permit-list/%s", exampleCloudName, id)
+	url := fmt.Sprintf(GetFormatterString(GetPermitListRulesURL), defaultNamespace, exampleCloudName, name)
 	req, _ := http.NewRequest("GET", url, nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
 	responseData, _ := io.ReadAll(w.Body)
-	var permitList PermitListGetResponse
+	var permitList []*invisinetspb.PermitListRule
 	err := json.Unmarshal(responseData, &permitList)
 	require.Nil(t, err)
-	assert.Equal(t, expectedResponse.Id, permitList.Id)
-	assert.Equal(t, expectedResponse.PermitList.AssociatedResource, permitList.PermitList.AssociatedResource)
-	assert.Equal(t, expectedResponse.PermitList.Rules[0].Tags, permitList.PermitList.Rules[0].Tags)
+	assert.Equal(t, expectedResponse[0].Tags, permitList[0].Tags)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf("/cloud/%s/permit-list/%s", "wrong", id)
+	url = fmt.Sprintf(GetFormatterString(GetPermitListRulesURL), defaultNamespace, "wrong", name)
 	req, _ = http.NewRequest("GET", url, nil)
 	w = httptest.NewRecorder()
 
@@ -258,41 +251,52 @@ func TestPermitListRulesAdd(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST("/cloud/:cloud/permit-list/rules", frontendServer.permitListRulesAdd)
+	r.POST(AddPermitListRulesURL, frontendServer.permitListRulesAdd)
 
 	// Well-formed request
-	id := "123"
+	name := validLastLevelTagName
 	tags := []string{validTagName}
 	rule := &invisinetspb.PermitListRule{
-		Id:        id,
+		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
-	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
+	rulesList := []*invisinetspb.PermitListRule{rule}
 	jsonValue, _ := json.Marshal(rulesList)
 
-	url := fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
+	url := fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, name)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
 
+	// Invalid resource name
+	badName := "badname"
+	jsonValue, _ = json.Marshal(rulesList)
+
+	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, badName)
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
 	// Invalid tag name (cannot be resolved)
 	tags = []string{"tag"}
 	rule = &invisinetspb.PermitListRule{
-		Id:        id,
+		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
-	rulesList = &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
+	rulesList = []*invisinetspb.PermitListRule{rule}
 	jsonValue, _ = json.Marshal(rulesList)
 
-	url = fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
+	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, name)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -300,7 +304,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf("/cloud/%s/permit-list/rules", "wrong")
+	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, "wrong", name)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -310,7 +314,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
+	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, name)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -330,10 +334,10 @@ func TestPermitListRulesDelete(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.DELETE("/cloud/:cloud/permit-list/rules", frontendServer.permitListRulesDelete)
+	r.DELETE(DeletePermitListRulesURL, frontendServer.permitListRulesDelete)
 
 	// Well-formed request
-	id := "123"
+	name := validLastLevelTagName
 	tags := []string{validTagName}
 	rule := &invisinetspb.PermitListRule{
 		Id:        "id",
@@ -342,11 +346,11 @@ func TestPermitListRulesDelete(t *testing.T) {
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
-	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
+	rulesList := []*invisinetspb.PermitListRule{rule}
 
 	jsonValue, _ := json.Marshal(rulesList)
 
-	url := fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
+	url := fmt.Sprintf(GetFormatterString(DeletePermitListRulesURL), defaultNamespace, exampleCloudName, name)
 	req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -354,8 +358,19 @@ func TestPermitListRulesDelete(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
+	// Invalid resource name
+	badName := "badname"
+	jsonValue, _ = json.Marshal(rulesList)
+
+	url = fmt.Sprintf(GetFormatterString(DeletePermitListRulesURL), defaultNamespace, exampleCloudName, badName)
+	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
 	// Bad cloud name
-	url = fmt.Sprintf("/cloud/%s/permit-list/rules", "wrong")
+	url = fmt.Sprintf(GetFormatterString(DeletePermitListRulesURL), defaultNamespace, "wrong", name)
 	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -365,7 +380,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf("/cloud/%s/permit-list/rules", exampleCloudName)
+	url = fmt.Sprintf(GetFormatterString(DeletePermitListRulesURL), defaultNamespace, exampleCloudName, name)
 	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -387,17 +402,18 @@ func TestCreateResource(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST("/cloud/:cloud/resources/", frontendServer.resourceCreate)
+	r.POST(CreateResourceURL, frontendServer.resourceCreate)
 
 	// Well-formed request
-	id := "123"
+	name := "resource-name"
+	uri := "resource/123"
 	resource := &invisinetspb.ResourceDescriptionString{
-		Id:          id,
+		Id:          uri,
 		Description: "description",
 	}
 	jsonValue, _ := json.Marshal(resource)
 
-	url := fmt.Sprintf("/cloud/%s/resources/", exampleCloudName)
+	url := fmt.Sprintf(GetFormatterString(CreateResourceURL), defaultNamespace, exampleCloudName, name)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -405,7 +421,7 @@ func TestCreateResource(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf("/cloud/%s/resources/", "wrong")
+	url = fmt.Sprintf(GetFormatterString(CreateResourceURL), defaultNamespace, "wrong", name)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -415,7 +431,7 @@ func TestCreateResource(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf("/cloud/%s/resources/", exampleCloudName)
+	url = fmt.Sprintf(GetFormatterString(CreateResourceURL), defaultNamespace, exampleCloudName, name)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -450,15 +466,19 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	setupPluginServer(port)
 
 	// Valid cloud list
-	cloud := Cloud{Name: exampleCloudName, Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
-	frontendServer.config = Config{Clouds: []Cloud{cloud}}
+	deployment := config.CloudDeployment{Name: exampleCloudName, Deployment: ""}
+	frontendServer.config = config.Config{
+		Namespaces: map[string]config.Namespace{
+			defaultNamespace: config.Namespace{CloudDeployments: []config.CloudDeployment{deployment}}}}
 	err := frontendServer.updateUsedAddressSpacesMap(defaultNamespace)
 	require.Nil(t, err)
 	assert.Equal(t, frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName][0], addressSpaceAddress)
 
 	// Invalid cloud list
-	cloud = Cloud{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
-	frontendServer.config = Config{Clouds: []Cloud{cloud}}
+	deployment = config.CloudDeployment{Name: "wrong", Deployment: ""}
+	frontendServer.config = config.Config{
+		Namespaces: map[string]config.Namespace{
+			defaultNamespace: config.Namespace{CloudDeployments: []config.CloudDeployment{deployment}}}}
 	err = frontendServer.updateUsedAddressSpacesMap(defaultNamespace)
 
 	require.NotNil(t, err)
@@ -498,13 +518,13 @@ func TestGetTag(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.GET("/tags/:tag", frontendServer.getTag)
+	r.GET(GetTagURL, frontendServer.getTag)
 
 	// Well-formed request for non-last-level tag
 	tag := validParentTagName
 	expectedResult := &tagservicepb.TagMapping{TagName: tag, ChildTags: []string{"child"}}
 
-	url := fmt.Sprintf("/tags/%s", tag)
+	url := fmt.Sprintf(GetFormatterString(GetTagURL), tag)
 	req, _ := http.NewRequest("GET", url, nil)
 	w := httptest.NewRecorder()
 
@@ -521,7 +541,7 @@ func TestGetTag(t *testing.T) {
 	tag = validLastLevelTagName
 	expectedResult = &tagservicepb.TagMapping{TagName: tag, Uri: &tagUri, Ip: &tagIp}
 
-	url = fmt.Sprintf("/tags/%s", tag)
+	url = fmt.Sprintf(GetFormatterString(GetTagURL), tag)
 	req, _ = http.NewRequest("GET", url, nil)
 	w = httptest.NewRecorder()
 
@@ -537,7 +557,7 @@ func TestGetTag(t *testing.T) {
 	// Request for non-existent tag
 	tag = "badtag"
 
-	url = fmt.Sprintf("/tags/%s", tag)
+	url = fmt.Sprintf(GetFormatterString(GetTagURL), tag)
 	req, _ = http.NewRequest("GET", url, nil)
 	w = httptest.NewRecorder()
 
@@ -554,14 +574,14 @@ func TestResolveTag(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.GET("/tags/:tag/resolve", frontendServer.resolveTag)
+	r.GET(ResolveTagURL, frontendServer.resolveTag)
 
 	// Well-formed request
 	tag := validTagName
 	newUri := "uri/" + tag
 	expectedResult := &tagservicepb.TagMapping{TagName: tag, Uri: &newUri, Ip: &resolvedTagIp}
 
-	url := fmt.Sprintf("/tags/%s/resolve", tag)
+	url := fmt.Sprintf(GetFormatterString(ResolveTagURL), tag)
 	req, _ := http.NewRequest("GET", url, nil)
 	w := httptest.NewRecorder()
 
@@ -577,7 +597,7 @@ func TestResolveTag(t *testing.T) {
 	// Resolve non-existent tag
 	tag = "badtag"
 
-	url = fmt.Sprintf("/tags/%s/resolve", tag)
+	url = fmt.Sprintf(GetFormatterString(ResolveTagURL), tag)
 	req, _ = http.NewRequest("GET", url, nil)
 	w = httptest.NewRecorder()
 
@@ -597,13 +617,13 @@ func TestSetTag(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST("/tags/:tag", frontendServer.setTag)
+	r.POST(SetTagURL, frontendServer.setTag)
 
 	// Well-formed request
 	tagMapping := &tagservicepb.TagMapping{TagName: validTagName, ChildTags: []string{validTagName + "child"}}
 	jsonValue, _ := json.Marshal(tagMapping)
 
-	url := fmt.Sprintf("/tags/%s", tagMapping.TagName)
+	url := fmt.Sprintf(GetFormatterString(SetTagURL), tagMapping.TagName)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -618,7 +638,7 @@ func TestSetTag(t *testing.T) {
 	// Malformed request
 	jsonValue, _ = json.Marshal(tagMapping.ChildTags)
 
-	url = fmt.Sprintf("/tags/%s", tagMapping.TagName)
+	url = fmt.Sprintf(GetFormatterString(SetTagURL), tagMapping.TagName)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -641,13 +661,13 @@ func TestDeleteTagMember(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.DELETE("/tags/:tag/members", frontendServer.deleteTagMember)
+	r.DELETE(DeleteTagMembersURL, frontendServer.deleteTagMember)
 
 	// Well-formed request
 	tagMapping := &tagservicepb.TagMapping{TagName: validTagName, ChildTags: []string{"child"}}
 	jsonValue, _ := json.Marshal(tagMapping.ChildTags)
 
-	url := fmt.Sprintf("/tags/%s/members", tagMapping.TagName)
+	url := fmt.Sprintf(GetFormatterString(DeleteTagMembersURL), tagMapping.TagName)
 	req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -663,7 +683,7 @@ func TestDeleteTagMember(t *testing.T) {
 	tagMapping = &tagservicepb.TagMapping{TagName: "badtag", ChildTags: []string{"child"}}
 	jsonValue, _ = json.Marshal(tagMapping.ChildTags)
 
-	url = fmt.Sprintf("/tags/%s/members", tagMapping.TagName)
+	url = fmt.Sprintf(GetFormatterString(DeleteTagMembersURL), tagMapping.TagName)
 	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -674,7 +694,7 @@ func TestDeleteTagMember(t *testing.T) {
 	// Malformed request
 	jsonValue, _ = json.Marshal(tagMapping)
 
-	url = fmt.Sprintf("/tags/%s/members", tagMapping.TagName)
+	url = fmt.Sprintf(GetFormatterString(DeleteTagMembersURL), tagMapping.TagName)
 	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -697,12 +717,12 @@ func TestDeleteTag(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.DELETE("/tags/:tag/", frontendServer.deleteTag)
+	r.DELETE(DeleteTagURL, frontendServer.deleteTag)
 
 	// Well-formed request
 	tag := validTagName
 
-	url := fmt.Sprintf("/tags/%s/", tag)
+	url := fmt.Sprintf(GetFormatterString(DeleteTagURL), tag)
 	req, _ := http.NewRequest("DELETE", url, nil)
 	w := httptest.NewRecorder()
 
@@ -717,7 +737,7 @@ func TestDeleteTag(t *testing.T) {
 	// Delete non-existent tag
 	tag = "badtag"
 
-	url = fmt.Sprintf("/tags/%s/", tag)
+	url = fmt.Sprintf(GetFormatterString(DeleteTagURL), tag)
 	req, _ = http.NewRequest("DELETE", url, nil)
 	w = httptest.NewRecorder()
 
@@ -834,9 +854,10 @@ func TestIsIpAddrOrCidr(t *testing.T) {
 func TestCreateSubscriberName(t *testing.T) {
 	origCloudName := "cloudname"
 	origUri := "uri"
-	subName := createSubscriberName(origCloudName, origUri)
-	cloud, uri := parseSubscriberName(subName)
+	subName := createSubscriberName(defaultNamespace, origCloudName, origUri)
+	namespace, cloud, uri := parseSubscriberName(subName)
 
+	assert.Equal(t, defaultNamespace, namespace)
 	assert.Equal(t, origCloudName, cloud)
 	assert.Equal(t, origUri, uri)
 }
@@ -880,8 +901,10 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 
 	setupTagServer(tagServerPort)
 
+	resource := resourceInfo{uri: "uri", cloud: exampleCloudName, namespace: defaultNamespace}
+
 	beforePermitList := &invisinetspb.PermitList{
-		AssociatedResource: "uri",
+		AssociatedResource: resource.uri,
 		Rules: []*invisinetspb.PermitListRule{
 			&invisinetspb.PermitListRule{
 				Tags: []string{validTagName + "1", "1.2.3.4"},
@@ -893,7 +916,7 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 	}
 
 	afterPermitList := &invisinetspb.PermitList{
-		AssociatedResource: "uri",
+		AssociatedResource: resource.uri,
 		Rules: []*invisinetspb.PermitListRule{
 			&invisinetspb.PermitListRule{
 				Tags: []string{validTagName + "1", "1.2.3.4"},
@@ -904,7 +927,7 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 		},
 	}
 
-	err := frontendServer.checkAndUnsubscribe(beforePermitList, afterPermitList)
+	err := frontendServer.checkAndUnsubscribe(&resource, beforePermitList, afterPermitList)
 	assert.Nil(t, err)
 }
 
@@ -981,41 +1004,4 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	addressSpaces, err = frontendServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: "empty"})
 	require.Nil(t, err)
 	assert.Equal(t, 0, len(addressSpaces.AddressSpaceMappings))
-}
-
-func TestGetNamespace(t *testing.T) {
-	frontendServer := newFrontendServer()
-
-	r := SetUpRouter()
-	r.GET("/namespace/", frontendServer.getNamespace)
-
-	url := "/namespace/"
-	req, _ := http.NewRequest("GET", url, nil)
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-	responseData, _ := io.ReadAll(w.Body)
-	var jsonMap map[string]string
-	err := json.Unmarshal(responseData, &jsonMap)
-	require.Nil(t, err)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, frontendServer.namespace, jsonMap["namespace"])
-}
-
-func TestSetNamespace(t *testing.T) {
-	frontendServer := newFrontendServer()
-
-	r := SetUpRouter()
-	r.POST("/namespace/:namespace", frontendServer.setNamespace)
-
-	newNamespace := "newnamespace"
-	url := fmt.Sprintf("/namespace/%s", newNamespace)
-	req, _ := http.NewRequest("POST", url, nil)
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, newNamespace, frontendServer.namespace)
 }

@@ -67,6 +67,7 @@ type ControllerServer struct {
 }
 
 type resourceInfo struct {
+	name      string
 	uri       string
 	cloud     string
 	namespace string
@@ -112,7 +113,7 @@ func getIPsFromResolvedTag(mappings []*tagservicepb.TagMapping) []string {
 // Check if rules given by the user have tags (requirement) and remove any targets they contain (should only be written by the controller)
 func checkAndCleanRule(rule *invisinetspb.PermitListRule) (*invisinetspb.PermitListRule, *Warning, error) {
 	if len(rule.Tags) == 0 {
-		return nil, nil, fmt.Errorf("Rule %s contains no tags", rule.Id)
+		return nil, nil, fmt.Errorf("rule %s contains no tags", rule.Id)
 	}
 	if len(rule.Targets) != 0 {
 		rule.Targets = []string{}
@@ -139,10 +140,11 @@ func createTagName(namespace string, cloud string, tag string) string {
 	return namespace + "." + cloud + "." + tag
 }
 
+// TODO NOW: Document and add tests
 func (s *ControllerServer) getTagUri(tag string) (string, error) {
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return "", fmt.Errorf("Could not contact tag server: %s", err.Error())
+		return "", fmt.Errorf("could not contact tag server: %s", err.Error())
 	}
 	defer conn.Close()
 
@@ -150,17 +152,18 @@ func (s *ControllerServer) getTagUri(tag string) (string, error) {
 	client := tagservicepb.NewTagServiceClient(conn)
 	response, err := client.GetTag(context.Background(), &tagservicepb.Tag{TagName: tag})
 	if err != nil {
-		return "", fmt.Errorf("Could not get tag: %s", err.Error())
+		return "", fmt.Errorf("could not get tag: %s", err.Error())
 	}
 
 	if *response.Uri == "" {
-		return "", fmt.Errorf("Tag %s is not an individual resource tag", tag)
+		return "", fmt.Errorf("tag %s is not an individual resource tag", tag)
 	}
 
 	return *response.Uri, nil
 }
 
-func (s *ControllerServer) getAndValidateResourceParams(c *gin.Context) (*resourceInfo, string, error) {
+// TODO NOW: Document and add tests
+func (s *ControllerServer) getAndValidateResourceParams(c *gin.Context, resolveTag bool) (*resourceInfo, string, error) {
 	tag := c.Param("resourceName")
 	cloud := c.Param("cloud")
 	namespace := c.Param("namespace")
@@ -168,15 +171,19 @@ func (s *ControllerServer) getAndValidateResourceParams(c *gin.Context) (*resour
 	// Ensure correct cloud name
 	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
-		return nil, "", fmt.Errorf("Invalid cloud name: %s", cloud)
+		return nil, "", fmt.Errorf("invalid cloud name: %s", cloud)
 	}
 
-	uri, err := s.getTagUri(createTagName(namespace, cloud, tag))
-	if err != nil {
-		return nil, "", err
-	}
+	if resolveTag {
+		uri, err := s.getTagUri(createTagName(namespace, cloud, tag))
+		if err != nil {
+			return nil, "", err
+		}
 
-	return &resourceInfo{uri: uri, namespace: namespace, cloud: cloud}, cloudClient, nil
+		return &resourceInfo{name: tag, uri: uri, namespace: namespace, cloud: cloud}, cloudClient, nil
+	} else {
+		return &resourceInfo{name: tag, namespace: namespace, cloud: cloud}, cloudClient, nil
+	}
 }
 
 // Takes a set of permit list rules and returns the same list with all tags referenced in the original rules resolved to IPs
@@ -185,14 +192,14 @@ func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList,
 		// Check rule validity and clean fields
 		rule, _, err := checkAndCleanRule(rule) // TODO @smcclure20: use the warning and report it to the user
 		if err != nil {
-			return nil, fmt.Errorf("Invalid rule: %s", err.Error())
+			return nil, fmt.Errorf("invalid rule: %s", err.Error())
 		}
 
 		for _, tag := range rule.Tags {
 			if !isIpAddrOrCidr(tag) {
 				conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 				if err != nil {
-					return nil, fmt.Errorf("Could not contact tag server: %s", err.Error())
+					return nil, fmt.Errorf("could not contact tag server: %s", err.Error())
 				}
 				defer conn.Close()
 
@@ -200,7 +207,7 @@ func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList,
 				client := tagservicepb.NewTagServiceClient(conn)
 				resolvedTag, err := client.ResolveTag(context.Background(), &tagservicepb.Tag{TagName: tag})
 				if err != nil {
-					return nil, fmt.Errorf("Could not resolve tag: %s", err.Error())
+					return nil, fmt.Errorf("could not resolve tag: %s", err.Error())
 				}
 
 				// Subscribe self to tag
@@ -209,7 +216,7 @@ func (s *ControllerServer) resolvePermitListRules(list *invisinetspb.PermitList,
 						&tagservicepb.Subscription{TagName: tag,
 							Subscriber: createSubscriberName(list.Namespace, cloud, list.AssociatedResource)})
 					if err != nil {
-						return nil, fmt.Errorf("Could not subscribe to tag: %s", err.Error())
+						return nil, fmt.Errorf("could not subscribe to tag: %s", err.Error())
 					}
 				}
 
@@ -245,7 +252,7 @@ func (s *ControllerServer) _permitListGet(namespace string, pluginAddress string
 
 // Get specified PermitList from given cloud
 func (s *ControllerServer) permitListGet(c *gin.Context) {
-	resourceInfo, cloudClient, err := s.getAndValidateResourceParams(c)
+	resourceInfo, cloudClient, err := s.getAndValidateResourceParams(c, true)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -257,10 +264,7 @@ func (s *ControllerServer) permitListGet(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"id":         resourceInfo.uri,
-		"permitlist": response,
-	})
+	c.JSON(http.StatusOK, response.Rules)
 }
 
 // Add rules to a resource specified in the permit list in the given cloud
@@ -290,21 +294,21 @@ func (s *ControllerServer) _permitListRulesAdd(pluginAddress string, permitList 
 
 // Add permit list rules to specified resource
 func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
-	resourceInfo, cloudClient, err := s.getAndValidateResourceParams(c)
+	resourceInfo, cloudClient, err := s.getAndValidateResourceParams(c, true)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
 	// Parse permit list rules to add
-	var permitListRules *invisinetspb.PermitList
-	if err := c.BindJSON(&permitListRules); err != nil {
+	var rules []*invisinetspb.PermitListRule
+	if err := c.BindJSON(&rules); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	permitListRules.Namespace = c.Param("namespace")
+	permitList := &invisinetspb.PermitList{Rules: rules, Namespace: resourceInfo.namespace, AssociatedResource: resourceInfo.uri}
 
-	response, err := s._permitListRulesAdd(cloudClient, permitListRules, resourceInfo.cloud)
+	response, err := s._permitListRulesAdd(cloudClient, permitList, resourceInfo.cloud)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -367,7 +371,7 @@ func (s *ControllerServer) checkAndUnsubscribe(resource *resourceInfo, beforeLis
 
 	// Send RPC to unsubscribe from each tag
 	for _, tag := range tagsToUnsubscribe {
-		_, err := client.Unsubscribe(context.Background(), &tagservicepb.Subscription{TagName: tag, Subscriber: createSubscriberName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.uri)})
+		_, err := client.Unsubscribe(context.Background(), &tagservicepb.Subscription{TagName: tag, Subscriber: createSubscriberName(resource.namespace, resource.cloud, resource.uri)})
 		if err != nil {
 			return err
 		}
@@ -378,19 +382,19 @@ func (s *ControllerServer) checkAndUnsubscribe(resource *resourceInfo, beforeLis
 
 // Delete permit list rules to specified resource
 func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
-	resourceInfo, cloudClient, err := s.getAndValidateResourceParams(c)
+	resourceInfo, cloudClient, err := s.getAndValidateResourceParams(c, true)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
 	// Parse rules to delete
-	var permitListRules *invisinetspb.PermitList = &invisinetspb.PermitList{}
-	if err := c.BindJSON(permitListRules); err != nil {
+	var rules []*invisinetspb.PermitListRule
+	if err := c.BindJSON(&rules); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	permitListRules.Namespace = resourceInfo.namespace
+	permitList := &invisinetspb.PermitList{Rules: rules, Namespace: resourceInfo.namespace, AssociatedResource: resourceInfo.uri}
 
 	// Create connection to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -409,14 +413,14 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	}
 
 	// Resolve tags (for correct lookup in cloud plugin) and unsubscribe
-	permitListRules, err = s.resolvePermitListRules(permitListRules, false, resourceInfo.cloud)
+	permitList, err = s.resolvePermitListRules(permitList, false, resourceInfo.cloud)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
 	// Send RPC to delete the rules
-	response, err := client.DeletePermitListRules(context.Background(), permitListRules)
+	response, err := client.DeletePermitListRules(context.Background(), permitList)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -447,13 +451,13 @@ func (s *ControllerServer) getAddressSpaces(cloud string, deploymentId string, n
 	// Ensure correct cloud name
 	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
-		return nil, errors.New("Invalid cloud name")
+		return nil, errors.New("invalid cloud name")
 	}
 
 	// Connect to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("Unable to connect to cloud plugin: %s", err.Error())
+		return nil, fmt.Errorf("unable to connect to cloud plugin: %s", err.Error())
 	}
 	defer conn.Close()
 
@@ -471,7 +475,7 @@ func (s *ControllerServer) updateUsedAddressSpacesMap(namespace string) error {
 	for _, cloud := range s.config.Namespaces[namespace].CloudDeployments {
 		addressList, err := s.getAddressSpaces(cloud.Name, cloud.Deployment, namespace)
 		if err != nil {
-			return fmt.Errorf("Could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
+			return fmt.Errorf("could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
 		}
 
 		if _, ok := s.usedAddressSpaces[namespace]; !ok {
@@ -503,7 +507,7 @@ func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, ns *invisin
 	}
 
 	if highestBlockUsed >= 255 {
-		return nil, errors.New("All address blocks used")
+		return nil, errors.New("all address blocks used")
 	}
 
 	newAddressSpace := &invisinetspb.AddressSpace{Address: fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+1)}
@@ -578,7 +582,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 		}
 		cloudBconn, err := grpc.Dial(cloudBClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
-			return nil, fmt.Errorf("Unable to connect to cloud plugin: %w", err)
+			return nil, fmt.Errorf("unable to connect to cloud plugin: %w", err)
 		}
 		defer cloudAConn.Close()
 		cloudBClient := invisinetspb.NewCloudPluginClient(cloudBconn)
@@ -651,15 +655,11 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 
 // Create resource in specified cloud region
 func (s *ControllerServer) resourceCreate(c *gin.Context) {
-	// Ensure correct cloud name
-	cloud := c.Param("cloud")
-	cloudClient, ok := s.pluginAddresses[cloud]
-	if !ok {
-		c.AbortWithStatusJSON(400, createErrorResponse("Invalid cloud name"))
+	resourceInfo, cloudClient, err := s.getAndValidateResourceParams(c, false)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-
-	namespace := c.Param("namespace")
 
 	// Parse the resource description provided
 	var resourceWithString invisinetspb.ResourceDescriptionString
@@ -677,7 +677,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	defer conn.Close()
 
 	// Send RPC to create the resource
-	resource := invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description), Namespace: namespace}
+	resource := invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description), Namespace: resourceInfo.namespace}
 	client := invisinetspb.NewCloudPluginClient(conn)
 	resourceResp, err := client.CreateResource(context.Background(), &resource)
 	if err != nil {
@@ -694,7 +694,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	defer conn.Close()
 
 	tagClient := tagservicepb.NewTagServiceClient(conn)
-	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: createTagName(namespace, cloud, resourceName), Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
+	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name), Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error())) // TODO @smcclure20: change this to a warning?
 		return
@@ -773,7 +773,7 @@ func (s *ControllerServer) updateSubscribers(tag string) error {
 		namespace, cloud, uri := parseSubscriberName(subscriber)
 		cloudClient, ok := s.pluginAddresses[cloud]
 		if !ok {
-			return fmt.Errorf("Invalid cloud name in subscriber name %s for tag %s", subscriber, tag)
+			return fmt.Errorf("invalid cloud name in subscriber name %s for tag %s", subscriber, tag)
 		}
 
 		permitList, err := s._permitListGet(namespace, cloudClient, uri)
