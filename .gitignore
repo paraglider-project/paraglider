@@ -32,3 +32,6 @@ default.profraw
 
 # gomock files
 gomock_*
+
+# Key
+*key*.json
