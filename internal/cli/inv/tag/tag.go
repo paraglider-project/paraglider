@@ -14,12 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package tag
 
 import (
-	cli "github.com/NetSys/invisinets/internal/cli/inv"
+	"github.com/NetSys/invisinets/internal/cli/inv/tag/delete"
+	"github.com/NetSys/invisinets/internal/cli/inv/tag/get"
+	"github.com/NetSys/invisinets/internal/cli/inv/tag/set"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cli.Execute()
+func NewCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "tag",
+		Short: "Perform operations on tags",
+	}
+
+	deleteCmd, _ := delete.NewCommand()
+	cmd.AddCommand(deleteCmd)
+	getCmd, _ := get.NewCommand()
+	cmd.AddCommand(getCmd)
+	setCmd, _ := set.NewCommand()
+	cmd.AddCommand(setCmd)
+
+	return cmd
 }

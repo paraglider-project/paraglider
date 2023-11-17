@@ -17,18 +17,9 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
-	"os"
-
-	"github.com/NetSys/invisinets/internal/version"
+	cli "github.com/NetSys/invisinets/internal/cli/invd"
 )
 
-// Placeholder server binary to get the build definitions working.
 func main() {
-	fmt.Println("Hello, world!")
-	fmt.Println()
-	fmt.Println("This is a placeholder version of an invisinet server binary.")
-	fmt.Println()
-	fmt.Println(version.VersionString(version.NewVersionInfo()))
-	os.Exit(0)
+	cli.Execute()
 }

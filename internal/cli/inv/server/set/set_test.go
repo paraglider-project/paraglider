@@ -14,12 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package set
 
 import (
-	cli "github.com/NetSys/invisinets/internal/cli/inv"
+	"testing"
+
+	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/stretchr/testify/assert"
 )
 
-func main() {
-	cli.Execute()
+func TestServerSetExecute(t *testing.T) {
+	settings.ServerAddr = "serverAddrBefore"
+
+	newAddr := "serverAddrAfter"
+	cmd, executor := NewCommand()
+
+	err := executor.Execute(cmd, []string{newAddr})
+
+	assert.Nil(t, err)
+	assert.Equal(t, newAddr, settings.ServerAddr)
 }

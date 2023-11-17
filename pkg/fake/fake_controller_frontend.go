@@ -74,12 +74,10 @@ func GetFakePermitListRules() []*invisinetspb.PermitListRule {
 	}
 }
 
-func GetFakeTagMapping(tagName string) []*tagservicepb.TagMapping {
-	return []*tagservicepb.TagMapping{
-		{
-			TagName:   tagName,
-			ChildTags: []string{"member1", "member2"},
-		},
+func GetFakeTagMapping(tagName string) *tagservicepb.TagMapping {
+	return &tagservicepb.TagMapping{
+		TagName:   tagName,
+		ChildTags: []string{"member1", "member2"},
 	}
 }
 
