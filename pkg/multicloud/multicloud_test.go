@@ -58,16 +58,20 @@ func TestMulticloud(t *testing.T) {
 				Host: "localhost",
 				Port: strconv.Itoa(gcpPluginPort),
 			},
-		CloudDeployments: []frontend.CloudDeployment{
-			{
-				Name:       utils.AZURE,
-				Deployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName),
-			},
-			{
-				Name:        utils.GCP,
-				ßDeployment: fmt.Sprintf("projects/%s", gcpProjectId),
-			},
 		},
+		Namespaces: map[string]Namespace{
+			"default": {
+				CloudDeployments: []frontend.CloudDeployment{
+				{
+					Name:       utils.AZURE,
+					Deployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName),
+				},
+				{
+					Name:        utils.GCP,
+					ßDeployment: fmt.Sprintf("projects/%s", gcpProjectId),
+				},
+			},
+			},
 	}
 	controllerServerAddr := frontend.SetupControllerServer(controllerServerConfig)
 	fmt.Println("Setup controller server")
