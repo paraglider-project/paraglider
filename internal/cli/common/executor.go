@@ -14,12 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package cmd
 
 import (
-	cli "github.com/NetSys/invisinets/internal/cli/inv"
+	"io"
+
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cli.Execute()
+type CommandExecutor interface {
+	Validate(cmd *cobra.Command, args []string) error
+	Execute(cmd *cobra.Command, args []string) error
+	SetOutput(w io.Writer)
 }

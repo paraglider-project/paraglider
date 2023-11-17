@@ -14,12 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package cmd
 
 import (
-	cli "github.com/NetSys/invisinets/internal/cli/inv"
+	"fmt"
+
+	"github.com/NetSys/invisinets/internal/version"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cli.Execute()
+func NewVersionCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Display the version of the Invisinets CLI",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Fprintln(cmd.OutOrStderr(), version.VersionString(version.NewVersionInfo()))
+			return nil
+		},
+	}
 }

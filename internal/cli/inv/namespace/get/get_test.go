@@ -14,12 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package get
 
 import (
-	cli "github.com/NetSys/invisinets/internal/cli/inv"
+	"bytes"
+	"testing"
+
+	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	fake "github.com/NetSys/invisinets/pkg/fake"
+	"github.com/stretchr/testify/assert"
 )
 
-func main() {
-	cli.Execute()
+func TestNamespaceGetExecute(t *testing.T) {
+	server := &fake.FakeFrontendServer{}
+	settings.ServerAddr = server.SetupFakeFrontendServer()
+
+	cmd, executor := NewCommand()
+	var output bytes.Buffer
+	executor.writer = &output
+
+	err := executor.Execute(cmd, []string{})
+
+	assert.Nil(t, err)
+	assert.Contains(t, output.String(), fake.Namespace)
 }

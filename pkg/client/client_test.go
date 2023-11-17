@@ -72,10 +72,10 @@ func TestGetTag(t *testing.T) {
 	client := Client{ControllerAddress: controllerAddress}
 
 	tagName := "tag"
-	tags, err := client.GetTag(tagName)
+	tag, err := client.GetTag(tagName)
 
 	assert.Nil(t, err)
-	assert.Equal(t, tagName, tags[0].TagName)
+	assert.Equal(t, tagName, tag.TagName)
 }
 
 func TestResolveTag(t *testing.T) {
@@ -97,7 +97,7 @@ func TestSetTag(t *testing.T) {
 	client := Client{ControllerAddress: controllerAddress}
 
 	tagName := "tag"
-	tagMapping := fake.GetFakeTagMapping(tagName)[0]
+	tagMapping := fake.GetFakeTagMapping(tagName)
 	err := client.SetTag(tagName, tagMapping)
 
 	assert.Nil(t, err)
