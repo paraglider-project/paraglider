@@ -28,7 +28,7 @@ import (
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout}
+	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
 	cmd := &cobra.Command{
 		Use:     "get <cloud> <resource name>",
 		Short:   "Get rules of a resource permit list",
@@ -41,7 +41,8 @@ func NewCommand() (*cobra.Command, *executor) {
 
 type executor struct {
 	common.CommandExecutor
-	writer io.Writer
+	writer      io.Writer
+	cliSettings settings.CLISettings
 }
 
 func (e *executor) SetOutput(w io.Writer) {
@@ -54,14 +55,14 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	// Get the rules from the server
-	c := client.Client{ControllerAddress: settings.ServerAddr}
-	permitList, err := c.GetPermitList(settings.ActiveNamespace, args[0], args[1])
+	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
+	permitList, err := c.GetPermitList(e.cliSettings.ActiveNamespace, args[0], args[1])
 	if err != nil {
 		return err
 	}
 
 	// Print the rules
-	fmt.Fprintf(e.writer, "Permit list for %s:\n", permitList)
+	fmt.Fprintf(e.writer, "Permit list for %s:\n%v\n", args[1], permitList)
 
 	return nil
 }

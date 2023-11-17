@@ -989,3 +989,58 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	require.Nil(t, err)
 	assert.Equal(t, 0, len(addressSpaces.AddressSpaceMappings))
 }
+
+func TestGetTagUri(t *testing.T) {
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	setupTagServer(tagServerPort)
+
+	// Valid last level tag
+	uri, err := frontendServer.getTagUri(validLastLevelTagName)
+	require.Nil(t, err)
+	assert.Equal(t, tagUri, uri)
+
+	// invalid last level tag
+	uri, err = frontendServer.getTagUri("invalidtag")
+	require.NotNil(t, err)
+	assert.Equal(t, "", uri)
+}
+
+func TestGetAndValidateResourceURLParams(t *testing.T) {
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	cloudPluginAddr := "address"
+	frontendServer.pluginAddresses[exampleCloudName] = cloudPluginAddr
+
+	setupTagServer(tagServerPort)
+
+	ctx := gin.Context{}
+	ctx.Params = gin.Params{gin.Param{Key: "namespace", Value: defaultNamespace}, gin.Param{Key: "cloud", Value: exampleCloudName}, gin.Param{Key: "resourceName", Value: validLastLevelTagName}}
+
+	expectedResourceInfo := &resourceInfo{uri: tagUri, name: validLastLevelTagName, cloud: exampleCloudName, namespace: defaultNamespace}
+
+	// Resolve the tag
+	resource, cloudPlugin, err := frontendServer.getAndValidateResourceURLParams(&ctx, true)
+
+	assert.Nil(t, err)
+	assert.Equal(t, expectedResourceInfo, resource)
+	assert.Equal(t, cloudPluginAddr, cloudPlugin)
+
+	// Do not resolve the tag
+	expectedResourceInfo = &resourceInfo{name: validLastLevelTagName, cloud: exampleCloudName, namespace: defaultNamespace}
+
+	resource, cloudPlugin, err = frontendServer.getAndValidateResourceURLParams(&ctx, false)
+
+	assert.Nil(t, err)
+	assert.Equal(t, expectedResourceInfo, resource)
+	assert.Equal(t, cloudPluginAddr, cloudPlugin)
+
+	// Invalid cloud name
+	ctx.Params = gin.Params{gin.Param{Key: "namespace", Value: defaultNamespace}, gin.Param{Key: "cloud", Value: "wrong"}, gin.Param{Key: "resourceName", Value: validLastLevelTagName}}
+	_, _, err = frontendServer.getAndValidateResourceURLParams(&ctx, true)
+
+	assert.NotNil(t, err)
+}

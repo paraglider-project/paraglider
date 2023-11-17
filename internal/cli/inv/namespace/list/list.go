@@ -28,7 +28,7 @@ import (
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout}
+	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
 	cmd := &cobra.Command{
 		Use:     "list",
 		Short:   "List all configured namespaces",
@@ -41,7 +41,8 @@ func NewCommand() (*cobra.Command, *executor) {
 
 type executor struct {
 	common.CommandExecutor
-	writer io.Writer
+	writer      io.Writer
+	cliSettings settings.CLISettings
 }
 
 func (e *executor) SetOutput(w io.Writer) {
@@ -53,14 +54,14 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	c := client.Client{ControllerAddress: settings.ServerAddr}
+	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	namespaces, err := c.ListNamespaces()
 
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(e.writer, "%v", namespaces)
+	fmt.Fprintf(e.writer, "Namespaces: %v", namespaces)
 
 	return nil
 }

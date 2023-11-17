@@ -24,11 +24,11 @@ import (
 )
 
 func TestNamespaceSetExecute(t *testing.T) {
-
 	cmd, executor := NewCommand()
+	executor.cliSettings = settings.CLISettings{ActiveNamespace: "default"}
 
 	err := executor.Execute(cmd, []string{"new-namespace"})
 
 	assert.Nil(t, err)
-	assert.Equal(t, "new-namespace", settings.ActiveNamespace)
+	assert.Equal(t, "new-namespace", executor.cliSettings.ActiveNamespace)
 }

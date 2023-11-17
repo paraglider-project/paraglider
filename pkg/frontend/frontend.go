@@ -141,7 +141,7 @@ func createTagName(namespace string, cloud string, tag string) string {
 	return namespace + "." + cloud + "." + tag
 }
 
-// TODO NOW: Document and add tests
+// Get the URI of a tag
 func (s *ControllerServer) getTagUri(tag string) (string, error) {
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -163,8 +163,8 @@ func (s *ControllerServer) getTagUri(tag string) (string, error) {
 	return *response.Uri, nil
 }
 
-// TODO NOW: Document and add tests
-func (s *ControllerServer) getAndValidateResourceParams(c *gin.Context, resolveTag bool) (*resourceInfo, string, error) {
+// Get URL params for a resource and resolve the resource name if needed
+func (s *ControllerServer) getAndValidateResourceURLParams(c *gin.Context, resolveTag bool) (*resourceInfo, string, error) {
 	tag := c.Param("resourceName")
 	cloud := c.Param("cloud")
 	namespace := c.Param("namespace")
@@ -253,7 +253,7 @@ func (s *ControllerServer) _permitListGet(namespace string, pluginAddress string
 
 // Get specified PermitList from given cloud
 func (s *ControllerServer) permitListGet(c *gin.Context) {
-	resourceInfo, cloudClient, err := s.getAndValidateResourceParams(c, true)
+	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -295,7 +295,7 @@ func (s *ControllerServer) _permitListRulesAdd(pluginAddress string, permitList 
 
 // Add permit list rules to specified resource
 func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
-	resourceInfo, cloudClient, err := s.getAndValidateResourceParams(c, true)
+	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -383,7 +383,7 @@ func (s *ControllerServer) checkAndUnsubscribe(resource *resourceInfo, beforeLis
 
 // Delete permit list rules to specified resource
 func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
-	resourceInfo, cloudClient, err := s.getAndValidateResourceParams(c, true)
+	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -656,7 +656,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 
 // Create resource in specified cloud region
 func (s *ControllerServer) resourceCreate(c *gin.Context) {
-	resourceInfo, cloudClient, err := s.getAndValidateResourceParams(c, false)
+	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, false)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return

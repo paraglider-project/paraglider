@@ -94,7 +94,7 @@ func (c *Client) GetPermitList(namespace string, cloud string, resourceName stri
 		return nil, err
 	}
 
-	rules := []*invisinetspb.PermitListRule{}
+	var rules []*invisinetspb.PermitListRule
 	err = json.Unmarshal(respBytes, &rules)
 	if err != nil {
 		return nil, err

@@ -27,16 +27,17 @@ import (
 
 func TestNamespaceListExecute(t *testing.T) {
 	server := &fake.FakeFrontendServer{}
-	settings.ServerAddr = server.SetupFakeFrontendServer()
+	serverAddr := server.SetupFakeFrontendServer()
 
 	cmd, executor := NewCommand()
 	var output bytes.Buffer
 	executor.writer = &output
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr}
 
 	err := executor.Execute(cmd, []string{})
 
 	assert.Nil(t, err)
-	for namespace, _ := range fake.GetFakeNamespaces() {
+	for namespace := range fake.GetFakeNamespaces() {
 		assert.Contains(t, output.String(), namespace)
 	}
 }

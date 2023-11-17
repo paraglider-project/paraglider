@@ -29,7 +29,7 @@ import (
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout}
+	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
 	cmd := &cobra.Command{
 		Use:     "delete <cloud> <resource name> [--rulefile <path to rule json file> | --ping <tag> | --ssh <tag>]",
 		Short:   "Delete a rule from a resource permit list",
@@ -45,10 +45,11 @@ func NewCommand() (*cobra.Command, *executor) {
 
 type executor struct {
 	common.CommandExecutor
-	writer   io.Writer
-	ruleFile string
-	pingTag  string
-	sshTag   string
+	writer      io.Writer
+	cliSettings settings.CLISettings
+	ruleFile    string
+	pingTag     string
+	sshTag      string
 }
 
 func (e *executor) SetOutput(w io.Writer) {
@@ -103,7 +104,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Send the rules to the server
-	c := client.Client{ControllerAddress: settings.ServerAddr}
-	err := c.DeletePermitListRules(settings.ActiveNamespace, args[0], args[1], rules)
+	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
+	err := c.DeletePermitListRules(e.cliSettings.ActiveNamespace, args[0], args[1], rules)
 	return err
 }

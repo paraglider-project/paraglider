@@ -26,7 +26,7 @@ import (
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout}
+	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
 	cmd := &cobra.Command{
 		Use:     "set",
 		Short:   "Set active namespace",
@@ -39,7 +39,8 @@ func NewCommand() (*cobra.Command, *executor) {
 
 type executor struct {
 	common.CommandExecutor
-	writer io.Writer
+	writer      io.Writer
+	cliSettings settings.CLISettings
 }
 
 func (e *executor) SetOutput(w io.Writer) {
@@ -51,7 +52,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	settings.ActiveNamespace = args[0]
+	e.cliSettings.ActiveNamespace = args[0]
 
 	return nil
 }

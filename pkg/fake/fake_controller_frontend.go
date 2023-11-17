@@ -43,14 +43,17 @@ type FakeFrontendServer struct {
 func urlMatches(url string, pattern string) bool {
 	urlTokens := strings.Split(url, "/")
 	patternTokens := strings.Split(pattern, "/")
+	if len(urlTokens) != len(patternTokens) {
+		return false
+	}
 	for i, token := range patternTokens {
 		if urlTokens[i] != token && !strings.HasPrefix(token, ":") {
 			return false
 		}
-		if strings.HasPrefix(token, ":") && strings.Contains(urlTokens[i], "cloud") && token != CloudName {
+		if strings.HasPrefix(token, ":") && strings.Contains(token, "cloud") && urlTokens[i] != CloudName {
 			return false
 		}
-		if strings.HasPrefix(token, ":") && strings.Contains(urlTokens[i], "namespace") && token != Namespace {
+		if strings.HasPrefix(token, ":") && strings.Contains(token, "namespace") && urlTokens[i] != Namespace {
 			return false
 		}
 	}
@@ -138,6 +141,14 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 		}
 
 		switch {
+		// List Namespaces
+		case urlMatches(path, frontend.ListNamespacesURL) && r.Method == http.MethodGet:
+			err := s.writeResponse(w, GetFakeNamespaces())
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+				return
+			}
+			return
 		// Create Resources
 		case urlMatches(path, frontend.CreateResourceURL) && r.Method == http.MethodPost:
 			resource := &invisinetspb.ResourceDescriptionString{}
@@ -155,7 +166,6 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 				return
 			}
-			w.WriteHeader(http.StatusOK)
 			return
 		// Get Permit List Rules
 		case urlMatches(path, frontend.GetPermitListRulesURL) && r.Method == http.MethodGet:
@@ -197,14 +207,6 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 		case urlMatches(path, frontend.ResolveTagURL) && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
 			err := s.writeResponse(w, GetFakeTagMappingLeafTags(getURLParams(path, string(frontend.ResolveTagURL))["tag"]))
-			if err != nil {
-				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
-				return
-			}
-			return
-		// List Namespaces
-		case urlMatches(path, frontend.ListNamespacesURL) && r.Method == http.MethodGet:
-			err := s.writeResponse(w, GetFakeNamespaces())
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 				return

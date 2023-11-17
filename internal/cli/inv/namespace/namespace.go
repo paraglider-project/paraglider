@@ -18,6 +18,7 @@ package namespace
 
 import (
 	"github.com/NetSys/invisinets/internal/cli/inv/namespace/get"
+	"github.com/NetSys/invisinets/internal/cli/inv/namespace/list"
 	"github.com/NetSys/invisinets/internal/cli/inv/namespace/set"
 
 	"github.com/spf13/cobra"
@@ -33,6 +34,8 @@ func NewCommand() *cobra.Command {
 	cmd.AddCommand(getCmd)
 	setCmd, _ := set.NewCommand()
 	cmd.AddCommand(setCmd)
+	listCmd, _ := list.NewCommand()
+	cmd.AddCommand(listCmd)
 
 	return cmd
 }

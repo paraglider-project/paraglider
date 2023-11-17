@@ -27,9 +27,10 @@ import (
 
 func TestRuleGetExecute(t *testing.T) {
 	server := &fake.FakeFrontendServer{}
-	settings.ServerAddr = server.SetupFakeFrontendServer()
+	serverAddr := server.SetupFakeFrontendServer()
 
 	cmd, executor := NewCommand()
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
 	var output bytes.Buffer
 	executor.writer = &output
 

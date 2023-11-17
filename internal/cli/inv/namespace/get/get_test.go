@@ -28,9 +28,10 @@ func TestNamespaceGetExecute(t *testing.T) {
 	cmd, executor := NewCommand()
 	var output bytes.Buffer
 	executor.writer = &output
+	executor.cliSettings = settings.CLISettings{ActiveNamespace: "default"}
 
 	err := executor.Execute(cmd, []string{})
 
 	assert.Nil(t, err)
-	assert.Contains(t, output.String(), settings.ActiveNamespace)
+	assert.Contains(t, output.String(), executor.cliSettings.ActiveNamespace)
 }

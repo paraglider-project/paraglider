@@ -42,9 +42,10 @@ func TestTagDeleteValidate(t *testing.T) {
 
 func TestTagDeleteExecute(t *testing.T) {
 	server := &fake.FakeFrontendServer{}
-	settings.ServerAddr = server.SetupFakeFrontendServer()
+	serverAddr := server.SetupFakeFrontendServer()
 
 	cmd, executor := NewCommand()
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr}
 
 	// Delete entire tag
 	args := []string{"tag"}

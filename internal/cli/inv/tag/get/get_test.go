@@ -43,9 +43,10 @@ func TestTagGetValidate(t *testing.T) {
 
 func TestTagGetExecute(t *testing.T) {
 	server := &fake.FakeFrontendServer{}
-	settings.ServerAddr = server.SetupFakeFrontendServer()
+	serverAddr := server.SetupFakeFrontendServer()
 
 	cmd, executor := NewCommand()
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr}
 	var output bytes.Buffer
 	executor.writer = &output
 	executor.resolveFlag = false

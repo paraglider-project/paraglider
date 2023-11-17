@@ -47,9 +47,10 @@ func TestRuleDeleteValidate(t *testing.T) {
 
 func TestRuleDeleteExecute(t *testing.T) {
 	server := &fake.FakeFrontendServer{}
-	settings.ServerAddr = server.SetupFakeFrontendServer()
+	serverAddr := server.SetupFakeFrontendServer()
 
 	cmd, executor := NewCommand()
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
 	executor.pingTag = "pingTag"
 	executor.sshTag = "sshTag"
 
