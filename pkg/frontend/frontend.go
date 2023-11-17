@@ -66,6 +66,12 @@ type ControllerServer struct {
 	config            cfg.Config
 }
 
+type resourceInfo struct {
+	uri       string
+	cloud     string
+	namespace string
+}
+
 // Return a string usable with Sprintf for inserting URL params
 func GetFormatterString(url string) string {
 	new_tokens := []string{}
@@ -127,6 +133,50 @@ func parseSubscriberName(sub string) (string, string, string) {
 		return tokens[0], tokens[1], tokens[2]
 	}
 	return sub, "", ""
+}
+
+func createTagName(namespace string, cloud string, tag string) string {
+	return namespace + "." + cloud + "." + tag
+}
+
+func (s *ControllerServer) getTagUri(tag string) (string, error) {
+	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return "", fmt.Errorf("Could not contact tag server: %s", err.Error())
+	}
+	defer conn.Close()
+
+	// Send RPC to get tag
+	client := tagservicepb.NewTagServiceClient(conn)
+	response, err := client.GetTag(context.Background(), &tagservicepb.Tag{TagName: tag})
+	if err != nil {
+		return "", fmt.Errorf("Could not get tag: %s", err.Error())
+	}
+
+	if *response.Uri == "" {
+		return "", fmt.Errorf("Tag %s is not an individual resource tag", tag)
+	}
+
+	return *response.Uri, nil
+}
+
+func (s *ControllerServer) getAndValidateResourceParams(c *gin.Context) (*resourceInfo, string, error) {
+	tag := c.Param("resourceName")
+	cloud := c.Param("cloud")
+	namespace := c.Param("namespace")
+
+	// Ensure correct cloud name
+	cloudClient, ok := s.pluginAddresses[cloud]
+	if !ok {
+		return nil, "", fmt.Errorf("Invalid cloud name: %s", cloud)
+	}
+
+	uri, err := s.getTagUri(createTagName(namespace, cloud, tag))
+	if err != nil {
+		return nil, "", err
+	}
+
+	return &resourceInfo{uri: uri, namespace: namespace, cloud: cloud}, cloudClient, nil
 }
 
 // Takes a set of permit list rules and returns the same list with all tags referenced in the original rules resolved to IPs
@@ -195,25 +245,20 @@ func (s *ControllerServer) _permitListGet(namespace string, pluginAddress string
 
 // Get specified PermitList from given cloud
 func (s *ControllerServer) permitListGet(c *gin.Context) {
-	id := strings.TrimPrefix(c.Param("id"), "/") // Gin adds an extra slash to parameters with *
-	cloud := c.Param("cloud")
-	namespace := c.Param("namespace")
-
-	// Ensure correct cloud name
-	cloudClient, ok := s.pluginAddresses[cloud]
-	if !ok {
-		c.AbortWithStatusJSON(400, createErrorResponse(fmt.Sprintf("Invalid cloud name: %s", cloud)))
+	resourceInfo, cloudClient, err := s.getAndValidateResourceParams(c)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
-	response, err := s._permitListGet(namespace, cloudClient, id)
+	response, err := s._permitListGet(resourceInfo.namespace, cloudClient, resourceInfo.uri)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":         id,
+		"id":         resourceInfo.uri,
 		"permitlist": response,
 	})
 }
@@ -245,11 +290,9 @@ func (s *ControllerServer) _permitListRulesAdd(pluginAddress string, permitList 
 
 // Add permit list rules to specified resource
 func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
-	// Ensure correct cloud name
-	cloud := c.Param("cloud")
-	cloudClient, ok := s.pluginAddresses[cloud]
-	if !ok {
-		c.AbortWithStatusJSON(400, createErrorResponse("Invalid cloud name"))
+	resourceInfo, cloudClient, err := s.getAndValidateResourceParams(c)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
@@ -261,7 +304,7 @@ func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
 	}
 	permitListRules.Namespace = c.Param("namespace")
 
-	response, err := s._permitListRulesAdd(cloudClient, permitListRules, cloud)
+	response, err := s._permitListRulesAdd(cloudClient, permitListRules, resourceInfo.cloud)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -305,7 +348,7 @@ func diffTagReferences(beforeList *invisinetspb.PermitList, afterList *invisinet
 }
 
 // Check whether any tags have been dereferenced by the permit list and unsubscribe from any that have
-func (s *ControllerServer) checkAndUnsubscribe(beforeList *invisinetspb.PermitList, afterList *invisinetspb.PermitList) error {
+func (s *ControllerServer) checkAndUnsubscribe(resource *resourceInfo, beforeList *invisinetspb.PermitList, afterList *invisinetspb.PermitList) error {
 	// Find the dereferenced tags
 	tagsToUnsubscribe := diffTagReferences(beforeList, afterList)
 
@@ -324,7 +367,7 @@ func (s *ControllerServer) checkAndUnsubscribe(beforeList *invisinetspb.PermitLi
 
 	// Send RPC to unsubscribe from each tag
 	for _, tag := range tagsToUnsubscribe {
-		_, err := client.Unsubscribe(context.Background(), &tagservicepb.Subscription{TagName: tag, Subscriber: beforeList.AssociatedResource})
+		_, err := client.Unsubscribe(context.Background(), &tagservicepb.Subscription{TagName: tag, Subscriber: createSubscriberName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.uri)})
 		if err != nil {
 			return err
 		}
@@ -335,11 +378,9 @@ func (s *ControllerServer) checkAndUnsubscribe(beforeList *invisinetspb.PermitLi
 
 // Delete permit list rules to specified resource
 func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
-	// Ensure correct cloud name
-	cloud := c.Param("cloud")
-	cloudClient, ok := s.pluginAddresses[cloud]
-	if !ok {
-		c.AbortWithStatusJSON(400, createErrorResponse("Invalid cloud name"))
+	resourceInfo, cloudClient, err := s.getAndValidateResourceParams(c)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
@@ -349,7 +390,7 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	permitListRules.Namespace = c.Param("namespace")
+	permitListRules.Namespace = resourceInfo.namespace
 
 	// Create connection to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -361,14 +402,14 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	client := invisinetspb.NewCloudPluginClient(conn)
 
 	// First, get the original list
-	permitListBefore, err := client.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: permitListRules.AssociatedResource})
+	permitListBefore, err := client.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: resourceInfo.uri})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
 	// Resolve tags (for correct lookup in cloud plugin) and unsubscribe
-	permitListRules, err = s.resolvePermitListRules(permitListRules, false, cloud)
+	permitListRules, err = s.resolvePermitListRules(permitListRules, false, resourceInfo.cloud)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -382,7 +423,7 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	}
 
 	// Then get the final list to tell which tags should be unsubscribed
-	permitListAfter, err := client.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: permitListRules.AssociatedResource})
+	permitListAfter, err := client.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: resourceInfo.uri})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -391,7 +432,7 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	// Determine which tags have been dereferenced from the permit list and unsubscribe
 	// TODO @smcclure20: Have to do a permit list diff since there is no reverse lookup to see which tags a URI is subscribed to.
 	// 					 Supporting this will probably require a database migration (non-KV store)
-	if err := s.checkAndUnsubscribe(permitListBefore, permitListAfter); err != nil {
+	if err := s.checkAndUnsubscribe(resourceInfo, permitListBefore, permitListAfter); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
@@ -653,7 +694,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	defer conn.Close()
 
 	tagClient := tagservicepb.NewTagServiceClient(conn)
-	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: namespace + "." + cloud + "." + resourceResp.Name, Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
+	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: createTagName(namespace, cloud, resourceName), Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error())) // TODO @smcclure20: change this to a warning?
 		return
