@@ -47,10 +47,10 @@ const (
 	AddPermitListRulesURL    string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules"
 	DeletePermitListRulesURL string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules"
 	CreateResourceURL        string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/create"
-	GetTagURL                string = "/tags/:tag/"
-	ResolveTagURL            string = "/tags/:tag/resolve/"
-	SetTagURL                string = "/tags/:tag/"
-	DeleteTagURL             string = "/tags/:tag/"
+	GetTagURL                string = "/tags/:tag"
+	ResolveTagURL            string = "/tags/:tag/resolve"
+	SetTagURL                string = "/tags/:tag"
+	DeleteTagURL             string = "/tags/:tag"
 	DeleteTagMemberURL       string = "/tags/:tag/members/:member"
 )
 
