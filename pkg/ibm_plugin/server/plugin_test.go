@@ -21,6 +21,8 @@ package ibm
 import (
 	"context"
 	"encoding/json"
+	"flag"
+	"os"
 	"testing"
 
 	"github.com/IBM/go-sdk-core/v5/core"
@@ -33,8 +35,19 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
+var testResGroupName = flag.String("sg", "", "Name of the user's security group")
+var testResourceID1 string
+var testResourceID2 string
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	testResourceID1 = "/ResourceGroupID/" + *testResGroupName + "/Zone/" + testUSZone1 + "/ResourceID/" + testInstanceName1
+	testResourceID2 = "/ResourceGroupID/" + *testResGroupName + "/Zone/" + testUSZone2 + "/ResourceID/" + testInstanceName2
+	exitCode := m.Run()
+	os.Exit(exitCode)
+}
+
 const (
-	testResGroupName  = "invisinets"
 	testUSRegion      = "us-east"
 	testUSZone1       = testUSRegion + "-1"
 	testUSZone2       = testUSRegion + "-2"
@@ -42,9 +55,6 @@ const (
 	testEUZone1       = testEURegion + "-1"
 	testInstanceName1 = "invisinets-vm-1"
 	testInstanceName2 = "invisinets-vm-2"
-
-	testResourceID1 = "/ResourceGroupID/" + testResGroupName + "/Zone/" + testUSZone1 + "/ResourceID/" + testInstanceName1
-	testResourceID2 = "/ResourceGroupID/" + testResGroupName + "/Zone/" + testUSZone2 + "/ResourceID/" + testInstanceName2
 
 	testImageID = "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb" // Ubuntu 22.04
 	testProfile = "bx2-2x8"
@@ -86,7 +96,7 @@ var testPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRu
 
 // TODO @praveingk: Change the tests to use fake IBM handlers
 
-// go test --tags=ibm -run TestCreateResourceNewVPC
+// go test --tags=ibm -run TestCreateResourceNewVPC -sg=<security group name>
 func TestCreateResourceNewVPC(t *testing.T) {
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.IBM)
 	if err != nil {
@@ -119,7 +129,7 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	require.NotNil(t, resp)
 }
 
-// go test --tags=ibm -run TestCreateResourceExistingVPC
+// go test --tags=ibm -run TestCreateResourceExistingVPC -sg=<security group name>
 func TestCreateResourceExistingVPC(t *testing.T) {
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.IBM)
 	if err != nil {
@@ -151,7 +161,7 @@ func TestCreateResourceExistingVPC(t *testing.T) {
 	require.NotNil(t, resp)
 }
 
-// usage: go test --tags=ibm -run TestGetPermitList
+// usage: go test --tags=ibm -run TestGetPermitList -sg=<security group name>
 func TestGetPermitList(t *testing.T) {
 	resourceID := &invisinetspb.ResourceID{Id: testResourceID1}
 
@@ -167,7 +177,7 @@ func TestGetPermitList(t *testing.T) {
 	utils.Log.Printf("Permit rules of instance %v are:\n%v", testInstanceName1, string(b))
 }
 
-// usage: go test --tags=ibm -run TestAddPermitListRules
+// usage: go test --tags=ibm -run TestAddPermitListRules -sg=<security group name>
 func TestAddPermitListRules(t *testing.T) {
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: testResourceID1,
@@ -183,7 +193,7 @@ func TestAddPermitListRules(t *testing.T) {
 	utils.Log.Printf("Response: %v", resp)
 }
 
-// usage: go test --tags=ibm -run TestDeletePermitListRule
+// usage: go test --tags=ibm -run TestDeletePermitListRule -sg=<security group name>
 func TestDeletePermitListRules(t *testing.T) {
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: testResourceID1,
@@ -199,7 +209,7 @@ func TestDeletePermitListRules(t *testing.T) {
 	utils.Log.Printf("Response: %v", resp)
 }
 
-// usage: go test --tags=ibm -run TestGetUsedAddressSpaces
+// usage: go test --tags=ibm -run TestGetUsedAddressSpaces -sg=<security group name>
 func TestGetUsedAddressSpaces(t *testing.T) {
 	deployment := &invisinetspb.InvisinetsDeployment{Id: testResourceID1}
 
