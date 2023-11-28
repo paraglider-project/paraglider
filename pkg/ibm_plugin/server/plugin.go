@@ -207,7 +207,7 @@ func (s *ibmPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 		return nil, err
 	}
 	var sgsRules []sdk.SecurityGroupRule
-	rulesHashValues := map[int64]bool{}
+	rulesHashValues := map[uint64]bool{}
 	// collect rules from all security groups attached to VM.
 	for _, sgID := range securityGroups {
 		sgRules, err := cloudClient.GetSecurityRulesOfSG(sgID)
@@ -280,7 +280,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 		subnetsCIDRs = append(subnetsCIDRs, cidr)
 	}
 
-	rulesHashValues := make(map[int64]bool)
+	rulesHashValues := make(map[uint64]bool)
 	// get current rules in SG and record their hash values
 	sgRules, err := cloudClient.GetSecurityRulesOfSG(vmInvisinetsSgID)
 	if err != nil {
@@ -326,7 +326,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 		if err != nil {
 			return nil, err
 		}
-		if _, ruleExists := rulesHashValues[int64(ruleHashValue)]; !ruleExists {
+		if _, ruleExists := rulesHashValues[ruleHashValue]; !ruleExists {
 			err := cloudClient.AddSecurityGroupRule(ibmRule)
 			if err != nil {
 				return nil, err
@@ -404,7 +404,7 @@ func (s *ibmPluginServer) fetchRulesIDs(cloudClient *sdk.CloudClient, rules []sd
 }
 
 // return the specified rules without duplicates, while keeping the rules hash values updated for future use.
-func (s *ibmPluginServer) getUniqueSGRules(rules []sdk.SecurityGroupRule, rulesHashValues map[int64]bool) ([]sdk.SecurityGroupRule, error) {
+func (s *ibmPluginServer) getUniqueSGRules(rules []sdk.SecurityGroupRule, rulesHashValues map[uint64]bool) ([]sdk.SecurityGroupRule, error) {
 	var res []sdk.SecurityGroupRule
 	for _, rule := range rules {
 		// exclude unique field "ID" from hash calculation.
@@ -412,9 +412,9 @@ func (s *ibmPluginServer) getUniqueSGRules(rules []sdk.SecurityGroupRule, rulesH
 		if err != nil {
 			return nil, err
 		}
-		if _, ruleExists := rulesHashValues[int64(ruleHashValue)]; !ruleExists {
+		if _, ruleExists := rulesHashValues[ruleHashValue]; !ruleExists {
 			res = append(res, rule)
-			rulesHashValues[int64(ruleHashValue)] = true
+			rulesHashValues[ruleHashValue] = true
 		}
 	}
 	return res, nil
