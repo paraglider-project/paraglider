@@ -371,7 +371,7 @@ func GetRemoteType(remote string) (string, error) {
 // indicating the traffic direction an SG rule permits
 func getEgressDirection(egress bool) *string {
 	if egress {
-		return core.StringPtr(inboundType)
+		return core.StringPtr(outboundType)
 	} else {
 		return core.StringPtr(inboundType)
 	}
