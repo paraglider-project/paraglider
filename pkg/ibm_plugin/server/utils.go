@@ -167,9 +167,13 @@ func getStructHash(s interface{}, fieldsToExclude []string) (uint64, error) {
 			if err != nil {
 				return 0, err
 			}
-
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			_, err := h.Write([]byte(fmt.Sprint(f.Int())))
+			if err != nil {
+				return 0, err
+			}
+		case reflect.Bool:
+			_, err := h.Write([]byte(fmt.Sprint(f.Bool())))
 			if err != nil {
 				return 0, err
 			}
