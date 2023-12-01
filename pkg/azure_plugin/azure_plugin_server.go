@@ -924,9 +924,6 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 							PeerWeight:        to.Ptr(int32(0)),
 						},
 						GatewayIPAddress: to.Ptr(req.GatewayIpAddresses[i]),
-						LocalNetworkAddressSpace: &armnetwork.AddressSpace{
-							AddressPrefixes: []*string{to.Ptr(req.AddressSpace)},
-						},
 					},
 					Location: to.Ptr(vpnLocation),
 				}

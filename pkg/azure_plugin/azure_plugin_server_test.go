@@ -1142,7 +1142,6 @@ func TestCreateVpnConnections(t *testing.T) {
 		Deployment:         &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
 		Cloud:              fakeCloudName,
 		Asn:                123,
-		AddressSpace:       "10.0.0.0/16",
 		GatewayIpAddresses: []string{"1.1.1.1", "2.2.2.2"},
 		BgpIpAddresses:     []string{"3.3.3.3", "4.4.4.4"},
 		SharedKey:          "abc",
