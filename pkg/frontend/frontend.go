@@ -385,7 +385,7 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	client := invisinetspb.NewCloudPluginClient(conn)
 
 	// First, get the original list
-	permitListBefore, err := client.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: permitListRules.AssociatedResource})
+	permitListBefore, err := client.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: permitListRules.AssociatedResource, Namespace: s.namespace})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -406,7 +406,7 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	}
 
 	// Then get the final list to tell which tags should be unsubscribed
-	permitListAfter, err := client.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: permitListRules.AssociatedResource})
+	permitListAfter, err := client.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: permitListRules.AssociatedResource, Namespace: s.namespace})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -680,6 +680,8 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error())) // TODO @smcclure20: change this to a warning?
 		return
 	}
+
+	resourceResp.Name = s.namespace + "." + cloud + "." + resourceResp.Name
 
 	c.JSON(http.StatusOK, resourceResp)
 }
