@@ -1,0 +1,21 @@
+{
+    "location": "eastus",
+    "properties": {
+        "hardwareProfile": {
+            "vmSize": "Standard_B1s"
+        },
+        "osProfile": {
+            "adminPassword": "",
+            "adminUsername": "",
+            "computerName": "sample-compute"
+        },
+        "storageProfile": {
+            "imageReference": {
+                "offer": "debian-10",
+                "publisher": "Debian",
+                "sku": "10",
+                "version": "latest"
+            }
+        }
+    }
+}
