@@ -4,7 +4,7 @@
 * Create two VMs in Azure in different regions and connect them together
 * Create a third VM in GCP and connect to one of the Azure VMs
 
-<img src="vm-diagram.png" alt="Diagram" style="width:200px;"/>
+<img src="vm-diagram.png" alt="Diagram" style="width:800px;"/>
 
 ## Setup
 * Run `invd startup <path_to_config>` to start all the microservices
@@ -26,7 +26,7 @@ Invisinets requests are shown in <span style="color:cornflowerblue">blue</span>.
 Invisinets requests are shown in <span style="color:cornflowerblue">blue</span>.
 1. <span style="color:cornflowerblue">Create VM B in Azure </span>
     * `inv resource create azure $AZURE_VM_URI/vm-b azure-vm-eastus.json`
-2. <span style="color:cornflowerblue">Set the permit list on VM A to allow SSH and pings to VM B </span>
+2. <span style="color:cornflowerblue">Set the permit list on VM A to allow pings to VM B </span>
     * `inv rule add azure $AZURE_VM_URI/vm-a --ping default.azure.vm-b`
 3. Log into VM A and try to ping VM B <span style="color:firebrick">(*this should fail*) </span>
 4. <span style="color:cornflowerblue">Set the permit list on VM B to allow pings from VM A</span>
