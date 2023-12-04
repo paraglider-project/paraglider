@@ -4,7 +4,7 @@
 * Create two VMs in Azure in different regions and connect them together
 * Create a third VM in GCP and connect to one of the Azure VMs
 
-<img src="vm-diagram.png" alt="Diagram" style="width:800px;"/>
+<img src="vm-diagram.png" alt="Diagram" style="width:600px;"/>
 
 ## Setup
 * Run `invd startup <path_to_config>` to start all the microservices
