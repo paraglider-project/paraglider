@@ -3,3 +3,6 @@
 
 # shell scripts always use LF
 *.sh text eol=lf
+
+# Do not modify images
+*.png binary
