@@ -11,7 +11,7 @@
 
 ## Phase 0: Multi-cloud Prep (Pre-recorded)
 ### Steps
-Invisinets requests are shown in <span style="color:cornflowerblue">blue</span>.
+<!-- Invisinets requests are shown in <span style="color:cornflowerblue">blue</span>. -->
 1. <span style="color:cornflowerblue">Create VM A in Azure</span>
     * `inv resource create azure $AZURE_VM_URI/vm-a azure-vm-westus.json`
 2. <span style="color:cornflowerblue">Create VM C in GCP</span>
@@ -23,7 +23,7 @@ Invisinets requests are shown in <span style="color:cornflowerblue">blue</span>.
 
 ## Phase 1: Multi-region connectivity (Live)
 ### Steps
-Invisinets requests are shown in <span style="color:cornflowerblue">blue</span>.
+<!-- Invisinets requests are shown in <span style="color:cornflowerblue">blue</span>. -->
 1. <span style="color:cornflowerblue">Create VM B in Azure </span>
     * `inv resource create azure $AZURE_VM_URI/vm-b azure-vm-eastus.json`
 2. <span style="color:cornflowerblue">Set the permit list on VM A to allow pings to VM B </span>
