@@ -19,6 +19,7 @@ limitations under the License.
 package create
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
@@ -42,10 +43,13 @@ func TestResourceCreateExecute(t *testing.T) {
 	settings.ServerAddr = server.SetupFakeFrontendServer()
 
 	cmd, executor := NewCommand()
+	var output bytes.Buffer
+	executor.writer = &output
 	executor.description = []byte(`descriptionstring`)
 
-	args := []string{fake.CloudName, "uri", ""}
+	args := []string{fake.CloudName, "example-uri", ""}
 	err := executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
+	assert.Contains(t, output.String(), "example-uri")
 }
