@@ -1047,6 +1047,19 @@ func TestCreateVpnGateway(t *testing.T) {
 	)
 
 	mockAzureHandler.On("CreateOrUpdateVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace), mock.Anything).Return(
+		&armnetwork.VirtualNetworkGateway{
+			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
+				BgpSettings: &armnetwork.BgpSettings{},
+				IPConfigurations: []*armnetwork.VirtualNetworkGatewayIPConfiguration{
+					{ID: to.Ptr("ip-config-1")},
+					{ID: to.Ptr("ip-config-2")},
+				},
+			},
+		},
+		nil,
+	)
+
+	mockAzureHandler.On("CreateOrUpdateVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace), mock.Anything).Return(
 		&armnetwork.VirtualNetworkGateway{},
 		nil,
 	)
@@ -1065,43 +1078,16 @@ func TestCreateVpnGateway(t *testing.T) {
 	mockAzureHandler.On("CreateOrUpdateVnetPeeringRemoteGateway", ctx, vnetName, vpnGwVnetName, mock.Anything, mock.Anything).Return(
 		nil,
 	)
-	resp, err := server.CreateVpnGateway(ctx, &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace})
+	req := &invisinetspb.CreateVpnGatewayRequest{
+		Deployment: &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
+		Cloud:      "fake-cloud",
+	}
+	resp, err := server.CreateVpnGateway(ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	require.Equal(t, resp.GatewayIpAddresses, fakePublicIPAddresses)
-}
-
-func TestCreateVpnBgpSessions(t *testing.T) {
-	server, mockAzureHandler, ctx := setupAzurePluginServer()
-	mockHandlerSetup(mockAzureHandler)
-
-	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
-		&armnetwork.VirtualNetworkGateway{
-			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
-				IPConfigurations: []*armnetwork.VirtualNetworkGatewayIPConfiguration{
-					{ID: to.Ptr("ip-config-1")},
-					{ID: to.Ptr("ip-config-2")},
-				},
-				BgpSettings: &armnetwork.BgpSettings{
-					BgpPeeringAddresses: []*armnetwork.IPConfigurationBgpPeeringAddress{
-						{CustomBgpIPAddresses: []*string{}},
-						{CustomBgpIPAddresses: []*string{}},
-					},
-				},
-			},
-		},
-		nil,
-	)
-
-	mockAzureHandler.On("CreateOrUpdateVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace), mock.Anything).Return(
-		&armnetwork.VirtualNetworkGateway{},
-		nil,
-	)
-
-	resp, err := server.CreateVpnBgpSessions(ctx, &invisinetspb.CreateVpnBgpSessionsRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/sub123/resourceGroups/rg123", Namespace: defaultNamespace}})
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.Equal(t, resp.BgpIpAddresses, vpnGwBgpIpAddrs)
+	require.Equal(t, vpnGwAsn, resp.Asn)
+	require.ElementsMatch(t, fakePublicIPAddresses, resp.GatewayIpAddresses)
+	require.ElementsMatch(t, vpnGwBgpIpAddrs, resp.BgpIpAddresses)
 }
 
 func TestCreateVpnConnections(t *testing.T) {
