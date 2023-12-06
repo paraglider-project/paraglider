@@ -820,7 +820,6 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 			}
 
 			// Add BGP IP addresses
-			fmt.Printf("%+v\n", virtualNetworkGateway.Properties)
 			virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses = make([]*armnetwork.IPConfigurationBgpPeeringAddress, vpnNumConnections)
 			for i := 0; i < vpnNumConnections; i++ {
 				virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses[i] = &armnetwork.IPConfigurationBgpPeeringAddress{
