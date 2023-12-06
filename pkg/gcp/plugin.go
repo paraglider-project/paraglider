@@ -843,8 +843,8 @@ func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, invisinetsDe
 	return s._GetUsedAddressSpaces(ctx, invisinetsDeployment, networksClient, subnetworksClient)
 }
 
-func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment, vpnGatewaysClient *compute.VpnGatewaysClient, routersClient *compute.RoutersClient) (*invisinetspb.CreateVpnGatewayResponse, error) {
-	project := parseGCPURL(deployment.Id)["projects"]
+func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinetspb.CreateVpnGatewayRequest, vpnGatewaysClient *compute.VpnGatewaysClient, routersClient *compute.RoutersClient) (*invisinetspb.CreateVpnGatewayResponse, error) {
+	project := parseGCPURL(req.Deployment.Id)["projects"]
 
 	// Create VPN gateway
 	insertVpnGatewayReq := &computepb.InsertVpnGatewayRequest{
@@ -853,7 +853,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, deployment *inv
 		VpnGatewayResource: &computepb.VpnGateway{
 			Name:        proto.String(vpnGwName),
 			Description: proto.String("Invisinets VPN gateway for multicloud connections"),
-			Network:     proto.String(GetVpcUri(deployment.Namespace)),
+			Network:     proto.String(GetVpcUri(req.Deployment.Namespace)),
 		},
 	}
 	insertVpnGatewayOp, err := vpnGatewaysClient.Insert(ctx, insertVpnGatewayReq)
@@ -874,11 +874,19 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, deployment *inv
 		RouterResource: &computepb.Router{
 			Name:        proto.String(routerName),
 			Description: proto.String("Invisinets router for multicloud connections"),
-			Network:     proto.String(GetVpcUri(deployment.Namespace)),
+			Network:     proto.String(GetVpcUri(req.Deployment.Namespace)),
 			Bgp: &computepb.RouterBgp{
 				Asn: proto.Uint32(vpnGwAsn),
 			},
 		},
+	}
+	insertRouterReq.RouterResource.Interfaces = make([]*computepb.RouterInterface, vpnNumConnections)
+	for i := 0; i < vpnNumConnections; i++ {
+		insertRouterReq.RouterResource.Interfaces[i] = &computepb.RouterInterface{
+			Name:            proto.String(getVpnTunnelInterfaceName(req.Cloud, i, i)),
+			IpRange:         proto.String(vpnGwBgpIpAddrs[i] + "/30"),
+			LinkedVpnTunnel: proto.String(getVpnTunnelUri(project, vpnRegion, getVpnTunnelName(req.Cloud, i))),
+		}
 	}
 	insertRouterOp, err := routersClient.Insert(ctx, insertRouterReq)
 	if err != nil {
@@ -902,14 +910,16 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, deployment *inv
 	}
 	resp := &invisinetspb.CreateVpnGatewayResponse{Asn: vpnGwAsn}
 	resp.GatewayIpAddresses = make([]string, vpnNumConnections)
+	resp.BgpIpAddresses = make([]string, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {
 		resp.GatewayIpAddresses[i] = *vpnGateway.VpnInterfaces[i].IpAddress
+		resp.BgpIpAddresses[i] = vpnGwBgpIpAddrs[i]
 	}
 
 	return resp, nil
 }
 
-func (s *GCPPluginServer) CreateVpnGateway(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.CreateVpnGatewayResponse, error) {
+func (s *GCPPluginServer) CreateVpnGateway(ctx context.Context, req *invisinetspb.CreateVpnGatewayRequest) (*invisinetspb.CreateVpnGatewayResponse, error) {
 	vpnGatewaysClient, err := compute.NewVpnGatewaysRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewVpnGatewaysRESTClient: %w", err)
@@ -920,44 +930,7 @@ func (s *GCPPluginServer) CreateVpnGateway(ctx context.Context, deployment *invi
 		return nil, fmt.Errorf("NewRoutersRESTClient: %w", err)
 	}
 	defer routersClient.Close()
-	return s._CreateVpnGateway(ctx, deployment, vpnGatewaysClient, routersClient)
-}
-
-func (s *GCPPluginServer) _CreateVpnBgpSessions(ctx context.Context, req *invisinetspb.CreateVpnBgpSessionsRequest, routersClient *compute.RoutersClient) (*invisinetspb.CreateVpnBgpSessionsResponse, error) {
-	project := parseGCPURL(req.Deployment.Id)["projects"]
-
-	patchRouterReq := &computepb.PatchRouterRequest{
-		Project:        project,
-		Region:         vpnRegion,
-		Router:         routerName,
-		RouterResource: &computepb.Router{},
-	}
-	patchRouterReq.RouterResource.Interfaces = make([]*computepb.RouterInterface, vpnNumConnections)
-	for i := 0; i < vpnNumConnections; i++ {
-		patchRouterReq.RouterResource.Interfaces[i] = &computepb.RouterInterface{
-			Name:            proto.String(getVpnTunnelInterfaceName(req.Cloud, i, i)),
-			IpRange:         proto.String(vpnGwBgpIpAddrs[i] + "/30"),
-			LinkedVpnTunnel: proto.String(getVpnTunnelUri(project, vpnRegion, getVpnTunnelName(req.Cloud, i))),
-		}
-	}
-	patchRouterOp, err := routersClient.Patch(ctx, patchRouterReq)
-	if err != nil {
-		return nil, fmt.Errorf("unable to patch router: %w", err)
-	}
-	if err = patchRouterOp.Wait(ctx); err != nil {
-		return nil, fmt.Errorf("unable to wait on patch router operation: %w", err)
-	}
-
-	return &invisinetspb.CreateVpnBgpSessionsResponse{BgpIpAddresses: vpnGwBgpIpAddrs}, nil
-}
-
-func (s *GCPPluginServer) CreateVpnBgpSessions(ctx context.Context, req *invisinetspb.CreateVpnBgpSessionsRequest) (*invisinetspb.CreateVpnBgpSessionsResponse, error) {
-	routersClient, err := compute.NewRoutersRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewRoutersRESTClient: %w", err)
-	}
-	defer routersClient.Close()
-	return s._CreateVpnBgpSessions(ctx, req, routersClient)
+	return s._CreateVpnGateway(ctx, req, vpnGatewaysClient, routersClient)
 }
 
 func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *invisinetspb.CreateVpnConnectionsRequest, externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient, vpnTunnelsClient *compute.VpnTunnelsClient, routersClient *compute.RoutersClient) (*invisinetspb.BasicResponse, error) {

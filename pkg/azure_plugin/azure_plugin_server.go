@@ -722,9 +722,9 @@ func getVirtualNetworkGatewayConnectionName(cloud string, idx int) string {
 	return invisinetsPrefix + "-" + cloud + "-conn-" + strconv.Itoa(idx)
 }
 
-func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.CreateVpnGatewayResponse, error) {
-	resourceId := deployment.Id
-	namespace := deployment.Namespace
+func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinetspb.CreateVpnGatewayRequest) (*invisinetspb.CreateVpnGatewayResponse, error) {
+	resourceId := req.Deployment.Id
+	namespace := req.Deployment.Namespace
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
@@ -814,9 +814,22 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, deployment *in
 					},
 				}
 			}
-			_, err = s.azureHandler.CreateOrUpdateVirtualNetworkGateway(ctx, virtualNetworkGatewayName, virtualNetworkGatewayParameters)
+			virtualNetworkGateway, err = s.azureHandler.CreateOrUpdateVirtualNetworkGateway(ctx, virtualNetworkGatewayName, virtualNetworkGatewayParameters)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create virtual network gateway: %w", err)
+			}
+
+			// Add BGP IP addresses
+			virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses = make([]*armnetwork.IPConfigurationBgpPeeringAddress, vpnNumConnections)
+			for i := 0; i < vpnNumConnections; i++ {
+				virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses[i] = &armnetwork.IPConfigurationBgpPeeringAddress{
+					CustomBgpIPAddresses: []*string{to.Ptr(vpnGwBgpIpAddrs[i])},
+					IPConfigurationID:    virtualNetworkGateway.Properties.IPConfigurations[i].ID,
+				}
+			}
+			_, err = s.azureHandler.CreateOrUpdateVirtualNetworkGateway(ctx, virtualNetworkGatewayName, *virtualNetworkGateway)
+			if err != nil {
+				return nil, fmt.Errorf("unable to update virtual network gateway with BGP IP addresses: %w", err)
 			}
 
 			// Update existing peerings with gateway transit relationship
@@ -859,45 +872,12 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, deployment *in
 
 	resp := &invisinetspb.CreateVpnGatewayResponse{Asn: vpnGwAsn}
 	resp.GatewayIpAddresses = make([]string, vpnNumConnections)
+	resp.BgpIpAddresses = make([]string, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {
 		resp.GatewayIpAddresses[i] = *publicIPAddresses[i].Properties.IPAddress
+		resp.BgpIpAddresses[i] = vpnGwBgpIpAddrs[i]
 	}
 	return resp, nil
-}
-
-func (s *azurePluginServer) CreateVpnBgpSessions(ctx context.Context, req *invisinetspb.CreateVpnBgpSessionsRequest) (*invisinetspb.CreateVpnBgpSessionsResponse, error) {
-	resourceIdInfo, err := getResourceIDInfo(req.Deployment.Id)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
-	}
-	err = s.setupAzureHandler(resourceIdInfo)
-	if err != nil {
-		return nil, fmt.Errorf("unable to setup azure handler: %w", err)
-	}
-
-	virtualNetworkGatewayName := getVpnGatewayName(req.Deployment.Namespace)
-	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
-	}
-	bgpConfigurationChanged := false
-	for i := 0; i < vpnNumConnections; i++ {
-		if len(virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses[i].CustomBgpIPAddresses) == 0 {
-			virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses[i] = &armnetwork.IPConfigurationBgpPeeringAddress{
-				CustomBgpIPAddresses: []*string{to.Ptr(vpnGwBgpIpAddrs[i])},
-				IPConfigurationID:    virtualNetworkGateway.Properties.IPConfigurations[i].ID,
-			}
-			bgpConfigurationChanged = true
-		}
-	}
-	if bgpConfigurationChanged {
-		_, err = s.azureHandler.CreateOrUpdateVirtualNetworkGateway(ctx, virtualNetworkGatewayName, *virtualNetworkGateway)
-		if err != nil {
-			return nil, fmt.Errorf("unable to add bgp settings to VPN gateway: %w", err)
-		}
-	}
-
-	return &invisinetspb.CreateVpnBgpSessionsResponse{BgpIpAddresses: vpnGwBgpIpAddrs}, nil
 }
 
 func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invisinetspb.CreateVpnConnectionsRequest) (*invisinetspb.BasicResponse, error) {

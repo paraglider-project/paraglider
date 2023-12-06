@@ -25,8 +25,7 @@ service CloudPlugin {
     rpc GetPermitList(ResourceID) returns (PermitList) {}
     rpc AddPermitListRules(PermitList) returns (BasicResponse) {}
     rpc DeletePermitListRules(PermitList) returns (BasicResponse) {}
-    rpc CreateVpnGateway(InvisinetsDeployment) returns (CreateVpnGatewayResponse) {}
-    rpc CreateVpnBgpSessions(CreateVpnBgpSessionsRequest) returns (CreateVpnBgpSessionsResponse) {}
+    rpc CreateVpnGateway(CreateVpnGatewayRequest) returns (CreateVpnGatewayResponse) {}
     rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (BasicResponse) {}
 }
 
@@ -118,7 +117,7 @@ message PermitList {
     string namespace = 3;
 }
 
-message ConnectCloudsRequest{
+message ConnectCloudsRequest {
     string cloudA = 1;
     string cloudB = 2;
     string cloudANamespace = 3;
@@ -128,21 +127,18 @@ message ConnectCloudsRequest{
 // TODO @seankimkdy: check naming of all of these to be as cloud neutral as possible
 // TODO @seankmkdy: should all methods have a {method name}Request and {method name}Response message buffers
 
-message CreateVpnGatewayResponse{
-    repeated string gateway_ip_addresses = 1;
-    int64 asn = 2;
-}
-
-message CreateVpnBgpSessionsRequest {
+message CreateVpnGatewayRequest {
     InvisinetsDeployment deployment = 1;
     string cloud = 2;
 }
 
-message CreateVpnBgpSessionsResponse {
-    repeated string bgp_ip_addresses = 1;
+message CreateVpnGatewayResponse {
+    int64 asn = 1;
+    repeated string gateway_ip_addresses = 2;
+    repeated string bgp_ip_addresses = 3;
 }
 
-message CreateVpnConnectionsRequest{
+message CreateVpnConnectionsRequest {
     InvisinetsDeployment deployment = 1;
     string cloud = 2;
     int64 asn = 3;
