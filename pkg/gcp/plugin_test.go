@@ -776,7 +776,6 @@ func TestCreateVpnConnections(t *testing.T) {
 		Deployment:         &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
 		Cloud:              "fakecloud",
 		Asn:                65555,
-		AddressSpace:       "0.0.0.0/0",
 		GatewayIpAddresses: []string{"1.1.1.1", "2.2.2.2"},
 		BgpIpAddresses:     []string{"3.3.3.3", "4.4.4.4"},
 		SharedKey:          "abcd",
