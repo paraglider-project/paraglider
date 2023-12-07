@@ -13,7 +13,7 @@ Parameters:
 * `namespace`: namespace to set on the controller
 
 **HTTP:**
-`POST /namespace/<namespace>/`
+`POST /namespace/{namespace}/`
 
 Parameters:
 * `namespace`: namespace to set on the controller
@@ -42,7 +42,7 @@ Parameters:
 * `path_to_json`: path to JSON file describing the resource to be created (excluding networking details)
 
 **REST:** 
-`POST /cloud/<cloud>/resources/` 
+`POST /cloud/{cloud}/resources/` 
 
 * Example JSON:
 
@@ -94,7 +94,7 @@ Parameters:
 * `uri`: URI of the resource
 
 **REST:**
-`GET /cloud/<cloud>/permit-list/<uri>` 
+`GET /cloud/{cloud}/permit-list/{uri}` 
 
 Parameters:
 * `cloud`: name of the cloud that the resource is in
@@ -114,7 +114,7 @@ Parameters:
 * `tag`: Invisinets tag or IP to allow SSH/ICMP traffic to/from
 
 **REST:**
-`POST /cloud/:cloud/permit-list/rules/` 
+`POST /cloud/{cloud}/permit-list/rules/` 
 
 * Example JSON:
 
@@ -153,7 +153,7 @@ Parameters:
 * `tag`: Invisinets tag or IP to allow SSH/ICMP traffic to/from
 
 **REST:**
-`DELETE /cloud/:cloud/permit-list/rules/` 
+`DELETE /cloud/{cloud}/permit-list/rules/` 
 
     ```
     {
@@ -191,7 +191,7 @@ Parameters:
 * `resolve`: true/false value indicating whether to resolve to last-level tags or not
 
 **REST:** 
-`GET /tags/<tag>/` or `GET /tags/<tag>/resolve`
+`GET /tags/{tag}/` or `GET /tags/{tag}/resolve`
 
 Parameters:
 * `tag`: tag to get
@@ -210,7 +210,7 @@ Parameters:
 * `ip`: ip to associate with tag
 
 **REST:**
-`POST /tags/<tag>/`
+`POST /tags/{tag}/`
 
     ```
     {
@@ -238,7 +238,7 @@ Parameters:
 * `members`: list of child tags to remove membership
 
 **REST:**
-`DELETE /tags/<tag>/` (no json) or `DELETE /tags/<tag>/members`
+`DELETE /tags/{tag}/` (no json) or `DELETE /tags/{tag}/members`
 
     ```
     {

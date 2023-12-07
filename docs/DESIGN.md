@@ -20,7 +20,27 @@ To use Invisinets, a tenant would run the Invisinets Controller and use the Invi
 The Invisinets Controller uses public cloud APIs to deploy networking resources (eg, VPCs, subnets, security rules, VPN gateways) as necessary to match the high-level intents specified via the Invisinets API. [MORE?]
 
 ### Controller Design
-<img src="img/architecture.png" alt="Invisinets Controller Diagram" width="600"/>
+```mermaid
+graph TB
+UR[/User Request/] --> CC[Central Controller]
+
+subgraph " "  
+    CC[Orchestrator]  
+    CC --> AP[Azure Plugin]  
+    CC --> GP[GCP Plugin]  
+    CC --> IP[IBM Plugin]  
+end  
+
+subgraph " "  
+    CC --> TS[Tag Service]  
+    TS[Tag Service] --> DS[(Tag Store)]  
+end  
+
+AP --> AC[Azure Cloud]  
+GP --> GC[GCP Cloud]  
+IP --> IC[IBM Cloud]  
+
+```
 
 #### Overview
 The Invisinets Controller consists of several microservices: a Central Controller, a Tag Service, and potentially multiple Cloud Plugins. Each service is described below.

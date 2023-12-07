@@ -1,14 +1,63 @@
 # Controller Implementation
 This doc covers the internal interfaces between each service in the controller. All of the components communicate via gRPC.
 
-![gRPC interface diagram](img/grpc_interfaces.png)
 
-Each service implements a gRPC service interface and may be a client to other servers in the overall controller. In the diagram, each box contains the gRPC service implemented by that service and has arrows to each service it is a client of. For example, the Central Controller implements the Controller Service, which each cloud plugin uses, and it is a client of each of the plugin services as well as the tag service.
+```mermaid
+graph TB
+    
+subgraph AP [Azure Plugin]
+    direction TB
+    CPA1[Cloud Plugin Service]
+end  
+
+subgraph GP [GCP Plugin]
+    direction TB
+    CPA2[Cloud Plugin Service]
+end  
+
+subgraph IP [IBM Plugin]
+    direction TB
+    CPA3[Cloud Plugin Service]
+end
+
+subgraph OC [Orchestrator]
+    direction TB
+    CC[Controller Service]
+end 
+ 
+
+subgraph " "  
+    TS[Tag Service]  
+    TS[Tag Service] -.-> DS[(Tag Store)]  
+end
+
+UR[/User Request/] -.-> OC
+
+OC -.-> CPA1
+OC -.-> CPA2
+OC -.-> CPA3
+
+AP -.-> AC[Azure]
+GP -.-> GC[GCP]
+IP -.-> IBMC[IBM]
+
+
+OC -.-> TS
+
+AP -.-> CC
+GP -.-> CC
+IP -.-> CC
+
+
+
+```
+
+Each service implements a gRPC service interface and may be a client to other servers in the overall controller. In the diagram, each box contains the gRPC service implemented by that service and has arrows to each service it is a client of. For example, the Orchestrator implements the Controller Service, which each cloud plugin uses, and it is a client of each of the plugin services as well as the tag service.
 
 Below, we provide references to the interfaces of each service and brief explanations of each RPC.
 
-## Central Controller
-The Central Controller has a few main jobs:
+## Orchestrator
+The Orchestrator has a few main jobs:
 * Accept user requests and send RPCs to the necessary cloud plugins/tag service.
 * Orchestrate multi-cloud operations such as VPN tunnel setup.
 * Resolve references to tags before handing requests to the cloud plugin.
@@ -55,7 +104,7 @@ service CloudPlugin {
 Find all the address spaces currently used by the Invisinets deployment in a given cloud and namespace.
 
 Input Details:
-* The `InvisinetsDeployment` contains the URI/ID necessary to find the Invisinets networks (eg, subscription + resource in Azure or project in GCP)
+* The `InvisinetsDeployment` contains the URI/ID necessary to find the Invisinets networks (eg, subscription + resource in Azure or project in GCP) as well as the namespace to collect addresses from
 
 Resources to Create:
 * None
@@ -69,11 +118,12 @@ Creates the provided resource in the designated Invisinets virtual network so th
 
 Input Details:
 * The description in the resource description should specify **all but** the networking details of the resource.
+* The request contains a namespace in which the resource should be created
 
 Resources to Create:
 * The provided resource
 * A permit list for the resource (implementation varies by cloud) with all traffic denied by default
-* A virtual network in the region of the resource if it does not yet exist
+* A virtual network in the region and namespace of the resource if it does not yet exist
 
 High-Level Logic:
 * Check if there exists an Invisinets virtual network in the region and namespace of the new resource
@@ -121,7 +171,7 @@ High-Level Logic:
     * Create the necessary connection infrastructure between the two virtual networks (ex. Vnet peering in Azure)
 * If the given resource and the remote endpoint are not in the same cloud:
     * Update the security rules to allow the traffic (avoiding duplicate rules)
-    * Create the necessary connection infrastructure to connection across clouds using the VPN RPCs on the central controller
+    * Create the necessary connection infrastructure to connection across clouds using the VPN RPCs on the orchestrator
 
 
 **rpc DeletePermitListRules(PermitList) returns (BasicResponse) {}**
@@ -155,11 +205,19 @@ Input Details:
 * The URI/ID necessary to find the Invisinets networks (eg, subscription + resource in Azure or project in GCP)
 
 
-**rpc CreateVpnBgpSessions(CreateVpnBgpSessionsRequest) returns (CreateVpnBgpSessionsResponse) {}**
-TODO @seankimkdy: fill this in 
-
 **rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (BasicResponse) {}**
-TODO @seankimkdy: fill this in 
+Creates a VPN connection between two clouds.
+
+Resources to Create:
+* VPN connection
+* Local network gateway
+
+High-Level Logic:
+* Create VPN connections and local net
+
+Input Details:
+* The URI/ID necessary to find the Invisinets networks (eg, subscription + resource in Azure or project in GCP)
+* The remote cloud to make the connection to as well as its ASN, gateways IP, BGP IP addresses, and a shared key for the tunnel
 
 
 ## Tag Service
