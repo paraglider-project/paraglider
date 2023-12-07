@@ -2,7 +2,7 @@
 <img src="img/logo.png" alt="Invisinets Logo" width="200"/>
 
 ## Namespace Operations
-Changes or gets the active namespace on the Invisinets Controller.
+Change or get the active namespace on the Invisinets Controller.
 
 ### Set
 
