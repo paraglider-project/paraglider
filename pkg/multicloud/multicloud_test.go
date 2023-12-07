@@ -37,13 +37,13 @@ func TestMulticloud(t *testing.T) {
 	// Azure config
 	azurePluginPort := 7991
 	azureSubscriptionId := azure_plugin.GetAzureSubscriptionId()
-	azureResourceGroupName := azure_plugin.SetupAzureTesting(azureSubscriptionId, "multicloud")
-	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
+	azureResourceGroupName := azure_plugin.SetupAzureTesting(azureSubscriptionId, "multicloud-2")
+	// defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
 
 	// GCP config
 	gcpPluginPort := 7992
 	gcpProjectId := gcp.SetupGcpTesting("multicloud")
-	defer gcp.TeardownGcpTesting(gcpProjectId)
+	// defer gcp.TeardownGcpTesting(gcpProjectId)
 
 	// Setup controller server
 	controllerServerConfig := frontend.Config{
