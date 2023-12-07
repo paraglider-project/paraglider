@@ -60,15 +60,16 @@ make build lint
 
 Running these steps will run our build and lint steps and verify that the tools are installed correctly. If you get stuck or suspect something is not working in these instructions please ask for help in our [discord](https://discordapp.com/channels/1116864463832891502/11168644638328915074).
 
-#### Integration Tests
+#### Integration/Multicloud Tests
 
-Our integration tests perform real requests to cloud providers. You can run these with the following command.
+Our integration/multicloud tests perform real requests to cloud providers. You can run these with the following commands
 
 ```
 make integration-test
+make multicloud-test
 ```
 
-Note that the `make test` command does not run the integration tests.
+Note that the `make test` command only runs unit tests.
 
 If you would like to run these locally, you will need to be authenticated. The following are the steps for each respective cloud provider.
 
@@ -84,6 +85,8 @@ If you would like to run these locally, you will need to be authenticated. The f
 1. [Install azure cli](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli). If you're using the dev container, this will already be installed for you.
 2. [Authenticate to your account with azure login](https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli).
 3. Set environment variables `INVISINETS_AZURE_SUBSCRIPTION_ID` with a valid subscription.
+
+If you'd like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable `INVISINETS_TEST_PERSIST` to `1`.
 
 ### Editor
 

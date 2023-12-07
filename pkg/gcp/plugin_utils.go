@@ -133,7 +133,7 @@ func SetupGcpTesting(testName string) string {
 }
 
 func TeardownGcpTesting(projectId string) {
-	if projectId != os.Getenv("INVISINETS_GCP_PROJECT") {
+	if projectId != os.Getenv("INVISINETS_GCP_PROJECT") && os.Getenv("INVISINETS_TEST_PERSIST") != "1" {{
 		ctx := context.Background()
 		projectsClient, err := resourcemanager.NewProjectsClient(ctx)
 		if err != nil {
