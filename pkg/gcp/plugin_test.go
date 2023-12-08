@@ -30,7 +30,7 @@ import (
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
-	fake "github.com/NetSys/invisinets/pkg/fake"
+	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"

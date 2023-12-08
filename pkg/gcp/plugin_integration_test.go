@@ -28,7 +28,7 @@ import (
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	networkmanagementpb "cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
-	fake "github.com/NetSys/invisinets/pkg/fake"
+	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/google/go-cmp/cmp"

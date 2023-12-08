@@ -24,173 +24,37 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	grpc "google.golang.org/grpc"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 
+	fakeplugin "github.com/NetSys/invisinets/pkg/fake/cloudplugin"
+	faketagservice "github.com/NetSys/invisinets/pkg/fake/tagservice"
 	utils "github.com/NetSys/invisinets/pkg/utils"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var portNum = 10000
-
-// Mock values
-var tagUri = "uri"
-var tagIp = "ip"
-var resolvedTagIp = "1.2.3.4"
-
-const addressSpaceAddress = "10.0.0.0/16"
+const defaultNamespace = "default"
 const exampleCloudName = "example"
 
-const validTagName = "validTagName"
-const defaultNamespace = "default"
-const validLastLevelTagName = "validLastLevelTagName"
-const validParentTagName = "validParentTagName"
-
-var exampleRule = &invisinetspb.PermitListRule{Id: "example-rule", Tags: []string{validTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
-
-type mockTagServiceServer struct {
-	tagservicepb.UnimplementedTagServiceServer
-}
-
-func (s *mockTagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMapping, error) {
-	if strings.HasPrefix(tag.TagName, validLastLevelTagName) {
-		return &tagservicepb.TagMapping{TagName: tag.TagName, Uri: &tagUri, Ip: &tagIp}, nil
-	}
-	if strings.HasPrefix(tag.TagName, validParentTagName) {
-		return &tagservicepb.TagMapping{TagName: tag.TagName, ChildTags: []string{"child"}}, nil
-	}
-	return nil, fmt.Errorf("GetTag: Invalid tag name")
-}
-
-func (s *mockTagServiceServer) ResolveTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMappingList, error) {
-	if strings.HasPrefix(tag.TagName, validTagName) {
-		newUri := "uri/" + tag.TagName
-		return &tagservicepb.TagMappingList{Mappings: []*tagservicepb.TagMapping{&tagservicepb.TagMapping{TagName: tag.TagName, Uri: &newUri, Ip: &resolvedTagIp}}}, nil
-	}
-	return nil, fmt.Errorf("ResolveTag: Invalid tag name")
-}
-
-func (s *mockTagServiceServer) SetTag(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully created tag: %s", tagMapping.TagName)}, nil
-}
-
-func (s *mockTagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error) {
-	if strings.HasPrefix(tag.TagName, validTagName) {
-		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted tag: %s", tag.TagName)}, nil
-	}
-	return &tagservicepb.BasicResponse{Success: false, Message: fmt.Sprintf("tag %s does not exist", tag.TagName)}, fmt.Errorf("tag does not exist")
-}
-
-func (s *mockTagServiceServer) DeleteTagMember(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
-	if strings.HasPrefix(tagMapping.TagName, validTagName) {
-		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted member %s from tag %s", tagMapping.ChildTags[0], tagMapping.TagName)}, nil
-	}
-	return &tagservicepb.BasicResponse{Success: false, Message: "parent tag does not exist"}, fmt.Errorf("parentTag does not exist")
-}
-
-func (s *mockTagServiceServer) Subscribe(c context.Context, sub *tagservicepb.Subscription) (*tagservicepb.BasicResponse, error) {
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully subscribed to tag: %s", sub.TagName)}, nil
-}
-
-func (s *mockTagServiceServer) Unsubscribe(c context.Context, sub *tagservicepb.Subscription) (*tagservicepb.BasicResponse, error) {
-	if strings.HasPrefix(sub.TagName, validTagName) {
-		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully unsubscribed from tag: %s", sub.TagName)}, nil
-	}
-	return &tagservicepb.BasicResponse{Success: false, Message: fmt.Sprintf("no subscriptions for tag: %s", sub.TagName)}, fmt.Errorf("tag has no subscribers")
-}
-
-func (s *mockTagServiceServer) GetSubscribers(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.SubscriberList, error) {
-	if strings.HasPrefix(tag.TagName, validTagName) {
-		return &tagservicepb.SubscriberList{Subscribers: []string{exampleCloudName + ">uri"}}, nil
-	}
-	return nil, fmt.Errorf("Tag does not exist")
-}
-
-// Mock Cloud Plugin Server
-type mockCloudPluginServer struct {
-	invisinetspb.UnimplementedCloudPluginServer
-	mockTagServiceServer
-}
-
-func (s *mockCloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
-	return &invisinetspb.PermitList{AssociatedResource: r.Id, Rules: []*invisinetspb.PermitListRule{exampleRule}}, nil
-}
-
-func (s *mockCloudPluginServer) AddPermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
-}
-
-func (s *mockCloudPluginServer) DeletePermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
-}
-
-func (s *mockCloudPluginServer) CreateResource(c context.Context, resource *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
-	return &invisinetspb.CreateResourceResponse{Name: "resource_name", Uri: resource.Id}, nil
-}
-
-func (s *mockCloudPluginServer) GetUsedAddressSpaces(c context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
-	return &invisinetspb.AddressSpaceList{AddressSpaces: []string{addressSpaceAddress}}, nil
-}
+var portNum = 10000
 
 func getNewPortNumber() int {
 	portNum = portNum + 1
 	return portNum
 }
 
-func newPluginServer() *mockCloudPluginServer {
-	s := &mockCloudPluginServer{}
-	return s
-}
-
-func newTagServer() *mockTagServiceServer {
-	s := &mockTagServiceServer{}
-	return s
-}
-
 func newFrontendServer() *ControllerServer {
 	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string]map[string][]string), namespace: defaultNamespace}
 	return s
-}
-
-func setupPluginServer(port int) {
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	grpcServer := grpc.NewServer()
-	invisinetspb.RegisterCloudPluginServer(grpcServer, newPluginServer())
-	tagservicepb.RegisterTagServiceServer(grpcServer, newPluginServer())
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			fmt.Println(err.Error())
-		}
-	}()
-}
-
-func setupTagServer(port int) {
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	grpcServer := grpc.NewServer()
-	tagservicepb.RegisterTagServiceServer(grpcServer, newTagServer())
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			fmt.Println(err.Error())
-		}
-	}()
 }
 
 func SetUpRouter() *gin.Engine {
@@ -211,7 +75,7 @@ func TestPermitListGet(t *testing.T) {
 	port := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-	setupPluginServer(port)
+	fakeplugin.SetupFakePluginServer(port)
 
 	r := SetUpRouter()
 	r.GET("/cloud/:cloud/permit-list/:id", frontendServer.permitListGet)
@@ -220,7 +84,7 @@ func TestPermitListGet(t *testing.T) {
 	id := "123"
 	expectedResponse := PermitListGetResponse{
 		Id:         id,
-		PermitList: &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{exampleRule}},
+		PermitList: &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{fakeplugin.ExampleRule}},
 	}
 
 	url := fmt.Sprintf("/cloud/%s/permit-list/%s", exampleCloudName, id)
@@ -254,15 +118,15 @@ func TestPermitListRulesAdd(t *testing.T) {
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
 	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
-	setupPluginServer(cloudPluginPort)
-	setupTagServer(tagServerPort)
+	fakeplugin.SetupFakePluginServer(cloudPluginPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	r := SetUpRouter()
 	r.POST("/cloud/:cloud/permit-list/rules", frontendServer.permitListRulesAdd)
 
 	// Well-formed request
 	id := "123"
-	tags := []string{validTagName}
+	tags := []string{faketagservice.ValidTagName}
 	rule := &invisinetspb.PermitListRule{
 		Id:        id,
 		Tags:      tags,
@@ -326,15 +190,15 @@ func TestPermitListRulesDelete(t *testing.T) {
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
 	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
-	setupPluginServer(cloudPluginPort)
-	setupTagServer(tagServerPort)
+	fakeplugin.SetupFakePluginServer(cloudPluginPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	r := SetUpRouter()
 	r.DELETE("/cloud/:cloud/permit-list/rules", frontendServer.permitListRulesDelete)
 
 	// Well-formed request
 	id := "123"
-	tags := []string{validTagName}
+	tags := []string{faketagservice.ValidTagName}
 	rule := &invisinetspb.PermitListRule{
 		Id:        "id",
 		Tags:      tags,
@@ -383,8 +247,8 @@ func TestCreateResource(t *testing.T) {
 	frontendServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
 	frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.1.0.0/24"}
 
-	setupPluginServer(port)
-	setupTagServer(tagServerPort)
+	fakeplugin.SetupFakePluginServer(port)
+	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	r := SetUpRouter()
 	r.POST("/cloud/:cloud/resources/", frontendServer.resourceCreate)
@@ -429,11 +293,11 @@ func TestGetAddressSpaces(t *testing.T) {
 	port := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-	setupPluginServer(port)
+	fakeplugin.SetupFakePluginServer(port)
 
 	// Well-formed call
 	addressList, _ := frontendServer.getAddressSpaces(exampleCloudName, "id", defaultNamespace)
-	assert.Equal(t, addressList.AddressSpaces[0], addressSpaceAddress)
+	assert.Equal(t, addressList.AddressSpaces[0], fakeplugin.AddressSpaceAddress)
 
 	// Bad cloud name
 	emptyList, err := frontendServer.getAddressSpaces("wrong", "id", defaultNamespace)
@@ -447,14 +311,14 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	port := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
-	setupPluginServer(port)
+	fakeplugin.SetupFakePluginServer(port)
 
 	// Valid cloud list
 	cloud := Cloud{Name: exampleCloudName, Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
 	frontendServer.config = Config{Clouds: []Cloud{cloud}}
 	err := frontendServer.updateUsedAddressSpacesMap(defaultNamespace)
 	require.Nil(t, err)
-	assert.Equal(t, frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName][0], addressSpaceAddress)
+	assert.Equal(t, frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName][0], fakeplugin.AddressSpaceAddress)
 
 	// Invalid cloud list
 	cloud = Cloud{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
@@ -495,13 +359,13 @@ func TestGetTag(t *testing.T) {
 	tagServerPort := getNewPortNumber()
 	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
-	setupTagServer(tagServerPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	r := SetUpRouter()
 	r.GET("/tags/:tag", frontendServer.getTag)
 
 	// Well-formed request for non-last-level tag
-	tag := validParentTagName
+	tag := faketagservice.ValidParentTagName
 	expectedResult := &tagservicepb.TagMapping{TagName: tag, ChildTags: []string{"child"}}
 
 	url := fmt.Sprintf("/tags/%s", tag)
@@ -518,8 +382,8 @@ func TestGetTag(t *testing.T) {
 	assert.Equal(t, expectedResult, tagMap)
 
 	// Well-formed request for last-level tag
-	tag = validLastLevelTagName
-	expectedResult = &tagservicepb.TagMapping{TagName: tag, Uri: &tagUri, Ip: &tagIp}
+	tag = faketagservice.ValidLastLevelTagName
+	expectedResult = &tagservicepb.TagMapping{TagName: tag, Uri: &faketagservice.TagUri, Ip: &faketagservice.TagIp}
 
 	url = fmt.Sprintf("/tags/%s", tag)
 	req, _ = http.NewRequest("GET", url, nil)
@@ -551,15 +415,15 @@ func TestResolveTag(t *testing.T) {
 	tagServerPort := getNewPortNumber()
 	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
-	setupTagServer(tagServerPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	r := SetUpRouter()
 	r.GET("/tags/:tag/resolve", frontendServer.resolveTag)
 
 	// Well-formed request
-	tag := validTagName
+	tag := faketagservice.ValidTagName
 	newUri := "uri/" + tag
-	expectedResult := &tagservicepb.TagMapping{TagName: tag, Uri: &newUri, Ip: &resolvedTagIp}
+	expectedResult := &tagservicepb.TagMapping{TagName: tag, Uri: &newUri, Ip: &faketagservice.ResolvedTagIp}
 
 	url := fmt.Sprintf("/tags/%s/resolve", tag)
 	req, _ := http.NewRequest("GET", url, nil)
@@ -593,14 +457,15 @@ func TestSetTag(t *testing.T) {
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
 	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
-	setupPluginServer(cloudPluginPort)
-	setupTagServer(tagServerPort)
+	fakeplugin.SetupFakePluginServer(cloudPluginPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
+	faketagservice.SubscriberCloudName = exampleCloudName
 
 	r := SetUpRouter()
 	r.POST("/tags/:tag", frontendServer.setTag)
 
 	// Well-formed request
-	tagMapping := &tagservicepb.TagMapping{TagName: validTagName, ChildTags: []string{validTagName + "child"}}
+	tagMapping := &tagservicepb.TagMapping{TagName: faketagservice.ValidTagName, ChildTags: []string{faketagservice.ValidTagName + "child"}}
 	jsonValue, _ := json.Marshal(tagMapping)
 
 	url := fmt.Sprintf("/tags/%s", tagMapping.TagName)
@@ -637,14 +502,15 @@ func TestDeleteTagMember(t *testing.T) {
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
 	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
-	setupPluginServer(cloudPluginPort)
-	setupTagServer(tagServerPort)
+	fakeplugin.SetupFakePluginServer(cloudPluginPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
+	faketagservice.SubscriberCloudName = exampleCloudName
 
 	r := SetUpRouter()
 	r.DELETE("/tags/:tag/members", frontendServer.deleteTagMember)
 
 	// Well-formed request
-	tagMapping := &tagservicepb.TagMapping{TagName: validTagName, ChildTags: []string{"child"}}
+	tagMapping := &tagservicepb.TagMapping{TagName: faketagservice.ValidTagName, ChildTags: []string{"child"}}
 	jsonValue, _ := json.Marshal(tagMapping.ChildTags)
 
 	url := fmt.Sprintf("/tags/%s/members", tagMapping.TagName)
@@ -693,14 +559,15 @@ func TestDeleteTag(t *testing.T) {
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
 	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
-	setupPluginServer(cloudPluginPort)
-	setupTagServer(tagServerPort)
+	fakeplugin.SetupFakePluginServer(cloudPluginPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
+	faketagservice.SubscriberCloudName = exampleCloudName
 
 	r := SetUpRouter()
 	r.DELETE("/tags/:tag/", frontendServer.deleteTag)
 
 	// Well-formed request
-	tag := validTagName
+	tag := faketagservice.ValidTagName
 
 	url := fmt.Sprintf("/tags/%s/", tag)
 	req, _ := http.NewRequest("DELETE", url, nil)
@@ -732,13 +599,13 @@ func TestResolvePermitListRules(t *testing.T) {
 	tagServerPort := getNewPortNumber()
 	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
-	setupTagServer(tagServerPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	// Permit list rule that contains tags, IPs, and names
 	id := "id"
 	rule := &invisinetspb.PermitListRule{
 		Id:        "id",
-		Tags:      []string{validTagName + "1", validTagName + "2", "2.3.4.5"},
+		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Targets:   []string{},
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
@@ -747,8 +614,8 @@ func TestResolvePermitListRules(t *testing.T) {
 	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
 	expectedRule := &invisinetspb.PermitListRule{
 		Id:        "id",
-		Tags:      []string{validTagName + "1", validTagName + "2", "2.3.4.5"},
-		Targets:   []string{resolvedTagIp, resolvedTagIp, "2.3.4.5"},
+		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
+		Targets:   []string{faketagservice.ResolvedTagIp, faketagservice.ResolvedTagIp, "2.3.4.5"},
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
@@ -779,7 +646,7 @@ func TestCheckAndCleanRule(t *testing.T) {
 	// Rule with correct formatting
 	rule := &invisinetspb.PermitListRule{
 		Id:        "id",
-		Tags:      []string{validTagName + "1", validTagName + "2", "2.3.4.5"},
+		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Targets:   []string{},
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
@@ -806,8 +673,8 @@ func TestCheckAndCleanRule(t *testing.T) {
 	// Rule with targets
 	badRule = &invisinetspb.PermitListRule{
 		Id:        "id",
-		Tags:      []string{validTagName + "1", validTagName + "2", "2.3.4.5"},
-		Targets:   []string{validTagName + "1", validTagName + "2", "2.3.4.5"},
+		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
+		Targets:   []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
@@ -878,16 +745,16 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 	tagServerPort := getNewPortNumber()
 	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
-	setupTagServer(tagServerPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	beforePermitList := &invisinetspb.PermitList{
 		AssociatedResource: "uri",
 		Rules: []*invisinetspb.PermitListRule{
 			&invisinetspb.PermitListRule{
-				Tags: []string{validTagName + "1", "1.2.3.4"},
+				Tags: []string{faketagservice.ValidTagName + "1", "1.2.3.4"},
 			},
 			&invisinetspb.PermitListRule{
-				Tags: []string{validTagName + "1", validTagName + "2", validTagName + "2"},
+				Tags: []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", faketagservice.ValidTagName + "2"},
 			},
 		},
 	}
@@ -896,10 +763,10 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 		AssociatedResource: "uri",
 		Rules: []*invisinetspb.PermitListRule{
 			&invisinetspb.PermitListRule{
-				Tags: []string{validTagName + "1", "1.2.3.4"},
+				Tags: []string{faketagservice.ValidTagName + "1", "1.2.3.4"},
 			},
 			&invisinetspb.PermitListRule{
-				Tags: []string{validTagName + "3"},
+				Tags: []string{faketagservice.ValidTagName + "3"},
 			},
 		},
 	}
@@ -952,10 +819,11 @@ func TestUpdateSubscribers(t *testing.T) {
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
 	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
-	setupPluginServer(cloudPluginPort)
-	setupTagServer(tagServerPort)
+	fakeplugin.SetupFakePluginServer(cloudPluginPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
+	faketagservice.SubscriberCloudName = exampleCloudName
 
-	err := frontendServer.updateSubscribers(validTagName)
+	err := frontendServer.updateSubscribers(faketagservice.ValidTagName)
 	assert.Nil(t, err)
 }
 
