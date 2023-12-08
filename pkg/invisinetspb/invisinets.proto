@@ -22,6 +22,7 @@ option go_package="github.com/NetSys/invisinets/pkg/invisinetspb";
 service CloudPlugin {
     rpc GetUsedAddressSpaces(InvisinetsDeployment) returns (AddressSpaceList) {}
     rpc GetUsedAsns(InvisinetsDeployment) returns (AsnList) {} // Currently APIs only return one ASN since it's per namespace but it may change in the future
+    rpc GetUsedBgpIpAddresses(InvisinetsDeployment) returns (IPAddressList) {}
     rpc CreateResource(ResourceDescription) returns (CreateResourceResponse) {}
     rpc GetPermitList(ResourceID) returns (PermitList) {}
     rpc AddPermitListRules(PermitList) returns (BasicResponse) {}
@@ -81,6 +82,10 @@ message Asn {
 
 message AsnList {
     repeated uint32 asns = 1;
+}
+
+message IPAddressList {
+    repeated string ip_addresses = 1;
 }
 
 message ResourceID {

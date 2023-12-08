@@ -36,6 +36,7 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	CloudPlugin_GetUsedAddressSpaces_FullMethodName  = "/invisinetspb.CloudPlugin/GetUsedAddressSpaces"
 	CloudPlugin_GetUsedAsns_FullMethodName           = "/invisinetspb.CloudPlugin/GetUsedAsns"
+	CloudPlugin_GetUsedBgpIpAddresses_FullMethodName = "/invisinetspb.CloudPlugin/GetUsedBgpIpAddresses"
 	CloudPlugin_CreateResource_FullMethodName        = "/invisinetspb.CloudPlugin/CreateResource"
 	CloudPlugin_GetPermitList_FullMethodName         = "/invisinetspb.CloudPlugin/GetPermitList"
 	CloudPlugin_AddPermitListRules_FullMethodName    = "/invisinetspb.CloudPlugin/AddPermitListRules"
@@ -50,6 +51,7 @@ const (
 type CloudPluginClient interface {
 	GetUsedAddressSpaces(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*AddressSpaceList, error)
 	GetUsedAsns(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*AsnList, error)
+	GetUsedBgpIpAddresses(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*IPAddressList, error)
 	CreateResource(ctx context.Context, in *ResourceDescription, opts ...grpc.CallOption) (*CreateResourceResponse, error)
 	GetPermitList(ctx context.Context, in *ResourceID, opts ...grpc.CallOption) (*PermitList, error)
 	AddPermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error)
@@ -78,6 +80,15 @@ func (c *cloudPluginClient) GetUsedAddressSpaces(ctx context.Context, in *Invisi
 func (c *cloudPluginClient) GetUsedAsns(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*AsnList, error) {
 	out := new(AsnList)
 	err := c.cc.Invoke(ctx, CloudPlugin_GetUsedAsns_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cloudPluginClient) GetUsedBgpIpAddresses(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*IPAddressList, error) {
+	out := new(IPAddressList)
+	err := c.cc.Invoke(ctx, CloudPlugin_GetUsedBgpIpAddresses_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -144,6 +155,7 @@ func (c *cloudPluginClient) CreateVpnConnections(ctx context.Context, in *Create
 type CloudPluginServer interface {
 	GetUsedAddressSpaces(context.Context, *InvisinetsDeployment) (*AddressSpaceList, error)
 	GetUsedAsns(context.Context, *InvisinetsDeployment) (*AsnList, error)
+	GetUsedBgpIpAddresses(context.Context, *InvisinetsDeployment) (*IPAddressList, error)
 	CreateResource(context.Context, *ResourceDescription) (*CreateResourceResponse, error)
 	GetPermitList(context.Context, *ResourceID) (*PermitList, error)
 	AddPermitListRules(context.Context, *PermitList) (*BasicResponse, error)
@@ -162,6 +174,9 @@ func (UnimplementedCloudPluginServer) GetUsedAddressSpaces(context.Context, *Inv
 }
 func (UnimplementedCloudPluginServer) GetUsedAsns(context.Context, *InvisinetsDeployment) (*AsnList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUsedAsns not implemented")
+}
+func (UnimplementedCloudPluginServer) GetUsedBgpIpAddresses(context.Context, *InvisinetsDeployment) (*IPAddressList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUsedBgpIpAddresses not implemented")
 }
 func (UnimplementedCloudPluginServer) CreateResource(context.Context, *ResourceDescription) (*CreateResourceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateResource not implemented")
@@ -226,6 +241,24 @@ func _CloudPlugin_GetUsedAsns_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CloudPluginServer).GetUsedAsns(ctx, req.(*InvisinetsDeployment))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CloudPlugin_GetUsedBgpIpAddresses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InvisinetsDeployment)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CloudPluginServer).GetUsedBgpIpAddresses(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CloudPlugin_GetUsedBgpIpAddresses_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CloudPluginServer).GetUsedBgpIpAddresses(ctx, req.(*InvisinetsDeployment))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -352,6 +385,10 @@ var CloudPlugin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUsedAsns",
 			Handler:    _CloudPlugin_GetUsedAsns_Handler,
+		},
+		{
+			MethodName: "GetUsedBgpIpAddresses",
+			Handler:    _CloudPlugin_GetUsedBgpIpAddresses_Handler,
 		},
 		{
 			MethodName: "CreateResource",

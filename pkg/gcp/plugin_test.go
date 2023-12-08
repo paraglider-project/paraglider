@@ -748,6 +748,28 @@ func TestGetUsedAsns(t *testing.T) {
 	assert.ElementsMatch(t, usedAsnsExpected, asns.Asns)
 }
 
+func TestGetUsedBgpIpAddresses(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		router: &computepb.Router{
+			BgpPeers: []*computepb.RouterBgpPeer{
+				{IpAddress: proto.String("169.254.21.1")},
+				{IpAddress: proto.String("169.254.22.1")},
+			},
+		},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
+
+	s := &GCPPluginServer{}
+	vpnRegion = fakeRegion
+
+	usedBgpIpAddressesExpected := []string{"169.254.21.1", "169.254.22.1"}
+	bgpIpAddressList, err := s._GetUsedBgpIpAddresses(ctx, &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace}, fakeClients.routersClient)
+	require.NoError(t, err)
+	require.NotNil(t, bgpIpAddressList)
+	assert.ElementsMatch(t, usedBgpIpAddressesExpected, bgpIpAddressList.IpAddresses)
+}
+
 func TestCreateVpnGateway(t *testing.T) {
 	fakeVpnGatewayIpAddresses := []string{"1.1.1.1", "2.2.2.2"}
 	fakeServerState := &fakeServerState{

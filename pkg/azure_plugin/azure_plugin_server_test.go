@@ -904,6 +904,30 @@ func TestGetUsedAsns(t *testing.T) {
 	require.ElementsMatch(t, usedAsnsExpected, asns.Asns)
 }
 
+func TestGetUsedBgpIpAddresses(t *testing.T) {
+	server, mockAzureHandler, ctx := setupAzurePluginServer()
+	mockHandlerSetup(mockAzureHandler)
+	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
+		&armnetwork.VirtualNetworkGateway{
+			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
+				BgpSettings: &armnetwork.BgpSettings{
+					BgpPeeringAddresses: []*armnetwork.IPConfigurationBgpPeeringAddress{
+						{CustomBgpIPAddresses: []*string{to.Ptr("169.254.21.1")}},
+						{CustomBgpIPAddresses: []*string{to.Ptr("169.254.22.1")}},
+					},
+				},
+			},
+		},
+		nil,
+	)
+
+	usedBgpIpAddressesExpected := []string{"169.254.21.1", "169.254.22.1"}
+	bgpIpAddressList, err := server.GetUsedBgpIpAddresses(ctx, &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace})
+	require.NoError(t, err)
+	require.NotNil(t, bgpIpAddressList)
+	require.ElementsMatch(t, usedBgpIpAddressesExpected, bgpIpAddressList.IpAddresses)
+}
+
 func TestGetAndCheckResourceNamespace(t *testing.T) {
 	fakeNic := getFakeNIC()
 	resourceID := "resourceID"
