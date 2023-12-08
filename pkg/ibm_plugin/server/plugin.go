@@ -58,7 +58,7 @@ func (s *ibmPluginServer) setupCloudClient(name, region string) (*sdk.CloudClien
 
 // CreateResource creates the specified resource.
 // Currently only supports instance creation.
-func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.BasicResponse, error) {
+func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
 	var vpcID string
 	var subnetID string
 	resFields := vpcv1.CreateInstanceOptions{}
@@ -124,7 +124,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		}
 		defer conn.Close()
 		client := invisinetspb.NewControllerClient(conn)
-		resp, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+		resp, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: resourceDesc.Namespace})
 		if err != nil {
 			return nil, err
 		}
@@ -143,8 +143,13 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	if err != nil {
 		return nil, err
 	}
-	return &invisinetspb.BasicResponse{Success: true, Message: "successfully created instance",
-		UpdatedResource: &invisinetspb.ResourceID{Id: *vm.ID}}, nil
+	
+	reservedIP,err:= cloudClient.GetInstanceReservedIP(*vm.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &invisinetspb.CreateResourceResponse{Name: *vm.Name, Uri: *vm.ID, Ip: reservedIP}, nil
 }
 
 // GetUsedAddressSpaces returns a list of address spaces used by either user's or invisinets' sunbets,

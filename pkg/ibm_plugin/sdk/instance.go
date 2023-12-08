@@ -17,6 +17,7 @@ limitations under the License.
 package ibm
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -139,6 +140,38 @@ func (c *CloudClient) deleteFloatingIPsOfVM(vm *vpcv1.Instance) {
 		}
 	}
 }
+
+
+func (c *CloudClient) GetInstanceReservedIP(vmID string) (string ,error) {
+	// in case the instance recently launched, poll to wait for ip to be assigned to the instance.
+	if isInstanceReady, err := c.PollInstanceReady(vmID); isInstanceReady {
+		vmData, _, err := c.vpcService.GetInstance(&vpcv1.GetInstanceOptions{ID: &vmID})
+		if err != nil {
+			return "", err
+		}
+		privateIP := *vmData.NetworkInterfaces[0].PrimaryIP.Address
+		return privateIP, nil
+	} else {
+		return "", err
+	}
+}
+
+// returns True once the instance is ready.
+func (c *CloudClient) PollInstanceReady(vmID string) (bool, error) {
+	sleepDuration := 10 * time.Second
+	for tries := 15; tries > 0; tries-- {
+		res, _, err := c.vpcService.GetInstance(c.vpcService.NewGetInstanceOptions(vmID))
+		if err != nil {
+			return false, err
+		}
+		if *res.Status == "running" {
+			return true, nil
+		}
+		time.Sleep(sleepDuration)
+	}
+	return false, fmt.Errorf("Instance ID: %v failed to launch within the alloted time.", vmID)
+}
+
 
 // returns true when instance is completely removed from the subnet.
 func (c *CloudClient) waitForInstanceRemoval(vmID string) bool {

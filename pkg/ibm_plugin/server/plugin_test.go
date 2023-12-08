@@ -129,6 +129,9 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	require.NotNil(t, resp)
 }
 
+// This func tests creating a new VM in an existing region, ergo to properly test:
+// 1. Have an invisinets VPC deployed beforehand.
+// 2. create the new VM in the same region as the deployed VPC.    
 // go test --tags=ibm -run TestCreateResourceExistingVPC -sg=<security group name>
 func TestCreateResourceExistingVPC(t *testing.T) {
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.IBM)
