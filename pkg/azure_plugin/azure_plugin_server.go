@@ -49,8 +49,8 @@ type ResourceIDInfo struct {
 
 type azurePluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
-	azureHandler       AzureSDKHandler
-	frontendServerAddr string
+	azureHandler           AzureSDKHandler
+	orchestratorServerAddr string
 }
 
 // TODO @seankimkdy: replace these
@@ -178,9 +178,9 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 	resourceAddress := *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
 
 	// Get used address spaces of all clouds
-	controllerConn, err := grpc.Dial(s.frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	controllerConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
+		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
 	defer controllerConn.Close()
 	controllerClient := invisinetspb.NewControllerClient(controllerConn)
@@ -336,7 +336,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 	}
 
 	vnetName := getVnetName(*invisinetsVm.Location, resourceDesc.Namespace)
-	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, vnetName, *invisinetsVm.Location, resourceDesc.Namespace, s.frontendServerAddr)
+	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, vnetName, *invisinetsVm.Location, resourceDesc.Namespace, s.orchestratorServerAddr)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
 		return nil, err
@@ -962,15 +962,15 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 	return &invisinetspb.BasicResponse{Success: true}, nil
 }
 
-func Setup(port int, frontendServerAddr string) *azurePluginServer {
+func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
 	azureServer := &azurePluginServer{
-		azureHandler:       &azureSDKHandler{},
-		frontendServerAddr: frontendServerAddr,
+		azureHandler:           &azureSDKHandler{},
+		orchestratorServerAddr: orchestratorServerAddr,
 	}
 	invisinetspb.RegisterCloudPluginServer(grpcServer, azureServer)
 	fmt.Println("Starting server on port :", port)

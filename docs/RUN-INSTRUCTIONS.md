@@ -46,7 +46,7 @@ Using the CLI, run:
 ## Central Controller
 Using the CLI, run:
 
-`invd frontend <path_to_config>`
+`invd orch <path_to_config>`
 
 ## Cloud Plugins
 

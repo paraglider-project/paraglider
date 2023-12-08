@@ -53,7 +53,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeControllerServerAddr}
 	ctx := context.Background()
 
 	// Create VM in a clean state (i.e. no VPC or subnet)
