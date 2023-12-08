@@ -468,6 +468,30 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment
 	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetAddressList}, nil
 }
 
+func (s *azurePluginServer) GetUsedAsns(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AsnList, error) {
+	resourceIdInfo, err := getResourceIDInfo(deployment.Id)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+		return nil, err
+	}
+	err = s.setupAzureHandler(resourceIdInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	virtualNetworkGatewayName := getVpnGatewayName(deployment.Namespace)
+	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
+	if err != nil {
+		if isErrorNotFound(err) {
+			return &invisinetspb.AsnList{}, nil
+		} else {
+			return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
+		}
+	}
+
+	return &invisinetspb.AsnList{Asns: []uint32{uint32(*virtualNetworkGateway.Properties.BgpSettings.Asn)}}, nil
+}
+
 // getNSG returns the network security group object given the resource NIC
 func (s *azurePluginServer) getNSG(ctx context.Context, nic *armnetwork.Interface, resourceID string) (*armnetwork.SecurityGroup, error) {
 	var nsg *armnetwork.SecurityGroup

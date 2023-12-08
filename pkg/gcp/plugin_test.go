@@ -246,6 +246,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// Routers
 		case strings.HasPrefix(path, urlProject+urlRegion+"/routers"):
+			fmt.Println("HELLO")
 			if r.Method == "POST" || r.Method == "PATCH" {
 				sendResponseFakeOperation(w)
 				return
@@ -724,6 +725,27 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, addressSpaceList)
 	assert.ElementsMatch(t, usedAddressSpacesExpected, addressSpaceList.AddressSpaces)
+}
+
+func TestGetUsedAsns(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		router: &computepb.Router{
+			Bgp: &computepb.RouterBgp{
+				Asn: proto.Uint32(64512),
+			},
+		},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
+
+	s := &GCPPluginServer{}
+	vpnRegion = fakeRegion
+
+	usedAsnsExpected := []uint32{64512}
+	asns, err := s._GetUsedAsns(ctx, &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace}, fakeClients.routersClient)
+	require.NoError(t, err)
+	require.NotNil(t, asns)
+	assert.ElementsMatch(t, usedAsnsExpected, asns.Asns)
 }
 
 func TestCreateVpnGateway(t *testing.T) {

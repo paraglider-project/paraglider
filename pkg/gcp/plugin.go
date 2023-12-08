@@ -846,6 +846,34 @@ func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, invisinetsDe
 	return s._GetUsedAddressSpaces(ctx, invisinetsDeployment, networksClient, subnetworksClient)
 }
 
+func (s *GCPPluginServer) _GetUsedAsns(ctx context.Context, invisinetsDeployment *invisinetspb.InvisinetsDeployment, routersClient *compute.RoutersClient) (*invisinetspb.AsnList, error) {
+	project := parseGCPURL(invisinetsDeployment.Id)["projects"]
+
+	getRouterReq := &computepb.GetRouterRequest{
+		Project: project,
+		Region:  vpnRegion,
+		Router:  getRouterName(invisinetsDeployment.Namespace),
+	}
+	getRouterResp, err := routersClient.Get(ctx, getRouterReq)
+	if err != nil {
+		if isErrorNotFound(err) {
+			return &invisinetspb.AsnList{}, nil
+		} else {
+			return nil, fmt.Errorf("unable to get router: %w", err)
+		}
+	}
+
+	return &invisinetspb.AsnList{Asns: []uint32{*getRouterResp.Bgp.Asn}}, nil
+}
+
+func (s *GCPPluginServer) GetUsedAsns(ctx context.Context, invisinetsDeployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AsnList, error) {
+	routersClient, err := compute.NewRoutersRESTClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewRoutersRESTClient: %w", err)
+	}
+	return s._GetUsedAsns(ctx, invisinetsDeployment, routersClient)
+}
+
 func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinetspb.CreateVpnGatewayRequest, vpnGatewaysClient *compute.VpnGatewaysClient, routersClient *compute.RoutersClient) (*invisinetspb.CreateVpnGatewayResponse, error) {
 	project := parseGCPURL(req.Deployment.Id)["projects"]
 

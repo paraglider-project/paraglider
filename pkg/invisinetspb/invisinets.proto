@@ -21,6 +21,7 @@ option go_package="github.com/NetSys/invisinets/pkg/invisinetspb";
 
 service CloudPlugin {
     rpc GetUsedAddressSpaces(InvisinetsDeployment) returns (AddressSpaceList) {}
+    rpc GetUsedAsns(InvisinetsDeployment) returns (AsnList) {} // Currently APIs only return one ASN since it's per namespace but it may change in the future
     rpc CreateResource(ResourceDescription) returns (CreateResourceResponse) {}
     rpc GetPermitList(ResourceID) returns (PermitList) {}
     rpc AddPermitListRules(PermitList) returns (BasicResponse) {}
@@ -32,6 +33,7 @@ service CloudPlugin {
 service Controller {
     rpc FindUnusedAddressSpace(Namespace) returns (AddressSpace) {}
     rpc GetUsedAddressSpaces(Namespace) returns (AddressSpaceMappingList) {}
+    rpc FindUnusedAsn(Namespace) returns (Asn) {}
     rpc ConnectClouds(ConnectCloudsRequest) returns (BasicResponse) {}
 }
 
@@ -71,6 +73,14 @@ message AddressSpaceMapping{
 
 message AddressSpaceMappingList {
     repeated AddressSpaceMapping address_space_mappings = 1;
+}
+
+message Asn {
+    uint32 asn = 1;
+}
+
+message AsnList {
+    repeated uint32 asns = 1;
 }
 
 message ResourceID {

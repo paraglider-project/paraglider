@@ -889,6 +889,21 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	assert.Equal(t, validAddressSpace, addressList.AddressSpaces[0])
 }
 
+func TestGetUsedAsns(t *testing.T) {
+	server, mockAzureHandler, ctx := setupAzurePluginServer()
+	mockHandlerSetup(mockAzureHandler)
+	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
+		&armnetwork.VirtualNetworkGateway{Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{BgpSettings: &armnetwork.BgpSettings{Asn: to.Ptr(int64(64512))}}},
+		nil,
+	)
+
+	usedAsnsExpected := []uint32{64512}
+	asns, err := server.GetUsedAsns(ctx, &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace})
+	require.NoError(t, err)
+	require.NotNil(t, asns)
+	require.ElementsMatch(t, usedAsnsExpected, asns.Asns)
+}
+
 func TestGetAndCheckResourceNamespace(t *testing.T) {
 	fakeNic := getFakeNIC()
 	resourceID := "resourceID"
