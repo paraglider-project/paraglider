@@ -569,7 +569,7 @@ func TestGetPermitList(t *testing.T) {
 }
 
 func TestAddPermitListRules(t *testing.T) {
-	fakeControllerServer, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.AZURE)
+	fakeControllerServer, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -602,7 +602,7 @@ func TestAddPermitListRules(t *testing.T) {
 	// Test 1: Successful AddPermitListRules
 	t.Run("AddPermitListRules: Success", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.orchestratorServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockHandlerSetup(mockAzureHandler)
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakePl.GetAssociatedResource(), fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 		mockGetVnetAndAddressSpaces(mockAzureHandler, ctx, getVnetName(*fakeNic.Location, fakePl.Namespace), getVnetPrefix(fakePl.Namespace), fakeVnet, fakeAddressList)
@@ -633,7 +633,7 @@ func TestAddPermitListRules(t *testing.T) {
 	// Test 2: Failed AddPermitListRules
 	t.Run("AddPermitListRules: Failure while getting NSG", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.orchestratorServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockHandlerSetup(mockAzureHandler)
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakePl.GetAssociatedResource(), fakeNsgID, fakeNsgName, nil, fakeNic)
 		resp, err := server.AddPermitListRules(ctx, fakePl)
@@ -645,7 +645,7 @@ func TestAddPermitListRules(t *testing.T) {
 	// Test 3: Failed during GetAzureCredentials
 	t.Run("AddPermitListRules: Failure while getting azure credential", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.orchestratorServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("error while getting azure credentials"))
 		resp, err := server.AddPermitListRules(ctx, fakePl)
 		require.Error(t, err)
@@ -656,7 +656,7 @@ func TestAddPermitListRules(t *testing.T) {
 	// Test 4: Failed while getting NIC
 	t.Run("AddPermitListRules: Failure while getting NIC", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.orchestratorServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockHandlerSetup(mockAzureHandler)
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(nil, fmt.Errorf("error while getting NIC"))
 		resp, err := server.AddPermitListRules(ctx, fakePl)
@@ -668,7 +668,7 @@ func TestAddPermitListRules(t *testing.T) {
 	// Test 5: Failed while getting nsgName
 	t.Run("AddPermitListRules: Failure while getting NSG Name", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.orchestratorServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockHandlerSetup(mockAzureHandler)
 		mockAzureHandler.On("GetResourceNIC", ctx, fakePl.GetAssociatedResource()).Return(fakeNic, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return("", fmt.Errorf("error while getting nsgName"))
@@ -681,7 +681,7 @@ func TestAddPermitListRules(t *testing.T) {
 	// Test 6: Failure getting pl rule from nsg rule
 	t.Run("AddPermitListRules: Failure when getting pl rule", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.orchestratorServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockHandlerSetup(mockAzureHandler)
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakePl.GetAssociatedResource(), fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 		mockAzureHandler.On("GetPermitListRuleFromNSGRule", mock.Anything).Return(nil, fmt.Errorf("error while getting permit list rule"))
@@ -696,7 +696,7 @@ func TestAddPermitListRules(t *testing.T) {
 	// Test 7: Failure while creting the nsg rule in azure
 	t.Run("AddPermitListRules: Failure when creating nsg rule", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.orchestratorServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockHandlerSetup(mockAzureHandler)
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakePl.GetAssociatedResource(), fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 		mockGetVnetAndAddressSpaces(mockAzureHandler, ctx, getVnetName(*fakeNic.Location, fakePl.Namespace), getVnetPrefix(fakePl.Namespace), fakeVnet, fakeAddressList)
@@ -718,7 +718,7 @@ func TestAddPermitListRules(t *testing.T) {
 	// Test Case 8: Fail due to resource being in different namespace
 	t.Run("AddPermitListRules: Fail due to mismatching namespace", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.orchestratorServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		// Set up mock behavior for the Azure SDK handler
 		mockHandlerSetup(mockAzureHandler)

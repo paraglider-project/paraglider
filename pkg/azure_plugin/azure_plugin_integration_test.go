@@ -59,12 +59,12 @@ func TestAzurePluginIntegration(t *testing.T) {
 // 4- Delete permit list rule
 // 5. Get the permit list and valdiates again
 func testAddAndGetPermitList(t *testing.T) {
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.AZURE)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s := InitializeServer(fakeControllerServerAddr)
+	s := InitializeServer(fakeOrchestratorServerAddr)
 	ctx := context.Background()
 
 	parameters := GetTestVmParameters(vmLocation)

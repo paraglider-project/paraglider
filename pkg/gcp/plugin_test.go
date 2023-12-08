@@ -447,12 +447,12 @@ func TestAddPermitListRules(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
-	fakeControllerServer, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	fakeControllerServer, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	fakeControllerServer.Counter = 1
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{orchestratorServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: fakeResourceId,
 		Rules: []*invisinetspb.PermitListRule{
@@ -485,11 +485,11 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{})
 	defer teardown(fakeServer, fakeClients)
 
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{orchestratorServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: fakeMissingResourceId,
 		Rules: []*invisinetspb.PermitListRule{
@@ -544,11 +544,11 @@ func TestAddPermitListRulesDuplicate(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{orchestratorServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: fakeMissingResourceId,
 		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1},
@@ -650,11 +650,11 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance(true)})
 	defer teardown(fakeServer, fakeClients)
 
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{orchestratorServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
 		Zone:             fakeZone,
@@ -678,12 +678,12 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s := &GCPPluginServer{orchestratorServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
 		Zone:             fakeZone,
