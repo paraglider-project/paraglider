@@ -111,7 +111,7 @@ func (s *FakeOrchestratorRESTServer) writeResponse(w http.ResponseWriter, resp a
 	return nil
 }
 
-func (s *FakeOrchestratorRESTServer) SetupFakeFrontendServer() string {
+func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		body, err := io.ReadAll(r.Body)

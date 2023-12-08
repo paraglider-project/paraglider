@@ -27,8 +27,8 @@ import (
 )
 
 func TestGetPermitList(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	resourceId := "uri"
@@ -39,8 +39,8 @@ func TestGetPermitList(t *testing.T) {
 }
 
 func TestAddPermitListRules(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	err := client.AddPermitListRules(fake.CloudName, fake.GetFakePermitList("uri"))
@@ -49,8 +49,8 @@ func TestAddPermitListRules(t *testing.T) {
 }
 
 func TestDeletePermitListRules(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	err := client.DeletePermitListRules(fake.CloudName, fake.GetFakePermitList("uri"))
@@ -59,8 +59,8 @@ func TestDeletePermitListRules(t *testing.T) {
 }
 
 func TestCreateResource(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	err := client.CreateResource(fake.CloudName, &invisinetspb.ResourceDescriptionString{Id: "uri"})
@@ -69,8 +69,8 @@ func TestCreateResource(t *testing.T) {
 }
 
 func TestGetTag(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	tagName := "tag"
@@ -81,8 +81,8 @@ func TestGetTag(t *testing.T) {
 }
 
 func TestResolveTag(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	tagName := "tag"
@@ -94,8 +94,8 @@ func TestResolveTag(t *testing.T) {
 }
 
 func TestSetTag(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	tagName := "tag"
@@ -106,8 +106,8 @@ func TestSetTag(t *testing.T) {
 }
 
 func TestDeleteTag(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	tagName := "tag"
@@ -117,8 +117,8 @@ func TestDeleteTag(t *testing.T) {
 }
 
 func TestDeleteTagMembers(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	tagName := "tag"
@@ -128,8 +128,8 @@ func TestDeleteTagMembers(t *testing.T) {
 }
 
 func TestGetNamespace(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	namespace, err := client.GetNamespace()
@@ -139,8 +139,8 @@ func TestGetNamespace(t *testing.T) {
 }
 
 func TestSetNamespace(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	namespace := "namespace"

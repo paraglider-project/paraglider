@@ -159,7 +159,7 @@ func newTagServer() *mockTagServiceServer {
 	return s
 }
 
-func newFrontendServer() *ControllerServer {
+func newOrchestratorServer() *ControllerServer {
 	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string]map[string][]string), namespace: defaultNamespace}
 	return s
 }
@@ -207,14 +207,14 @@ type PermitListGetResponse struct {
 
 func TestPermitListGet(t *testing.T) {
 	// Setup
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 	port := getNewPortNumber()
-	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
 	setupPluginServer(port)
 
 	r := SetUpRouter()
-	r.GET("/cloud/:cloud/permit-list/:id", frontendServer.permitListGet)
+	r.GET("/cloud/:cloud/permit-list/:id", orchestratorServer.permitListGet)
 
 	// Well-formed request
 	id := "123"
@@ -248,17 +248,17 @@ func TestPermitListGet(t *testing.T) {
 
 func TestPermitListRulesAdd(t *testing.T) {
 	// Setup
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 	tagServerPort := getNewPortNumber()
 	cloudPluginPort := getNewPortNumber()
-	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
-	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
 	setupPluginServer(cloudPluginPort)
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST("/cloud/:cloud/permit-list/rules", frontendServer.permitListRulesAdd)
+	r.POST("/cloud/:cloud/permit-list/rules", orchestratorServer.permitListRulesAdd)
 
 	// Well-formed request
 	id := "123"
@@ -320,17 +320,17 @@ func TestPermitListRulesAdd(t *testing.T) {
 
 func TestPermitListRulesDelete(t *testing.T) {
 	// Setup
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 	tagServerPort := getNewPortNumber()
 	cloudPluginPort := getNewPortNumber()
-	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
-	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
 	setupPluginServer(cloudPluginPort)
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.DELETE("/cloud/:cloud/permit-list/rules", frontendServer.permitListRulesDelete)
+	r.DELETE("/cloud/:cloud/permit-list/rules", orchestratorServer.permitListRulesDelete)
 
 	// Well-formed request
 	id := "123"
@@ -375,19 +375,19 @@ func TestPermitListRulesDelete(t *testing.T) {
 
 func TestCreateResource(t *testing.T) {
 	// Setup
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 	port := getNewPortNumber()
 	tagServerPort := getNewPortNumber()
-	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
-	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
-	frontendServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
-	frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.1.0.0/24"}
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+	orchestratorServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
+	orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.1.0.0/24"}
 
 	setupPluginServer(port)
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST("/cloud/:cloud/resources/", frontendServer.resourceCreate)
+	r.POST("/cloud/:cloud/resources/", orchestratorServer.resourceCreate)
 
 	// Well-formed request
 	id := "123"
@@ -425,80 +425,80 @@ func TestCreateResource(t *testing.T) {
 
 func TestGetAddressSpaces(t *testing.T) {
 	// Setup
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 	port := getNewPortNumber()
-	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
 	setupPluginServer(port)
 
 	// Well-formed call
-	addressList, _ := frontendServer.getAddressSpaces(exampleCloudName, "id", defaultNamespace)
+	addressList, _ := orchestratorServer.getAddressSpaces(exampleCloudName, "id", defaultNamespace)
 	assert.Equal(t, addressList.AddressSpaces[0], addressSpaceAddress)
 
 	// Bad cloud name
-	emptyList, err := frontendServer.getAddressSpaces("wrong", "id", defaultNamespace)
+	emptyList, err := orchestratorServer.getAddressSpaces("wrong", "id", defaultNamespace)
 	require.NotNil(t, err)
 
 	require.Nil(t, emptyList)
 }
 
 func TestUpdateUsedAddressSpacesMap(t *testing.T) {
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 	port := getNewPortNumber()
-	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
 	setupPluginServer(port)
 
 	// Valid cloud list
 	cloud := Cloud{Name: exampleCloudName, Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
-	frontendServer.config = Config{Clouds: []Cloud{cloud}}
-	err := frontendServer.updateUsedAddressSpacesMap(defaultNamespace)
+	orchestratorServer.config = Config{Clouds: []Cloud{cloud}}
+	err := orchestratorServer.updateUsedAddressSpacesMap(defaultNamespace)
 	require.Nil(t, err)
-	assert.Equal(t, frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName][0], addressSpaceAddress)
+	assert.Equal(t, orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName][0], addressSpaceAddress)
 
 	// Invalid cloud list
 	cloud = Cloud{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
-	frontendServer.config = Config{Clouds: []Cloud{cloud}}
-	err = frontendServer.updateUsedAddressSpacesMap(defaultNamespace)
+	orchestratorServer.config = Config{Clouds: []Cloud{cloud}}
+	err = orchestratorServer.updateUsedAddressSpacesMap(defaultNamespace)
 
 	require.NotNil(t, err)
 }
 
 func TestFindUnusedAddressSpace(t *testing.T) {
-	frontendServer := newFrontendServer()
-	frontendServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
+	orchestratorServer := newOrchestratorServer()
+	orchestratorServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
 
 	// No entries in address space map
-	address, err := frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
+	address, err := orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
 	require.Nil(t, err)
 	assert.Equal(t, address.Address, "10.0.0.0/16")
 
 	// Next entry
-	frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.0.0.0/16"}
-	address, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
+	orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.0.0.0/16"}
+	address, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
 	require.Nil(t, err)
 	assert.Equal(t, address.Address, "10.1.0.0/16")
 
 	// Different Namespace
-	address, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: "other"})
+	address, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: "other"})
 	require.Nil(t, err)
 	assert.Equal(t, address.Address, "10.0.0.0/16")
 
 	// Out of addresses
-	frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.255.0.0/16"}
-	_, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
+	orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.255.0.0/16"}
+	_, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
 	require.NotNil(t, err)
 }
 
 func TestGetTag(t *testing.T) {
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 	tagServerPort := getNewPortNumber()
-	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.GET("/tags/:tag", frontendServer.getTag)
+	r.GET("/tags/:tag", orchestratorServer.getTag)
 
 	// Well-formed request for non-last-level tag
 	tag := validParentTagName
@@ -547,14 +547,14 @@ func TestGetTag(t *testing.T) {
 }
 
 func TestResolveTag(t *testing.T) {
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 	tagServerPort := getNewPortNumber()
-	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.GET("/tags/:tag/resolve", frontendServer.resolveTag)
+	r.GET("/tags/:tag/resolve", orchestratorServer.resolveTag)
 
 	// Well-formed request
 	tag := validTagName
@@ -587,17 +587,17 @@ func TestResolveTag(t *testing.T) {
 }
 
 func TestSetTag(t *testing.T) {
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 	tagServerPort := getNewPortNumber()
 	cloudPluginPort := getNewPortNumber()
-	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
-	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
 	setupPluginServer(cloudPluginPort)
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST("/tags/:tag", frontendServer.setTag)
+	r.POST("/tags/:tag", orchestratorServer.setTag)
 
 	// Well-formed request
 	tagMapping := &tagservicepb.TagMapping{TagName: validTagName, ChildTags: []string{validTagName + "child"}}
@@ -631,17 +631,17 @@ func TestSetTag(t *testing.T) {
 }
 
 func TestDeleteTagMember(t *testing.T) {
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 	tagServerPort := getNewPortNumber()
 	cloudPluginPort := getNewPortNumber()
-	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
-	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
 	setupPluginServer(cloudPluginPort)
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.DELETE("/tags/:tag/members", frontendServer.deleteTagMember)
+	r.DELETE("/tags/:tag/members", orchestratorServer.deleteTagMember)
 
 	// Well-formed request
 	tagMapping := &tagservicepb.TagMapping{TagName: validTagName, ChildTags: []string{"child"}}
@@ -687,17 +687,17 @@ func TestDeleteTagMember(t *testing.T) {
 }
 
 func TestDeleteTag(t *testing.T) {
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 	tagServerPort := getNewPortNumber()
 	cloudPluginPort := getNewPortNumber()
-	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
-	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
 	setupPluginServer(cloudPluginPort)
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.DELETE("/tags/:tag/", frontendServer.deleteTag)
+	r.DELETE("/tags/:tag/", orchestratorServer.deleteTag)
 
 	// Well-formed request
 	tag := validTagName
@@ -728,9 +728,9 @@ func TestDeleteTag(t *testing.T) {
 
 func TestResolvePermitListRules(t *testing.T) {
 	// Setup
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 	tagServerPort := getNewPortNumber()
-	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
 	setupTagServer(tagServerPort)
 
@@ -755,7 +755,7 @@ func TestResolvePermitListRules(t *testing.T) {
 		Protocol:  1}
 	expectedRulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{expectedRule}}
 
-	resolvedRules, err := frontendServer.resolvePermitListRules(rulesList, false, exampleCloudName)
+	resolvedRules, err := orchestratorServer.resolvePermitListRules(rulesList, false, exampleCloudName)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedRulesList, resolvedRules)
 }
@@ -874,9 +874,9 @@ func TestDiffTagReferences(t *testing.T) {
 
 func TestCheckAndUnsubscribe(t *testing.T) {
 	// Setup
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 	tagServerPort := getNewPortNumber()
-	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
 	setupTagServer(tagServerPort)
 
@@ -904,7 +904,7 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 		},
 	}
 
-	err := frontendServer.checkAndUnsubscribe(beforePermitList, afterPermitList)
+	err := orchestratorServer.checkAndUnsubscribe(beforePermitList, afterPermitList)
 	assert.Nil(t, err)
 }
 
@@ -946,31 +946,31 @@ func TestClearRuleTargets(t *testing.T) {
 }
 
 func TestUpdateSubscribers(t *testing.T) {
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 	tagServerPort := getNewPortNumber()
 	cloudPluginPort := getNewPortNumber()
-	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
-	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
 	setupPluginServer(cloudPluginPort)
 	setupTagServer(tagServerPort)
 
-	err := frontendServer.updateSubscribers(validTagName)
+	err := orchestratorServer.updateSubscribers(validTagName)
 	assert.Nil(t, err)
 }
 
 func TestGetUsedAddressSpaces(t *testing.T) {
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 
 	gcp_address_spaces := []string{"10.0.0.0/16", "10.1.0.0/16"}
 	azure_address_spaces := []string{"10.2.0.0/16", "10.3.0.0/16"}
-	frontendServer.usedAddressSpaces = map[string]map[string][]string{
+	orchestratorServer.usedAddressSpaces = map[string]map[string][]string{
 		defaultNamespace: {
 			utils.GCP:   {"10.0.0.0/16", "10.1.0.0/16"},
 			utils.AZURE: {"10.2.0.0/16", "10.3.0.0/16"},
 		},
 	}
-	addressSpaces, err := frontendServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
+	addressSpaces, err := orchestratorServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
 	require.Nil(t, err)
 	assert.ElementsMatch(t, addressSpaces.AddressSpaceMappings, []*invisinetspb.AddressSpaceMapping{
 		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP, Namespace: defaultNamespace},
@@ -978,16 +978,16 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	})
 
 	// Empty namespace
-	addressSpaces, err = frontendServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: "empty"})
+	addressSpaces, err = orchestratorServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: "empty"})
 	require.Nil(t, err)
 	assert.Equal(t, 0, len(addressSpaces.AddressSpaceMappings))
 }
 
 func TestGetNamespace(t *testing.T) {
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 
 	r := SetUpRouter()
-	r.GET("/namespace/", frontendServer.getNamespace)
+	r.GET("/namespace/", orchestratorServer.getNamespace)
 
 	url := "/namespace/"
 	req, _ := http.NewRequest("GET", url, nil)
@@ -1000,14 +1000,14 @@ func TestGetNamespace(t *testing.T) {
 	require.Nil(t, err)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, frontendServer.namespace, jsonMap["namespace"])
+	assert.Equal(t, orchestratorServer.namespace, jsonMap["namespace"])
 }
 
 func TestSetNamespace(t *testing.T) {
-	frontendServer := newFrontendServer()
+	orchestratorServer := newOrchestratorServer()
 
 	r := SetUpRouter()
-	r.POST("/namespace/:namespace", frontendServer.setNamespace)
+	r.POST("/namespace/:namespace", orchestratorServer.setNamespace)
 
 	newNamespace := "newnamespace"
 	url := fmt.Sprintf("/namespace/%s", newNamespace)
@@ -1017,5 +1017,5 @@ func TestSetNamespace(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, newNamespace, frontendServer.namespace)
+	assert.Equal(t, newNamespace, orchestratorServer.namespace)
 }
