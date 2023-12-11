@@ -1,5 +1,3 @@
-//go:build ibm
-
 /*
 Copyright 2023 The Invisinets Authors.
 
@@ -27,27 +25,28 @@ import (
 
 var vpcID string
 var vpcRegion string
-
-func init() {
-	flag.StringVar(&vpcID, "vpcID", "", "vpc id to terminate")
-	flag.StringVar(&vpcRegion, "vpcRegion", "", "vpc region")
-}
+var testResGroupName = flag.String("sg", "invisinets", "Name of the user's security group")
 
 const (
-	testResGroupName = "invisinets"
-	testRegion       = "us-east"
+	testRegion = "us-east"
 )
 
 // TODO @praveingk: Expand tests of SDK functions
 
-// run via: go test --tags=ibm -run TestCleanup
+// run via: go test --tags=ibm -run TestCleanup -sg=<security group name>
+// deletes all invisinets VPCs
 func TestCleanup(t *testing.T) {
-	cloudClient, err := NewIBMCloudClient(testResGroupName, testRegion)
+	cloudClient, err := NewIBMCloudClient(*testResGroupName, testRegion)
 	require.NoError(t, err)
-	vpcIDs, err := cloudClient.GetInvisinetsTaggedResources(VPC, []string{InvTag}, ResourceQuery{Region: testRegion})
+	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(VPC, []string{InvTag}, ResourceQuery{})
 	require.NoError(t, err)
-	err = cloudClient.TerminateVPC(vpcIDs[0])
-	require.NoError(t, err)
+	for _, vpcsData := range vpcsData {
+		// cloud client must be set to the region of the current VPC
+		cloudClient, err := NewIBMCloudClient(*testResGroupName, vpcsData.Region)
+		require.NoError(t, err)
+		err = cloudClient.TerminateVPC(vpcsData.ID)
+		require.NoError(t, err)
+	}
 }
 
 // Testing a function that returns true if cidr1 is a subset of cidr2,
