@@ -569,11 +569,11 @@ func TestGetPermitList(t *testing.T) {
 }
 
 func TestAddPermitListRules(t *testing.T) {
-	fakeControllerServer, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
+	fakeOrchestratorServer, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fakeControllerServer.Counter = 1
+	fakeOrchestratorServer.Counter = 1
 
 	fakePl, fakeRuleDesc, err := getFakePermitList()
 	if err != nil {
