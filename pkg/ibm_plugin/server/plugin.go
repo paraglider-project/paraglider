@@ -90,12 +90,12 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	// Logic : Check if there are VPCs in the region,
 	// Check if there is a subnet in that requested zone, Otherwise find unused address space and create a subnet in that address space.
 
-	vpcIDs, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{sdk.InvTag},
+	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{sdk.InvTag},
 		sdk.ResourceQuery{Region: region})
 	if err != nil {
 		return nil, err
 	}
-	if len(vpcIDs) == 0 {
+	if len(vpcsData) == 0 {
 		// Create a VPC since there are no VPCs
 		utils.Log.Printf("No VPCs found in the region, will be creating.")
 		vpc, err := cloudClient.CreateVPC()
@@ -105,17 +105,17 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		vpcID = *vpc.ID
 	} else {
 		// Assuming a single VPC per zone
-		vpcID = vpcIDs[0]
+		vpcID = vpcsData[0].ID
 	}
 
 	utils.Log.Printf("Using VPC ID : %s", vpcID)
 	requiredTags := []string{vpcID}
-	subnetIDs, err := cloudClient.GetInvisinetsTaggedResources(sdk.SUBNET, requiredTags,
+	subnetsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SUBNET, requiredTags,
 		sdk.ResourceQuery{Zone: rInfo.Zone})
 	if err != nil {
 		return nil, err
 	}
-	if len(subnetIDs) == 0 {
+	if len(subnetsData) == 0 {
 		// Find unused address space and Create a subnet
 		utils.Log.Printf("No Subnets found in the zone, getting address space from frontend")
 		conn, err := grpc.Dial(s.frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -136,15 +136,15 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		subnetID = *subnet.ID
 	} else {
 		// Assuming one invisinets subnet per zone
-		subnetID = subnetIDs[0]
+		subnetID = subnetsData[0].ID
 	}
 
 	vm, err := cloudClient.CreateInstance(vpcID, subnetID, &resFields)
 	if err != nil {
 		return nil, err
 	}
-	
-	reservedIP,err:= cloudClient.GetInstanceReservedIP(*vm.ID)
+
+	reservedIP, err := cloudClient.GetInstanceReservedIP(*vm.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -168,25 +168,29 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 	}
 	// get all VPCs in the deployment.
 	// TODO: future multi deployment support will require sending deployment id as tag, currently using static tag.
-	deploymentVpcIDs, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{sdk.InvTag}, sdk.ResourceQuery{Region: region})
+	deploymentVpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{sdk.InvTag}, sdk.ResourceQuery{})
 	if err != nil {
 		utils.Log.Print("Failed to get invisinets tagged VPCs")
 		return nil, err
 	}
-	utils.Log.Print(deploymentVpcIDs)
+	utils.Log.Printf("The following Invisinets VPCs were found: %+v", deploymentVpcsData)
 	// for each vpc, collect the address space of all subnets, including users'.
-	for _, vpcID := range deploymentVpcIDs {
-		subnets, err := cloudClient.GetSubnetsInVPC(vpcID)
+	for _, vpcData := range deploymentVpcsData {
+		// Set the client on the region of the current VPC. If the client's region is
+		// different than the VPC's, it won't be detected.
+		cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupID, vpcData.Region)
+		subnets, err := cloudClient.GetSubnetsInVPC(vpcData.ID)
 		if err != nil {
 			return nil, err
 		}
 		for _, subnet := range subnets {
-			if *subnet.Zone.Name == rInfo.Zone {
-				invisinetsAddressSpaces = append(invisinetsAddressSpaces, *subnet.Ipv4CIDRBlock)
-			}
+			invisinetsAddressSpaces = append(invisinetsAddressSpaces, *subnet.Ipv4CIDRBlock)
 		}
 	}
 	utils.Log.Printf("Used Address Spaces : %+v", invisinetsAddressSpaces)
+	// NOTE for devs: the current vpc service client is set to that of the last
+	// VPC inspected. if more vpc client operations are required, setup the
+	// client to the relevant region.
 	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetsAddressSpaces}, nil
 }
 
@@ -257,15 +261,15 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 		return nil, err
 	}
 
-	invisinetsSgIDs, err := cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
+	invisinetsSgsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
 	if err != nil {
 		return nil, err
 	}
-	if len(invisinetsSgIDs) == 0 {
+	if len(invisinetsSgsData) == 0 {
 		return nil, fmt.Errorf("no security groups were found for VM %v", vmID)
 	}
 	// assuming up to a single invisinets subnet can exist per zone
-	vmInvisinetsSgID := invisinetsSgIDs[0]
+	vmInvisinetsSgID := invisinetsSgsData[0].ID
 
 	vpcID, err := cloudClient.VMToVPCID(vmID)
 	if err != nil {
@@ -278,7 +282,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 	}
 	// aggregate the address spaces of subnets in the VM's VPC
 	for _, invSubnet := range invisinetsSubnetsOfVpc {
-		cidr, err := cloudClient.GetSubnetCIDR(invSubnet)
+		cidr, err := cloudClient.GetSubnetCIDR(invSubnet.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -361,15 +365,15 @@ func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, pl *invisin
 		return nil, err
 	}
 
-	invisinetsSgIDs, err := cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
+	invisinetsSgsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
 	if err != nil {
 		return nil, err
 	}
-	if len(invisinetsSgIDs) == 0 {
+	if len(invisinetsSgsData) == 0 {
 		return nil, fmt.Errorf("no security groups were found for VM %v", rInfo.ResourceID)
 	}
 	// assuming up to a single invisinets subnet can exist per zone
-	vmInvisinetsSgID := invisinetsSgIDs[0]
+	vmInvisinetsSgID := invisinetsSgsData[0].ID
 
 	ibmRulesToDelete, err := invisinetsToIBMRules(vmInvisinetsSgID, pl.Rules)
 	if err != nil {

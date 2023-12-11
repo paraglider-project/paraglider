@@ -18,6 +18,7 @@ package ibm
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/IBM/go-sdk-core/v5/core"
@@ -147,7 +148,7 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 // Arg tags: labels set by dev, e.g. {<vpcID>,<deploymentID>}
 // Args customQueryMap: map of attributes to filter by, e.g. {"region":"<regionName>"}
 func (c *CloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceType, tags []string,
-	customQuery ResourceQuery) ([]string, error) {
+	customQuery ResourceQuery) ([]ResourceData, error) {
 	// parse tags
 	var tagsStr string
 	var queryStr string
@@ -176,8 +177,8 @@ func (c *CloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceTy
 
 // returns IDs of resources filtered by tags and query
 func (c *CloudClient) getInvisinetsResourceByTags(resourceType string,
-	tags string, customQueryStr string) ([]string, error) {
-	var taggedResources []string
+	tags string, customQueryStr string) ([]ResourceData, error) {
+	var taggedResources []ResourceData
 
 	query := fmt.Sprintf("type:%v AND %v ", resourceType, tags)
 	if customQueryStr != "" {
@@ -197,8 +198,24 @@ func (c *CloudClient) getInvisinetsResourceByTags(resourceType string,
 	items := result.Items
 	if len(items) != 0 {
 		for _, item := range items {
+			resData := ResourceData{}
 			id := CRN2ID(*item.CRN)
-			taggedResources = append(taggedResources, id)
+			itemProperties := item.GetProperties()
+			if _, regionExists := itemProperties["region"]; regionExists {
+				region := itemProperties["region"].(string)
+				if len(region) != 0 {
+					regionParts := strings.Split(region, "-")
+					// since globalSearch.Search stores both region and zone in the region field,
+					// we need to verify what the value represents
+					if _, err := strconv.Atoi(regionParts[len(regionParts)-1]); err != nil {
+						resData.Region = region
+					} else {
+						resData.Zone = region
+					}
+				}
+			}
+			resData.ID = id
+			taggedResources = append(taggedResources, resData)
 		}
 	} else { // no resources found with specified tags
 		return nil, nil

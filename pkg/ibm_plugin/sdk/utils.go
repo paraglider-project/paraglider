@@ -60,6 +60,12 @@ type ResourceQuery struct {
 	Zone   string
 }
 
+type ResourceData struct {
+	ID     string
+	Region string
+	Zone   string
+}
+
 // cache of regions, initialized by GetRegions().shouldn't be accessed directly.
 var regionCache []string
 

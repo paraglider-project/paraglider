@@ -76,7 +76,11 @@ func (c *CloudClient) CreateSubnet(
 	return subnet, nil
 }
 
-// GetSubnetsInVPC returns all subnets in vpc, user's and invisinets'.
+// GetSubnetsInVPC returns all subnets in vpc, user's and invisinets'
+// in the region set by the client.
+//
+// NOTE: before invoking this function Set VPC client to the
+// region the VPC is located in.
 func (c *CloudClient) GetSubnetsInVPC(vpcID string) ([]vpcv1.Subnet, error) {
 	subnetOptions := &vpcv1.ListSubnetsOptions{VPCID: &vpcID}
 	utils.Log.Printf("Getting subnets for vpc : %s", vpcID)
