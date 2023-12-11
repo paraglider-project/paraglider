@@ -246,7 +246,6 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// Routers
 		case strings.HasPrefix(path, urlProject+urlRegion+"/routers"):
-			fmt.Println("HELLO")
 			if r.Method == "POST" || r.Method == "PATCH" {
 				sendResponseFakeOperation(w)
 				return

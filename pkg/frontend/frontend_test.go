@@ -51,6 +51,7 @@ var tagIp = "ip"
 var resolvedTagIp = "1.2.3.4"
 
 const addressSpaceAddress = "10.0.0.0/16"
+const asn = 64512
 const exampleCloudName = "example"
 
 const validTagName = "validTagName"
@@ -144,6 +145,10 @@ func (s *mockCloudPluginServer) GetUsedAddressSpaces(c context.Context, deployme
 	return &invisinetspb.AddressSpaceList{AddressSpaces: []string{addressSpaceAddress}}, nil
 }
 
+func (s *mockCloudPluginServer) GetUsedAsns(c context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AsnList, error) {
+	return &invisinetspb.AsnList{Asns: []uint32{asn}}, nil
+}
+
 func getNewPortNumber() int {
 	portNum = portNum + 1
 	return portNum
@@ -160,7 +165,12 @@ func newTagServer() *mockTagServiceServer {
 }
 
 func newFrontendServer() *ControllerServer {
-	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string]map[string][]string), namespace: defaultNamespace}
+	s := &ControllerServer{
+		pluginAddresses:   make(map[string]string),
+		usedAddressSpaces: make(map[string]map[string][]string),
+		usedAsns:          make(map[string]map[string][]uint32),
+		namespace:         defaultNamespace,
+	}
 	return s
 }
 
@@ -488,6 +498,83 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 	frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.255.0.0/16"}
 	_, err = frontendServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
 	require.NotNil(t, err)
+}
+
+func TestGetUsedAsns(t *testing.T) {
+	// Setup
+	frontendServer := newFrontendServer()
+	port := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+
+	setupPluginServer(port)
+
+	// Well-formed call
+	asnList, err := frontendServer.getUsedAsns(exampleCloudName, "id", defaultNamespace)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []uint32{asn}, asnList.Asns)
+
+	// Bad cloud name
+	_, err = frontendServer.getUsedAsns("wrong", "id", defaultNamespace)
+	require.Error(t, err)
+}
+
+func TestUpdateUsedAsns(t *testing.T) {
+	frontendServer := newFrontendServer()
+	port := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+
+	setupPluginServer(port)
+
+	// Valid cloud list
+	cloud := Cloud{Name: exampleCloudName, Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
+	frontendServer.config = Config{Clouds: []Cloud{cloud}}
+	err := frontendServer.updateUsedAsns(defaultNamespace)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []uint32{asn}, frontendServer.usedAsns[defaultNamespace][exampleCloudName])
+
+	// Invalid cloud list
+	cloud = Cloud{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
+	frontendServer.config = Config{Clouds: []Cloud{cloud}}
+	err = frontendServer.updateUsedAsns(defaultNamespace)
+	require.Error(t, err)
+}
+
+func TestFindUnusedAsn(t *testing.T) {
+	frontendServer := newFrontendServer()
+	frontendServer.usedAsns[defaultNamespace] = make(map[string][]uint32)
+	ctx := context.Background()
+
+	// Typical case
+	frontendServer.usedAsns[defaultNamespace][exampleCloudName] = []uint32{64512}
+	asn, err := frontendServer.FindUnusedAsn(ctx, &invisinetspb.Namespace{Namespace: defaultNamespace})
+	require.NoError(t, err)
+	require.Equal(t, uint32(64513), asn.Asn)
+
+	// Gap in usedAsns
+	frontendServer.usedAsns[defaultNamespace][exampleCloudName] = []uint32{64512, 64514}
+	asn, err = frontendServer.FindUnusedAsn(ctx, &invisinetspb.Namespace{Namespace: defaultNamespace})
+	require.NoError(t, err)
+	require.Equal(t, uint32(64513), asn.Asn)
+
+	// No entries in asn map
+	frontendServer.usedAsns[defaultNamespace][exampleCloudName] = []uint32{}
+	asn, err = frontendServer.FindUnusedAsn(ctx, &invisinetspb.Namespace{Namespace: defaultNamespace})
+	require.NoError(t, err)
+	require.Equal(t, uint32(64512), asn.Asn)
+
+	// Different Namespace
+	asn, err = frontendServer.FindUnusedAsn(ctx, &invisinetspb.Namespace{Namespace: "other"})
+	require.NoError(t, err)
+	require.Equal(t, uint32(64512), asn.Asn)
+
+	// 4-bit ASN
+	frontendServer.usedAsns[defaultNamespace][exampleCloudName] = make([]uint32, MAX_PRIVATE_ASN_2BYTE-MIN_PRIVATE_ASN_2BYTE+1)
+	for i := MIN_PRIVATE_ASN_2BYTE; i <= MAX_PRIVATE_ASN_2BYTE; i++ {
+		frontendServer.usedAsns[defaultNamespace][exampleCloudName][i-MIN_PRIVATE_ASN_2BYTE] = i
+	}
+	asn, err = frontendServer.FindUnusedAsn(ctx, &invisinetspb.Namespace{Namespace: defaultNamespace})
+	require.NoError(t, err)
+	require.Equal(t, uint32(4200000000), asn.Asn)
 }
 
 func TestGetTag(t *testing.T) {
