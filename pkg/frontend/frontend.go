@@ -44,12 +44,14 @@ import (
 
 const (
 	GetPermitListRulesURL    string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules"
-	AddPermitListRulesURL    string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules"
-	DeletePermitListRulesURL string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules"
+	PermitListRulePOSTURL    string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules"
+	PermitListRulePUTURL     string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules/:ruleName"
+	AddPermitListRulesURL    string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/applyRules"
+	DeletePermitListRulesURL string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/deleteRules"
 	CreateResourceURL        string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/create"
 	GetTagURL                string = "/tags/:tag"
 	ResolveTagURL            string = "/tags/:tag/resolve"
-	SetTagURL                string = "/tags/:tag"
+	SetTagURL                string = "/tags/:tag/applyMembers"
 	DeleteTagURL             string = "/tags/:tag"
 	DeleteTagMemberURL       string = "/tags/:tag/members/:member"
 	ListNamespacesURL        string = "/namespaces"
@@ -320,6 +322,67 @@ func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
 	})
 }
 
+// Add a single rule to a resource permit list via a PUT call
+func (s *ControllerServer) permitListRulePut(c *gin.Context) {
+	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Get rule name from URL
+	ruleName := c.Param("ruleName")
+	if ruleName == "" {
+		c.AbortWithStatusJSON(400, createErrorResponse("rule name not specified"))
+		return
+	}
+
+	// Parse permit list rules to add
+	var rule *invisinetspb.PermitListRule
+	if err := c.BindJSON(&rule); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	rule.Id = ruleName
+	permitList := &invisinetspb.PermitList{Rules: []*invisinetspb.PermitListRule{rule}, Namespace: resourceInfo.namespace, AssociatedResource: resourceInfo.uri}
+
+	response, err := s._permitListRulesAdd(cloudClient, permitList, resourceInfo.cloud)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"response": response.Message,
+	})
+}
+
+// Add a single rule to a resource permit list via a POST call
+func (s *ControllerServer) permitListRulePost(c *gin.Context) {
+	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	// Parse permit list rules to add
+	var rule *invisinetspb.PermitListRule
+	if err := c.BindJSON(&rule); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	permitList := &invisinetspb.PermitList{Rules: []*invisinetspb.PermitListRule{rule}, Namespace: resourceInfo.namespace, AssociatedResource: resourceInfo.uri}
+
+	response, err := s._permitListRulesAdd(cloudClient, permitList, resourceInfo.cloud)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"response": response.Message,
+	})
+}
+
 // Find the tags dereferenced between two versions of a permit list
 func diffTagReferences(beforeList *invisinetspb.PermitList, afterList *invisinetspb.PermitList) []string {
 	beforeListSet := make(map[string]bool)
@@ -396,6 +459,80 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 		return
 	}
 	permitList := &invisinetspb.PermitList{Rules: rules, Namespace: resourceInfo.namespace, AssociatedResource: resourceInfo.uri}
+
+	// Create connection to cloud plugin
+	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+	client := invisinetspb.NewCloudPluginClient(conn)
+
+	// First, get the original list
+	permitListBefore, err := client.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: resourceInfo.uri})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Resolve tags (for correct lookup in cloud plugin) and unsubscribe
+	permitList, err = s.resolvePermitListRules(permitList, false, resourceInfo.cloud)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Send RPC to delete the rules
+	response, err := client.DeletePermitListRules(context.Background(), permitList)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Then get the final list to tell which tags should be unsubscribed
+	permitListAfter, err := client.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: resourceInfo.uri})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Determine which tags have been dereferenced from the permit list and unsubscribe
+	// TODO @smcclure20: Have to do a permit list diff since there is no reverse lookup to see which tags a URI is subscribed to.
+	// 					 Supporting this will probably require a database migration (non-KV store)
+	if err := s.checkAndUnsubscribe(resourceInfo, permitListBefore, permitListAfter); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"response": response.Message,
+	})
+}
+
+// Delete a single rule from a resource permit list
+func (s *ControllerServer) permitListRuleDelete(c *gin.Context) {
+	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Get rule name from URL
+	ruleName := c.Param("ruleName")
+	if ruleName == "" {
+		c.AbortWithStatusJSON(400, createErrorResponse("rule name not specified"))
+		return
+	}
+
+	// Parse rules to delete
+	var rule *invisinetspb.PermitListRule
+	if err := c.BindJSON(&rule); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	rule.Id = ruleName
+	permitList := &invisinetspb.PermitList{Rules: []*invisinetspb.PermitListRule{rule}, Namespace: resourceInfo.namespace, AssociatedResource: resourceInfo.uri}
 
 	// Create connection to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -943,16 +1080,19 @@ func Setup(configPath string) {
 			"message": "pong",
 		})
 	})
-	router.GET(string(GetPermitListRulesURL), server.permitListGet)
-	router.POST(string(AddPermitListRulesURL), server.permitListRulesAdd)
-	router.DELETE(string(DeletePermitListRulesURL), server.permitListRulesDelete)
-	router.POST(string(CreateResourceURL), server.resourceCreate)
-	router.GET(string(GetTagURL), server.getTag)
-	router.GET(string(ResolveTagURL), server.resolveTag)
-	router.POST(string(SetTagURL), server.setTag)
-	router.DELETE(string(DeleteTagURL), server.deleteTag)
-	router.DELETE(string(DeleteTagMemberURL), server.deleteTagMember)
-	router.GET(string(ListNamespacesURL), server.listNamespaces)
+	router.GET(GetPermitListRulesURL, server.permitListGet)
+	router.POST(AddPermitListRulesURL, server.permitListRulesAdd)
+	router.POST(PermitListRulePOSTURL, server.permitListRulePost)
+	router.PUT(PermitListRulePUTURL, server.permitListRulePut)
+	router.DELETE(DeletePermitListRulesURL, server.permitListRulesDelete)
+	router.DELETE(PermitListRulePUTURL, server.permitListRuleDelete)
+	router.POST(CreateResourceURL, server.resourceCreate)
+	router.GET(GetTagURL, server.getTag)
+	router.GET(ResolveTagURL, server.resolveTag)
+	router.POST(SetTagURL, server.setTag)
+	router.DELETE(DeleteTagURL, server.deleteTag)
+	router.DELETE(DeleteTagMemberURL, server.deleteTagMember)
+	router.GET(ListNamespacesURL, server.listNamespaces)
 
 	// Run server
 	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
