@@ -971,7 +971,12 @@ func Setup(configPath string) {
 	}
 
 	// Populate server info
-	server := ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string]map[string][]string), namespace: "default"}
+	server := ControllerServer{
+		pluginAddresses:   make(map[string]string),
+		usedAddressSpaces: make(map[string]map[string][]string),
+		usedAsns:          make(map[string]map[string][]uint32),
+		namespace:         "default",
+	}
 	server.config = cfg
 	server.localTagService = cfg.TagService.Host + ":" + cfg.TagService.Port
 

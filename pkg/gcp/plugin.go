@@ -932,6 +932,18 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 	}
 
 	// Create router
+	conn, err := grpc.Dial(s.frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
+	}
+	defer conn.Close()
+	client := invisinetspb.NewControllerClient(conn)
+	findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &invisinetspb.Namespace{Namespace: req.Deployment.Namespace})
+	if err != nil {
+		return nil, fmt.Errorf("unable to find unused address space: %w", err)
+	}
+	asn := findUnusedAsnResp.Asn
+
 	insertRouterReq := &computepb.InsertRouterRequest{
 		Project: project,
 		Region:  vpnRegion,
@@ -940,7 +952,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 			Description: proto.String("Invisinets router for multicloud connections"),
 			Network:     proto.String(GetVpcUri(req.Deployment.Namespace)),
 			Bgp: &computepb.RouterBgp{
-				Asn: proto.Uint32(vpnGwAsn),
+				Asn: proto.Uint32(asn),
 			},
 		},
 	}
@@ -972,7 +984,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 	if err != nil {
 		return nil, fmt.Errorf("unable to get vpn gateway: %w", err)
 	}
-	resp := &invisinetspb.CreateVpnGatewayResponse{Asn: vpnGwAsn}
+	resp := &invisinetspb.CreateVpnGatewayResponse{Asn: asn}
 	resp.GatewayIpAddresses = make([]string, vpnNumConnections)
 	resp.BgpIpAddresses = make([]string, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {

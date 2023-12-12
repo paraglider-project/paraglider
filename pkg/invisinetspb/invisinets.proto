@@ -148,7 +148,7 @@ message CreateVpnGatewayRequest {
 }
 
 message CreateVpnGatewayResponse {
-    int64 asn = 1;
+    uint32 asn = 1;
     repeated string gateway_ip_addresses = 2;
     repeated string bgp_ip_addresses = 3;
 }
@@ -156,7 +156,7 @@ message CreateVpnGatewayResponse {
 message CreateVpnConnectionsRequest {
     InvisinetsDeployment deployment = 1;
     string cloud = 2;
-    int64 asn = 3;
+    uint32 asn = 3;
     repeated string gateway_ip_addresses = 4;
     repeated string bgp_ip_addresses = 5;
     string shared_key = 6;
