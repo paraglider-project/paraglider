@@ -214,27 +214,15 @@ func (s *ibmPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 		return nil, err
 	}
 
-	securityGroups, err := cloudClient.GetInstanceSecurityGroups(rInfo.ResourceID)
+	securityGroupID, err := cloudClient.GetInstanceSecurityGroupID(rInfo.ResourceID)
 	if err != nil {
 		return nil, err
 	}
-	var sgsRules []sdk.SecurityGroupRule
-	rulesHashValues := map[uint64]bool{}
-	// collect rules from all security groups attached to VM.
-	for _, sgID := range securityGroups {
-		sgRules, err := cloudClient.GetSecurityRulesOfSG(sgID)
-		if err != nil {
-			return nil, err
-		}
-		// filter away duplicate rules
-		rules, err := s.getUniqueSGRules(sgRules, rulesHashValues)
-		if err != nil {
-			return nil, err
-		}
-		// append new rules to result
-		sgsRules = append(sgsRules, rules...)
+	sgRules, err := cloudClient.GetSecurityRulesOfSG(securityGroupID)
+	if err != nil {
+		return nil, err
 	}
-	invisinetsRules, err := ibmToInvisinetsRules(sgsRules)
+	invisinetsRules, err := ibmToInvisinetsRules(sgRules)
 	if err != nil {
 		return nil, err
 	}

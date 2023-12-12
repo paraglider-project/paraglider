@@ -93,28 +93,28 @@ func (c *CloudClient) createInstance(keyID, vpcID, subnetID string, instanceOpti
 	return instance, nil
 }
 
-// GetInstanceSecurityGroups returns security group IDs that are associated with the VM's network interfaces
-func (c *CloudClient) GetInstanceSecurityGroups(name string) ([]string, error) {
-	var sgGroups []string
+// returns the security group ID that's associated with the VM's network interfaces
+func (c *CloudClient) GetInstanceSecurityGroupID(name string) (string, error) {
 
 	vmID, err := c.GetInstanceID(name)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	nics, _, err := c.vpcService.ListInstanceNetworkInterfaces(
 		&vpcv1.ListInstanceNetworkInterfacesOptions{InstanceID: &vmID})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	for _, nic := range nics.NetworkInterfaces {
 		for _, sg := range nic.SecurityGroups {
 			if IsInvisinetsResource(*sg.Name) {
-				sgGroups = append(sgGroups, *sg.ID)
+				// A VM is only ever associated with a single invisinets SG
+				return *sg.ID, nil
 			}
 		}
 	}
-	return sgGroups, nil
+	return "", fmt.Errorf("no invisinets SG is associated with the specified instance.")
 }
 
 // NOTE: Currently not in use, as public ips are not provisioned.
@@ -141,8 +141,7 @@ func (c *CloudClient) deleteFloatingIPsOfVM(vm *vpcv1.Instance) {
 	}
 }
 
-
-func (c *CloudClient) GetInstanceReservedIP(vmID string) (string ,error) {
+func (c *CloudClient) GetInstanceReservedIP(vmID string) (string, error) {
 	// in case the instance recently launched, poll to wait for ip to be assigned to the instance.
 	if isInstanceReady, err := c.PollInstanceReady(vmID); isInstanceReady {
 		vmData, _, err := c.vpcService.GetInstance(&vpcv1.GetInstanceOptions{ID: &vmID})
@@ -171,7 +170,6 @@ func (c *CloudClient) PollInstanceReady(vmID string) (bool, error) {
 	}
 	return false, fmt.Errorf("Instance ID: %v failed to launch within the alloted time.", vmID)
 }
-
 
 // returns true when instance is completely removed from the subnet.
 func (c *CloudClient) waitForInstanceRemoval(vmID string) bool {
