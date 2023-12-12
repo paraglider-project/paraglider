@@ -1,3 +1,5 @@
+//go:build ibm
+
 /*
 Copyright 2023 The Invisinets Authors.
 
@@ -23,8 +25,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var vpcID string
-var vpcRegion string
 var testResGroupName = flag.String("sg", "invisinets", "Name of the user's security group")
 
 const (

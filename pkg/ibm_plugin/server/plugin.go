@@ -179,6 +179,9 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 		// Set the client on the region of the current VPC. If the client's region is
 		// different than the VPC's, it won't be detected.
 		cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupID, vpcData.Region)
+		if err != nil {
+			return nil, err
+		}
 		subnets, err := cloudClient.GetSubnetsInVPC(vpcData.ID)
 		if err != nil {
 			return nil, err
