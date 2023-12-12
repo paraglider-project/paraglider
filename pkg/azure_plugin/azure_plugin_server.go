@@ -492,36 +492,6 @@ func (s *azurePluginServer) GetUsedAsns(ctx context.Context, deployment *invisin
 	return &invisinetspb.AsnList{Asns: []uint32{uint32(*virtualNetworkGateway.Properties.BgpSettings.Asn)}}, nil
 }
 
-func (s *azurePluginServer) GetUsedBgpIpAddresses(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.IPAddressList, error) {
-	resourceIdInfo, err := getResourceIDInfo(deployment.Id)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
-		return nil, err
-	}
-	err = s.setupAzureHandler(resourceIdInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	ipAddressList := &invisinetspb.IPAddressList{}
-
-	virtualNetworkGatewayName := getVpnGatewayName(deployment.Namespace)
-	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
-	if err != nil {
-		if isErrorNotFound(err) {
-			return ipAddressList, nil
-		} else {
-			return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
-		}
-	}
-
-	for _, bgpPeeringAddress := range virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses {
-		ipAddressList.IpAddresses = append(ipAddressList.IpAddresses, *bgpPeeringAddress.CustomBgpIPAddresses[0])
-	}
-
-	return ipAddressList, nil
-}
-
 // getNSG returns the network security group object given the resource NIC
 func (s *azurePluginServer) getNSG(ctx context.Context, nic *armnetwork.Interface, resourceID string) (*armnetwork.SecurityGroup, error) {
 	var nsg *armnetwork.SecurityGroup

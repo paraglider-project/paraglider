@@ -874,39 +874,6 @@ func (s *GCPPluginServer) GetUsedAsns(ctx context.Context, invisinetsDeployment 
 	return s._GetUsedAsns(ctx, invisinetsDeployment, routersClient)
 }
 
-func (s *GCPPluginServer) _GetUsedBgpIpAddresses(ctx context.Context, invisinetsDeployment *invisinetspb.InvisinetsDeployment, routersClient *compute.RoutersClient) (*invisinetspb.IPAddressList, error) {
-	project := parseGCPURL(invisinetsDeployment.Id)["projects"]
-
-	ipAddressList := &invisinetspb.IPAddressList{}
-
-	getRouterReq := &computepb.GetRouterRequest{
-		Project: project,
-		Region:  vpnRegion,
-		Router:  getRouterName(invisinetsDeployment.Namespace),
-	}
-	getRouterResp, err := routersClient.Get(ctx, getRouterReq)
-	if err != nil {
-		if isErrorNotFound(err) {
-			return ipAddressList, nil
-		} else {
-			return nil, fmt.Errorf("unable to get router: %w", err)
-		}
-	}
-
-	for _, bgpPeer := range getRouterResp.BgpPeers {
-		ipAddressList.IpAddresses = append(ipAddressList.IpAddresses, *bgpPeer.IpAddress)
-	}
-	return ipAddressList, nil
-}
-
-func (s *GCPPluginServer) GetUsedBgpIpAddresses(ctx context.Context, invisinetsDeployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.IPAddressList, error) {
-	routersClient, err := compute.NewRoutersRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewRoutersRESTClient: %w", err)
-	}
-	return s._GetUsedBgpIpAddresses(ctx, invisinetsDeployment, routersClient)
-}
-
 func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinetspb.CreateVpnGatewayRequest, vpnGatewaysClient *compute.VpnGatewaysClient, routersClient *compute.RoutersClient) (*invisinetspb.CreateVpnGatewayResponse, error) {
 	project := parseGCPURL(req.Deployment.Id)["projects"]
 
