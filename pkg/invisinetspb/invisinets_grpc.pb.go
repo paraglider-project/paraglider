@@ -50,9 +50,9 @@ const (
 type CloudPluginClient interface {
 	GetUsedAddressSpaces(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*AddressSpaceList, error)
 	CreateResource(ctx context.Context, in *ResourceDescription, opts ...grpc.CallOption) (*CreateResourceResponse, error)
-	GetPermitList(ctx context.Context, in *ResourceID, opts ...grpc.CallOption) (*PermitList, error)
-	AddPermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error)
-	DeletePermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error)
+	GetPermitList(ctx context.Context, in *GetPermitListRequest, opts ...grpc.CallOption) (*GetPermitListResponse, error)
+	AddPermitListRules(ctx context.Context, in *AddPermitListRulesRequest, opts ...grpc.CallOption) (*AddPermitListRulesResponse, error)
+	DeletePermitListRules(ctx context.Context, in *DeletePermitListRulesRequest, opts ...grpc.CallOption) (*DeletePermitListRulesResponse, error)
 	CreateVpnGateway(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*CreateVpnGatewayResponse, error)
 	CreateVpnBgpSessions(ctx context.Context, in *CreateVpnBgpSessionsRequest, opts ...grpc.CallOption) (*CreateVpnBgpSessionsResponse, error)
 	CreateVpnConnections(ctx context.Context, in *CreateVpnConnectionsRequest, opts ...grpc.CallOption) (*BasicResponse, error)
@@ -84,8 +84,8 @@ func (c *cloudPluginClient) CreateResource(ctx context.Context, in *ResourceDesc
 	return out, nil
 }
 
-func (c *cloudPluginClient) GetPermitList(ctx context.Context, in *ResourceID, opts ...grpc.CallOption) (*PermitList, error) {
-	out := new(PermitList)
+func (c *cloudPluginClient) GetPermitList(ctx context.Context, in *GetPermitListRequest, opts ...grpc.CallOption) (*GetPermitListResponse, error) {
+	out := new(GetPermitListResponse)
 	err := c.cc.Invoke(ctx, CloudPlugin_GetPermitList_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -93,8 +93,8 @@ func (c *cloudPluginClient) GetPermitList(ctx context.Context, in *ResourceID, o
 	return out, nil
 }
 
-func (c *cloudPluginClient) AddPermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error) {
-	out := new(BasicResponse)
+func (c *cloudPluginClient) AddPermitListRules(ctx context.Context, in *AddPermitListRulesRequest, opts ...grpc.CallOption) (*AddPermitListRulesResponse, error) {
+	out := new(AddPermitListRulesResponse)
 	err := c.cc.Invoke(ctx, CloudPlugin_AddPermitListRules_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -102,8 +102,8 @@ func (c *cloudPluginClient) AddPermitListRules(ctx context.Context, in *PermitLi
 	return out, nil
 }
 
-func (c *cloudPluginClient) DeletePermitListRules(ctx context.Context, in *PermitList, opts ...grpc.CallOption) (*BasicResponse, error) {
-	out := new(BasicResponse)
+func (c *cloudPluginClient) DeletePermitListRules(ctx context.Context, in *DeletePermitListRulesRequest, opts ...grpc.CallOption) (*DeletePermitListRulesResponse, error) {
+	out := new(DeletePermitListRulesResponse)
 	err := c.cc.Invoke(ctx, CloudPlugin_DeletePermitListRules_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -144,9 +144,9 @@ func (c *cloudPluginClient) CreateVpnConnections(ctx context.Context, in *Create
 type CloudPluginServer interface {
 	GetUsedAddressSpaces(context.Context, *InvisinetsDeployment) (*AddressSpaceList, error)
 	CreateResource(context.Context, *ResourceDescription) (*CreateResourceResponse, error)
-	GetPermitList(context.Context, *ResourceID) (*PermitList, error)
-	AddPermitListRules(context.Context, *PermitList) (*BasicResponse, error)
-	DeletePermitListRules(context.Context, *PermitList) (*BasicResponse, error)
+	GetPermitList(context.Context, *GetPermitListRequest) (*GetPermitListResponse, error)
+	AddPermitListRules(context.Context, *AddPermitListRulesRequest) (*AddPermitListRulesResponse, error)
+	DeletePermitListRules(context.Context, *DeletePermitListRulesRequest) (*DeletePermitListRulesResponse, error)
 	CreateVpnGateway(context.Context, *InvisinetsDeployment) (*CreateVpnGatewayResponse, error)
 	CreateVpnBgpSessions(context.Context, *CreateVpnBgpSessionsRequest) (*CreateVpnBgpSessionsResponse, error)
 	CreateVpnConnections(context.Context, *CreateVpnConnectionsRequest) (*BasicResponse, error)
@@ -163,13 +163,13 @@ func (UnimplementedCloudPluginServer) GetUsedAddressSpaces(context.Context, *Inv
 func (UnimplementedCloudPluginServer) CreateResource(context.Context, *ResourceDescription) (*CreateResourceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateResource not implemented")
 }
-func (UnimplementedCloudPluginServer) GetPermitList(context.Context, *ResourceID) (*PermitList, error) {
+func (UnimplementedCloudPluginServer) GetPermitList(context.Context, *GetPermitListRequest) (*GetPermitListResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPermitList not implemented")
 }
-func (UnimplementedCloudPluginServer) AddPermitListRules(context.Context, *PermitList) (*BasicResponse, error) {
+func (UnimplementedCloudPluginServer) AddPermitListRules(context.Context, *AddPermitListRulesRequest) (*AddPermitListRulesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddPermitListRules not implemented")
 }
-func (UnimplementedCloudPluginServer) DeletePermitListRules(context.Context, *PermitList) (*BasicResponse, error) {
+func (UnimplementedCloudPluginServer) DeletePermitListRules(context.Context, *DeletePermitListRulesRequest) (*DeletePermitListRulesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeletePermitListRules not implemented")
 }
 func (UnimplementedCloudPluginServer) CreateVpnGateway(context.Context, *InvisinetsDeployment) (*CreateVpnGatewayResponse, error) {
@@ -231,7 +231,7 @@ func _CloudPlugin_CreateResource_Handler(srv interface{}, ctx context.Context, d
 }
 
 func _CloudPlugin_GetPermitList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ResourceID)
+	in := new(GetPermitListRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -243,13 +243,13 @@ func _CloudPlugin_GetPermitList_Handler(srv interface{}, ctx context.Context, de
 		FullMethod: CloudPlugin_GetPermitList_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CloudPluginServer).GetPermitList(ctx, req.(*ResourceID))
+		return srv.(CloudPluginServer).GetPermitList(ctx, req.(*GetPermitListRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _CloudPlugin_AddPermitListRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PermitList)
+	in := new(AddPermitListRulesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -261,13 +261,13 @@ func _CloudPlugin_AddPermitListRules_Handler(srv interface{}, ctx context.Contex
 		FullMethod: CloudPlugin_AddPermitListRules_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CloudPluginServer).AddPermitListRules(ctx, req.(*PermitList))
+		return srv.(CloudPluginServer).AddPermitListRules(ctx, req.(*AddPermitListRulesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _CloudPlugin_DeletePermitListRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PermitList)
+	in := new(DeletePermitListRulesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -279,7 +279,7 @@ func _CloudPlugin_DeletePermitListRules_Handler(srv interface{}, ctx context.Con
 		FullMethod: CloudPlugin_DeletePermitListRules_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CloudPluginServer).DeletePermitListRules(ctx, req.(*PermitList))
+		return srv.(CloudPluginServer).DeletePermitListRules(ctx, req.(*DeletePermitListRulesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
