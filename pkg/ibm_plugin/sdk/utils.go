@@ -48,8 +48,10 @@ const (
 	publicSSHKey    = ".ibm/keys/invisinets-key.pub"
 	privateSSHKey   = ".ibm/keys/invisinets-key"
 
-	// InvResourcePrefix is used to prefix a resource
+	// InvResourcePrefix is used to prefix a resource's name
 	InvResourcePrefix = "invisinets"
+	// InvTag is the default tag attached to all inv resources
+	InvTag = "inv"
 
 	endpointsURL = "https://control.cloud-object-storage.cloud.ibm.com/v2/endpoints"
 )

@@ -29,11 +29,6 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
-const (
-	// InvTag is the default tag attached to all inv resources
-	InvTag = "inv"
-)
-
 // CloudClient is the client used to interact with IBM Cloud SDK
 type CloudClient struct {
 	vpcService     *vpcv1.VpcV1
@@ -126,7 +121,7 @@ func (c *CloudClient) GetInstanceID(name string) (string, error) {
 }
 
 func (c *CloudClient) attachTag(CRN *string, tags []string) error {
-	tags = append(tags, InvResourcePrefix)
+	tags = append(tags, InvTag) // add universal tag for invisinets' resources  
 	userTypeTag := globaltaggingv1.AttachTagOptionsTagTypeUserConst
 	resourceModel := &globaltaggingv1.Resource{
 		ResourceID:   CRN,
@@ -152,7 +147,8 @@ func (c *CloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceTy
 	// parse tags
 	var tagsStr string
 	var queryStr string
-	tags = append(tags, InvResourcePrefix) // append the invisinets tag
+	// append the invisinets tag to narrow the search scope to invisinets resources only. 
+	tags = append(tags, InvTag)
 	for _, tag := range tags {
 		tagsStr += fmt.Sprintf("tags:%v AND ", tag)
 	}

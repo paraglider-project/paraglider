@@ -51,7 +51,7 @@ func (c *CloudClient) CreateInstance(vpcID, subnetID string,
 
 func (c *CloudClient) createInstance(keyID, vpcID, subnetID string, instanceOptions *vpcv1.CreateInstanceOptions, securityGroup *vpcv1.SecurityGroup) (
 	*vpcv1.Instance, error) {
-	instanceTags := []string{InvTag, vpcID}
+	instanceTags := []string{vpcID}
 
 	sgGrps := []vpcv1.SecurityGroupIdentityIntf{
 		&vpcv1.SecurityGroupIdentityByID{ID: securityGroup.ID}}

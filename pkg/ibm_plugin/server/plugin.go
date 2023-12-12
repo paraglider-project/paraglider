@@ -90,7 +90,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	// Logic : Check if there are VPCs in the region,
 	// Check if there is a subnet in that requested zone, Otherwise find unused address space and create a subnet in that address space.
 
-	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{sdk.InvTag},
+	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{},
 		sdk.ResourceQuery{Region: region})
 	if err != nil {
 		return nil, err
@@ -168,7 +168,7 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 	}
 	// get all VPCs in the deployment.
 	// TODO: future multi deployment support will require sending deployment id as tag, currently using static tag.
-	deploymentVpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{sdk.InvTag}, sdk.ResourceQuery{})
+	deploymentVpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{}, sdk.ResourceQuery{})
 	if err != nil {
 		utils.Log.Print("Failed to get invisinets tagged VPCs")
 		return nil, err

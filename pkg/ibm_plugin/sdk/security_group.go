@@ -54,7 +54,7 @@ type SecurityGroupRule struct {
 // creates security group in the specified VPC and tags it.
 func (c *CloudClient) createSecurityGroup(
 	vpcID string) (*vpcv1.SecurityGroup, error) {
-	sgTags := []string{InvTag, vpcID}
+	sgTags := []string{vpcID}
 
 	vpcIdentity := vpcv1.VPCIdentityByID{ID: &vpcID}
 	sgName := GenerateResourceName(sgResType)

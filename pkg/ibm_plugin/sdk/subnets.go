@@ -30,7 +30,7 @@ const subnetType = "subnet"
 // tag subnet with invisinets prefix and vpc ID.
 func (c *CloudClient) CreateSubnet(
 	vpcID, zone, addressSpace string) (*vpcv1.Subnet, error) {
-	subnetTags := []string{InvTag, vpcID}
+	subnetTags := []string{vpcID}
 	zone = strings.TrimSpace(zone)
 
 	zoneIdentity := vpcv1.ZoneIdentity{Name: &zone}

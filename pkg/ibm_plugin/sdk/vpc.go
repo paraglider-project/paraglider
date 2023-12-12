@@ -28,7 +28,7 @@ const vpcType = "vpc"
 
 // CreateVPC creates an Invisinets VPC for a region resources are tagged.
 func (c *CloudClient) CreateVPC() (*vpcv1.VPC, error) {
-	vpcTags := []string{InvTag}
+	vpcTags := []string{}
 	var prefixManagement string
 
 	vpcName := GenerateResourceName(vpcType)

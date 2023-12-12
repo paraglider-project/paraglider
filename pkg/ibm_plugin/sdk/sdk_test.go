@@ -38,7 +38,7 @@ const (
 func TestCleanup(t *testing.T) {
 	cloudClient, err := NewIBMCloudClient(*testResGroupName, testRegion)
 	require.NoError(t, err)
-	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(VPC, []string{InvTag}, ResourceQuery{})
+	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(VPC, []string{}, ResourceQuery{})
 	require.NoError(t, err)
 	for _, vpcsData := range vpcsData {
 		// cloud client must be set to the region of the current VPC
