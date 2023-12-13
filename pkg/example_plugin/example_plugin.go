@@ -35,32 +35,32 @@ var (
 
 type cloudPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
-	permitListState map[string]*invisinetspb.PermitList
+	permitListState map[string][]*invisinetspb.PermitListRule
 }
 
-func (s *cloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
+func (s *cloudPluginServer) GetPermitList(c context.Context, req *invisinetspb.GetPermitListRequest) (*invisinetspb.GetPermitListResponse, error) {
 	if storeData {
-		permitList, ok := s.permitListState[r.Id]
+		permitList, ok := s.permitListState[req.Resource]
 		if ok {
-			return permitList, nil
+			return &invisinetspb.GetPermitListResponse{Rules: permitList}, nil
 		}
 	}
-	return &invisinetspb.PermitList{AssociatedResource: r.Id}, nil
+	return &invisinetspb.GetPermitListResponse{}, nil
 }
 
-func (s *cloudPluginServer) AddPermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
+func (s *cloudPluginServer) AddPermitListRules(c context.Context, req *invisinetspb.AddPermitListRulesRequest) (*invisinetspb.AddPermitListRulesResponse, error) {
 	if print {
 		fmt.Println("Rules to add:")
-		fmt.Printf("%v\n", permitList)
+		fmt.Printf("%v\n", req.Rules)
 	}
 	if storeData {
-		s.permitListState[permitList.AssociatedResource] = permitList
+		s.permitListState[req.Resource] = req.Rules
 	}
-	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
+	return &invisinetspb.AddPermitListRulesResponse{}, nil
 }
 
-func (s *cloudPluginServer) DeletePermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
+func (s *cloudPluginServer) DeletePermitListRules(c context.Context, req *invisinetspb.DeletePermitListRulesRequest) (*invisinetspb.DeletePermitListRulesResponse, error) {
+	return &invisinetspb.DeletePermitListRulesResponse{}, nil
 }
 
 func (s *cloudPluginServer) CreateResource(c context.Context, resource *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
@@ -73,7 +73,7 @@ func (s *cloudPluginServer) GetUsedAddressSpaces(c context.Context, deployment *
 
 func newServer() *cloudPluginServer {
 	s := &cloudPluginServer{}
-	s.permitListState = make(map[string]*invisinetspb.PermitList)
+	s.permitListState = make(map[string][]*invisinetspb.PermitListRule)
 	return s
 }
 

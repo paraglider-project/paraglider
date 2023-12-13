@@ -161,9 +161,10 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		return nil, err
 	}
 
+	var existingRulePriorities map[string]int32 = make(map[string]int32)
 	var reservedPrioritiesInbound map[int32]bool = make(map[int32]bool)
 	var reservedPrioritiesOutbound map[int32]bool = make(map[int32]bool)
-	err = s.setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, nsg)
+	err = s.setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, existingRulePriorities, nsg)
 	if err != nil {
 		utils.Log.Printf("An error occured during setup: %+v", err)
 		return nil, err
@@ -229,13 +230,15 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 
 		// To avoid conflicted priorities, we need to check whether the priority is already used by other rules
 		// if the priority is already used, we need to find the next available priority
-		var priority int32
-		if rule.Direction == invisinetspb.Direction_INBOUND {
-			priority = getPriority(reservedPrioritiesInbound, inboundPriority, maxPriority)
-			inboundPriority = priority + 1
-		} else if rule.Direction == invisinetspb.Direction_OUTBOUND {
-			priority = getPriority(reservedPrioritiesOutbound, outboundPriority, maxPriority)
-			outboundPriority = priority + 1
+		priority, ok := existingRulePriorities[getNSGRuleName(rule.Name)]
+		if !ok {
+			if rule.Direction == invisinetspb.Direction_INBOUND {
+				priority = getPriority(reservedPrioritiesInbound, inboundPriority, maxPriority)
+				inboundPriority = priority + 1
+			} else if rule.Direction == invisinetspb.Direction_OUTBOUND {
+				priority = getPriority(reservedPrioritiesOutbound, outboundPriority, maxPriority)
+				outboundPriority = priority + 1
+			}
 		}
 
 		// Create the NSG rule
@@ -454,22 +457,23 @@ func (s *azurePluginServer) getAndCheckResourceNamespace(c context.Context, reso
 	return nil
 }
 
-// fillRulesSet fills the given map with the rules in the given permit list as a string
-func (s *azurePluginServer) fillRulesSet(rulesSet map[string]bool, rules []*invisinetspb.PermitListRule) {
-	for _, rule := range rules {
-		rulesSet[s.azureHandler.GetInvisinetsRuleDesc(rule)] = true
-	}
-}
-
 // setupMaps fills the reservedPrioritiesInbound and reservedPrioritiesOutbound maps with the priorities of the existing rules in the NSG
 // This is done to avoid priorities conflicts when creating new rules
-func (s *azurePluginServer) setupMaps(reservedPrioritiesInbound map[int32]bool, reservedPrioritiesOutbound map[int32]bool, nsg *armnetwork.SecurityGroup) error {
+// Existing rules map is filled to ensure that rules that just need their contents updated do not get recreated with new priorities
+func (s *azurePluginServer) setupMaps(reservedPrioritiesInbound map[int32]bool, reservedPrioritiesOutbound map[int32]bool, existingRulePriorities map[string]int32, nsg *armnetwork.SecurityGroup) error {
 	for _, rule := range nsg.Properties.SecurityRules {
 		if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
 			reservedPrioritiesInbound[*rule.Properties.Priority] = true
 		} else if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionOutbound {
 			reservedPrioritiesOutbound[*rule.Properties.Priority] = true
 		}
+
+		// skip rules that are not created by Invisinets, because some rules are added by default and have
+		// different fields such as port ranges which is not supported by Invisinets at the moment
+		if !strings.HasPrefix(*rule.Name, invisinetsPrefix) {
+			continue
+		}
+		existingRulePriorities[*rule.Name] = *rule.Properties.Priority
 	}
 	return nil
 }
