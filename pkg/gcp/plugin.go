@@ -143,12 +143,12 @@ func hash(values ...string) string {
 // Gets a GCP firewall rule name for an Invisinets permit list rule
 // If two Invisinets permit list rules are equal, then they will have the same GCP firewall rule name.
 func getFirewallName(ruleName string, instanceId uint64) string {
-	return (fmt.Sprintf("%s-%s-%s", firewallNamePrefix, strconv.FormatUint(instanceId, 10), ruleName))[:firewallNameMaxLength]
+	return (fmt.Sprintf("%s-%s-%s", firewallNamePrefix, strconv.FormatUint(instanceId, 10), ruleName))
 }
 
 // Retrieve the name of the firewall rule from the GCP firewall name
 func parseFirewallName(firewallName string) string {
-	return strings.Split(firewallName, "-")[2]
+	return strings.SplitN(firewallName, "-", 4)[3]
 }
 
 // Returns VPC for Invisinets in a shortened GCP URI format

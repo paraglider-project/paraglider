@@ -63,6 +63,7 @@ var fakeNetworkTag = networkTagPrefix + strconv.FormatUint(fakeInstanceId, 10)
 // Fake firewalls and permitlists
 var (
 	fakePermitListRule1 = &invisinetspb.PermitListRule{
+		Name:      "rule-name1",
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   -1,
 		DstPort:   80,
@@ -78,13 +79,14 @@ var (
 			},
 		},
 		Direction:    proto.String(computepb.Firewall_INGRESS.String()),
-		Name:         proto.String(getFirewallName(fakePermitListRule1, 1)),
+		Name:         proto.String(getFirewallName(fakePermitListRule1.Name, fakeInstanceId)),
 		Network:      proto.String(GetVpcUri(fakeNamespace)),
 		SourceRanges: []string{"10.1.2.0/24"},
 		TargetTags:   []string{fakeNetworkTag},
 		Description:  proto.String(getRuleDescription([]string{"tag1", "tag2"})),
 	}
 	fakePermitListRule2 = &invisinetspb.PermitListRule{
+		Name:      "rule-name2",
 		Direction: invisinetspb.Direction_OUTBOUND,
 		SrcPort:   -1,
 		DstPort:   -1,
@@ -100,7 +102,7 @@ var (
 		},
 		DestinationRanges: []string{"10.3.4.0/24"},
 		Direction:         proto.String(computepb.Firewall_EGRESS.String()),
-		Name:              proto.String(getFirewallName(fakePermitListRule2, 2)),
+		Name:              proto.String(getFirewallName(fakePermitListRule2.Name, fakeInstanceId)),
 		Network:           proto.String(GetVpcUri(fakeNamespace)),
 		TargetTags:        []string{fakeNetworkTag},
 	}
@@ -394,17 +396,15 @@ func TestGetPermitList(t *testing.T) {
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
-	resource := &invisinetspb.ResourceID{Id: fakeResourceId, Namespace: fakeNamespace}
+	request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: fakeNamespace}
 
-	permitListActual, err := s._GetPermitList(ctx, resource, fakeClients.instancesClient)
+	responseActual, err := s._GetPermitList(ctx, request, fakeClients.instancesClient)
 	require.NoError(t, err)
-	permitListExpected := &invisinetspb.PermitList{
-		AssociatedResource: fakeResourceId,
-		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1, fakePermitListRule2},
+	responseExpected := &invisinetspb.GetPermitListResponse{
+		Rules: []*invisinetspb.PermitListRule{fakePermitListRule1, fakePermitListRule2},
 	}
-	require.NotNil(t, permitListActual)
-	assert.Equal(t, permitListExpected.AssociatedResource, permitListActual.AssociatedResource)
-	assert.ElementsMatch(t, permitListExpected.Rules, permitListActual.Rules)
+	require.NotNil(t, responseActual)
+	assert.ElementsMatch(t, responseExpected.Rules, responseActual.Rules)
 }
 
 func TestGetPermitListMissingInstance(t *testing.T) {
@@ -412,9 +412,9 @@ func TestGetPermitListMissingInstance(t *testing.T) {
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
-	resource := &invisinetspb.ResourceID{Id: fakeMissingResourceId}
+	request := &invisinetspb.GetPermitListRequest{Resource: fakeMissingResourceId, Namespace: fakeNamespace}
 
-	resp, err := s._GetPermitList(ctx, resource, fakeClients.instancesClient)
+	resp, err := s._GetPermitList(ctx, request, fakeClients.instancesClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -427,9 +427,9 @@ func TestGetPermitListWrongNamespace(t *testing.T) {
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
-	resource := &invisinetspb.ResourceID{Id: fakeResourceId, Namespace: "wrongnamespace"}
+	request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: "wrongnamespace"}
 
-	resp, err := s._GetPermitList(ctx, resource, fakeClients.instancesClient)
+	resp, err := s._GetPermitList(ctx, request, fakeClients.instancesClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -453,8 +453,8 @@ func TestAddPermitListRules(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
-	permitList := &invisinetspb.PermitList{
-		AssociatedResource: fakeResourceId,
+	request := &invisinetspb.AddPermitListRulesRequest{
+		Resource: fakeResourceId,
 		Rules: []*invisinetspb.PermitListRule{
 			{
 				Direction: invisinetspb.Direction_INBOUND,
@@ -475,10 +475,9 @@ func TestAddPermitListRules(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.True(t, resp.Success)
 }
 
 func TestAddPermitListRulesMissingInstance(t *testing.T) {
@@ -490,8 +489,8 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
-	permitList := &invisinetspb.PermitList{
-		AssociatedResource: fakeMissingResourceId,
+	request := &invisinetspb.AddPermitListRulesRequest{
+		Resource: fakeMissingResourceId,
 		Rules: []*invisinetspb.PermitListRule{
 			{
 				Direction: invisinetspb.Direction_INBOUND,
@@ -504,7 +503,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -517,8 +516,8 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
-	permitList := &invisinetspb.PermitList{
-		AssociatedResource: fakeMissingResourceId,
+	request := &invisinetspb.AddPermitListRulesRequest{
+		Resource: fakeMissingResourceId,
 		Rules: []*invisinetspb.PermitListRule{
 			{
 				Direction: invisinetspb.Direction_INBOUND,
@@ -531,15 +530,20 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 		Namespace: "wrongnamespace",
 	}
 
-	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
 
-func TestAddPermitListRulesDuplicate(t *testing.T) {
+func TestAddPermitListRulesExistingRule(t *testing.T) {
 	fakeServerState := &fakeServerState{
-		instance:    getFakeInstance(true),
-		firewallMap: map[string]*computepb.Firewall{*fakeFirewallRule1.Name: fakeFirewallRule1},
+		instance: getFakeInstance(true),
+		subnetwork: &computepb.Subnetwork{
+			IpCidrRange: proto.String("10.0.0.0/16"),
+		},
+	}
+	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
+		{Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")), Network: proto.String(GetVpcUri(fakeNamespace))},
 	}
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
@@ -549,14 +553,24 @@ func TestAddPermitListRulesDuplicate(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
-	permitList := &invisinetspb.PermitList{
-		AssociatedResource: fakeMissingResourceId,
-		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1},
+	newRule := &invisinetspb.PermitListRule{
+		Name:      fakePermitListRule1.Name,
+		Direction: fakePermitListRule1.Direction,
+		SrcPort:   fakePermitListRule1.SrcPort,
+		DstPort:   fakePermitListRule1.DstPort + 1,
+		Protocol:  fakePermitListRule1.Protocol,
+		Targets:   []string{"10.0.0.1"},
+		Tags:      fakePermitListRule1.Tags,
+	}
+	request := &invisinetspb.AddPermitListRulesRequest{
+		Resource:  fakeResourceId,
+		Rules:     []*invisinetspb.PermitListRule{newRule},
+		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._AddPermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
-	require.Error(t, err)
-	require.Nil(t, resp)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
 }
 
 func TestDeletePermitListRules(t *testing.T) {
@@ -564,16 +578,15 @@ func TestDeletePermitListRules(t *testing.T) {
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
-	permitList := &invisinetspb.PermitList{
-		AssociatedResource: fakeResourceId,
-		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1, fakePermitListRule2},
-		Namespace:          fakeNamespace,
+	request := &invisinetspb.DeletePermitListRulesRequest{
+		Resource:  fakeResourceId,
+		RuleNames: []string{fakePermitListRule1.Name, fakePermitListRule2.Name},
+		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._DeletePermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
+	resp, err := s._DeletePermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.True(t, resp.Success)
 }
 
 func TestDeletePermitListRulesMissingInstance(t *testing.T) {
@@ -581,12 +594,13 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
-	permitList := &invisinetspb.PermitList{
-		AssociatedResource: fakeMissingResourceId,
-		Rules:              []*invisinetspb.PermitListRule{fakePermitListRule1},
+	request := &invisinetspb.DeletePermitListRulesRequest{
+		Resource:  fakeMissingResourceId,
+		RuleNames: []string{fakePermitListRule1.Name},
+		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._DeletePermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
+	resp, err := s._DeletePermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -599,21 +613,13 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 	defer teardown(fakeServer, fakeClients)
 
 	s := &GCPPluginServer{}
-	permitList := &invisinetspb.PermitList{
-		AssociatedResource: fakeMissingResourceId,
-		Rules: []*invisinetspb.PermitListRule{
-			{
-				Direction: invisinetspb.Direction_INBOUND,
-				SrcPort:   -1,
-				DstPort:   443,
-				Protocol:  6,
-				Targets:   []string{"10.5.6.0/24"},
-			},
-		},
+	request := &invisinetspb.DeletePermitListRulesRequest{
+		Resource:  fakeMissingResourceId,
+		RuleNames: []string{"Name"},
 		Namespace: "wrongnamespace",
 	}
 
-	resp, err := s._DeletePermitListRules(ctx, permitList, fakeClients.firewallsClient, fakeClients.instancesClient)
+	resp, err := s._DeletePermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
