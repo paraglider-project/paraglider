@@ -17,6 +17,7 @@ limitations under the License.
 package delete
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
@@ -29,20 +30,13 @@ func TestRuleDeleteValidate(t *testing.T) {
 	cmd, executor := NewCommand()
 
 	args := []string{fake.CloudName, "uri"}
-	ruleFile := "not-a-file.json"
-	tag := "tag"
-	err := cmd.Flags().Set("rulefile", ruleFile)
-	require.Nil(t, err)
-	err = cmd.Flags().Set("ping", tag)
-	require.Nil(t, err)
-	err = cmd.Flags().Set("ssh", tag)
+	rules := "name1,names2"
+	err := cmd.Flags().Set("rules", rules)
 	require.Nil(t, err)
 	err = executor.Validate(cmd, args)
 
 	assert.Nil(t, err)
-	assert.Equal(t, executor.ruleFile, ruleFile)
-	assert.Equal(t, executor.pingTag, tag)
-	assert.Equal(t, executor.sshTag, tag)
+	assert.Equal(t, executor.ruleNames, strings.Split(rules, ","))
 }
 
 func TestRuleDeleteExecute(t *testing.T) {
@@ -51,8 +45,7 @@ func TestRuleDeleteExecute(t *testing.T) {
 
 	cmd, executor := NewCommand()
 	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
-	executor.pingTag = "pingTag"
-	executor.sshTag = "sshTag"
+	executor.ruleNames = []string{"name1", "name2"}
 
 	args := []string{fake.CloudName, "uri"}
 	err := executor.Execute(cmd, args)

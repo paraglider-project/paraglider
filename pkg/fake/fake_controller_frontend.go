@@ -79,6 +79,7 @@ func GetFakePermitListRules() []*invisinetspb.PermitListRule {
 	return []*invisinetspb.PermitListRule{
 		{
 			Id:        "id",
+			Name:      "name",
 			Targets:   []string{"1.1.1.1", "2.2.2.2"},
 			Direction: invisinetspb.Direction_INBOUND,
 			SrcPort:   1,
@@ -87,6 +88,10 @@ func GetFakePermitListRules() []*invisinetspb.PermitListRule {
 			Tags:      []string{"tag1", "tag2"},
 		},
 	}
+}
+
+func GetFakePermitListRuleNames() []string {
+	return []string{"name1", "name2"}
 }
 
 func GetFakeTagMapping(tagName string) *tagservicepb.TagMapping {
@@ -158,9 +163,18 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 			}
 			w.WriteHeader(http.StatusOK)
 			return
-		// Add/Delete Permit List Rules
-		case urlMatches(path, frontend.AddPermitListRulesURL) && (r.Method == http.MethodPost || r.Method == http.MethodDelete):
+		// Add Permit List Rules
+		case urlMatches(path, frontend.AddPermitListRulesURL) && (r.Method == http.MethodPost):
 			rules := []*invisinetspb.PermitListRule{}
+			err := json.Unmarshal(body, &rules)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+				return
+			}
+			return
+		// Delete Permit List Rules
+		case urlMatches(path, frontend.DeletePermitListRulesURL) && (r.Method == http.MethodDelete):
+			rules := []string{}
 			err := json.Unmarshal(body, &rules)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
@@ -176,23 +190,25 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 				return
 			}
 			return
-		// Tag Set/Get/Delete
+		// Tag Get/Delete
 		case urlMatches(path, frontend.GetTagURL):
-			if r.Method == http.MethodPost {
-				tags := []*tagservicepb.TagMapping{}
-				err := s.writeResponse(w, tags)
-				if err != nil {
-					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
-					return
-				}
-				return
-			}
 			if r.Method == http.MethodDelete {
 				w.WriteHeader(http.StatusOK)
 				return
 			}
 			if r.Method == http.MethodGet {
 				err := s.writeResponse(w, GetFakeTagMapping(getURLParams(path, string(frontend.GetTagURL))["tag"]))
+				if err != nil {
+					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+					return
+				}
+				return
+			}
+		// Tag Set
+		case urlMatches(path, frontend.SetTagURL):
+			if r.Method == http.MethodPost {
+				tags := []*tagservicepb.TagMapping{}
+				err := s.writeResponse(w, tags)
 				if err != nil {
 					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 					return

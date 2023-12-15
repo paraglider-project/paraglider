@@ -32,7 +32,7 @@ import (
 type InvisinetsControllerClient interface {
 	GetPermitList(namespace string, cloud string, resourceName string) ([]*invisinetspb.PermitListRule, error)
 	AddPermitListRules(namespace string, cloud string, resourceName string, rules []*invisinetspb.PermitListRule) error
-	DeletePermitListRules(namespace string, cloud string, resourceName string, rules []*invisinetspb.PermitListRule) error
+	DeletePermitListRules(namespace string, cloud string, resourceName string, rules []string) error
 	CreateResource(namespace string, cloud string, resourceName string, resource *invisinetspb.ResourceDescriptionString) error
 	GetTag(tag string) (*[]tagservicepb.TagMapping, error)
 	ResolveTag(tag string) ([]*tagservicepb.TagMapping, error)
@@ -121,7 +121,7 @@ func (c *Client) AddPermitListRules(namespace string, cloud string, resourceName
 }
 
 // Delete permit list rules from a resource
-func (c *Client) DeletePermitListRules(namespace string, cloud string, resourceName string, rules []*invisinetspb.PermitListRule) error {
+func (c *Client) DeletePermitListRules(namespace string, cloud string, resourceName string, rules []string) error {
 	path := fmt.Sprintf(frontend.GetFormatterString(frontend.DeletePermitListRulesURL), namespace, cloud, resourceName)
 
 	reqBody, err := json.Marshal(rules)

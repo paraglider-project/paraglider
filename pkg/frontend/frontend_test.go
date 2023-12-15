@@ -16,6 +16,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// TODO NOW: Add tests for the new functions
+
 package frontend
 
 import (
@@ -124,16 +126,16 @@ type mockCloudPluginServer struct {
 	mockTagServiceServer
 }
 
-func (s *mockCloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
-	return &invisinetspb.PermitList{AssociatedResource: r.Id, Rules: []*invisinetspb.PermitListRule{exampleRule}}, nil
+func (s *mockCloudPluginServer) GetPermitList(c context.Context, req *invisinetspb.GetPermitListRequest) (*invisinetspb.GetPermitListResponse, error) {
+	return &invisinetspb.GetPermitListResponse{Rules: []*invisinetspb.PermitListRule{exampleRule}}, nil
 }
 
-func (s *mockCloudPluginServer) AddPermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
+func (s *mockCloudPluginServer) AddPermitListRules(c context.Context, req *invisinetspb.AddPermitListRulesRequest) (*invisinetspb.AddPermitListRulesResponse, error) {
+	return &invisinetspb.AddPermitListRulesResponse{}, nil
 }
 
-func (s *mockCloudPluginServer) DeletePermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
+func (s *mockCloudPluginServer) DeletePermitListRules(c context.Context, req *invisinetspb.DeletePermitListRulesRequest) (*invisinetspb.DeletePermitListRulesResponse, error) {
+	return &invisinetspb.DeletePermitListRulesResponse{}, nil
 }
 
 func (s *mockCloudPluginServer) CreateResource(c context.Context, resource *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
@@ -338,15 +340,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 
 	// Well-formed request
 	name := validLastLevelTagName
-	tags := []string{validTagName}
-	rule := &invisinetspb.PermitListRule{
-		Id:        "id",
-		Tags:      tags,
-		Direction: invisinetspb.Direction_INBOUND,
-		SrcPort:   1,
-		DstPort:   2,
-		Protocol:  1}
-	rulesList := []*invisinetspb.PermitListRule{rule}
+	rulesList := []string{"ruleName"}
 
 	jsonValue, _ := json.Marshal(rulesList)
 
@@ -739,27 +733,29 @@ func TestResolvePermitListRules(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	// Permit list rule that contains tags, IPs, and names
-	id := "id"
 	rule := &invisinetspb.PermitListRule{
-		Id:        "id",
+		Id:        "id1",
+		Name:      "name1",
 		Tags:      []string{validTagName + "1", validTagName + "2", "2.3.4.5"},
 		Targets:   []string{},
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
-	rulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{rule}}
+	rulesList := []*invisinetspb.PermitListRule{rule}
 	expectedRule := &invisinetspb.PermitListRule{
-		Id:        "id",
+		Id:        "id1",
+		Name:      "name1",
 		Tags:      []string{validTagName + "1", validTagName + "2", "2.3.4.5"},
 		Targets:   []string{resolvedTagIp, resolvedTagIp, "2.3.4.5"},
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
-	expectedRulesList := &invisinetspb.PermitList{AssociatedResource: id, Rules: []*invisinetspb.PermitListRule{expectedRule}}
+	expectedRulesList := []*invisinetspb.PermitListRule{expectedRule}
+	resource := &ResourceInfo{uri: "uri", cloud: exampleCloudName, namespace: defaultNamespace}
 
-	resolvedRules, err := frontendServer.resolvePermitListRules(rulesList, false, exampleCloudName)
+	resolvedRules, err := frontendServer.resolvePermitListRules(rulesList, resource, false)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedRulesList, resolvedRules)
 }
@@ -847,27 +843,21 @@ func TestCreateSubscriberName(t *testing.T) {
 }
 
 func TestDiffTagReferences(t *testing.T) {
-	beforePermitList := &invisinetspb.PermitList{
-		AssociatedResource: "uri",
-		Rules: []*invisinetspb.PermitListRule{
-			&invisinetspb.PermitListRule{
-				Tags: []string{"tag1", "1.2.3.4"},
-			},
-			&invisinetspb.PermitListRule{
-				Tags: []string{"tag1", "tag2", "tag3"},
-			},
+	beforePermitList := []*invisinetspb.PermitListRule{
+		&invisinetspb.PermitListRule{
+			Tags: []string{"tag1", "1.2.3.4"},
+		},
+		&invisinetspb.PermitListRule{
+			Tags: []string{"tag1", "tag2", "tag3"},
 		},
 	}
 
-	afterPermitList := &invisinetspb.PermitList{
-		AssociatedResource: "uri",
-		Rules: []*invisinetspb.PermitListRule{
-			&invisinetspb.PermitListRule{
-				Tags: []string{"tag1", "1.2.3.4"},
-			},
-			&invisinetspb.PermitListRule{
-				Tags: []string{"tag3"},
-			},
+	afterPermitList := []*invisinetspb.PermitListRule{
+		&invisinetspb.PermitListRule{
+			Tags: []string{"tag1", "1.2.3.4"},
+		},
+		&invisinetspb.PermitListRule{
+			Tags: []string{"tag3"},
 		},
 	}
 
@@ -885,29 +875,23 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 
 	setupTagServer(tagServerPort)
 
-	resource := resourceInfo{uri: "uri", cloud: exampleCloudName, namespace: defaultNamespace}
+	resource := ResourceInfo{uri: "uri", cloud: exampleCloudName, namespace: defaultNamespace}
 
-	beforePermitList := &invisinetspb.PermitList{
-		AssociatedResource: resource.uri,
-		Rules: []*invisinetspb.PermitListRule{
-			&invisinetspb.PermitListRule{
-				Tags: []string{validTagName + "1", "1.2.3.4"},
-			},
-			&invisinetspb.PermitListRule{
-				Tags: []string{validTagName + "1", validTagName + "2", validTagName + "2"},
-			},
+	beforePermitList := []*invisinetspb.PermitListRule{
+		&invisinetspb.PermitListRule{
+			Tags: []string{validTagName + "1", "1.2.3.4"},
+		},
+		&invisinetspb.PermitListRule{
+			Tags: []string{validTagName + "1", validTagName + "2", validTagName + "2"},
 		},
 	}
 
-	afterPermitList := &invisinetspb.PermitList{
-		AssociatedResource: resource.uri,
-		Rules: []*invisinetspb.PermitListRule{
-			&invisinetspb.PermitListRule{
-				Tags: []string{validTagName + "1", "1.2.3.4"},
-			},
-			&invisinetspb.PermitListRule{
-				Tags: []string{validTagName + "3"},
-			},
+	afterPermitList := []*invisinetspb.PermitListRule{
+		&invisinetspb.PermitListRule{
+			Tags: []string{validTagName + "1", "1.2.3.4"},
+		},
+		&invisinetspb.PermitListRule{
+			Tags: []string{validTagName + "3"},
 		},
 	}
 
@@ -916,40 +900,34 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 }
 
 func TestClearRuleTargets(t *testing.T) {
-	permitList := &invisinetspb.PermitList{
-		AssociatedResource: "uri",
-		Rules: []*invisinetspb.PermitListRule{
-			&invisinetspb.PermitListRule{
-				Targets: []string{"1.2.3.4"},
-			},
-			&invisinetspb.PermitListRule{
-				Targets: []string{"1.2.3.4", "2.3.4.5"},
-			},
-			&invisinetspb.PermitListRule{
-				Tags: []string{"1.2.3.4", "2.3.4.5"},
-			},
+	permitList := []*invisinetspb.PermitListRule{
+		&invisinetspb.PermitListRule{
+			Targets: []string{"1.2.3.4"},
+		},
+		&invisinetspb.PermitListRule{
+			Targets: []string{"1.2.3.4", "2.3.4.5"},
+		},
+		&invisinetspb.PermitListRule{
+			Tags: []string{"1.2.3.4", "2.3.4.5"},
 		},
 	}
 
-	expectedPermitList := &invisinetspb.PermitList{
-		AssociatedResource: "uri",
-		Rules: []*invisinetspb.PermitListRule{
-			&invisinetspb.PermitListRule{
-				Targets: []string{},
-			},
-			&invisinetspb.PermitListRule{
-				Targets: []string{},
-			},
-			&invisinetspb.PermitListRule{
-				Targets: []string{},
-				Tags:    []string{"1.2.3.4", "2.3.4.5"},
-			},
+	expectedPermitList := []*invisinetspb.PermitListRule{
+		&invisinetspb.PermitListRule{
+			Targets: []string{},
+		},
+		&invisinetspb.PermitListRule{
+			Targets: []string{},
+		},
+		&invisinetspb.PermitListRule{
+			Targets: []string{},
+			Tags:    []string{"1.2.3.4", "2.3.4.5"},
 		},
 	}
 
 	clearedRules := clearRuleTargets(permitList)
 
-	assert.ElementsMatch(t, expectedPermitList.Rules, clearedRules.Rules)
+	assert.ElementsMatch(t, expectedPermitList, clearedRules)
 }
 
 func TestUpdateSubscribers(t *testing.T) {
@@ -1020,7 +998,7 @@ func TestGetAndValidateResourceURLParams(t *testing.T) {
 	ctx := gin.Context{}
 	ctx.Params = gin.Params{gin.Param{Key: "namespace", Value: defaultNamespace}, gin.Param{Key: "cloud", Value: exampleCloudName}, gin.Param{Key: "resourceName", Value: validLastLevelTagName}}
 
-	expectedResourceInfo := &resourceInfo{uri: tagUri, name: validLastLevelTagName, cloud: exampleCloudName, namespace: defaultNamespace}
+	expectedResourceInfo := &ResourceInfo{uri: tagUri, name: validLastLevelTagName, cloud: exampleCloudName, namespace: defaultNamespace}
 
 	// Resolve the tag
 	resource, cloudPlugin, err := frontendServer.getAndValidateResourceURLParams(&ctx, true)
@@ -1030,7 +1008,7 @@ func TestGetAndValidateResourceURLParams(t *testing.T) {
 	assert.Equal(t, cloudPluginAddr, cloudPlugin)
 
 	// Do not resolve the tag
-	expectedResourceInfo = &resourceInfo{name: validLastLevelTagName, cloud: exampleCloudName, namespace: defaultNamespace}
+	expectedResourceInfo = &ResourceInfo{name: validLastLevelTagName, cloud: exampleCloudName, namespace: defaultNamespace}
 
 	resource, cloudPlugin, err = frontendServer.getAndValidateResourceURLParams(&ctx, false)
 

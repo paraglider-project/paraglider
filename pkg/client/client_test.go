@@ -51,7 +51,7 @@ func TestDeletePermitListRules(t *testing.T) {
 	controllerAddress := s.SetupFakeFrontendServer()
 	client := Client{ControllerAddress: controllerAddress}
 
-	err := client.DeletePermitListRules(fake.Namespace, fake.CloudName, "resourceName", fake.GetFakePermitListRules())
+	err := client.DeletePermitListRules(fake.Namespace, fake.CloudName, "resourceName", fake.GetFakePermitListRuleNames())
 
 	assert.Nil(t, err)
 }
