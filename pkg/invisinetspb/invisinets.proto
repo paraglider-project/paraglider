@@ -25,8 +25,7 @@ service CloudPlugin {
     rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}
     rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}
     rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}
-    rpc CreateVpnGateway(InvisinetsDeployment) returns (CreateVpnGatewayResponse) {}
-    rpc CreateVpnBgpSessions(CreateVpnBgpSessionsRequest) returns (CreateVpnBgpSessionsResponse) {}
+    rpc CreateVpnGateway(CreateVpnGatewayRequest) returns (CreateVpnGatewayResponse) {}
     rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (BasicResponse) {}
 }
 
@@ -145,38 +144,32 @@ message GetPermitListResponse {
     repeated PermitListRule rules = 1;
 }
 
-message ConnectCloudsRequest{
+message ConnectCloudsRequest {
     string cloudA = 1;
     string cloudB = 2;
-    string cloudAAddressSpace = 3;
-    string cloudBAddressSpace = 4;
-    string cloudANamespace = 5;
-    string cloudBNamespace = 6;
+    string cloudANamespace = 3;
+    string cloudBNamespace = 4;
 }
 
 // TODO @seankimkdy: check naming of all of these to be as cloud neutral as possible
 // TODO @seankmkdy: should all methods have a {method name}Request and {method name}Response message buffers
 
-message CreateVpnGatewayResponse{
-    repeated string gateway_ip_addresses = 1;
-    int64 asn = 2;
-}
-
-message CreateVpnBgpSessionsRequest {
+message CreateVpnGatewayRequest {
     InvisinetsDeployment deployment = 1;
     string cloud = 2;
 }
 
-message CreateVpnBgpSessionsResponse {
-    repeated string bgp_ip_addresses = 1;
+message CreateVpnGatewayResponse {
+    int64 asn = 1;
+    repeated string gateway_ip_addresses = 2;
+    repeated string bgp_ip_addresses = 3;
 }
 
-message CreateVpnConnectionsRequest{
+message CreateVpnConnectionsRequest {
     InvisinetsDeployment deployment = 1;
     string cloud = 2;
     int64 asn = 3;
-    string address_space = 4;
-    repeated string gateway_ip_addresses = 5;
-    repeated string bgp_ip_addresses = 6;
-    string shared_key = 7;
+    repeated string gateway_ip_addresses = 4;
+    repeated string bgp_ip_addresses = 5;
+    string shared_key = 6;
 }

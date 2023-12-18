@@ -40,7 +40,6 @@ const (
 	CloudPlugin_AddPermitListRules_FullMethodName    = "/invisinetspb.CloudPlugin/AddPermitListRules"
 	CloudPlugin_DeletePermitListRules_FullMethodName = "/invisinetspb.CloudPlugin/DeletePermitListRules"
 	CloudPlugin_CreateVpnGateway_FullMethodName      = "/invisinetspb.CloudPlugin/CreateVpnGateway"
-	CloudPlugin_CreateVpnBgpSessions_FullMethodName  = "/invisinetspb.CloudPlugin/CreateVpnBgpSessions"
 	CloudPlugin_CreateVpnConnections_FullMethodName  = "/invisinetspb.CloudPlugin/CreateVpnConnections"
 )
 
@@ -53,8 +52,7 @@ type CloudPluginClient interface {
 	GetPermitList(ctx context.Context, in *GetPermitListRequest, opts ...grpc.CallOption) (*GetPermitListResponse, error)
 	AddPermitListRules(ctx context.Context, in *AddPermitListRulesRequest, opts ...grpc.CallOption) (*AddPermitListRulesResponse, error)
 	DeletePermitListRules(ctx context.Context, in *DeletePermitListRulesRequest, opts ...grpc.CallOption) (*DeletePermitListRulesResponse, error)
-	CreateVpnGateway(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*CreateVpnGatewayResponse, error)
-	CreateVpnBgpSessions(ctx context.Context, in *CreateVpnBgpSessionsRequest, opts ...grpc.CallOption) (*CreateVpnBgpSessionsResponse, error)
+	CreateVpnGateway(ctx context.Context, in *CreateVpnGatewayRequest, opts ...grpc.CallOption) (*CreateVpnGatewayResponse, error)
 	CreateVpnConnections(ctx context.Context, in *CreateVpnConnectionsRequest, opts ...grpc.CallOption) (*BasicResponse, error)
 }
 
@@ -111,18 +109,9 @@ func (c *cloudPluginClient) DeletePermitListRules(ctx context.Context, in *Delet
 	return out, nil
 }
 
-func (c *cloudPluginClient) CreateVpnGateway(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*CreateVpnGatewayResponse, error) {
+func (c *cloudPluginClient) CreateVpnGateway(ctx context.Context, in *CreateVpnGatewayRequest, opts ...grpc.CallOption) (*CreateVpnGatewayResponse, error) {
 	out := new(CreateVpnGatewayResponse)
 	err := c.cc.Invoke(ctx, CloudPlugin_CreateVpnGateway_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *cloudPluginClient) CreateVpnBgpSessions(ctx context.Context, in *CreateVpnBgpSessionsRequest, opts ...grpc.CallOption) (*CreateVpnBgpSessionsResponse, error) {
-	out := new(CreateVpnBgpSessionsResponse)
-	err := c.cc.Invoke(ctx, CloudPlugin_CreateVpnBgpSessions_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -147,8 +136,7 @@ type CloudPluginServer interface {
 	GetPermitList(context.Context, *GetPermitListRequest) (*GetPermitListResponse, error)
 	AddPermitListRules(context.Context, *AddPermitListRulesRequest) (*AddPermitListRulesResponse, error)
 	DeletePermitListRules(context.Context, *DeletePermitListRulesRequest) (*DeletePermitListRulesResponse, error)
-	CreateVpnGateway(context.Context, *InvisinetsDeployment) (*CreateVpnGatewayResponse, error)
-	CreateVpnBgpSessions(context.Context, *CreateVpnBgpSessionsRequest) (*CreateVpnBgpSessionsResponse, error)
+	CreateVpnGateway(context.Context, *CreateVpnGatewayRequest) (*CreateVpnGatewayResponse, error)
 	CreateVpnConnections(context.Context, *CreateVpnConnectionsRequest) (*BasicResponse, error)
 	mustEmbedUnimplementedCloudPluginServer()
 }
@@ -172,11 +160,8 @@ func (UnimplementedCloudPluginServer) AddPermitListRules(context.Context, *AddPe
 func (UnimplementedCloudPluginServer) DeletePermitListRules(context.Context, *DeletePermitListRulesRequest) (*DeletePermitListRulesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeletePermitListRules not implemented")
 }
-func (UnimplementedCloudPluginServer) CreateVpnGateway(context.Context, *InvisinetsDeployment) (*CreateVpnGatewayResponse, error) {
+func (UnimplementedCloudPluginServer) CreateVpnGateway(context.Context, *CreateVpnGatewayRequest) (*CreateVpnGatewayResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateVpnGateway not implemented")
-}
-func (UnimplementedCloudPluginServer) CreateVpnBgpSessions(context.Context, *CreateVpnBgpSessionsRequest) (*CreateVpnBgpSessionsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateVpnBgpSessions not implemented")
 }
 func (UnimplementedCloudPluginServer) CreateVpnConnections(context.Context, *CreateVpnConnectionsRequest) (*BasicResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateVpnConnections not implemented")
@@ -285,7 +270,7 @@ func _CloudPlugin_DeletePermitListRules_Handler(srv interface{}, ctx context.Con
 }
 
 func _CloudPlugin_CreateVpnGateway_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InvisinetsDeployment)
+	in := new(CreateVpnGatewayRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -297,25 +282,7 @@ func _CloudPlugin_CreateVpnGateway_Handler(srv interface{}, ctx context.Context,
 		FullMethod: CloudPlugin_CreateVpnGateway_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CloudPluginServer).CreateVpnGateway(ctx, req.(*InvisinetsDeployment))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _CloudPlugin_CreateVpnBgpSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateVpnBgpSessionsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CloudPluginServer).CreateVpnBgpSessions(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: CloudPlugin_CreateVpnBgpSessions_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CloudPluginServer).CreateVpnBgpSessions(ctx, req.(*CreateVpnBgpSessionsRequest))
+		return srv.(CloudPluginServer).CreateVpnGateway(ctx, req.(*CreateVpnGatewayRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -368,10 +335,6 @@ var CloudPlugin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateVpnGateway",
 			Handler:    _CloudPlugin_CreateVpnGateway_Handler,
-		},
-		{
-			MethodName: "CreateVpnBgpSessions",
-			Handler:    _CloudPlugin_CreateVpnBgpSessions_Handler,
 		},
 		{
 			MethodName: "CreateVpnConnections",
