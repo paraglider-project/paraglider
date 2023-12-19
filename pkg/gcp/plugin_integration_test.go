@@ -169,14 +169,6 @@ func TestIntegration(t *testing.T) {
 		},
 	}
 	ruleLists := [][]*invisinetspb.PermitListRule{rules1, rules2}
-	vm1Id, err := GetInstanceId(projectId, vm1Zone, vm1Name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	vm2Id, err := GetInstanceId(projectId, vm2Zone, vm2Name)
-	if err != nil {
-		t.Fatal(err)
-	}
 	for i, vmUri := range vmUris {
 		rules := ruleLists[i]
 		addPermitListRulesResp, err := s.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: rules, Namespace: "default", Resource: vmUri})
