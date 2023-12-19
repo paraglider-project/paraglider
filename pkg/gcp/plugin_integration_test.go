@@ -136,7 +136,7 @@ func TestIntegration(t *testing.T) {
 	vmUris := []string{vm1Uri, vm2Uri}
 	rules1 := []*invisinetspb.PermitListRule{
 		{
-			Name:      "test-rule1"
+			Name:      "test-rule1",
 			Direction: invisinetspb.Direction_INBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
@@ -144,7 +144,7 @@ func TestIntegration(t *testing.T) {
 			Targets:   []string{vm2Ip},
 		},
 		{
-			Name:      "test-rule2"
+			Name:      "test-rule2",
 			Direction: invisinetspb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
@@ -154,7 +154,7 @@ func TestIntegration(t *testing.T) {
 	}
 	rules2 := []*invisinetspb.PermitListRule{
 		{
-			Name:      "test-rule3"
+			Name:      "test-rule3",
 			Direction: invisinetspb.Direction_INBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
@@ -162,7 +162,7 @@ func TestIntegration(t *testing.T) {
 			Targets:   []string{vm1Ip},
 		},
 		{
-			Name:      "test-rule4"
+			Name:      "test-rule4",
 			Direction: invisinetspb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,

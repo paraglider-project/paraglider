@@ -122,6 +122,7 @@ func TestMulticloud(t *testing.T) {
 		Resource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProjectId, gcpVmZone, gcpVmName),
 		Rules: []*invisinetspb.PermitListRule{
 			{
+				Name:      "test-rule1",
 				Direction: invisinetspb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
@@ -129,6 +130,7 @@ func TestMulticloud(t *testing.T) {
 				Targets:   []string{azureVm1IpAddress},
 			},
 			{
+				Name:      "test-rule2",
 				Direction: invisinetspb.Direction_OUTBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
@@ -136,6 +138,7 @@ func TestMulticloud(t *testing.T) {
 				Targets:   []string{azureVm1IpAddress},
 			},
 			{ // SSH rule for debugging
+				Name:      "test-rule3",
 				Direction: invisinetspb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   22,
@@ -157,6 +160,7 @@ func TestMulticloud(t *testing.T) {
 		Resource: azureVm1ResourceId,
 		Rules: []*invisinetspb.PermitListRule{
 			{
+				Name:      "test-rule1",
 				Direction: invisinetspb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
@@ -164,6 +168,7 @@ func TestMulticloud(t *testing.T) {
 				Targets:   []string{gcpVmIpAddress},
 			},
 			{
+				Name:      "test-rule2",
 				Direction: invisinetspb.Direction_OUTBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
@@ -171,6 +176,7 @@ func TestMulticloud(t *testing.T) {
 				Targets:   []string{gcpVmIpAddress},
 			},
 			{ // SSH rule for debugging
+				Name:      "test-rule3",
 				Direction: invisinetspb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   22,
@@ -224,6 +230,7 @@ func TestMulticloud(t *testing.T) {
 		Resource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProjectId, gcpVmZone, gcpVmName),
 		Rules: []*invisinetspb.PermitListRule{
 			{
+				Name:      "test-rule1",
 				Direction: invisinetspb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
@@ -231,6 +238,7 @@ func TestMulticloud(t *testing.T) {
 				Targets:   []string{azureVm2IpAddress},
 			},
 			{
+				Name:      "test-rule2",
 				Direction: invisinetspb.Direction_OUTBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
@@ -238,6 +246,7 @@ func TestMulticloud(t *testing.T) {
 				Targets:   []string{azureVm2IpAddress},
 			},
 			{ // SSH rule for debugging
+				Name:      "test-rule3",
 				Direction: invisinetspb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   22,
@@ -257,6 +266,7 @@ func TestMulticloud(t *testing.T) {
 		Resource: azureVm2ResourceId,
 		Rules: []*invisinetspb.PermitListRule{
 			{
+				Name:      "test-rule1",
 				Direction: invisinetspb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
@@ -264,6 +274,7 @@ func TestMulticloud(t *testing.T) {
 				Targets:   []string{gcpVmIpAddress},
 			},
 			{
+				Name:      "test-rule2",
 				Direction: invisinetspb.Direction_OUTBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
@@ -271,6 +282,7 @@ func TestMulticloud(t *testing.T) {
 				Targets:   []string{gcpVmIpAddress},
 			},
 			{ // SSH rule for debugging
+				Name:      "test-rule3",
 				Direction: invisinetspb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   22,
