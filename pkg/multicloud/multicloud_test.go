@@ -118,8 +118,8 @@ func TestMulticloud(t *testing.T) {
 	// Create GCP permit list for Azure VM 1
 	azureVm1IpAddress, err := azure_plugin.GetVmIpAddress(azureVm1ResourceId)
 	require.NoError(t, err)
-	gcpVmPermitList1 := &invisinetspb.PermitList{
-		AssociatedResource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProjectId, gcpVmZone, gcpVmName),
+	gcpVmPermitList1Req := &invisinetspb.AddPermitListRulesRequest{
+		Resource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProjectId, gcpVmZone, gcpVmName),
 		Rules: []*invisinetspb.PermitListRule{
 			{
 				Direction: invisinetspb.Direction_INBOUND,
@@ -145,17 +145,16 @@ func TestMulticloud(t *testing.T) {
 		},
 		Namespace: "default",
 	}
-	gcpAddPermitListRulesResp, err := gcpServer.AddPermitListRules(ctx, gcpVmPermitList1)
+	gcpAddPermitListRulesResp, err := gcpServer.AddPermitListRules(ctx, gcpVmPermitList1Req)
 	require.NoError(t, err)
 	require.NotNil(t, gcpAddPermitListRulesResp)
-	assert.True(t, gcpAddPermitListRulesResp.Success)
 	fmt.Println("Added GCP permit list rules")
 
 	// Create Azure VM1 permit list
 	gcpVmIpAddress, err := gcp.GetInstanceIpAddress(gcpProjectId, gcpVmZone, gcpVmName)
 	require.NoError(t, err)
-	azureVm1PermitList := &invisinetspb.PermitList{
-		AssociatedResource: azureVm1ResourceId,
+	azureVm1PermitListReq := &invisinetspb.AddPermitListRulesRequest{
+		Resource: azureVm1ResourceId,
 		Rules: []*invisinetspb.PermitListRule{
 			{
 				Direction: invisinetspb.Direction_INBOUND,
@@ -181,10 +180,9 @@ func TestMulticloud(t *testing.T) {
 		},
 		Namespace: "default",
 	}
-	azureAddPermitListRules1Resp, err := azureServer.AddPermitListRules(ctx, azureVm1PermitList)
+	azureAddPermitListRules1Resp, err := azureServer.AddPermitListRules(ctx, azureVm1PermitListReq)
 	require.NoError(t, err)
 	require.NotNil(t, azureAddPermitListRules1Resp)
-	assert.True(t, azureAddPermitListRules1Resp.Success)
 	fmt.Println("Added Azure permit list rules")
 
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
@@ -222,8 +220,8 @@ func TestMulticloud(t *testing.T) {
 	// Create GCP permit list for Azure VM 2
 	azureVm2IpAddress, err := azure_plugin.GetVmIpAddress(azureVm2ResourceId)
 	require.NoError(t, err)
-	gcpVmPermitList2 := &invisinetspb.PermitList{
-		AssociatedResource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProjectId, gcpVmZone, gcpVmName),
+	gcpVmPermitList2Req := &invisinetspb.AddPermitListRulesRequest{
+		Resource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProjectId, gcpVmZone, gcpVmName),
 		Rules: []*invisinetspb.PermitListRule{
 			{
 				Direction: invisinetspb.Direction_INBOUND,
@@ -249,15 +247,14 @@ func TestMulticloud(t *testing.T) {
 		},
 		Namespace: "default",
 	}
-	gcpAddPermitListRules2Resp, err := gcpServer.AddPermitListRules(ctx, gcpVmPermitList2)
+	gcpAddPermitListRules2Resp, err := gcpServer.AddPermitListRules(ctx, gcpVmPermitList2Req)
 	require.NoError(t, err)
 	require.NotNil(t, gcpAddPermitListRules2Resp)
-	assert.True(t, gcpAddPermitListRules2Resp.Success)
 	fmt.Println("Added GCP permit list rules")
 
 	// Create Azure VM 2 permit list
-	azureVm2PermitList := &invisinetspb.PermitList{
-		AssociatedResource: azureVm2ResourceId,
+	azureVm2PermitListReq := &invisinetspb.AddPermitListRulesRequest{
+		Resource: azureVm2ResourceId,
 		Rules: []*invisinetspb.PermitListRule{
 			{
 				Direction: invisinetspb.Direction_INBOUND,
@@ -283,10 +280,9 @@ func TestMulticloud(t *testing.T) {
 		},
 		Namespace: "default",
 	}
-	azureAddPermitListRules2Resp, err := azureServer.AddPermitListRules(ctx, azureVm2PermitList)
+	azureAddPermitListRules2Resp, err := azureServer.AddPermitListRules(ctx, azureVm2PermitListReq)
 	require.NoError(t, err)
 	require.NotNil(t, azureAddPermitListRules2Resp)
-	assert.True(t, azureAddPermitListRules2Resp.Success)
 	fmt.Println("Added Azure permit list rules")
 
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)

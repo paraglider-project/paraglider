@@ -375,41 +375,6 @@ func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 
 }
 
-func (s *ibmPluginServer) fetchRulesIDs(cloudClient *sdk.CloudClient, rules []sdk.SecurityGroupRule, sgID string) ([]string, error) {
-	var rulesIDs []string
-	sgRules, err := cloudClient.GetSecurityRulesOfSG(sgID)
-	if err != nil {
-		return nil, err
-	}
-	for _, sgRule := range sgRules {
-		for _, rule := range rules {
-			if sdk.AreStructsEqual(rule, sgRule, []string{"ID", "SgID"}) {
-				rulesIDs = append(rulesIDs, sgRule.ID)
-				// found matching rule, continue to the next sgRule
-				break
-			}
-		}
-	}
-	return rulesIDs, nil
-}
-
-// return the specified rules without duplicates, while keeping the rules hash values updated for future use.
-func (s *ibmPluginServer) getUniqueSGRules(rules []sdk.SecurityGroupRule, rulesHashValues map[uint64]bool) ([]sdk.SecurityGroupRule, error) {
-	var res []sdk.SecurityGroupRule
-	for _, rule := range rules {
-		// exclude unique field "ID" from hash calculation.
-		ruleHashValue, err := getStructHash(rule, []string{"ID"})
-		if err != nil {
-			return nil, err
-		}
-		if _, ruleExists := rulesHashValues[ruleHashValue]; !ruleExists {
-			res = append(res, rule)
-			rulesHashValues[ruleHashValue] = true
-		}
-	}
-	return res, nil
-}
-
 // Setup starts up the plugin server and stores the frontend server address.
 func Setup(port int) {
 	pluginServerAddress := "localhost"

@@ -305,8 +305,14 @@ func (c *CloudClient) UpdateSecurityGroupRule(rule SecurityGroupRule) error {
 		return err
 	}
 	var patchMap map[string]interface{}
-	jsonVersion, _ := json.Marshal(&prototype)
-	json.Unmarshal(jsonVersion, &patchMap)
+	jsonVersion, err := json.Marshal(&prototype)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(jsonVersion, &patchMap)
+	if err != nil {
+		return err
+	}
 	return c.updateSecurityGroupRule(rule.SgID, rule.ID, patchMap)
 }
 

@@ -37,9 +37,9 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-func checkPermitListsEqual(instanceId uint64, pl1 *invisinetspb.PermitList, pl2 *invisinetspb.PermitList) bool {
+func checkPermitListsEqual(instanceId uint64, pl1 []*invisinetspb.PermitListRule, pl2 []*invisinetspb.PermitListRule) bool {
 	sortPermitListRuleOpt := protocmp.SortRepeated(func(plr1, plr2 *invisinetspb.PermitListRule) bool {
-		return getFirewallName(plr1, instanceId) < getFirewallName(plr2, instanceId)
+		return getFirewallName(plr1.Name, instanceId) < getFirewallName(plr2.Name, instanceId)
 	})
 	return cmp.Diff(pl1, pl2, protocmp.Transform(), sortPermitListRuleOpt) == ""
 }
@@ -134,48 +134,39 @@ func TestIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	vmUris := []string{vm1Uri, vm2Uri}
-	permitLists := [2]*invisinetspb.PermitList{
+	rules1 := []*invisinetspb.PermitListRule{
 		{
-			AssociatedResource: vm1Uri,
-			Rules: []*invisinetspb.PermitListRule{
-				{
-					Direction: invisinetspb.Direction_INBOUND,
-					SrcPort:   -1,
-					DstPort:   -1,
-					Protocol:  1,
-					Targets:   []string{vm2Ip},
-				},
-				{
-					Direction: invisinetspb.Direction_OUTBOUND,
-					SrcPort:   -1,
-					DstPort:   -1,
-					Protocol:  1,
-					Targets:   []string{vm2Ip},
-				},
-			},
-			Namespace: "default",
+			Direction: invisinetspb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm2Ip},
 		},
 		{
-			AssociatedResource: vm2Uri,
-			Rules: []*invisinetspb.PermitListRule{
-				{
-					Direction: invisinetspb.Direction_INBOUND,
-					SrcPort:   -1,
-					DstPort:   -1,
-					Protocol:  1,
-					Targets:   []string{vm1Ip},
-				},
-				{
-					Direction: invisinetspb.Direction_OUTBOUND,
-					SrcPort:   -1,
-					DstPort:   -1,
-					Protocol:  1,
-					Targets:   []string{vm1Ip},
-				},
-			},
-			Namespace: "default",
+			Direction: invisinetspb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm2Ip},
 		},
 	}
+	rules2 := []*invisinetspb.PermitListRule{
+		{
+			Direction: invisinetspb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm1Ip},
+		},
+		{
+			Direction: invisinetspb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm1Ip},
+		},
+	}
+	ruleLists := [][]*invisinetspb.PermitListRule{rules1, rules2}
 	vm1Id, err := GetInstanceId(projectId, vm1Zone, vm1Name)
 	if err != nil {
 		t.Fatal(err)
@@ -186,18 +177,17 @@ func TestIntegration(t *testing.T) {
 	}
 	vmIds := []uint64{vm1Id, vm2Id}
 	for i, vmUri := range vmUris {
-		permitList := permitLists[i]
-		addPermitListRulesResp, err := s.AddPermitListRules(ctx, permitList)
+		rules := ruleLists[i]
+		addPermitListRulesResp, err := s.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: rules, Namespace: "default", Resource: vmUri})
 		require.NoError(t, err)
 		require.NotNil(t, addPermitListRulesResp)
-		assert.True(t, addPermitListRulesResp.Success)
 
-		getPermitListAfterAddResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmUri, Namespace: "default"})
+		getPermitListAfterAddResp, err := s.GetPermitList(ctx, &invisinetspb.GetPermitListRequest{Resource: vmUri, Namespace: "default"})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterAddResp)
 
 		// TODO @seankimkdy: use this in all of the codebase to ensure permitlists are being compared properly
-		assert.True(t, checkPermitListsEqual(vmIds[i], permitList, getPermitListAfterAddResp))
+		assert.True(t, checkPermitListsEqual(vmIds[i], rules, getPermitListAfterAddResp.Rules))
 	}
 
 	// Connectivity tests that ping the two VMs
@@ -218,16 +208,14 @@ func TestIntegration(t *testing.T) {
 
 	// Delete permit lists
 	for i, vmId := range vmUris {
-		permitList := permitLists[i]
-		deletePermitListRulesResp, err := s.DeletePermitListRules(ctx, permitList)
+		ruleNames := []string{ruleLists[i][0].Name}
+		deletePermitListRulesResp, err := s.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: ruleNames, Namespace: "default", Resource: vmId})
 		require.NoError(t, err)
 		require.NotNil(t, deletePermitListRulesResp)
-		assert.True(t, deletePermitListRulesResp.Success)
 
-		getPermitListAfterDeleteResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmId, Namespace: "default"})
+		getPermitListAfterDeleteResp, err := s.GetPermitList(ctx, &invisinetspb.GetPermitListRequest{Resource: vmId, Namespace: "default"})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterDeleteResp)
-		assert.Equal(t, permitList.AssociatedResource, getPermitListAfterDeleteResp.AssociatedResource)
 		assert.Empty(t, getPermitListAfterDeleteResp.Rules)
 	}
 }

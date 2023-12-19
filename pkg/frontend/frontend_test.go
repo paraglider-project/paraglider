@@ -349,8 +349,7 @@ func TestPermitListRulePut(t *testing.T) {
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
-	rulesList := []*invisinetspb.PermitListRule{rule}
-	jsonValue, _ := json.Marshal(rulesList)
+	jsonValue, _ := json.Marshal(rule)
 
 	url := fmt.Sprintf(GetFormatterString(PermitListRulePUTURL), defaultNamespace, exampleCloudName, name, rule.Name)
 	req, _ := http.NewRequest("PUT", url, bytes.NewBuffer(jsonValue))
@@ -361,9 +360,8 @@ func TestPermitListRulePut(t *testing.T) {
 
 	// Invalid resource name
 	badName := "badname"
-	jsonValue, _ = json.Marshal(rulesList)
 
-	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, badName, rule.Name)
+	url = fmt.Sprintf(GetFormatterString(PermitListRulePUTURL), defaultNamespace, exampleCloudName, badName, rule.Name)
 	req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -380,10 +378,9 @@ func TestPermitListRulePut(t *testing.T) {
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
-	rulesList = []*invisinetspb.PermitListRule{rule}
-	jsonValue, _ = json.Marshal(rulesList)
+	jsonValue, _ = json.Marshal(rule)
 
-	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, name, rule.Name)
+	url = fmt.Sprintf(GetFormatterString(PermitListRulePUTURL), defaultNamespace, exampleCloudName, name, rule.Name)
 	req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -391,7 +388,7 @@ func TestPermitListRulePut(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, "wrong", name, rule.Name)
+	url = fmt.Sprintf(GetFormatterString(PermitListRulePUTURL), defaultNamespace, "wrong", name, rule.Name)
 	req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -401,7 +398,7 @@ func TestPermitListRulePut(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, name, rule.Name)
+	url = fmt.Sprintf(GetFormatterString(PermitListRulePUTURL), defaultNamespace, exampleCloudName, name, rule.Name)
 	req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -421,7 +418,7 @@ func TestPermitListRulePost(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.PUT(PermitListRulePOSTURL, frontendServer.permitListRulePost)
+	r.POST(PermitListRulePOSTURL, frontendServer.permitListRulePost)
 
 	// Well-formed request
 	name := validLastLevelTagName
@@ -434,10 +431,9 @@ func TestPermitListRulePost(t *testing.T) {
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
-	rulesList := []*invisinetspb.PermitListRule{rule}
-	jsonValue, _ := json.Marshal(rulesList)
+	jsonValue, _ := json.Marshal(rule)
 
-	url := fmt.Sprintf(GetFormatterString(PermitListRulePUTURL), defaultNamespace, exampleCloudName, name)
+	url := fmt.Sprintf(GetFormatterString(PermitListRulePOSTURL), defaultNamespace, exampleCloudName, name)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -446,9 +442,9 @@ func TestPermitListRulePost(t *testing.T) {
 
 	// Invalid resource name
 	badName := "badname"
-	jsonValue, _ = json.Marshal(rulesList)
+	jsonValue, _ = json.Marshal(rule)
 
-	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, badName)
+	url = fmt.Sprintf(GetFormatterString(PermitListRulePOSTURL), defaultNamespace, exampleCloudName, badName)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -465,10 +461,9 @@ func TestPermitListRulePost(t *testing.T) {
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
-	rulesList = []*invisinetspb.PermitListRule{rule}
-	jsonValue, _ = json.Marshal(rulesList)
+	jsonValue, _ = json.Marshal(rule)
 
-	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, name)
+	url = fmt.Sprintf(GetFormatterString(PermitListRulePOSTURL), defaultNamespace, exampleCloudName, name)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -476,7 +471,7 @@ func TestPermitListRulePost(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, "wrong", name)
+	url = fmt.Sprintf(GetFormatterString(PermitListRulePOSTURL), defaultNamespace, "wrong", name)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -486,7 +481,7 @@ func TestPermitListRulePost(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, name)
+	url = fmt.Sprintf(GetFormatterString(PermitListRulePOSTURL), defaultNamespace, exampleCloudName, name)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 

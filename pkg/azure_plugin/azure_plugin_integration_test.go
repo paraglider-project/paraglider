@@ -80,43 +80,36 @@ func testAddAndGetPermitList(t *testing.T) {
 	require.NotNil(t, createResourceResp)
 	assert.Equal(t, createResourceResp.Uri, vmID)
 
-	permitList := &invisinetspb.PermitList{
-		AssociatedResource: vmID,
-		Rules: []*invisinetspb.PermitListRule{
-			{
-				Targets:   []string{"47.235.107.235"},
-				Direction: invisinetspb.Direction_OUTBOUND,
-				SrcPort:   80,
-				DstPort:   80,
-				Protocol:  6,
-			},
+	rules := []*invisinetspb.PermitListRule{
+		{
+			Targets:   []string{"47.235.107.235"},
+			Direction: invisinetspb.Direction_OUTBOUND,
+			SrcPort:   80,
+			DstPort:   80,
+			Protocol:  6,
 		},
-		Namespace: "default",
 	}
-	addPermitListResp, err := s.AddPermitListRules(ctx, permitList)
+	addPermitListResp, err := s.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: rules, Namespace: "default", Resource: vmID})
 	require.NoError(t, err)
 	require.NotNil(t, addPermitListResp)
-	assert.True(t, addPermitListResp.Success)
-	assert.Equal(t, addPermitListResp.UpdatedResource.Id, vmID)
 
 	// Assert the NSG created is equivalent to the pl rules by using the get permit list api
-	getPermitListResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmID, Namespace: "default"})
+	getPermitListResp, err := s.GetPermitList(ctx, &invisinetspb.GetPermitListRequest{Resource: vmID, Namespace: "default"})
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListResp)
 
 	// add the id to the initial permit list  for an easier comparison
 	// because it is only set in the get not the add
-	permitList.Rules[0].Id = getPermitListResp.Rules[0].Id
-	assert.ElementsMatch(t, getPermitListResp.Rules, permitList.Rules)
+	rules[0].Id = getPermitListResp.Rules[0].Id
+	assert.ElementsMatch(t, getPermitListResp.Rules, rules)
 
 	// Delete permit list rule
-	deletePermitListResp, err := s.DeletePermitListRules(ctx, permitList)
+	deletePermitListResp, err := s.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: []string{rules[0].Name}, Namespace: "default", Resource: vmID})
 	require.NoError(t, err)
 	require.NotNil(t, deletePermitListResp)
-	assert.True(t, deletePermitListResp.Success)
 
 	// Assert the rule is deleted by using the get permit list api
-	getPermitListResp, err = s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmID, Namespace: "default"})
+	getPermitListResp, err = s.GetPermitList(ctx, &invisinetspb.GetPermitListRequest{Resource: vmID, Namespace: "default"})
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListResp)
 
