@@ -177,7 +177,6 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	vmIds := []uint64{vm1Id, vm2Id}
 	for i, vmUri := range vmUris {
 		rules := ruleLists[i]
 		addPermitListRulesResp, err := s.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: rules, Namespace: "default", Resource: vmUri})
