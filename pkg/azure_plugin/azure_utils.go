@@ -68,15 +68,17 @@ func SetupAzureTesting(subscriptionId string, testName string) string {
 }
 
 func TeardownAzureTesting(subscriptionId string, resourceGroupName string) {
-	ctx := context.Background()
-	resourceGroupsClient := createResourceGroupsClient(subscriptionId)
-	poller, err := resourceGroupsClient.BeginDelete(ctx, resourceGroupName, nil)
-	if err != nil {
-		panic(fmt.Sprintf("Error while deleting resource group: %v", err))
-	}
-	_, err = poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		panic(fmt.Sprintf("Error while waiting for resource group deletion: %v", err))
+	if os.Getenv("INVISINETS_TEST_PERSIST") != "1" {
+		ctx := context.Background()
+		resourceGroupsClient := createResourceGroupsClient(subscriptionId)
+		poller, err := resourceGroupsClient.BeginDelete(ctx, resourceGroupName, nil)
+		if err != nil {
+			panic(fmt.Sprintf("Error while deleting resource group: %v", err))
+		}
+		_, err = poller.PollUntilDone(ctx, nil)
+		if err != nil {
+			panic(fmt.Sprintf("Error while waiting for resource group deletion: %v", err))
+		}
 	}
 }
 

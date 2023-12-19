@@ -36,6 +36,7 @@ var (
 const (
 	GCP   = "gcp"
 	AZURE = "azure"
+	IBM = "ibm"
 )
 
 // Private address spaces as defined in RFC 1918
@@ -115,7 +116,7 @@ func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string,
 				return fmt.Errorf("unable to determine if tag is in current address space: %w", err)
 			}
 			if !contained {
-				var peeringCloud, peeringCloudAddressSpace, peeringCloudNamespace string
+				var peeringCloud, peeringCloudNamespace string
 				for _, usedAddressSpaceMapping := range usedAddressSpaceMappings.AddressSpaceMappings {
 					for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
 						contained, err := IsPermitListRuleTagInAddressSpace(target, addressSpace)
@@ -124,7 +125,6 @@ func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string,
 						}
 						if contained {
 							peeringCloud = usedAddressSpaceMapping.Cloud
-							peeringCloudAddressSpace = addressSpace
 							peeringCloudNamespace = usedAddressSpaceMapping.Namespace
 							break
 						}
@@ -134,12 +134,10 @@ func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string,
 					return fmt.Errorf("permit list rule tag must belong to a specific cloud if it's a private address")
 				} else if peeringCloud != currentCloud {
 					connectCloudsRequest := &invisinetspb.ConnectCloudsRequest{
-						CloudA:             currentCloud,
-						CloudAAddressSpace: currentCloudAddressSpace,
-						CloudANamespace:    currentCloudNamespace,
-						CloudB:             peeringCloud,
-						CloudBAddressSpace: peeringCloudAddressSpace,
-						CloudBNamespace:    peeringCloudNamespace,
+						CloudA:          currentCloud,
+						CloudANamespace: currentCloudNamespace,
+						CloudB:          peeringCloud,
+						CloudBNamespace: peeringCloudNamespace,
 					}
 					_, err := controllerClient.ConnectClouds(ctx, connectCloudsRequest)
 					if err != nil {

@@ -569,31 +569,22 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 		ctx := context.Background()
 
 		cloudAInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudInvDeployment(req.CloudA), Namespace: req.CloudANamespace}
-		cloudACreateVpnGatewayResp, err := cloudAClient.CreateVpnGateway(ctx, cloudAInvisinetsDeployment)
+		cloudACreateVpnGatewayReq := &invisinetspb.CreateVpnGatewayRequest{
+			Deployment: cloudAInvisinetsDeployment,
+			Cloud:      req.CloudB,
+		}
+		cloudACreateVpnGatewayResp, err := cloudAClient.CreateVpnGateway(ctx, cloudACreateVpnGatewayReq)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create vpn gateway in cloud %s: %w", req.CloudA, err)
 		}
 		cloudBInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudInvDeployment(req.CloudB), Namespace: req.CloudBNamespace}
-		cloudBCreateVpnGatewayResp, err := cloudBClient.CreateVpnGateway(ctx, cloudBInvisinetsDeployment)
-		if err != nil {
-			return nil, fmt.Errorf("unable to create vpn gateway in cloud %s: %w", req.CloudB, err)
-		}
-
-		cloudACreateVpnBgpSessionsReq := &invisinetspb.CreateVpnBgpSessionsRequest{
-			Deployment: cloudAInvisinetsDeployment,
-			Cloud:      req.CloudB,
-		}
-		cloudACreateVpnBgpSessionsResp, err := cloudAClient.CreateVpnBgpSessions(ctx, cloudACreateVpnBgpSessionsReq)
-		if err != nil {
-			return nil, fmt.Errorf("unable to create vpn bgp sessions in cloud %s: %w", req.CloudA, err)
-		}
-		cloudBCreateVpnBgpSessionsReq := &invisinetspb.CreateVpnBgpSessionsRequest{
+		cloudBCreateVpnGatewayReq := &invisinetspb.CreateVpnGatewayRequest{
 			Deployment: cloudBInvisinetsDeployment,
 			Cloud:      req.CloudA,
 		}
-		cloudBCreateVpnBgpSessionsResp, err := cloudBClient.CreateVpnBgpSessions(ctx, cloudBCreateVpnBgpSessionsReq)
+		cloudBCreateVpnGatewayResp, err := cloudBClient.CreateVpnGateway(ctx, cloudBCreateVpnGatewayReq)
 		if err != nil {
-			return nil, fmt.Errorf("unable to create vpn bgp sessions in cloud %s: %w", req.CloudA, err)
+			return nil, fmt.Errorf("unable to create vpn gateway in cloud %s: %w", req.CloudB, err)
 		}
 
 		sharedKey, err := generateSharedKey()
@@ -605,9 +596,8 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 			Deployment:         cloudAInvisinetsDeployment,
 			Cloud:              req.CloudB,
 			Asn:                cloudBCreateVpnGatewayResp.Asn,
-			AddressSpace:       req.CloudBAddressSpace,
 			GatewayIpAddresses: cloudBCreateVpnGatewayResp.GatewayIpAddresses,
-			BgpIpAddresses:     cloudBCreateVpnBgpSessionsResp.BgpIpAddresses,
+			BgpIpAddresses:     cloudBCreateVpnGatewayResp.BgpIpAddresses,
 			SharedKey:          sharedKey,
 		}
 		_, err = cloudAClient.CreateVpnConnections(ctx, cloudACreateVpnConnectionsReq)
@@ -618,9 +608,8 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 			Deployment:         cloudBInvisinetsDeployment,
 			Cloud:              req.CloudA,
 			Asn:                cloudACreateVpnGatewayResp.Asn,
-			AddressSpace:       req.CloudAAddressSpace,
 			GatewayIpAddresses: cloudACreateVpnGatewayResp.GatewayIpAddresses,
-			BgpIpAddresses:     cloudACreateVpnBgpSessionsResp.BgpIpAddresses,
+			BgpIpAddresses:     cloudACreateVpnGatewayResp.BgpIpAddresses,
 			SharedKey:          sharedKey,
 		}
 		_, err = cloudBClient.CreateVpnConnections(ctx, cloudBCreateVpnConnectionsReq)
