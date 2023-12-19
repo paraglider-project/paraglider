@@ -31,18 +31,16 @@ import (
 	fake "github.com/NetSys/invisinets/pkg/fake"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
-	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/testing/protocmp"
 )
 
-func checkPermitListsEqual(instanceId uint64, pl1 []*invisinetspb.PermitListRule, pl2 []*invisinetspb.PermitListRule) bool {
-	sortPermitListRuleOpt := protocmp.SortRepeated(func(plr1, plr2 *invisinetspb.PermitListRule) bool {
-		return getFirewallName(plr1.Name, instanceId) < getFirewallName(plr2.Name, instanceId)
-	})
-	return cmp.Diff(pl1, pl2, protocmp.Transform(), sortPermitListRuleOpt) == ""
-}
+// func checkPermitListsEqual(instanceId uint64, pl1 []*invisinetspb.PermitListRule, pl2 []*invisinetspb.PermitListRule) bool {
+// 	sortPermitListRuleOpt := protocmp.SortRepeated(func(plr1, plr2 *invisinetspb.PermitListRule) bool {
+// 		return getFirewallName(plr1.Name, instanceId) < getFirewallName(plr2.Name, instanceId)
+// 	})
+// 	return cmp.Diff(pl1, pl2, protocmp.Transform(), sortPermitListRuleOpt) == ""
+// }
 
 // Tests creating two vms in separate regions and basic add/delete/get permit list functionality
 func TestIntegration(t *testing.T) {
@@ -191,7 +189,7 @@ func TestIntegration(t *testing.T) {
 		require.NotNil(t, getPermitListAfterAddResp)
 
 		// TODO @seankimkdy: use this in all of the codebase to ensure permitlists are being compared properly
-		assert.True(t, checkPermitListsEqual(vmIds[i], rules1, getPermitListAfterAddResp.Rules))
+		assert.ElementsMatch(t, rules, getPermitListAfterAddResp.Rules)
 	}
 
 	// Connectivity tests that ping the two VMs
