@@ -129,7 +129,7 @@ func invisinetsToIBMRules(securityGroupID string, rules []*invisinetspb.PermitLi
 				return nil, err
 			}
 			sgRule := sdk.SecurityGroupRule{
-				ID:         rule.Id,
+				ID:         rule.Name,
 				SgID:       securityGroupID,
 				Protocol:   invisinetsToIBMprotocol[rule.Protocol],
 				Remote:     remote,
