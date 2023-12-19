@@ -33,7 +33,7 @@ func TestNamespaceSetValidate(t *testing.T) {
 	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
 
 	// Valid option
-	for namespace, _ := range fake.GetFakeNamespaces() {
+	for namespace := range fake.GetFakeNamespaces() {
 		err := executor.Validate(cmd, []string{namespace})
 		assert.Nil(t, err)
 	}

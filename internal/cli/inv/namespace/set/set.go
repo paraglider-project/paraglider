@@ -58,7 +58,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	for namespace, _ := range namespaces {
+	for namespace := range namespaces {
 		if namespace == args[0] {
 			return nil
 		}
