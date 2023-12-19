@@ -341,7 +341,7 @@ func (s *ControllerServer) permitListRulePut(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	rule.Name = ruleName
+	rule.Name = ruleName // Note: if the name is provided in the request body, it is just overwritten
 	request := &invisinetspb.AddPermitListRulesRequest{Rules: []*invisinetspb.PermitListRule{rule}, Namespace: resourceInfo.namespace, Resource: resourceInfo.uri}
 
 	_, err = s._permitListRulesAdd(request, resourceInfo, cloudClient)

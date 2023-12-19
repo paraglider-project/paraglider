@@ -13,6 +13,8 @@ namespaces:
     cloudDeployments:
       - name: "gcp"
         deployment: "projects/project-name"
+      - name: "azure"
+        deployment: "/subscriptions/sub-id/resourceGroups/rg-name"
 
 tagService:
   host: "localhost"

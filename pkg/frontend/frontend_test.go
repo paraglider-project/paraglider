@@ -16,8 +16,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// TODO NOW: Add tests for the new functions
-
 package frontend
 
 import (
@@ -259,6 +257,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	name := validLastLevelTagName
 	tags := []string{validTagName}
 	rule := &invisinetspb.PermitListRule{
+		Name:      "rulename",
 		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
@@ -289,6 +288,177 @@ func TestPermitListRulesAdd(t *testing.T) {
 	// Invalid tag name (cannot be resolved)
 	tags = []string{"tag"}
 	rule = &invisinetspb.PermitListRule{
+		Name:      "rulename",
+		Id:        "id",
+		Tags:      tags,
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
+	rulesList = []*invisinetspb.PermitListRule{rule}
+	jsonValue, _ = json.Marshal(rulesList)
+
+	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, name)
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// Bad cloud name
+	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, "wrong", name)
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	badRequest := "{\"test\": 1}"
+	jsonValue, _ = json.Marshal(&badRequest)
+
+	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, name)
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestPermitListRulePut(t *testing.T) {
+	// Setup
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	setupPluginServer(cloudPluginPort)
+	setupTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.PUT(PermitListRulePUTURL, frontendServer.permitListRulePut)
+
+	// Well-formed request
+	name := validLastLevelTagName
+	tags := []string{validTagName}
+	rule := &invisinetspb.PermitListRule{
+		Name:      "rulename",
+		Id:        "id",
+		Tags:      tags,
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
+	rulesList := []*invisinetspb.PermitListRule{rule}
+	jsonValue, _ := json.Marshal(rulesList)
+
+	url := fmt.Sprintf(GetFormatterString(PermitListRulePUTURL), defaultNamespace, exampleCloudName, name, rule.Name)
+	req, _ := http.NewRequest("PUT", url, bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Invalid resource name
+	badName := "badname"
+	jsonValue, _ = json.Marshal(rulesList)
+
+	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, badName, rule.Name)
+	req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// Invalid tag name (cannot be resolved)
+	tags = []string{"tag"}
+	rule = &invisinetspb.PermitListRule{
+		Name:      "rulename",
+		Id:        "id",
+		Tags:      tags,
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
+	rulesList = []*invisinetspb.PermitListRule{rule}
+	jsonValue, _ = json.Marshal(rulesList)
+
+	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, name, rule.Name)
+	req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// Bad cloud name
+	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, "wrong", name, rule.Name)
+	req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	badRequest := "{\"test\": 1}"
+	jsonValue, _ = json.Marshal(&badRequest)
+
+	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, name, rule.Name)
+	req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestPermitListRulePost(t *testing.T) {
+	// Setup
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	setupPluginServer(cloudPluginPort)
+	setupTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.PUT(PermitListRulePOSTURL, frontendServer.permitListRulePost)
+
+	// Well-formed request
+	name := validLastLevelTagName
+	tags := []string{validTagName}
+	rule := &invisinetspb.PermitListRule{
+		Name:      "rulename",
+		Id:        "id",
+		Tags:      tags,
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
+	rulesList := []*invisinetspb.PermitListRule{rule}
+	jsonValue, _ := json.Marshal(rulesList)
+
+	url := fmt.Sprintf(GetFormatterString(PermitListRulePUTURL), defaultNamespace, exampleCloudName, name)
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Invalid resource name
+	badName := "badname"
+	jsonValue, _ = json.Marshal(rulesList)
+
+	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, badName)
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// Invalid tag name (cannot be resolved)
+	tags = []string{"tag"}
+	rule = &invisinetspb.PermitListRule{
+		Name:      "rulename",
 		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,

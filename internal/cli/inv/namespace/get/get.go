@@ -53,7 +53,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	fmt.Fprintf(e.writer, "Current namespace: %s\n", e.cliSettings.ActiveNamespace)
+	fmt.Fprintf(e.writer, "Active namespace: %s\n", e.cliSettings.ActiveNamespace)
 
 	return nil
 }
