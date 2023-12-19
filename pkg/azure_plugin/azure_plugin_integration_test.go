@@ -82,6 +82,7 @@ func testAddAndGetPermitList(t *testing.T) {
 
 	rules := []*invisinetspb.PermitListRule{
 		{
+			Name:      "test-rule1",
 			Targets:   []string{"47.235.107.235"},
 			Direction: invisinetspb.Direction_OUTBOUND,
 			SrcPort:   80,
