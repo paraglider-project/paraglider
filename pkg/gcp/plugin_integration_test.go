@@ -191,7 +191,7 @@ func TestIntegration(t *testing.T) {
 		require.NotNil(t, getPermitListAfterAddResp)
 
 		// TODO @seankimkdy: use this in all of the codebase to ensure permitlists are being compared properly
-		assert.True(t, checkPermitListsEqual(vmIds[i], rules, getPermitListAfterAddResp.Rules))
+		assert.True(t, checkPermitListsEqual(vmIds[i], rules1, getPermitListAfterAddResp.Rules))
 	}
 
 	// Connectivity tests that ping the two VMs
@@ -212,7 +212,7 @@ func TestIntegration(t *testing.T) {
 
 	// Delete permit lists
 	for i, vmId := range vmUris {
-		ruleNames := []string{ruleLists[i][0].Name}
+		ruleNames := []string{ruleLists[i][0].Name, ruleLists[i][1].Name}
 		deletePermitListRulesResp, err := s.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: ruleNames, Namespace: "default", Resource: vmId})
 		require.NoError(t, err)
 		require.NotNil(t, deletePermitListRulesResp)
