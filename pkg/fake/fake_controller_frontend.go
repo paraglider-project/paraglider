@@ -173,13 +173,35 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 			}
 			return
 		// Delete Permit List Rules
-		case urlMatches(path, frontend.DeletePermitListRulesURL) && (r.Method == http.MethodDelete):
+		case urlMatches(path, frontend.DeletePermitListRulesURL) && (r.Method == http.MethodPost):
 			rules := []string{}
 			err := json.Unmarshal(body, &rules)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 				return
 			}
+			return
+		// Individual Rule Add (POST)
+		case urlMatches(path, frontend.PermitListRulePOSTURL) && (r.Method == http.MethodPost):
+			rule := &invisinetspb.PermitListRule{}
+			err := json.Unmarshal(body, rule)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+				return
+			}
+			return
+		// Individual Rule Add (PUT)
+		case urlMatches(path, frontend.PermitListRulePUTURL) && (r.Method == http.MethodPut):
+			rule := &invisinetspb.PermitListRule{}
+			err := json.Unmarshal(body, rule)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+				return
+			}
+			return
+		// Invididual Rule Delete
+		case urlMatches(path, frontend.PermitListRulePUTURL) && (r.Method == http.MethodDelete):
+			w.WriteHeader(http.StatusOK)
 			return
 		// Get Permit List Rules
 		case urlMatches(path, frontend.GetPermitListRulesURL) && r.Method == http.MethodGet:

@@ -501,7 +501,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.DELETE(DeletePermitListRulesURL, frontendServer.permitListRulesDelete)
+	r.POST(DeletePermitListRulesURL, frontendServer.permitListRulesDelete)
 
 	// Well-formed request
 	name := validLastLevelTagName
@@ -510,7 +510,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	jsonValue, _ := json.Marshal(rulesList)
 
 	url := fmt.Sprintf(GetFormatterString(DeletePermitListRulesURL), defaultNamespace, exampleCloudName, name)
-	req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -522,7 +522,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 	jsonValue, _ = json.Marshal(rulesList)
 
 	url = fmt.Sprintf(GetFormatterString(DeletePermitListRulesURL), defaultNamespace, exampleCloudName, badName)
-	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -530,7 +530,7 @@ func TestPermitListRulesDelete(t *testing.T) {
 
 	// Bad cloud name
 	url = fmt.Sprintf(GetFormatterString(DeletePermitListRulesURL), defaultNamespace, "wrong", name)
-	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -540,7 +540,52 @@ func TestPermitListRulesDelete(t *testing.T) {
 	jsonValue, _ = json.Marshal(&badRequest)
 
 	url = fmt.Sprintf(GetFormatterString(DeletePermitListRulesURL), defaultNamespace, exampleCloudName, name)
-	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestPermitListRuleDelete(t *testing.T) {
+	// Setup
+	frontendServer := newFrontendServer()
+	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	setupPluginServer(cloudPluginPort)
+	setupTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.DELETE(PermitListRulePUTURL, frontendServer.permitListRuleDelete)
+
+	// Well-formed request
+	name := validLastLevelTagName
+	ruleName := "rulename"
+
+	url := fmt.Sprintf(GetFormatterString(PermitListRulePUTURL), defaultNamespace, exampleCloudName, name, ruleName)
+	req, _ := http.NewRequest("DELETE", url, nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Invalid resource name
+	badName := "badname"
+
+	url = fmt.Sprintf(GetFormatterString(PermitListRulePUTURL), defaultNamespace, exampleCloudName, badName, ruleName)
+	req, _ = http.NewRequest("DELETE", url, nil)
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// Bad cloud name
+	url = fmt.Sprintf(GetFormatterString(PermitListRulePUTURL), defaultNamespace, "wrong", name, ruleName)
+	req, _ = http.NewRequest("DELETE", url, nil)
 	w = httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)

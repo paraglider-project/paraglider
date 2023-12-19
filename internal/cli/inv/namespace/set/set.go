@@ -17,11 +17,13 @@ limitations under the License.
 package set
 
 import (
+	"fmt"
 	"io"
 	"os"
 
 	common "github.com/NetSys/invisinets/internal/cli/common"
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/NetSys/invisinets/pkg/client"
 	"github.com/spf13/cobra"
 )
 
@@ -48,7 +50,20 @@ func (e *executor) SetOutput(w io.Writer) {
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
-	return nil
+	// Get all namespaces from the controller and confirm that the given string is one of them
+	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
+	namespaces, err := c.ListNamespaces()
+
+	if err != nil {
+		return err
+	}
+
+	for namespace, _ := range namespaces {
+		if namespace == args[0] {
+			return nil
+		}
+	}
+	return fmt.Errorf("namespace %s does not exist", args[0])
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {

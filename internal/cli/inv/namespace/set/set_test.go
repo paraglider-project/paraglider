@@ -22,8 +22,26 @@ import (
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/NetSys/invisinets/pkg/fake"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestNamespaceSetValidate(t *testing.T) {
+	server := &fake.FakeFrontendServer{}
+	serverAddr := server.SetupFakeFrontendServer()
+	cmd, executor := NewCommand()
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
+
+	// Valid option
+	for namespace, _ := range fake.GetFakeNamespaces() {
+		err := executor.Validate(cmd, []string{namespace})
+		assert.Nil(t, err)
+	}
+
+	// Invalid option
+	err := executor.Validate(cmd, []string{"invalid-namespace"})
+	assert.NotNil(t, err)
+}
 
 func TestNamespaceSetExecute(t *testing.T) {
 	cmd, executor := NewCommand()

@@ -129,7 +129,7 @@ func (c *Client) DeletePermitListRules(namespace string, cloud string, resourceN
 		return err
 	}
 
-	_, err = c.sendRequest(path, http.MethodDelete, bytes.NewBuffer(reqBody))
+	_, err = c.sendRequest(path, http.MethodPost, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return err
 	}
