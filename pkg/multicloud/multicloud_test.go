@@ -60,9 +60,9 @@ func TestMulticloud(t *testing.T) {
 				Port: strconv.Itoa(gcpPluginPort),
 			},
 		},
-		Namespaces: map[string]Namespace{
+		Namespaces: map[string]config.Namespace{
 			"default": {
-				CloudDeployments: []frontend.CloudDeployment{
+				CloudDeployments: []config.CloudDeployment{
 					{
 						Name:       utils.AZURE,
 						Deployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName),
