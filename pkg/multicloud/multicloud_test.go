@@ -24,6 +24,7 @@ import (
 
 	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	azure_plugin "github.com/NetSys/invisinets/pkg/azure_plugin"
+	frontend "github.com/NetSys/invisinets/pkg/frontend"
 	config "github.com/NetSys/invisinets/pkg/frontend/config"
 	gcp "github.com/NetSys/invisinets/pkg/gcp"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
