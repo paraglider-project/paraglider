@@ -687,7 +687,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 
 		ctx := context.Background()
 
-		cloudAInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudDeployment(req.CloudA, req.CloudANamespace), Namespace: req.CloudANamespace}
+		cloudAInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudDeployment(req.CloudANamespace, req.CloudA), Namespace: req.CloudANamespace}
 		cloudACreateVpnGatewayReq := &invisinetspb.CreateVpnGatewayRequest{
 			Deployment: cloudAInvisinetsDeployment,
 			Cloud:      req.CloudB,
@@ -696,7 +696,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 		if err != nil {
 			return nil, fmt.Errorf("unable to create vpn gateway in cloud %s: %w", req.CloudA, err)
 		}
-		cloudBInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudDeployment(req.CloudB, req.CloudBNamespace), Namespace: req.CloudBNamespace}
+		cloudBInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudDeployment(req.CloudBNamespace, req.CloudB), Namespace: req.CloudBNamespace}
 		cloudBCreateVpnGatewayReq := &invisinetspb.CreateVpnGatewayRequest{
 			Deployment: cloudBInvisinetsDeployment,
 			Cloud:      req.CloudA,

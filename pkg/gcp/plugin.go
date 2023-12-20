@@ -855,7 +855,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 	insertVpnGatewayOp, err := vpnGatewaysClient.Insert(ctx, insertVpnGatewayReq)
 	if err != nil {
 		if !isErrorDuplicate(err) {
-			return nil, fmt.Errorf("unable to insert vpn gateway: %w (%v)(projectID: %v)", err, insertVpnGatewayReq, project)
+			return nil, fmt.Errorf("unable to insert vpn gateway: %w (request: %v)", err, insertVpnGatewayReq)
 		}
 	} else {
 		if err = insertVpnGatewayOp.Wait(ctx); err != nil {
