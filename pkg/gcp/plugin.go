@@ -847,7 +847,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 		Project: project,
 		Region:  vpnRegion,
 		VpnGatewayResource: &computepb.VpnGateway{
-			Name:        proto.String(vpnGwName + "-" + req.Deployment.Namespace),
+			Name:        proto.String(vpnGwName),
 			Description: proto.String("Invisinets VPN gateway for multicloud connections"),
 			Network:     proto.String(GetVpcUri(req.Deployment.Namespace)),
 		},
@@ -855,7 +855,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 	insertVpnGatewayOp, err := vpnGatewaysClient.Insert(ctx, insertVpnGatewayReq)
 	if err != nil {
 		if !isErrorDuplicate(err) {
-			return nil, fmt.Errorf("unable to insert vpn gateway: %w (%v)", err, insertVpnGatewayReq)
+			return nil, fmt.Errorf("unable to insert vpn gateway: %w (%v)(projectID: %v)", err, insertVpnGatewayReq, project)
 		}
 	} else {
 		if err = insertVpnGatewayOp.Wait(ctx); err != nil {

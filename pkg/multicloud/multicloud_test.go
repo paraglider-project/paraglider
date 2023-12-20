@@ -121,6 +121,7 @@ func TestMulticloud(t *testing.T) {
 	// Create GCP permit list for Azure VM 1
 	azureVm1IpAddress, err := azure_plugin.GetVmIpAddress(azureVm1ResourceId)
 	require.NoError(t, err)
+	fmt.Println("Project ID: ", gcpProjectId)
 	gcpVmPermitList1Req := &invisinetspb.AddPermitListRulesRequest{
 		Resource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProjectId, gcpVmZone, gcpVmName),
 		Rules: []*invisinetspb.PermitListRule{
