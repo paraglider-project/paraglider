@@ -899,10 +899,10 @@ func TestGetUsedAsns(t *testing.T) {
 	)
 
 	usedAsnsExpected := []uint32{64512}
-	asns, err := server.GetUsedAsns(ctx, &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace})
+	resp, err := server.GetUsedAsns(ctx, &invisinetspb.GetUsedAsnsRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace}})
 	require.NoError(t, err)
-	require.NotNil(t, asns)
-	require.ElementsMatch(t, usedAsnsExpected, asns.Asns)
+	require.NotNil(t, resp)
+	require.ElementsMatch(t, usedAsnsExpected, resp.Asns)
 }
 
 func TestGetAndCheckResourceNamespace(t *testing.T) {

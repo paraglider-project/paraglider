@@ -468,8 +468,8 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment
 	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetAddressList}, nil
 }
 
-func (s *azurePluginServer) GetUsedAsns(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AsnList, error) {
-	resourceIdInfo, err := getResourceIDInfo(deployment.Id)
+func (s *azurePluginServer) GetUsedAsns(ctx context.Context, req *invisinetspb.GetUsedAsnsRequest) (*invisinetspb.GetUsedAsnsResponse, error) {
+	resourceIdInfo, err := getResourceIDInfo(req.Deployment.Id)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
@@ -479,17 +479,17 @@ func (s *azurePluginServer) GetUsedAsns(ctx context.Context, deployment *invisin
 		return nil, err
 	}
 
-	virtualNetworkGatewayName := getVpnGatewayName(deployment.Namespace)
+	virtualNetworkGatewayName := getVpnGatewayName(req.Deployment.Namespace)
 	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
 	if err != nil {
 		if isErrorNotFound(err) {
-			return &invisinetspb.AsnList{}, nil
+			return &invisinetspb.GetUsedAsnsResponse{}, nil
 		} else {
 			return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
 		}
 	}
 
-	return &invisinetspb.AsnList{Asns: []uint32{uint32(*virtualNetworkGateway.Properties.BgpSettings.Asn)}}, nil
+	return &invisinetspb.GetUsedAsnsResponse{Asns: []uint32{uint32(*virtualNetworkGateway.Properties.BgpSettings.Asn)}}, nil
 }
 
 // getNSG returns the network security group object given the resource NIC
@@ -804,7 +804,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 			}
 			defer conn.Close()
 			client := invisinetspb.NewControllerClient(conn)
-			findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &invisinetspb.Namespace{Namespace: req.Deployment.Namespace})
+			findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{Namespace: req.Deployment.Namespace})
 			if err != nil {
 				return nil, fmt.Errorf("unable to find unused address space: %w", err)
 			}

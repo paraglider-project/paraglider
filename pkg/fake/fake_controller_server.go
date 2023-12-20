@@ -43,8 +43,8 @@ func (f *FakeControllerServer) FindUnusedAddressSpace(ctx context.Context, names
 	return &invisinetspb.AddressSpace{Address: address}, nil
 }
 
-func (f *FakeControllerServer) FindUnusedAsn(ctx context.Context, namespace *invisinetspb.Namespace) (*invisinetspb.Asn, error) {
-	return &invisinetspb.Asn{Asn: frontend.MIN_PRIVATE_ASN_2BYTE}, nil
+func (f *FakeControllerServer) FindUnusedAsn(ctx context.Context, req *invisinetspb.FindUnusedAsnRequest) (*invisinetspb.FindUnusedAsnResponse, error) {
+	return &invisinetspb.FindUnusedAsnResponse{Asn: frontend.MIN_PRIVATE_ASN_2BYTE}, nil
 }
 
 func (f *FakeControllerServer) GetUsedAddressSpaces(ctx context.Context, namespace *invisinetspb.Namespace) (*invisinetspb.AddressSpaceMappingList, error) {

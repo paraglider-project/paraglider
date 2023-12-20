@@ -517,7 +517,7 @@ func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, ns *invisinet
 }
 
 // Get used address spaces from a specified cloud
-func (s *ControllerServer) getUsedAsns(cloud string, deploymentId string, namespace string) (*invisinetspb.AsnList, error) {
+func (s *ControllerServer) getUsedAsns(cloud string, deploymentId string, namespace string) (*invisinetspb.GetUsedAsnsResponse, error) {
 	// Ensure correct cloud name
 	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
@@ -533,10 +533,12 @@ func (s *ControllerServer) getUsedAsns(cloud string, deploymentId string, namesp
 
 	// Send the RPC to get the address spaces
 	client := invisinetspb.NewCloudPluginClient(conn)
-	deployment := invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace}
-	asnList, err := client.GetUsedAsns(context.Background(), &deployment)
+	req := &invisinetspb.GetUsedAsnsRequest{
+		Deployment: &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
+	}
+	resp, err := client.GetUsedAsns(context.Background(), req)
 
-	return asnList, err
+	return resp, err
 }
 
 func (s *ControllerServer) updateUsedAsns(namespace string) error {
@@ -553,14 +555,14 @@ func (s *ControllerServer) updateUsedAsns(namespace string) error {
 	return nil
 }
 
-func (s *ControllerServer) FindUnusedAsn(c context.Context, ns *invisinetspb.Namespace) (*invisinetspb.Asn, error) {
-	err := s.updateUsedAsns(ns.Namespace)
+func (s *ControllerServer) FindUnusedAsn(c context.Context, req *invisinetspb.FindUnusedAsnRequest) (*invisinetspb.FindUnusedAsnResponse, error) {
+	err := s.updateUsedAsns(req.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("unable to update used asns: %w", err)
 	}
 
 	usedAsnsInNamespace := make(map[uint32]bool)
-	for _, cloud := range s.usedAsns[ns.Namespace] {
+	for _, cloud := range s.usedAsns[req.Namespace] {
 		for _, asn := range cloud {
 			usedAsnsInNamespace[asn] = true
 		}
@@ -589,8 +591,8 @@ func (s *ControllerServer) FindUnusedAsn(c context.Context, ns *invisinetspb.Nam
 		}
 	}
 
-	newAsn := &invisinetspb.Asn{Asn: unusedAsn}
-	return newAsn, nil
+	resp := &invisinetspb.FindUnusedAsnResponse{Asn: unusedAsn}
+	return resp, nil
 }
 
 // Generates 32-byte shared key for VPN connections

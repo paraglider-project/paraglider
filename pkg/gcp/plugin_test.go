@@ -742,10 +742,10 @@ func TestGetUsedAsns(t *testing.T) {
 	vpnRegion = fakeRegion
 
 	usedAsnsExpected := []uint32{64512}
-	asns, err := s._GetUsedAsns(ctx, &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace}, fakeClients.routersClient)
+	resp, err := s._GetUsedAsns(ctx, &invisinetspb.GetUsedAsnsRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace}}, fakeClients.routersClient)
 	require.NoError(t, err)
-	require.NotNil(t, asns)
-	assert.ElementsMatch(t, usedAsnsExpected, asns.Asns)
+	require.NotNil(t, resp)
+	assert.ElementsMatch(t, usedAsnsExpected, resp.Asns)
 }
 
 func TestCreateVpnGateway(t *testing.T) {
