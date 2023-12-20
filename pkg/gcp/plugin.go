@@ -847,7 +847,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 		Project: project,
 		Region:  vpnRegion,
 		VpnGatewayResource: &computepb.VpnGateway{
-			Name:        proto.String(vpnGwName),
+			Name:        proto.String(vpnGwName + "-" + req.Deployment.Namespace),
 			Description: proto.String("Invisinets VPN gateway for multicloud connections"),
 			Network:     proto.String(GetVpcUri(req.Deployment.Namespace)),
 		},
