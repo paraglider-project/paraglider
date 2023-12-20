@@ -68,8 +68,8 @@ func TestMulticloud(t *testing.T) {
 						Deployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName),
 					},
 					{
-						Name:        utils.GCP,
-						ßDeployment: fmt.Sprintf("projects/%s", gcpProjectId),
+						Name:       utils.GCP,
+						Deployment: fmt.Sprintf("projects/%s", gcpProjectId),
 					},
 				},
 			},
