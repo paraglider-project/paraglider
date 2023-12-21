@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -159,6 +160,11 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 	// Keep in mind these unit tests should rely as little as possible on the functionality of this fake server.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
+			return
+		}
 		switch {
 		// Instances
 		case path == urlProject+urlZone+urlInstance+"/getEffectiveFirewalls":
@@ -194,6 +200,19 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponseFakeOperation(w)
 				return
 			} else if r.Method == "DELETE" {
+				sendResponseFakeOperation(w)
+				return
+			} else if r.Method == "PATCH" {
+				req := &computepb.Firewall{}
+				err := json.Unmarshal(body, req)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+					return
+				}
+				if _, ok := fakeServerState.firewallMap[*req.Name]; !ok {
+					http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+					return
+				}
 				sendResponseFakeOperation(w)
 				return
 			}
@@ -540,6 +559,10 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 		instance: getFakeInstance(true),
 		subnetwork: &computepb.Subnetwork{
 			IpCidrRange: proto.String("10.0.0.0/16"),
+		},
+		firewallMap: map[string]*computepb.Firewall{
+			*fakeFirewallRule1.Name: fakeFirewallRule1,
+			*fakeFirewallRule2.Name: fakeFirewallRule2,
 		},
 	}
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
