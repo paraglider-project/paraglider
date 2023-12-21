@@ -48,9 +48,9 @@ func TestResourceCreateExecute(t *testing.T) {
 	executor.writer = &output
 	executor.description = []byte(`descriptionstring`)
 
-	args := []string{fake.CloudName, "example-uri", ""}
+	args := []string{fake.CloudName, "resourceName"}
 	err := executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
-	assert.Contains(t, output.String(), "example-uri")
+	assert.Contains(t, output.String(), "resourceName")
 }

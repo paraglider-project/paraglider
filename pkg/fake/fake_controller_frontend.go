@@ -161,8 +161,7 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 			}
-			w.WriteHeader(http.StatusOK)
-			err = s.writeResponse(w, map[string]string{"uri": resource.Id})
+			err = s.writeResponse(w, map[string]string{"name": strings.Split(path, "/")[len(strings.Split(path, "/"))-2]})
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 			}

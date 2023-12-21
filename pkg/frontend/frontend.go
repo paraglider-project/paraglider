@@ -787,7 +787,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 		return
 	}
 
-	resourceResp.Name = s.namespace + "." + cloud + "." + resourceResp.Name
+	resourceResp.Name = resourceInfo.namespace + "." + resourceInfo.cloud + "." + resourceResp.Name
 
 	c.JSON(http.StatusOK, resourceResp)
 }

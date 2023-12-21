@@ -151,7 +151,7 @@ func getFirewallName(ruleName string, instanceId uint64) string {
 
 // Retrieve the name of the firewall rule from the GCP firewall name
 func parseFirewallName(firewallName string) string {
-	return strings.SplitN(firewallName, "-", 4)[3]
+	return strings.SplitN(firewallName, "-", 5)[4]
 }
 
 func getInvisinetsNamespacePrefix(namespace string) string {
@@ -332,7 +332,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.
 
 	for _, firewall := range resp.Firewalls {
 		// Exclude default deny all egress from being included since it applies to every VM
-		if isInvisinetsPermitListRule(firewall) && *firewall.Name != getDenyAllIngressFirewallName() {
+		if isInvisinetsPermitListRule(req.Namespace, firewall) && *firewall.Name != getDenyAllIngressFirewallName(req.Namespace) {
 			rules := make([]*invisinetspb.PermitListRule, len(firewall.Allowed))
 			for i, rule := range firewall.Allowed {
 				protocolNumber, err := getProtocolNumber(*rule.IPProtocol)
@@ -425,7 +425,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 	if err != nil {
 		return nil, fmt.Errorf("unable to get instance: %w", err)
 	}
-	networkTag := getNetworkTag(permitList.Namespace, *getInstanceResp.Id)
+	networkTag := getNetworkTag(req.Namespace, *getInstanceResp.Id)
 
 	// Get subnetwork address space
 	parsedSubnetworkUri := parseGCPURL(*getInstanceResp.NetworkInterfaces[0].Subnetwork)
@@ -458,7 +458,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 
 		patchRequired := false
 		if existingFw, ok := existingFirewalls[firewallName]; ok {
-			if isFirewallEqPermitListRule(existingFw, permitListRule) {
+			if isFirewallEqPermitListRule(req.Namespace, existingFw, permitListRule) {
 				// Firewall already exists and is equivalent to the provided permit list rule
 				continue
 			} else {
