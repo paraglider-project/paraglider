@@ -37,6 +37,8 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
+const namespace = "default"
+
 func checkPermitListsEqual(instanceId uint64, pl1 *invisinetspb.PermitList, pl2 *invisinetspb.PermitList) bool {
 	sortPermitListRuleOpt := protocmp.SortRepeated(func(plr1, plr2 *invisinetspb.PermitListRule) bool {
 		return getFirewallName(plr1, instanceId) < getFirewallName(plr2, instanceId)
@@ -64,7 +66,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription1 := &invisinetspb.ResourceDescription{Description: insertInstanceReq1Bytes, Namespace: "default"}
+	resourceDescription1 := &invisinetspb.ResourceDescription{Description: insertInstanceReq1Bytes, Namespace: namespace}
 	createResource1Resp, err := s.CreateResource(
 		ctx,
 		resourceDescription1,
@@ -81,7 +83,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription2 := &invisinetspb.ResourceDescription{Description: insertInstanceReq2Bytes, Namespace: "default"}
+	resourceDescription2 := &invisinetspb.ResourceDescription{Description: insertInstanceReq2Bytes, Namespace: namespace}
 	createResource2Resp, err := s.CreateResource(
 		ctx,
 		resourceDescription2,
@@ -96,7 +98,7 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	getNetworkReq := &computepb.GetNetworkRequest{
-		Network: getVpcName("default"),
+		Network: getVpcName(namespace),
 		Project: projectId,
 	}
 	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
@@ -108,7 +110,7 @@ func TestIntegration(t *testing.T) {
 	}
 	assert.ElementsMatch(
 		t,
-		[]string{getGCPSubnetworkName("us-west1"), getGCPSubnetworkName("us-east1")},
+		[]string{getSubnetworkName(namespace, "us-west1"), getSubnetworkName(namespace, "us-east1")},
 		subnetworks,
 	)
 
@@ -119,7 +121,7 @@ func TestIntegration(t *testing.T) {
 	}
 	getFirewallReq := &computepb.GetFirewallRequest{
 		Project:  projectId,
-		Firewall: getDenyAllIngressFirewallName(),
+		Firewall: getDenyAllIngressFirewallName(namespace),
 	}
 	getFirewallResp, err := firewallsClient.Get(ctx, getFirewallReq)
 	require.NoError(t, err)
@@ -153,7 +155,7 @@ func TestIntegration(t *testing.T) {
 					Targets:   []string{vm2Ip},
 				},
 			},
-			Namespace: "default",
+			Namespace: namespace,
 		},
 		{
 			AssociatedResource: vm2Uri,
@@ -173,7 +175,7 @@ func TestIntegration(t *testing.T) {
 					Targets:   []string{vm1Ip},
 				},
 			},
-			Namespace: "default",
+			Namespace: namespace,
 		},
 	}
 	vm1Id, err := GetInstanceId(projectId, vm1Zone, vm1Name)
@@ -192,7 +194,7 @@ func TestIntegration(t *testing.T) {
 		require.NotNil(t, addPermitListRulesResp)
 		assert.True(t, addPermitListRulesResp.Success)
 
-		getPermitListAfterAddResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmUri, Namespace: "default"})
+		getPermitListAfterAddResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmUri, Namespace: namespace})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterAddResp)
 
@@ -203,12 +205,12 @@ func TestIntegration(t *testing.T) {
 	// Connectivity tests that ping the two VMs
 	vm1Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm1Ip,
-		Network:   "projects/" + projectId + "/" + GetVpcUri("default"),
+		Network:   "projects/" + projectId + "/" + GetVpcUri(namespace),
 		ProjectId: projectId,
 	}
 	vm2Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm2Ip,
-		Network:   "projects/" + projectId + "/" + GetVpcUri("default"),
+		Network:   "projects/" + projectId + "/" + GetVpcUri(namespace),
 		ProjectId: projectId,
 	}
 
@@ -224,7 +226,7 @@ func TestIntegration(t *testing.T) {
 		require.NotNil(t, deletePermitListRulesResp)
 		assert.True(t, deletePermitListRulesResp.Success)
 
-		getPermitListAfterDeleteResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmId, Namespace: "default"})
+		getPermitListAfterDeleteResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmId, Namespace: namespace})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterDeleteResp)
 		assert.Equal(t, permitList.AssociatedResource, getPermitListAfterDeleteResp.AssociatedResource)
