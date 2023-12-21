@@ -162,6 +162,10 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 			}
 			w.WriteHeader(http.StatusOK)
+			err = s.writeResponse(w, map[string]string{"uri": resource.Id})
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+			}
 			return
 		// Add Permit List Rules
 		case urlMatches(path, frontend.AddPermitListRulesURL) && (r.Method == http.MethodPost):

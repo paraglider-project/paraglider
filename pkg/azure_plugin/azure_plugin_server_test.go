@@ -607,7 +607,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server.frontendServerAddr = fakeControllerServerAddr
 		mockHandlerSetup(mockAzureHandler)
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
-		mockGetVnetAndAddressSpaces(mockAzureHandler, ctx, getVnetName(*fakeNic.Location, defaultNamespace), getVnetPrefix(defaultNamespace), fakeVnet, fakeAddressList)
+    mockGetVnetAndAddressSpaces(mockAzureHandler, ctx, getVnetName(*fakeNic.Location, fakePl.Namespace), getInvisinetsNamespacePrefix(defaultNamespace), fakeVnet, fakeAddressList)
 		for i, rule := range fakePlRules {
 			mockAzureHandler.On("CreateSecurityRule", ctx, rule, fakeNsgName, mock.Anything, fakeResourceAddress, int32(103+i)).Return(&armnetwork.SecurityRule{
 				ID: to.Ptr("fake-invisinets-rule"),
@@ -633,6 +633,7 @@ func TestAddPermitListRules(t *testing.T) {
 		mockHandlerSetup(mockAzureHandler)
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 		mockGetVnetAndAddressSpaces(mockAzureHandler, ctx, getVnetName(*fakeNic.Location, defaultNamespace), getVnetPrefix(defaultNamespace), fakeVnet, fakeAddressList)
+
 		for i, rule := range fakeNsg.Properties.SecurityRules {
 			if strings.HasPrefix(*rule.Name, invisinetsPrefix) {
 				mockAzureHandler.On("CreateSecurityRule", ctx, fakeOldPlRules[i], fakeNsgName, mock.Anything, fakeResourceAddress, *rule.Properties.Priority).Return(&armnetwork.SecurityRule{
@@ -702,7 +703,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server.frontendServerAddr = fakeControllerServerAddr
 		mockHandlerSetup(mockAzureHandler)
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
-		mockGetVnetAndAddressSpaces(mockAzureHandler, ctx, getVnetName(*fakeNic.Location, defaultNamespace), getVnetPrefix(defaultNamespace), fakeVnet, fakeAddressList)
+		mockGetVnetAndAddressSpaces(mockAzureHandler, ctx, getVnetName(*fakeNic.Location, fakePl.Namespace), getInvisinetsNamespacePrefix(defaultNamespace), fakeVnet, fakeAddressList)
 		for i, rule := range fakeNsg.Properties.SecurityRules {
 			if strings.HasPrefix(*rule.Name, invisinetsPrefix) {
 				mockAzureHandler.On("GetPermitListRuleFromNSGRule", rule).Return(fakePlRules[i], nil)
@@ -855,7 +856,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 func TestGetUsedAddressSpaces(t *testing.T) {
 	server, mockAzureHandler, ctx := setupAzurePluginServer()
 	mockHandlerSetup(mockAzureHandler)
-	mockAzureHandler.On("GetVNetsAddressSpaces", ctx, getVnetPrefix(defaultNamespace)).Return(fakeAddressList, nil)
+	mockAzureHandler.On("GetVNetsAddressSpaces", ctx, getInvisinetsNamespacePrefix(defaultNamespace)).Return(fakeAddressList, nil)
 	addressList, err := server.GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{
 		Id:        "/subscriptions/123/resourceGroups/rg",
 		Namespace: defaultNamespace,
@@ -1074,7 +1075,7 @@ func TestCreateVpnConnections(t *testing.T) {
 
 	fakeCloudName := "fake-cloud"
 	for i := 0; i < vpnNumConnections; i++ {
-		localNetworkGatewayName := getLocalNetworkGatewayName(fakeCloudName, i)
+		localNetworkGatewayName := getLocalNetworkGatewayName(defaultNamespace, fakeCloudName, i)
 		mockAzureHandler.On("GetLocalNetworkGateway", ctx, localNetworkGatewayName).Return(
 			nil,
 			&azcore.ResponseError{StatusCode: http.StatusNotFound},
@@ -1091,7 +1092,7 @@ func TestCreateVpnConnections(t *testing.T) {
 	)
 
 	for i := 0; i < vpnNumConnections; i++ {
-		virtualNetworkGatewayConnectionName := getVirtualNetworkGatewayConnectionName(fakeCloudName, i)
+		virtualNetworkGatewayConnectionName := getVirtualNetworkGatewayConnectionName(defaultNamespace, fakeCloudName, i)
 		mockAzureHandler.On("GetVirtualNetworkGatewayConnection", ctx, virtualNetworkGatewayConnectionName).Return(
 			nil,
 			&azcore.ResponseError{StatusCode: http.StatusNotFound},

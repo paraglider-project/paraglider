@@ -33,8 +33,8 @@ type InvisinetsControllerClient interface {
 	GetPermitList(namespace string, cloud string, resourceName string) ([]*invisinetspb.PermitListRule, error)
 	AddPermitListRules(namespace string, cloud string, resourceName string, rules []*invisinetspb.PermitListRule) error
 	DeletePermitListRules(namespace string, cloud string, resourceName string, rules []string) error
-	CreateResource(namespace string, cloud string, resourceName string, resource *invisinetspb.ResourceDescriptionString) error
-	GetTag(tag string) (*[]tagservicepb.TagMapping, error)
+	CreateResource(cloud string, resource *invisinetspb.ResourceDescriptionString) (map[string]string, error)
+	GetTag(tag string) (*tagservicepb.TagMapping, error)
 	ResolveTag(tag string) ([]*tagservicepb.TagMapping, error)
 	SetTag(tag string, tagMapping *tagservicepb.TagMapping) error
 	DeleteTag(tag string) error
@@ -56,6 +56,10 @@ func (c *Client) processResponse(resp *http.Response) ([]byte, error) {
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Request failed with status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	return bodyBytes, nil
@@ -138,20 +142,26 @@ func (c *Client) DeletePermitListRules(namespace string, cloud string, resourceN
 }
 
 // Create a resource
-func (c *Client) CreateResource(namespace string, cloud string, resourceName string, resource *invisinetspb.ResourceDescriptionString) error {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.CreateResourceURL), namespace, cloud, resourceName)
+func (c *Client) CreateResource(cloud string, resource *invisinetspb.ResourceDescriptionString) (map[string]string, error) {
+	path := fmt.Sprintf(frontend.GetFormatterString(frontend.CreateResourceURL), cloud)
 
 	reqBody, err := json.Marshal(resource)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = c.sendRequest(path, http.MethodPost, bytes.NewBuffer(reqBody))
+	response, err := c.sendRequest(path, http.MethodPost, bytes.NewBuffer(reqBody))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	resourceDict := map[string]string{}
+	err = json.Unmarshal(response, &resourceDict)
+	if err != nil {
+		return nil, err
+	}
+
+	return resourceDict, nil
 }
 
 // Get the members of a tag

@@ -25,7 +25,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -59,7 +58,7 @@ const (
 )
 
 // Fake tag for fake resource
-var fakeNetworkTag = networkTagPrefix + strconv.FormatUint(fakeInstanceId, 10)
+var fakeNetworkTag = getNetworkTag(fakeNamespace, fakeInstanceId)
 
 // Fake firewalls and permitlists
 var (
@@ -658,7 +657,11 @@ func TestCreateResource(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
-	s := &GCPPluginServer{}
+	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
 		Zone:             fakeZone,

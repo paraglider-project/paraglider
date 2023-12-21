@@ -17,6 +17,7 @@ limitations under the License.
 package create
 
 import (
+	"fmt"
 	"io"
 	"os"
 
@@ -67,7 +68,10 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	resource := &invisinetspb.ResourceDescriptionString{Description: string(e.description)}
 
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
-	err := c.CreateResource(e.cliSettings.ActiveNamespace, args[0], args[1], resource)
+	resourceInfo, err := c.CreateResource(e.cliSettings.ActiveNamespace, args[0], args[1], resource)
+
+	fmt.Fprintf(e.writer, "Resource Created.\ntag: %s\nuri: %s\nip: %s\n", resourceInfo["name"], resourceInfo["uri"], resourceInfo["ip"])
+
 
 	return err
 }

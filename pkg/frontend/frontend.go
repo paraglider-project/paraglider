@@ -787,7 +787,9 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, resourceResp) // TODO @smcclure20: What should the behavior be if the name in the description and URL do not match? Maybe in redoing the rpc interfaces we should have the name come with the request so the plugin can check
+	resourceResp.Name = s.namespace + "." + cloud + "." + resourceResp.Name
+
+	c.JSON(http.StatusOK, resourceResp)
 }
 
 // Get tag from local tag service

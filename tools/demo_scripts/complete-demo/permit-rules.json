@@ -1,0 +1,10 @@
+[
+    {
+        "id" : "id",
+        "tags": ["tagname"],
+        "direction": 0,
+        "src_port": 1,
+        "dst_port": 2,
+        "protocol": 3
+    }
+]
