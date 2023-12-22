@@ -52,16 +52,6 @@ func getNewPortNumber() int {
 	return portNum
 }
 
-func newPluginServer() *mockCloudPluginServer {
-	s := &mockCloudPluginServer{}
-	return s
-}
-
-func newTagServer() *mockTagServiceServer {
-	s := &mockTagServiceServer{}
-	return s
-}
-
 func newOrchestratorServer() *ControllerServer {
 	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string]map[string][]string), namespace: defaultNamespace}
 	return s
