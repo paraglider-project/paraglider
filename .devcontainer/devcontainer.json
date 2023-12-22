@@ -12,7 +12,6 @@
             "version": "latest"
         },
 		"azure-cli": "latest",
-		"ghcr.io/devcontainers-contrib/features/redis-homebrew:1": "latest",
 		"ghcr.io/devcontainers-contrib/features/protoc:1": "latest",
 		"ghcr.io/devcontainers-contrib/features/tmux-apt-get:1": "latest"
 	},

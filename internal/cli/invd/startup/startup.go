@@ -31,7 +31,7 @@ import (
 
 func NewCommand() *cobra.Command {
 	executor := &executor{}
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "startup <path to config>",
 		Aliases: []string{"startup"},
 		Short:   "Starts all the microservices with given config file",
@@ -39,6 +39,8 @@ func NewCommand() *cobra.Command {
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
+	cmd.Flags().Bool("clearkeys", true, "Clears all the keys in the redis database")
+	return cmd
 }
 
 type executor struct {
@@ -46,6 +48,7 @@ type executor struct {
 	azPort         int
 	gcpPort        int
 	controllerAddr string
+	clearKeys      bool
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
@@ -83,12 +86,18 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
+
+	e.clearKeys, err = cmd.Flags().GetBool("clearkeys")
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	go func() {
-		tagservice.Setup(6379, e.tagPort, true)
+		tagservice.Setup(6379, e.tagPort, e.clearKeys)
 	}()
 
 	go func() {

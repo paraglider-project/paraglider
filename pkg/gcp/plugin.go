@@ -46,23 +46,12 @@ type GCPPluginServer struct {
 
 // GCP naming conventions
 const (
-	vpcName                       = "invisinets-vpc" // Invisinets VPC name
-	subnetworkNamePrefix          = "invisinets-"
-	networkTagPrefix              = "invisinets-vm-"  // Prefix for GCP tags related to invisinets
+	invisinetsPrefix              = "invisinets"
 	firewallNamePrefix            = "invisinets-fw-"  // Prefix for firewall names related to invisinets
 	firewallRuleDescriptionPrefix = "invisinets rule" // GCP firewall rule prefix for description
-	vpnGwName                     = "invisinets-vpn-gw"
-	routerName                    = "invisinets-router"
-	peerGwNamePrefix              = "invisinets-"
-	peerGwNameSuffix              = "-peer-gw"
-	vpnTunnelNamePrefix           = "invisinets-"
-	vpnTunnelNameSuffix           = "-tunnel-"
-	vpnTunnelInterfaceNameSuffix  = "-int-"
-	bgpPeerNamePrefix             = "invisinets-bgp-peer-"
 )
 
 const (
-	subnetworkNameSuffix  = "-subnet"
 	networkInterface      = "nic0"
 	firewallNameMaxLength = 62 // GCP imposed max length for firewall name
 	computeURLPrefix      = "https://www.googleapis.com/compute/v1/"
@@ -103,13 +92,13 @@ var gcpProtocolNumberMap = map[string]int{
 }
 
 // Checks if GCP firewall rule is an Invisinets permit list rule
-func isInvisinetsPermitListRule(firewall *computepb.Firewall) bool {
-	return strings.HasSuffix(*firewall.Network, vpcName) && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
+func isInvisinetsPermitListRule(namespace string, firewall *computepb.Firewall) bool {
+	return strings.HasSuffix(*firewall.Network, getVpcName(namespace)) && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
 }
 
 // Checks if GCP firewall rule is equivalent to an Invisinets permit list rule
-func isFirewallEqPermitListRule(firewall *computepb.Firewall, permitListRule *invisinetspb.PermitListRule) bool {
-	if !isInvisinetsPermitListRule(firewall) {
+func isFirewallEqPermitListRule(namespace string, firewall *computepb.Firewall, permitListRule *invisinetspb.PermitListRule) bool {
+	if !isInvisinetsPermitListRule(namespace, firewall) {
 		return false
 	}
 	if *firewall.Direction != firewallDirectionMapInvisinetsToGCP[permitListRule.Direction] {
@@ -140,6 +129,20 @@ func hash(values ...string) string {
 	return strings.ToLower(hex.EncodeToString(hash[:]))
 }
 
+// Gets protocol number from GCP specificiation (either a name like "tcp" or an int-string like "6")
+func getProtocolNumber(firewallProtocol string) (int32, error) {
+	protocolNumber, ok := gcpProtocolNumberMap[firewallProtocol]
+	if !ok {
+		var err error
+		protocolNumber, err = strconv.Atoi(firewallProtocol)
+		if err != nil {
+			return 0, fmt.Errorf("could not convert GCP firewall protocol to protocol number")
+		}
+	}
+	return int32(protocolNumber), nil
+}
+
+/* --- RESOURCE NAME --- */
 // Gets a GCP firewall rule name for an Invisinets permit list rule
 // If two Invisinets permit list rules are equal, then they will have the same GCP firewall rule name.
 func getFirewallName(permitListRule *invisinetspb.PermitListRule, instanceId uint64) string {
@@ -154,43 +157,63 @@ func getFirewallName(permitListRule *invisinetspb.PermitListRule, instanceId uin
 	))[:firewallNameMaxLength]
 }
 
-// Returns VPC for Invisinets in a shortened GCP URI format
-// TODO @seankimkdy: should return full URI
-func GetVpcUri(namespace string) string {
-	return "global/networks/" + getVpcName(namespace)
+func getInvisinetsNamespacePrefix(namespace string) string {
+	return invisinetsPrefix + "-" + namespace
 }
 
 // Gets a GCP VPC name
 func getVpcName(namespace string) string {
-	return namespace + "-" + vpcName
+	return getInvisinetsNamespacePrefix(namespace) + "-vpc"
 }
 
 // Returns name of firewall for denying all egress traffic
-func getDenyAllIngressFirewallName() string {
-	return firewallNamePrefix + "deny-all-egress"
+func getDenyAllIngressFirewallName(namespace string) string {
+	return getInvisinetsNamespacePrefix(namespace) + "-deny-all-egress"
 }
 
 // Gets a GCP network tag for a GCP instance
-func getGCPNetworkTag(instanceId uint64) string {
-	return networkTagPrefix + strconv.FormatUint(instanceId, 10)
+func getNetworkTag(namespace string, instanceId uint64) string {
+	return getInvisinetsNamespacePrefix(namespace) + "-vm-" + strconv.FormatUint(instanceId, 10)
 }
 
 // Gets a GCP subnetwork name for Invisinets based on region
-func getGCPSubnetworkName(region string) string {
-	return subnetworkNamePrefix + region + subnetworkNameSuffix
+func getSubnetworkName(namespace string, region string) string {
+	return getInvisinetsNamespacePrefix(namespace) + "-" + region + "-subnet"
 }
 
-// Gets protocol number from GCP specificiation (either a name like "tcp" or an int-string like "6")
-func getProtocolNumber(firewallProtocol string) (int32, error) {
-	protocolNumber, ok := gcpProtocolNumberMap[firewallProtocol]
-	if !ok {
-		var err error
-		protocolNumber, err = strconv.Atoi(firewallProtocol)
-		if err != nil {
-			return 0, fmt.Errorf("could not convert GCP firewall protocol to protocol number")
-		}
-	}
-	return int32(protocolNumber), nil
+func getVpnGwName(namespace string) string {
+	return getInvisinetsNamespacePrefix(namespace) + "-vpn-gw"
+}
+
+func getRouterName(namespace string) string {
+	return getInvisinetsNamespacePrefix(namespace) + "-router"
+}
+
+// Returns a peer gateway name when connecting to another cloud
+func getPeerGwName(namespace string, cloud string) string {
+	return getInvisinetsNamespacePrefix(namespace) + "-" + cloud + "-peer-gw"
+}
+
+// Returns a VPN tunnel name when connecting to another cloud
+func getVpnTunnelName(namespace string, cloud string, tunnelIdx int) string {
+	return getInvisinetsNamespacePrefix(namespace) + "-" + cloud + "-tunnel-" + strconv.Itoa(tunnelIdx)
+}
+
+// Returns a VPN tunnel interface name when connecting to another cloud
+func getVpnTunnelInterfaceName(namespace string, cloud string, tunnelIdx int, interfaceIdx int) string {
+	return getVpnTunnelName(namespace, cloud, tunnelIdx) + "-int-" + strconv.Itoa(interfaceIdx)
+}
+
+// Returns a BGP peer name
+func getBgpPeerName(cloud string, peerIdx int) string {
+	return cloud + "-bgp-peer-" + strconv.Itoa(peerIdx)
+}
+
+/* --- RESOURCE URI --- */
+// Returns VPC for Invisinets in a shortened GCP URI format
+// TODO @seankimkdy: should return full URI
+func GetVpcUri(namespace string) string {
+	return "global/networks/" + getVpcName(namespace)
 }
 
 // Parses GCP compute URL for desired fields
@@ -218,6 +241,10 @@ func getVpnGwUri(project, region, vpnGwName string) string {
 	return computeURLPrefix + fmt.Sprintf("projects/%s/regions/%s/vpnGateways/%s", project, region, vpnGwName)
 }
 
+func getRouterUri(project, region, routerName string) string {
+	return computeURLPrefix + fmt.Sprintf("projects/%s/regions/%s/routers/%s", project, region, routerName)
+}
+
 // Returns a full GCP URI of a VPN tunnel
 func getVpnTunnelUri(project, region, vpnTunnelName string) string {
 	return computeURLPrefix + fmt.Sprintf("projects/%s/regions/%s/vpnTunnels/%s", project, region, vpnTunnelName)
@@ -225,30 +252,6 @@ func getVpnTunnelUri(project, region, vpnTunnelName string) string {
 
 func getPeerGwUri(project, peerGwName string) string {
 	return computeURLPrefix + fmt.Sprintf("projects/%s/global/externalVpnGateways/%s", project, peerGwName)
-}
-
-func getRouterUri(project, region, routerName string) string {
-	return computeURLPrefix + fmt.Sprintf("projects/%s/regions/%s/routers/%s", project, region, routerName)
-}
-
-// Returns a peer gateway name when connecting to another cloud
-func getPeerGwName(cloud string) string {
-	return peerGwNamePrefix + cloud + peerGwNameSuffix
-}
-
-// Returns a VPN tunnel name when connecting to another cloud
-func getVpnTunnelName(cloud string, tunnelIdx int) string {
-	return vpnTunnelNamePrefix + cloud + vpnTunnelNameSuffix + strconv.Itoa(tunnelIdx)
-}
-
-// Returns a VPN tunnel interface name when connecting to another cloud
-func getVpnTunnelInterfaceName(cloud string, tunnelIdx int, interfaceIdx int) string {
-	return getVpnTunnelName(cloud, tunnelIdx) + vpnTunnelInterfaceNameSuffix + strconv.Itoa(interfaceIdx)
-}
-
-// Returns a BGP peer name
-func getBgpPeerName(cloud string, peerIdx int) string {
-	return bgpPeerNamePrefix + cloud + "-" + strconv.Itoa(peerIdx)
 }
 
 // Checks if GCP error response is a not found error
@@ -336,7 +339,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 
 	for _, firewall := range resp.Firewalls {
 		// Exclude default deny all egress from being included since it applies to every VM
-		if isInvisinetsPermitListRule(firewall) && *firewall.Name != getDenyAllIngressFirewallName() {
+		if isInvisinetsPermitListRule(resourceID.Namespace, firewall) && *firewall.Name != getDenyAllIngressFirewallName(resourceID.Namespace) {
 			permitListRules := make([]*invisinetspb.PermitListRule, len(firewall.Allowed))
 			for i, rule := range firewall.Allowed {
 				protocolNumber, err := getProtocolNumber(*rule.IPProtocol)
@@ -428,7 +431,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 	if err != nil {
 		return nil, fmt.Errorf("unable to get instance: %w", err)
 	}
-	networkTag := getGCPNetworkTag(*getInstanceResp.Id)
+	networkTag := getNetworkTag(permitList.Namespace, *getInstanceResp.Id)
 
 	// Get subnetwork address space
 	parsedSubnetworkUri := parseGCPURL(*getInstanceResp.NetworkInterfaces[0].Subnetwork)
@@ -571,7 +574,7 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList
 	}
 	for _, permitListRule := range permitList.Rules {
 		firewall, ok := firewallMap[getFirewallName(permitListRule, *getInstanceResp.Id)]
-		if ok && isInvisinetsPermitListRule(firewall) && isFirewallEqPermitListRule(firewall, permitListRule) {
+		if ok && isInvisinetsPermitListRule(permitList.Namespace, firewall) && isFirewallEqPermitListRule(permitList.Namespace, firewall, permitListRule) {
 			deleteFirewallReq := &computepb.DeleteFirewallRequest{
 				Firewall: *firewall.Name,
 				Project:  project,
@@ -618,7 +621,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 
 	project, zone := insertInstanceRequest.Project, insertInstanceRequest.Zone
 	region := zone[:strings.LastIndex(zone, "-")]
-	subnetName := getGCPSubnetworkName(region)
+	subnetName := getSubnetworkName(resourceDescription.Namespace, region)
 	subnetExists := false
 
 	// Check if Invisinets specific VPC already exists
@@ -660,7 +663,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 					Description:       proto.String("Invisinets deny all traffic"),
 					DestinationRanges: []string{"0.0.0.0/0"},
 					Direction:         proto.String(computepb.Firewall_EGRESS.String()),
-					Name:              proto.String(getDenyAllIngressFirewallName()),
+					Name:              proto.String(getDenyAllIngressFirewallName(resourceDescription.Namespace)),
 					Network:           proto.String(GetVpcUri(resourceDescription.Namespace)),
 					Priority:          proto.Int32(65534),
 				},
@@ -752,7 +755,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		Project:  project,
 		Zone:     zone,
 		TagsResource: &computepb.Tags{
-			Items:       append(getInstanceResp.Tags.Items, getGCPNetworkTag(*getInstanceResp.Id)),
+			Items:       append(getInstanceResp.Tags.Items, getNetworkTag(resourceDescription.Namespace, *getInstanceResp.Id)),
 			Fingerprint: getInstanceResp.Tags.Fingerprint,
 		},
 	}
@@ -851,7 +854,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 		Project: project,
 		Region:  vpnRegion,
 		VpnGatewayResource: &computepb.VpnGateway{
-			Name:        proto.String(vpnGwName),
+			Name:        proto.String(getVpnGwName(req.Deployment.Namespace)),
 			Description: proto.String("Invisinets VPN gateway for multicloud connections"),
 			Network:     proto.String(GetVpcUri(req.Deployment.Namespace)),
 		},
@@ -872,7 +875,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 		Project: project,
 		Region:  vpnRegion,
 		RouterResource: &computepb.Router{
-			Name:        proto.String(routerName),
+			Name:        proto.String(getRouterName(req.Deployment.Namespace)),
 			Description: proto.String("Invisinets router for multicloud connections"),
 			Network:     proto.String(GetVpcUri(req.Deployment.Namespace)),
 			Bgp: &computepb.RouterBgp{
@@ -883,9 +886,9 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 	insertRouterReq.RouterResource.Interfaces = make([]*computepb.RouterInterface, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {
 		insertRouterReq.RouterResource.Interfaces[i] = &computepb.RouterInterface{
-			Name:            proto.String(getVpnTunnelInterfaceName(req.Cloud, i, i)),
+			Name:            proto.String(getVpnTunnelInterfaceName(req.Deployment.Namespace, req.Cloud, i, i)),
 			IpRange:         proto.String(vpnGwBgpIpAddrs[i] + "/30"),
-			LinkedVpnTunnel: proto.String(getVpnTunnelUri(project, vpnRegion, getVpnTunnelName(req.Cloud, i))),
+			LinkedVpnTunnel: proto.String(getVpnTunnelUri(project, vpnRegion, getVpnTunnelName(req.Deployment.Namespace, req.Cloud, i))),
 		}
 	}
 	insertRouterOp, err := routersClient.Insert(ctx, insertRouterReq)
@@ -902,7 +905,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 	getVpnGatewayReq := &computepb.GetVpnGatewayRequest{
 		Project:    project,
 		Region:     vpnRegion,
-		VpnGateway: vpnGwName,
+		VpnGateway: getVpnGwName(req.Deployment.Namespace),
 	}
 	vpnGateway, err := vpnGatewaysClient.Get(ctx, getVpnGatewayReq)
 	if err != nil {
@@ -939,7 +942,7 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *invisi
 	insertExternalVpnGatewayReq := &computepb.InsertExternalVpnGatewayRequest{
 		Project: project,
 		ExternalVpnGatewayResource: &computepb.ExternalVpnGateway{
-			Name:           proto.String(getPeerGwName(req.Cloud)),
+			Name:           proto.String(getPeerGwName(req.Deployment.Namespace, req.Cloud)),
 			Description:    proto.String("Invisinets peer gateway to " + req.Cloud),
 			RedundancyType: proto.String(computepb.ExternalVpnGateway_TWO_IPS_REDUNDANCY.String()),
 		},
@@ -969,14 +972,14 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *invisi
 			Project: project,
 			Region:  vpnRegion,
 			VpnTunnelResource: &computepb.VpnTunnel{
-				Name:                         proto.String(getVpnTunnelName(req.Cloud, i)),
+				Name:                         proto.String(getVpnTunnelName(req.Deployment.Namespace, req.Cloud, i)),
 				Description:                  proto.String(fmt.Sprintf("Invisinets VPN tunnel to %s (interface %d)", req.Cloud, i)),
-				PeerExternalGateway:          proto.String(getPeerGwUri(project, getPeerGwName(req.Cloud))),
+				PeerExternalGateway:          proto.String(getPeerGwUri(project, getPeerGwName(req.Deployment.Namespace, req.Cloud))),
 				PeerExternalGatewayInterface: proto.Int32(int32(i)),
 				IkeVersion:                   proto.Int32(ikeVersion),
 				SharedSecret:                 proto.String(req.SharedKey),
-				Router:                       proto.String(getRouterUri(project, vpnRegion, routerName)),
-				VpnGateway:                   proto.String(getVpnGwUri(project, vpnRegion, vpnGwName)),
+				Router:                       proto.String(getRouterUri(project, vpnRegion, getRouterName(req.Deployment.Namespace))),
+				VpnGateway:                   proto.String(getVpnGwUri(project, vpnRegion, getVpnGwName(req.Deployment.Namespace))),
 				VpnGatewayInterface:          proto.Int32(int32(i)), // TODO @seankimkdy: handle separately for four connections (AWS specific)?
 			},
 		}
@@ -995,7 +998,7 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *invisi
 	patchRouterRequest := &computepb.PatchRouterRequest{
 		Project:        project,
 		Region:         vpnRegion,
-		Router:         routerName,
+		Router:         getRouterName(req.Deployment.Namespace),
 		RouterResource: &computepb.Router{},
 	}
 	patchRouterRequest.RouterResource.BgpPeers = make([]*computepb.RouterBgpPeer, vpnNumConnections)

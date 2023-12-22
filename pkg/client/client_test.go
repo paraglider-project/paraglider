@@ -21,7 +21,7 @@ package client
 import (
 	"testing"
 
-	fake "github.com/NetSys/invisinets/pkg/fake"
+	fake "github.com/NetSys/invisinets/pkg/fake/controller/rest"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/stretchr/testify/assert"
 )
@@ -63,9 +63,11 @@ func TestCreateResource(t *testing.T) {
 	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
-	err := client.CreateResource(fake.CloudName, &invisinetspb.ResourceDescriptionString{Id: "uri"})
+	resource, err := client.CreateResource(fake.CloudName, &invisinetspb.ResourceDescriptionString{Id: "uri"})
 
 	assert.Nil(t, err)
+	assert.Equal(t, "uri", resource["uri"])
+
 }
 
 func TestGetTag(t *testing.T) {

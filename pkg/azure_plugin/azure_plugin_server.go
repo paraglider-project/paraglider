@@ -211,7 +211,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, pl *invisine
 		return nil, fmt.Errorf("unable to get subnet address prefix")
 	}
 
-	invisinetsVnetsMap, err := s.azureHandler.GetVNetsAddressSpaces(ctx, getVnetPrefix(pl.Namespace))
+	invisinetsVnetsMap, err := s.azureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(pl.Namespace))
 	if err != nil {
 		utils.Log.Printf("An error occured while getting invisinets vnets address spaces:%+v", err)
 		return nil, err
@@ -454,7 +454,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment
 		return nil, err
 	}
 
-	addressSpaces, err := s.azureHandler.GetVNetsAddressSpaces(ctx, getVnetPrefix(deployment.Namespace))
+	addressSpaces, err := s.azureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(deployment.Namespace))
 	if err != nil {
 		utils.Log.Printf("An error occured while getting address spaces:%+v", err)
 		return nil, err
@@ -546,7 +546,7 @@ func (s *azurePluginServer) getAndCheckResourceNamespace(c context.Context, reso
 	}
 	vnet := getVnetFromSubnetId(*nic.Properties.IPConfigurations[0].Properties.Subnet.ID)
 
-	if !strings.HasPrefix(vnet, getVnetPrefix(namespace)) {
+	if !strings.HasPrefix(vnet, getInvisinetsNamespacePrefix(namespace)) {
 		return fmt.Errorf("resource %s is not in the namespace %s", resourceID, namespace)
 	}
 
@@ -692,14 +692,14 @@ func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceV
 	return nil
 }
 
-func getVnetPrefix(namespace string) string {
+func getInvisinetsNamespacePrefix(namespace string) string {
 	return invisinetsPrefix + "-" + namespace
 }
 
 // getVnetName returns the name of the invisinets vnet in the given location
 // since an invisients vnet is unique per location
 func getVnetName(location string, namespace string) string {
-	return getVnetPrefix(namespace) + "-" + location + "-vnet"
+	return getInvisinetsNamespacePrefix(namespace) + "-" + location + "-vnet"
 }
 
 func getVpnGatewayVnetName(namespace string) string {
@@ -707,19 +707,19 @@ func getVpnGatewayVnetName(namespace string) string {
 }
 
 func getVpnGatewayName(namespace string) string {
-	return getVnetPrefix(namespace) + "-vpn-gw"
+	return getInvisinetsNamespacePrefix(namespace) + "-vpn-gw"
 }
 
 func getVPNGatewayIPAddressName(namespace string, idx int) string {
 	return getVpnGatewayName(namespace) + "-ip-" + strconv.Itoa(idx)
 }
 
-func getLocalNetworkGatewayName(cloud string, idx int) string {
-	return invisinetsPrefix + "-" + cloud + "-local-gw-" + strconv.Itoa(idx)
+func getLocalNetworkGatewayName(namespace string, cloud string, idx int) string {
+	return getInvisinetsNamespacePrefix(namespace) + "-" + cloud + "-local-gw-" + strconv.Itoa(idx)
 }
 
-func getVirtualNetworkGatewayConnectionName(cloud string, idx int) string {
-	return invisinetsPrefix + "-" + cloud + "-conn-" + strconv.Itoa(idx)
+func getVirtualNetworkGatewayConnectionName(namespace string, cloud string, idx int) string {
+	return getInvisinetsNamespacePrefix(namespace) + "-" + cloud + "-conn-" + strconv.Itoa(idx)
 }
 
 func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinetspb.CreateVpnGatewayRequest) (*invisinetspb.CreateVpnGatewayResponse, error) {
@@ -892,7 +892,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 
 	localNetworkGateways := make([]*armnetwork.LocalNetworkGateway, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {
-		localNetworkGatewayName := getLocalNetworkGatewayName(req.Cloud, i)
+		localNetworkGatewayName := getLocalNetworkGatewayName(req.Deployment.Namespace, req.Cloud, i)
 		localNetworkGateway, err := s.azureHandler.GetLocalNetworkGateway(ctx, localNetworkGatewayName)
 		if err != nil {
 			if isErrorNotFound(err) {
@@ -923,7 +923,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 		return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
 	}
 	for i := 0; i < vpnNumConnections; i++ {
-		virtualNetworkGatewayconnectionName := getVirtualNetworkGatewayConnectionName(req.Cloud, i)
+		virtualNetworkGatewayconnectionName := getVirtualNetworkGatewayConnectionName(req.Deployment.Namespace, req.Cloud, i)
 		_, err := s.azureHandler.GetVirtualNetworkGatewayConnection(ctx, virtualNetworkGatewayconnectionName)
 		if err != nil {
 			if isErrorNotFound(err) {

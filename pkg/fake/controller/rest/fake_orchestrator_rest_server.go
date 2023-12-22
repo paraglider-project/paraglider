@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package fake
+package rest
 
 import (
 	"encoding/json"
@@ -129,6 +129,10 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 			}
 			w.WriteHeader(http.StatusOK)
+			err = s.writeResponse(w, map[string]string{"uri": resource.Id})
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+			}
 			return
 		// Add/Delete Permit List Rules
 		case urlMatches(path, orchestrator.AddPermitListRulesURL) && (r.Method == http.MethodPost || r.Method == http.MethodDelete):
