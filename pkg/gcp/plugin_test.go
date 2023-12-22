@@ -628,11 +628,11 @@ func TestCreateResource(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{frontendServerAddr: fakeOrchestratorServerAddr}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
 		Zone:             fakeZone,

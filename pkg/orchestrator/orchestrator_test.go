@@ -52,7 +52,6 @@ func getNewPortNumber() int {
 	return portNum
 }
 
-<<<<<<< HEAD:pkg/orchestrator/orchestrator_test.go
 func newPluginServer() *mockCloudPluginServer {
 	s := &mockCloudPluginServer{}
 	return s
@@ -64,9 +63,6 @@ func newTagServer() *mockTagServiceServer {
 }
 
 func newOrchestratorServer() *ControllerServer {
-=======
-func newFrontendServer() *ControllerServer {
->>>>>>> main:pkg/frontend/frontend_test.go
 	s := &ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string]map[string][]string), namespace: defaultNamespace}
 	return s
 }
@@ -310,13 +306,8 @@ func TestGetAddressSpaces(t *testing.T) {
 	fakeplugin.SetupFakePluginServer(port)
 
 	// Well-formed call
-<<<<<<< HEAD:pkg/orchestrator/orchestrator_test.go
 	addressList, _ := orchestratorServer.getAddressSpaces(exampleCloudName, "id", defaultNamespace)
-	assert.Equal(t, addressList.AddressSpaces[0], addressSpaceAddress)
-=======
-	addressList, _ := frontendServer.getAddressSpaces(exampleCloudName, "id", defaultNamespace)
 	assert.Equal(t, addressList.AddressSpaces[0], fakeplugin.AddressSpaceAddress)
->>>>>>> main:pkg/frontend/frontend_test.go
 
 	// Bad cloud name
 	emptyList, err := orchestratorServer.getAddressSpaces("wrong", "id", defaultNamespace)
@@ -337,11 +328,7 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	orchestratorServer.config = Config{Clouds: []Cloud{cloud}}
 	err := orchestratorServer.updateUsedAddressSpacesMap(defaultNamespace)
 	require.Nil(t, err)
-<<<<<<< HEAD:pkg/orchestrator/orchestrator_test.go
-	assert.Equal(t, orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName][0], addressSpaceAddress)
-=======
-	assert.Equal(t, frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName][0], fakeplugin.AddressSpaceAddress)
->>>>>>> main:pkg/frontend/frontend_test.go
+	assert.Equal(t, orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName][0], fakeplugin.AddressSpaceAddress)
 
 	// Invalid cloud list
 	cloud = Cloud{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
@@ -846,11 +833,7 @@ func TestUpdateSubscribers(t *testing.T) {
 	faketagservice.SetupFakeTagServer(tagServerPort)
 	faketagservice.SubscriberCloudName = exampleCloudName
 
-<<<<<<< HEAD:pkg/orchestrator/orchestrator_test.go
-	err := orchestratorServer.updateSubscribers(validTagName)
-=======
-	err := frontendServer.updateSubscribers(faketagservice.ValidTagName)
->>>>>>> main:pkg/frontend/frontend_test.go
+	err := orchestratorServer.updateSubscribers(faketagservice.ValidTagName)
 	assert.Nil(t, err)
 }
 
