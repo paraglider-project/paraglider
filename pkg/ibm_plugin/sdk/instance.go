@@ -28,7 +28,7 @@ import (
 
 // CreateInstance creates a VM in the specified subnet and zone.
 func (c *CloudClient) CreateInstance(vpcID, subnetID string,
-	instanceOptions *vpcv1.CreateInstanceOptions) (*vpcv1.Instance, error) {
+	instanceOptions *vpcv1.CreateInstanceOptions, tags []string) (*vpcv1.Instance, error) {
 	keyID, err := c.setupAuth()
 	if err != nil {
 		utils.Log.Println("failed to setup authentication")
@@ -41,7 +41,7 @@ func (c *CloudClient) CreateInstance(vpcID, subnetID string,
 		return nil, err
 	}
 
-	instance, err := c.createInstance(keyID, vpcID, subnetID, instanceOptions, securityGroup)
+	instance, err := c.createInstance(keyID, vpcID, subnetID, instanceOptions, securityGroup, tags)
 	if err != nil {
 		utils.Log.Println("Failed to launch instance with error:\n", err)
 		return nil, err
@@ -49,9 +49,8 @@ func (c *CloudClient) CreateInstance(vpcID, subnetID string,
 	return instance, nil
 }
 
-func (c *CloudClient) createInstance(keyID, vpcID, subnetID string, instanceOptions *vpcv1.CreateInstanceOptions, securityGroup *vpcv1.SecurityGroup) (
+func (c *CloudClient) createInstance(keyID, vpcID, subnetID string, instanceOptions *vpcv1.CreateInstanceOptions, securityGroup *vpcv1.SecurityGroup, tags []string) (
 	*vpcv1.Instance, error) {
-	instanceTags := []string{vpcID}
 
 	sgGrps := []vpcv1.SecurityGroupIdentityIntf{
 		&vpcv1.SecurityGroupIdentityByID{ID: securityGroup.ID}}
@@ -77,7 +76,7 @@ func (c *CloudClient) createInstance(keyID, vpcID, subnetID string, instanceOpti
 	}
 	utils.Log.Printf("VM %s was launched with ID: %v", *instance.Name, *instance.ID)
 
-	err = c.attachTag(instance.CRN, instanceTags)
+	err = c.attachTag(instance.CRN, tags)
 	if err != nil {
 		utils.Log.Print("Failed to tag VM with error:", err)
 		return nil, err
@@ -192,4 +191,30 @@ func (c *CloudClient) VMToVPCID(vmID string) (string, error) {
 		return "", err
 	}
 	return *instance.VPC.ID, nil
+}
+
+// returns True if an instance resides inside the specified namespace
+// region is an optional argument used to increase effectiveness of resource search
+func (c *CloudClient) DoesInstanceResideInNamespace(InstanceName, namespace, region string) (bool, error) {
+	resourceQuery := ResourceQuery{}
+	vmID, err := c.GetInstanceID(InstanceName)
+	if err != nil {
+		return false, err
+	}
+	if region != "" {
+		resourceQuery.Region = region
+	}
+	VMsData, err := c.GetInvisinetsTaggedResources(VM, []string{namespace},
+		resourceQuery)
+
+	if err != nil {
+		return false, err
+	}
+
+	for _, vm := range VMsData {
+		if vm.ID == vmID {
+			return true, nil
+		}
+	}
+	return false, nil
 }

@@ -121,7 +121,7 @@ func (c *CloudClient) GetInstanceID(name string) (string, error) {
 }
 
 func (c *CloudClient) attachTag(CRN *string, tags []string) error {
-	tags = append(tags, InvTag) // add universal tag for invisinets' resources  
+	tags = append(tags, InvTag) // add universal tag for invisinets' resources
 	userTypeTag := globaltaggingv1.AttachTagOptionsTagTypeUserConst
 	resourceModel := &globaltaggingv1.Resource{
 		ResourceID:   CRN,
@@ -131,9 +131,11 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 		[]globaltaggingv1.Resource{*resourceModel},
 	)
 	attachTagOptions = attachTagOptions.SetTagNames(tags)
-	_, _, err := c.taggingService.AttachTag(attachTagOptions)
-	if err != nil {
-		return err
+	result, response, _ := c.taggingService.AttachTag(attachTagOptions)
+	// tracking all responses from error prone tagging service
+	utils.Log.Printf("Tagging: Response: %+v", response)
+	if *result.Results[0].IsError {
+		return fmt.Errorf("Failed to tag resource with response:\n %+v", response)
 	}
 	return nil
 }
@@ -147,7 +149,7 @@ func (c *CloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceTy
 	// parse tags
 	var tagsStr string
 	var queryStr string
-	// append the invisinets tag to narrow the search scope to invisinets resources only. 
+	// append the invisinets tag to narrow the search scope to invisinets resources only.
 	tags = append(tags, InvTag)
 	for _, tag := range tags {
 		tagsStr += fmt.Sprintf("tags:%v AND ", tag)
