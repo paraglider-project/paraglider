@@ -531,7 +531,7 @@ func (s *ControllerServer) getUsedAsns(cloud string, deploymentId string, namesp
 	}
 	defer conn.Close()
 
-	// Send the RPC to get the address spaces
+	// Send the RPC to get the ASNs
 	client := invisinetspb.NewCloudPluginClient(conn)
 	req := &invisinetspb.GetUsedAsnsRequest{
 		Deployment: &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
