@@ -30,6 +30,7 @@ import (
 )
 
 const AddressSpaceAddress = "10.0.0.0/16"
+const Asn = 64512
 
 var ExampleRule = &invisinetspb.PermitListRule{Id: "example-rule", Tags: []string{fake.ValidTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
 
@@ -57,6 +58,10 @@ func (s *fakeCloudPluginServer) CreateResource(c context.Context, resource *invi
 
 func (s *fakeCloudPluginServer) GetUsedAddressSpaces(c context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
 	return &invisinetspb.AddressSpaceList{AddressSpaces: []string{AddressSpaceAddress}}, nil
+}
+
+func (s *fakeCloudPluginServer) GetUsedAsns(c context.Context, req *invisinetspb.GetUsedAsnsRequest) (*invisinetspb.GetUsedAsnsResponse, error) {
+	return &invisinetspb.GetUsedAsnsResponse{Asns: []uint32{Asn}}, nil
 }
 
 func NewFakePluginServer() *fakeCloudPluginServer {

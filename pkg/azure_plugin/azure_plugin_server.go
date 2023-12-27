@@ -55,11 +55,11 @@ type azurePluginServer struct {
 
 // TODO @seankimkdy: replace these
 const (
-	vpnLocation                = "westus"
-	vpnGwAsn                   = int64(65515)
-	vpnNumConnections          = 2
-	gatewaySubnetName          = "GatewaySubnet"
-	gatewaySubnetAddressPrefix = "192.168.255.0/27"
+	vpnLocation                       = "westus"
+	vpnGwAsn                   uint32 = 65515
+	vpnNumConnections                 = 2
+	gatewaySubnetName                 = "GatewaySubnet"
+	gatewaySubnetAddressPrefix        = "192.168.255.0/27"
 )
 
 var vpnGwBgpIpAddrs = []string{"169.254.21.1", "169.254.22.1"}
@@ -468,6 +468,30 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment
 	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetAddressList}, nil
 }
 
+func (s *azurePluginServer) GetUsedAsns(ctx context.Context, req *invisinetspb.GetUsedAsnsRequest) (*invisinetspb.GetUsedAsnsResponse, error) {
+	resourceIdInfo, err := getResourceIDInfo(req.Deployment.Id)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+		return nil, err
+	}
+	err = s.setupAzureHandler(resourceIdInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	virtualNetworkGatewayName := getVpnGatewayName(req.Deployment.Namespace)
+	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
+	if err != nil {
+		if isErrorNotFound(err) {
+			return &invisinetspb.GetUsedAsnsResponse{}, nil
+		} else {
+			return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
+		}
+	}
+
+	return &invisinetspb.GetUsedAsnsResponse{Asns: []uint32{uint32(*virtualNetworkGateway.Properties.BgpSettings.Asn)}}, nil
+}
+
 // getNSG returns the network security group object given the resource NIC
 func (s *azurePluginServer) getNSG(ctx context.Context, nic *armnetwork.Interface, resourceID string) (*armnetwork.SecurityGroup, error) {
 	var nsg *armnetwork.SecurityGroup
@@ -737,6 +761,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 	publicIPAddresses := make([]*armnetwork.PublicIPAddress, vpnNumConnections)
 	virtualNetworkGatewayName := getVpnGatewayName(namespace)
 	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
+	var asn uint32
 	if err != nil {
 		if isErrorNotFound(err) {
 			// Create two public IP addresses (need a second for active-active mode)
@@ -773,13 +798,25 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 				return nil, fmt.Errorf("unable to get VPN gateway subnet: %w", err)
 			}
 
+			conn, err := grpc.Dial(s.frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
+			}
+			defer conn.Close()
+			client := invisinetspb.NewControllerClient(conn)
+			findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{Namespace: req.Deployment.Namespace})
+			if err != nil {
+				return nil, fmt.Errorf("unable to find unused address space: %w", err)
+			}
+			asn = findUnusedAsnResp.Asn
+
 			// Create VPN gateway
 			virtualNetworkGatewayParameters := armnetwork.VirtualNetworkGateway{
 				Location: to.Ptr(vpnLocation),
 				Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
 					Active: to.Ptr(true),
 					BgpSettings: &armnetwork.BgpSettings{
-						Asn: to.Ptr(vpnGwAsn),
+						Asn: to.Ptr(int64(asn)),
 					},
 					EnableBgp:              to.Ptr(true),
 					EnablePrivateIPAddress: to.Ptr(false),
@@ -856,7 +893,8 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 			return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
 		}
 	} else {
-		// Retrieve VPN gateway IP addresses
+		// Retrieve VPN gateway ASN and IP addresses
+		asn = uint32(*virtualNetworkGateway.Properties.BgpSettings.Asn)
 		for i, ipConfiguration := range virtualNetworkGateway.Properties.IPConfigurations {
 			publicIPAddressIdInfo, err := getResourceIDInfo(*ipConfiguration.Properties.PublicIPAddress.ID)
 			if err != nil {
@@ -870,7 +908,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 		}
 	}
 
-	resp := &invisinetspb.CreateVpnGatewayResponse{Asn: vpnGwAsn}
+	resp := &invisinetspb.CreateVpnGatewayResponse{Asn: asn}
 	resp.GatewayIpAddresses = make([]string, vpnNumConnections)
 	resp.BgpIpAddresses = make([]string, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {
@@ -899,7 +937,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 				localNetworkGatewayParameters := armnetwork.LocalNetworkGateway{
 					Properties: &armnetwork.LocalNetworkGatewayPropertiesFormat{
 						BgpSettings: &armnetwork.BgpSettings{
-							Asn:               to.Ptr(req.Asn),
+							Asn:               to.Ptr(int64(req.Asn)),
 							BgpPeeringAddress: to.Ptr(req.BgpIpAddresses[i]),
 							PeerWeight:        to.Ptr(int32(0)),
 						},

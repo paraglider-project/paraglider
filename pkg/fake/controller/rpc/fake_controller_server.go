@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/NetSys/invisinets/pkg/frontend"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"google.golang.org/grpc"
 )
@@ -40,6 +41,10 @@ func (f *FakeControllerServer) FindUnusedAddressSpace(ctx context.Context, names
 	address := fmt.Sprintf("10.%d.0.0/16", f.Counter)
 	f.Counter = f.Counter + 1
 	return &invisinetspb.AddressSpace{Address: address}, nil
+}
+
+func (f *FakeControllerServer) FindUnusedAsn(ctx context.Context, req *invisinetspb.FindUnusedAsnRequest) (*invisinetspb.FindUnusedAsnResponse, error) {
+	return &invisinetspb.FindUnusedAsnResponse{Asn: frontend.MIN_PRIVATE_ASN_2BYTE}, nil
 }
 
 func (f *FakeControllerServer) GetUsedAddressSpaces(ctx context.Context, namespace *invisinetspb.Namespace) (*invisinetspb.AddressSpaceMappingList, error) {
