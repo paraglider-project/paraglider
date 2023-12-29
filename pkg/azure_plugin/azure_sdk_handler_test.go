@@ -29,9 +29,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
@@ -84,21 +82,13 @@ var (
 	azureSDKHandlerTest *azureSDKHandler
 )
 
-type dummyToken struct {
-	azcore.TokenCredential
-}
-
-func (d *dummyToken) GetToken(ctx context.Context, optsWW policy.TokenRequestOptions) (azcore.AccessToken, error) {
-	return azcore.AccessToken{}, nil
-}
-
 func setup() {
 	urlToResponse = initializeReqRespMap()
 	setupFakeServer(urlToResponse)
 	azureSDKHandlerTest = &azureSDKHandler{}
 	azureSDKHandlerTest.resourceGroupName = rgName
 	azureSDKHandlerTest.subscriptionID = subID
-	err := azureSDKHandlerTest.InitializeClients(&dummyToken{})
+	err := azureSDKHandlerTest.InitializeClients(nil)
 	if err != nil {
 		log.Fatal(err)
 	}
