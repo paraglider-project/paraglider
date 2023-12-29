@@ -22,6 +22,7 @@ import (
 	"net"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/orchestrator"
 	"google.golang.org/grpc"
 )
 
@@ -40,6 +41,10 @@ func (f *FakeOrchestratorRPCServer) FindUnusedAddressSpace(ctx context.Context, 
 	address := fmt.Sprintf("10.%d.0.0/16", f.Counter)
 	f.Counter = f.Counter + 1
 	return &invisinetspb.AddressSpace{Address: address}, nil
+}
+
+func (f *FakeOrchestratorRPCServer) FindUnusedAsn(ctx context.Context, req *invisinetspb.FindUnusedAsnRequest) (*invisinetspb.FindUnusedAsnResponse, error) {
+	return &invisinetspb.FindUnusedAsnResponse{Asn: orchestrator.MIN_PRIVATE_ASN_2BYTE}, nil
 }
 
 func (f *FakeOrchestratorRPCServer) GetUsedAddressSpaces(ctx context.Context, namespace *invisinetspb.Namespace) (*invisinetspb.AddressSpaceMappingList, error) {

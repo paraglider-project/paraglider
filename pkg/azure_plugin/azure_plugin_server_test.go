@@ -32,6 +32,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
+	"github.com/NetSys/invisinets/pkg/frontend"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
@@ -889,6 +890,21 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	assert.Equal(t, validAddressSpace, addressList.AddressSpaces[0])
 }
 
+func TestGetUsedAsns(t *testing.T) {
+	server, mockAzureHandler, ctx := setupAzurePluginServer()
+	mockHandlerSetup(mockAzureHandler)
+	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
+		&armnetwork.VirtualNetworkGateway{Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{BgpSettings: &armnetwork.BgpSettings{Asn: to.Ptr(int64(64512))}}},
+		nil,
+	)
+
+	usedAsnsExpected := []uint32{64512}
+	resp, err := server.GetUsedAsns(ctx, &invisinetspb.GetUsedAsnsRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace}})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.ElementsMatch(t, usedAsnsExpected, resp.Asns)
+}
+
 func TestGetAndCheckResourceNamespace(t *testing.T) {
 	fakeNic := getFakeNIC()
 	resourceID := "resourceID"
@@ -1001,7 +1017,12 @@ func TestCheckAndCreatePeering(t *testing.T) {
 }
 
 func TestCreateVpnGateway(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.AZURE)
+	if err != nil {
+		t.Fatal(err)
+	}
 	server, mockAzureHandler, ctx := setupAzurePluginServer()
+	server.frontendServerAddr = fakeControllerServerAddr
 	mockHandlerSetup(mockAzureHandler)
 
 	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
@@ -1085,7 +1106,7 @@ func TestCreateVpnGateway(t *testing.T) {
 	resp, err := server.CreateVpnGateway(ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	require.Equal(t, vpnGwAsn, resp.Asn)
+	require.Equal(t, frontend.MIN_PRIVATE_ASN_2BYTE, resp.Asn)
 	require.ElementsMatch(t, fakePublicIPAddresses, resp.GatewayIpAddresses)
 	require.ElementsMatch(t, vpnGwBgpIpAddrs, resp.BgpIpAddresses)
 }

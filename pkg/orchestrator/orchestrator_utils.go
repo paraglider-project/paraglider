@@ -23,10 +23,19 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
+// Private ASN ranges (RFC 6996)
+const (
+	MIN_PRIVATE_ASN_2BYTE uint32 = 64512
+	MAX_PRIVATE_ASN_2BYTE uint32 = 65534
+	MIN_PRIVATE_ASN_4BYTE uint32 = 4200000000
+	MAX_PRIVATE_ASN_4BYTE uint32 = 4294967294
+)
+
 func SetupControllerServer(cfg Config) string {
 	controllerServer := &ControllerServer{
 		pluginAddresses:   make(map[string]string),
 		usedAddressSpaces: make(map[string]map[string][]string),
+		usedAsns:          make(map[string]map[string][]uint32),
 		config:            cfg,
 	}
 	for _, c := range controllerServer.config.Clouds {

@@ -86,6 +86,7 @@ type ControllerServer struct {
 	invisinetspb.UnimplementedControllerServer
 	pluginAddresses   map[string]string
 	usedAddressSpaces map[string]map[string][]string
+	usedAsns          map[string]map[string][]uint32
 	localTagService   string
 	config            Config
 	namespace         string
@@ -515,6 +516,85 @@ func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, ns *invisinet
 	return usedAddressSpaceMappings, nil
 }
 
+// Get used address spaces from a specified cloud
+func (s *ControllerServer) getUsedAsns(cloud string, deploymentId string, namespace string) (*invisinetspb.GetUsedAsnsResponse, error) {
+	// Ensure correct cloud name
+	cloudClient, ok := s.pluginAddresses[cloud]
+	if !ok {
+		return nil, errors.New("Invalid cloud name")
+	}
+
+	// Connect to cloud plugin
+	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("Unable to connect to cloud plugin: %s", err.Error())
+	}
+	defer conn.Close()
+
+	// Send the RPC to get the ASNs
+	client := invisinetspb.NewCloudPluginClient(conn)
+	req := &invisinetspb.GetUsedAsnsRequest{
+		Deployment: &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
+	}
+	resp, err := client.GetUsedAsns(context.Background(), req)
+
+	return resp, err
+}
+
+func (s *ControllerServer) updateUsedAsns(namespace string) error {
+	for _, cloud := range s.config.Clouds {
+		asnList, err := s.getUsedAsns(cloud.Name, cloud.InvDeployment, namespace)
+		if err != nil {
+			return fmt.Errorf("Could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
+		}
+		if _, ok := s.usedAsns[namespace]; !ok {
+			s.usedAsns[namespace] = make(map[string][]uint32)
+		}
+		s.usedAsns[namespace][cloud.Name] = asnList.Asns
+	}
+	return nil
+}
+
+func (s *ControllerServer) FindUnusedAsn(c context.Context, req *invisinetspb.FindUnusedAsnRequest) (*invisinetspb.FindUnusedAsnResponse, error) {
+	err := s.updateUsedAsns(req.Namespace)
+	if err != nil {
+		return nil, fmt.Errorf("unable to update used asns: %w", err)
+	}
+
+	usedAsnsInNamespace := make(map[uint32]bool)
+	for _, cloud := range s.usedAsns[req.Namespace] {
+		for _, asn := range cloud {
+			usedAsnsInNamespace[asn] = true
+		}
+	}
+
+	// Find smallest unused ASN
+	var unusedAsn uint32 = 0
+	var i uint32
+	// 2-byte ASNs
+	for i = MIN_PRIVATE_ASN_2BYTE; i <= MAX_PRIVATE_ASN_2BYTE; i++ {
+		if !usedAsnsInNamespace[i] {
+			unusedAsn = i
+			break
+		}
+	}
+	if unusedAsn == 0 {
+		// 4-byte ASNs
+		for i = MIN_PRIVATE_ASN_4BYTE; i <= MAX_PRIVATE_ASN_4BYTE; i++ {
+			if !usedAsnsInNamespace[i] {
+				unusedAsn = i
+				break
+			}
+		}
+		if unusedAsn == 0 {
+			return nil, fmt.Errorf("all private ASNs have been used")
+		}
+	}
+
+	resp := &invisinetspb.FindUnusedAsnResponse{Asn: unusedAsn}
+	return resp, nil
+}
+
 // Generates 32-byte shared key for VPN connections
 func generateSharedKey() (string, error) {
 	key := make([]byte, 24)
@@ -895,7 +975,12 @@ func Setup(configPath string) {
 	}
 
 	// Populate server info
-	server := ControllerServer{pluginAddresses: make(map[string]string), usedAddressSpaces: make(map[string]map[string][]string), namespace: "default"}
+	server := ControllerServer{
+		pluginAddresses:   make(map[string]string),
+		usedAddressSpaces: make(map[string]map[string][]string),
+		usedAsns:          make(map[string]map[string][]uint32),
+		namespace:         "default",
+	}
 	server.config = cfg
 	server.localTagService = cfg.TagService.Host + ":" + cfg.TagService.Port
 

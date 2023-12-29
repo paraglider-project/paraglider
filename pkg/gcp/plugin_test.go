@@ -30,6 +30,7 @@ import (
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
+	"github.com/NetSys/invisinets/pkg/frontend"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
@@ -726,6 +727,27 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	assert.ElementsMatch(t, usedAddressSpacesExpected, addressSpaceList.AddressSpaces)
 }
 
+func TestGetUsedAsns(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		router: &computepb.Router{
+			Bgp: &computepb.RouterBgp{
+				Asn: proto.Uint32(64512),
+			},
+		},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
+
+	s := &GCPPluginServer{}
+	vpnRegion = fakeRegion
+
+	usedAsnsExpected := []uint32{64512}
+	resp, err := s._GetUsedAsns(ctx, &invisinetspb.GetUsedAsnsRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace}}, fakeClients.routersClient)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.ElementsMatch(t, usedAsnsExpected, resp.Asns)
+}
+
 func TestCreateVpnGateway(t *testing.T) {
 	fakeVpnGatewayIpAddresses := []string{"1.1.1.1", "2.2.2.2"}
 	fakeServerState := &fakeServerState{
@@ -739,7 +761,11 @@ func TestCreateVpnGateway(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
-	s := &GCPPluginServer{}
+	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
 	vpnRegion = fakeRegion
 
 	req := &invisinetspb.CreateVpnGatewayRequest{
@@ -749,7 +775,7 @@ func TestCreateVpnGateway(t *testing.T) {
 	resp, err := s._CreateVpnGateway(ctx, req, fakeClients.vpnGatewaysClient, fakeClients.routersClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	require.Equal(t, int64(vpnGwAsn), resp.Asn)
+	require.Equal(t, frontend.MIN_PRIVATE_ASN_2BYTE, resp.Asn)
 	require.ElementsMatch(t, fakeVpnGatewayIpAddresses, resp.GatewayIpAddresses)
 	require.ElementsMatch(t, vpnGwBgpIpAddrs, resp.BgpIpAddresses)
 }
