@@ -30,8 +30,8 @@ import (
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
-	"github.com/NetSys/invisinets/pkg/frontend"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/orchestrator"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -761,11 +761,11 @@ func TestCreateVpnGateway(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeControllerServerAddr}
 	vpnRegion = fakeRegion
 
 	req := &invisinetspb.CreateVpnGatewayRequest{
@@ -775,7 +775,7 @@ func TestCreateVpnGateway(t *testing.T) {
 	resp, err := s._CreateVpnGateway(ctx, req, fakeClients.vpnGatewaysClient, fakeClients.routersClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	require.Equal(t, frontend.MIN_PRIVATE_ASN_2BYTE, resp.Asn)
+	require.Equal(t, orchestrator.MIN_PRIVATE_ASN_2BYTE, resp.Asn)
 	require.ElementsMatch(t, fakeVpnGatewayIpAddresses, resp.GatewayIpAddresses)
 	require.ElementsMatch(t, vpnGwBgpIpAddrs, resp.BgpIpAddresses)
 }

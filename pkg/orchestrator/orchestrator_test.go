@@ -361,7 +361,7 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 
 func TestGetUsedAsns(t *testing.T) {
 	// Setup
-	frontendServer := newFrontendServer()
+	frontendServer := newOrchestratorServer()
 	port := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
@@ -378,7 +378,7 @@ func TestGetUsedAsns(t *testing.T) {
 }
 
 func TestUpdateUsedAsns(t *testing.T) {
-	frontendServer := newFrontendServer()
+	frontendServer := newOrchestratorServer()
 	port := getNewPortNumber()
 	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
 
@@ -399,7 +399,7 @@ func TestUpdateUsedAsns(t *testing.T) {
 }
 
 func TestFindUnusedAsn(t *testing.T) {
-	frontendServer := newFrontendServer()
+	frontendServer := newOrchestratorServer()
 	frontendServer.usedAsns[defaultNamespace] = make(map[string][]uint32)
 	ctx := context.Background()
 

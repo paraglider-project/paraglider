@@ -32,8 +32,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
-	"github.com/NetSys/invisinets/pkg/frontend"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/orchestrator"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -1017,12 +1017,12 @@ func TestCheckAndCreatePeering(t *testing.T) {
 }
 
 func TestCreateVpnGateway(t *testing.T) {
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.AZURE)
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
 	}
 	server, mockAzureHandler, ctx := setupAzurePluginServer()
-	server.frontendServerAddr = fakeControllerServerAddr
+	server.orchestratorServerAddr = fakeControllerServerAddr
 	mockHandlerSetup(mockAzureHandler)
 
 	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
@@ -1106,7 +1106,7 @@ func TestCreateVpnGateway(t *testing.T) {
 	resp, err := server.CreateVpnGateway(ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	require.Equal(t, frontend.MIN_PRIVATE_ASN_2BYTE, resp.Asn)
+	require.Equal(t, orchestrator.MIN_PRIVATE_ASN_2BYTE, resp.Asn)
 	require.ElementsMatch(t, fakePublicIPAddresses, resp.GatewayIpAddresses)
 	require.ElementsMatch(t, vpnGwBgpIpAddrs, resp.BgpIpAddresses)
 }
