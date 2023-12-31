@@ -95,13 +95,14 @@ func (c *CloudClient) createInstance(keyID, vpcID, subnetID string, instanceOpti
 // returns the security group ID that's associated with the VM's network interfaces
 func (c *CloudClient) GetInstanceSecurityGroupID(name string) (string, error) {
 
-	vmID, err := c.GetInstanceID(name)
+	vmData, err := c.GetInstanceData(name)
 	if err != nil {
 		return "", err
 	}
+	vmID := vmData.ID
 
 	nics, _, err := c.vpcService.ListInstanceNetworkInterfaces(
-		&vpcv1.ListInstanceNetworkInterfacesOptions{InstanceID: &vmID})
+		&vpcv1.ListInstanceNetworkInterfacesOptions{InstanceID: vmID})
 	if err != nil {
 		return "", err
 	}
@@ -195,26 +196,43 @@ func (c *CloudClient) VMToVPCID(vmID string) (string, error) {
 
 // returns True if an instance resides inside the specified namespace
 // region is an optional argument used to increase effectiveness of resource search
-func (c *CloudClient) DoesInstanceResideInNamespace(InstanceName, namespace, region string) (bool, error) {
+func (c *CloudClient) IsInstanceInNamespace(InstanceName, namespace, region string) (bool, error) {
 	resourceQuery := ResourceQuery{}
-	vmID, err := c.GetInstanceID(InstanceName)
+	vmData, err := c.GetInstanceData(InstanceName)
 	if err != nil {
 		return false, err
 	}
+
+	// add VM's CRN and region to search attributes
+	resourceQuery.CRN = *vmData.CRN
 	if region != "" {
 		resourceQuery.Region = region
 	}
-	VMsData, err := c.GetInvisinetsTaggedResources(VM, []string{namespace},
-		resourceQuery)
 
+	// look for a VM with the specified CRN in the specified namespace.
+	taggedVMData, err := c.GetInvisinetsTaggedResources(VM, []string{namespace},
+		resourceQuery)
 	if err != nil {
 		return false, err
 	}
-
-	for _, vm := range VMsData {
-		if vm.ID == vmID {
-			return true, nil
-		}
+	if len(taggedVMData) == 1 {
+		// should return True only if exactly 1 result was retrieved,
+		// since CRN is included in search.
+		return true, nil
 	}
+
 	return false, nil
+}
+
+// GetInstanceID returns ID of the instance matching the specified name
+func (c *CloudClient) GetInstanceData(name string) (*vpcv1.Instance, error) {
+	options := &vpcv1.ListInstancesOptions{Name: &name}
+	collection, _, err := c.vpcService.ListInstances(options)
+	if err != nil {
+		return nil, err
+	}
+	if len(collection.Instances) == 0 {
+		return nil, fmt.Errorf("instance %s not found", name)
+	}
+	return &collection.Instances[0], nil
 }

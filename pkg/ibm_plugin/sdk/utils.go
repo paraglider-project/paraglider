@@ -61,6 +61,7 @@ const (
 type ResourceQuery struct {
 	Region string
 	Zone   string
+	CRN    string // cloud resource name globally identifying the resource
 }
 
 // ResourceData represents the fields retrieved from tagged resources.

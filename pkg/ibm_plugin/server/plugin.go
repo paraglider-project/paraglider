@@ -215,8 +215,8 @@ func (s *ibmPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 	}
 
 	// verify specified instance match the specified namespace
-	if doesNameSpaceFit, err := cloudClient.DoesInstanceResideInNamespace(
-		rInfo.ResourceID, resourceID.Namespace, region); !doesNameSpaceFit || err != nil {
+	if isInNamespace, err := cloudClient.IsInstanceInNamespace(
+		rInfo.ResourceID, resourceID.Namespace, region); !isInNamespace || err != nil {
 		return nil, fmt.Errorf("Specified instance: %v doesn't exist in namespace: %v.",
 			rInfo.ResourceID, resourceID.Namespace)
 	}
@@ -254,17 +254,18 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 	}
 
 	// verify specified instance match the specified namespace
-	if doesNameSpaceFit, err := cloudClient.DoesInstanceResideInNamespace(
-		rInfo.ResourceID, pl.Namespace, region); !doesNameSpaceFit || err != nil {
+	if isInNamespace, err := cloudClient.IsInstanceInNamespace(
+		rInfo.ResourceID, pl.Namespace, region); !isInNamespace || err != nil {
 		return nil, fmt.Errorf("Specified instance: %v doesn't exist in namespace: %v.",
 			rInfo.ResourceID, pl.Namespace)
 	}
 
 	// Get the VM ID from the resource ID (typically refers to VM Name)
-	vmID, err := cloudClient.GetInstanceID(rInfo.ResourceID)
+	vmData, err := cloudClient.GetInstanceData(rInfo.ResourceID)
 	if err != nil {
 		return nil, err
 	}
+	vmID := *vmData.ID
 
 	invisinetsSgsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
 	if err != nil {
@@ -365,17 +366,18 @@ func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, pl *invisin
 	}
 
 	// verify specified instance match the specified namespace
-	if doesNameSpaceFit, err := cloudClient.DoesInstanceResideInNamespace(
-		rInfo.ResourceID, pl.Namespace, region); !doesNameSpaceFit || err != nil {
+	if isInNamespace, err := cloudClient.IsInstanceInNamespace(
+		rInfo.ResourceID, pl.Namespace, region); !isInNamespace || err != nil {
 		return nil, fmt.Errorf("Specified instance: %v doesn't exist in namespace: %v.",
 			rInfo.ResourceID, pl.Namespace)
 	}
 
 	// Get the VM ID from the resource ID (typically refers to VM Name)
-	vmID, err := cloudClient.GetInstanceID(rInfo.ResourceID)
+	vmData, err := cloudClient.GetInstanceData(rInfo.ResourceID)
 	if err != nil {
 		return nil, err
 	}
+	vmID := *vmData.ID
 
 	invisinetsSgsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
 	if err != nil {

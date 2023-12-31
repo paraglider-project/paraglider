@@ -107,19 +107,6 @@ func NewIBMCloudClient(name, region string) (*CloudClient, error) {
 	return &client, nil
 }
 
-// GetInstanceID returns an instance ID given that name
-func (c *CloudClient) GetInstanceID(name string) (string, error) {
-	options := &vpcv1.ListInstancesOptions{Name: &name}
-	collection, _, err := c.vpcService.ListInstances(options)
-	if err != nil {
-		return "", err
-	}
-	if len(collection.Instances) == 0 {
-		return "", fmt.Errorf("instance %s not found", name)
-	}
-	return *collection.Instances[0].ID, nil
-}
-
 func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 	tags = append(tags, InvTag) // add universal tag for invisinets' resources
 	userTypeTag := globaltaggingv1.AttachTagOptionsTagTypeUserConst
@@ -160,10 +147,14 @@ func (c *CloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceTy
 	// globalSearch returns the region field for all resources, although for some it holds
 	// the zone value, e.g. subnet's region actually contain a zone's value.
 	if customQuery.Zone != "" {
-		queryStr += fmt.Sprintf("%v:%v ", "region", customQuery.Zone)
+		queryStr += fmt.Sprintf("%v:%v AND ", "region", customQuery.Zone)
 	} else if customQuery.Region != "" {
-		queryStr += fmt.Sprintf("%v:%v* ", "region", customQuery.Region)
+		queryStr += fmt.Sprintf("%v:%v* AND ", "region", customQuery.Region)
 		// e.g. region:eu-de* would fetch all zones in eu-de for zone bound resources
+	}
+	 
+	if customQuery.CRN != "" {
+		queryStr += fmt.Sprintf("%v:\"%v\" ", "crn", customQuery.CRN)		
 	}
 
 	resourceList, err := c.getInvisinetsResourceByTags(string(resourceType), tagsStr, queryStr)
