@@ -115,10 +115,11 @@ func getFakeInstance(includeNetwork bool) *computepb.Instance {
 	}
 	if includeNetwork {
 		instance.NetworkInterfaces = []*computepb.NetworkInterface{
-			&computepb.NetworkInterface{
+			{
 				NetworkIP: proto.String("10.1.1.1"),
 				Network:   proto.String(GetVpcUri(fakeNamespace)),
-			}}
+			},
+		}
 	}
 	return instance
 }

@@ -715,8 +715,8 @@ func TestGetIPsFromResolvedTag(t *testing.T) {
 	uri1 := "uri/name1"
 	uri2 := "uri/name2"
 	mappings := []*tagservicepb.TagMapping{
-		&tagservicepb.TagMapping{TagName: "name1", Uri: &uri1, Ip: &ip1},
-		&tagservicepb.TagMapping{TagName: "name2", Uri: &uri2, Ip: &ip2},
+		{TagName: "name1", Uri: &uri1, Ip: &ip1},
+		{TagName: "name2", Uri: &uri2, Ip: &ip2},
 	}
 	expectedIps := []string{ip1, ip2}
 
@@ -794,24 +794,16 @@ func TestDiffTagReferences(t *testing.T) {
 	beforePermitList := &invisinetspb.PermitList{
 		AssociatedResource: "uri",
 		Rules: []*invisinetspb.PermitListRule{
-			&invisinetspb.PermitListRule{
-				Tags: []string{"tag1", "1.2.3.4"},
-			},
-			&invisinetspb.PermitListRule{
-				Tags: []string{"tag1", "tag2", "tag3"},
-			},
+			{Tags: []string{"tag1", "1.2.3.4"}},
+			{Tags: []string{"tag1", "tag2", "tag3"}},
 		},
 	}
 
 	afterPermitList := &invisinetspb.PermitList{
 		AssociatedResource: "uri",
 		Rules: []*invisinetspb.PermitListRule{
-			&invisinetspb.PermitListRule{
-				Tags: []string{"tag1", "1.2.3.4"},
-			},
-			&invisinetspb.PermitListRule{
-				Tags: []string{"tag3"},
-			},
+			{Tags: []string{"tag1", "1.2.3.4"}},
+			{Tags: []string{"tag3"}},
 		},
 	}
 
@@ -832,24 +824,16 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 	beforePermitList := &invisinetspb.PermitList{
 		AssociatedResource: "uri",
 		Rules: []*invisinetspb.PermitListRule{
-			&invisinetspb.PermitListRule{
-				Tags: []string{faketagservice.ValidTagName + "1", "1.2.3.4"},
-			},
-			&invisinetspb.PermitListRule{
-				Tags: []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", faketagservice.ValidTagName + "2"},
-			},
+			{Tags: []string{faketagservice.ValidTagName + "1", "1.2.3.4"}},
+			{Tags: []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", faketagservice.ValidTagName + "2"}},
 		},
 	}
 
 	afterPermitList := &invisinetspb.PermitList{
 		AssociatedResource: "uri",
 		Rules: []*invisinetspb.PermitListRule{
-			&invisinetspb.PermitListRule{
-				Tags: []string{faketagservice.ValidTagName + "1", "1.2.3.4"},
-			},
-			&invisinetspb.PermitListRule{
-				Tags: []string{faketagservice.ValidTagName + "3"},
-			},
+			{Tags: []string{faketagservice.ValidTagName + "1", "1.2.3.4"}},
+			{Tags: []string{faketagservice.ValidTagName + "3"}},
 		},
 	}
 
@@ -861,31 +845,18 @@ func TestClearRuleTargets(t *testing.T) {
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: "uri",
 		Rules: []*invisinetspb.PermitListRule{
-			&invisinetspb.PermitListRule{
-				Targets: []string{"1.2.3.4"},
-			},
-			&invisinetspb.PermitListRule{
-				Targets: []string{"1.2.3.4", "2.3.4.5"},
-			},
-			&invisinetspb.PermitListRule{
-				Tags: []string{"1.2.3.4", "2.3.4.5"},
-			},
+			{Targets: []string{"1.2.3.4"}},
+			{Targets: []string{"1.2.3.4", "2.3.4.5"}},
+			{Tags: []string{"1.2.3.4", "2.3.4.5"}},
 		},
 	}
 
 	expectedPermitList := &invisinetspb.PermitList{
 		AssociatedResource: "uri",
 		Rules: []*invisinetspb.PermitListRule{
-			&invisinetspb.PermitListRule{
-				Targets: []string{},
-			},
-			&invisinetspb.PermitListRule{
-				Targets: []string{},
-			},
-			&invisinetspb.PermitListRule{
-				Targets: []string{},
-				Tags:    []string{"1.2.3.4", "2.3.4.5"},
-			},
+			{Targets: []string{}},
+			{Targets: []string{}},
+			{Targets: []string{}, Tags: []string{"1.2.3.4", "2.3.4.5"}},
 		},
 	}
 
