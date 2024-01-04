@@ -45,7 +45,47 @@ Parameters:
 * `path_to_json`: path to JSON file describing the resource to be created (excluding networking details)
 
 **REST:** 
-`POST /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/create` 
+`POST /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}` 
+
+* Example request body:
+
+    ```
+    {
+    "id": "resource/uri",
+    "name": "resourceName",
+    "description": "{
+                    "location": "eastus",
+                    "properties": {
+                        "hardwareProfile": {
+                            "vmSize": "Standard_B1s"
+                        },
+                        "osProfile": {
+                            "adminPassword": "",
+                            "adminUsername": "",
+                            "computerName": "sample-compute"
+                        },
+                        "storageProfile": {
+                            "imageReference": {
+                                "offer": "debian-10",
+                                "publisher": "Debian",
+                                "sku": "10",
+                                "version": "latest"
+                            }
+                        }
+                    }
+                }"
+    }
+    ```
+
+Parameters:
+* `namespace`: Invisinets namespace to operate in
+* `cloud`: name of the cloud to create the resource in
+* `name` : name of the resource to be created in the Invisinets controller (note: this name will be scoped on cloud and namespace when stored)
+* `id` : URI of the resource to create (required by Azure for metadata, can be left blank for GCP)
+* `description`: JSON string describing the resource to be created (excluding networking details)
+
+
+`PUT /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}` 
 
 * Example request body:
 
@@ -82,7 +122,6 @@ Parameters:
 * `resource_name` : name of the resource to be created in the Invisinets controller (note: this name will be scoped on cloud and namespace when stored)
 * `id` : URI of the resource to create (required by Azure for metadata, can be left blank for GCP)
 * `description`: JSON string describing the resource to be created (excluding networking details)
-
 
 ## Permit List Operations
 These operations interact with the permit list associated with a given resource by adding/deleting/getting rules.
