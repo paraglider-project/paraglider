@@ -143,14 +143,14 @@ func (c *Client) DeletePermitListRules(namespace string, cloud string, resourceN
 
 // Create a resource
 func (c *Client) CreateResource(namespace string, cloud string, resourceName string, resource *invisinetspb.ResourceDescriptionString) (map[string]string, error) {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.CreateResourceURL), namespace, cloud, resourceName)
+	path := fmt.Sprintf(frontend.GetFormatterString(frontend.CreateResourcePUTURL), namespace, cloud, resourceName)
 
 	reqBody, err := json.Marshal(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	response, err := c.sendRequest(path, http.MethodPost, bytes.NewBuffer(reqBody))
+	response, err := c.sendRequest(path, http.MethodPut, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return nil, err
 	}

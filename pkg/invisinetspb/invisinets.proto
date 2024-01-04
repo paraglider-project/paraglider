@@ -86,7 +86,8 @@ message ResourceDescription {
 
 message ResourceDescriptionString {
     string id = 1;
-    string description = 2;
+    string name = 2;
+    string description = 3;
 }
 
 message BasicResponse {

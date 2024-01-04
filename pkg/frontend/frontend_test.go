@@ -251,7 +251,7 @@ func TestPermitListRulesAdd(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST(AddPermitListRulesURL, frontendServer.permitListRulesAdd)
+	r.POST(AddPermitListRulesURL, frontendServer.permitListRulesBulkAdd)
 
 	// Well-formed request
 	name := validLastLevelTagName
@@ -336,7 +336,7 @@ func TestPermitListRulePut(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.PUT(PermitListRulePUTURL, frontendServer.permitListRulePut)
+	r.PUT(PermitListRulePUTURL, frontendServer.permitListRuleAdd)
 
 	// Well-formed request
 	name := validLastLevelTagName
@@ -418,7 +418,7 @@ func TestPermitListRulePost(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST(PermitListRulePOSTURL, frontendServer.permitListRulePost)
+	r.POST(PermitListRulePOSTURL, frontendServer.permitListRuleAdd)
 
 	// Well-formed request
 	name := validLastLevelTagName
@@ -592,7 +592,7 @@ func TestPermitListRuleDelete(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestCreateResource(t *testing.T) {
+func TestCreateResourcePost(t *testing.T) {
 	// Setup
 	frontendServer := newFrontendServer()
 	port := getNewPortNumber()
@@ -606,7 +606,59 @@ func TestCreateResource(t *testing.T) {
 	setupTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST(CreateResourceURL, frontendServer.resourceCreate)
+	r.POST(CreateResourcePOSTURL, frontendServer.resourceCreate)
+
+	// Well-formed request
+	name := "resource-name"
+	uri := "resource/123"
+	resource := &invisinetspb.ResourceDescriptionString{
+		Id:          uri,
+		Name:        name,
+		Description: "description",
+	}
+	jsonValue, _ := json.Marshal(resource)
+
+	url := fmt.Sprintf(GetFormatterString(CreateResourcePOSTURL), defaultNamespace, exampleCloudName)
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Bad cloud name
+	url = fmt.Sprintf(GetFormatterString(CreateResourcePOSTURL), defaultNamespace, "wrong")
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	badRequest := "{\"test\": 1}"
+	jsonValue, _ = json.Marshal(&badRequest)
+
+	url = fmt.Sprintf(GetFormatterString(CreateResourcePOSTURL), defaultNamespace, exampleCloudName)
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestCreateResourcePut(t *testing.T) {
+	// Setup
+	frontendServer := newFrontendServer()
+	port := getNewPortNumber()
+	tagServerPort := getNewPortNumber()
+	frontendServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+	frontendServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
+	frontendServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.1.0.0/24"}
+
+	setupPluginServer(port)
+	setupTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.POST(CreateResourcePUTURL, frontendServer.resourceCreate)
 
 	// Well-formed request
 	name := "resource-name"
@@ -617,7 +669,7 @@ func TestCreateResource(t *testing.T) {
 	}
 	jsonValue, _ := json.Marshal(resource)
 
-	url := fmt.Sprintf(GetFormatterString(CreateResourceURL), defaultNamespace, exampleCloudName, name)
+	url := fmt.Sprintf(GetFormatterString(CreateResourcePUTURL), defaultNamespace, exampleCloudName, name)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -625,7 +677,7 @@ func TestCreateResource(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf(GetFormatterString(CreateResourceURL), defaultNamespace, "wrong", name)
+	url = fmt.Sprintf(GetFormatterString(CreateResourcePUTURL), defaultNamespace, "wrong", name)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -635,7 +687,7 @@ func TestCreateResource(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf(GetFormatterString(CreateResourceURL), defaultNamespace, exampleCloudName, name)
+	url = fmt.Sprintf(GetFormatterString(CreateResourcePUTURL), defaultNamespace, exampleCloudName, name)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 

@@ -14,10 +14,14 @@ Parameters:
 
 ### Get 
 
+Gets the current active namespace in the CLI (Note: this is only a CLI feature).
+
 **CLI:**
 `inv namespace get`
 
 ### List
+
+Lists all namespaces configured on the controller.
 
 **CLI:**
 `inv namespace list`

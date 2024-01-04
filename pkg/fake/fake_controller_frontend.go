@@ -154,14 +154,26 @@ func (s *FakeFrontendServer) SetupFakeFrontendServer() string {
 				return
 			}
 			return
-		// Create Resources
-		case urlMatches(path, frontend.CreateResourceURL) && r.Method == http.MethodPost:
+		// Create Resources (POST)
+		case urlMatches(path, frontend.CreateResourcePOSTURL) && r.Method == http.MethodPost:
 			resource := &invisinetspb.ResourceDescriptionString{}
 			err := json.Unmarshal(body, resource)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 			}
-			err = s.writeResponse(w, map[string]string{"name": strings.Split(path, "/")[len(strings.Split(path, "/"))-2]})
+			err = s.writeResponse(w, map[string]string{"name": resource.Name})
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+			}
+			return
+		// Create Resources (PUT)
+		case urlMatches(path, frontend.CreateResourcePUTURL) && r.Method == http.MethodPut:
+			resource := &invisinetspb.ResourceDescriptionString{}
+			err := json.Unmarshal(body, resource)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+			}
+			err = s.writeResponse(w, map[string]string{"name": strings.Split(path, "/")[len(strings.Split(path, "/"))-1]})
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 			}

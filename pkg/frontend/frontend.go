@@ -48,7 +48,8 @@ const (
 	PermitListRulePUTURL     string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules/:ruleName"
 	AddPermitListRulesURL    string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/applyRules"
 	DeletePermitListRulesURL string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/deleteRules"
-	CreateResourceURL        string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/create"
+	CreateResourcePUTURL     string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName"
+	CreateResourcePOSTURL    string = "/namespaces/:namespace/clouds/:cloud/resources"
 	GetTagURL                string = "/tags/:tag"
 	ResolveTagURL            string = "/tags/:tag/resolveMembers"
 	SetTagURL                string = "/tags/:tag/applyMembers"
@@ -297,7 +298,7 @@ func (s *ControllerServer) _permitListRulesAdd(req *invisinetspb.AddPermitListRu
 }
 
 // Add permit list rules to specified resource
-func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
+func (s *ControllerServer) permitListRulesBulkAdd(c *gin.Context) {
 	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
@@ -320,18 +321,11 @@ func (s *ControllerServer) permitListRulesAdd(c *gin.Context) {
 	}
 }
 
-// Add a single rule to a resource permit list via a PUT call
-func (s *ControllerServer) permitListRulePut(c *gin.Context) {
+// Add a single rule to a resource permit list
+func (s *ControllerServer) permitListRuleAdd(c *gin.Context) {
 	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-
-	// Get rule name from URL
-	ruleName := c.Param("ruleName")
-	if ruleName == "" {
-		c.AbortWithStatusJSON(400, createErrorResponse("rule name not specified"))
 		return
 	}
 
@@ -341,29 +335,17 @@ func (s *ControllerServer) permitListRulePut(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	rule.Name = ruleName // Note: if the name is provided in the request body, it is just overwritten
-	request := &invisinetspb.AddPermitListRulesRequest{Rules: []*invisinetspb.PermitListRule{rule}, Namespace: resourceInfo.namespace, Resource: resourceInfo.uri}
 
-	_, err = s._permitListRulesAdd(request, resourceInfo, cloudClient)
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
+	if c.Request.Method == "PUT" {
+		// Get rule name from URL
+		ruleName := c.Param("ruleName")
+		if ruleName == "" {
+			c.AbortWithStatusJSON(400, createErrorResponse("rule name not specified"))
+			return
+		}
+		rule.Name = ruleName // Note: if the name is provided in the request body, it is just overwritten
 	}
-}
 
-// Add a single rule to a resource permit list via a POST call
-func (s *ControllerServer) permitListRulePost(c *gin.Context) {
-	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-	// Parse permit list rules to add
-	var rule *invisinetspb.PermitListRule
-	if err := c.BindJSON(&rule); err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
 	request := &invisinetspb.AddPermitListRulesRequest{Rules: []*invisinetspb.PermitListRule{rule}, Namespace: resourceInfo.namespace, Resource: resourceInfo.uri}
 
 	_, err = s._permitListRulesAdd(request, resourceInfo, cloudClient)
@@ -755,6 +737,11 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 		return
 	}
 
+	// If POST method, name not given in the URL, so get it from the request body
+	if c.Request.Method == "POST" {
+		resourceInfo.name = resourceWithString.Name
+	}
+
 	// Create connection to cloud plugin
 	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -1033,12 +1020,13 @@ func Setup(configPath string) {
 		})
 	})
 	router.GET(GetPermitListRulesURL, server.permitListGet)
-	router.POST(AddPermitListRulesURL, server.permitListRulesAdd)
-	router.POST(PermitListRulePOSTURL, server.permitListRulePost)
-	router.PUT(PermitListRulePUTURL, server.permitListRulePut)
+	router.POST(AddPermitListRulesURL, server.permitListRulesBulkAdd)
+	router.POST(PermitListRulePOSTURL, server.permitListRuleAdd)
+	router.PUT(PermitListRulePUTURL, server.permitListRuleAdd)
 	router.POST(DeletePermitListRulesURL, server.permitListRulesDelete)
 	router.DELETE(PermitListRulePUTURL, server.permitListRuleDelete)
-	router.POST(CreateResourceURL, server.resourceCreate)
+	router.PUT(CreateResourcePUTURL, server.resourceCreate)
+	router.POST(CreateResourcePOSTURL, server.resourceCreate)
 	router.GET(GetTagURL, server.getTag)
 	router.POST(ResolveTagURL, server.resolveTag)
 	router.POST(SetTagURL, server.setTag)
