@@ -22,6 +22,7 @@ option go_package="github.com/NetSys/invisinets/pkg/invisinetspb";
 service CloudPlugin {
     rpc GetUsedAddressSpaces(InvisinetsDeployment) returns (AddressSpaceList) {}
     rpc GetUsedAsns(GetUsedAsnsRequest) returns (GetUsedAsnsResponse) {}
+    rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}
     rpc CreateResource(ResourceDescription) returns (CreateResourceResponse) {}
     rpc GetPermitList(ResourceID) returns (PermitList) {}
     rpc AddPermitListRules(PermitList) returns (BasicResponse) {}
@@ -132,12 +133,12 @@ message ConnectCloudsRequest {
 message CreateVpnGatewayRequest {
     InvisinetsDeployment deployment = 1;
     string cloud = 2;
+    repeated string bgp_peering_ip_addresses = 3;
 }
 
 message CreateVpnGatewayResponse {
     uint32 asn = 1;
     repeated string gateway_ip_addresses = 2;
-    repeated string bgp_ip_addresses = 3;
 }
 
 message CreateVpnConnectionsRequest {
@@ -155,6 +156,14 @@ message GetUsedAsnsRequest {
 
 message GetUsedAsnsResponse {
     repeated uint32 asns = 1; // Currently APIs only return one ASN since it's per namespace but it may change in the future
+}
+
+message GetUsedBgpPeeringIpAddressesRequest {
+    InvisinetsDeployment deployment = 1;
+}
+
+message GetUsedBgpPeeringIpAddressesResponse {
+    repeated string ip_addresses = 1;
 }
 
 message FindUnusedAsnRequest {

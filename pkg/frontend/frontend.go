@@ -84,12 +84,13 @@ type Config struct {
 
 type ControllerServer struct {
 	invisinetspb.UnimplementedControllerServer
-	pluginAddresses   map[string]string
-	usedAddressSpaces map[string]map[string][]string
-	usedAsns          map[string]map[string][]uint32
-	localTagService   string
-	config            Config
-	namespace         string
+	pluginAddresses           map[string]string
+	usedAddressSpaces         map[string]map[string][]string
+	usedAsns                  map[string]map[string][]uint32
+	usedBgpPeeringIpAddresses map[string]map[string][]string
+	localTagService           string
+	config                    Config
+	namespace                 string
 }
 
 // Return a string usable with Sprintf for inserting URL params
@@ -595,6 +596,109 @@ func (s *ControllerServer) FindUnusedAsn(c context.Context, req *invisinetspb.Fi
 	return resp, nil
 }
 
+// Get used address spaces from a specified cloud
+func (s *ControllerServer) getUsedBgpPeeringIpAddresses(cloud string, deploymentId string, namespace string) (*invisinetspb.GetUsedBgpPeeringIpAddressesResponse, error) {
+	// Ensure correct cloud name
+	cloudClient, ok := s.pluginAddresses[cloud]
+	if !ok {
+		return nil, errors.New("Invalid cloud name")
+	}
+
+	// Connect to cloud plugin
+	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("Unable to connect to cloud plugin: %s", err.Error())
+	}
+	defer conn.Close()
+
+	// Send the RPC to get the ASNs
+	client := invisinetspb.NewCloudPluginClient(conn)
+	req := &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{
+		Deployment: &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
+	}
+	resp, err := client.GetUsedBgpPeeringIpAddresses(context.Background(), req)
+
+	return resp, err
+}
+
+func (s *ControllerServer) updateUsedBgpPeeringIpAddresses(namespace string) error {
+	for _, cloud := range s.config.Clouds {
+		bgpPeeringIpAddressesList, err := s.getUsedBgpPeeringIpAddresses(cloud.Name, cloud.InvDeployment, namespace)
+		if err != nil {
+			return fmt.Errorf("Could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
+		}
+		if _, ok := s.usedBgpPeeringIpAddresses[namespace]; !ok {
+			s.usedBgpPeeringIpAddresses[namespace] = make(map[string][]string)
+		}
+		s.usedBgpPeeringIpAddresses[namespace][cloud.Name] = bgpPeeringIpAddressesList.IpAddresses
+	}
+	return nil
+}
+
+// Not a public RPC (hence private) used by cloud plugins but follows the same pattern as FindUnusedAsn
+func (s *ControllerServer) findUnusedBgpPeeringSubnets(ctx context.Context, cloud1 string, cloud2 string, namespace string) ([]netip.Addr, error) {
+	err := s.updateUsedBgpPeeringIpAddresses(namespace)
+	if err != nil {
+		return nil, fmt.Errorf("unable to update used BGP peering IP addresses: %w", err)
+	}
+
+	usedBgpPeeringSubnets := make(map[string]bool)
+	// Keep track of subnets that cloud1 and cloud2 have with each other for idempotency
+	for _, cloudBgpPeeringIpAddresses := range s.usedBgpPeeringIpAddresses[namespace] {
+		for _, ipAddressString := range cloudBgpPeeringIpAddresses {
+			ipAddress, err := netip.ParseAddr(ipAddressString)
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse BGP peering IP addresses")
+			}
+			ipAddressPrefix, err := ipAddress.Prefix(30)
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse into prefix")
+			}
+			usedBgpPeeringSubnets[ipAddressPrefix.String()] = true
+		}
+	}
+
+	// Use netip.Addr instead of netip.Prefix for easier comparison (netip.Addr.Compare) and incrementing (netip.Addr.Compare)
+	var minSubnet, maxSubnet netip.Addr
+	if cloud1 == utils.AZURE || cloud2 == utils.AZURE {
+		// Azure has a more restrictive APIPA range
+		minSubnet = netip.MustParseAddr("169.254.21.0")
+		maxSubnet = netip.MustParseAddr("169.254.22.252")
+	} else {
+		minSubnet = netip.MustParseAddr("169.254.0.0")
+		maxSubnet = netip.MustParseAddr("169.254.255.252")
+	}
+
+	// Calculate how many subnets are required
+	requiredSubnets := utils.GetNumVpnConnections(cloud1, cloud2)
+	subnets := make([]netip.Addr, requiredSubnets)
+
+	// Find unused subnets
+	i := 0
+	subnet := minSubnet
+	for subnet.Compare(maxSubnet) <= 0 {
+		subnetPrefix, err := subnet.Prefix(30)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse into prefix")
+		}
+		if !usedBgpPeeringSubnets[subnetPrefix.String()] {
+			subnets[i] = subnet
+			i++
+			if i == requiredSubnets {
+				break
+			}
+		}
+		for i := 0; i < 4; i++ {
+			subnet = subnet.Next()
+		}
+	}
+	if i < requiredSubnets {
+		return nil, fmt.Errorf("unable to find the necessary number of unused subnets")
+	}
+
+	return subnets, nil
+}
+
 // Generates 32-byte shared key for VPN connections
 func generateSharedKey() (string, error) {
 	key := make([]byte, 24)
@@ -621,9 +725,12 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 	if req.CloudA == req.CloudB {
 		return nil, fmt.Errorf("must specify different clouds to connect")
 	}
-	// TODO @seankimkdy: have better checking of which clouds are supported for multicloud connections
+	if req.CloudANamespace != req.CloudBNamespace {
+		return nil, fmt.Errorf("connecting across different namespaces is not supported")
+	}
+
 	// TODO @seankimkdy: cloudA and cloudB naming seems to be very prone to typos, so perhaps use another naming scheme[?
-	if (req.CloudA == utils.GCP && req.CloudB == utils.AZURE) || (req.CloudA == utils.AZURE && req.CloudB == utils.GCP) {
+	if utils.MatchCloudProviders(req.CloudA, req.CloudB, utils.AZURE, utils.GCP) {
 		cloudAClientAddress, ok := s.pluginAddresses[req.CloudA]
 		if !ok {
 			return nil, fmt.Errorf("invalid cloud name: %s", req.CloudA)
@@ -648,10 +755,23 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 
 		ctx := context.Background()
 
+		// Get BGP peering IP addresses
+		bgpPeeringSubnets, err := s.findUnusedBgpPeeringSubnets(ctx, req.CloudA, req.CloudB, req.CloudANamespace)
+		if err != nil {
+			return nil, fmt.Errorf("unable to find unused bgp peering subnet")
+		}
+		cloudABgpPeeringIpAddresses := make([]string, len(bgpPeeringSubnets))
+		cloudBBgpPeeringIpAddresses := make([]string, len(bgpPeeringSubnets))
+		for i, subnet := range bgpPeeringSubnets {
+			cloudABgpPeeringIpAddresses[i] = subnet.Next().String()        // Use the second IP address in the subnet
+			cloudBBgpPeeringIpAddresses[i] = subnet.Next().Next().String() // Use the third IP address in the subnet
+		}
+
 		cloudAInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudInvDeployment(req.CloudA), Namespace: req.CloudANamespace}
 		cloudACreateVpnGatewayReq := &invisinetspb.CreateVpnGatewayRequest{
-			Deployment: cloudAInvisinetsDeployment,
-			Cloud:      req.CloudB,
+			Deployment:            cloudAInvisinetsDeployment,
+			Cloud:                 req.CloudB,
+			BgpPeeringIpAddresses: cloudABgpPeeringIpAddresses,
 		}
 		cloudACreateVpnGatewayResp, err := cloudAClient.CreateVpnGateway(ctx, cloudACreateVpnGatewayReq)
 		if err != nil {
@@ -659,8 +779,9 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 		}
 		cloudBInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudInvDeployment(req.CloudB), Namespace: req.CloudBNamespace}
 		cloudBCreateVpnGatewayReq := &invisinetspb.CreateVpnGatewayRequest{
-			Deployment: cloudBInvisinetsDeployment,
-			Cloud:      req.CloudA,
+			Deployment:            cloudBInvisinetsDeployment,
+			Cloud:                 req.CloudA,
+			BgpPeeringIpAddresses: cloudBBgpPeeringIpAddresses,
 		}
 		cloudBCreateVpnGatewayResp, err := cloudBClient.CreateVpnGateway(ctx, cloudBCreateVpnGatewayReq)
 		if err != nil {
@@ -677,7 +798,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 			Cloud:              req.CloudB,
 			Asn:                cloudBCreateVpnGatewayResp.Asn,
 			GatewayIpAddresses: cloudBCreateVpnGatewayResp.GatewayIpAddresses,
-			BgpIpAddresses:     cloudBCreateVpnGatewayResp.BgpIpAddresses,
+			BgpIpAddresses:     cloudBBgpPeeringIpAddresses,
 			SharedKey:          sharedKey,
 		}
 		_, err = cloudAClient.CreateVpnConnections(ctx, cloudACreateVpnConnectionsReq)
@@ -689,7 +810,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 			Cloud:              req.CloudA,
 			Asn:                cloudACreateVpnGatewayResp.Asn,
 			GatewayIpAddresses: cloudACreateVpnGatewayResp.GatewayIpAddresses,
-			BgpIpAddresses:     cloudACreateVpnGatewayResp.BgpIpAddresses,
+			BgpIpAddresses:     cloudABgpPeeringIpAddresses,
 			SharedKey:          sharedKey,
 		}
 		_, err = cloudBClient.CreateVpnConnections(ctx, cloudBCreateVpnConnectionsReq)
@@ -976,10 +1097,11 @@ func Setup(configPath string) {
 
 	// Populate server info
 	server := ControllerServer{
-		pluginAddresses:   make(map[string]string),
-		usedAddressSpaces: make(map[string]map[string][]string),
-		usedAsns:          make(map[string]map[string][]uint32),
-		namespace:         "default",
+		pluginAddresses:           make(map[string]string),
+		usedAddressSpaces:         make(map[string]map[string][]string),
+		usedAsns:                  make(map[string]map[string][]uint32),
+		usedBgpPeeringIpAddresses: make(map[string]map[string][]string),
+		namespace:                 "default",
 	}
 	server.config = cfg
 	server.localTagService = cfg.TagService.Host + ":" + cfg.TagService.Port
