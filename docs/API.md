@@ -34,7 +34,7 @@ Lists all namespaces configured on the controller.
 
 ### Create
 
-Creates a resource according to the description provided in the speciied cloud. Some clouds may require a URI before resource creation and others may leave this field blank. Note that a tag is automatically created for the resource with the name `<namespace>.<cloud>.<vm_name>` (where `vm_name` is pulled from the name field in the resource description).
+Creates a resource according to the description provided in the specified cloud. Some clouds may require a URI before resource creation and others may leave this field blank. Note that a tag is automatically created for the resource with the name `<namespace>.<cloud>.<vm_name>` (where `vm_name` is pulled from the name field in the resource description).
 
 **CLI:**
 `inv resource create <cloud> <resource_name> <path_to_json>`
