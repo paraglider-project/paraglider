@@ -53,12 +53,10 @@ type azurePluginServer struct {
 	frontendServerAddr string
 }
 
-// TODO @seankimkdy: replace these
 const (
-	vpnLocation                       = "westus"
-	vpnGwAsn                   uint32 = 65515
-	gatewaySubnetName                 = "GatewaySubnet"
-	gatewaySubnetAddressPrefix        = "192.168.255.0/27"
+	vpnLocation                = "westus" // TODO @seankimkdy: should this be configurable/dynamic?
+	gatewaySubnetName          = "GatewaySubnet"
+	gatewaySubnetAddressPrefix = "192.168.255.0/27"
 )
 
 func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) error {
