@@ -51,11 +51,11 @@ func TestIntegration(t *testing.T) {
 	// Setup
 	projectId := SetupGcpTesting("integration")
 	defer TeardownGcpTesting(projectId)
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	ctx := context.Background()
 
 	// Create VM in a clean state (i.e. no VPC or subnet)

@@ -43,10 +43,10 @@ Using the CLI, run:
 
 `invd startup <path_to_config>`
 
-## Central Controller
+## Orchestrator
 Using the CLI, run:
 
-`invd frontend <path_to_config>`
+`invd orch <path_to_config>`
 
 ## Cloud Plugins
 
