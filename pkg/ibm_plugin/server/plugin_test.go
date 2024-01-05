@@ -62,6 +62,7 @@ const (
 	testImageUSEast = "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb" // us-east Ubuntu 22.04
 	testImageEUDE   = "r010-f68ef7b3-1c5e-4ef7-8040-7ae0f5bf04fd" // eu-de Ubuntu 22.04
 	testProfile     = "bx2-2x8"
+	testNamespace   = "inv-namespace"
 )
 
 // permit list example
@@ -105,9 +106,10 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	// Notes for tester:
 	// to change region set the values below according to constants above, e.g.:
 	// - test arguments for EU-DE-1:
-	image, zone, instanceName, resourceID := testImageEUDE, testZoneEUDE1, testInstanceNameEU1, testResourceIDEUDE1
-	// - test arguments for us-east-1:
-	// image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast1, testInstanceNameUS1, testResourceIDUSEast1
+	// image, zone, instanceName, resourceID := testImageEUDE, testZoneEUDE1, testInstanceNameEU1, testResourceIDEUDE1
+	// - test arguments for us-east-2:
+	// image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast2, testInstanceNameUS2, testResourceIDUSEast2
+	image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast1, testInstanceNameUS1, testResourceIDUSEast1
 
 	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.IBM)
 	if err != nil {
@@ -131,7 +133,7 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: resourceID, Description: description}
+	resource := &invisinetspb.ResourceDescription{Id: resourceID, Description: description, Namespace: testNamespace}
 	resp, err := s.CreateResource(context.Background(), resource)
 	if err != nil {
 		println(err)
@@ -149,6 +151,8 @@ func TestCreateResourceExistingVPC(t *testing.T) {
 	// to change region set the values below according to constants above, e.g.:
 	// - test arguments for EU-DE-1:
 	//   image, zone, instanceName, resourceID := testImageEUDE, testZoneEUDE1, testInstanceNameEU1, testResourceIDEUDE1
+	// - test arguments for US-EAST-1:
+	// image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast1, testInstanceNameUS1, testResourceIDUSEast1
 	// - test arguments for us-east-2:
 	image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast2, testInstanceNameUS2, testResourceIDUSEast2
 
@@ -173,7 +177,7 @@ func TestCreateResourceExistingVPC(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: resourceID, Description: description}
+	resource := &invisinetspb.ResourceDescription{Id: resourceID, Description: description, Namespace: testNamespace}
 	resp, err := s.CreateResource(context.Background(), resource)
 	if err != nil {
 		println(err)
@@ -186,12 +190,14 @@ func TestCreateResourceExistingVPC(t *testing.T) {
 func TestGetPermitList(t *testing.T) {
 	// Notes for tester:
 	// to change region set the values below according to constants above, e.g.:
-	// - resourceID := testResourceIDEUDE1
+	// resourceID := testResourceIDEUDE1
+	// resourceID := testResourceIDUSEast2
 	resourceID := testResourceIDUSEast1
 
 	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
-	resp, err := s.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: resourceID})
+	resp, err := s.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: resourceID,
+		Namespace: testNamespace})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
@@ -205,11 +211,14 @@ func TestGetPermitList(t *testing.T) {
 func TestAddPermitListRules(t *testing.T) {
 	// Notes for tester:
 	// to change region set the values below according to constants above, e.g.:
+	// resourceID := testResourceIDUSEast2
+	// resourceID := testResourceIDEUDE1
 	resourceID := testResourceIDUSEast1
 
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: resourceID,
 		Rules:              testPermitList,
+		Namespace:          testNamespace,
 	}
 
 	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
@@ -225,11 +234,14 @@ func TestAddPermitListRules(t *testing.T) {
 func TestDeletePermitListRules(t *testing.T) {
 	// Notes for tester:
 	// to change region set the values below according to constants above, e.g.:
+	// resourceID := testResourceIDUSEast2
+	// resourceID := testResourceIDEUDE1
 	resourceID := testResourceIDUSEast1
 
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: resourceID,
 		Rules:              testPermitList,
+		Namespace:          testNamespace,
 	}
 
 	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
