@@ -14,20 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package frontend
+package orchestrator
 
 import (
 	"github.com/spf13/cobra"
 
-	frontend "github.com/NetSys/invisinets/pkg/frontend"
+	"github.com/NetSys/invisinets/pkg/orchestrator"
 )
 
 func NewCommand() *cobra.Command {
 	executor := &executor{}
 	return &cobra.Command{
-		Use:     "frontend <path to config>",
-		Aliases: []string{"frontend"},
-		Short:   "Starts the frontend server with given config file",
+		Use:     "orch <path to config>",
+		Aliases: []string{"orch"},
+		Short:   "Starts the orch server with given config file",
 		Args:    cobra.ExactArgs(1),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
@@ -42,6 +42,6 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	frontend.Setup(args[0])
+	orchestrator.Setup(args[0])
 	return nil
 }

@@ -44,8 +44,8 @@ func TestTagDeleteValidate(t *testing.T) {
 }
 
 func TestTagDeleteExecute(t *testing.T) {
-	server := &fake.FakeFrontendServer{}
-	settings.ServerAddr = server.SetupFakeFrontendServer()
+	server := &fake.FakeOrchestratorRESTServer{}
+	settings.ServerAddr = server.SetupFakeOrchestratorRESTServer()
 
 	cmd, executor := NewCommand()
 

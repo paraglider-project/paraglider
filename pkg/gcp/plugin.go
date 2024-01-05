@@ -41,7 +41,7 @@ import (
 
 type GCPPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
-	frontendServerAddr string
+	orchestratorServerAddr string
 }
 
 // GCP naming conventions
@@ -447,9 +447,9 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 	subnetworkAddressSpace := *getSubnetworkResp.IpCidrRange
 
 	// Get used address spaces of all clouds
-	controllerConn, err := grpc.Dial(s.frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	controllerConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
+		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
 	defer controllerConn.Close()
 	controllerClient := invisinetspb.NewControllerClient(controllerConn)
@@ -691,9 +691,9 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 
 	if !subnetExists {
 		// Find unused address spaces
-		conn, err := grpc.Dial(s.frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
-			return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
+			return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 		}
 		defer conn.Close()
 		client := invisinetspb.NewControllerClient(conn)
@@ -899,7 +899,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 	}
 
 	// Create router
-	conn, err := grpc.Dial(s.frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
 	}
@@ -1079,14 +1079,14 @@ func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, req *invisin
 	return s._CreateVpnConnections(ctx, req, externalVpnGatewaysClient, vpnTunnelsClient, routersClient)
 }
 
-func Setup(port int, frontendServerAddr string) *GCPPluginServer {
+func Setup(port int, orchestratorServerAddr string) *GCPPluginServer {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
 	gcpServer := &GCPPluginServer{}
-	gcpServer.frontendServerAddr = frontendServerAddr
+	gcpServer.orchestratorServerAddr = orchestratorServerAddr
 	invisinetspb.RegisterCloudPluginServer(grpcServer, gcpServer)
 	fmt.Println("Starting server on port :", port)
 	go func() {
