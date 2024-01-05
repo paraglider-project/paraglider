@@ -517,7 +517,7 @@ func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, ns *invisinet
 	return usedAddressSpaceMappings, nil
 }
 
-// Get used address spaces from a specified cloud
+// Get used ASNs from a specified cloud
 func (s *ControllerServer) getUsedAsns(cloud string, deploymentId string, namespace string) (*invisinetspb.GetUsedAsnsResponse, error) {
 	// Ensure correct cloud name
 	cloudClient, ok := s.pluginAddresses[cloud]
@@ -596,7 +596,7 @@ func (s *ControllerServer) FindUnusedAsn(c context.Context, req *invisinetspb.Fi
 	return resp, nil
 }
 
-// Get used address spaces from a specified cloud
+// Get used BGP peering IP addresses from a specified cloud
 func (s *ControllerServer) getUsedBgpPeeringIpAddresses(cloud string, deploymentId string, namespace string) (*invisinetspb.GetUsedBgpPeeringIpAddressesResponse, error) {
 	// Ensure correct cloud name
 	cloudClient, ok := s.pluginAddresses[cloud]
@@ -611,7 +611,7 @@ func (s *ControllerServer) getUsedBgpPeeringIpAddresses(cloud string, deployment
 	}
 	defer conn.Close()
 
-	// Send the RPC to get the ASNs
+	// Send the RPC to get the BGP peering IP addresses
 	client := invisinetspb.NewCloudPluginClient(conn)
 	req := &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{
 		Deployment: &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
