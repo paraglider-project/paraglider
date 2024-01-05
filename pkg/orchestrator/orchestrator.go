@@ -637,19 +637,21 @@ func (s *ControllerServer) updateUsedBgpPeeringIpAddresses(namespace string) err
 
 // Not a public RPC (hence private) used by cloud plugins but follows the same pattern as FindUnusedAsn
 func (s *ControllerServer) findUnusedBgpPeeringSubnets(ctx context.Context, cloud1 string, cloud2 string, namespace string) ([]netip.Addr, error) {
+	// Retrieve all used subnets from all clouds
 	err := s.updateUsedBgpPeeringIpAddresses(namespace)
 	if err != nil {
 		return nil, fmt.Errorf("unable to update used BGP peering IP addresses: %w", err)
 	}
 
+	// Compile used subnets into a map
 	usedBgpPeeringSubnets := make(map[string]bool)
-	// Keep track of subnets that cloud1 and cloud2 have with each other for idempotency
 	for _, cloudBgpPeeringIpAddresses := range s.usedBgpPeeringIpAddresses[namespace] {
 		for _, ipAddressString := range cloudBgpPeeringIpAddresses {
 			ipAddress, err := netip.ParseAddr(ipAddressString)
 			if err != nil {
 				return nil, fmt.Errorf("unable to parse BGP peering IP addresses")
 			}
+			// Convert peering IP address into a subnet (e.g., 169.254.21.1 -> 169.254.21.0/30)
 			ipAddressPrefix, err := ipAddress.Prefix(30)
 			if err != nil {
 				return nil, fmt.Errorf("unable to parse into prefix")
@@ -658,8 +660,8 @@ func (s *ControllerServer) findUnusedBgpPeeringSubnets(ctx context.Context, clou
 		}
 	}
 
-	// Use netip.Addr instead of netip.Prefix for easier comparison (netip.Addr.Compare) and incrementing (netip.Addr.Compare)
-	var minSubnet, maxSubnet netip.Addr
+	// Find the minimum and maximum APIPA subnets
+	var minSubnet, maxSubnet netip.Addr // Use netip.Addr instead of netip.Prefix for easier comparison (netip.Addr.Compare) and incrementing (netip.Addr.Compare)
 	if cloud1 == utils.AZURE || cloud2 == utils.AZURE {
 		// Azure has a more restrictive APIPA range
 		minSubnet = netip.MustParseAddr("169.254.21.0")
@@ -688,6 +690,7 @@ func (s *ControllerServer) findUnusedBgpPeeringSubnets(ctx context.Context, clou
 				break
 			}
 		}
+		// Get the next /30 subnet by incrementing four times
 		for i := 0; i < 4; i++ {
 			subnet = subnet.Next()
 		}
