@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
@@ -117,14 +118,20 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 	attachTagOptions := c.taggingService.NewAttachTagOptions(
 		[]globaltaggingv1.Resource{*resourceModel},
 	)
-	attachTagOptions = attachTagOptions.SetTagNames(tags)
-	result, response, _ := c.taggingService.AttachTag(attachTagOptions)
-	// tracking all responses from error prone tagging service
-	utils.Log.Printf("Tagging: Response: %+v", response)
-	if *result.Results[0].IsError {
-		return fmt.Errorf("Failed to tag resource with response:\n %+v", response)
+	attachTagOptions.SetTagNames(tags)
+
+	maxAttempts := 10    // retries number to tag a resource
+	latestResponse := "" // record latest response from inner scope
+	for attempt := 1; attempt <= maxAttempts; attempt += 1 {
+		result, latestResponse, _ := c.taggingService.AttachTag(attachTagOptions)
+		// tracking all responses from error prone tagging service
+		utils.Log.Printf("Tagging attempt %v: Response: %+v", attempt, latestResponse)
+		if !*result.Results[0].IsError {
+			return nil
+		}
+		time.Sleep(5 * time.Second)
 	}
-	return nil
+	return fmt.Errorf("Failed to tag resource with response:\n %+v", latestResponse)
 }
 
 // GetInvisinetsTaggedResources returns slice of IDs of tagged resources
@@ -152,9 +159,9 @@ func (c *CloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceTy
 		queryStr += fmt.Sprintf("%v:%v* AND ", "region", customQuery.Region)
 		// e.g. region:eu-de* would fetch all zones in eu-de for zone bound resources
 	}
-	 
+
 	if customQuery.CRN != "" {
-		queryStr += fmt.Sprintf("%v:\"%v\" ", "crn", customQuery.CRN)		
+		queryStr += fmt.Sprintf("%v:\"%v\" ", "crn", customQuery.CRN)
 	}
 
 	resourceList, err := c.getInvisinetsResourceByTags(string(resourceType), tagsStr, queryStr)
