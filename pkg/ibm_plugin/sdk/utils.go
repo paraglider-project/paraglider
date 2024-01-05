@@ -56,12 +56,15 @@ const (
 	endpointsURL = "https://control.cloud-object-storage.cloud.ibm.com/v2/endpoints"
 )
 
-// ResourceQuery is used to extend query for tagged resources
+// ResourceQuery represents attributes a user can filter tagged resources by.
+// Note: ResourceQuery isn't associated with resources' tags, but their attributes.
 type ResourceQuery struct {
 	Region string
 	Zone   string
+	CRN    string // cloud resource name globally identifying the resource
 }
 
+// ResourceData represents the fields retrieved from tagged resources.
 type ResourceData struct {
 	ID     string
 	Region string

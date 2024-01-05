@@ -28,8 +28,8 @@ import (
 )
 
 func TestRuleGetExecute(t *testing.T) {
-	server := &fake.FakeFrontendServer{}
-	settings.ServerAddr = server.SetupFakeFrontendServer()
+	server := &fake.FakeOrchestratorRESTServer{}
+	settings.ServerAddr = server.SetupFakeOrchestratorRESTServer()
 
 	cmd, executor := NewCommand()
 	var output bytes.Buffer

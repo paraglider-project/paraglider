@@ -27,8 +27,7 @@ import (
 const vpcType = "vpc"
 
 // CreateVPC creates an Invisinets VPC for a region resources are tagged.
-func (c *CloudClient) CreateVPC() (*vpcv1.VPC, error) {
-	vpcTags := []string{}
+func (c *CloudClient) CreateVPC(tags []string) (*vpcv1.VPC, error) {
 	var prefixManagement string
 
 	vpcName := GenerateResourceName(vpcType)
@@ -48,7 +47,7 @@ func (c *CloudClient) CreateVPC() (*vpcv1.VPC, error) {
 			"\nResponse:\n", response)
 		return nil, err
 	}
-	err = c.attachTag(vpc.CRN, vpcTags)
+	err = c.attachTag(vpc.CRN, tags)
 	if err != nil {
 		utils.Log.Print("Failed to tag VPC with error:", err)
 		return nil, err
