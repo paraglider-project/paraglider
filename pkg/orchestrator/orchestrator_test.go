@@ -26,7 +26,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/netip"
 	"strconv"
 	"testing"
 
@@ -485,30 +484,30 @@ func TestFindUnusedBgpPeeringSubnets(t *testing.T) {
 	// Typical case between Azure and GCP
 	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.AZURE] = []string{"169.254.21.1", "169.254.21.5"}
 	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.GCP] = []string{"169.254.21.2", "169.254.21.6"}
-	subnets, err := frontendServer.findUnusedBgpPeeringSubnets(ctx, utils.AZURE, utils.GCP, defaultNamespace)
+	subnets, err := frontendServer.findUnusedBgpPeeringIpAddresses(ctx, utils.AZURE, utils.GCP, defaultNamespace)
 	require.NoError(t, err)
-	require.ElementsMatch(t, []netip.Addr{netip.MustParseAddr("169.254.21.8"), netip.MustParseAddr("169.254.21.12")}, subnets)
+	require.ElementsMatch(t, []string{"169.254.21.9", "169.254.21.10", "169.254.21.13", "169.254.21.14"}, subnets)
 
 	// Gap in usedBgpPeeringIpAddresses
 	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.AZURE] = []string{"169.254.21.1", "169.254.22.1"}
 	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.GCP] = []string{"169.254.21.2", "169.254.22.2"}
-	subnets, err = frontendServer.findUnusedBgpPeeringSubnets(ctx, utils.AZURE, utils.GCP, defaultNamespace)
+	subnets, err = frontendServer.findUnusedBgpPeeringIpAddresses(ctx, utils.AZURE, utils.GCP, defaultNamespace)
 	require.NoError(t, err)
-	require.ElementsMatch(t, []netip.Addr{netip.MustParseAddr("169.254.21.4"), netip.MustParseAddr("169.254.21.8")}, subnets)
+	require.ElementsMatch(t, []string{"169.254.21.5", "169.254.21.6", "169.254.21.9", "169.254.21.10"}, subnets)
 
 	// No entries in bgp peering map
 	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.AZURE] = []string{}
 	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.GCP] = []string{}
-	subnets, err = frontendServer.findUnusedBgpPeeringSubnets(ctx, utils.AZURE, utils.GCP, defaultNamespace)
+	subnets, err = frontendServer.findUnusedBgpPeeringIpAddresses(ctx, utils.AZURE, utils.GCP, defaultNamespace)
 	require.NoError(t, err)
-	require.ElementsMatch(t, []netip.Addr{netip.MustParseAddr("169.254.21.0"), netip.MustParseAddr("169.254.21.4")}, subnets)
+	require.ElementsMatch(t, []string{"169.254.21.1", "169.254.21.2", "169.254.21.5", "169.254.21.6"}, subnets)
 
 	// Different spaces
 	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.AZURE] = []string{"169.254.21.1", "169.254.21.9"}
 	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.GCP] = []string{"169.254.21.2", "169.254.21.5"}
-	subnets, err = frontendServer.findUnusedBgpPeeringSubnets(ctx, utils.AZURE, utils.GCP, defaultNamespace)
+	subnets, err = frontendServer.findUnusedBgpPeeringIpAddresses(ctx, utils.AZURE, utils.GCP, defaultNamespace)
 	require.NoError(t, err)
-	require.ElementsMatch(t, []netip.Addr{netip.MustParseAddr("169.254.21.12"), netip.MustParseAddr("169.254.21.16")}, subnets)
+	require.ElementsMatch(t, []string{"169.254.21.13", "169.254.21.14", "169.254.21.17", "169.254.21.18"}, subnets)
 }
 
 func TestGetTag(t *testing.T) {

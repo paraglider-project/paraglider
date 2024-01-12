@@ -636,7 +636,7 @@ func (s *ControllerServer) updateUsedBgpPeeringIpAddresses(namespace string) err
 }
 
 // Not a public RPC (hence private) used by cloud plugins but follows the same pattern as FindUnusedAsn
-func (s *ControllerServer) findUnusedBgpPeeringSubnets(ctx context.Context, cloud1 string, cloud2 string, namespace string) ([]netip.Addr, error) {
+func (s *ControllerServer) findUnusedBgpPeeringIpAddresses(ctx context.Context, cloud1 string, cloud2 string, namespace string) ([]string, error) {
 	// Retrieve all used peering IPs from all clouds
 	err := s.updateUsedBgpPeeringIpAddresses(namespace)
 	if err != nil {
@@ -644,62 +644,59 @@ func (s *ControllerServer) findUnusedBgpPeeringSubnets(ctx context.Context, clou
 	}
 
 	// Compile used subnets into a map
-	usedBgpPeeringSubnets := make(map[string]bool)
+	usedBgpPeeringIpAddresses := make(map[string]bool)
 	for _, cloudBgpPeeringIpAddresses := range s.usedBgpPeeringIpAddresses[namespace] {
 		for _, ipAddressString := range cloudBgpPeeringIpAddresses {
 			ipAddress, err := netip.ParseAddr(ipAddressString)
 			if err != nil {
 				return nil, fmt.Errorf("unable to parse BGP peering IP addresses")
 			}
-			// Convert peering IP address into a subnet (e.g., 169.254.21.1 -> 169.254.21.0/30)
-			ipAddressPrefix, err := ipAddress.Prefix(30)
-			if err != nil {
-				return nil, fmt.Errorf("unable to parse into prefix")
-			}
-			usedBgpPeeringSubnets[ipAddressPrefix.String()] = true
+			usedBgpPeeringIpAddresses[ipAddress.String()] = true
 		}
 	}
 
-	// Find the minimum and maximum APIPA subnets
-	var minSubnet, maxSubnet netip.Addr // Use netip.Addr instead of netip.Prefix for easier comparison (netip.Addr.Compare) and incrementing (netip.Addr.Compare)
+	// Set the minimum and maximum based on APIPA ranges (RFC 3927)
+	// Each min and max are set to the first usable IP address in the /30 subnet (e.g., 169.254.0.1 is the first usable IP address in 169.254.0.0/30)
+	var minIp, maxIp netip.Addr
 	if cloud1 == utils.AZURE || cloud2 == utils.AZURE {
 		// Azure has a more restrictive APIPA range
-		minSubnet = netip.MustParseAddr("169.254.21.0")
-		maxSubnet = netip.MustParseAddr("169.254.22.252")
+		minIp = netip.MustParseAddr("169.254.21.1")
+		maxIp = netip.MustParseAddr("169.254.22.253")
 	} else {
-		minSubnet = netip.MustParseAddr("169.254.0.0")
-		maxSubnet = netip.MustParseAddr("169.254.255.252")
+		minIp = netip.MustParseAddr("169.254.0.1")
+		maxIp = netip.MustParseAddr("169.254.255.253")
 	}
 
 	// Calculate how many subnets are required
-	requiredSubnets := utils.GetNumVpnConnections(cloud1, cloud2)
-	subnets := make([]netip.Addr, requiredSubnets)
+	requiredIps := utils.GetNumVpnConnections(cloud1, cloud2) * 2 // Each VPN connection requires two IP addresses (one for each cloud)
+	ips := make([]string, requiredIps)
 
 	// Find unused subnets
 	i := 0
-	subnet := minSubnet
-	for subnet.Compare(maxSubnet) <= 0 {
-		subnetPrefix, err := subnet.Prefix(30)
+	ip := minIp
+	for ip.Compare(maxIp) <= 0 {
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse into prefix")
 		}
-		if !usedBgpPeeringSubnets[subnetPrefix.String()] {
-			subnets[i] = subnet
-			i++
-			if i == requiredSubnets {
+		// We don't need to check if both IPs in the /30 subnet are used (i.e., 169.254.21.1 being used implies 169.254.21.2 is also being used)
+		if !usedBgpPeeringIpAddresses[ip.String()] {
+			ips[i] = ip.String()
+			ips[i+1] = ip.Next().String()
+			i += 2
+			if i == requiredIps {
 				break
 			}
 		}
-		// Get the next /30 subnet by incrementing four times
+		// Move to the next /30 subnet by incrementing four times
 		for i := 0; i < 4; i++ {
-			subnet = subnet.Next()
+			ip = ip.Next()
 		}
 	}
-	if i < requiredSubnets {
+	if i < requiredIps {
 		return nil, fmt.Errorf("unable to find the necessary number of unused subnets")
 	}
 
-	return subnets, nil
+	return ips, nil
 }
 
 // Generates 32-byte shared key for VPN connections
@@ -759,15 +756,15 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 		ctx := context.Background()
 
 		// Get BGP peering IP addresses
-		bgpPeeringSubnets, err := s.findUnusedBgpPeeringSubnets(ctx, req.CloudA, req.CloudB, req.CloudANamespace)
+		bgpPeeringIpAddresses, err := s.findUnusedBgpPeeringIpAddresses(ctx, req.CloudA, req.CloudB, req.CloudANamespace)
 		if err != nil {
 			return nil, fmt.Errorf("unable to find unused bgp peering subnet")
 		}
-		cloudABgpPeeringIpAddresses := make([]string, len(bgpPeeringSubnets))
-		cloudBBgpPeeringIpAddresses := make([]string, len(bgpPeeringSubnets))
-		for i, subnet := range bgpPeeringSubnets {
-			cloudABgpPeeringIpAddresses[i] = subnet.Next().String()        // Use the second IP address in the subnet
-			cloudBBgpPeeringIpAddresses[i] = subnet.Next().Next().String() // Use the third IP address in the subnet
+		cloudABgpPeeringIpAddresses := make([]string, len(bgpPeeringIpAddresses)/2)
+		cloudBBgpPeeringIpAddresses := make([]string, len(bgpPeeringIpAddresses)/2)
+		for i := 0; i < len(bgpPeeringIpAddresses); i += 2 {
+			cloudABgpPeeringIpAddresses[i] = bgpPeeringIpAddresses[i]
+			cloudBBgpPeeringIpAddresses[i+1] = bgpPeeringIpAddresses[i+1]
 		}
 
 		cloudAInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudInvDeployment(req.CloudA), Namespace: req.CloudANamespace}
