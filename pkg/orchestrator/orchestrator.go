@@ -637,7 +637,7 @@ func (s *ControllerServer) updateUsedBgpPeeringIpAddresses(namespace string) err
 
 // Not a public RPC (hence private) used by cloud plugins but follows the same pattern as FindUnusedAsn
 func (s *ControllerServer) findUnusedBgpPeeringSubnets(ctx context.Context, cloud1 string, cloud2 string, namespace string) ([]netip.Addr, error) {
-	// Retrieve all used subnets from all clouds
+	// Retrieve all used peering IPs from all clouds
 	err := s.updateUsedBgpPeeringIpAddresses(namespace)
 	if err != nil {
 		return nil, fmt.Errorf("unable to update used BGP peering IP addresses: %w", err)
