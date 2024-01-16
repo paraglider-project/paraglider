@@ -762,9 +762,9 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 		}
 		cloudABgpPeeringIpAddresses := make([]string, len(bgpPeeringIpAddresses)/2)
 		cloudBBgpPeeringIpAddresses := make([]string, len(bgpPeeringIpAddresses)/2)
-		for i := 0; i < len(bgpPeeringIpAddresses); i += 2 {
-			cloudABgpPeeringIpAddresses[i] = bgpPeeringIpAddresses[i]
-			cloudBBgpPeeringIpAddresses[i+1] = bgpPeeringIpAddresses[i+1]
+		for i := 0; i < len(bgpPeeringIpAddresses)/2; i++ {
+			cloudABgpPeeringIpAddresses[i] = bgpPeeringIpAddresses[i*2]
+			cloudBBgpPeeringIpAddresses[i] = bgpPeeringIpAddresses[i*2+1]
 		}
 
 		cloudAInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudInvDeployment(req.CloudA), Namespace: req.CloudANamespace}
