@@ -643,7 +643,7 @@ func (s *ControllerServer) findUnusedBgpPeeringIpAddresses(ctx context.Context, 
 		return nil, fmt.Errorf("unable to update used BGP peering IP addresses: %w", err)
 	}
 
-	// Compile used subnets into a map
+	// Compile used ips into a map
 	usedBgpPeeringIpAddresses := make(map[string]bool)
 	for _, cloudBgpPeeringIpAddresses := range s.usedBgpPeeringIpAddresses[namespace] {
 		for _, ipAddressString := range cloudBgpPeeringIpAddresses {
