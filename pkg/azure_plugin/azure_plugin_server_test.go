@@ -905,6 +905,30 @@ func TestGetUsedAsns(t *testing.T) {
 	require.ElementsMatch(t, usedAsnsExpected, resp.Asns)
 }
 
+func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
+	server, mockAzureHandler, ctx := setupAzurePluginServer()
+	mockHandlerSetup(mockAzureHandler)
+	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
+		&armnetwork.VirtualNetworkGateway{
+			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
+				BgpSettings: &armnetwork.BgpSettings{
+					BgpPeeringAddresses: []*armnetwork.IPConfigurationBgpPeeringAddress{
+						{CustomBgpIPAddresses: []*string{to.Ptr("169.254.21.1")}},
+						{CustomBgpIPAddresses: []*string{to.Ptr("169.254.22.1")}},
+					},
+				},
+			},
+		},
+		nil,
+	)
+
+	usedBgpPeeringIpAddressExpected := []string{"169.254.21.1", "169.254.22.1"}
+	resp, err := server.GetUsedBgpPeeringIpAddresses(ctx, &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace}})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.ElementsMatch(t, usedBgpPeeringIpAddressExpected, resp.IpAddresses)
+}
+
 func TestGetAndCheckResourceNamespace(t *testing.T) {
 	fakeNic := getFakeNIC()
 	resourceID := "resourceID"
@@ -1030,23 +1054,21 @@ func TestCreateVpnGateway(t *testing.T) {
 		&azcore.ResponseError{StatusCode: http.StatusNotFound},
 	)
 
-	fakePublicIPAddresses := []string{"172.178.88.1", "172.178.88.2"}
-	for i := 0; i < vpnNumConnections; i++ {
-		vpnGatewayIPAddressName := getVPNGatewayIPAddressName(defaultNamespace, i)
-		mockAzureHandler.On("GetPublicIPAddress", ctx, vpnGatewayIPAddressName).Return(
-			nil,
-			&azcore.ResponseError{StatusCode: http.StatusNotFound},
-		)
-		mockAzureHandler.On("CreatePublicIPAddress", ctx, vpnGatewayIPAddressName, mock.Anything).Return(
-			&armnetwork.PublicIPAddress{
-				ID: to.Ptr(fmt.Sprintf("public-ip-address-%d", i)),
-				Properties: &armnetwork.PublicIPAddressPropertiesFormat{
-					IPAddress: to.Ptr(fakePublicIPAddresses[i]),
-				},
+	fakePublicIpAddress := "172.178.88.1"
+	vpnGatewayIPAddressName := getVPNGatewayIPAddressName(defaultNamespace, 0)
+	mockAzureHandler.On("GetPublicIPAddress", ctx, vpnGatewayIPAddressName).Return(
+		nil,
+		&azcore.ResponseError{StatusCode: http.StatusNotFound},
+	)
+	mockAzureHandler.On("CreatePublicIPAddress", ctx, vpnGatewayIPAddressName, mock.Anything).Return(
+		&armnetwork.PublicIPAddress{
+			ID: to.Ptr("public-ip-address-%0"),
+			Properties: &armnetwork.PublicIPAddressPropertiesFormat{
+				IPAddress: to.Ptr(fakePublicIpAddress),
 			},
-			nil,
-		)
-	}
+		},
+		nil,
+	)
 
 	fakeVnetName := getVnetName(vpnLocation, defaultNamespace)
 	mockAzureHandler.On("GetInvisinetsVnet", ctx, fakeVnetName, vpnLocation, defaultNamespace, server.orchestratorServerAddr).Return(
@@ -1100,15 +1122,15 @@ func TestCreateVpnGateway(t *testing.T) {
 		nil,
 	)
 	req := &invisinetspb.CreateVpnGatewayRequest{
-		Deployment: &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
-		Cloud:      "fake-cloud",
+		Deployment:            &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
+		Cloud:                 "fake-cloud",
+		BgpPeeringIpAddresses: []string{"169.254.21.1", "169.254.22.1"},
 	}
 	resp, err := server.CreateVpnGateway(ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Equal(t, orchestrator.MIN_PRIVATE_ASN_2BYTE, resp.Asn)
-	require.ElementsMatch(t, fakePublicIPAddresses, resp.GatewayIpAddresses)
-	require.ElementsMatch(t, vpnGwBgpIpAddrs, resp.BgpIpAddresses)
+	require.ElementsMatch(t, []string{fakePublicIpAddress}, resp.GatewayIpAddresses)
 }
 
 func TestCreateVpnConnections(t *testing.T) {
@@ -1116,34 +1138,30 @@ func TestCreateVpnConnections(t *testing.T) {
 	mockHandlerSetup(mockAzureHandler)
 
 	fakeCloudName := "fake-cloud"
-	for i := 0; i < vpnNumConnections; i++ {
-		localNetworkGatewayName := getLocalNetworkGatewayName(defaultNamespace, fakeCloudName, i)
-		mockAzureHandler.On("GetLocalNetworkGateway", ctx, localNetworkGatewayName).Return(
-			nil,
-			&azcore.ResponseError{StatusCode: http.StatusNotFound},
-		)
-		mockAzureHandler.On("CreateLocalNetworkGateway", ctx, localNetworkGatewayName, mock.Anything).Return(
-			&armnetwork.LocalNetworkGateway{},
-			nil,
-		)
-	}
+	localNetworkGatewayName := getLocalNetworkGatewayName(defaultNamespace, fakeCloudName, 0)
+	mockAzureHandler.On("GetLocalNetworkGateway", ctx, localNetworkGatewayName).Return(
+		nil,
+		&azcore.ResponseError{StatusCode: http.StatusNotFound},
+	)
+	mockAzureHandler.On("CreateLocalNetworkGateway", ctx, localNetworkGatewayName, mock.Anything).Return(
+		&armnetwork.LocalNetworkGateway{},
+		nil,
+	)
 
 	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
 		&armnetwork.VirtualNetworkGateway{},
 		nil,
 	)
 
-	for i := 0; i < vpnNumConnections; i++ {
-		virtualNetworkGatewayConnectionName := getVirtualNetworkGatewayConnectionName(defaultNamespace, fakeCloudName, i)
-		mockAzureHandler.On("GetVirtualNetworkGatewayConnection", ctx, virtualNetworkGatewayConnectionName).Return(
-			nil,
-			&azcore.ResponseError{StatusCode: http.StatusNotFound},
-		)
-		mockAzureHandler.On("CreateVirtualNetworkGatewayConnection", ctx, virtualNetworkGatewayConnectionName, mock.Anything).Return(
-			&armnetwork.VirtualNetworkGatewayConnection{},
-			nil,
-		)
-	}
+	virtualNetworkGatewayConnectionName := getVirtualNetworkGatewayConnectionName(defaultNamespace, fakeCloudName, 0)
+	mockAzureHandler.On("GetVirtualNetworkGatewayConnection", ctx, virtualNetworkGatewayConnectionName).Return(
+		nil,
+		&azcore.ResponseError{StatusCode: http.StatusNotFound},
+	)
+	mockAzureHandler.On("CreateVirtualNetworkGatewayConnection", ctx, virtualNetworkGatewayConnectionName, mock.Anything).Return(
+		&armnetwork.VirtualNetworkGatewayConnection{},
+		nil,
+	)
 
 	req := &invisinetspb.CreateVpnConnectionsRequest{
 		Deployment:         &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},

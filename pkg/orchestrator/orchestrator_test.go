@@ -54,10 +54,11 @@ func getNewPortNumber() int {
 
 func newOrchestratorServer() *ControllerServer {
 	s := &ControllerServer{
-		pluginAddresses:   make(map[string]string),
-		usedAddressSpaces: make(map[string]map[string][]string),
-		usedAsns:          make(map[string]map[string][]uint32),
-		namespace:         defaultNamespace,
+		pluginAddresses:           make(map[string]string),
+		usedAddressSpaces:         make(map[string]map[string][]string),
+		usedAsns:                  make(map[string]map[string][]uint32),
+		usedBgpPeeringIpAddresses: make(map[string]map[string][]string),
+		namespace:                 defaultNamespace,
 	}
 	return s
 }
@@ -434,6 +435,79 @@ func TestFindUnusedAsn(t *testing.T) {
 	asn, err = frontendServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{Namespace: defaultNamespace})
 	require.NoError(t, err)
 	require.Equal(t, uint32(4200000000), asn.Asn)
+}
+
+func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
+	// Setup
+	frontendServer := newOrchestratorServer()
+	port := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+
+	fakeplugin.SetupFakePluginServer(port)
+
+	// Well-formed call
+	resp, err := frontendServer.getUsedBgpPeeringIpAddresses(exampleCloudName, "id", defaultNamespace)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, fakeplugin.BgpPeeringIpAddresses, resp.IpAddresses)
+
+	// Bad cloud name
+	_, err = frontendServer.getUsedBgpPeeringIpAddresses("wrong", "id", defaultNamespace)
+	require.Error(t, err)
+}
+
+func TestUpdateUsedBgpPeeringIpAddresses(t *testing.T) {
+	frontendServer := newOrchestratorServer()
+	port := getNewPortNumber()
+	frontendServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+
+	fakeplugin.SetupFakePluginServer(port)
+
+	// Valid cloud list
+	cloud := Cloud{Name: exampleCloudName, Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
+	frontendServer.config = Config{Clouds: []Cloud{cloud}}
+	err := frontendServer.updateUsedBgpPeeringIpAddresses(defaultNamespace)
+	require.NoError(t, err)
+	require.ElementsMatch(t, fakeplugin.BgpPeeringIpAddresses, frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][exampleCloudName])
+
+	// Invalid cloud list
+	cloud = Cloud{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port), InvDeployment: ""}
+	frontendServer.config = Config{Clouds: []Cloud{cloud}}
+	err = frontendServer.updateUsedBgpPeeringIpAddresses(defaultNamespace)
+	require.Error(t, err)
+}
+
+func TestFindUnusedBgpPeeringSubnets(t *testing.T) {
+	frontendServer := newOrchestratorServer()
+	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace] = make(map[string][]string)
+	ctx := context.Background()
+
+	// Typical case between Azure and GCP
+	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.AZURE] = []string{"169.254.21.1", "169.254.21.5"}
+	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.GCP] = []string{"169.254.21.2", "169.254.21.6"}
+	subnets, err := frontendServer.findUnusedBgpPeeringIpAddresses(ctx, utils.AZURE, utils.GCP, defaultNamespace)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"169.254.21.9", "169.254.21.10", "169.254.21.13", "169.254.21.14"}, subnets)
+
+	// Gap in usedBgpPeeringIpAddresses
+	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.AZURE] = []string{"169.254.21.1", "169.254.22.1"}
+	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.GCP] = []string{"169.254.21.2", "169.254.22.2"}
+	subnets, err = frontendServer.findUnusedBgpPeeringIpAddresses(ctx, utils.AZURE, utils.GCP, defaultNamespace)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"169.254.21.5", "169.254.21.6", "169.254.21.9", "169.254.21.10"}, subnets)
+
+	// No entries in bgp peering map
+	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.AZURE] = []string{}
+	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.GCP] = []string{}
+	subnets, err = frontendServer.findUnusedBgpPeeringIpAddresses(ctx, utils.AZURE, utils.GCP, defaultNamespace)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"169.254.21.1", "169.254.21.2", "169.254.21.5", "169.254.21.6"}, subnets)
+
+	// Different spaces
+	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.AZURE] = []string{"169.254.21.1", "169.254.21.9"}
+	frontendServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.GCP] = []string{"169.254.21.2", "169.254.21.5"}
+	subnets, err = frontendServer.findUnusedBgpPeeringIpAddresses(ctx, utils.AZURE, utils.GCP, defaultNamespace)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"169.254.21.13", "169.254.21.14", "169.254.21.17", "169.254.21.18"}, subnets)
 }
 
 func TestGetTag(t *testing.T) {

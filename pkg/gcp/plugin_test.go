@@ -749,13 +749,34 @@ func TestGetUsedAsns(t *testing.T) {
 	assert.ElementsMatch(t, usedAsnsExpected, resp.Asns)
 }
 
-func TestCreateVpnGateway(t *testing.T) {
-	fakeVpnGatewayIpAddresses := []string{"1.1.1.1", "2.2.2.2"}
+func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 	fakeServerState := &fakeServerState{
+		router: &computepb.Router{
+			BgpPeers: []*computepb.RouterBgpPeer{
+				{IpAddress: proto.String("169.254.21.1")},
+				{IpAddress: proto.String("169.254.22.1")},
+			},
+		},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
+
+	s := &GCPPluginServer{}
+	vpnRegion = fakeRegion
+
+	usedBgpPeeringIpAddressExpected := []string{"169.254.21.1", "169.254.22.1"}
+	resp, err := s._GetUsedBgpPeeringIpAddresses(ctx, &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace}}, fakeClients.routersClient)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.ElementsMatch(t, usedBgpPeeringIpAddressExpected, resp.IpAddresses)
+}
+
+func TestCreateVpnGateway(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		router: &computepb.Router{},
 		vpnGateway: &computepb.VpnGateway{
 			VpnInterfaces: []*computepb.VpnGatewayVpnGatewayInterface{
-				{IpAddress: proto.String(fakeVpnGatewayIpAddresses[0])},
-				{IpAddress: proto.String(fakeVpnGatewayIpAddresses[1])},
+				{IpAddress: proto.String("1.1.1.1")},
 			},
 		},
 	}
@@ -770,15 +791,15 @@ func TestCreateVpnGateway(t *testing.T) {
 	vpnRegion = fakeRegion
 
 	req := &invisinetspb.CreateVpnGatewayRequest{
-		Deployment: &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
-		Cloud:      "fakecloud",
+		Deployment:            &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
+		Cloud:                 "fakecloud",
+		BgpPeeringIpAddresses: []string{"169.254.21.1", "169.254.22.1"},
 	}
 	resp, err := s._CreateVpnGateway(ctx, req, fakeClients.vpnGatewaysClient, fakeClients.routersClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Equal(t, orchestrator.MIN_PRIVATE_ASN_2BYTE, resp.Asn)
-	require.ElementsMatch(t, fakeVpnGatewayIpAddresses, resp.GatewayIpAddresses)
-	require.ElementsMatch(t, vpnGwBgpIpAddrs, resp.BgpIpAddresses)
+	require.ElementsMatch(t, []string{"1.1.1.1"}, resp.GatewayIpAddresses)
 }
 
 func TestCreateVpnConnections(t *testing.T) {
@@ -793,8 +814,8 @@ func TestCreateVpnConnections(t *testing.T) {
 		Deployment:         &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
 		Cloud:              "fakecloud",
 		Asn:                65555,
-		GatewayIpAddresses: []string{"1.1.1.1", "2.2.2.2"},
-		BgpIpAddresses:     []string{"3.3.3.3", "4.4.4.4"},
+		GatewayIpAddresses: []string{"1.1.1.1"},
+		BgpIpAddresses:     []string{"3.3.3.3"},
 		SharedKey:          "abcd",
 	}
 	resp, err := s._CreateVpnConnections(ctx, req, fakeClients.externalVpnGatewaysClient, fakeClients.vpnTunnelsClient, fakeClients.routersClient)

@@ -53,16 +53,11 @@ type azurePluginServer struct {
 	orchestratorServerAddr string
 }
 
-// TODO @seankimkdy: replace these
 const (
-	vpnLocation                       = "westus"
-	vpnGwAsn                   uint32 = 65515
-	vpnNumConnections                 = 2
-	gatewaySubnetName                 = "GatewaySubnet"
-	gatewaySubnetAddressPrefix        = "192.168.255.0/27"
+	vpnLocation                = "westus" // TODO @seankimkdy: should this be configurable/dynamic?
+	gatewaySubnetName          = "GatewaySubnet"
+	gatewaySubnetAddressPrefix = "192.168.255.0/27"
 )
-
-var vpnGwBgpIpAddrs = []string{"169.254.21.1", "169.254.22.1"}
 
 func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) error {
 	cred, err := s.azureHandler.GetAzureCredentials()
@@ -492,6 +487,35 @@ func (s *azurePluginServer) GetUsedAsns(ctx context.Context, req *invisinetspb.G
 	return &invisinetspb.GetUsedAsnsResponse{Asns: []uint32{uint32(*virtualNetworkGateway.Properties.BgpSettings.Asn)}}, nil
 }
 
+func (s *azurePluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *invisinetspb.GetUsedBgpPeeringIpAddressesRequest) (*invisinetspb.GetUsedBgpPeeringIpAddressesResponse, error) {
+	resourceIdInfo, err := getResourceIDInfo(req.Deployment.Id)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+		return nil, err
+	}
+	err = s.setupAzureHandler(resourceIdInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &invisinetspb.GetUsedBgpPeeringIpAddressesResponse{}
+	virtualNetworkGatewayName := getVpnGatewayName(req.Deployment.Namespace)
+	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
+	if err != nil {
+		if isErrorNotFound(err) {
+			return resp, nil
+		} else {
+			return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
+		}
+	}
+
+	resp.IpAddresses = make([]string, len(virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses))
+	for i, bgpPeeringAddress := range virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses {
+		resp.IpAddresses[i] = *bgpPeeringAddress.CustomBgpIPAddresses[0]
+	}
+	return resp, nil
+}
+
 // getNSG returns the network security group object given the resource NIC
 func (s *azurePluginServer) getNSG(ctx context.Context, nic *armnetwork.Interface, resourceID string) (*armnetwork.SecurityGroup, error) {
 	var nsg *armnetwork.SecurityGroup
@@ -758,6 +782,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 		return nil, fmt.Errorf("unable to setup azure handler: %w", err)
 	}
 
+	vpnNumConnections := utils.GetNumVpnConnections(req.Cloud, utils.AZURE)
 	publicIPAddresses := make([]*armnetwork.PublicIPAddress, vpnNumConnections)
 	virtualNetworkGatewayName := getVpnGatewayName(namespace)
 	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
@@ -860,7 +885,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 			virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses = make([]*armnetwork.IPConfigurationBgpPeeringAddress, vpnNumConnections)
 			for i := 0; i < vpnNumConnections; i++ {
 				virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses[i] = &armnetwork.IPConfigurationBgpPeeringAddress{
-					CustomBgpIPAddresses: []*string{to.Ptr(vpnGwBgpIpAddrs[i])},
+					CustomBgpIPAddresses: []*string{to.Ptr(req.BgpPeeringIpAddresses[i])},
 					IPConfigurationID:    virtualNetworkGateway.Properties.IPConfigurations[i].ID,
 				}
 			}
@@ -910,10 +935,8 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 
 	resp := &invisinetspb.CreateVpnGatewayResponse{Asn: asn}
 	resp.GatewayIpAddresses = make([]string, vpnNumConnections)
-	resp.BgpIpAddresses = make([]string, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {
 		resp.GatewayIpAddresses[i] = *publicIPAddresses[i].Properties.IPAddress
-		resp.BgpIpAddresses[i] = vpnGwBgpIpAddrs[i]
 	}
 	return resp, nil
 }
@@ -928,6 +951,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 		return nil, fmt.Errorf("unable to setup azure handler: %w", err)
 	}
 
+	vpnNumConnections := utils.GetNumVpnConnections(req.Cloud, utils.AZURE)
 	localNetworkGateways := make([]*armnetwork.LocalNetworkGateway, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {
 		localNetworkGatewayName := getLocalNetworkGatewayName(req.Deployment.Namespace, req.Cloud, i)
