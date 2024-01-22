@@ -40,11 +40,18 @@ func TestCleanup(t *testing.T) {
 	require.NoError(t, err)
 	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(VPC, []string{}, ResourceQuery{})
 	require.NoError(t, err)
+	// terminate all VPCs and their associated resources.
 	for _, vpcsData := range vpcsData {
 		// cloud client must be set to the region of the current VPC
 		cloudClient, err := NewIBMCloudClient(*testResGroupName, vpcsData.Region)
 		require.NoError(t, err)
 		err = cloudClient.TerminateVPC(vpcsData.ID)
+		require.NoError(t, err)
+	}
+	// terminate transit gateways and their connections
+	transitGWs, err := cloudClient.GetInvisinetsTaggedResources(GATEWAY, []string{}, ResourceQuery{})
+	for _, gw := range transitGWs {
+		err = cloudClient.DeleteTransitGW(gw.ID)
 		require.NoError(t, err)
 	}
 }
