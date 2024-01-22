@@ -184,14 +184,14 @@ func (c *CloudClient) waitForInstanceRemoval(vmID string) bool {
 	return false
 }
 
-// VMToVPCID returns VPC id of specified instance
-func (c *CloudClient) VMToVPCID(vmID string) (string, error) {
+// VMToVPCData returns VPC data of specified instance
+func (c *CloudClient) VMToVPCData(vmID string) (*vpcv1.VPCReference, error) {
 	instance, _, err := c.vpcService.GetInstance(
 		&vpcv1.GetInstanceOptions{ID: &vmID})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return *instance.VPC.ID, nil
+	return instance.VPC, nil
 }
 
 // returns True if an instance resides inside the specified namespace
