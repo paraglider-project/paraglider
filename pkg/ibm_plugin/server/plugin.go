@@ -180,7 +180,7 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 	// reset vpc client back to the original region regardless of returned value. 
 	defer func() {
 		if err := cloudClient.UpdateRegion(cloudClient.Region()); err != nil {
-			utils.Log.Println("Failed to reset client's region, Error: ", err)
+			utils.Log.Printf("Failed to reset client's region with Error:%v ", err)
 		}
 	}()
 	// get all VPCs (across all namespaces).

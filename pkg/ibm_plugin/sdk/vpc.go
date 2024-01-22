@@ -124,7 +124,7 @@ func (c *CloudClient) GetRemoteVpc(remote, resourceGroupName string) (*ResourceD
 	// reset vpc client back to the original region regardless of returned value.
 	defer func() {
 		if err := c.UpdateRegion(c.region); err != nil {
-			utils.Log.Println("Failed to reset client's region, Error: ", err)
+			utils.Log.Printf("Failed to reset client's region with Error:%v ", err)
 		}
 	}()
 	// Go over candidate VPCs address spaces
