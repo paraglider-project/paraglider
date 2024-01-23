@@ -176,10 +176,10 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 	if err != nil {
 		return nil, err
 	}
-
-	// reset vpc client back to the original region regardless of returned value. 
+	originalClientRegion := cloudClient.Region()
+	// reset vpc client back to the original region regardless of returned value.
 	defer func() {
-		if err := cloudClient.UpdateRegion(cloudClient.Region()); err != nil {
+		if err := cloudClient.UpdateRegion(originalClientRegion); err != nil {
 			utils.Log.Printf("Failed to reset client's region with Error:%v ", err)
 		}
 	}()
@@ -205,7 +205,7 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 			invisinetsAddressSpaces = append(invisinetsAddressSpaces, *subnet.Ipv4CIDRBlock)
 		}
 	}
-	
+
 	utils.Log.Printf("Used Address Spaces : %+v", invisinetsAddressSpaces)
 	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetsAddressSpaces}, nil
 }
