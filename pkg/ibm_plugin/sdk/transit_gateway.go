@@ -28,10 +28,14 @@ import (
 )
 
 type TransitConnection struct {
-	ID          string // connection's ID
-	Name        string // connection's name
+	ID     string // connection's ID
+	Name   string // connection's name
 	VPCCRN string // CRN of the connected VPC
 }
+
+const(
+	connectionType= "connection"
+)
 
 // creates a global transit gateway (global routing) at the specified region and
 // tags it with the specified namespace
@@ -76,10 +80,12 @@ func (c *CloudClient) GetTransitGWConnections(gwID string) ([]TransitConnection,
 
 // adds VPC as a connection to an existing Transit Gateway
 func (c *CloudClient) AddTransitGWConnection(transitGatewayID string, vpcCRN string) (TransitConnection, error) {
+	connectionName := GenerateResourceName(connectionType)
 	createConnectionOptions := &transitgatewayapisv1.CreateTransitGatewayConnectionOptions{
 		TransitGatewayID: &transitGatewayID,
 		NetworkType:      core.StringPtr(transitgatewayapisv1.CreateTransitGatewayConnectionOptions_NetworkType_Vpc),
 		NetworkID:        &vpcCRN,
+		Name:             &connectionName,
 	}
 	res, _, err := c.transitGW.CreateTransitGatewayConnection(createConnectionOptions)
 	if err != nil {
@@ -184,7 +190,7 @@ func (c *CloudClient) ConnectVpc(gatewayID string, vpcCRN string) error {
 }
 
 // returns an ID for an existent global transit gateway. If doesn't exist, creates one in the specified region.
-// Note: the region argument isn't relevant for the lookup process.  
+// NOTE: the region argument isn't relevant for the lookup process.
 func (c *CloudClient) GetOrCreateTransitGateway(region string) (string, error) {
 	// if exists, fetch the transit gateway
 	TransitGatewayRes, err := c.GetInvisinetsTaggedResources(GATEWAY, []string{}, ResourceQuery{})
