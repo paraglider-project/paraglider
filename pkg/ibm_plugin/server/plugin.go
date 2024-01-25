@@ -172,19 +172,14 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 		return nil, err
 	}
 
-	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupName, region)
+	// using a tmp client to avoid altering the cloud client's region.
+	tmpClient, err:=sdk.NewIBMCloudClient(rInfo.ResourceGroupName, region) 
 	if err != nil {
 		return nil, err
 	}
-	originalClientRegion := cloudClient.Region()
-	// reset vpc client back to the original region regardless of returned value.
-	defer func() {
-		if err := cloudClient.UpdateRegion(originalClientRegion); err != nil {
-			utils.Log.Printf("Failed to reset client's region with Error:%v ", err)
-		}
-	}()
+
 	// get all VPCs (across all namespaces).
-	deploymentVpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{}, sdk.ResourceQuery{})
+	deploymentVpcsData, err := tmpClient.GetInvisinetsTaggedResources(sdk.VPC, []string{}, sdk.ResourceQuery{})
 	if err != nil {
 		utils.Log.Print("Failed to get invisinets tagged VPCs")
 		return nil, err
@@ -193,11 +188,11 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 	// for each vpc, collect the address space of all subnets, including users'.
 	for _, vpcData := range deploymentVpcsData {
 		// Set the client on the region of the current VPC, otherwise resources will be out of scope for the client.
-		err := cloudClient.UpdateRegion(vpcData.Region)
+		err := tmpClient.UpdateRegion(vpcData.Region)
 		if err != nil {
 			return nil, err
 		}
-		subnets, err := cloudClient.GetSubnetsInVpcRegionBound(vpcData.ID)
+		subnets, err := tmpClient.GetSubnetsInVpcRegionBound(vpcData.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -309,7 +304,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 		// 2. if the rule's remote address resides in one of the clouds create a vpn gateway.
 
 		// get the VPC of the rule's target
-		remoteVPC, err := cloudClient.GetRemoteVPC(ibmRule.Remote, rInfo.ResourceGroupName)
+		remoteVPC, err := getRemoteVPC(ibmRule.Remote, rInfo.ResourceGroupName)
 		if err != nil {
 			return nil, err
 		}

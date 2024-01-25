@@ -143,10 +143,8 @@ func (c *CloudClient) getTaggedResources(query string) (*globalsearchv2.ScanResu
 	// search tags with retries
 	maxAttempts := 10    // retries number to fetch a tagged resource
 	latestResponse := "" // record latest response from inner scope
-	// result := &globalsearchv2.ScanResult{}
 	for attempt := 1; attempt <= maxAttempts; attempt += 1 {
 		res, response, err := c.globalSearch.Search(searchOptions)
-		// result = res
 		if err != nil {
 			utils.Log.Printf("Tags search was invalid at attempt %v.\nResponse:%+v\nErr%+v\n", attempt, response, err)
 		} else {

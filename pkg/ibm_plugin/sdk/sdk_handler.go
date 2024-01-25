@@ -35,7 +35,7 @@ type CloudClient struct {
 	region         string // region resources will be created in/fetched from
 	globalSearch   *globalsearchv2.GlobalSearchV2
 	taggingService *globaltaggingv1.GlobalTaggingV1
-	resourceGroup  *vpcv1.ResourceGroupIdentityByID
+	resourceGroup  *vpcv1.ResourceGroupIdentityByID   // required mainly to create/delete resources
 	transitGW      *transitgatewayapisv1.TransitGatewayApisV1
 }
 
@@ -58,18 +58,16 @@ func NewIBMCloudClient(resourceGroupName, region string) (*CloudClient, error) {
 	if isRegionValid, err := ibmCommon.IsRegionValid(region); !isRegionValid || err != nil {
 		return nil, fmt.Errorf("region %v isn't valid", region)
 	}
-	creds, err := getIBMCred()
+
+	authenticator, err := getAuthenticator()
 	if err != nil {
 		return nil, err
 	}
 
-	apiKey := creds.APIKey
-	authenticator := &core.IamAuthenticator{ApiKey: apiKey}
-	options := vpcv1.VpcV1Options{
+	vpcService, err := vpcv1.NewVpcV1(&vpcv1.VpcV1Options{
 		Authenticator: authenticator,
 		URL:           endpointURL(region),
-	}
-	api, err := vpcv1.NewVpcV1(&options)
+	})
 	if err != nil {
 		utils.Log.Println("Failed to create vpc service client with error:\n", err)
 		return nil, err
@@ -109,7 +107,7 @@ func NewIBMCloudClient(resourceGroupName, region string) (*CloudClient, error) {
 	}
 
 	client := CloudClient{
-		vpcService:     api,
+		vpcService:     vpcService,
 		region:         region,
 		globalSearch:   globalSearch,
 		taggingService: taggingService,

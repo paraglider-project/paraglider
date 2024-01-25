@@ -113,38 +113,3 @@ func (c *CloudClient) GetVPCByID(vpcID string) (*vpcv1.VPC, error) {
 	}
 	return vpc, nil
 }
-
-// returns the invisinets VPC that the specified remote (IP/CIDR) resides in.
-func (c *CloudClient) GetRemoteVPC(remote, resourceGroupName string) (*ResourceData, error) {
-	// fetch vpcs from all namespaces
-	vpcsData, err := c.GetInvisinetsTaggedResources(VPC, []string{}, ResourceQuery{})
-	if err != nil {
-		return nil, err
-	}
-	originalClientRegion := c.region
-	// reset vpc client back to the original region regardless of returned value.
-	defer func() {
-		if err := c.UpdateRegion(originalClientRegion); err != nil {
-			utils.Log.Printf("Failed to reset client's region with Error:%v ", err)
-		}
-	}()
-	// Go over candidate VPCs address spaces
-	for _, vpcData := range vpcsData {
-		curVpcID := vpcData.ID
-
-		// Set the client on the region of the current VPC. If the client's region is
-		// different than the VPC's, it won't be detected.
-		err := c.UpdateRegion(vpcData.Region)
-		if err != nil {
-			return nil, err
-		}
-
-		if isRemoteInVPC, err := c.IsRemoteInVPC(curVpcID, remote); isRemoteInVPC {
-			return &vpcData, nil
-		} else if err != nil {
-			return nil, err
-		}
-	}
-	// remote doesn't reside in any invisinets VPC
-	return nil, nil
-}
