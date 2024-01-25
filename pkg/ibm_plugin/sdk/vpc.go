@@ -115,7 +115,7 @@ func (c *CloudClient) GetVPCByID(vpcID string) (*vpcv1.VPC, error) {
 }
 
 // returns the invisinets VPC that the specified remote (IP/CIDR) resides in.
-func (c *CloudClient) GetRemoteVpc(remote, resourceGroupName string) (*ResourceData, error) {
+func (c *CloudClient) GetRemoteVPC(remote, resourceGroupName string) (*ResourceData, error) {
 	// fetch vpcs from all namespaces
 	vpcsData, err := c.GetInvisinetsTaggedResources(VPC, []string{}, ResourceQuery{})
 	if err != nil {

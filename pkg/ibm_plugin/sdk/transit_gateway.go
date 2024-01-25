@@ -175,7 +175,7 @@ func (c *CloudClient) RemoveTransitGWConnection(connection string, transitGW str
 }
 
 // Connects vpc to the specified transit gateway. ignores error if already connected.
-func (c *CloudClient) ConnectVpc(gatewayID string, vpcCRN string) error {
+func (c *CloudClient) ConnectVPC(gatewayID string, vpcCRN string) error {
 	_, err := c.AddTransitGWConnection(gatewayID, vpcCRN)
 	if err == nil {
 		return nil

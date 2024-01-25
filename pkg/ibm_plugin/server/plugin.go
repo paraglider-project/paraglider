@@ -287,16 +287,16 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 		return nil, fmt.Errorf("no security groups were found for VM %v", vmID)
 	}
 	// up to a single invisinets security group can exist per VM (queried resource by tag=vmID)
-	RequestSGID := invisinetsSgsData[0].ID
+	requestSGID := invisinetsSgsData[0].ID
 
 	// get VPC of the VM specified in the request
-	requestVPCData, err := cloudClient.VMToVPCData(vmID)
+	requestVPCData, err := cloudClient.VMToVPCObject(vmID)
 	if err != nil {
 		return nil, err
 	}
 
 	// translate invisinets rules to IBM rules to compare hash values with current rules.
-	ibmRulesToAdd, err := sdk.InvisinetsToIBMRules(RequestSGID, req.Rules)
+	ibmRulesToAdd, err := sdk.InvisinetsToIBMRules(requestSGID, req.Rules)
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +309,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 		// 2. if the rule's remote address resides in one of the clouds create a vpn gateway.
 
 		// get the VPC of the rule's target
-		remoteVPC, err := cloudClient.GetRemoteVpc(ibmRule.Remote, rInfo.ResourceGroupName)
+		remoteVPC, err := cloudClient.GetRemoteVPC(ibmRule.Remote, rInfo.ResourceGroupName)
 		if err != nil {
 			return nil, err
 		}
@@ -325,7 +325,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 			}
 			// connect the VPC of the request's VM to the transit gateway.
 			// the `remoteVPC` should be connected by a separate symmetric request (e.g. to allow inbound traffic to remote).
-			err = cloudClient.ConnectVpc(gwID, *requestVPCData.CRN)
+			err = cloudClient.ConnectVPC(gwID, *requestVPCData.CRN)
 			if err != nil {
 				return nil, err
 			}
@@ -333,7 +333,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 
 		rulesHashValues := make(map[uint64]bool)
 		// get current rules in SG and record their hash values
-		sgRules, err := cloudClient.GetSecurityRulesOfSG(RequestSGID)
+		sgRules, err := cloudClient.GetSecurityRulesOfSG(requestSGID)
 		if err != nil {
 			return nil, err
 		}
@@ -354,7 +354,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 			}
 			utils.Log.Printf("attached rule %+v", ibmRule)
 		} else {
-			utils.Log.Printf("rule %+v already exists for security group ID %v", ibmRule, RequestSGID)
+			utils.Log.Printf("rule %+v already exists for security group ID %v", ibmRule, requestSGID)
 		}
 	}
 	return &invisinetspb.AddPermitListRulesResponse{}, nil
