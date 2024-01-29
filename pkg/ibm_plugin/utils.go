@@ -34,8 +34,8 @@ const (
 // cache of regions, initialized by GetRegions(). Shouldn't be accessed directly outside of file.
 var regionCache []string
 
-// GetRegions returns regionCache. if regionCache is empty, it's initialized.
-func GetRegions() ([]string, error) {
+// getRegions returns regionCache. if regionCache is empty, it's initialized.
+func getRegions() ([]string, error) {
 	if len(regionCache) != 0 {
 		return regionCache, nil
 	}
@@ -71,7 +71,7 @@ func DoesSliceContain[T comparable](slice []T, target T) bool {
 
 // IsRegionValid returns true if region is a valid IBM region
 func IsRegionValid(region string) (bool, error) {
-	regions, err := GetRegions()
+	regions, err := getRegions()
 	if err != nil {
 		return false, err
 	}
@@ -94,8 +94,8 @@ func ZoneToRegion(zone string) (string, error) {
 	}
 }
 
-// GetZonesOfRegion returns the zones of a specfied region
-func GetZonesOfRegion(region string) ([]string, error) {
+// regionToZones returns the zones of a specified region
+func regionToZones(region string) ([]string, error) {
 	zonesPerRegion := 3
 	if isRegionValid, err := IsRegionValid(region); !isRegionValid || err != nil {
 		return nil, fmt.Errorf("region %v isn't valid", region)
