@@ -33,8 +33,8 @@ type TransitConnection struct {
 	VPCCRN string // CRN of the connected VPC
 }
 
-const(
-	connectionType= "connection"
+const (
+	connectionType = "connection"
 )
 
 // creates a global transit gateway (global routing) at the specified region and
@@ -63,9 +63,7 @@ func (c *CloudClient) CreateTransitGW(region string) (*transitgatewayapisv1.Tran
 // returns connections of the transit gateway
 func (c *CloudClient) GetTransitGWConnections(gwID string) ([]TransitConnection, error) {
 	var connections []TransitConnection
-	listTransitGatewayConnectionsOptions := c.transitGW.NewListTransitGatewayConnectionsOptions(
-		gwID,
-	)
+	listTransitGatewayConnectionsOptions := c.transitGW.NewListTransitGatewayConnectionsOptions(gwID)
 	transitGatewayConnectionCollection, _, err := c.transitGW.ListTransitGatewayConnections(listTransitGatewayConnectionsOptions)
 	if err != nil {
 		return connections, err
@@ -142,6 +140,7 @@ func (c *CloudClient) RemoveTransitGWConnections(gwID string) error {
 // returns true if connection was deleted within the alloted time, otherwise false.
 func (c *CloudClient) pollConnectionDeleted(connectionID string, gwID string) (bool, error) {
 	delAttempts := 10
+	// the following is a blocking polling mechanism that returns when the GW is deleted/alloted time has past.
 	for attempt := 1; attempt <= delAttempts; attempt += 1 {
 		transitGatewayConnectionOptions := c.transitGW.NewGetTransitGatewayConnectionOptions(
 			gwID,
@@ -154,6 +153,7 @@ func (c *CloudClient) pollConnectionDeleted(connectionID string, gwID string) (b
 			utils.Log.Printf("connection deleted successfully in attempt No. %v", attempt)
 			return true, nil
 		}
+		// sleep to avoid busy waiting
 		time.Sleep(10 * time.Second)
 	}
 	return false, fmt.Errorf("Connection with ID: %v wasn't deleted in the alloted time frame", connectionID)

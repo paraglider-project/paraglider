@@ -39,6 +39,8 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 	)
 	attachTagOptions.SetTagNames(tags)
 
+	// attach tags with retires.
+	// retry mechanism improves stability and is needed due to possible temporary unavailability of resources, e.g. at time of creation.
 	maxAttempts := 10    // retries number to tag a resource
 	latestResponse := "" // record latest response from inner scope
 	for attempt := 1; attempt <= maxAttempts; attempt += 1 {
@@ -48,6 +50,7 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 		if !*result.Results[0].IsError {
 			return nil
 		}
+		// sleep to avoid busy waiting
 		time.Sleep(5 * time.Second)
 	}
 	return fmt.Errorf("Failed to tag resource with response:\n %+v", latestResponse)
@@ -57,8 +60,7 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 // Arg resourceType: type of VPC resource, e.g. subnet, security group, instance.
 // Arg tags: labels set by dev, e.g. {<vpcID>,<deploymentID>}
 // Args customQueryMap: map of attributes to filter by, e.g. {"region":"<regionName>"}
-func (c *CloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceType, tags []string,
-	customQuery ResourceQuery) ([]ResourceData, error) {
+func (c *CloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceType, tags []string, customQuery ResourceQuery) ([]ResourceData, error) {
 	// parse tags
 	var tagsStr string
 	var queryStr string
@@ -91,8 +93,7 @@ func (c *CloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceTy
 }
 
 // returns IDs of resources filtered by tags and query
-func (c *CloudClient) getInvisinetsResourceByTags(resourceType string,
-	tags string, customQueryStr string) ([]ResourceData, error) {
+func (c *CloudClient) getInvisinetsResourceByTags(resourceType string, tags string, customQueryStr string) ([]ResourceData, error) {
 	var taggedResources []ResourceData
 
 	query := fmt.Sprintf("type:%v AND %v ", resourceType, tags)
@@ -140,7 +141,8 @@ func (c *CloudClient) getTaggedResources(query string) (*globalsearchv2.ScanResu
 	searchOptions.SetQuery(query)
 	searchOptions.SetFields([]string{"*"})
 
-	// search tags with retries
+	// search tags with retries.
+	// retry mechanism improves stability and is needed due to possible temporary unavailability of resources, e.g. at time of creation.
 	maxAttempts := 10    // retries number to fetch a tagged resource
 	latestResponse := "" // record latest response from inner scope
 	for attempt := 1; attempt <= maxAttempts; attempt += 1 {
@@ -150,6 +152,7 @@ func (c *CloudClient) getTaggedResources(query string) (*globalsearchv2.ScanResu
 		} else {
 			return res, nil
 		}
+		// sleep to avoid busy waiting
 		time.Sleep(5 * time.Second)
 	}
 	return nil, fmt.Errorf("Failed to tag resource with response:\n %+v", latestResponse)

@@ -94,19 +94,6 @@ func ZoneToRegion(zone string) (string, error) {
 	}
 }
 
-// regionToZones returns the zones of a specified region
-func regionToZones(region string) ([]string, error) {
-	zonesPerRegion := 3
-	if isRegionValid, err := IsRegionValid(region); !isRegionValid || err != nil {
-		return nil, fmt.Errorf("region %v isn't valid", region)
-	}
-	res := make([]string, zonesPerRegion)
-	for i := 0; i < zonesPerRegion; i++ {
-		res[i] = region + "-" + fmt.Sprint(i+1)
-	}
-	return res, nil
-}
-
 // AreStructsEqual returns true if two given structs of the same type have matching fields values
 // on all types except those listed in fieldsToExclude
 func AreStructsEqual(s1, s2 interface{}, fieldsToExclude []string) bool {
