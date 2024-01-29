@@ -115,6 +115,7 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	// image, zone, instanceName, resourceID := testImageEUDE, testZoneEUDE1, testInstanceNameEUDE1, testResourceIDEUDE1
 	// - test arguments for us-east-2:
 	// image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast2, testInstanceNameUSEast2, testResourceIDUSEast2
+	// - test arguments for us-south-1:
 	// image, zone, instanceName, resourceID := testImageUSSouth, testZoneUSSouth1, testInstanceNameUSSouth1, testResourceIDUSSouth1
 	image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1, testResourceIDUSEast1
 	
@@ -195,12 +196,7 @@ func TestCreateResourceExistingVPC(t *testing.T) {
 
 // usage: go test --tags=ibm -run TestGetPermitList -sg=<security group name>
 func TestGetPermitList(t *testing.T) {
-	// Notes for tester:
-	// to change region set the values below according to constants above, e.g.:
-	// resourceID := testResourceIDEUDE1
-	// resourceID := testResourceIDUSEast2
-	// resourceID := testResourceIDUSSouth1
-	resourceID := testResourceIDUSEast1
+	resourceID := testResourceIDUSEast1  // replace as needed with other IDs, e.g. testResourceIDEUDE1
 
 	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
@@ -217,12 +213,7 @@ func TestGetPermitList(t *testing.T) {
 
 // usage: go test --tags=ibm -run TestAddPermitListRules -sg=<security group name>
 func TestAddPermitListRules(t *testing.T) {
-	// Notes for tester:
-	// to change region set the values below according to constants above, e.g.:
-	// resourceID := testResourceIDUSEast2
-	// resourceID := testResourceIDEUDE1
-	// resourceID := testResourceIDUSSouth1
-	resourceID := testResourceIDUSEast1
+	resourceID := testResourceIDUSEast1  // replace as needed with other IDs, e.g. testResourceIDEUDE1
 
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: resourceID,
@@ -241,12 +232,7 @@ func TestAddPermitListRules(t *testing.T) {
 
 // usage: go test --tags=ibm -run TestDeletePermitListRule -sg=<security group name>
 func TestDeletePermitListRules(t *testing.T) {
-	// Notes for tester:
-	// to change region set the values below according to constants above, e.g.:
-	// resourceID := testResourceIDUSEast2
-	// resourceID := testResourceIDEUDE1
-	// resourceID := testResourceIDUSSouth1
-	resourceID := testResourceIDUSEast1
+	resourceID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDUSSouth1
 
 	permitList := &invisinetspb.PermitList{
 		AssociatedResource: resourceID,
