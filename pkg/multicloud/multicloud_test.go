@@ -27,6 +27,7 @@ import (
 	gcp "github.com/NetSys/invisinets/pkg/gcp"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	orchestrator "github.com/NetSys/invisinets/pkg/orchestrator"
+	"github.com/NetSys/invisinets/pkg/orchestrator/config"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,19 +47,31 @@ func TestMulticloud(t *testing.T) {
 	defer gcp.TeardownGcpTesting(gcpProjectId)
 
 	// Setup controller server
-	controllerServerConfig := orchestrator.Config{
-		Clouds: []orchestrator.Cloud{
+	controllerServerConfig := config.Config{
+		CloudPlugins: []config.CloudPlugin{
 			{
-				Name:          utils.AZURE,
-				Host:          "localhost",
-				Port:          strconv.Itoa(azurePluginPort),
-				InvDeployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName),
+				Name: utils.AZURE,
+				Host: "localhost",
+				Port: strconv.Itoa(azurePluginPort),
 			},
 			{
-				Name:          utils.GCP,
-				Host:          "localhost",
-				Port:          strconv.Itoa(gcpPluginPort),
-				InvDeployment: fmt.Sprintf("projects/%s", gcpProjectId),
+				Name: utils.GCP,
+				Host: "localhost",
+				Port: strconv.Itoa(gcpPluginPort),
+			},
+		},
+		Namespaces: map[string][]config.CloudDeployment{
+			"default": {
+				{
+					Name:       utils.AZURE,
+					Deployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName),
+				},
+			},
+			"other": {
+				{
+					Name:       utils.GCP,
+					Deployment: fmt.Sprintf("projects/%s", gcpProjectId),
+				},
 			},
 		},
 	}
@@ -97,7 +110,7 @@ func TestMulticloud(t *testing.T) {
 	gcpVmDescription, err := json.Marshal(gcpVmParameters)
 	gcpCreateResourceResp, err := gcpServer.CreateResource(
 		ctx,
-		&invisinetspb.ResourceDescription{Description: gcpVmDescription, Namespace: "default"},
+		&invisinetspb.ResourceDescription{Description: gcpVmDescription, Namespace: "other"},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, gcpCreateResourceResp)
@@ -132,7 +145,7 @@ func TestMulticloud(t *testing.T) {
 				Targets:   []string{"0.0.0.0/0"},
 			},
 		},
-		Namespace: "default",
+		Namespace: "other",
 	}
 	gcpAddPermitListRulesResp, err := gcpServer.AddPermitListRules(ctx, gcpVmPermitList1)
 	require.NoError(t, err)
@@ -179,7 +192,7 @@ func TestMulticloud(t *testing.T) {
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
 	gcpConnectivityTest1GcpVmEndpoint := &networkmanagementpb.Endpoint{
 		IpAddress: gcpVmIpAddress,
-		Network:   "projects/" + gcpProjectId + "/" + gcp.GetVpcUri("default"),
+		Network:   "projects/" + gcpProjectId + "/" + gcp.GetVpcUri("other"),
 		ProjectId: gcpProjectId,
 	}
 	gcpConnectivityTest1AzureVmEndpoint := &networkmanagementpb.Endpoint{
@@ -236,7 +249,7 @@ func TestMulticloud(t *testing.T) {
 				Targets:   []string{"0.0.0.0/0"},
 			},
 		},
-		Namespace: "default",
+		Namespace: "other",
 	}
 	gcpAddPermitListRules2Resp, err := gcpServer.AddPermitListRules(ctx, gcpVmPermitList2)
 	require.NoError(t, err)
@@ -281,7 +294,7 @@ func TestMulticloud(t *testing.T) {
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
 	gcpConnectivityTest2GcpVmEndpoint := &networkmanagementpb.Endpoint{
 		IpAddress: gcpVmIpAddress,
-		Network:   "projects/" + gcpProjectId + "/" + gcp.GetVpcUri("default"),
+		Network:   "projects/" + gcpProjectId + "/" + gcp.GetVpcUri("other"),
 		ProjectId: gcpProjectId,
 	}
 	gcpConnectivityTest2AzureVmEndpoint := &networkmanagementpb.Endpoint{

@@ -57,8 +57,17 @@ func (s *fakeCloudPluginServer) CreateResource(c context.Context, resource *invi
 	return &invisinetspb.CreateResourceResponse{Name: "resource_name", Uri: resource.Id}, nil
 }
 
-func (s *fakeCloudPluginServer) GetUsedAddressSpaces(c context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
-	return &invisinetspb.AddressSpaceList{AddressSpaces: []string{AddressSpaceAddress}}, nil
+func (s *fakeCloudPluginServer) GetUsedAddressSpaces(c context.Context, req *invisinetspb.GetUsedAddressSpacesRequest) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
+	resp := &invisinetspb.GetUsedAddressSpacesResponse{
+		AddressSpaceMappings: []*invisinetspb.AddressSpaceMapping{
+			{
+				AddressSpaces: []string{AddressSpaceAddress},
+				Cloud:         "fakecloud",
+				Namespace:     "fakenamespace",
+			},
+		},
+	}
+	return resp, nil
 }
 
 func (s *fakeCloudPluginServer) GetUsedAsns(c context.Context, req *invisinetspb.GetUsedAsnsRequest) (*invisinetspb.GetUsedAsnsResponse, error) {

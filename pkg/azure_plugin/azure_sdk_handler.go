@@ -508,7 +508,7 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 			}
 			defer conn.Close()
 			client := invisinetspb.NewControllerClient(conn)
-			response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: namespace})
+			response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
 			if err != nil {
 				return nil, err
 			}

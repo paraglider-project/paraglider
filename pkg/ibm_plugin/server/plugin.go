@@ -124,7 +124,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		}
 		defer conn.Close()
 		client := invisinetspb.NewControllerClient(conn)
-		resp, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: resourceDesc.Namespace})
+		resp, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
 		if err != nil {
 			return nil, err
 		}
@@ -154,47 +154,53 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 
 // GetUsedAddressSpaces returns a list of address spaces used by either user's or invisinets' sunbets,
 // for each invisinets vpc.
-func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
-	var invisinetsAddressSpaces []string
-	rInfo, err := getResourceIDInfo(deployment.Id)
-	if err != nil {
-		return nil, err
-	}
-	region := rInfo.Zone[:strings.LastIndex(rInfo.Zone, "-")]
+func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisinetspb.GetUsedAddressSpacesRequest) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
+	resp := &invisinetspb.GetUsedAddressSpacesResponse{}
+	resp.AddressSpaceMappings = make([]*invisinetspb.AddressSpaceMapping, len(req.Deployments))
+	for i, deployment := range req.Deployments {
+		resp.AddressSpaceMappings[i] = &invisinetspb.AddressSpaceMapping{
+			Cloud:     utils.IBM,
+			Namespace: deployment.Namespace,
+		}
+		rInfo, err := getResourceIDInfo(deployment.Id)
+		if err != nil {
+			return nil, err
+		}
+		region := rInfo.Zone[:strings.LastIndex(rInfo.Zone, "-")]
 
-	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupID, region)
-	if err != nil {
-		return nil, err
-	}
-	// get all VPCs in the deployment.
-	// TODO: future multi deployment support will require sending deployment id as tag, currently using static tag.
-	deploymentVpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{}, sdk.ResourceQuery{})
-	if err != nil {
-		utils.Log.Print("Failed to get invisinets tagged VPCs")
-		return nil, err
-	}
-	utils.Log.Printf("The following Invisinets VPCs were found: %+v", deploymentVpcsData)
-	// for each vpc, collect the address space of all subnets, including users'.
-	for _, vpcData := range deploymentVpcsData {
-		// Set the client on the region of the current VPC. If the client's region is
-		// different than the VPC's, it won't be detected.
-		cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupID, vpcData.Region)
+		cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupID, region)
 		if err != nil {
 			return nil, err
 		}
-		subnets, err := cloudClient.GetSubnetsInVPC(vpcData.ID)
+		// get all VPCs in the deployment.
+		// TODO: future multi deployment support will require sending deployment id as tag, currently using static tag.
+		deploymentVpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{deployment.Id}, sdk.ResourceQuery{})
 		if err != nil {
+			utils.Log.Print("Failed to get invisinets tagged VPCs")
 			return nil, err
 		}
-		for _, subnet := range subnets {
-			invisinetsAddressSpaces = append(invisinetsAddressSpaces, *subnet.Ipv4CIDRBlock)
+		utils.Log.Printf("The following Invisinets VPCs were found: %+v", deploymentVpcsData)
+		// for each vpc, collect the address space of all subnets, including users'.
+		for _, vpcData := range deploymentVpcsData {
+			// Set the client on the region of the current VPC. If the client's region is
+			// different than the VPC's, it won't be detected.
+			cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupID, vpcData.Region)
+			if err != nil {
+				return nil, err
+			}
+			subnets, err := cloudClient.GetSubnetsInVPC(vpcData.ID)
+			if err != nil {
+				return nil, err
+			}
+			for _, subnet := range subnets {
+				resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, *subnet.Ipv4CIDRBlock)
+			}
 		}
 	}
-	utils.Log.Printf("Used Address Spaces : %+v", invisinetsAddressSpaces)
 	// NOTE for devs: the current vpc service client is set to that of the last
 	// VPC inspected. if more vpc client operations are required, setup the
 	// client to the relevant region.
-	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetsAddressSpaces}, nil
+	return resp, nil
 }
 
 // GetPermitList returns security rules of security groups associated with the specified instance.

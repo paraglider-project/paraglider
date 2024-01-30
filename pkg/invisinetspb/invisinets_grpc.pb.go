@@ -49,7 +49,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CloudPluginClient interface {
-	GetUsedAddressSpaces(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*AddressSpaceList, error)
+	GetUsedAddressSpaces(ctx context.Context, in *GetUsedAddressSpacesRequest, opts ...grpc.CallOption) (*GetUsedAddressSpacesResponse, error)
 	GetUsedAsns(ctx context.Context, in *GetUsedAsnsRequest, opts ...grpc.CallOption) (*GetUsedAsnsResponse, error)
 	GetUsedBgpPeeringIpAddresses(ctx context.Context, in *GetUsedBgpPeeringIpAddressesRequest, opts ...grpc.CallOption) (*GetUsedBgpPeeringIpAddressesResponse, error)
 	CreateResource(ctx context.Context, in *ResourceDescription, opts ...grpc.CallOption) (*CreateResourceResponse, error)
@@ -68,8 +68,8 @@ func NewCloudPluginClient(cc grpc.ClientConnInterface) CloudPluginClient {
 	return &cloudPluginClient{cc}
 }
 
-func (c *cloudPluginClient) GetUsedAddressSpaces(ctx context.Context, in *InvisinetsDeployment, opts ...grpc.CallOption) (*AddressSpaceList, error) {
-	out := new(AddressSpaceList)
+func (c *cloudPluginClient) GetUsedAddressSpaces(ctx context.Context, in *GetUsedAddressSpacesRequest, opts ...grpc.CallOption) (*GetUsedAddressSpacesResponse, error) {
+	out := new(GetUsedAddressSpacesResponse)
 	err := c.cc.Invoke(ctx, CloudPlugin_GetUsedAddressSpaces_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -153,7 +153,7 @@ func (c *cloudPluginClient) CreateVpnConnections(ctx context.Context, in *Create
 // All implementations must embed UnimplementedCloudPluginServer
 // for forward compatibility
 type CloudPluginServer interface {
-	GetUsedAddressSpaces(context.Context, *InvisinetsDeployment) (*AddressSpaceList, error)
+	GetUsedAddressSpaces(context.Context, *GetUsedAddressSpacesRequest) (*GetUsedAddressSpacesResponse, error)
 	GetUsedAsns(context.Context, *GetUsedAsnsRequest) (*GetUsedAsnsResponse, error)
 	GetUsedBgpPeeringIpAddresses(context.Context, *GetUsedBgpPeeringIpAddressesRequest) (*GetUsedBgpPeeringIpAddressesResponse, error)
 	CreateResource(context.Context, *ResourceDescription) (*CreateResourceResponse, error)
@@ -169,7 +169,7 @@ type CloudPluginServer interface {
 type UnimplementedCloudPluginServer struct {
 }
 
-func (UnimplementedCloudPluginServer) GetUsedAddressSpaces(context.Context, *InvisinetsDeployment) (*AddressSpaceList, error) {
+func (UnimplementedCloudPluginServer) GetUsedAddressSpaces(context.Context, *GetUsedAddressSpacesRequest) (*GetUsedAddressSpacesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUsedAddressSpaces not implemented")
 }
 func (UnimplementedCloudPluginServer) GetUsedAsns(context.Context, *GetUsedAsnsRequest) (*GetUsedAsnsResponse, error) {
@@ -210,7 +210,7 @@ func RegisterCloudPluginServer(s grpc.ServiceRegistrar, srv CloudPluginServer) {
 }
 
 func _CloudPlugin_GetUsedAddressSpaces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InvisinetsDeployment)
+	in := new(GetUsedAddressSpacesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -222,7 +222,7 @@ func _CloudPlugin_GetUsedAddressSpaces_Handler(srv interface{}, ctx context.Cont
 		FullMethod: CloudPlugin_GetUsedAddressSpaces_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CloudPluginServer).GetUsedAddressSpaces(ctx, req.(*InvisinetsDeployment))
+		return srv.(CloudPluginServer).GetUsedAddressSpaces(ctx, req.(*GetUsedAddressSpacesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -430,9 +430,9 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ControllerClient interface {
-	FindUnusedAddressSpace(ctx context.Context, in *Namespace, opts ...grpc.CallOption) (*AddressSpace, error)
-	GetUsedAddressSpaces(ctx context.Context, in *Namespace, opts ...grpc.CallOption) (*AddressSpaceMappingList, error)
-	FindUnusedAsn(ctx context.Context, in *FindUnusedAsnRequest, opts ...grpc.CallOption) (*FindUnusedAsnResponse, error)
+	FindUnusedAddressSpace(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AddressSpace, error)
+	GetUsedAddressSpaces(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*GetUsedAddressSpacesResponse, error)
+	FindUnusedAsn(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*FindUnusedAsnResponse, error)
 	ConnectClouds(ctx context.Context, in *ConnectCloudsRequest, opts ...grpc.CallOption) (*BasicResponse, error)
 }
 
@@ -444,7 +444,7 @@ func NewControllerClient(cc grpc.ClientConnInterface) ControllerClient {
 	return &controllerClient{cc}
 }
 
-func (c *controllerClient) FindUnusedAddressSpace(ctx context.Context, in *Namespace, opts ...grpc.CallOption) (*AddressSpace, error) {
+func (c *controllerClient) FindUnusedAddressSpace(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AddressSpace, error) {
 	out := new(AddressSpace)
 	err := c.cc.Invoke(ctx, Controller_FindUnusedAddressSpace_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -453,8 +453,8 @@ func (c *controllerClient) FindUnusedAddressSpace(ctx context.Context, in *Names
 	return out, nil
 }
 
-func (c *controllerClient) GetUsedAddressSpaces(ctx context.Context, in *Namespace, opts ...grpc.CallOption) (*AddressSpaceMappingList, error) {
-	out := new(AddressSpaceMappingList)
+func (c *controllerClient) GetUsedAddressSpaces(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*GetUsedAddressSpacesResponse, error) {
+	out := new(GetUsedAddressSpacesResponse)
 	err := c.cc.Invoke(ctx, Controller_GetUsedAddressSpaces_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -462,7 +462,7 @@ func (c *controllerClient) GetUsedAddressSpaces(ctx context.Context, in *Namespa
 	return out, nil
 }
 
-func (c *controllerClient) FindUnusedAsn(ctx context.Context, in *FindUnusedAsnRequest, opts ...grpc.CallOption) (*FindUnusedAsnResponse, error) {
+func (c *controllerClient) FindUnusedAsn(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*FindUnusedAsnResponse, error) {
 	out := new(FindUnusedAsnResponse)
 	err := c.cc.Invoke(ctx, Controller_FindUnusedAsn_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -484,9 +484,9 @@ func (c *controllerClient) ConnectClouds(ctx context.Context, in *ConnectCloudsR
 // All implementations must embed UnimplementedControllerServer
 // for forward compatibility
 type ControllerServer interface {
-	FindUnusedAddressSpace(context.Context, *Namespace) (*AddressSpace, error)
-	GetUsedAddressSpaces(context.Context, *Namespace) (*AddressSpaceMappingList, error)
-	FindUnusedAsn(context.Context, *FindUnusedAsnRequest) (*FindUnusedAsnResponse, error)
+	FindUnusedAddressSpace(context.Context, *Empty) (*AddressSpace, error)
+	GetUsedAddressSpaces(context.Context, *Empty) (*GetUsedAddressSpacesResponse, error)
+	FindUnusedAsn(context.Context, *Empty) (*FindUnusedAsnResponse, error)
 	ConnectClouds(context.Context, *ConnectCloudsRequest) (*BasicResponse, error)
 	mustEmbedUnimplementedControllerServer()
 }
@@ -495,13 +495,13 @@ type ControllerServer interface {
 type UnimplementedControllerServer struct {
 }
 
-func (UnimplementedControllerServer) FindUnusedAddressSpace(context.Context, *Namespace) (*AddressSpace, error) {
+func (UnimplementedControllerServer) FindUnusedAddressSpace(context.Context, *Empty) (*AddressSpace, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindUnusedAddressSpace not implemented")
 }
-func (UnimplementedControllerServer) GetUsedAddressSpaces(context.Context, *Namespace) (*AddressSpaceMappingList, error) {
+func (UnimplementedControllerServer) GetUsedAddressSpaces(context.Context, *Empty) (*GetUsedAddressSpacesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUsedAddressSpaces not implemented")
 }
-func (UnimplementedControllerServer) FindUnusedAsn(context.Context, *FindUnusedAsnRequest) (*FindUnusedAsnResponse, error) {
+func (UnimplementedControllerServer) FindUnusedAsn(context.Context, *Empty) (*FindUnusedAsnResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindUnusedAsn not implemented")
 }
 func (UnimplementedControllerServer) ConnectClouds(context.Context, *ConnectCloudsRequest) (*BasicResponse, error) {
@@ -521,7 +521,7 @@ func RegisterControllerServer(s grpc.ServiceRegistrar, srv ControllerServer) {
 }
 
 func _Controller_FindUnusedAddressSpace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Namespace)
+	in := new(Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -533,13 +533,13 @@ func _Controller_FindUnusedAddressSpace_Handler(srv interface{}, ctx context.Con
 		FullMethod: Controller_FindUnusedAddressSpace_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ControllerServer).FindUnusedAddressSpace(ctx, req.(*Namespace))
+		return srv.(ControllerServer).FindUnusedAddressSpace(ctx, req.(*Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Controller_GetUsedAddressSpaces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Namespace)
+	in := new(Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -551,13 +551,13 @@ func _Controller_GetUsedAddressSpaces_Handler(srv interface{}, ctx context.Conte
 		FullMethod: Controller_GetUsedAddressSpaces_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ControllerServer).GetUsedAddressSpaces(ctx, req.(*Namespace))
+		return srv.(ControllerServer).GetUsedAddressSpaces(ctx, req.(*Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Controller_FindUnusedAsn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FindUnusedAsnRequest)
+	in := new(Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -569,7 +569,7 @@ func _Controller_FindUnusedAsn_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: Controller_FindUnusedAsn_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ControllerServer).FindUnusedAsn(ctx, req.(*FindUnusedAsnRequest))
+		return srv.(ControllerServer).FindUnusedAsn(ctx, req.(*Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }

@@ -447,7 +447,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 	}
 	defer controllerConn.Close()
 	controllerClient := invisinetspb.NewControllerClient(controllerConn)
-	usedAddressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: permitList.Namespace})
+	getUsedAddressSpacesResp, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
@@ -462,7 +462,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 		}
 
 		// Check and create multicloud connections as necessary
-		err = utils.CheckAndConnectClouds(utils.GCP, subnetworkAddressSpace, permitList.Namespace, ctx, permitListRule, usedAddressSpaceMappings, controllerClient)
+		err = utils.CheckAndConnectClouds(utils.GCP, subnetworkAddressSpace, permitList.Namespace, ctx, permitListRule, getUsedAddressSpacesResp.AddressSpaceMappings, controllerClient)
 		if err != nil {
 			return nil, fmt.Errorf("unable to check and connect clouds: %w", err)
 		}
@@ -691,7 +691,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		}
 		defer conn.Close()
 		client := invisinetspb.NewControllerClient(conn)
-		response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: resourceDescription.Namespace})
+		response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
 		if err != nil {
 			return nil, fmt.Errorf("unable to find unused address space: %w", err)
 		}
@@ -788,25 +788,31 @@ func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescriptio
 	return s._CreateResource(ctx, resourceDescription, instancesClient, networksClient, subnetworksClient, firewallsClient)
 }
 
-func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsDeployment *invisinetspb.InvisinetsDeployment, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.AddressSpaceList, error) {
-	project := parseGCPURL(invisinetsDeployment.Id)["projects"]
-	addressSpaceList := &invisinetspb.AddressSpaceList{}
-
-	nsVpcName := getVpcName(invisinetsDeployment.Namespace)
-	getNetworkReq := &computepb.GetNetworkRequest{
-		Network: nsVpcName,
-		Project: project,
-	}
-	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
-	if err != nil {
-		if isErrorNotFound(err) {
-			return addressSpaceList, nil
-		} else {
-			return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
+func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *invisinetspb.GetUsedAddressSpacesRequest, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
+	resp := &invisinetspb.GetUsedAddressSpacesResponse{}
+	resp.AddressSpaceMappings = make([]*invisinetspb.AddressSpaceMapping, len(req.Deployments))
+	for i, deployment := range req.Deployments {
+		resp.AddressSpaceMappings[i] = &invisinetspb.AddressSpaceMapping{
+			Cloud:     utils.GCP,
+			Namespace: deployment.Namespace,
 		}
-	} else {
-		addressSpaceList.AddressSpaces = make([]string, len(getNetworkResp.Subnetworks))
-		for i, subnetURL := range getNetworkResp.Subnetworks {
+		project := parseGCPURL(deployment.Id)["projects"]
+
+		nsVpcName := getVpcName(deployment.Namespace)
+		getNetworkReq := &computepb.GetNetworkRequest{
+			Network: nsVpcName,
+			Project: project,
+		}
+		getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
+		if err != nil {
+			if isErrorNotFound(err) {
+				continue
+			} else {
+				return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
+			}
+		}
+		resp.AddressSpaceMappings[i].AddressSpaces = make([]string, len(getNetworkResp.Subnetworks))
+		for j, subnetURL := range getNetworkResp.Subnetworks {
 			parsedSubnetURL := parseGCPURL(subnetURL)
 			getSubnetworkRequest := &computepb.GetSubnetworkRequest{
 				Project:    project,
@@ -817,14 +823,13 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsD
 			if err != nil {
 				return nil, fmt.Errorf("failed to get invisinets subnetwork: %w", err)
 			}
-			addressSpaceList.AddressSpaces[i] = *getSubnetworkResp.IpCidrRange
+			resp.AddressSpaceMappings[i].AddressSpaces[j] = *getSubnetworkResp.IpCidrRange
 		}
 	}
-
-	return addressSpaceList, nil
+	return resp, nil
 }
 
-func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, invisinetsDeployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
+func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisinetspb.GetUsedAddressSpacesRequest) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
 	networksClient, err := compute.NewNetworksRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewNetworksRESTClient: %w", err)
@@ -837,27 +842,30 @@ func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, invisinetsDe
 	}
 	defer subnetworksClient.Close()
 
-	return s._GetUsedAddressSpaces(ctx, invisinetsDeployment, networksClient, subnetworksClient)
+	return s._GetUsedAddressSpaces(ctx, req, networksClient, subnetworksClient)
 }
 
 func (s *GCPPluginServer) _GetUsedAsns(ctx context.Context, req *invisinetspb.GetUsedAsnsRequest, routersClient *compute.RoutersClient) (*invisinetspb.GetUsedAsnsResponse, error) {
-	project := parseGCPURL(req.Deployment.Id)["projects"]
+	resp := &invisinetspb.GetUsedAsnsResponse{}
+	for _, deployment := range req.Deployments {
+		project := parseGCPURL(deployment.Id)["projects"]
 
-	getRouterReq := &computepb.GetRouterRequest{
-		Project: project,
-		Region:  vpnRegion,
-		Router:  getRouterName(req.Deployment.Namespace),
-	}
-	getRouterResp, err := routersClient.Get(ctx, getRouterReq)
-	if err != nil {
-		if isErrorNotFound(err) {
-			return &invisinetspb.GetUsedAsnsResponse{}, nil
-		} else {
-			return nil, fmt.Errorf("unable to get router: %w", err)
+		getRouterReq := &computepb.GetRouterRequest{
+			Project: project,
+			Region:  vpnRegion,
+			Router:  getRouterName(deployment.Namespace),
 		}
+		getRouterResp, err := routersClient.Get(ctx, getRouterReq)
+		if err != nil {
+			if isErrorNotFound(err) {
+				continue
+			} else {
+				return nil, fmt.Errorf("unable to get router: %w", err)
+			}
+		}
+		resp.Asns = append(resp.Asns, *getRouterResp.Bgp.Asn)
 	}
-
-	return &invisinetspb.GetUsedAsnsResponse{Asns: []uint32{*getRouterResp.Bgp.Asn}}, nil
+	return resp, nil
 }
 
 func (s *GCPPluginServer) GetUsedAsns(ctx context.Context, req *invisinetspb.GetUsedAsnsRequest) (*invisinetspb.GetUsedAsnsResponse, error) {
@@ -869,26 +877,26 @@ func (s *GCPPluginServer) GetUsedAsns(ctx context.Context, req *invisinetspb.Get
 }
 
 func (s *GCPPluginServer) _GetUsedBgpPeeringIpAddresses(ctx context.Context, req *invisinetspb.GetUsedBgpPeeringIpAddressesRequest, routersClient *compute.RoutersClient) (*invisinetspb.GetUsedBgpPeeringIpAddressesResponse, error) {
-	project := parseGCPURL(req.Deployment.Id)["projects"]
-
 	resp := &invisinetspb.GetUsedBgpPeeringIpAddressesResponse{}
-	getRouterReq := &computepb.GetRouterRequest{
-		Project: project,
-		Region:  vpnRegion,
-		Router:  getRouterName(req.Deployment.Namespace),
-	}
-	getRouterResp, err := routersClient.Get(ctx, getRouterReq)
-	if err != nil {
-		if isErrorNotFound(err) {
-			return resp, nil
-		} else {
-			return nil, fmt.Errorf("unable to get router: %w", err)
-		}
-	}
+	for _, deployment := range req.Deployments {
+		project := parseGCPURL(deployment.Id)["projects"]
 
-	resp.IpAddresses = make([]string, len(getRouterResp.BgpPeers))
-	for i, bgpPeer := range getRouterResp.BgpPeers {
-		resp.IpAddresses[i] = *bgpPeer.IpAddress
+		getRouterReq := &computepb.GetRouterRequest{
+			Project: project,
+			Region:  vpnRegion,
+			Router:  getRouterName(deployment.Namespace),
+		}
+		getRouterResp, err := routersClient.Get(ctx, getRouterReq)
+		if err != nil {
+			if isErrorNotFound(err) {
+				continue
+			} else {
+				return nil, fmt.Errorf("unable to get router: %w", err)
+			}
+		}
+		for _, bgpPeer := range getRouterResp.BgpPeers {
+			resp.IpAddresses = append(resp.IpAddresses, *bgpPeer.IpAddress)
+		}
 	}
 	return resp, nil
 }
@@ -932,7 +940,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 	}
 	defer conn.Close()
 	client := invisinetspb.NewControllerClient(conn)
-	findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{Namespace: req.Deployment.Namespace})
+	findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &invisinetspb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to find unused address space: %w", err)
 	}
