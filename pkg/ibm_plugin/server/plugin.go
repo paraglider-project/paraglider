@@ -342,7 +342,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 			return nil, err
 		}
 		// avoid adding duplicate rules (when hash values match)
-		if _, ruleExists := rulesHashValues[ruleHashValue]; !ruleExists {
+		if !rulesHashValues[ruleHashValue]{
 			err := cloudClient.AddSecurityGroupRule(ibmRule)
 			if err != nil {
 				return nil, err
