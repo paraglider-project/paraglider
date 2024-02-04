@@ -135,7 +135,7 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	}
 
 	s := &ibmPluginServer{
-		frontendServerAddr: fakeControllerServerAddr,
+		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient:        make(map[string]*sdk.CloudClient)}
 
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
@@ -180,7 +180,7 @@ func TestCreateResourceExistingVPC(t *testing.T) {
 	}
 
 	s := &ibmPluginServer{
-		frontendServerAddr: fakeControllerServerAddr,
+		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient:        make(map[string]*sdk.CloudClient)}
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)

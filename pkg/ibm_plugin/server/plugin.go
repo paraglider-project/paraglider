@@ -33,13 +33,10 @@ import (
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
-// FrontendServerAddr is exported temporarily until a common way is defined
-var FrontendServerAddr string
-
 type ibmPluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
 	cloudClient        map[string]*sdk.CloudClient
-	frontendServerAddr string
+	orchestratorServerAddr string
 }
 
 func (s *ibmPluginServer) setupCloudClient(resourceGroupName, region string) (*sdk.CloudClient, error) {
@@ -122,7 +119,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		utils.Log.Printf("No Subnets found in the zone, getting address space from frontend")
 
 		// Find unused address space and create a subnet in it.
-		conn, err := grpc.Dial(s.frontendServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, err
 		}
@@ -407,22 +404,26 @@ func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 }
 
 // Setup starts up the plugin server and stores the frontend server address.
-func Setup(port int) {
+func Setup(port int, orchestratorServerAddr string) *ibmPluginServer {
 	pluginServerAddress := "localhost"
 	lis, err := net.Listen("tcp", fmt.Sprintf("%v:%d", pluginServerAddress, port))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
-	ibmServer := ibmPluginServer{
+	ibmServer := &ibmPluginServer{
 		cloudClient:        make(map[string]*sdk.CloudClient),
-		frontendServerAddr: fmt.Sprintf("%v:%v", FrontendServerAddr, port),
+		orchestratorServerAddr: orchestratorServerAddr,
+
 	}
-	invisinetspb.RegisterCloudPluginServer(grpcServer, &ibmServer)
-	fmt.Printf("Starting plugin server on: %v:%v", pluginServerAddress, port)
-	fmt.Printf("Frontend Server address: %s", FrontendServerAddr)
-	err = grpcServer.Serve(lis)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	invisinetspb.RegisterCloudPluginServer(grpcServer, ibmServer)
+	fmt.Printf("\nStarting plugin server on: %v:%v\n", pluginServerAddress, port)
+	fmt.Printf("orchestrator Server address: %s\n", orchestratorServerAddr)
+
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
+	return ibmServer
 }
