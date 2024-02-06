@@ -21,14 +21,14 @@ package client
 import (
 	"testing"
 
-	fake "github.com/NetSys/invisinets/pkg/fake"
+	fake "github.com/NetSys/invisinets/pkg/fake/controller/rest"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetPermitList(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	resourceName := "resourceName"
@@ -39,8 +39,8 @@ func TestGetPermitList(t *testing.T) {
 }
 
 func TestAddPermitListRules(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	err := client.AddPermitListRules(fake.Namespace, fake.CloudName, "resourceName", fake.GetFakePermitListRules())
@@ -49,8 +49,8 @@ func TestAddPermitListRules(t *testing.T) {
 }
 
 func TestDeletePermitListRules(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	err := client.DeletePermitListRules(fake.Namespace, fake.CloudName, "resourceName", fake.GetFakePermitListRuleNames())
@@ -59,8 +59,8 @@ func TestDeletePermitListRules(t *testing.T) {
 }
 
 func TestCreateResource(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	resource, err := client.CreateResource(fake.Namespace, fake.CloudName, "resourceName", &invisinetspb.ResourceDescriptionString{Id: "uri"})
@@ -70,8 +70,8 @@ func TestCreateResource(t *testing.T) {
 }
 
 func TestGetTag(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	tagName := "tag"
@@ -82,8 +82,8 @@ func TestGetTag(t *testing.T) {
 }
 
 func TestResolveTag(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	tagName := "tag"
@@ -95,8 +95,8 @@ func TestResolveTag(t *testing.T) {
 }
 
 func TestSetTag(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	tagName := "tag"
@@ -107,8 +107,8 @@ func TestSetTag(t *testing.T) {
 }
 
 func TestDeleteTag(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	tagName := "tag"
@@ -118,8 +118,8 @@ func TestDeleteTag(t *testing.T) {
 }
 
 func TestDeleteTagMembers(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	tagName := "tag"
@@ -128,9 +128,19 @@ func TestDeleteTagMembers(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestListNamespaces(t *testing.T) {
-	s := fake.FakeFrontendServer{}
-	controllerAddress := s.SetupFakeFrontendServer()
+func TestGetNamespace(t *testing.T) {
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
+	client := Client{ControllerAddress: controllerAddress}
+
+	namespace, err := client.GetNamespace()
+
+	assert.Nil(t, err)
+}
+
+func TestSetNamespace(t *testing.T) {
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
 	namespaces, err := client.ListNamespaces()

@@ -73,7 +73,7 @@ func (c *CloudClient) createSecurityGroup(
 
 	err = c.attachTag(sg.CRN, sgTags)
 	if err != nil {
-		utils.Log.Print("Failed to tag VPC with error:", err)
+		utils.Log.Print("Failed to tag SG with error:", err)
 		return nil, err
 	}
 	return sg, nil

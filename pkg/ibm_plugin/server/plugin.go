@@ -90,7 +90,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	// Logic : Check if there are VPCs in the region,
 	// Check if there is a subnet in that requested zone, Otherwise find unused address space and create a subnet in that address space.
 
-	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{},
+	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{resourceDesc.Namespace},
 		sdk.ResourceQuery{Region: region})
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	if len(vpcsData) == 0 {
 		// Create a VPC since there are no VPCs
 		utils.Log.Printf("No VPCs found in the region, will be creating.")
-		vpc, err := cloudClient.CreateVPC()
+		vpc, err := cloudClient.CreateVPC([]string{resourceDesc.Namespace})
 		if err != nil {
 			return nil, err
 		}
@@ -109,7 +109,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	}
 
 	utils.Log.Printf("Using VPC ID : %s", vpcID)
-	requiredTags := []string{vpcID}
+	requiredTags := []string{vpcID, resourceDesc.Namespace}
 	subnetsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SUBNET, requiredTags,
 		sdk.ResourceQuery{Zone: rInfo.Zone})
 	if err != nil {
@@ -129,7 +129,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 			return nil, err
 		}
 		utils.Log.Printf("Using %s address space", resp.Address)
-		subnet, err := cloudClient.CreateSubnet(vpcID, rInfo.Zone, resp.Address)
+		subnet, err := cloudClient.CreateSubnet(vpcID, rInfo.Zone, resp.Address, requiredTags)
 		if err != nil {
 			return nil, err
 		}
@@ -139,7 +139,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		subnetID = subnetsData[0].ID
 	}
 
-	vm, err := cloudClient.CreateInstance(vpcID, subnetID, &resFields)
+	vm, err := cloudClient.CreateInstance(vpcID, subnetID, &resFields, requiredTags)
 	if err != nil {
 		return nil, err
 	}
@@ -210,6 +210,13 @@ func (s *ibmPluginServer) GetPermitList(ctx context.Context, req *invisinetspb.G
 		return nil, err
 	}
 
+	// verify specified instance match the specified namespace
+	if isInNamespace, err := cloudClient.IsInstanceInNamespace(
+		rInfo.ResourceID, req.Namespace, region); !isInNamespace || err != nil {
+		return nil, fmt.Errorf("Specified instance: %v doesn't exist in namespace: %v.",
+			rInfo.ResourceID, req.Namespace)
+	}
+
 	securityGroupID, err := cloudClient.GetInstanceSecurityGroupID(rInfo.ResourceID)
 	if err != nil {
 		return nil, err
@@ -241,11 +248,19 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 		return nil, err
 	}
 
+	// verify specified instance match the specified namespace
+	if isInNamespace, err := cloudClient.IsInstanceInNamespace(
+		rInfo.ResourceID, req.Namespace, region); !isInNamespace || err != nil {
+		return nil, fmt.Errorf("Specified instance: %v doesn't exist in namespace: %v.",
+			rInfo.ResourceID, req.Namespace)
+	}
+
 	// Get the VM ID from the resource ID (typically refers to VM Name)
-	vmID, err := cloudClient.GetInstanceID(rInfo.ResourceID)
+	vmData, err := cloudClient.GetInstanceData(rInfo.ResourceID)
 	if err != nil {
 		return nil, err
 	}
+	vmID := *vmData.ID
 
 	invisinetsSgsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
 	if err != nil {
@@ -348,11 +363,19 @@ func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 		return nil, err
 	}
 
+	// verify specified instance match the specified namespace
+	if isInNamespace, err := cloudClient.IsInstanceInNamespace(
+		rInfo.ResourceID, req.Namespace, region); !isInNamespace || err != nil {
+		return nil, fmt.Errorf("Specified instance: %v doesn't exist in namespace: %v.",
+			rInfo.ResourceID, req.Namespace)
+	}
+
 	// Get the VM ID from the resource ID (typically refers to VM Name)
-	vmID, err := cloudClient.GetInstanceID(rInfo.ResourceID)
+	vmData, err := cloudClient.GetInstanceData(rInfo.ResourceID)
 	if err != nil {
 		return nil, err
 	}
+	vmID := *vmData.ID
 
 	invisinetsSgsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
 	if err != nil {

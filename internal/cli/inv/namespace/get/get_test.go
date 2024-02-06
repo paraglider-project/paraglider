@@ -23,10 +23,14 @@ import (
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	fake "github.com/NetSys/invisinets/pkg/fake/controller/rest"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNamespaceGetExecute(t *testing.T) {
+	server := &fake.FakeOrchestratorRESTServer{}
+	settings.ServerAddr = server.SetupFakeOrchestratorRESTServer()
+
 	cmd, executor := NewCommand()
 	var output bytes.Buffer
 	executor.writer = &output

@@ -31,8 +31,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
-	fake "github.com/NetSys/invisinets/pkg/fake"
+	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/orchestrator"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -157,8 +158,8 @@ func (m *mockAzureSDKHandler) CreateVirtualMachine(ctx context.Context, paramete
 	return vm.(*armcompute.VirtualMachine), args.Error(1)
 }
 
-func (m *mockAzureSDKHandler) GetInvisinetsVnet(ctx context.Context, prefix string, location string, namespace string, frontendAddr string) (*armnetwork.VirtualNetwork, error) {
-	args := m.Called(ctx, prefix, location, namespace, frontendAddr)
+func (m *mockAzureSDKHandler) GetInvisinetsVnet(ctx context.Context, prefix string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
+	args := m.Called(ctx, prefix, location, namespace, orchestratorAddr)
 	vnet := args.Get(0)
 	if vnet == nil {
 		return nil, args.Error(1)
@@ -328,7 +329,7 @@ func setupAzurePluginServer() (*azurePluginServer, *mockAzureSDKHandler, context
 	// Create a mock implementation of the AzureSDKHandler interface
 	var mockAzureHandler AzureSDKHandler = &mockAzureSDKHandler{}
 	server.azureHandler = mockAzureHandler
-	server.frontendServerAddr = "fakecontrollerserveraddr"
+	server.orchestratorServerAddr = "fakecontrollerserveraddr"
 
 	// Perform a type requireion to convert the AzureSDKHandler interface value to a *mockAzureSDKHandler concrete value, allowing access to methods and fields specific to the mockAzureSDKHandler type.
 	concreteMockAzureHandler := mockAzureHandler.(*mockAzureSDKHandler)
@@ -366,7 +367,7 @@ func TestCreateResource(t *testing.T) {
 		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("GetInvisinetsVnet", ctx, vnetName, testLocation, namespace, server.frontendServerAddr).Return(&armnetwork.VirtualNetwork{
+		mockAzureHandler.On("GetInvisinetsVnet", ctx, vnetName, testLocation, namespace, server.orchestratorServerAddr).Return(&armnetwork.VirtualNetwork{
 			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 				Subnets: []*armnetwork.Subnet{
 					{
@@ -570,11 +571,11 @@ func TestGetPermitList(t *testing.T) {
 }
 
 func TestAddPermitListRules(t *testing.T) {
-	fakeControllerServer, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.AZURE)
+	fakeOrchestratorServer, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fakeControllerServer.Counter = 1
+	fakeOrchestratorServer.Counter = 1
 
 	fakeResource := getFakeVmUri()
 	fakePlRules, err := getFakeNewPermitListRules()
@@ -629,7 +630,7 @@ func TestAddPermitListRules(t *testing.T) {
 		}
 
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.frontendServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockHandlerSetup(mockAzureHandler)
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 		mockGetVnetAndAddressSpaces(mockAzureHandler, ctx, getVnetName(*fakeNic.Location, defaultNamespace), getInvisinetsNamespacePrefix(defaultNamespace), fakeVnet, fakeAddressList)
@@ -652,7 +653,7 @@ func TestAddPermitListRules(t *testing.T) {
 	// Failed AddPermitListRules
 	t.Run("AddPermitListRules: Failure while getting NSG", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.frontendServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockHandlerSetup(mockAzureHandler)
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, nil, fakeNic)
 		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
@@ -664,7 +665,7 @@ func TestAddPermitListRules(t *testing.T) {
 	// Failed during GetAzureCredentials
 	t.Run("AddPermitListRules: Failure while getting azure credential", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.frontendServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("error while getting azure credentials"))
 		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
 		require.Error(t, err)
@@ -675,7 +676,7 @@ func TestAddPermitListRules(t *testing.T) {
 	// Failed while getting NIC
 	t.Run("AddPermitListRules: Failure while getting NIC", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.frontendServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockHandlerSetup(mockAzureHandler)
 		mockAzureHandler.On("GetResourceNIC", ctx, fakeResource).Return(nil, fmt.Errorf("error while getting NIC"))
 		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
@@ -687,7 +688,7 @@ func TestAddPermitListRules(t *testing.T) {
 	// Failed while getting nsgName
 	t.Run("AddPermitListRules: Failure while getting NSG Name", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.frontendServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockHandlerSetup(mockAzureHandler)
 		mockAzureHandler.On("GetResourceNIC", ctx, fakeResource).Return(fakeNic, nil)
 		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return("", fmt.Errorf("error while getting nsgName"))
@@ -697,10 +698,25 @@ func TestAddPermitListRules(t *testing.T) {
 		require.Nil(t, resp)
 	})
 
-	// Failure while creting the nsg rule in azure
+	// Test 6: Failure getting pl rule from nsg rule
+	t.Run("AddPermitListRules: Failure when getting pl rule", func(t *testing.T) {
+		server, mockAzureHandler, ctx := setupAzurePluginServer()
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
+		mockHandlerSetup(mockAzureHandler)
+		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakePl.GetAssociatedResource(), fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
+		mockAzureHandler.On("GetPermitListRuleFromNSGRule", mock.Anything).Return(nil, fmt.Errorf("error while getting permit list rule"))
+
+		resp, err := server.AddPermitListRules(ctx, fakePl)
+		require.Error(t, err)
+		require.NotNil(t, err)
+		require.Nil(t, resp)
+
+	})
+
+	// Test 7: Failure while creting the nsg rule in azure
 	t.Run("AddPermitListRules: Failure when creating nsg rule", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.frontendServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockHandlerSetup(mockAzureHandler)
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 		mockGetVnetAndAddressSpaces(mockAzureHandler, ctx, getVnetName(*fakeNic.Location, defaultNamespace), getInvisinetsNamespacePrefix(defaultNamespace), fakeVnet, fakeAddressList)
@@ -721,7 +737,7 @@ func TestAddPermitListRules(t *testing.T) {
 	// Fail due to resource being in different namespace
 	t.Run("AddPermitListRules: Fail due to mismatching namespace", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.frontendServerAddr = fakeControllerServerAddr
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		// Set up mock behavior for the Azure SDK handler
 		mockHandlerSetup(mockAzureHandler)
@@ -868,6 +884,45 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	assert.Equal(t, validAddressSpace, addressList.AddressSpaces[0])
 }
 
+func TestGetUsedAsns(t *testing.T) {
+	server, mockAzureHandler, ctx := setupAzurePluginServer()
+	mockHandlerSetup(mockAzureHandler)
+	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
+		&armnetwork.VirtualNetworkGateway{Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{BgpSettings: &armnetwork.BgpSettings{Asn: to.Ptr(int64(64512))}}},
+		nil,
+	)
+
+	usedAsnsExpected := []uint32{64512}
+	resp, err := server.GetUsedAsns(ctx, &invisinetspb.GetUsedAsnsRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace}})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.ElementsMatch(t, usedAsnsExpected, resp.Asns)
+}
+
+func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
+	server, mockAzureHandler, ctx := setupAzurePluginServer()
+	mockHandlerSetup(mockAzureHandler)
+	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
+		&armnetwork.VirtualNetworkGateway{
+			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
+				BgpSettings: &armnetwork.BgpSettings{
+					BgpPeeringAddresses: []*armnetwork.IPConfigurationBgpPeeringAddress{
+						{CustomBgpIPAddresses: []*string{to.Ptr("169.254.21.1")}},
+						{CustomBgpIPAddresses: []*string{to.Ptr("169.254.22.1")}},
+					},
+				},
+			},
+		},
+		nil,
+	)
+
+	usedBgpPeeringIpAddressExpected := []string{"169.254.21.1", "169.254.22.1"}
+	resp, err := server.GetUsedBgpPeeringIpAddresses(ctx, &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace}})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.ElementsMatch(t, usedBgpPeeringIpAddressExpected, resp.IpAddresses)
+}
+
 func TestGetAndCheckResourceNamespace(t *testing.T) {
 	fakeNic := getFakeNIC()
 	resourceID := "resourceID"
@@ -980,7 +1035,12 @@ func TestCheckAndCreatePeering(t *testing.T) {
 }
 
 func TestCreateVpnGateway(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
+	if err != nil {
+		t.Fatal(err)
+	}
 	server, mockAzureHandler, ctx := setupAzurePluginServer()
+	server.orchestratorServerAddr = fakeControllerServerAddr
 	mockHandlerSetup(mockAzureHandler)
 
 	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
@@ -988,26 +1048,24 @@ func TestCreateVpnGateway(t *testing.T) {
 		&azcore.ResponseError{StatusCode: http.StatusNotFound},
 	)
 
-	fakePublicIPAddresses := []string{"172.178.88.1", "172.178.88.2"}
-	for i := 0; i < vpnNumConnections; i++ {
-		vpnGatewayIPAddressName := getVPNGatewayIPAddressName(defaultNamespace, i)
-		mockAzureHandler.On("GetPublicIPAddress", ctx, vpnGatewayIPAddressName).Return(
-			nil,
-			&azcore.ResponseError{StatusCode: http.StatusNotFound},
-		)
-		mockAzureHandler.On("CreatePublicIPAddress", ctx, vpnGatewayIPAddressName, mock.Anything).Return(
-			&armnetwork.PublicIPAddress{
-				ID: to.Ptr(fmt.Sprintf("public-ip-address-%d", i)),
-				Properties: &armnetwork.PublicIPAddressPropertiesFormat{
-					IPAddress: to.Ptr(fakePublicIPAddresses[i]),
-				},
+	fakePublicIpAddress := "172.178.88.1"
+	vpnGatewayIPAddressName := getVPNGatewayIPAddressName(defaultNamespace, 0)
+	mockAzureHandler.On("GetPublicIPAddress", ctx, vpnGatewayIPAddressName).Return(
+		nil,
+		&azcore.ResponseError{StatusCode: http.StatusNotFound},
+	)
+	mockAzureHandler.On("CreatePublicIPAddress", ctx, vpnGatewayIPAddressName, mock.Anything).Return(
+		&armnetwork.PublicIPAddress{
+			ID: to.Ptr("public-ip-address-%0"),
+			Properties: &armnetwork.PublicIPAddressPropertiesFormat{
+				IPAddress: to.Ptr(fakePublicIpAddress),
 			},
-			nil,
-		)
-	}
+		},
+		nil,
+	)
 
 	fakeVnetName := getVnetName(vpnLocation, defaultNamespace)
-	mockAzureHandler.On("GetInvisinetsVnet", ctx, fakeVnetName, vpnLocation, defaultNamespace, server.frontendServerAddr).Return(
+	mockAzureHandler.On("GetInvisinetsVnet", ctx, fakeVnetName, vpnLocation, defaultNamespace, server.orchestratorServerAddr).Return(
 		&armnetwork.VirtualNetwork{
 			Name: to.Ptr(fakeVnetName),
 			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
@@ -1058,15 +1116,15 @@ func TestCreateVpnGateway(t *testing.T) {
 		nil,
 	)
 	req := &invisinetspb.CreateVpnGatewayRequest{
-		Deployment: &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
-		Cloud:      "fake-cloud",
+		Deployment:            &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
+		Cloud:                 "fake-cloud",
+		BgpPeeringIpAddresses: []string{"169.254.21.1", "169.254.22.1"},
 	}
 	resp, err := server.CreateVpnGateway(ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	require.Equal(t, vpnGwAsn, resp.Asn)
-	require.ElementsMatch(t, fakePublicIPAddresses, resp.GatewayIpAddresses)
-	require.ElementsMatch(t, vpnGwBgpIpAddrs, resp.BgpIpAddresses)
+	require.Equal(t, orchestrator.MIN_PRIVATE_ASN_2BYTE, resp.Asn)
+	require.ElementsMatch(t, []string{fakePublicIpAddress}, resp.GatewayIpAddresses)
 }
 
 func TestCreateVpnConnections(t *testing.T) {
@@ -1074,34 +1132,30 @@ func TestCreateVpnConnections(t *testing.T) {
 	mockHandlerSetup(mockAzureHandler)
 
 	fakeCloudName := "fake-cloud"
-	for i := 0; i < vpnNumConnections; i++ {
-		localNetworkGatewayName := getLocalNetworkGatewayName(defaultNamespace, fakeCloudName, i)
-		mockAzureHandler.On("GetLocalNetworkGateway", ctx, localNetworkGatewayName).Return(
-			nil,
-			&azcore.ResponseError{StatusCode: http.StatusNotFound},
-		)
-		mockAzureHandler.On("CreateLocalNetworkGateway", ctx, localNetworkGatewayName, mock.Anything).Return(
-			&armnetwork.LocalNetworkGateway{},
-			nil,
-		)
-	}
+	localNetworkGatewayName := getLocalNetworkGatewayName(defaultNamespace, fakeCloudName, 0)
+	mockAzureHandler.On("GetLocalNetworkGateway", ctx, localNetworkGatewayName).Return(
+		nil,
+		&azcore.ResponseError{StatusCode: http.StatusNotFound},
+	)
+	mockAzureHandler.On("CreateLocalNetworkGateway", ctx, localNetworkGatewayName, mock.Anything).Return(
+		&armnetwork.LocalNetworkGateway{},
+		nil,
+	)
 
 	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
 		&armnetwork.VirtualNetworkGateway{},
 		nil,
 	)
 
-	for i := 0; i < vpnNumConnections; i++ {
-		virtualNetworkGatewayConnectionName := getVirtualNetworkGatewayConnectionName(defaultNamespace, fakeCloudName, i)
-		mockAzureHandler.On("GetVirtualNetworkGatewayConnection", ctx, virtualNetworkGatewayConnectionName).Return(
-			nil,
-			&azcore.ResponseError{StatusCode: http.StatusNotFound},
-		)
-		mockAzureHandler.On("CreateVirtualNetworkGatewayConnection", ctx, virtualNetworkGatewayConnectionName, mock.Anything).Return(
-			&armnetwork.VirtualNetworkGatewayConnection{},
-			nil,
-		)
-	}
+	virtualNetworkGatewayConnectionName := getVirtualNetworkGatewayConnectionName(defaultNamespace, fakeCloudName, 0)
+	mockAzureHandler.On("GetVirtualNetworkGatewayConnection", ctx, virtualNetworkGatewayConnectionName).Return(
+		nil,
+		&azcore.ResponseError{StatusCode: http.StatusNotFound},
+	)
+	mockAzureHandler.On("CreateVirtualNetworkGatewayConnection", ctx, virtualNetworkGatewayConnectionName, mock.Anything).Return(
+		&armnetwork.VirtualNetworkGatewayConnection{},
+		nil,
+	)
 
 	req := &invisinetspb.CreateVpnConnectionsRequest{
 		Deployment:         &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},

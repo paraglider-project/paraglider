@@ -43,7 +43,7 @@ type AzureSDKHandler interface {
 	GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interface, error)
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
-	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, frontendAddr string) (*armnetwork.VirtualNetwork, error)
+	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error)
 	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error)
 	CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error)
 	GetVirtualNetwork(ctx context.Context, name string) (*armnetwork.VirtualNetwork, error)
@@ -487,7 +487,7 @@ func (h *azureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) 
 
 // GetInvisinetsVnet returns a valid invisinets vnet, an invisinets vnet is a vnet with a default subnet with the same
 // address space as the vnet and there is only one vnet per location
-func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, frontendAddr string) (*armnetwork.VirtualNetwork, error) {
+func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
 	// Get the virtual network
 	res, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, &armnetwork.VirtualNetworksClientGetOptions{Expand: nil})
 
@@ -496,9 +496,9 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 		if isErrorNotFound(err) {
 			// Create the virtual network if it doesn't exist
 			// Get the address space from the controller service
-			conn, err := grpc.Dial(frontendAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.Dial(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
-				utils.Log.Printf("could not dial the frontend")
+				utils.Log.Printf("could not dial the orchestrator")
 				return nil, err
 			}
 			defer conn.Close()

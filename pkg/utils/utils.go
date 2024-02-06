@@ -36,7 +36,7 @@ var (
 const (
 	GCP   = "gcp"
 	AZURE = "azure"
-	IBM = "ibm"
+	IBM   = "ibm"
 )
 
 // Private address spaces as defined in RFC 1918
@@ -157,4 +157,17 @@ func GetGitHubRunPrefix() string {
 		return "github" + ghRunNumber + "-"
 	}
 	return ""
+}
+
+// Checks if cloud1 and cloud2 match with target1 and target2 in any order
+func MatchCloudProviders(cloud1, cloud2, target1, target2 string) bool {
+	return (cloud1 == target1 && cloud2 == target2) || (cloud1 == target2 && cloud2 == target1)
+}
+
+// Returns the number of VPN connections needed between cloud1 and cloud2
+func GetNumVpnConnections(cloud1, cloud2 string) int {
+	if MatchCloudProviders(cloud1, cloud2, AZURE, GCP) {
+		return 2
+	}
+	return 1
 }

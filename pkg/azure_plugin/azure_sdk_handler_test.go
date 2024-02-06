@@ -36,7 +36,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	fake "github.com/NetSys/invisinets/pkg/fake"
+	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
@@ -418,28 +418,28 @@ func TestGetInvisinetsVnet(t *testing.T) {
 
 	// Create a new context for the tests
 	ctx := context.Background()
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.AZURE)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Test case: Success, vnet already existed
 	t.Run("GetInvisinetsVnet: Success, vnet exists", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation, "namespace", fakeControllerServerAddr)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
 
 	// Test case: Success, vnet doesn't exist, create new one
 	t.Run("GetInvisinetsVnet: Success, create new vnet", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, notFoundVnetName, testLocation, "namespace", fakeControllerServerAddr)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, notFoundVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
 
 	// Test case: Failure, error when getting vnet
 	t.Run("GetInvisinetsVnet: Failure, error when getting vnet", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, invalidVnetName, testLocation, "namespace", fakeControllerServerAddr)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, invalidVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.Error(t, err)
 		require.Nil(t, vnet)
 	})

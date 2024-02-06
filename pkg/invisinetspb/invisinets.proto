@@ -21,6 +21,8 @@ option go_package="github.com/NetSys/invisinets/pkg/invisinetspb";
 
 service CloudPlugin {
     rpc GetUsedAddressSpaces(InvisinetsDeployment) returns (AddressSpaceList) {}
+    rpc GetUsedAsns(GetUsedAsnsRequest) returns (GetUsedAsnsResponse) {}
+    rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}
     rpc CreateResource(ResourceDescription) returns (CreateResourceResponse) {}
     rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}
     rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}
@@ -32,6 +34,7 @@ service CloudPlugin {
 service Controller {
     rpc FindUnusedAddressSpace(Namespace) returns (AddressSpace) {}
     rpc GetUsedAddressSpaces(Namespace) returns (AddressSpaceMappingList) {}
+    rpc FindUnusedAsn(FindUnusedAsnRequest) returns (FindUnusedAsnResponse) {}
     rpc ConnectClouds(ConnectCloudsRequest) returns (BasicResponse) {}
 }
 
@@ -158,19 +161,43 @@ message ConnectCloudsRequest {
 message CreateVpnGatewayRequest {
     InvisinetsDeployment deployment = 1;
     string cloud = 2;
+    repeated string bgp_peering_ip_addresses = 3;
 }
 
 message CreateVpnGatewayResponse {
-    int64 asn = 1;
+    uint32 asn = 1;
     repeated string gateway_ip_addresses = 2;
-    repeated string bgp_ip_addresses = 3;
 }
 
 message CreateVpnConnectionsRequest {
     InvisinetsDeployment deployment = 1;
     string cloud = 2;
-    int64 asn = 3;
+    uint32 asn = 3;
     repeated string gateway_ip_addresses = 4;
     repeated string bgp_ip_addresses = 5;
     string shared_key = 6;
+}
+
+message GetUsedAsnsRequest {
+    InvisinetsDeployment deployment = 1;
+}
+
+message GetUsedAsnsResponse {
+    repeated uint32 asns = 1; // Currently APIs only return one ASN since it's per namespace but it may change in the future
+}
+
+message GetUsedBgpPeeringIpAddressesRequest {
+    InvisinetsDeployment deployment = 1;
+}
+
+message GetUsedBgpPeeringIpAddressesResponse {
+    repeated string ip_addresses = 1;
+}
+
+message FindUnusedAsnRequest {
+    string namespace = 1;
+}
+
+message FindUnusedAsnResponse {
+    uint32 asn = 1;
 }

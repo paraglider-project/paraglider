@@ -30,8 +30,9 @@ import (
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
-	fake "github.com/NetSys/invisinets/pkg/fake"
+	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/orchestrator"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -117,10 +118,11 @@ func getFakeInstance(includeNetwork bool) *computepb.Instance {
 	}
 	if includeNetwork {
 		instance.NetworkInterfaces = []*computepb.NetworkInterface{
-			&computepb.NetworkInterface{
+			{
 				NetworkIP: proto.String("10.1.1.1"),
 				Network:   proto.String(GetVpcUri(fakeNamespace)),
-			}}
+			},
+		}
 	}
 	return instance
 }
@@ -465,7 +467,7 @@ func TestAddPermitListRules(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
-	fakeControllerServer, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	fakeControllerServer, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	fakeControllerServer.Counter = 1
 	if err != nil {
 		t.Fatal(err)
@@ -502,7 +504,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{})
 	defer teardown(fakeServer, fakeClients)
 
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -570,7 +572,7 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -657,11 +659,11 @@ func TestCreateResource(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
 		Zone:             fakeZone,
@@ -682,11 +684,11 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance(true)})
 	defer teardown(fakeServer, fakeClients)
 
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
 		Zone:             fakeZone,
@@ -710,12 +712,12 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
 		Zone:             fakeZone,
@@ -755,13 +757,11 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	assert.ElementsMatch(t, usedAddressSpacesExpected, addressSpaceList.AddressSpaces)
 }
 
-func TestCreateVpnGateway(t *testing.T) {
-	fakeVpnGatewayIpAddresses := []string{"1.1.1.1", "2.2.2.2"}
+func TestGetUsedAsns(t *testing.T) {
 	fakeServerState := &fakeServerState{
-		vpnGateway: &computepb.VpnGateway{
-			VpnInterfaces: []*computepb.VpnGatewayVpnGatewayInterface{
-				{IpAddress: proto.String(fakeVpnGatewayIpAddresses[0])},
-				{IpAddress: proto.String(fakeVpnGatewayIpAddresses[1])},
+		router: &computepb.Router{
+			Bgp: &computepb.RouterBgp{
+				Asn: proto.Uint32(64512),
 			},
 		},
 	}
@@ -771,16 +771,64 @@ func TestCreateVpnGateway(t *testing.T) {
 	s := &GCPPluginServer{}
 	vpnRegion = fakeRegion
 
+	usedAsnsExpected := []uint32{64512}
+	resp, err := s._GetUsedAsns(ctx, &invisinetspb.GetUsedAsnsRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace}}, fakeClients.routersClient)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.ElementsMatch(t, usedAsnsExpected, resp.Asns)
+}
+
+func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		router: &computepb.Router{
+			BgpPeers: []*computepb.RouterBgpPeer{
+				{IpAddress: proto.String("169.254.21.1")},
+				{IpAddress: proto.String("169.254.22.1")},
+			},
+		},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
+
+	s := &GCPPluginServer{}
+	vpnRegion = fakeRegion
+
+	usedBgpPeeringIpAddressExpected := []string{"169.254.21.1", "169.254.22.1"}
+	resp, err := s._GetUsedBgpPeeringIpAddresses(ctx, &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace}}, fakeClients.routersClient)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.ElementsMatch(t, usedBgpPeeringIpAddressExpected, resp.IpAddresses)
+}
+
+func TestCreateVpnGateway(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		router: &computepb.Router{},
+		vpnGateway: &computepb.VpnGateway{
+			VpnInterfaces: []*computepb.VpnGatewayVpnGatewayInterface{
+				{IpAddress: proto.String("1.1.1.1")},
+			},
+		},
+	}
+	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients)
+
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeControllerServerAddr}
+	vpnRegion = fakeRegion
+
 	req := &invisinetspb.CreateVpnGatewayRequest{
-		Deployment: &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
-		Cloud:      "fakecloud",
+		Deployment:            &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
+		Cloud:                 "fakecloud",
+		BgpPeeringIpAddresses: []string{"169.254.21.1", "169.254.22.1"},
 	}
 	resp, err := s._CreateVpnGateway(ctx, req, fakeClients.vpnGatewaysClient, fakeClients.routersClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	require.Equal(t, int64(vpnGwAsn), resp.Asn)
-	require.ElementsMatch(t, fakeVpnGatewayIpAddresses, resp.GatewayIpAddresses)
-	require.ElementsMatch(t, vpnGwBgpIpAddrs, resp.BgpIpAddresses)
+	require.Equal(t, orchestrator.MIN_PRIVATE_ASN_2BYTE, resp.Asn)
+	require.ElementsMatch(t, []string{"1.1.1.1"}, resp.GatewayIpAddresses)
 }
 
 func TestCreateVpnConnections(t *testing.T) {
@@ -795,8 +843,8 @@ func TestCreateVpnConnections(t *testing.T) {
 		Deployment:         &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
 		Cloud:              "fakecloud",
 		Asn:                65555,
-		GatewayIpAddresses: []string{"1.1.1.1", "2.2.2.2"},
-		BgpIpAddresses:     []string{"3.3.3.3", "4.4.4.4"},
+		GatewayIpAddresses: []string{"1.1.1.1"},
+		BgpIpAddresses:     []string{"3.3.3.3"},
 		SharedKey:          "abcd",
 	}
 	resp, err := s._CreateVpnConnections(ctx, req, fakeClients.externalVpnGatewaysClient, fakeClients.vpnTunnelsClient, fakeClients.routersClient)

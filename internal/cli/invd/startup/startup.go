@@ -24,9 +24,9 @@ import (
 	"gopkg.in/yaml.v2"
 
 	az "github.com/NetSys/invisinets/pkg/azure_plugin"
-	frontend "github.com/NetSys/invisinets/pkg/frontend"
-	config "github.com/NetSys/invisinets/pkg/frontend/config"
 	gcp "github.com/NetSys/invisinets/pkg/gcp"
+	orchestrator "github.com/NetSys/invisinets/pkg/orchestrator"
+	"github.com/NetSys/invisinets/pkg/orchestrator/config"
 	tagservice "github.com/NetSys/invisinets/pkg/tag_service"
 )
 
@@ -109,7 +109,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		az.Setup(e.azPort, e.controllerAddr)
 	}()
 
-	frontend.Setup(args[0])
+	orchestrator.Setup(args[0])
 
 	return nil
 }

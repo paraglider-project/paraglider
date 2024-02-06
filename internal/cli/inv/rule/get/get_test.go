@@ -23,13 +23,13 @@ import (
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	fake "github.com/NetSys/invisinets/pkg/fake"
+	fake "github.com/NetSys/invisinets/pkg/fake/controller/rest"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRuleGetExecute(t *testing.T) {
-	server := &fake.FakeFrontendServer{}
-	serverAddr := server.SetupFakeFrontendServer()
+	server := &fake.FakeOrchestratorRESTServer{}
+	settings.ServerAddr = server.SetupFakeOrchestratorRESTServer()
 
 	cmd, executor := NewCommand()
 	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}

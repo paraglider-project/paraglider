@@ -14,21 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package frontend
+package orchestrator
 
 import (
 	"net"
 
-	config "github.com/NetSys/invisinets/pkg/frontend/config"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/orchestrator/config"
 	grpc "google.golang.org/grpc"
+)
+
+// Private ASN ranges (RFC 6996)
+const (
+	MIN_PRIVATE_ASN_2BYTE uint32 = 64512
+	MAX_PRIVATE_ASN_2BYTE uint32 = 65534
+	MIN_PRIVATE_ASN_4BYTE uint32 = 4200000000
+	MAX_PRIVATE_ASN_4BYTE uint32 = 4294967294
 )
 
 func SetupControllerServer(cfg config.Config) string {
 	controllerServer := &ControllerServer{
-		pluginAddresses:   make(map[string]string),
-		usedAddressSpaces: make(map[string]map[string][]string),
-		config:            cfg,
+		pluginAddresses:           make(map[string]string),
+		usedAddressSpaces:         make(map[string]map[string][]string),
+		usedAsns:                  make(map[string]map[string][]uint32),
+		usedBgpPeeringIpAddresses: make(map[string]map[string][]string),
+		config:                    cfg,
 	}
 	for _, c := range controllerServer.config.CloudPlugins {
 		controllerServer.pluginAddresses[c.Name] = c.Host + ":" + c.Port
