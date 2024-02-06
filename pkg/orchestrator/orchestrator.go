@@ -165,7 +165,6 @@ func (s *ControllerServer) getTagUri(tag string) (string, error) {
 	if *response.Uri == "" {
 		return "", fmt.Errorf("tag %s is not an individual resource tag", tag)
 	}
-
 	return *response.Uri, nil
 }
 

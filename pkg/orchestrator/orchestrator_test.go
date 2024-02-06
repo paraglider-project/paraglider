@@ -26,7 +26,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -76,10 +75,13 @@ func SetUpRouter() *gin.Engine {
 func TestPermitListGet(t *testing.T) {
 	// Setup
 	orchestratorServer := newOrchestratorServer()
-	port := getNewPortNumber()
-	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 
-	fakeplugin.SetupFakePluginServer(port)
+	fakeplugin.SetupFakePluginServer(cloudPluginPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	r := SetUpRouter()
 	r.GET(GetPermitListRulesURL, orchestratorServer.permitListGet)
@@ -662,15 +664,21 @@ func TestUpdateUsedAsns(t *testing.T) {
 	fakeplugin.SetupFakePluginServer(port)
 
 	// Valid cloud list
-	cloud := config.CloudPlugin{Name: exampleCloudName, Host: "localhost", Port: strconv.Itoa(port)}
-	orchestratorServer.config = config.Config{CloudPlugins: []config.CloudPlugin{cloud}}
+	orchestratorServer.config = config.Config{
+		Namespaces: map[string]config.Namespace{
+			defaultNamespace: config.Namespace{CloudDeployments: []config.CloudDeployment{config.CloudDeployment{Name: exampleCloudName, Deployment: ""}}},
+		},
+	}
 	err := orchestratorServer.updateUsedAsns(defaultNamespace)
 	require.NoError(t, err)
 	require.ElementsMatch(t, []uint32{fakeplugin.Asn}, orchestratorServer.usedAsns[defaultNamespace][exampleCloudName])
 
 	// Invalid cloud list
-	cloud = config.CloudPlugin{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port)}
-	orchestratorServer.config = config.Config{CloudPlugins: []config.CloudPlugin{cloud}}
+	orchestratorServer.config = config.Config{
+		Namespaces: map[string]config.Namespace{
+			defaultNamespace: config.Namespace{CloudDeployments: []config.CloudDeployment{config.CloudDeployment{Name: "wrong", Deployment: ""}}},
+		},
+	}
 	err = orchestratorServer.updateUsedAsns(defaultNamespace)
 	require.Error(t, err)
 }
@@ -739,15 +747,21 @@ func TestUpdateUsedBgpPeeringIpAddresses(t *testing.T) {
 	fakeplugin.SetupFakePluginServer(port)
 
 	// Valid cloud list
-	cloud := config.CloudPlugin{Name: exampleCloudName, Host: "localhost", Port: strconv.Itoa(port)}
-	orchestratorServer.config = config.Config{CloudPlugins: []config.CloudPlugin{cloud}}
+	orchestratorServer.config = config.Config{
+		Namespaces: map[string]config.Namespace{
+			defaultNamespace: config.Namespace{CloudDeployments: []config.CloudDeployment{config.CloudDeployment{Name: exampleCloudName, Deployment: ""}}},
+		},
+	}
 	err := orchestratorServer.updateUsedBgpPeeringIpAddresses(defaultNamespace)
 	require.NoError(t, err)
 	require.ElementsMatch(t, fakeplugin.BgpPeeringIpAddresses, orchestratorServer.usedBgpPeeringIpAddresses[defaultNamespace][exampleCloudName])
 
 	// Invalid cloud list
-	cloud = config.CloudPlugin{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port)}
-	orchestratorServer.config = config.Config{CloudPlugins: []config.CloudPlugin{cloud}}
+	orchestratorServer.config = config.Config{
+		Namespaces: map[string]config.Namespace{
+			defaultNamespace: config.Namespace{CloudDeployments: []config.CloudDeployment{config.CloudDeployment{Name: "wrong", Deployment: ""}}},
+		},
+	}
 	err = orchestratorServer.updateUsedBgpPeeringIpAddresses(defaultNamespace)
 	require.Error(t, err)
 }

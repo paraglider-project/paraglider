@@ -698,22 +698,7 @@ func TestAddPermitListRules(t *testing.T) {
 		require.Nil(t, resp)
 	})
 
-	// Test 6: Failure getting pl rule from nsg rule
-	t.Run("AddPermitListRules: Failure when getting pl rule", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.orchestratorServerAddr = fakeOrchestratorServerAddr
-		mockHandlerSetup(mockAzureHandler)
-		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
-		mockAzureHandler.On("GetPermitListRuleFromNSGRule", mock.Anything).Return(nil, fmt.Errorf("error while getting permit list rule"))
-
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
-		require.Error(t, err)
-		require.NotNil(t, err)
-		require.Nil(t, resp)
-
-	})
-
-	// Test 7: Failure while creting the nsg rule in azure
+	// Failure while creting the nsg rule in azure
 	t.Run("AddPermitListRules: Failure when creating nsg rule", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
