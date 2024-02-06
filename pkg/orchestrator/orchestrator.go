@@ -36,8 +36,8 @@ import (
 	grpc "google.golang.org/grpc"
 	insecure "google.golang.org/grpc/credentials/insecure"
 
-	cfg "github.com/NetSys/invisinets/pkg/frontend/config"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	cfg "github.com/NetSys/invisinets/pkg/orchestrator/config"
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
@@ -645,8 +645,8 @@ func (s *ControllerServer) getUsedAsns(cloud string, deploymentId string, namesp
 }
 
 func (s *ControllerServer) updateUsedAsns(namespace string) error {
-	for _, cloud := range s.config.Clouds {
-		asnList, err := s.getUsedAsns(cloud.Name, cloud.InvDeployment, namespace)
+	for _, cloud := range s.config.Namespaces[namespace].CloudDeployments {
+		asnList, err := s.getUsedAsns(cloud.Name, cloud.Deployment, namespace)
 		if err != nil {
 			return fmt.Errorf("Could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
 		}
@@ -724,8 +724,8 @@ func (s *ControllerServer) getUsedBgpPeeringIpAddresses(cloud string, deployment
 }
 
 func (s *ControllerServer) updateUsedBgpPeeringIpAddresses(namespace string) error {
-	for _, cloud := range s.config.Clouds {
-		bgpPeeringIpAddressesList, err := s.getUsedBgpPeeringIpAddresses(cloud.Name, cloud.InvDeployment, namespace)
+	for _, cloud := range s.config.Namespaces[namespace].CloudDeployments {
+		bgpPeeringIpAddressesList, err := s.getUsedBgpPeeringIpAddresses(cloud.Name, cloud.Deployment, namespace)
 		if err != nil {
 			return fmt.Errorf("Could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
 		}
@@ -1199,7 +1199,7 @@ func Setup(configPath string) {
 		usedBgpPeeringIpAddresses: make(map[string]map[string][]string),
 	}
 	server.config = config
-	server.localTagService = cfg.TagService.Host + ":" + cfg.TagService.Port
+	server.localTagService = config.TagService.Host + ":" + config.TagService.Port
 
 	for _, c := range server.config.CloudPlugins {
 		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port
