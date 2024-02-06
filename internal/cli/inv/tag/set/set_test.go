@@ -72,7 +72,7 @@ func TestTagSetValidate(t *testing.T) {
 
 func TestTagSetExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
-	settings.ServerAddr = server.SetupFakeOrchestratorRESTServer()
+	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
 	cmd, executor := NewCommand()
 	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr}

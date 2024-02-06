@@ -29,12 +29,12 @@ import (
 
 func TestNamespaceGetExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
-	settings.ServerAddr = server.SetupFakeOrchestratorRESTServer()
+	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
 	cmd, executor := NewCommand()
 	var output bytes.Buffer
 	executor.writer = &output
-	executor.cliSettings = settings.CLISettings{ActiveNamespace: "default"}
+	executor.cliSettings = settings.CLISettings{ActiveNamespace: "default", ServerAddr: serverAddr}
 
 	err := executor.Execute(cmd, []string{})
 

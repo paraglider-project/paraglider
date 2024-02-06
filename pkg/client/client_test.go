@@ -128,16 +128,6 @@ func TestDeleteTagMembers(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestGetNamespace(t *testing.T) {
-	s := fake.FakeOrchestratorRESTServer{}
-	controllerAddress := s.SetupFakeOrchestratorRESTServer()
-	client := Client{ControllerAddress: controllerAddress}
-
-	namespace, err := client.GetNamespace()
-
-	assert.Nil(t, err)
-}
-
 func TestSetNamespace(t *testing.T) {
 	s := fake.FakeOrchestratorRESTServer{}
 	controllerAddress := s.SetupFakeOrchestratorRESTServer()

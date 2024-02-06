@@ -22,13 +22,13 @@ import (
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	"github.com/NetSys/invisinets/pkg/fake"
+	fake "github.com/NetSys/invisinets/pkg/fake/controller/rest"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNamespaceSetValidate(t *testing.T) {
-	server := &fake.FakeFrontendServer{}
-	serverAddr := server.SetupFakeFrontendServer()
+	server := &fake.FakeOrchestratorRESTServer{}
+	serverAddr := server.SetupFakeOrchestratorRESTServer()
 	cmd, executor := NewCommand()
 	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
 

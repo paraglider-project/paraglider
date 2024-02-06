@@ -467,12 +467,12 @@ func TestAddPermitListRules(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
-	fakeControllerServer, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
-	fakeControllerServer.Counter = 1
+	fakeOrchestratorServer, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	fakeOrchestratorServer.Counter = 1
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	request := &invisinetspb.AddPermitListRulesRequest{
 		Resource: fakeResourceId,
 		Rules: []*invisinetspb.PermitListRule{
@@ -508,7 +508,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	request := &invisinetspb.AddPermitListRulesRequest{
 		Resource: fakeMissingResourceId,
 		Rules: []*invisinetspb.PermitListRule{
@@ -576,7 +576,7 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	newRule := &invisinetspb.PermitListRule{
 		Name:      fakePermitListRule1.Name,
 		Direction: fakePermitListRule1.Direction,
@@ -812,11 +812,11 @@ func TestCreateVpnGateway(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
-	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{orchestratorServerAddr: fakeControllerServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	vpnRegion = fakeRegion
 
 	req := &invisinetspb.CreateVpnGatewayRequest{
