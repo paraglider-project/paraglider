@@ -24,10 +24,10 @@ import (
 
 	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	azure_plugin "github.com/NetSys/invisinets/pkg/azure_plugin"
-	config "github.com/NetSys/invisinets/pkg/frontend/config"
 	gcp "github.com/NetSys/invisinets/pkg/gcp"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	orchestrator "github.com/NetSys/invisinets/pkg/orchestrator"
+	config "github.com/NetSys/invisinets/pkg/orchestrator/config"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
