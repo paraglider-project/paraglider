@@ -27,10 +27,6 @@ type CloudPlugin struct {
 	Port string `yaml:"port"`
 }
 
-type Namespace struct {
-	CloudDeployments []CloudDeployment `yaml:"cloudDeployments"`
-}
-
 type Config struct {
 	Server struct {
 		Port    string `yaml:"port"`
@@ -43,6 +39,6 @@ type Config struct {
 		Host string `yaml:"host"`
 	} `yaml:"tagService"`
 
-	Namespaces   map[string]Namespace `yaml:"namespaces"`
-	CloudPlugins []CloudPlugin        `yaml:"cloudPlugins"`
+	Namespaces   map[string][]CloudDeployment `yaml:"namespaces"`
+	CloudPlugins []CloudPlugin                `yaml:"cloudPlugins"`
 }

@@ -39,7 +39,7 @@ type InvisinetsControllerClient interface {
 	SetTag(tag string, tagMapping *tagservicepb.TagMapping) error
 	DeleteTag(tag string) error
 	DeleteTagMembers(tag string, members []string) error
-	ListNamespaces() (map[string]config.Namespace, error)
+	ListNamespaces() (map[string][]config.CloudDeployment, error)
 }
 
 type Client struct {
@@ -242,13 +242,13 @@ func (c *Client) DeleteTagMembers(tag string, member string) error {
 }
 
 // List all configured namespaces
-func (c *Client) ListNamespaces() (map[string]config.Namespace, error) {
+func (c *Client) ListNamespaces() (map[string][]config.CloudDeployment, error) {
 	result, err := c.sendRequest(orchestrator.ListNamespacesURL, http.MethodGet, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	namespaces := map[string]config.Namespace{}
+	namespaces := map[string][]config.CloudDeployment{}
 	err = json.Unmarshal(result, &namespaces)
 	if err != nil {
 		return nil, err

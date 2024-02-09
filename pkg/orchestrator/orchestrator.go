@@ -554,7 +554,7 @@ func (s *ControllerServer) getAddressSpaces(cloud string, deploymentId string, n
 // Update local address space map by getting used address spaces from each cloud plugin
 func (s *ControllerServer) updateUsedAddressSpacesMap(namespace string) error {
 	// Call each cloud to get address spaces used
-	for _, cloud := range s.config.Namespaces[namespace].CloudDeployments {
+	for _, cloud := range s.config.Namespaces[namespace] {
 		addressList, err := s.getAddressSpaces(cloud.Name, cloud.Deployment, namespace)
 		if err != nil {
 			return fmt.Errorf("could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
@@ -644,7 +644,7 @@ func (s *ControllerServer) getUsedAsns(cloud string, deploymentId string, namesp
 }
 
 func (s *ControllerServer) updateUsedAsns(namespace string) error {
-	for _, cloud := range s.config.Namespaces[namespace].CloudDeployments {
+	for _, cloud := range s.config.Namespaces[namespace] {
 		asnList, err := s.getUsedAsns(cloud.Name, cloud.Deployment, namespace)
 		if err != nil {
 			return fmt.Errorf("Could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
@@ -723,7 +723,7 @@ func (s *ControllerServer) getUsedBgpPeeringIpAddresses(cloud string, deployment
 }
 
 func (s *ControllerServer) updateUsedBgpPeeringIpAddresses(namespace string) error {
-	for _, cloud := range s.config.Namespaces[namespace].CloudDeployments {
+	for _, cloud := range s.config.Namespaces[namespace] {
 		bgpPeeringIpAddressesList, err := s.getUsedBgpPeeringIpAddresses(cloud.Name, cloud.Deployment, namespace)
 		if err != nil {
 			return fmt.Errorf("Could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
@@ -813,7 +813,7 @@ func generateSharedKey() (string, error) {
 // Gets the Invisinets deployment field of a cloud
 // TODO @seankimkdy: make this more efficient by using maps to maintain clouds in config?
 func (s *ControllerServer) getCloudDeployment(namespace string, cloudName string) string {
-	for _, cloud := range s.config.Namespaces[namespace].CloudDeployments {
+	for _, cloud := range s.config.Namespaces[namespace] {
 		if cloud.Name == cloudName {
 			return cloud.Deployment
 		}

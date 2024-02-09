@@ -111,14 +111,12 @@ func GetFakeTagMappingLeafTags(tagName string) []*tagservicepb.TagMapping {
 	}
 }
 
-func GetFakeNamespaces() map[string]config.Namespace {
-	return map[string]config.Namespace{
+func GetFakeNamespaces() map[string][]config.CloudDeployment {
+	return map[string][]config.CloudDeployment{
 		"namespace1": {
-			CloudDeployments: []config.CloudDeployment{
-				{
-					Name:       "cloud1",
-					Deployment: "deployment1",
-				},
+			{
+				Name:       "cloud1",
+				Deployment: "deployment1",
 			},
 		},
 	}

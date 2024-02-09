@@ -596,8 +596,8 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	// Valid cloud list
 	deployment := config.CloudDeployment{Name: exampleCloudName, Deployment: ""}
 	orchestratorServer.config = config.Config{
-		Namespaces: map[string]config.Namespace{
-			defaultNamespace: config.Namespace{CloudDeployments: []config.CloudDeployment{deployment}}}}
+		Namespaces: map[string][]config.CloudDeployment{
+			defaultNamespace: []config.CloudDeployment{deployment}}}
 	err := orchestratorServer.updateUsedAddressSpacesMap(defaultNamespace)
 	require.Nil(t, err)
 	assert.Equal(t, orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName][0], fakeplugin.AddressSpaceAddress)
@@ -605,8 +605,8 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	// Invalid cloud list
 	deployment = config.CloudDeployment{Name: "wrong", Deployment: ""}
 	orchestratorServer.config = config.Config{
-		Namespaces: map[string]config.Namespace{
-			defaultNamespace: config.Namespace{CloudDeployments: []config.CloudDeployment{deployment}}}}
+		Namespaces: map[string][]config.CloudDeployment{
+			defaultNamespace: []config.CloudDeployment{deployment}}}
 	err = orchestratorServer.updateUsedAddressSpacesMap(defaultNamespace)
 
 	require.NotNil(t, err)
@@ -665,9 +665,8 @@ func TestUpdateUsedAsns(t *testing.T) {
 
 	// Valid cloud list
 	orchestratorServer.config = config.Config{
-		Namespaces: map[string]config.Namespace{
-			defaultNamespace: config.Namespace{CloudDeployments: []config.CloudDeployment{config.CloudDeployment{Name: exampleCloudName, Deployment: ""}}},
-		},
+		Namespaces: map[string][]config.CloudDeployment{
+			defaultNamespace: []config.CloudDeployment{config.CloudDeployment{Name: exampleCloudName, Deployment: ""}}},
 	}
 	err := orchestratorServer.updateUsedAsns(defaultNamespace)
 	require.NoError(t, err)
@@ -675,9 +674,8 @@ func TestUpdateUsedAsns(t *testing.T) {
 
 	// Invalid cloud list
 	orchestratorServer.config = config.Config{
-		Namespaces: map[string]config.Namespace{
-			defaultNamespace: config.Namespace{CloudDeployments: []config.CloudDeployment{config.CloudDeployment{Name: "wrong", Deployment: ""}}},
-		},
+		Namespaces: map[string][]config.CloudDeployment{
+			defaultNamespace: []config.CloudDeployment{config.CloudDeployment{Name: "wrong", Deployment: ""}}},
 	}
 	err = orchestratorServer.updateUsedAsns(defaultNamespace)
 	require.Error(t, err)
@@ -748,8 +746,8 @@ func TestUpdateUsedBgpPeeringIpAddresses(t *testing.T) {
 
 	// Valid cloud list
 	orchestratorServer.config = config.Config{
-		Namespaces: map[string]config.Namespace{
-			defaultNamespace: config.Namespace{CloudDeployments: []config.CloudDeployment{config.CloudDeployment{Name: exampleCloudName, Deployment: ""}}},
+		Namespaces: map[string][]config.CloudDeployment{
+			defaultNamespace: []config.CloudDeployment{config.CloudDeployment{Name: exampleCloudName, Deployment: ""}},
 		},
 	}
 	err := orchestratorServer.updateUsedBgpPeeringIpAddresses(defaultNamespace)
@@ -758,8 +756,8 @@ func TestUpdateUsedBgpPeeringIpAddresses(t *testing.T) {
 
 	// Invalid cloud list
 	orchestratorServer.config = config.Config{
-		Namespaces: map[string]config.Namespace{
-			defaultNamespace: config.Namespace{CloudDeployments: []config.CloudDeployment{config.CloudDeployment{Name: "wrong", Deployment: ""}}},
+		Namespaces: map[string][]config.CloudDeployment{
+			defaultNamespace: []config.CloudDeployment{config.CloudDeployment{Name: "wrong", Deployment: ""}},
 		},
 	}
 	err = orchestratorServer.updateUsedBgpPeeringIpAddresses(defaultNamespace)
