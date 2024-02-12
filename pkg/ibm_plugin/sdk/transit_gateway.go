@@ -140,13 +140,12 @@ func (c *CloudClient) RemoveTransitGWConnections(gwID string) error {
 // returns true if connection was deleted within the alloted time, otherwise false.
 func (c *CloudClient) pollConnectionDeleted(connectionID string, gwID string) (bool, error) {
 	delAttempts := 10
+	transitGatewayConnectionOptions := c.transitGW.NewGetTransitGatewayConnectionOptions(
+		gwID,
+		connectionID,
+	)
 	// the following is a blocking polling mechanism that returns when the GW is deleted/alloted time has past.
 	for attempt := 1; attempt <= delAttempts; attempt += 1 {
-		transitGatewayConnectionOptions := c.transitGW.NewGetTransitGatewayConnectionOptions(
-			gwID,
-			connectionID,
-		)
-
 		_, _, err := c.transitGW.GetTransitGatewayConnection(transitGatewayConnectionOptions)
 		if err != nil {
 			// connection deleted successfully, hence not found error raised
