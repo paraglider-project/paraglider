@@ -50,6 +50,7 @@ func TestCleanup(t *testing.T) {
 	}
 	// terminate transit gateways and their connections
 	transitGWs, err := cloudClient.GetInvisinetsTaggedResources(GATEWAY, []string{}, ResourceQuery{})
+	require.NoError(t, err)
 	for _, gw := range transitGWs {
 		err = cloudClient.DeleteTransitGW(gw.ID)
 		require.NoError(t, err)
