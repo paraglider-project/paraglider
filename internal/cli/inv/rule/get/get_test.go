@@ -29,9 +29,10 @@ import (
 
 func TestRuleGetExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
-	settings.ServerAddr = server.SetupFakeOrchestratorRESTServer()
+	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
 	cmd, executor := NewCommand()
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
 	var output bytes.Buffer
 	executor.writer = &output
 
@@ -39,5 +40,5 @@ func TestRuleGetExecute(t *testing.T) {
 	err := executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
-	assert.Contains(t, output.String(), fake.GetFakePermitList("uri").AssociatedResource)
+	assert.Contains(t, output.String(), fake.GetFakePermitListRules()[0].Id)
 }

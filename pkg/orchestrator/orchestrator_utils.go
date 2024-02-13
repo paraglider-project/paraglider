@@ -20,6 +20,7 @@ import (
 	"net"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/orchestrator/config"
 	grpc "google.golang.org/grpc"
 )
 
@@ -31,7 +32,7 @@ const (
 	MAX_PRIVATE_ASN_4BYTE uint32 = 4294967294
 )
 
-func SetupControllerServer(cfg Config) string {
+func SetupControllerServer(cfg config.Config) string {
 	controllerServer := &ControllerServer{
 		pluginAddresses:           make(map[string]string),
 		usedAddressSpaces:         make(map[string]map[string][]string),
@@ -39,7 +40,7 @@ func SetupControllerServer(cfg Config) string {
 		usedBgpPeeringIpAddresses: make(map[string]map[string][]string),
 		config:                    cfg,
 	}
-	for _, c := range controllerServer.config.Clouds {
+	for _, c := range controllerServer.config.CloudPlugins {
 		controllerServer.pluginAddresses[c.Name] = c.Host + ":" + c.Port
 	}
 	l, err := net.Listen("tcp", "localhost:0")

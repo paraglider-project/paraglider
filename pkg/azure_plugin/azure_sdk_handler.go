@@ -57,7 +57,6 @@ type AzureSDKHandler interface {
 	CreateOrUpdateVnetPeeringRemoteGateway(ctx context.Context, vnetName string, gatewayVnetName string, vnetToGatewayVnetPeering *armnetwork.VirtualNetworkPeering, gatewayVnetToVnetPeering *armnetwork.VirtualNetworkPeering) error
 	GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error)
 	GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error)
-	GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string
 	GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error)
 	GetLastSegment(resourceID string) (string, error)
 	SetSubIdAndResourceGroup(subID string, resourceGroupName string)
@@ -249,7 +248,7 @@ func (h *azureSDKHandler) GetLastSegment(ID string) (string, error) {
 	return segments[len(segments)-1], nil
 }
 
-// CreateSecurityRule creates a new security rule in a network security group (NSG).
+// GetPermitListRuleFromNSGRulecurityRule creates a new security rule in a network security group (NSG).
 func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
 	sourceIP, destIP := getIPs(rule, resourceIpAddress)
 	var srcPort string
@@ -464,6 +463,7 @@ func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 
 	// create permit list rule object
 	permitListRule := &invisinetspb.PermitListRule{
+		Name:      *rule.Name,
 		Id:        *rule.ID,
 		Targets:   getTargets(rule),
 		Direction: azureToInvisinetsDirection[*rule.Properties.Direction],
@@ -473,11 +473,6 @@ func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 		Tags:      parseDescriptionTags(rule.Properties.Description),
 	}
 	return permitListRule, nil
-}
-
-// GetNSGRuleDesc returns a description of an invisinets permit list rule for easier comparison
-func (h *azureSDKHandler) GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string {
-	return fmt.Sprintf("%s-%d-%d-%d-%d-%s", strings.Join(rule.Targets, "-"), rule.Direction, rule.SrcPort, rule.DstPort, rule.Protocol, strings.Join(rule.Tags, "-"))
 }
 
 // GetSecurityGroup reutrns the network security group object given the nsg name

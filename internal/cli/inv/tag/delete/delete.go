@@ -27,22 +27,23 @@ import (
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout}
+	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
 	cmd := &cobra.Command{
-		Use:     "delete <tag name> [-members <member list>]",
+		Use:     "delete <tag name> [-member <member>]",
 		Short:   "Delete a tag",
 		Args:    cobra.ExactArgs(1),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
-	cmd.Flags().StringSlice("members", []string{}, "The member(s) to delete")
+	cmd.Flags().String("member", "", "The member to delete")
 	return cmd, executor
 }
 
 type executor struct {
 	common.CommandExecutor
-	writer  io.Writer
-	members []string
+	cliSettings settings.CLISettings
+	writer      io.Writer
+	member      string
 }
 
 func (e *executor) SetOutput(w io.Writer) {
@@ -51,7 +52,7 @@ func (e *executor) SetOutput(w io.Writer) {
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	var err error
-	e.members, err = cmd.Flags().GetStringSlice("members")
+	e.member, err = cmd.Flags().GetString("member")
 	if err != nil {
 		return err
 	}
@@ -60,12 +61,12 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	// Delete the tag from the server
-	c := client.Client{ControllerAddress: settings.ServerAddr}
-	if len(e.members) == 0 {
+	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
+	if e.member == "" {
 		err := c.DeleteTag(args[0])
 		return err
 	} else {
-		err := c.DeleteTagMembers(args[0], e.members)
+		err := c.DeleteTagMembers(args[0], e.member)
 		return err
 	}
 }

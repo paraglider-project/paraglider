@@ -198,12 +198,8 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *
 }
 
 // GetPermitList returns security rules of security groups associated with the specified instance.
-func (s *ibmPluginServer) GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
-	permitList := &invisinetspb.PermitList{
-		AssociatedResource: resourceID.Id,
-		Rules:              []*invisinetspb.PermitListRule{},
-	}
-	rInfo, err := getResourceIDInfo(resourceID.Id)
+func (s *ibmPluginServer) GetPermitList(ctx context.Context, req *invisinetspb.GetPermitListRequest) (*invisinetspb.GetPermitListResponse, error) {
+	rInfo, err := getResourceIDInfo(req.Resource)
 	if err != nil {
 		return nil, err
 	}
@@ -216,9 +212,9 @@ func (s *ibmPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 
 	// verify specified instance match the specified namespace
 	if isInNamespace, err := cloudClient.IsInstanceInNamespace(
-		rInfo.ResourceID, resourceID.Namespace, region); !isInNamespace || err != nil {
+		rInfo.ResourceID, req.Namespace, region); !isInNamespace || err != nil {
 		return nil, fmt.Errorf("Specified instance: %v doesn't exist in namespace: %v.",
-			rInfo.ResourceID, resourceID.Namespace)
+			rInfo.ResourceID, req.Namespace)
 	}
 
 	securityGroupID, err := cloudClient.GetInstanceSecurityGroupID(rInfo.ResourceID)
@@ -234,14 +230,13 @@ func (s *ibmPluginServer) GetPermitList(ctx context.Context, resourceID *invisin
 		return nil, err
 	}
 
-	permitList.Rules = invisinetsRules
-	return permitList, nil
+	return &invisinetspb.GetPermitListResponse{Rules: invisinetsRules}, nil
 }
 
 // AddPermitListRules attaches security group rules to the specified instance in PermitList.AssociatedResource.
-func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
+func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinetspb.AddPermitListRulesRequest) (*invisinetspb.AddPermitListRulesResponse, error) {
 	var subnetsCIDRs []string
-	rInfo, err := getResourceIDInfo(pl.AssociatedResource)
+	rInfo, err := getResourceIDInfo(req.Resource)
 	if err != nil {
 		return nil, err
 	}
@@ -255,9 +250,9 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 
 	// verify specified instance match the specified namespace
 	if isInNamespace, err := cloudClient.IsInstanceInNamespace(
-		rInfo.ResourceID, pl.Namespace, region); !isInNamespace || err != nil {
+		rInfo.ResourceID, req.Namespace, region); !isInNamespace || err != nil {
 		return nil, fmt.Errorf("Specified instance: %v doesn't exist in namespace: %v.",
-			rInfo.ResourceID, pl.Namespace)
+			rInfo.ResourceID, req.Namespace)
 	}
 
 	// Get the VM ID from the resource ID (typically refers to VM Name)
@@ -295,19 +290,18 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 		subnetsCIDRs = append(subnetsCIDRs, cidr)
 	}
 
-	rulesHashValues := make(map[uint64]bool)
+	ruleExists := make(map[string]bool)
 	// get current rules in SG and record their hash values
 	sgRules, err := cloudClient.GetSecurityRulesOfSG(vmInvisinetsSgID)
 	if err != nil {
 		return nil, err
 	}
-	_, err = s.getUniqueSGRules(sgRules, rulesHashValues)
-	if err != nil {
-		return nil, err
+	for _, sgRule := range sgRules {
+		ruleExists[sgRule.ID] = true
 	}
 
 	// translate invisinets rules to IBM rules to compare hash values with current rules.
-	ibmRulesToAdd, err := invisinetsToIBMRules(vmInvisinetsSgID, pl.Rules)
+	ibmRulesToAdd, err := invisinetsToIBMRules(vmInvisinetsSgID, req.Rules)
 	if err != nil {
 		return nil, err
 	}
@@ -337,24 +331,28 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, pl *invisinets
 			3. connect VPCs via transit gateway.
 			*/
 		}
-		ruleHashValue, err := getStructHash(ibmRule, []string{"ID"})
-		if err != nil {
-			return nil, err
-		}
-		if _, ruleExists := rulesHashValues[ruleHashValue]; !ruleExists {
+
+		exists, ok := ruleExists[ibmRule.ID]
+		if exists && ok {
+			err := cloudClient.UpdateSecurityGroupRule(ibmRule)
+			if err != nil {
+				return nil, err
+			}
+			utils.Log.Printf("updated rule rule %+v", ibmRule)
+		} else if !ok {
 			err := cloudClient.AddSecurityGroupRule(ibmRule)
 			if err != nil {
 				return nil, err
 			}
-			utils.Log.Printf("attached rule %+v", ibmRule)
+			utils.Log.Printf("added rule rule %+v", ibmRule)
 		}
 	}
-	return &invisinetspb.BasicResponse{Success: true, Message: "successfully attached specified rules to VM's security group"}, nil
+	return &invisinetspb.AddPermitListRulesResponse{}, nil
 }
 
 // DeletePermitListRules deletes security group rules matching the attributes of the rules contained in the relevant Security group
-func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, pl *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	rInfo, err := getResourceIDInfo(pl.AssociatedResource)
+func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, req *invisinetspb.DeletePermitListRulesRequest) (*invisinetspb.DeletePermitListRulesResponse, error) {
+	rInfo, err := getResourceIDInfo(req.Resource)
 	if err != nil {
 		return nil, err
 	}
@@ -367,9 +365,9 @@ func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, pl *invisin
 
 	// verify specified instance match the specified namespace
 	if isInNamespace, err := cloudClient.IsInstanceInNamespace(
-		rInfo.ResourceID, pl.Namespace, region); !isInNamespace || err != nil {
+		rInfo.ResourceID, req.Namespace, region); !isInNamespace || err != nil {
 		return nil, fmt.Errorf("Specified instance: %v doesn't exist in namespace: %v.",
-			rInfo.ResourceID, pl.Namespace)
+			rInfo.ResourceID, req.Namespace)
 	}
 
 	// Get the VM ID from the resource ID (typically refers to VM Name)
@@ -389,58 +387,15 @@ func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, pl *invisin
 	// assuming up to a single invisinets subnet can exist per zone
 	vmInvisinetsSgID := invisinetsSgsData[0].ID
 
-	ibmRulesToDelete, err := invisinetsToIBMRules(vmInvisinetsSgID, pl.Rules)
-	if err != nil {
-		return nil, err
-	}
-	rulesIDs, err := s.fetchRulesIDs(cloudClient, ibmRulesToDelete, vmInvisinetsSgID)
-	if err != nil {
-		return nil, err
-	}
-	for _, ruleID := range rulesIDs {
+	for _, ruleID := range req.RuleNames {
 		err = cloudClient.DeleteSecurityGroupRule(vmInvisinetsSgID, ruleID)
 		if err != nil {
 			return nil, err
 		}
 		utils.Log.Printf("Deleted rule %v", ruleID)
 	}
-	return &invisinetspb.BasicResponse{Success: true, Message: "successfully deleted rules from permit list"}, nil
+	return &invisinetspb.DeletePermitListRulesResponse{}, nil
 
-}
-
-func (s *ibmPluginServer) fetchRulesIDs(cloudClient *sdk.CloudClient, rules []sdk.SecurityGroupRule, sgID string) ([]string, error) {
-	var rulesIDs []string
-	sgRules, err := cloudClient.GetSecurityRulesOfSG(sgID)
-	if err != nil {
-		return nil, err
-	}
-	for _, sgRule := range sgRules {
-		for _, rule := range rules {
-			if sdk.AreStructsEqual(rule, sgRule, []string{"ID", "SgID"}) {
-				rulesIDs = append(rulesIDs, sgRule.ID)
-				// found matching rule, continue to the next sgRule
-				break
-			}
-		}
-	}
-	return rulesIDs, nil
-}
-
-// return the specified rules without duplicates, while keeping the rules hash values updated for future use.
-func (s *ibmPluginServer) getUniqueSGRules(rules []sdk.SecurityGroupRule, rulesHashValues map[uint64]bool) ([]sdk.SecurityGroupRule, error) {
-	var res []sdk.SecurityGroupRule
-	for _, rule := range rules {
-		// exclude unique field "ID" from hash calculation.
-		ruleHashValue, err := getStructHash(rule, []string{"ID"})
-		if err != nil {
-			return nil, err
-		}
-		if _, ruleExists := rulesHashValues[ruleHashValue]; !ruleExists {
-			res = append(res, rule)
-			rulesHashValues[ruleHashValue] = true
-		}
-	}
-	return res, nil
 }
 
 // Setup starts up the plugin server and stores the frontend server address.

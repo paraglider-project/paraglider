@@ -139,16 +139,13 @@ func getProtocolNumber(firewallProtocol string) (int32, error) {
 /* --- RESOURCE NAME --- */
 // Gets a GCP firewall rule name for an Invisinets permit list rule
 // If two Invisinets permit list rules are equal, then they will have the same GCP firewall rule name.
-func getFirewallName(permitListRule *invisinetspb.PermitListRule, instanceId uint64) string {
-	return (firewallNamePrefix + hash(
-		strconv.FormatUint(instanceId, 10),
-		strconv.Itoa(int(permitListRule.Protocol)),
-		strconv.Itoa(int(permitListRule.DstPort)),
-		strconv.Itoa(int(permitListRule.SrcPort)),
-		permitListRule.Direction.String(),
-		strings.Join(permitListRule.Tags, ""),
-		strings.Join(permitListRule.Targets, ""),
-	))[:firewallNameMaxLength]
+func getFirewallName(ruleName string, instanceId uint64) string {
+	return (fmt.Sprintf("%s-%s-%s", firewallNamePrefix, strconv.FormatUint(instanceId, 16), ruleName))
+}
+
+// Retrieve the name of the firewall rule from the GCP firewall name
+func parseFirewallName(firewallName string) string {
+	return strings.SplitN(firewallName, "-", 5)[4]
 }
 
 func getInvisinetsNamespacePrefix(namespace string) string {
@@ -306,35 +303,31 @@ func (s *GCPPluginServer) checkInstanceNamespace(ctx context.Context, instancesC
 	return nil
 }
 
-func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID, instancesClient *compute.InstancesClient) (*invisinetspb.PermitList, error) {
-	project, zone, instance := parseInstanceUri(resourceID.Id)
+func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.GetPermitListRequest, instancesClient *compute.InstancesClient) (*invisinetspb.GetPermitListResponse, error) {
+	project, zone, instance := parseInstanceUri(req.Resource)
 
-	err := s.checkInstanceNamespace(ctx, instancesClient, instance, project, zone, resourceID.Namespace)
+	err := s.checkInstanceNamespace(ctx, instancesClient, instance, project, zone, req.Namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	req := &computepb.GetEffectiveFirewallsInstanceRequest{
+	fwReq := &computepb.GetEffectiveFirewallsInstanceRequest{
 		Instance:         instance,
 		NetworkInterface: networkInterface,
 		Project:          project,
 		Zone:             zone,
 	}
-	resp, err := instancesClient.GetEffectiveFirewalls(ctx, req)
+	resp, err := instancesClient.GetEffectiveFirewalls(ctx, fwReq)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get effective firewalls: %w", err)
 	}
 
-	permitList := &invisinetspb.PermitList{
-		AssociatedResource: resourceID.Id,
-		Rules:              []*invisinetspb.PermitListRule{},
-		Namespace:          resourceID.Namespace,
-	}
+	permitListRules := []*invisinetspb.PermitListRule{}
 
 	for _, firewall := range resp.Firewalls {
 		// Exclude default deny all egress from being included since it applies to every VM
-		if isInvisinetsPermitListRule(resourceID.Namespace, firewall) && *firewall.Name != getDenyAllIngressFirewallName(resourceID.Namespace) {
-			permitListRules := make([]*invisinetspb.PermitListRule, len(firewall.Allowed))
+		if isInvisinetsPermitListRule(req.Namespace, firewall) && *firewall.Name != getDenyAllIngressFirewallName(req.Namespace) {
+			rules := make([]*invisinetspb.PermitListRule, len(firewall.Allowed))
 			for i, rule := range firewall.Allowed {
 				protocolNumber, err := getProtocolNumber(*rule.IPProtocol)
 				if err != nil {
@@ -365,7 +358,8 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 					tags = parseDescriptionTags(*firewall.Description)
 				}
 
-				permitListRules[i] = &invisinetspb.PermitListRule{
+				rules[i] = &invisinetspb.PermitListRule{
+					Name:      parseFirewallName(*firewall.Name),
 					Direction: firewallDirectionMapGCPToInvisinets[*firewall.Direction],
 					SrcPort:   -1,
 					DstPort:   int32(dstPort),
@@ -374,26 +368,26 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, resourceID *invisi
 					Tags:      tags,
 				} // SrcPort not specified since GCP doesn't support rules based on source ports
 			}
-			permitList.Rules = append(permitList.Rules, permitListRules...)
+			permitListRules = append(permitListRules, rules...)
 		}
 	}
 
-	return permitList, nil
+	return &invisinetspb.GetPermitListResponse{Rules: permitListRules}, nil
 }
 
-func (s *GCPPluginServer) GetPermitList(ctx context.Context, resourceID *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
+func (s *GCPPluginServer) GetPermitList(ctx context.Context, req *invisinetspb.GetPermitListRequest) (*invisinetspb.GetPermitListResponse, error) {
 	instancesClient, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
 	}
 	defer instancesClient.Close()
-	return s._GetPermitList(ctx, resourceID, instancesClient)
+	return s._GetPermitList(ctx, req, instancesClient)
 }
 
-func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.BasicResponse, error) {
-	project, zone, instance := parseInstanceUri(permitList.AssociatedResource)
+func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisinetspb.AddPermitListRulesRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.AddPermitListRulesResponse, error) {
+	project, zone, instance := parseInstanceUri(req.Resource)
 
-	err := s.checkInstanceNamespace(ctx, instancesClient, instance, project, zone, permitList.Namespace)
+	err := s.checkInstanceNamespace(ctx, instancesClient, instance, project, zone, req.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -410,9 +404,9 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 		return nil, fmt.Errorf("unable to get effective firewalls: %w", err)
 	}
 
-	existingFirewalls := map[string]bool{}
+	existingFirewalls := map[string]*computepb.Firewall{}
 	for _, firewall := range getEffectiveFirewallsResp.Firewalls {
-		existingFirewalls[*firewall.Name] = true
+		existingFirewalls[*firewall.Name] = firewall
 	}
 
 	// Get GCP network tag corresponding to VM (which will have been set during resource creation)
@@ -425,7 +419,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 	if err != nil {
 		return nil, fmt.Errorf("unable to get instance: %w", err)
 	}
-	networkTag := getNetworkTag(permitList.Namespace, *getInstanceResp.Id)
+	networkTag := getNetworkTag(req.Namespace, *getInstanceResp.Id)
 
 	// Get subnetwork address space
 	parsedSubnetworkUri := parseGCPURL(*getInstanceResp.NetworkInterfaces[0].Subnetwork)
@@ -447,22 +441,29 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 	}
 	defer controllerConn.Close()
 	controllerClient := invisinetspb.NewControllerClient(controllerConn)
-	usedAddressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: permitList.Namespace})
+	usedAddressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: req.Namespace})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
 
-	for _, permitListRule := range permitList.Rules {
+	for _, permitListRule := range req.Rules {
 		// TODO @seankimkdy: should we throw an error/warning if user specifies a srcport since GCP doesn't support srcport based firewalls?
-		firewallName := getFirewallName(permitListRule, *getInstanceResp.Id)
+		firewallName := getFirewallName(permitListRule.Name, *getInstanceResp.Id)
 
-		// Skip existing permit lists rules
-		if existingFirewalls[firewallName] {
-			continue
+		patchRequired := false
+		if existingFw, ok := existingFirewalls[firewallName]; ok {
+			if isFirewallEqPermitListRule(req.Namespace, existingFw, permitListRule) {
+				// Firewall already exists and is equivalent to the provided permit list rule
+				continue
+			} else {
+				// Firewall already exists but is not equivalent to the provided permit list rule
+				// We should patch the rule, but we need to still check if any new infrastructure is needed
+				patchRequired = true
+			}
 		}
 
 		// Check and create multicloud connections as necessary
-		err = utils.CheckAndConnectClouds(utils.GCP, subnetworkAddressSpace, permitList.Namespace, ctx, permitListRule, usedAddressSpaceMappings, controllerClient)
+		err = utils.CheckAndConnectClouds(utils.GCP, subnetworkAddressSpace, req.Namespace, ctx, permitListRule, usedAddressSpaceMappings, controllerClient)
 		if err != nil {
 			return nil, fmt.Errorf("unable to check and connect clouds: %w", err)
 		}
@@ -476,7 +477,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 			Description: proto.String(getRuleDescription(permitListRule.Tags)),
 			Direction:   proto.String(firewallDirectionMapInvisinetsToGCP[permitListRule.Direction]),
 			Name:        proto.String(firewallName),
-			Network:     proto.String(GetVpcUri(permitList.Namespace)),
+			Network:     proto.String(GetVpcUri(req.Namespace)),
 			TargetTags:  []string{networkTag},
 		}
 		if permitListRule.DstPort != -1 {
@@ -490,25 +491,39 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, permitList *i
 		} else {
 			firewall.DestinationRanges = permitListRule.Targets
 		}
-		insertFirewallReq := &computepb.InsertFirewallRequest{
-			Project:          project,
-			FirewallResource: firewall,
-		}
-		insertFirewallOp, err := firewallsClient.Insert(ctx, insertFirewallReq)
-		if err != nil {
-			return nil, fmt.Errorf("unable to create firewall rule: %w", err)
-		}
-		if err = insertFirewallOp.Wait(ctx); err != nil {
-			return nil, fmt.Errorf("unable to wait for the operation: %w", err)
-		}
 
-		existingFirewalls[firewallName] = true
+		if patchRequired {
+			patchFirewallReq := &computepb.PatchFirewallRequest{
+				Firewall:         firewallName,
+				FirewallResource: firewall,
+				Project:          project,
+			}
+			patchFirewallOp, err := firewallsClient.Patch(ctx, patchFirewallReq)
+			if err != nil {
+				return nil, fmt.Errorf("unable to modify firewall rule: %w", err)
+			}
+			if err = patchFirewallOp.Wait(ctx); err != nil {
+				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
+			}
+		} else {
+			insertFirewallReq := &computepb.InsertFirewallRequest{
+				Project:          project,
+				FirewallResource: firewall,
+			}
+			insertFirewallOp, err := firewallsClient.Insert(ctx, insertFirewallReq)
+			if err != nil {
+				return nil, fmt.Errorf("unable to create firewall rule: %w", err)
+			}
+			if err = insertFirewallOp.Wait(ctx); err != nil {
+				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
+			}
+		}
 	}
 
-	return &invisinetspb.BasicResponse{Success: true}, nil
+	return &invisinetspb.AddPermitListRulesResponse{}, nil
 }
 
-func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
+func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, req *invisinetspb.AddPermitListRulesRequest) (*invisinetspb.AddPermitListRulesResponse, error) {
 	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewFirewallsRESTClient: %w", err)
@@ -527,13 +542,13 @@ func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, permitList *in
 	}
 	defer subnetworksClient.Close()
 
-	return s._AddPermitListRules(ctx, permitList, firewallsClient, instancesClient, subnetworksClient)
+	return s._AddPermitListRules(ctx, req, firewallsClient, instancesClient, subnetworksClient)
 }
 
-func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList *invisinetspb.PermitList, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.BasicResponse, error) {
-	project, zone, instance := parseInstanceUri(permitList.AssociatedResource)
+func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *invisinetspb.DeletePermitListRulesRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.DeletePermitListRulesResponse, error) {
+	project, zone, instance := parseInstanceUri(req.Resource)
 
-	err := s.checkInstanceNamespace(ctx, instancesClient, instance, project, zone, permitList.Namespace)
+	err := s.checkInstanceNamespace(ctx, instancesClient, instance, project, zone, req.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -549,44 +564,25 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, permitList
 		return nil, fmt.Errorf("unable to get instance: %w", err)
 	}
 
-	// Get existing firewalls
-	getEffectiveFirewallsReq := &computepb.GetEffectiveFirewallsInstanceRequest{
-		Instance:         instance,
-		NetworkInterface: networkInterface,
-		Project:          project,
-		Zone:             zone,
-	}
-	getEffectiveFirewallsResp, err := instancesClient.GetEffectiveFirewalls(ctx, getEffectiveFirewallsReq)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get effective firewalls: %w", err)
-	}
-
 	// Delete firewalls corresponding to provided permit list rules
-	firewallMap := map[string]*computepb.Firewall{}
-	for _, firewall := range getEffectiveFirewallsResp.Firewalls {
-		firewallMap[*firewall.Name] = firewall
-	}
-	for _, permitListRule := range permitList.Rules {
-		firewall, ok := firewallMap[getFirewallName(permitListRule, *getInstanceResp.Id)]
-		if ok && isInvisinetsPermitListRule(permitList.Namespace, firewall) && isFirewallEqPermitListRule(permitList.Namespace, firewall, permitListRule) {
-			deleteFirewallReq := &computepb.DeleteFirewallRequest{
-				Firewall: *firewall.Name,
-				Project:  project,
-			}
-			deleteFirewallOp, err := firewallsClient.Delete(ctx, deleteFirewallReq)
-			if err != nil {
-				return nil, fmt.Errorf("unable to delete firewall: %w", err)
-			}
-			if err = deleteFirewallOp.Wait(ctx); err != nil {
-				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
-			}
+	for _, ruleName := range req.RuleNames {
+		deleteFirewallReq := &computepb.DeleteFirewallRequest{
+			Firewall: getFirewallName(ruleName, *getInstanceResp.Id),
+			Project:  project,
+		}
+		deleteFirewallOp, err := firewallsClient.Delete(ctx, deleteFirewallReq)
+		if err != nil {
+			return nil, fmt.Errorf("unable to delete firewall: %w", err)
+		}
+		if err = deleteFirewallOp.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 		}
 	}
 
-	return &invisinetspb.BasicResponse{Success: true}, nil
+	return &invisinetspb.DeletePermitListRulesResponse{}, nil
 }
 
-func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
+func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, req *invisinetspb.DeletePermitListRulesRequest) (*invisinetspb.DeletePermitListRulesResponse, error) {
 	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewFirewallsRESTClient: %w", err)
@@ -599,7 +595,7 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, permitList 
 	}
 	defer instancesClient.Close()
 
-	return s._DeletePermitListRules(ctx, permitList, firewallsClient, instancesClient)
+	return s._DeletePermitListRules(ctx, req, firewallsClient, instancesClient)
 }
 
 func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient) (*invisinetspb.CreateResourceResponse, error) {
@@ -917,7 +913,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 	insertVpnGatewayOp, err := vpnGatewaysClient.Insert(ctx, insertVpnGatewayReq)
 	if err != nil {
 		if !isErrorDuplicate(err) {
-			return nil, fmt.Errorf("unable to insert vpn gateway: %w", err)
+			return nil, fmt.Errorf("unable to insert vpn gateway: %w (request: %v)", err, insertVpnGatewayReq)
 		}
 	} else {
 		if err = insertVpnGatewayOp.Wait(ctx); err != nil {
