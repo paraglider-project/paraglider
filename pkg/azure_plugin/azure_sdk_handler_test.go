@@ -18,6 +18,8 @@ limitations under the License.
 
 package azure_plugin
 
+// TODO now: Add tests for creating AKS clusters
+
 import (
 	"context"
 	"encoding/json"

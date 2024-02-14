@@ -33,6 +33,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
@@ -70,6 +71,7 @@ type AzureSDKHandler interface {
 	GetLocalNetworkGateway(ctx context.Context, name string) (*armnetwork.LocalNetworkGateway, error)
 	CreateVirtualNetworkGatewayConnection(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGatewayConnection) (*armnetwork.VirtualNetworkGatewayConnection, error)
 	GetVirtualNetworkGatewayConnection(ctx context.Context, name string) (*armnetwork.VirtualNetworkGatewayConnection, error)
+	CreateAKSCluster(ctx context.Context, parameters armcontainerservice.ManagedCluster, clusterName string) (*armcontainerservice.ManagedCluster, error)
 }
 
 type azureSDKHandler struct {
@@ -77,11 +79,13 @@ type azureSDKHandler struct {
 	resourcesClientFactory                 *armresources.ClientFactory
 	computeClientFactory                   *armcompute.ClientFactory
 	networkClientFactory                   *armnetwork.ClientFactory
+	containerServiceClientFactory          *armcontainerservice.ClientFactory
 	securityGroupsClient                   *armnetwork.SecurityGroupsClient
 	interfacesClient                       *armnetwork.InterfacesClient
 	securityRulesClient                    *armnetwork.SecurityRulesClient
 	virtualMachinesClient                  *armcompute.VirtualMachinesClient
 	virtualNetworksClient                  *armnetwork.VirtualNetworksClient
+	managedClustersClient                  *armcontainerservice.ManagedClustersClient
 	resourcesClient                        *armresources.Client
 	deploymentsClient                      *armresources.DeploymentsClient
 	networkPeeringClient                   *armnetwork.VirtualNetworkPeeringsClient
@@ -154,19 +158,26 @@ func (h *azureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
 		return err
 	}
 
+	h.containerServiceClientFactory, err = armcontainerservice.NewClientFactory(h.subscriptionID, cred, nil)
+	if err != nil {
+		return err
+	}
+
 	h.securityGroupsClient = h.networkClientFactory.NewSecurityGroupsClient()
 	h.interfacesClient = h.networkClientFactory.NewInterfacesClient()
 	h.networkPeeringClient = h.networkClientFactory.NewVirtualNetworkPeeringsClient()
 	h.securityRulesClient = h.networkClientFactory.NewSecurityRulesClient()
 	h.virtualNetworksClient = h.networkClientFactory.NewVirtualNetworksClient()
-	h.resourcesClient = h.resourcesClientFactory.NewClient()
-	h.virtualMachinesClient = h.computeClientFactory.NewVirtualMachinesClient()
-	h.deploymentsClient = h.resourcesClientFactory.NewDeploymentsClient()
 	h.virtualNetworkGatewaysClient = h.networkClientFactory.NewVirtualNetworkGatewaysClient()
 	h.publicIPAddressesClient = h.networkClientFactory.NewPublicIPAddressesClient()
 	h.subnetsClient = h.networkClientFactory.NewSubnetsClient()
 	h.virtualNetworkGatewayConnectionsClient = h.networkClientFactory.NewVirtualNetworkGatewayConnectionsClient()
 	h.localNetworkGatewaysClient = h.networkClientFactory.NewLocalNetworkGatewaysClient()
+	h.deploymentsClient = h.resourcesClientFactory.NewDeploymentsClient()
+	h.resourcesClient = h.resourcesClientFactory.NewClient()
+	h.virtualMachinesClient = h.computeClientFactory.NewVirtualMachinesClient()
+	h.managedClustersClient = h.containerServiceClientFactory.NewManagedClustersClient()
+
 	return nil
 }
 
@@ -665,6 +676,20 @@ func (h *azureSDKHandler) CreateVirtualMachine(ctx context.Context, parameters a
 		return nil, err
 	}
 	return &resp.VirtualMachine, nil
+}
+
+// CreateAKSCluster creates a new AKS cluster with the given parameters and name
+func (h *azureSDKHandler) CreateAKSCluster(ctx context.Context, parameters armcontainerservice.ManagedCluster, clusterName string) (*armcontainerservice.ManagedCluster, error) {
+	pollerResponse, err := h.managedClustersClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, clusterName, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.ManagedCluster, nil
 }
 
 // GetVNet returns the virtual network with the given name

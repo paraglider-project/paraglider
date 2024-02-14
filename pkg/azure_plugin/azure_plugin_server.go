@@ -314,29 +314,10 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		return nil, err
 	}
 
-	nic, err := s.azureHandler.CreateNetworkInterface(ctx, *invisinetsVnet.Properties.Subnets[0].ID, *invisinetsVm.Location, getInvisinetsResourceName("nic"))
+	// Create the resource
+	ip, err := ReadAndProvisionResource(ctx, resourceDesc, invisinetsVnet.Properties.Subnets[0], &resourceIdInfo, s.azureHandler)
 	if err != nil {
-		utils.Log.Printf("An error occured while creating network interface:%+v", err)
-		return nil, err
-	}
-
-	invisinetsVm.Properties.NetworkProfile = &armcompute.NetworkProfile{
-		NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
-			{
-				ID: nic.ID,
-			},
-		},
-	}
-
-	invisinetsVm, err = s.azureHandler.CreateVirtualMachine(ctx, *invisinetsVm, resourceIdInfo.ResourceName)
-	if err != nil {
-		utils.Log.Printf("An error occured while creating the virtual machine:%+v", err)
-		return nil, err
-	}
-
-	nic, err = s.azureHandler.GetResourceNIC(ctx, *invisinetsVm.ID)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting the network interface:%+v", err)
+		utils.Log.Printf("An error occured while creating resource:%+v", err)
 		return nil, err
 	}
 
@@ -411,7 +392,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		}
 	}
 
-	return &invisinetspb.CreateResourceResponse{Name: *invisinetsVm.Name, Uri: *invisinetsVm.ID, Ip: *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress}, nil
+	return &invisinetspb.CreateResourceResponse{Name: *invisinetsVm.Name, Uri: *invisinetsVm.ID, Ip: ip}, nil
 }
 
 // GetUsedAddressSpaces returns the address spaces used by invisinets which are the address spaces of the invisinets vnets
