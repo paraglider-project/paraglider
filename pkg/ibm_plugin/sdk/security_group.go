@@ -23,7 +23,9 @@ import (
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
+	ibmCommon "github.com/NetSys/invisinets/pkg/ibm_plugin"
 
+	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
@@ -51,6 +53,35 @@ type SecurityGroupRule struct {
 	IcmpCode   int64  // ICMP Code for the rule (only available for ICMP rules), -1 means all codes
 	Egress     bool   // The rule affects to outbound traffic (true) or inbound (false)
 }
+
+// mapping invisinets traffic directions to booleans
+var invisinetsToIBMDirection = map[invisinetspb.Direction]bool{
+	invisinetspb.Direction_OUTBOUND: true,
+	invisinetspb.Direction_INBOUND:  false,
+}
+
+// mapping booleans invisinets traffic directions
+var ibmToInvisinetsDirection = map[bool]invisinetspb.Direction{
+	true:  invisinetspb.Direction_OUTBOUND,
+	false: invisinetspb.Direction_INBOUND,
+}
+
+// mapping integers determined by the IANA standard to IBM protocols
+var invisinetsToIBMprotocol = map[int32]string{
+	-1: "all",
+	1:  "icmp",
+	6:  "tcp",
+	17: "udp",
+}
+
+// mapping IBM protocols to integers determined by the IANA standard
+var ibmToInvisinetsProtocol = map[string]int32{
+	"all":  -1,
+	"icmp": 1,
+	"tcp":  6,
+	"udp":  17,
+}
+
 
 // creates security group in the specified VPC and tags it.
 func (c *CloudClient) createSecurityGroup(
@@ -380,4 +411,104 @@ func getEgressDirection(egress bool) *string {
 	} else {
 		return core.StringPtr(inboundType)
 	}
+}
+
+// return the specified rules without duplicates, while keeping the rules' hash values updated for future use.
+func (c *CloudClient) GetUniqueSGRules(rules []SecurityGroupRule, rulesHashValues map[uint64]bool) ([]SecurityGroupRule, error) {
+	var res []SecurityGroupRule
+	for _, rule := range rules {
+		// exclude unique field "ID" from hash calculation.
+		ruleHashValue, err := ibmCommon.GetStructHash(rule, []string{"ID"})
+		if err != nil {
+			return nil, err
+		}
+		if _, ruleExists := rulesHashValues[ruleHashValue]; !ruleExists {
+			res = append(res, rule)
+			rulesHashValues[ruleHashValue] = true
+		}
+	}
+	return res, nil
+}
+
+// return IDs of rules matching the specified specifications.
+func (c *CloudClient) GetRulesIDs(rules []SecurityGroupRule, sgID string) ([]string, error) {
+	var rulesIDs []string
+	sgRules, err := c.GetSecurityRulesOfSG(sgID)
+	if err != nil {
+		return nil, err
+	}
+	for _, sgRule := range sgRules {
+		for _, rule := range rules {
+			// aggregate rules matching the specified rules, based on all fields except their IDs and SG IDs.
+			if ibmCommon.AreStructsEqual(rule, sgRule, []string{"ID", "SgID"}) {
+				rulesIDs = append(rulesIDs, sgRule.ID)
+				// found matching rule, continue to the next sgRule
+				break
+			}
+		}
+	}
+	return rulesIDs, nil
+}
+
+
+// returns rules in invisinets format from IBM cloud format
+// TODO @cohen-j-omer: handle permitList tags if required.
+func IBMToInvisinetsRules(rules []SecurityGroupRule) ([]*invisinetspb.PermitListRule, error) {
+	var invisinetsRules []*invisinetspb.PermitListRule
+
+	for _, rule := range rules {
+		if rule.PortMin != rule.PortMax {
+			return nil, fmt.Errorf("SG rules with port ranges aren't currently supported")
+		}
+		// PortMin=PortMax since port ranges aren't supported.
+		// srcPort=dstPort since ibm security rules are stateful,
+		// i.e. they automatically also permit the reverse traffic.
+		srcPort, dstPort := rule.PortMin, rule.PortMin
+
+		permitListRule := &invisinetspb.PermitListRule{
+			Targets:   []string{rule.Remote},
+			Id:        rule.ID,
+			Direction: ibmToInvisinetsDirection[rule.Egress],
+			SrcPort:   int32(srcPort),
+			DstPort:   int32(dstPort),
+			Protocol:  ibmToInvisinetsProtocol[rule.Protocol],
+		}
+		invisinetsRules = append(invisinetsRules, permitListRule)
+
+	}
+	return invisinetsRules, nil
+}
+
+// returns rules in IBM cloud format to invisinets format
+// NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code
+func InvisinetsToIBMRules(securityGroupID string, rules []*invisinetspb.PermitListRule) (
+	[]SecurityGroupRule, error) {
+	var sgRules []SecurityGroupRule
+	for _, rule := range rules {
+		if len(rule.Targets) == 0 {
+			return nil, fmt.Errorf("PermitListRule is missing Tag value. Rule:%+v", rule)
+		}
+		for _, target := range rule.Targets {
+			remote := target
+			remoteType, err := GetRemoteType(remote)
+			if err != nil {
+				return nil, err
+			}
+			sgRule := SecurityGroupRule{
+				ID:         rule.Id,
+				SgID:       securityGroupID,
+				Protocol:   invisinetsToIBMprotocol[rule.Protocol],
+				Remote:     remote,
+				RemoteType: remoteType,
+				PortMin:    int64(rule.SrcPort),
+				PortMax:    int64(rule.SrcPort),
+				Egress:     invisinetsToIBMDirection[rule.Direction],
+				// explicitly setting value to 0. other icmp values have meaning.
+				IcmpType: 0,
+				IcmpCode: 0,
+			}
+			sgRules = append(sgRules, sgRule)
+		}
+	}
+	return sgRules, nil
 }

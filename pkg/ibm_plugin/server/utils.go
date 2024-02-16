@@ -21,42 +21,13 @@ import (
 	"strings"
 
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
 )
 
-// ResourceIDInfo defines the necessary fields of a resource
+// ResourceIDInfo defines the necessary fields of a resource sent in a request
 type ResourceIDInfo struct {
-	ResourceGroupID string `json:"ResourceGroupID"`
+	ResourceGroupName string `json:"ResourceGroupName"` // name of the resource group
 	Zone            string `json:"Zone"`
 	ResourceID      string `json:"ResourceID"`
-}
-
-// mapping invisinets traffic directions to booleans
-var invisinetsToIBMDirection = map[invisinetspb.Direction]bool{
-	invisinetspb.Direction_OUTBOUND: true,
-	invisinetspb.Direction_INBOUND:  false,
-}
-
-// mapping booleans invisinets traffic directions
-var ibmToInvisinetsDirection = map[bool]invisinetspb.Direction{
-	true:  invisinetspb.Direction_OUTBOUND,
-	false: invisinetspb.Direction_INBOUND,
-}
-
-// mapping integers determined by the IANA standard to IBM protocols
-var invisinetsToIBMprotocol = map[int32]string{
-	-1: "all",
-	1:  "icmp",
-	6:  "tcp",
-	17: "udp",
-}
-
-// mapping IBM protocols to integers determined by the IANA standard
-var ibmToInvisinetsProtocol = map[string]int32{
-	"all":  -1,
-	"icmp": 1,
-	"tcp":  6,
-	"udp":  17,
 }
 
 func getClientMapKey(resGroup, region string) string {
@@ -64,19 +35,19 @@ func getClientMapKey(resGroup, region string) string {
 }
 
 // returns ResourceIDInfo out of an agreed upon formatted string:
-// "/ResourceGroupID/{ResourceGroupID}/Region/{Region}/ResourceID/{ResourceID}"
+// "/ResourceGroupName/{ResourceGroupName}/Region/{Region}/ResourceID/{ResourceID}"
 func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	parts := strings.Split(resourceID, "/")
 	if len(parts) < 5 {
-		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected at least 5 parts in the format of '/ResourceGroupID/{ResourceGroupID}/Zone/{Zone}/ResourceID/{ResourceID}', got %d", len(parts))
+		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected at least 5 parts in the format of '/ResourceGroupName/{ResourceGroupName}/Zone/{Zone}/ResourceID/{ResourceID}', got %d", len(parts))
 	}
 
-	if parts[0] != "" || parts[1] != "ResourceGroupID" || parts[3] != "Zone" {
-		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/ResourceGroupID/{ResourceGroupID}/Zone/{Zone}/ResourceID/{ResourceID}', got '%s'", resourceID)
+	if parts[0] != "" || parts[1] != "ResourceGroupName" || parts[3] != "Zone" {
+		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/ResourceGroupName/{ResourceGroupName}/Zone/{Zone}/ResourceID/{ResourceID}', got '%s'", resourceID)
 	}
 
 	info := ResourceIDInfo{
-		ResourceGroupID: parts[2],
+		ResourceGroupName: parts[2],
 		Zone:            parts[4],
 		ResourceID:      parts[6],
 	}
@@ -84,63 +55,39 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	return info, nil
 }
 
-// TODO @praveingk : Need to handle permitList tags. One option is to encode them in SG rule ID, since there is no description/metadata
-func ibmToInvisinetsRules(rules []sdk.SecurityGroupRule) ([]*invisinetspb.PermitListRule, error) {
-	var invisinetsRules []*invisinetspb.PermitListRule
+// returns the invisinets VPC that the specified remote (IP/CIDR) resides in.
+func getRemoteVPC(remote, resourceGroupName string) (*sdk.ResourceData, error) {
 
-	for _, rule := range rules {
-		if rule.PortMin != rule.PortMax {
-			return nil, fmt.Errorf("SG rules with port ranges aren't currently supported")
-		}
-		// PortMin=PortMax since port ranges aren't supported.
-		// srcPort=dstPort since ibm security rules are stateful,
-		// i.e. they automatically also permit the reverse traffic.
-		srcPort, dstPort := rule.PortMin, rule.PortMin
-
-		permitListRule := &invisinetspb.PermitListRule{
-			Targets:   []string{rule.Remote},
-			Id:        rule.ID,
-			Direction: ibmToInvisinetsDirection[rule.Egress],
-			SrcPort:   int32(srcPort),
-			DstPort:   int32(dstPort),
-			Protocol:  ibmToInvisinetsProtocol[rule.Protocol],
-		}
-		invisinetsRules = append(invisinetsRules, permitListRule)
-
+	// using a tmp client to avoid altering the cloud client's region.
+	// passing a random region to pass verification. region will be updated with accordance to the selected VPC.
+	tmpClient, err:=sdk.NewIBMCloudClient(resourceGroupName, "us-south") 
+	if err != nil {
+		return nil, err
 	}
-	return invisinetsRules, nil
-}
 
-// Translate invisinets permit rules to SecurityGroupRule struct containing all IBM permit rules data
-// NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code
-func invisinetsToIBMRules(securityGroupID string, rules []*invisinetspb.PermitListRule) (
-	[]sdk.SecurityGroupRule, error) {
-	var sgRules []sdk.SecurityGroupRule
-	for _, rule := range rules {
-		if len(rule.Targets) == 0 {
-			return nil, fmt.Errorf("PermitListRule is missing Tag value. Rule:%+v", rule)
+	// fetching VPCs from all namespaces
+	vpcsData, err := tmpClient.GetInvisinetsTaggedResources(sdk.VPC, []string{}, sdk.ResourceQuery{})
+	if err != nil {
+		return nil, err
+	}
+
+	// go over candidate VPCs address spaces
+	for _, vpcData := range vpcsData {
+		curVpcID := vpcData.ID
+
+		// Set the client on the region of the current VPC. If the client's region is
+		// different than the VPC's, it won't be detected.
+		err := tmpClient.UpdateRegion(vpcData.Region)
+		if err != nil {
+			return nil, err
 		}
-		for _, target := range rule.Targets {
-			remote := target
-			remoteType, err := sdk.GetRemoteType(remote)
-			if err != nil {
-				return nil, err
-			}
-			sgRule := sdk.SecurityGroupRule{
-				ID:         rule.Name,
-				SgID:       securityGroupID,
-				Protocol:   invisinetsToIBMprotocol[rule.Protocol],
-				Remote:     remote,
-				RemoteType: remoteType,
-				PortMin:    int64(rule.SrcPort),
-				PortMax:    int64(rule.SrcPort),
-				Egress:     invisinetsToIBMDirection[rule.Direction],
-				// explicitly setting value to 0. other icmp values have meaning.
-				IcmpType: 0,
-				IcmpCode: 0,
-			}
-			sgRules = append(sgRules, sgRule)
+
+		if isRemoteInVPC, err := tmpClient.IsRemoteInVPC(curVpcID, remote); isRemoteInVPC {
+			return &vpcData, nil
+		} else if err != nil {
+			return nil, err
 		}
 	}
-	return sgRules, nil
+	// remote doesn't reside in any invisinets VPC
+	return nil, nil
 }
