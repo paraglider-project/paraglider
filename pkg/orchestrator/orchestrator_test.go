@@ -344,9 +344,9 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 	orchestratorServer := newOrchestratorServer()
 
 	// No entries in address space map
-	address, err := orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+	resp, err := orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
 	require.Nil(t, err)
-	assert.Equal(t, address.Address, "10.0.0.0/16")
+	assert.Equal(t, resp.AddressSpace, "10.0.0.0/16")
 
 	// Next entry
 	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
@@ -356,9 +356,9 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     defaultNamespace,
 		},
 	}
-	address, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+	resp, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
 	require.Nil(t, err)
-	assert.Equal(t, address.Address, "10.1.0.0/16")
+	assert.Equal(t, resp.AddressSpace, "10.1.0.0/16")
 
 	// Account for all namespaces
 	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
@@ -373,9 +373,9 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     "otherNamespace",
 		},
 	}
-	address, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+	resp, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
 	require.Nil(t, err)
-	assert.Equal(t, address.Address, "10.2.0.0/16")
+	assert.Equal(t, resp.AddressSpace, "10.2.0.0/16")
 
 	// Out of addresses
 	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
@@ -385,7 +385,7 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     defaultNamespace,
 		},
 	}
-	_, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Empty{})
+	_, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
 	require.NotNil(t, err)
 }
 
@@ -434,19 +434,19 @@ func TestFindUnusedAsn(t *testing.T) {
 
 	// Typical case
 	frontendServer.usedAsns = []uint32{64512}
-	asn, err := frontendServer.FindUnusedAsn(ctx, &invisinetspb.Empty{})
+	asn, err := frontendServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
 	require.NoError(t, err)
 	require.Equal(t, uint32(64513), asn.Asn)
 
 	// Gap in usedAsns
 	frontendServer.usedAsns = []uint32{64512, 64514}
-	asn, err = frontendServer.FindUnusedAsn(ctx, &invisinetspb.Empty{})
+	asn, err = frontendServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
 	require.NoError(t, err)
 	require.Equal(t, uint32(64513), asn.Asn)
 
 	// No entries in asn map
 	frontendServer.usedAsns = []uint32{}
-	asn, err = frontendServer.FindUnusedAsn(ctx, &invisinetspb.Empty{})
+	asn, err = frontendServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
 	require.NoError(t, err)
 	require.Equal(t, uint32(64512), asn.Asn)
 
@@ -455,7 +455,7 @@ func TestFindUnusedAsn(t *testing.T) {
 	for i := MIN_PRIVATE_ASN_2BYTE; i <= MAX_PRIVATE_ASN_2BYTE; i++ {
 		frontendServer.usedAsns[i-MIN_PRIVATE_ASN_2BYTE] = i
 	}
-	asn, err = frontendServer.FindUnusedAsn(ctx, &invisinetspb.Empty{})
+	asn, err = frontendServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
 	require.NoError(t, err)
 	require.Equal(t, uint32(4200000000), asn.Asn)
 }

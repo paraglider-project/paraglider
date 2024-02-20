@@ -443,7 +443,7 @@ func (s *ControllerServer) updateUsedAddressSpaces() error {
 
 // Get a new address block for a new virtual network
 // TODO @smcclure20: Later, this should allocate more efficiently and with different size address blocks (eg, GCP needs larger than Azure since a VPC will span all regions)
-func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, _ *invisinetspb.Empty) (*invisinetspb.AddressSpace, error) {
+func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, _ *invisinetspb.FindUnusedAddressSpaceRequest) (*invisinetspb.FindUnusedAddressSpaceResponse, error) {
 	err := s.updateUsedAddressSpaces()
 	if err != nil {
 		return nil, err
@@ -465,7 +465,7 @@ func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, _ *invisine
 		return nil, errors.New("All address blocks used")
 	}
 
-	newAddressSpace := &invisinetspb.AddressSpace{Address: fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+1)}
+	newAddressSpace := &invisinetspb.FindUnusedAddressSpaceResponse{AddressSpace: fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+1)}
 	return newAddressSpace, nil
 }
 
@@ -512,7 +512,7 @@ func (s *ControllerServer) updateUsedAsns() error {
 	return nil
 }
 
-func (s *ControllerServer) FindUnusedAsn(c context.Context, _ *invisinetspb.Empty) (*invisinetspb.FindUnusedAsnResponse, error) {
+func (s *ControllerServer) FindUnusedAsn(c context.Context, _ *invisinetspb.FindUnusedAsnRequest) (*invisinetspb.FindUnusedAsnResponse, error) {
 	err := s.updateUsedAsns()
 	if err != nil {
 		return nil, fmt.Errorf("unable to update used asns: %w", err)

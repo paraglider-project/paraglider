@@ -837,7 +837,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 			}
 			defer conn.Close()
 			client := invisinetspb.NewControllerClient(conn)
-			findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &invisinetspb.Empty{})
+			findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
 			if err != nil {
 				return nil, fmt.Errorf("unable to find unused address space: %w", err)
 			}
