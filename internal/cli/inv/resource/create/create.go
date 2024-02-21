@@ -29,9 +29,9 @@ import (
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout}
+	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
 	cmd := &cobra.Command{
-		Use:     "create <cloud> <resource_id> <resource_description_file>",
+		Use:     "create <cloud> <resource_name> <resource_description_file>",
 		Short:   "Create a resource",
 		Args:    cobra.ExactArgs(3),
 		PreRunE: executor.Validate,
@@ -43,6 +43,7 @@ func NewCommand() (*cobra.Command, *executor) {
 type executor struct {
 	common.CommandExecutor
 	writer      io.Writer
+	cliSettings settings.CLISettings
 	description []byte
 }
 
@@ -64,12 +65,13 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	resource := &invisinetspb.ResourceDescriptionString{Id: args[1], Description: string(e.description)}
+	resource := &invisinetspb.ResourceDescriptionString{Description: string(e.description)}
 
-	c := client.Client{ControllerAddress: settings.ServerAddr}
-	resourceInfo, err := c.CreateResource(args[0], resource)
+	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
+	resourceInfo, err := c.CreateResource(e.cliSettings.ActiveNamespace, args[0], args[1], resource)
 
 	fmt.Fprintf(e.writer, "Resource Created.\ntag: %s\nuri: %s\nip: %s\n", resourceInfo["name"], resourceInfo["uri"], resourceInfo["ip"])
+
 
 	return err
 }

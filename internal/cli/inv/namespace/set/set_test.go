@@ -26,13 +26,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNamespaceSetExecute(t *testing.T) {
+func TestNamespaceSetValidate(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
-	settings.ServerAddr = server.SetupFakeOrchestratorRESTServer()
-
+	serverAddr := server.SetupFakeOrchestratorRESTServer()
 	cmd, executor := NewCommand()
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
+
+	// Valid option
+	for namespace := range fake.GetFakeNamespaces() {
+		err := executor.Validate(cmd, []string{namespace})
+		assert.Nil(t, err)
+	}
+
+	// Invalid option
+	err := executor.Validate(cmd, []string{"invalid-namespace"})
+	assert.NotNil(t, err)
+}
+
+func TestNamespaceSetExecute(t *testing.T) {
+	cmd, executor := NewCommand()
+	executor.cliSettings = settings.CLISettings{ActiveNamespace: "default"}
 
 	err := executor.Execute(cmd, []string{"new-namespace"})
 
 	assert.Nil(t, err)
+	assert.Equal(t, "new-namespace", executor.cliSettings.ActiveNamespace)
 }

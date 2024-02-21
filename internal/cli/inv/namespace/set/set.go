@@ -17,6 +17,7 @@ limitations under the License.
 package set
 
 import (
+	"fmt"
 	"io"
 	"os"
 
@@ -27,10 +28,10 @@ import (
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout}
+	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
 	cmd := &cobra.Command{
 		Use:     "set",
-		Short:   "Set current namespace",
+		Short:   "Set active namespace",
 		Args:    cobra.ExactArgs(1),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
@@ -40,7 +41,8 @@ func NewCommand() (*cobra.Command, *executor) {
 
 type executor struct {
 	common.CommandExecutor
-	writer io.Writer
+	writer      io.Writer
+	cliSettings settings.CLISettings
 }
 
 func (e *executor) SetOutput(w io.Writer) {
@@ -48,12 +50,24 @@ func (e *executor) SetOutput(w io.Writer) {
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
-	return nil
+	// Get all namespaces from the controller and confirm that the given string is one of them
+	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
+	namespaces, err := c.ListNamespaces()
+
+	if err != nil {
+		return err
+	}
+
+	for namespace := range namespaces {
+		if namespace == args[0] {
+			return nil
+		}
+	}
+	return fmt.Errorf("namespace %s does not exist", args[0])
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	c := client.Client{ControllerAddress: settings.ServerAddr}
-	err := c.SetNamespace(args[0])
+	e.cliSettings.ActiveNamespace = args[0]
 
-	return err
+	return nil
 }

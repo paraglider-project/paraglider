@@ -124,6 +124,15 @@ func getIBMCred() (Credentials, error) {
 	return credentials, nil
 }
 
+// returns a user authenticator object to authorize IBM cloud services
+func getAuthenticator() (*core.IamAuthenticator, error){
+	creds, err := getIBMCred()
+	if err != nil {
+		return nil, err
+	}
+	return &core.IamAuthenticator{ApiKey: creds.APIKey},err
+}
+
 // returns local public key contents if exists, else
 // creates ssh key pair in .ibm/keys.
 func getLocalPubKey() (string, error) {

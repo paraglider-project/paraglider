@@ -26,13 +26,14 @@ import (
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/NetSys/invisinets/pkg/orchestrator"
+	"github.com/NetSys/invisinets/pkg/orchestrator/config"
 	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 	"google.golang.org/protobuf/proto"
 )
 
 const (
-	CloudName = "example-cloud"
-	Namespace = "example-namespace"
+	CloudName = "fakecloud"
+	Namespace = "fakenamespace"
 )
 
 type FakeOrchestratorRESTServer struct {
@@ -42,8 +43,17 @@ type FakeOrchestratorRESTServer struct {
 func urlMatches(url string, pattern string) bool {
 	urlTokens := strings.Split(url, "/")
 	patternTokens := strings.Split(pattern, "/")
+	if len(urlTokens) != len(patternTokens) {
+		return false
+	}
 	for i, token := range patternTokens {
-		if urlTokens[i] != token && !strings.HasPrefix(token, ":") && !strings.HasPrefix(token, "*") {
+		if urlTokens[i] != token && !strings.HasPrefix(token, ":") {
+			return false
+		}
+		if strings.HasPrefix(token, ":") && strings.Contains(token, "cloud") && urlTokens[i] != CloudName {
+			return false
+		}
+		if strings.HasPrefix(token, ":") && strings.Contains(token, "namespace") && urlTokens[i] != Namespace {
 			return false
 		}
 	}
@@ -65,21 +75,23 @@ func getURLParams(url string, pattern string) map[string]string {
 	return params
 }
 
-func GetFakePermitList(resourceUri string) *invisinetspb.PermitList {
-	return &invisinetspb.PermitList{
-		AssociatedResource: resourceUri,
-		Rules: []*invisinetspb.PermitListRule{
-			{
-				Id:        "id",
-				Targets:   []string{"1.1.1.1", "2.2.2.2"},
-				Direction: invisinetspb.Direction_INBOUND,
-				SrcPort:   1,
-				DstPort:   1,
-				Protocol:  1,
-				Tags:      []string{"tag1", "tag2"},
-			},
+func GetFakePermitListRules() []*invisinetspb.PermitListRule {
+	return []*invisinetspb.PermitListRule{
+		{
+			Id:        "id",
+			Name:      "name",
+			Targets:   []string{"1.1.1.1", "2.2.2.2"},
+			Direction: invisinetspb.Direction_INBOUND,
+			SrcPort:   1,
+			DstPort:   1,
+			Protocol:  1,
+			Tags:      []string{"tag1", "tag2"},
 		},
 	}
+}
+
+func GetFakePermitListRuleNames() []string {
+	return []string{"name1", "name2"}
 }
 
 func GetFakeTagMapping(tagName string) *tagservicepb.TagMapping {
@@ -95,6 +107,17 @@ func GetFakeTagMappingLeafTags(tagName string) []*tagservicepb.TagMapping {
 			TagName: tagName,
 			Uri:     proto.String("resource/uri"),
 			Ip:      proto.String("3.3.3.3"),
+		},
+	}
+}
+
+func GetFakeNamespaces() map[string][]config.CloudDeployment {
+	return map[string][]config.CloudDeployment{
+		"namespace1": {
+			{
+				Name:       "cloud1",
+				Deployment: "deployment1",
+			},
 		},
 	}
 }
@@ -121,47 +144,91 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 		}
 
 		switch {
-		// Create Resources
-		case urlMatches(path, orchestrator.CreateResourceURL) && r.Method == http.MethodPost:
+		// List Namespaces
+		case urlMatches(path, orchestrator.ListNamespacesURL) && r.Method == http.MethodGet:
+			err := s.writeResponse(w, GetFakeNamespaces())
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+				return
+			}
+			return
+		// Create Resources (POST)
+		case urlMatches(path, orchestrator.CreateResourcePOSTURL) && r.Method == http.MethodPost:
 			resource := &invisinetspb.ResourceDescriptionString{}
 			err := json.Unmarshal(body, resource)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 			}
-			w.WriteHeader(http.StatusOK)
-			err = s.writeResponse(w, map[string]string{"uri": resource.Id})
+			err = s.writeResponse(w, map[string]string{"name": resource.Name})
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 			}
 			return
-		// Add/Delete Permit List Rules
-		case urlMatches(path, orchestrator.AddPermitListRulesURL) && (r.Method == http.MethodPost || r.Method == http.MethodDelete):
-			permitList := &invisinetspb.PermitList{}
-			err := json.Unmarshal(body, permitList)
+		// Create Resources (PUT)
+		case urlMatches(path, orchestrator.CreateResourcePUTURL) && r.Method == http.MethodPut:
+			resource := &invisinetspb.ResourceDescriptionString{}
+			err := json.Unmarshal(body, resource)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+			}
+			err = s.writeResponse(w, map[string]string{"name": strings.Split(path, "/")[len(strings.Split(path, "/"))-1]})
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+			}
+			return
+		// Add Permit List Rules
+		case urlMatches(path, orchestrator.AddPermitListRulesURL) && (r.Method == http.MethodPost):
+			rules := []*invisinetspb.PermitListRule{}
+			err := json.Unmarshal(body, &rules)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 				return
 			}
+			return
+		// Delete Permit List Rules
+		case urlMatches(path, orchestrator.DeletePermitListRulesURL) && (r.Method == http.MethodPost):
+			rules := []string{}
+			err := json.Unmarshal(body, &rules)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+				return
+			}
+			return
+		// Individual Rule Add (POST)
+		case urlMatches(path, orchestrator.PermitListRulePOSTURL) && (r.Method == http.MethodPost):
+			rule := &invisinetspb.PermitListRule{}
+			err := json.Unmarshal(body, rule)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+				return
+			}
+			return
+		// Individual Rule Add (PUT)
+		case urlMatches(path, orchestrator.PermitListRulePUTURL) && (r.Method == http.MethodPut):
+			rule := &invisinetspb.PermitListRule{}
+			err := json.Unmarshal(body, rule)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+				return
+			}
+			return
+		// Invididual Rule Delete
+		case urlMatches(path, orchestrator.PermitListRulePUTURL) && (r.Method == http.MethodDelete):
 			w.WriteHeader(http.StatusOK)
 			return
 		// Get Permit List Rules
 		case urlMatches(path, orchestrator.GetPermitListRulesURL) && r.Method == http.MethodGet:
-			permitList := GetFakePermitList(getURLParams(path, string(orchestrator.GetPermitListRulesURL))["id"])
+			permitList := GetFakePermitListRules()
 			err := s.writeResponse(w, permitList)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 				return
 			}
 			return
-		// Tag Set/Get/Delete
+		// Tag Get/Delete
 		case urlMatches(path, orchestrator.GetTagURL):
-			if r.Method == http.MethodPost || r.Method == http.MethodDelete {
-				tags := []*tagservicepb.TagMapping{}
-				err := s.writeResponse(w, tags)
-				if err != nil {
-					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
-					return
-				}
+			if r.Method == http.MethodDelete {
+				w.WriteHeader(http.StatusOK)
 				return
 			}
 			if r.Method == http.MethodGet {
@@ -172,14 +239,20 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 				}
 				return
 			}
-		// Delete Tag Mambers
-		case urlMatches(path, orchestrator.DeleteTagMembersURL) && r.Method == http.MethodDelete:
-			tags := []*tagservicepb.TagMapping{}
-			err := s.writeResponse(w, tags)
-			if err != nil {
-				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+		// Tag Set
+		case urlMatches(path, orchestrator.SetTagURL):
+			if r.Method == http.MethodPost {
+				tags := []*tagservicepb.TagMapping{}
+				err := s.writeResponse(w, tags)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+					return
+				}
 				return
 			}
+		// Delete Tag Mambers
+		case urlMatches(path, orchestrator.DeleteTagMemberURL) && r.Method == http.MethodDelete:
+			w.WriteHeader(http.StatusOK)
 			return
 		// Resolve Tag
 		case urlMatches(path, orchestrator.ResolveTagURL) && r.Method == http.MethodGet:
@@ -189,19 +262,6 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 				return
 			}
-			return
-		// Namespace Get
-		case urlMatches(path, orchestrator.GetNamespaceURL) && r.Method == http.MethodGet:
-			err := s.writeResponse(w, map[string]string{"namespace": Namespace})
-			if err != nil {
-				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
-				return
-			}
-			w.WriteHeader(http.StatusOK)
-			return
-		// Namespace Set
-		case urlMatches(path, orchestrator.SetNamespaceURL) && r.Method == http.MethodPost:
-			w.WriteHeader(http.StatusOK)
 			return
 		}
 		fmt.Printf("unsupported request: %s %s\n", r.Method, path)

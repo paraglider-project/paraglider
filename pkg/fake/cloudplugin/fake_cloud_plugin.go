@@ -41,20 +41,20 @@ type fakeCloudPluginServer struct {
 	fake.FakeTagServiceServer
 }
 
-func (s *fakeCloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
-	return &invisinetspb.PermitList{AssociatedResource: r.Id, Rules: []*invisinetspb.PermitListRule{ExampleRule}}, nil
+func (s *fakeCloudPluginServer) GetPermitList(c context.Context, req *invisinetspb.GetPermitListRequest) (*invisinetspb.GetPermitListResponse, error) {
+	return &invisinetspb.GetPermitListResponse{Rules: []*invisinetspb.PermitListRule{ExampleRule}}, nil
 }
 
-func (s *fakeCloudPluginServer) AddPermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
+func (s *fakeCloudPluginServer) AddPermitListRules(c context.Context, req *invisinetspb.AddPermitListRulesRequest) (*invisinetspb.AddPermitListRulesResponse, error) {
+	return &invisinetspb.AddPermitListRulesResponse{}, nil
 }
 
-func (s *fakeCloudPluginServer) DeletePermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
+func (s *fakeCloudPluginServer) DeletePermitListRules(c context.Context, req *invisinetspb.DeletePermitListRulesRequest) (*invisinetspb.DeletePermitListRulesResponse, error) {
+	return &invisinetspb.DeletePermitListRulesResponse{}, nil
 }
 
-func (s *fakeCloudPluginServer) CreateResource(c context.Context, resource *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
-	return &invisinetspb.CreateResourceResponse{Name: "resource_name", Uri: resource.Id}, nil
+func (s *fakeCloudPluginServer) CreateResource(c context.Context, req *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
+	return &invisinetspb.CreateResourceResponse{Name: "resource_name", Uri: req.Id}, nil
 }
 
 func (s *fakeCloudPluginServer) GetUsedAddressSpaces(c context.Context, req *invisinetspb.GetUsedAddressSpacesRequest) (*invisinetspb.GetUsedAddressSpacesResponse, error) {

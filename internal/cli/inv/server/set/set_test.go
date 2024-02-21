@@ -26,13 +26,12 @@ import (
 )
 
 func TestServerSetExecute(t *testing.T) {
-	settings.ServerAddr = "serverAddrBefore"
-
 	newAddr := "serverAddrAfter"
 	cmd, executor := NewCommand()
+	executor.cliSettings = settings.CLISettings{ServerAddr: "serverAddrBefore"}
 
 	err := executor.Execute(cmd, []string{newAddr})
 
 	assert.Nil(t, err)
-	assert.Equal(t, newAddr, settings.ServerAddr)
+	assert.Equal(t, newAddr, executor.cliSettings.ServerAddr)
 }

@@ -1,5 +1,3 @@
-//go:build unit
-
 /*
 Copyright 2023 The Invisinets Authors.
 
@@ -16,41 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package delete
+package list
 
 import (
-	"strings"
+	"bytes"
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
 	fake "github.com/NetSys/invisinets/pkg/fake/controller/rest"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestRuleDeleteValidate(t *testing.T) {
-	cmd, executor := NewCommand()
-
-	args := []string{fake.CloudName, "uri"}
-	rules := "name1,names2"
-	err := cmd.Flags().Set("rules", rules)
-	require.Nil(t, err)
-	err = executor.Validate(cmd, args)
-
-	assert.Nil(t, err)
-	assert.Equal(t, executor.ruleNames, strings.Split(rules, ","))
-}
-
-func TestRuleDeleteExecute(t *testing.T) {
+func TestNamespaceListExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
 	cmd, executor := NewCommand()
-	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
-	executor.ruleNames = []string{"name1", "name2"}
+	var output bytes.Buffer
+	executor.writer = &output
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr}
 
-	args := []string{fake.CloudName, "uri"}
-	err := executor.Execute(cmd, args)
+	err := executor.Execute(cmd, []string{})
 
 	assert.Nil(t, err)
+	for namespace := range fake.GetFakeNamespaces() {
+		assert.Contains(t, output.String(), namespace)
+	}
 }

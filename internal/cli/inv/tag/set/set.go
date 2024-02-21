@@ -29,7 +29,7 @@ import (
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout}
+	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
 	cmd := &cobra.Command{
 		Use:     "set <tag name> [--children <child tag list> | --uri <uri> | --ip <ip>]",
 		Short:   "Set a tag",
@@ -45,10 +45,11 @@ func NewCommand() (*cobra.Command, *executor) {
 
 type executor struct {
 	common.CommandExecutor
-	writer   io.Writer
-	children []string
-	uri      string
-	ip       string
+	writer      io.Writer
+	cliSettings settings.CLISettings
+	children    []string
+	uri         string
+	ip          string
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
@@ -94,7 +95,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 
 	tagMapping := &tagservicepb.TagMapping{TagName: args[0], ChildTags: e.children, Uri: uri, Ip: ip}
 
-	c := client.Client{ControllerAddress: settings.ServerAddr}
+	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	err := c.SetTag(args[0], tagMapping)
 	return err
 }

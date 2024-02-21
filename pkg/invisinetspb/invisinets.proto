@@ -24,9 +24,9 @@ service CloudPlugin {
     rpc GetUsedAsns(GetUsedAsnsRequest) returns (GetUsedAsnsResponse) {}
     rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}
     rpc CreateResource(ResourceDescription) returns (CreateResourceResponse) {}
-    rpc GetPermitList(ResourceID) returns (PermitList) {}
-    rpc AddPermitListRules(PermitList) returns (BasicResponse) {}
-    rpc DeletePermitListRules(PermitList) returns (BasicResponse) {}
+    rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}
+    rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}
+    rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}
     rpc CreateVpnGateway(CreateVpnGatewayRequest) returns (CreateVpnGatewayResponse) {}
     rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (BasicResponse) {}
 }
@@ -81,7 +81,8 @@ message ResourceDescription {
 
 message ResourceDescriptionString {
     string id = 1;
-    string description = 2;
+    string name = 2;
+    string description = 3;
 }
 
 message BasicResponse {
@@ -98,18 +99,45 @@ enum Direction {
 // TODO ?: have a version of this without the tags field to avoid users setting that at all
 message PermitListRule {
     string id = 1;
-    repeated string targets = 2;
-    Direction direction = 3;
-    int32 src_port = 4;
-    int32 dst_port = 5;
-    int32 protocol = 6;
-    repeated string tags = 7;
+    string name = 2;
+    repeated string targets = 3;
+    Direction direction = 4;
+    int32 src_port = 5;
+    int32 dst_port = 6;
+    int32 protocol = 7;
+    repeated string tags = 8;
 }
 
 message PermitList {
     string associated_resource = 1; 
     repeated PermitListRule rules = 2;
-    string namespace = 3;
+}
+
+message AddPermitListRulesRequest {
+    string namespace = 1;
+    string resource = 2;
+    repeated PermitListRule rules = 3;
+}
+
+message AddPermitListRulesResponse {
+}
+
+message DeletePermitListRulesRequest {
+    string namespace = 1;
+    string resource = 2;
+    repeated string rule_names = 3;
+}
+
+message DeletePermitListRulesResponse {
+}
+
+message GetPermitListRequest {
+    string namespace = 1;
+    string resource = 2;
+}
+
+message GetPermitListResponse {
+    repeated PermitListRule rules = 1;
 }
 
 message ConnectCloudsRequest {

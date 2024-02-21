@@ -14,22 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package set
+package list
 
 import (
+	"fmt"
 	"io"
 	"os"
 
 	common "github.com/NetSys/invisinets/internal/cli/common"
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/NetSys/invisinets/pkg/client"
 	"github.com/spf13/cobra"
 )
 
 func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
 	cmd := &cobra.Command{
-		Use:     "set <server address>",
-		Short:   "Set the server settings",
+		Use:     "list",
+		Short:   "List all configured namespaces",
 		Args:    cobra.ExactArgs(0),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
@@ -48,11 +50,18 @@ func (e *executor) SetOutput(w io.Writer) {
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
-	// TODO @smcclure20: Validate it is a valid address to some extent
 	return nil
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	e.cliSettings.ServerAddr = args[0]
+	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
+	namespaces, err := c.ListNamespaces()
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(e.writer, "Namespaces: %v", namespaces)
+
 	return nil
 }

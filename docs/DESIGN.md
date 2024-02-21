@@ -13,7 +13,7 @@ Invisinets takes an "endpoint-centric" view of networking: all non-networking re
 * **Tags**: Strings associated with an endpoint or group of endpoint which can be referred to in permit lists and commands
 * **Namespaces**: An Invisinets deployment controlled by an Invisinets controller separated (both in infrastructure and in control plane) from other namespaces under the same controller
 
-### Use [Need a better name]
+### Use
 To use Invisinets, a tenant would run the Invisinets Controller and use the Invisinets API to create cloud deployments. This task largely consists of creating endpoints and modifying their permit lists to enable connectivity between them.
 
 ## How Invisinets Works

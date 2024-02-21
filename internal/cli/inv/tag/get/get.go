@@ -28,7 +28,7 @@ import (
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout}
+	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
 	cmd := &cobra.Command{
 		Use:     "get <tag name> [--resolve]",
 		Short:   "Get a tag",
@@ -43,6 +43,7 @@ func NewCommand() (*cobra.Command, *executor) {
 type executor struct {
 	common.CommandExecutor
 	writer      io.Writer
+	cliSettings settings.CLISettings
 	resolveFlag bool
 }
 
@@ -61,7 +62,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	// Get the tag from the server
-	c := client.Client{ControllerAddress: settings.ServerAddr}
+	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 
 	if e.resolveFlag {
 		tagMappings, err := c.ResolveTag(args[0])
