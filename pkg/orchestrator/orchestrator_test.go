@@ -26,6 +26,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -526,8 +527,13 @@ func TestCreateResourcePut(t *testing.T) {
 	tagServerPort := getNewPortNumber()
 	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
-	orchestratorServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
-	orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.1.0.0/24"}
+	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
+		{
+			AddressSpaces: []string{"10.0.0.0/16"},
+			Cloud:         exampleCloudName,
+			Namespace:     defaultNamespace,
+		},
+	}
 
 	fakeplugin.SetupFakePluginServer(port)
 	faketagservice.SetupFakeTagServer(tagServerPort)
