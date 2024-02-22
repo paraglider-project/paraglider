@@ -35,7 +35,7 @@ const (
 	managedClusterTypeName = "Microsoft.ContainerService/managedClusters"
 )
 
-// Is there any point to the abstract class?
+// Is there any point to the abstract class? Just having the same interface to all resource types
 
 func ReadAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler) (string, error) {
 	if strings.Contains(resource.Id, "virtualMachines") {
