@@ -858,15 +858,23 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	server, mockAzureHandler, ctx := setupAzurePluginServer()
 	mockHandlerSetup(mockAzureHandler)
 	mockAzureHandler.On("GetVNetsAddressSpaces", ctx, getInvisinetsNamespacePrefix(defaultNamespace)).Return(fakeAddressList, nil)
-	addressList, err := server.GetUsedAddressSpaces(ctx, &invisinetspb.InvisinetsDeployment{
-		Id:        "/subscriptions/123/resourceGroups/rg",
-		Namespace: defaultNamespace,
-	})
+	req := &invisinetspb.GetUsedAddressSpacesRequest{
+		Deployments: []*invisinetspb.InvisinetsDeployment{
+			{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
+		},
+	}
+	resp, err := server.GetUsedAddressSpaces(ctx, req)
 
+	expectedAddressSpaceMappings := []*invisinetspb.AddressSpaceMapping{
+		{
+			AddressSpaces: []string{validAddressSpace},
+			Cloud:         utils.AZURE,
+			Namespace:     defaultNamespace,
+		},
+	}
 	require.NoError(t, err)
-	require.NotNil(t, addressList)
-	require.Len(t, addressList.AddressSpaces, 1)
-	assert.Equal(t, validAddressSpace, addressList.AddressSpaces[0])
+	require.NotNil(t, resp)
+	assert.ElementsMatch(t, expectedAddressSpaceMappings, resp.AddressSpaceMappings)
 }
 
 func TestGetUsedAsns(t *testing.T) {
@@ -878,7 +886,12 @@ func TestGetUsedAsns(t *testing.T) {
 	)
 
 	usedAsnsExpected := []uint32{64512}
-	resp, err := server.GetUsedAsns(ctx, &invisinetspb.GetUsedAsnsRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace}})
+	req := &invisinetspb.GetUsedAsnsRequest{
+		Deployments: []*invisinetspb.InvisinetsDeployment{
+			{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
+		},
+	}
+	resp, err := server.GetUsedAsns(ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.ElementsMatch(t, usedAsnsExpected, resp.Asns)
@@ -902,7 +915,12 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 	)
 
 	usedBgpPeeringIpAddressExpected := []string{"169.254.21.1", "169.254.22.1"}
-	resp, err := server.GetUsedBgpPeeringIpAddresses(ctx, &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{Deployment: &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace}})
+	req := &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{
+		Deployments: []*invisinetspb.InvisinetsDeployment{
+			{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
+		},
+	}
+	resp, err := server.GetUsedBgpPeeringIpAddresses(ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.ElementsMatch(t, usedBgpPeeringIpAddressExpected, resp.IpAddresses)

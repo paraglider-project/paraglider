@@ -66,6 +66,8 @@ func TestMulticloud(t *testing.T) {
 					Name:       utils.AZURE,
 					Deployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName),
 				},
+			},
+			"other": {
 				{
 					Name:       utils.GCP,
 					Deployment: fmt.Sprintf("projects/%s", gcpProjectId),
@@ -108,7 +110,7 @@ func TestMulticloud(t *testing.T) {
 	gcpVmDescription, err := json.Marshal(gcpVmParameters)
 	gcpCreateResourceResp, err := gcpServer.CreateResource(
 		ctx,
-		&invisinetspb.ResourceDescription{Description: gcpVmDescription, Namespace: "default"},
+		&invisinetspb.ResourceDescription{Description: gcpVmDescription, Namespace: "other"},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, gcpCreateResourceResp)
@@ -146,7 +148,7 @@ func TestMulticloud(t *testing.T) {
 				Targets:   []string{"0.0.0.0/0"},
 			},
 		},
-		Namespace: "default",
+		Namespace: "other",
 	}
 	gcpAddPermitListRulesResp, err := gcpServer.AddPermitListRules(ctx, gcpVmPermitList1Req)
 	require.NoError(t, err)
@@ -194,7 +196,7 @@ func TestMulticloud(t *testing.T) {
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
 	gcpConnectivityTest1GcpVmEndpoint := &networkmanagementpb.Endpoint{
 		IpAddress: gcpVmIpAddress,
-		Network:   "projects/" + gcpProjectId + "/" + gcp.GetVpcUri("default"),
+		Network:   "projects/" + gcpProjectId + "/" + gcp.GetVpcUri("other"),
 		ProjectId: gcpProjectId,
 	}
 	gcpConnectivityTest1AzureVmEndpoint := &networkmanagementpb.Endpoint{
@@ -254,7 +256,7 @@ func TestMulticloud(t *testing.T) {
 				Targets:   []string{"0.0.0.0/0"},
 			},
 		},
-		Namespace: "default",
+		Namespace: "other",
 	}
 	gcpAddPermitListRules2Resp, err := gcpServer.AddPermitListRules(ctx, gcpVmPermitList2Req)
 	require.NoError(t, err)
@@ -300,7 +302,7 @@ func TestMulticloud(t *testing.T) {
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
 	gcpConnectivityTest2GcpVmEndpoint := &networkmanagementpb.Endpoint{
 		IpAddress: gcpVmIpAddress,
-		Network:   "projects/" + gcpProjectId + "/" + gcp.GetVpcUri("default"),
+		Network:   "projects/" + gcpProjectId + "/" + gcp.GetVpcUri("other"),
 		ProjectId: gcpProjectId,
 	}
 	gcpConnectivityTest2AzureVmEndpoint := &networkmanagementpb.Endpoint{

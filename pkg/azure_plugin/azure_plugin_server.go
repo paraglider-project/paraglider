@@ -176,7 +176,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 	}
 	defer controllerConn.Close()
 	controllerClient := invisinetspb.NewControllerClient(controllerConn)
-	usedAddressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: req.Namespace})
+	getUsedAddressSpacesResp, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
@@ -212,7 +212,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 
 	// Add the rules to the NSG
 	for _, rule := range req.GetRules() {
-		err = utils.CheckAndConnectClouds(utils.AZURE, subnetAddressPrefix, req.Namespace, ctx, rule, usedAddressSpaceMappings, controllerClient)
+		err = utils.CheckAndConnectClouds(utils.AZURE, subnetAddressPrefix, req.Namespace, ctx, rule, getUsedAddressSpacesResp.AddressSpaceMappings, controllerClient)
 		if err != nil {
 			return nil, fmt.Errorf("unable to check and connect clouds: %w", err)
 		}
@@ -415,80 +415,88 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 }
 
 // GetUsedAddressSpaces returns the address spaces used by invisinets which are the address spaces of the invisinets vnets
-func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
-	resourceIdInfo, err := getResourceIDInfo(deployment.Id)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
-		return nil, err
-	}
-	err = s.setupAzureHandler(resourceIdInfo)
-	if err != nil {
-		return nil, err
-	}
+func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisinetspb.GetUsedAddressSpacesRequest) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
+	resp := &invisinetspb.GetUsedAddressSpacesResponse{}
+	resp.AddressSpaceMappings = make([]*invisinetspb.AddressSpaceMapping, len(req.Deployments))
+	for i, deployment := range req.Deployments {
+		resp.AddressSpaceMappings[i] = &invisinetspb.AddressSpaceMapping{
+			Cloud:     utils.AZURE,
+			Namespace: deployment.Namespace,
+		}
+		resourceIdInfo, err := getResourceIDInfo(deployment.Id)
+		if err != nil {
+			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+			return nil, err
+		}
+		err = s.setupAzureHandler(resourceIdInfo)
+		if err != nil {
+			return nil, err
+		}
 
-	addressSpaces, err := s.azureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(deployment.Namespace))
-	if err != nil {
-		utils.Log.Printf("An error occured while getting address spaces:%+v", err)
-		return nil, err
+		addressSpaces, err := s.azureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(deployment.Namespace))
+		if err != nil {
+			utils.Log.Printf("An error occured while getting address spaces:%+v", err)
+			return nil, err
+		}
+		for _, address := range addressSpaces {
+			resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, address)
+		}
 	}
-	invisinetAddressList := make([]string, len(addressSpaces))
-	i := 0
-	for _, address := range addressSpaces {
-		invisinetAddressList[i] = address
-		i++
-	}
-	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetAddressList}, nil
+	return resp, nil
 }
 
 func (s *azurePluginServer) GetUsedAsns(ctx context.Context, req *invisinetspb.GetUsedAsnsRequest) (*invisinetspb.GetUsedAsnsResponse, error) {
-	resourceIdInfo, err := getResourceIDInfo(req.Deployment.Id)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
-		return nil, err
-	}
-	err = s.setupAzureHandler(resourceIdInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	virtualNetworkGatewayName := getVpnGatewayName(req.Deployment.Namespace)
-	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
-	if err != nil {
-		if isErrorNotFound(err) {
-			return &invisinetspb.GetUsedAsnsResponse{}, nil
-		} else {
-			return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
+	resp := &invisinetspb.GetUsedAsnsResponse{}
+	for _, deployment := range req.Deployments {
+		resourceIdInfo, err := getResourceIDInfo(deployment.Id)
+		if err != nil {
+			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+			return nil, err
 		}
-	}
+		err = s.setupAzureHandler(resourceIdInfo)
+		if err != nil {
+			return nil, err
+		}
 
-	return &invisinetspb.GetUsedAsnsResponse{Asns: []uint32{uint32(*virtualNetworkGateway.Properties.BgpSettings.Asn)}}, nil
+		virtualNetworkGatewayName := getVpnGatewayName(deployment.Namespace)
+		virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
+		if err != nil {
+			if isErrorNotFound(err) {
+				continue
+			} else {
+				return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
+			}
+		}
+		resp.Asns = append(resp.Asns, uint32(*virtualNetworkGateway.Properties.BgpSettings.Asn))
+	}
+	return resp, nil
 }
 
 func (s *azurePluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *invisinetspb.GetUsedBgpPeeringIpAddressesRequest) (*invisinetspb.GetUsedBgpPeeringIpAddressesResponse, error) {
-	resourceIdInfo, err := getResourceIDInfo(req.Deployment.Id)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
-		return nil, err
-	}
-	err = s.setupAzureHandler(resourceIdInfo)
-	if err != nil {
-		return nil, err
-	}
-
 	resp := &invisinetspb.GetUsedBgpPeeringIpAddressesResponse{}
-	virtualNetworkGatewayName := getVpnGatewayName(req.Deployment.Namespace)
-	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
-	if err != nil {
-		if isErrorNotFound(err) {
-			return resp, nil
-		} else {
-			return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
+	for _, deployment := range req.Deployments {
+		resourceIdInfo, err := getResourceIDInfo(deployment.Id)
+		if err != nil {
+			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+			return nil, err
 		}
-	}
+		err = s.setupAzureHandler(resourceIdInfo)
+		if err != nil {
+			return nil, err
+		}
 
-	resp.IpAddresses = make([]string, len(virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses))
-	for i, bgpPeeringAddress := range virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses {
-		resp.IpAddresses[i] = *bgpPeeringAddress.CustomBgpIPAddresses[0]
+		virtualNetworkGatewayName := getVpnGatewayName(deployment.Namespace)
+		virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
+		if err != nil {
+			if isErrorNotFound(err) {
+				continue
+			} else {
+				return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
+			}
+		}
+		for _, bgpPeeringAddress := range virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses {
+			resp.IpAddresses = append(resp.IpAddresses, *bgpPeeringAddress.CustomBgpIPAddresses[0])
+		}
 	}
 	return resp, nil
 }
@@ -804,7 +812,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 			}
 			defer conn.Close()
 			client := invisinetspb.NewControllerClient(conn)
-			findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{Namespace: req.Deployment.Namespace})
+			findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
 			if err != nil {
 				return nil, fmt.Errorf("unable to find unused address space: %w", err)
 			}
