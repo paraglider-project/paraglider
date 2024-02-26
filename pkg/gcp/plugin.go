@@ -268,28 +268,27 @@ func parseDescriptionTags(description string) []string {
 	return tags
 }
 
-func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.GetPermitListRequest, instancesClient *compute.InstancesClient) (*invisinetspb.GetPermitListResponse, error) {
-	project, zone, instance := parseInstanceUri(req.Resource)
+func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.GetPermitListRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, clustersClient *container.ClusterManagerClient) (*invisinetspb.GetPermitListResponse, error) {
+	resourceInfo, err := parseResourceUri(req.Resource)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse resource URI: %w", err)
+	}
+	resourceInfo.namespace = req.Namespace
 
-	err := s.checkInstanceNamespace(ctx, instancesClient, instance, project, zone, req.Namespace)
+	_, resourceID, err := getResourceParams(ctx, instancesClient, clustersClient, resourceInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	fwReq := &computepb.GetEffectiveFirewallsInstanceRequest{
-		Instance:         instance,
-		NetworkInterface: networkInterface,
-		Project:          project,
-		Zone:             zone,
-	}
-	resp, err := instancesClient.GetEffectiveFirewalls(ctx, fwReq)
+	// Get firewalls for the resource
+	firewalls, err := getFirewallRules(ctx, firewallsClient, resourceInfo.project, *resourceID)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get effective firewalls: %w", err)
+		return nil, fmt.Errorf("unable to get firewalls: %w", err)
 	}
 
 	permitListRules := []*invisinetspb.PermitListRule{}
 
-	for _, firewall := range resp.Firewalls {
+	for _, firewall := range firewalls {
 		// Exclude default deny all egress from being included since it applies to every VM
 		if isInvisinetsPermitListRule(req.Namespace, firewall) && *firewall.Name != getDenyAllIngressFirewallName(req.Namespace) {
 			rules := make([]*invisinetspb.PermitListRule, len(firewall.Allowed))
@@ -341,12 +340,25 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.
 }
 
 func (s *GCPPluginServer) GetPermitList(ctx context.Context, req *invisinetspb.GetPermitListRequest) (*invisinetspb.GetPermitListResponse, error) {
+	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewFirewallsRESTClient: %w", err)
+	}
+	defer firewallsClient.Close()
+
 	instancesClient, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
 	}
 	defer instancesClient.Close()
-	return s._GetPermitList(ctx, req, instancesClient)
+
+	clustersClient, err := container.NewClusterManagerClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewClusterManagerClient: %w", err)
+	}
+	defer clustersClient.Close()
+
+	return s._GetPermitList(ctx, req, firewallsClient, instancesClient, clustersClient)
 }
 
 func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisinetspb.AddPermitListRulesRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, subnetworksClient *compute.SubnetworksClient, clustersClient *container.ClusterManagerClient) (*invisinetspb.AddPermitListRulesResponse, error) {
@@ -490,39 +502,38 @@ func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 	}
 	defer instancesClient.Close()
 
+	clustersClient, err := container.NewClusterManagerClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewClusterManagerClient: %w", err)
+	}
+	defer clustersClient.Close()
+
 	subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewSubnetworksRESTClient: %w", err)
 	}
 	defer subnetworksClient.Close()
 
-	return s._AddPermitListRules(ctx, req, firewallsClient, instancesClient, subnetworksClient)
+	return s._AddPermitListRules(ctx, req, firewallsClient, instancesClient, subnetworksClient, clustersClient)
 }
 
-func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *invisinetspb.DeletePermitListRulesRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient) (*invisinetspb.DeletePermitListRulesResponse, error) {
-	project, zone, instance := parseInstanceUri(req.Resource)
+func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *invisinetspb.DeletePermitListRulesRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, clustersClient *container.ClusterManagerClient) (*invisinetspb.DeletePermitListRulesResponse, error) {
+	resourceInfo, err := parseResourceUri(req.Resource)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse resource URI: %w", err)
+	}
+	resourceInfo.namespace = req.Namespace
 
-	err := s.checkInstanceNamespace(ctx, instancesClient, instance, project, zone, req.Namespace)
+	_, resourceID, err := getResourceParams(ctx, instancesClient, clustersClient, resourceInfo)
 	if err != nil {
 		return nil, err
-	}
-
-	// Get instance
-	getInstanceReq := &computepb.GetInstanceRequest{
-		Instance: instance,
-		Project:  project,
-		Zone:     zone,
-	}
-	getInstanceResp, err := instancesClient.Get(ctx, getInstanceReq)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get instance: %w", err)
 	}
 
 	// Delete firewalls corresponding to provided permit list rules
 	for _, ruleName := range req.RuleNames {
 		deleteFirewallReq := &computepb.DeleteFirewallRequest{
-			Firewall: getFirewallName(ruleName, *getInstanceResp.Id),
-			Project:  project,
+			Firewall: getFirewallName(ruleName, *resourceID),
+			Project:  resourceInfo.project,
 		}
 		deleteFirewallOp, err := firewallsClient.Delete(ctx, deleteFirewallReq)
 		if err != nil {
@@ -549,7 +560,13 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 	}
 	defer instancesClient.Close()
 
-	return s._DeletePermitListRules(ctx, req, firewallsClient, instancesClient)
+	clustersClient, err := container.NewClusterManagerClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("NewClusterManagerClient: %w", err)
+	}
+	defer clustersClient.Close()
+
+	return s._DeletePermitListRules(ctx, req, firewallsClient, instancesClient, clustersClient)
 }
 
 func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient, clustersClient *container.ClusterManagerClient) (*invisinetspb.CreateResourceResponse, error) {

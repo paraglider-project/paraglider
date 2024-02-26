@@ -83,7 +83,7 @@ func getFirewallRules(ctx context.Context, client *compute.FirewallsClient, proj
 	return firewallRules, nil
 }
 
-func parseResourceUri(instanceId string) (*ResourceInfo, error) {
+func parseResourceUri(resourceUri string) (*ResourceInfo, error) {
 	parsedResourceId := parseGCPURL(instanceId)
 	if name, ok := parsedResourceId["instances"]; ok {
 		return &ResourceInfo{project: parsedResourceId["projects"], zone: parsedResourceId["zones"], name: name, resourceType: instanceTypeName}, nil
