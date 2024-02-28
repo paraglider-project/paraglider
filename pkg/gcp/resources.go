@@ -49,15 +49,6 @@ func getNetworkTag(namespace string, resourceType string, resourceId string) str
 	return getInvisinetsNamespacePrefix(namespace) + "-" + resourceType + "-" + resourceId
 }
 
-type ResourceInfo struct {
-	name         string
-	project      string
-	zone         string
-	region       string
-	namespace    string
-	resourceType string
-}
-
 // TODO: Maybe move back to plugin.go
 func getFirewallRules(ctx context.Context, client *compute.FirewallsClient, project string, resourceID string) ([]*computepb.Firewall, error) {
 	firewallRules := []*computepb.Firewall{}
@@ -84,7 +75,7 @@ func getFirewallRules(ctx context.Context, client *compute.FirewallsClient, proj
 }
 
 func parseResourceUri(resourceUri string) (*ResourceInfo, error) {
-	parsedResourceId := parseGCPURL(instanceId)
+	parsedResourceId := parseGCPURL(resourceUri)
 	if name, ok := parsedResourceId["instances"]; ok {
 		return &ResourceInfo{project: parsedResourceId["projects"], zone: parsedResourceId["zones"], name: name, resourceType: instanceTypeName}, nil
 	} else if name, ok := parsedResourceId["clusters"]; ok {
@@ -94,6 +85,7 @@ func parseResourceUri(resourceUri string) (*ResourceInfo, error) {
 }
 
 // Returns (subnet URI, resource ID, error)
+// TODO now: rename
 func getResourceParams(ctx context.Context, instancesClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient, resourceInfo *ResourceInfo) (*string, *string, error) {
 	if resourceInfo.namespace == "" {
 		return nil, nil, fmt.Errorf("namespace is empty")
@@ -175,8 +167,6 @@ func ReadAndProvisionResource(ctx context.Context, resource *invisinetspb.Resour
 	} else {
 		return "", "", fmt.Errorf("resource description contains unknown Azure resource")
 	}
-
-	return "", "", nil
 }
 
 type GCPResourceHandler[T any] interface {
@@ -223,7 +213,7 @@ func (r *GCPInstance) CreateWithNetwork(ctx context.Context, instance *computepb
 		Project:  resourceInfo.project,
 		Zone:     resourceInfo.zone,
 		TagsResource: &computepb.Tags{
-			Items:       append(getInstanceResp.Tags.Items, getNetworkTagInstance(resourceInfo.namespace, *getInstanceResp.Id)),
+			Items:       append(getInstanceResp.Tags.Items, getNetworkTag(resourceInfo.namespace, instanceTypeName, strconv.FormatUint(*getInstanceResp.Id, 16))), // TODO now: create a helper function for this ID conversion
 			Fingerprint: getInstanceResp.Tags.Fingerprint,
 		},
 	}
@@ -285,7 +275,7 @@ func (r *GKE) CreateWithNetwork(ctx context.Context, cluster *containerpb.Create
 		Name:      cluster.Cluster.Name,
 		Update: &containerpb.ClusterUpdate{
 			DesiredNodePoolAutoConfigNetworkTags: &containerpb.NetworkTags{
-				Tags: append(getClusterResp.NodePools[0].Config.Tags, getNetworkTagCluster(resourceInfo.namespace, getClusterResp.Id)),
+				Tags: append(getClusterResp.NodePools[0].Config.Tags, getNetworkTag(resourceInfo.namespace, clusterTypeName, getClusterResp.Id)),
 			},
 		},
 	}

@@ -41,7 +41,8 @@ import (
 type AzureSDKHandler interface {
 	InitializeClients(cred azcore.TokenCredential) error
 	GetAzureCredentials() (azcore.TokenCredential, error)
-	GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interface, error)
+	GetNetworkInterface(ctx context.Context, nicName string) (*armnetwork.Interface, error)
+	GetResource(ctx context.Context, resourceID string) (*armresources.GenericResource, error)
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
 	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error)
@@ -67,6 +68,7 @@ type AzureSDKHandler interface {
 	GetPublicIPAddress(ctx context.Context, name string) (*armnetwork.PublicIPAddress, error)
 	CreateSubnet(ctx context.Context, virtualNetworkName string, subnetName string, parameters armnetwork.Subnet) (*armnetwork.Subnet, error)
 	GetSubnet(ctx context.Context, virtualNetworkName string, subnetName string) (*armnetwork.Subnet, error)
+	GetSubnetByID(ctx context.Context, subnetID string) (*armnetwork.Subnet, error)
 	CreateLocalNetworkGateway(ctx context.Context, name string, parameters armnetwork.LocalNetworkGateway) (*armnetwork.LocalNetworkGateway, error)
 	GetLocalNetworkGateway(ctx context.Context, name string) (*armnetwork.LocalNetworkGateway, error)
 	CreateVirtualNetworkGatewayConnection(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGatewayConnection) (*armnetwork.VirtualNetworkGatewayConnection, error)
@@ -196,54 +198,26 @@ func (h *azureSDKHandler) SetSubIdAndResourceGroup(subid string, resourceGroupNa
 	h.resourceGroupName = resourceGroupName
 }
 
-// GetResourceNIC returns the network interface card (NIC) for a given resource ID.
-// it performs the following steps:
-// 1. Get the resource by ID using the resourcesClient.GetByID() function.
-// 2. If the resource is a virtual machine, get the virtual machine by name using the virtualMachinesClient.Get() function.
-// 3. Get the primary NIC ID from the virtual machine's network profile and extract the NIC name from it.
-// 4. Get the NIC by name using the interfacesClient.Get() function and set the return value to the NIC object.
-func (h *azureSDKHandler) GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interface, error) {
-	var resourceNic *armnetwork.Interface
+func (h *azureSDKHandler) GetResource(ctx context.Context, resourceID string) (*armresources.GenericResource, error) {
 	var apiVersion string = "2021-04-01"
 	options := armresources.ClientGetByIDOptions{}
 
-	// TODO @nnomier: if we just use VMs, we can use vmclient directly
 	resource, err := h.resourcesClient.GetByID(ctx, resourceID, apiVersion, &options)
 	if err != nil {
 		utils.Log.Printf("Failed to get resource: %v", err)
 		return nil, err
 	}
 
-	//TODO @nnomier: Do a solution that should work for all types
-	if *resource.Type != VirtualMachineResourceType {
-		err := fmt.Errorf("resource type %s is not supported", *resource.Type)
-		return nil, err
-	}
+	return &resource.GenericResource, nil
+}
 
-	vmName := *resource.Name
-
-	// get the VM
-	vm, err := h.virtualMachinesClient.Get(ctx, h.resourceGroupName, vmName, &armcompute.VirtualMachinesClientGetOptions{Expand: nil})
-
-	if err != nil {
-		utils.Log.Printf("Failed to get VM: %v", err)
-		return nil, err
-	}
-
-	// get the primary NIC ID from the VM
-	nicID := *vm.Properties.NetworkProfile.NetworkInterfaces[0].ID
-	nicName, err := h.GetLastSegment(nicID)
-	if err != nil {
-		utils.Log.Printf("Failed to get NIC name from ID: %v", err)
-		return nil, err
-	}
-
+func (h *azureSDKHandler) GetNetworkInterface(ctx context.Context, nicName string) (*armnetwork.Interface, error) {
 	nicResponse, err := h.interfacesClient.Get(ctx, h.resourceGroupName, nicName, &armnetwork.InterfacesClientGetOptions{Expand: nil})
 	if err != nil {
 		utils.Log.Printf("Failed to get NIC: %v", err)
 		return nil, err
 	}
-	resourceNic = &nicResponse.Interface
+	resourceNic := &nicResponse.Interface
 	return resourceNic, nil
 }
 
@@ -761,6 +735,18 @@ func (h *azureSDKHandler) GetSubnet(ctx context.Context, virtualNetworkName stri
 	return &resp.Subnet, nil
 }
 
+func (h *azureSDKHandler) GetSubnetByID(ctx context.Context, subnetID string) (*armnetwork.Subnet, error) {
+	vnetName, subnetName, err := parseSubnetURI(subnetID)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := h.subnetsClient.Get(ctx, h.resourceGroupName, vnetName, subnetName, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.Subnet, nil
+}
+
 func (h *azureSDKHandler) CreateLocalNetworkGateway(ctx context.Context, name string, parameters armnetwork.LocalNetworkGateway) (*armnetwork.LocalNetworkGateway, error) {
 	pollerResponse, err := h.localNetworkGatewaysClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
 	if err != nil {
@@ -799,6 +785,14 @@ func (h *azureSDKHandler) GetVirtualNetworkGatewayConnection(ctx context.Context
 		return nil, err
 	}
 	return &resp.VirtualNetworkGatewayConnection, nil
+}
+
+func parseSubnetURI(subnetURI string) (string, string, error) {
+	segments := strings.Split(subnetURI, "/")
+	if len(segments) < 10 {
+		return "", "", fmt.Errorf("invalid subnet URI")
+	}
+	return segments[7], segments[9], nil
 }
 
 // getIPs returns the source and destination IP addresses for a given permit list rule and resource IP address.

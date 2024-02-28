@@ -35,6 +35,97 @@ const (
 	managedClusterTypeName = "Microsoft.ContainerService/managedClusters"
 )
 
+// TODO now: consider how the multiplexing between resource types should be split between this and the handler
+
+type ResourceInfo struct { // TODO now: is this even being used?
+	name         string
+	project      string
+	zone         string
+	region       string
+	namespace    string
+	resourceType string
+	id           string
+}
+
+func getAndCheckResourceState(c context.Context, handler AzureSDKHandler, resourceID string, namespace string) (*armnetwork.SecurityGroup, *string, *string, error) {
+	// Check the namespace
+	if namespace == "" {
+		return nil, nil, nil, fmt.Errorf("namespace cannot be empty")
+	}
+
+	// Get the resource
+	nsg, subnetID, address, location, err := getNetworkInfoFromResource(c, handler, resourceID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// Check its namespace
+	vnet := getVnetFromSubnetId(*subnetID)
+	if !strings.HasPrefix(vnet, getInvisinetsNamespacePrefix(namespace)) {
+		return nil, nil, nil, fmt.Errorf("resource %s is not in the namespace %s", resourceID, namespace)
+	}
+
+	// Return the relevant NSG
+	return nsg, address, location, nil
+}
+
+func getNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, resourceID string) (*armnetwork.SecurityGroup, *string, *string, *string, error) {
+	// get the nic associated with the resource
+	resource, err := handler.GetResource(c, resourceID)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting resource %s: %+v", resourceID, err)
+		return nil, nil, nil, nil, err
+	}
+
+	var nsgID string
+	var subnetID string
+	var address string
+	if *resource.Type == virtualMachineTypeName {
+		properties, ok := resource.Properties.(armcompute.VirtualMachineProperties)
+		if !ok {
+			return nil, nil, nil, nil, fmt.Errorf("failed to convert resource.Properties to type armcompute.VirtualMachinePropertie")
+		}
+		nic, err := handler.GetNetworkInterface(c, *properties.NetworkProfile.NetworkInterfaces[0].ID)
+		if err != nil {
+			utils.Log.Printf("An error occured while getting NIC for resource %s: %+v", resourceID, err)
+			return nil, nil, nil, nil, err
+		}
+		nsgID = *nic.Properties.NetworkSecurityGroup.ID
+		subnetID = *nic.Properties.IPConfigurations[0].Properties.Subnet.ID
+		address = *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
+	} else if *resource.Type == managedClusterTypeName {
+		properties, ok := resource.Properties.(armcontainerservice.ManagedClusterProperties)
+		if !ok {
+			return nil, nil, nil, nil, fmt.Errorf("failed to convert resource.Properties to type armcontainerservice.ManagedClusterProperties")
+		}
+		subnet, err := handler.GetSubnetByID(c, *properties.AgentPoolProfiles[0].VnetSubnetID)
+		if err != nil {
+			utils.Log.Printf("An error occured while getting subnet for resource %s: %+v", resourceID, err)
+			return nil, nil, nil, nil, err
+		}
+		nsgID = *subnet.Properties.NetworkSecurityGroup.ID
+		subnetID = *subnet.ID
+		//cluster.Properties.NetworkProfile.PodCidr?
+		address = *subnet.Properties.AddressPrefix
+	} else {
+		return nil, nil, nil, nil, fmt.Errorf("resource type %s is not supported", resource.Type)
+	}
+
+	nsgName, err := handler.GetLastSegment(nsgID)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting NSG name for resource %s: %+v", resourceID, err)
+		return nil, nil, nil, nil, err
+	}
+
+	nsg, err := handler.GetSecurityGroup(c, nsgName)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
+		return nil, nil, nil, nil, err
+	}
+
+	return nsg, &subnetID, &address, resource.Location, nil
+}
+
 // Is there any point to the abstract class? Just having the same interface to all resource types
 
 func ReadAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler) (string, error) {
@@ -89,7 +180,7 @@ func (r *AzureVM) CreateWithNetwork(ctx context.Context, vm *armcompute.VirtualM
 		return "", err
 	}
 
-	nic, err = handler.GetResourceNIC(ctx, *vm.ID)
+	nic, err = handler.GetNetworkInterface(ctx, *vm.Properties.NetworkProfile.NetworkInterfaces[0].ID)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network interface:%+v", err)
 		return "", err

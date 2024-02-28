@@ -89,16 +89,8 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *invisinetspb
 		return nil, err
 	}
 
-	// make sure the resource is in the right namespace
-	err = s.getAndCheckResourceNamespace(ctx, resourceId, req.Namespace)
+	nsg, _, _, err := getAndCheckResourceState(ctx, s.azureHandler, resourceId, req.Namespace)
 	if err != nil {
-		return nil, err
-	}
-
-	// get the nsg associated with the resource
-	nsg, err := s.getNSGFromResource(ctx, resourceId)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceId, err)
 		return nil, err
 	}
 
@@ -135,24 +127,8 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		return nil, err
 	}
 
-	// make sure the resource is in the right namespace
-	err = s.getAndCheckResourceNamespace(ctx, resourceID, req.Namespace)
+	nsg, address, location, err := getAndCheckResourceState(ctx, s.azureHandler, resourceID, req.Namespace)
 	if err != nil {
-		return nil, err
-	}
-
-	// get the nic associated with the resource
-	nic, err := s.azureHandler.GetResourceNIC(ctx, resourceID)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting NIC for resource %s: %+v", resourceID, err)
-		return nil, err
-	}
-
-	// get the NSG associated with the resource
-	nsg, err := s.getNSG(ctx, nic, resourceID)
-
-	if err != nil {
-		utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
@@ -167,8 +143,6 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 	var outboundPriority int32 = 100
 	var inboundPriority int32 = 100
 
-	resourceAddress := *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
-
 	// Get used address spaces of all clouds
 	controllerConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -182,7 +156,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 	}
 
 	// get the vnet to be able to get both the address space as well as the peering when needed
-	resourceVnet, err := s.azureHandler.GetVNet(ctx, getVnetName(*nic.Location, req.Namespace))
+	resourceVnet, err := s.azureHandler.GetVNet(ctx, getVnetName(*location, req.Namespace))
 	if err != nil {
 		utils.Log.Printf("An error occured while getting resource vnet:%+v", err)
 		return nil, err
@@ -238,7 +212,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		}
 
 		// Create the NSG rule
-		securityRule, err := s.azureHandler.CreateSecurityRule(ctx, rule, *nsg.Name, getNSGRuleName(rule.Name), resourceAddress, priority)
+		securityRule, err := s.azureHandler.CreateSecurityRule(ctx, rule, *nsg.Name, getNSGRuleName(rule.Name), *address, priority)
 		if err != nil {
 			utils.Log.Printf("An error occured while creating security rule:%+v", err)
 			return nil, err
@@ -262,15 +236,8 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *invisi
 		return nil, err
 	}
 
-	// make sure the resource is in the right namespace
-	err = s.getAndCheckResourceNamespace(c, resourceID, req.Namespace)
+	nsg, _, _, err := getAndCheckResourceState(c, s.azureHandler, resourceID, req.Namespace)
 	if err != nil {
-		return nil, err
-	}
-
-	nsg, err := s.getNSGFromResource(c, resourceID)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
@@ -501,62 +468,10 @@ func (s *azurePluginServer) getNSG(ctx context.Context, nic *armnetwork.Interfac
 	return nsg, nil
 }
 
-// getNSGFromResource gets the NSG associated with the given resource
-// by getting the NIC associated with the resource and then getting the NSG associated with the NIC
-func (s *azurePluginServer) getNSGFromResource(c context.Context, resourceID string) (*armnetwork.SecurityGroup, error) {
-	// get the nic associated with the resource
-	nic, err := s.azureHandler.GetResourceNIC(c, resourceID)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting NIC for resource %s: %+v", resourceID, err)
-		return nil, err
-	}
-
-	// avoid nil pointer dereference error
-	if nic.Properties.NetworkSecurityGroup == nil {
-		return nil, fmt.Errorf("resource %s does not have a network security group", resourceID)
-	}
-
-	nsgID := *nic.Properties.NetworkSecurityGroup.ID
-	nsgName, err := s.azureHandler.GetLastSegment(nsgID)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting NSG name for resource %s: %+v", resourceID, err)
-		return nil, err
-	}
-
-	nsg, err := s.azureHandler.GetSecurityGroup(c, nsgName)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
-		return nil, err
-	}
-
-	return nsg, nil
-}
-
 // Extract the Vnet name from the subnet ID
 func getVnetFromSubnetId(subnetId string) string {
 	parts := strings.Split(subnetId, "/")
 	return parts[8] // TODO @smcclure20: do this in a less brittle way
-}
-
-// Check if the resource is in a vnet for the given namespace
-func (s *azurePluginServer) getAndCheckResourceNamespace(c context.Context, resourceID string, namespace string) error {
-	if namespace == "" {
-		return fmt.Errorf("namespace cannot be empty")
-	}
-
-	// get the vnet associated with the resource
-	nic, err := s.azureHandler.GetResourceNIC(c, resourceID)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting nic for resource %s: %+v", resourceID, err)
-		return err
-	}
-	vnet := getVnetFromSubnetId(*nic.Properties.IPConfigurations[0].Properties.Subnet.ID)
-
-	if !strings.HasPrefix(vnet, getInvisinetsNamespacePrefix(namespace)) {
-		return fmt.Errorf("resource %s is not in the namespace %s", resourceID, namespace)
-	}
-
-	return nil
 }
 
 // setupMaps fills the reservedPrioritiesInbound and reservedPrioritiesOutbound maps with the priorities of the existing rules in the NSG
