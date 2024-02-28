@@ -35,6 +35,7 @@ import (
 
 	grpc "google.golang.org/grpc"
 	insecure "google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	config "github.com/NetSys/invisinets/pkg/orchestrator/config"
@@ -554,6 +555,7 @@ func (s *ControllerServer) getAddressSpaces(cloud string) ([]*invisinetspb.Addre
 // Update local address space map by getting used address spaces from each cloud plugin
 func (s *ControllerServer) updateUsedAddressSpaces() error {
 	// Call each cloud to get address spaces used
+	s.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{} // Clear list everytime for now so we don't cache old data
 	for _, cloud := range s.config.CloudPlugins {
 		addressSpaceMappings, err := s.getAddressSpaces(cloud.Name)
 		if err != nil {
@@ -597,6 +599,10 @@ func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, _ *invisinets
 	err := s.updateUsedAddressSpaces()
 	if err != nil {
 		return nil, err
+	}
+	// Fill in deployment fields since the cloud plugins don't do that
+	for _, addressSpace := range s.usedAddressSpaces {
+		addressSpace.Deployment = proto.String(s.getCloudDeployment(addressSpace.Cloud, addressSpace.Namespace))
 	}
 	return &invisinetspb.GetUsedAddressSpacesResponse{AddressSpaceMappings: s.usedAddressSpaces}, nil
 }

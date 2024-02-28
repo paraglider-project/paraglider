@@ -48,7 +48,7 @@ const (
 	fakeInstanceName = "vm-invisinets-fake"
 	fakeInstanceId   = uint64(1234)
 	fakeResourceId   = "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
-	fakeNamespace    = "defaultnamespace"
+	fakeNamespace    = "default"
 
 	// Missing resources not registered in fake server
 	fakeMissingInstance   = "vm-invisinets-missing"
@@ -81,7 +81,7 @@ var (
 		},
 		Direction:    proto.String(computepb.Firewall_INGRESS.String()),
 		Name:         proto.String(getFirewallName(fakePermitListRule1.Name, fakeInstanceId)),
-		Network:      proto.String(GetVpcUri(fakeNamespace)),
+		Network:      proto.String(GetVpcUri(fakeProject, fakeNamespace)),
 		SourceRanges: []string{"10.1.2.0/24"},
 		TargetTags:   []string{fakeNetworkTag},
 		Description:  proto.String(getRuleDescription([]string{"tag1", "tag2"})),
@@ -104,7 +104,7 @@ var (
 		DestinationRanges: []string{"10.3.4.0/24"},
 		Direction:         proto.String(computepb.Firewall_EGRESS.String()),
 		Name:              proto.String(getFirewallName(fakePermitListRule2.Name, fakeInstanceId)),
-		Network:           proto.String(GetVpcUri(fakeNamespace)),
+		Network:           proto.String(GetVpcUri(fakeProject, fakeNamespace)),
 		TargetTags:        []string{fakeNetworkTag},
 	}
 )
@@ -120,7 +120,7 @@ func getFakeInstance(includeNetwork bool) *computepb.Instance {
 		instance.NetworkInterfaces = []*computepb.NetworkInterface{
 			{
 				NetworkIP: proto.String("10.1.1.1"),
-				Network:   proto.String(GetVpcUri(fakeNamespace)),
+				Network:   proto.String(GetVpcUri(fakeProject, fakeNamespace)),
 			},
 		}
 	}
@@ -407,7 +407,7 @@ func TestGetPermitList(t *testing.T) {
 				},
 				Direction:  proto.String(computepb.Firewall_INGRESS.String()),
 				Name:       proto.String("fw-allow-icmp"),
-				Network:    proto.String(GetVpcUri(fakeNamespace)),
+				Network:    proto.String(GetVpcUri(fakeProject, fakeNamespace)),
 				TargetTags: []string{"0.0.0.0/0"},
 			},
 		},
@@ -462,7 +462,10 @@ func TestAddPermitListRules(t *testing.T) {
 		},
 	}
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
-		{Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")), Network: proto.String(GetVpcUri(fakeNamespace))},
+		{
+			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")),
+			Network:    proto.String(GetVpcUri(fakeProject, fakeNamespace)),
+		},
 	}
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
@@ -495,7 +498,7 @@ func TestAddPermitListRules(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient, fakeClients.networksClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
@@ -523,7 +526,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient, fakeClients.networksClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -550,7 +553,7 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 		Namespace: "wrongnamespace",
 	}
 
-	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient, fakeClients.networksClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -567,7 +570,10 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 		},
 	}
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
-		{Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")), Network: proto.String(GetVpcUri(fakeNamespace))},
+		{
+			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")),
+			Network:    proto.String(GetVpcUri(fakeProject, fakeNamespace)),
+		},
 	}
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
@@ -592,7 +598,7 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient, fakeClients.networksClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
@@ -816,7 +822,6 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 		},
 	}
 	resp, err := s._GetUsedBgpPeeringIpAddresses(ctx, req, fakeClients.routersClient)
-	fmt.Println(resp.IpAddresses)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.ElementsMatch(t, usedBgpPeeringIpAddressExpected, resp.IpAddresses)

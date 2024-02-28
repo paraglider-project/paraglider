@@ -24,6 +24,7 @@ import (
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/NetSys/invisinets/pkg/orchestrator"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 // Sets up fake frontend controller server
@@ -54,7 +55,7 @@ func (f *FakeOrchestratorRPCServer) GetUsedAddressSpaces(ctx context.Context, _ 
 	}
 	resp := &invisinetspb.GetUsedAddressSpacesResponse{
 		AddressSpaceMappings: []*invisinetspb.AddressSpaceMapping{
-			{AddressSpaces: addressSpaces, Cloud: f.Cloud},
+			{AddressSpaces: addressSpaces, Cloud: f.Cloud, Namespace: "default", Deployment: proto.String("fakedeployment")},
 		},
 	}
 	return resp, nil

@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -30,12 +31,22 @@ import (
 	networkmanagementpb "cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/orchestrator"
+	"github.com/NetSys/invisinets/pkg/orchestrator/config"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const namespace = "default"
+func createInstance(ctx context.Context, server *GCPPluginServer, project string, namespace string, zone string, name string) (*invisinetspb.CreateResourceResponse, error) {
+	insertInstanceReq := GetTestVmParameters(project, zone, name)
+	insertInstanceReqBytes, err := json.Marshal(insertInstanceReq)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal insert instance request: %w", err)
+	}
+	resourceDescription := &invisinetspb.ResourceDescription{Description: insertInstanceReqBytes, Namespace: namespace}
+	return server.CreateResource(ctx, resourceDescription)
+}
 
 // Tests creating two vms in separate regions and basic add/delete/get permit list functionality
 func TestIntegration(t *testing.T) {
@@ -46,6 +57,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	namespace := "default"
 	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	ctx := context.Background()
 
@@ -181,12 +193,12 @@ func TestIntegration(t *testing.T) {
 	// Connectivity tests that ping the two VMs
 	vm1Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm1Ip,
-		Network:   "projects/" + projectId + "/" + GetVpcUri(namespace),
+		Network:   GetVpcUri(projectId, namespace),
 		ProjectId: projectId,
 	}
 	vm2Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm2Ip,
-		Network:   "projects/" + projectId + "/" + GetVpcUri(namespace),
+		Network:   GetVpcUri(projectId, namespace),
 		ProjectId: projectId,
 	}
 
@@ -206,4 +218,131 @@ func TestIntegration(t *testing.T) {
 		require.NotNil(t, getPermitListAfterDeleteResp)
 		assert.Empty(t, getPermitListAfterDeleteResp.Rules)
 	}
+}
+
+func TestCrossNamespace(t *testing.T) {
+	// Create two projects
+	project1Id := SetupGcpTesting("integration")
+	defer TeardownGcpTesting(project1Id)
+	project2Id := SetupGcpTesting("integration")
+	defer TeardownGcpTesting(project2Id)
+
+	// Set GCP plugin port
+	gcpServerPort := 7992
+
+	// Setup orchestrator server
+	project1Namespace := "project1"
+	project2Namespace := "project2"
+	orchestratorServerConfig := config.Config{
+		CloudPlugins: []config.CloudPlugin{
+			{
+				Name: utils.GCP,
+				Host: "localhost",
+				Port: strconv.Itoa(gcpServerPort),
+			},
+		},
+		Namespaces: map[string][]config.CloudDeployment{
+			project1Namespace: {
+				{
+					Name:       utils.GCP,
+					Deployment: fmt.Sprintf("projects/%s", project1Id),
+				},
+			},
+			project2Namespace: {
+				{
+					Name:       utils.GCP,
+					Deployment: fmt.Sprintf("projects/%s", project2Id),
+				},
+			},
+		},
+	}
+	orchestratorServerAddr := orchestrator.SetupControllerServer(orchestratorServerConfig)
+
+	// Setup GCP plugin server
+	gcpServer := Setup(gcpServerPort, orchestratorServerAddr)
+	ctx := context.Background()
+
+	// Create vm1 in project1
+	vm1Name := "vm-invisinets-test1"
+	vm1Zone := "us-west1-a"
+	createVm1Resp, err := createInstance(ctx, gcpServer, project1Id, project1Namespace, vm1Zone, vm1Name)
+	require.NoError(t, err)
+	require.NotNil(t, createVm1Resp)
+	assert.Equal(t, createVm1Resp.Name, vm1Name)
+
+	// Create vm2 in project2
+	vm2Name := "vm-invisinets-test-2"
+	vm2Zone := "us-west1-a"
+	createVm2Resp, err := createInstance(ctx, gcpServer, project2Id, project2Namespace, vm2Zone, vm2Name)
+	require.NoError(t, err)
+	require.NotNil(t, createVm2Resp)
+	assert.Equal(t, createVm2Resp.Name, vm2Name)
+
+	// Add permit list rules to vm1 and vm2 to ping each other
+	vm1Uri := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project1Id, vm1Zone, vm1Name)
+	vm2Uri := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project2Id, vm2Zone, vm2Name)
+	vm1Ip, err := GetInstanceIpAddress(project1Id, vm1Zone, vm1Name)
+	require.NoError(t, err)
+	vm2Ip, err := GetInstanceIpAddress(project2Id, vm2Zone, vm2Name)
+	require.NoError(t, err)
+	vmUris := []string{vm1Uri, vm2Uri}
+	vm1Rules := []*invisinetspb.PermitListRule{
+		{
+			Name:      "vm2-ping-ingress",
+			Direction: invisinetspb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm2Ip},
+		},
+		{
+			Name:      "vm2-ping-egress",
+			Direction: invisinetspb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm2Ip},
+		},
+	}
+	vm2Rules := []*invisinetspb.PermitListRule{
+		{
+			Name:      "vm1-ping-ingress",
+			Direction: invisinetspb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm1Ip},
+		},
+		{
+			Name:      "vm1-ping-egress",
+			Direction: invisinetspb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm1Ip},
+		},
+	}
+	vmRules := [][]*invisinetspb.PermitListRule{vm1Rules, vm2Rules}
+	namespaces := []string{project1Namespace, project2Namespace}
+	for i, vmUri := range vmUris {
+		addPermitListRulesReq := &invisinetspb.AddPermitListRulesRequest{Rules: vmRules[i], Namespace: namespaces[i], Resource: vmUri}
+		addPermitListRulesResp, err := gcpServer.AddPermitListRules(ctx, addPermitListRulesReq)
+		require.NoError(t, err)
+		require.NotNil(t, addPermitListRulesResp)
+	}
+
+	// Run connectivity tests
+	vm1Endpoint := &networkmanagementpb.Endpoint{
+		IpAddress: vm1Ip,
+		Network:   GetVpcUri(project1Id, project1Namespace),
+		ProjectId: project1Id,
+	}
+	vm2Endpoint := &networkmanagementpb.Endpoint{
+		IpAddress: vm2Ip,
+		Network:   GetVpcUri(project2Id, project2Namespace),
+		ProjectId: project2Id,
+	}
+	// Run connectivity tests on both directions between vm1 and vm2
+	RunPingConnectivityTest(t, project1Id, "vm1-to-vm2", vm1Endpoint, vm2Endpoint)
+	RunPingConnectivityTest(t, project2Id, "vm2-to-vm1", vm2Endpoint, vm1Endpoint)
 }
