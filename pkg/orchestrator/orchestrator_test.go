@@ -1276,9 +1276,9 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		"otherNamespace": {{Name: utils.AZURE, Deployment: "deployment2"}},
 	}
 
-	addressSpaces, err := orchestratorServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	getUsedAddressSpacesResp, err := orchestratorServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
 	require.Nil(t, err)
-	assert.ElementsMatch(t, addressSpaces.AddressSpaceMappings, []*invisinetspb.AddressSpaceMapping{
+	assert.ElementsMatch(t, getUsedAddressSpacesResp.AddressSpaceMappings, []*invisinetspb.AddressSpaceMapping{
 		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP, Namespace: defaultNamespace, Deployment: proto.String("deployment1")},
 		{AddressSpaces: azure_address_spaces, Cloud: utils.AZURE, Namespace: "otherNamespace", Deployment: proto.String("deployment2")},
 	})

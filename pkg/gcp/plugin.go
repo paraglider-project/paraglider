@@ -391,7 +391,24 @@ func (s *GCPPluginServer) GetPermitList(ctx context.Context, req *invisinetspb.G
 
 // Creates bi-directional peering between two VPC networks
 func peerVpcNetwork(ctx context.Context, networksClient *compute.NetworksClient, currentProject string, currentNamespace string, peerProject string, peerNamespace string) error {
+	// Check if peering already exists
+	currentVpcName := getVpcName(currentNamespace)
+	getNetworkReq := &computepb.GetNetworkRequest{
+		Network: currentVpcName,
+		Project: currentProject,
+	}
+	currentVpc, err := networksClient.Get(ctx, getNetworkReq)
+	if err != nil {
+		return fmt.Errorf("unable to get current vpc: %w", err)
+	}
 	networkPeeringName := getNetworkPeeringName(currentNamespace, peerNamespace)
+	for _, peering := range currentVpc.Peerings {
+		if *peering.Name == networkPeeringName {
+			return nil
+		}
+	}
+
+	// Add peering
 	peerVpcUri := GetVpcUri(peerProject, peerNamespace)
 	addPeeringNetworkReq := &computepb.AddPeeringNetworkRequest{
 		Network: getVpcName(currentNamespace),
@@ -486,7 +503,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 			return nil, fmt.Errorf("unable to get peering cloud infos: %w", err)
 		}
 
-		for peeringCloudInfo := range peeringCloudInfos {
+		for _, peeringCloudInfo := range peeringCloudInfos {
 			if peeringCloudInfo.Cloud != utils.GCP {
 				// Create VPN connections
 				connectCloudsReq := &invisinetspb.ConnectCloudsRequest{

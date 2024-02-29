@@ -62,7 +62,7 @@ func (f *FakeOrchestratorRPCServer) GetUsedAddressSpaces(ctx context.Context, _ 
 }
 
 func SetupFakeOrchestratorRPCServer(cloud string) (*FakeOrchestratorRPCServer, string, error) {
-	fakeControllerServer := &FakeOrchestratorRPCServer{Counter: 0, Cloud: cloud}
+	fakeControllerServer := &FakeOrchestratorRPCServer{Counter: 2, Cloud: cloud} // TODO @seankimkdy: change this back to 0
 	l, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return nil, "", err

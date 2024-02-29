@@ -109,9 +109,10 @@ type PeeringCloudInfo struct {
 }
 
 // Retrieves the peering cloud info (name, namespace, deployment) for a given permit list rule
-func GetPermitListRulePeeringCloudInfo(permitListRule *invisinetspb.PermitListRule, usedAddressSpaceMappings []*invisinetspb.AddressSpaceMapping) (map[PeeringCloudInfo]bool, error) {
-	peeringCloudInfos := make(map[PeeringCloudInfo]bool)
-	for _, target := range permitListRule.Targets {
+// NOTE: this method may return duplicate PeeringCloudInfos, so it's the responsibility of the cloud plugin to gracefully handle duplicates
+func GetPermitListRulePeeringCloudInfo(permitListRule *invisinetspb.PermitListRule, usedAddressSpaceMappings []*invisinetspb.AddressSpaceMapping) ([]*PeeringCloudInfo, error) {
+	peeringCloudInfos := make([]*PeeringCloudInfo, len(permitListRule.Targets))
+	for i, target := range permitListRule.Targets {
 		isPrivate, err := isIPAddressPrivate(target)
 		if err != nil {
 			return nil, fmt.Errorf("unable to determine if address is private: %w", err)
@@ -120,7 +121,7 @@ func GetPermitListRulePeeringCloudInfo(permitListRule *invisinetspb.PermitListRu
 		if isPrivate {
 			// Iterate through used address space mappings to find the cloud that the target belongs to
 			contained := false
-		out: // Indentation is off for some reason
+		out: // Indentation is off for some reason but VS Code doesn't let me fix it
 			for _, usedAddressSpaceMapping := range usedAddressSpaceMappings {
 				for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
 					contained, err = IsPermitListRuleTagInAddressSpace(target, addressSpace)
@@ -128,12 +129,11 @@ func GetPermitListRulePeeringCloudInfo(permitListRule *invisinetspb.PermitListRu
 						return nil, fmt.Errorf("unable to determine if tag is in address space: %w", err)
 					}
 					if contained {
-						peeringCloudInfo := PeeringCloudInfo{
+						peeringCloudInfos[i] = &PeeringCloudInfo{
 							Cloud:      usedAddressSpaceMapping.Cloud,
 							Namespace:  usedAddressSpaceMapping.Namespace,
 							Deployment: *usedAddressSpaceMapping.Deployment,
 						}
-						peeringCloudInfos[peeringCloudInfo] = true
 						break out
 					}
 				}
