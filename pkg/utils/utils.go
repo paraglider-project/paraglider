@@ -109,7 +109,9 @@ type PeeringCloudInfo struct {
 }
 
 // Retrieves the peering cloud info (name, namespace, deployment) for a given permit list rule
-// NOTE: this method may return duplicate PeeringCloudInfos, so it's the responsibility of the cloud plugin to gracefully handle duplicates
+// Notes
+// 1. this method may return duplicate PeeringCloudInfos, so it's the responsibility of the cloud plugin to gracefully handle duplicates
+// 2. peeringCloudInfo[i] will be nil if the target is a public IP address, so make sure to check for that
 func GetPermitListRulePeeringCloudInfo(permitListRule *invisinetspb.PermitListRule, usedAddressSpaceMappings []*invisinetspb.AddressSpaceMapping) ([]*PeeringCloudInfo, error) {
 	peeringCloudInfos := make([]*PeeringCloudInfo, len(permitListRule.Targets))
 	for i, target := range permitListRule.Targets {

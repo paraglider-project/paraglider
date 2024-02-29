@@ -223,6 +223,9 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		}
 
 		for i, peeringCloudInfo := range peeringCloudInfos {
+			if peeringCloudInfo == nil {
+				continue
+			}
 			if peeringCloudInfo.Cloud != utils.AZURE {
 				// Create VPN connections
 				connectCloudsReq := &invisinetspb.ConnectCloudsRequest{

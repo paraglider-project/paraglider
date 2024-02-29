@@ -504,6 +504,9 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 		}
 
 		for _, peeringCloudInfo := range peeringCloudInfos {
+			if peeringCloudInfo == nil {
+				continue
+			}
 			if peeringCloudInfo.Cloud != utils.GCP {
 				// Create VPN connections
 				connectCloudsReq := &invisinetspb.ConnectCloudsRequest{
