@@ -222,9 +222,9 @@ func TestIntegration(t *testing.T) {
 
 func TestCrossNamespace(t *testing.T) {
 	// Create two projects
-	project1Id := SetupGcpTesting("integration")
+	project1Id := SetupGcpTesting("integration1")
 	defer TeardownGcpTesting(project1Id)
-	project2Id := SetupGcpTesting("integration")
+	project2Id := SetupGcpTesting("integration2")
 	defer TeardownGcpTesting(project2Id)
 
 	// Set GCP plugin port
