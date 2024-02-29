@@ -17,7 +17,6 @@ limitations under the License.
 package log
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/netip"
@@ -147,54 +146,6 @@ func GetPermitListRulePeeringCloudInfo(permitListRule *invisinetspb.PermitListRu
 		}
 	}
 	return peeringCloudInfos, nil
-}
-
-// Checks and connect clouds as necessary
-func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string, currentCloudNamespace string, ctx context.Context, permitListRule *invisinetspb.PermitListRule, usedAddressSpaceMappings []*invisinetspb.AddressSpaceMapping, controllerClient invisinetspb.ControllerClient) error {
-	for _, target := range permitListRule.Targets {
-		isPrivate, err := isIPAddressPrivate(target)
-		if err != nil {
-			return fmt.Errorf("unable to determine if address is private: %w", err)
-		}
-		if isPrivate {
-			// Check early to see if tag belongs in current cloud's address space (i.e. local to subnet)
-			contained, err := IsPermitListRuleTagInAddressSpace(target, currentCloudAddressSpace)
-			if err != nil {
-				return fmt.Errorf("unable to determine if tag is in current address space: %w", err)
-			}
-			if !contained {
-				var peeringCloud, peeringCloudNamespace string
-				for _, usedAddressSpaceMapping := range usedAddressSpaceMappings {
-					for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
-						contained, err := IsPermitListRuleTagInAddressSpace(target, addressSpace)
-						if err != nil {
-							return fmt.Errorf("unable to determine if tag is in address space: %w", err)
-						}
-						if contained {
-							peeringCloud = usedAddressSpaceMapping.Cloud
-							peeringCloudNamespace = usedAddressSpaceMapping.Namespace
-							break
-						}
-					}
-				}
-				if peeringCloud == "" {
-					return fmt.Errorf("permit list rule tag must belong to a specific cloud if it's a private address")
-				} else if peeringCloud != currentCloud {
-					connectCloudsRequest := &invisinetspb.ConnectCloudsRequest{
-						CloudA:          currentCloud,
-						CloudANamespace: currentCloudNamespace,
-						CloudB:          peeringCloud,
-						CloudBNamespace: peeringCloudNamespace,
-					}
-					_, err := controllerClient.ConnectClouds(ctx, connectCloudsRequest)
-					if err != nil {
-						return fmt.Errorf("unable to connect clouds : %w", err)
-					}
-				}
-			}
-		}
-	}
-	return nil
 }
 
 // Returns prefix with GitHub workflow run numbers for integration tests
