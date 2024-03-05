@@ -122,7 +122,7 @@ func GetPermitListRulePeeringCloudInfo(permitListRule *invisinetspb.PermitListRu
 		if isPrivate {
 			// Iterate through used address space mappings to find the cloud that the target belongs to
 			contained := false
-		out: // Indentation is off for some reason but VS Code doesn't let me fix it
+		out: // Indentation is correct and can't be fixed
 			for _, usedAddressSpaceMapping := range usedAddressSpaceMappings {
 				for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
 					contained, err = IsPermitListRuleTagInAddressSpace(target, addressSpace)

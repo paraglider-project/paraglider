@@ -578,7 +578,8 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients)
 
-	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	fakeOrchestratorServer, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	fakeOrchestratorServer.Counter = 1
 	if err != nil {
 		t.Fatal(err)
 	}

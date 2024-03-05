@@ -241,43 +241,9 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 			} else {
 				// Create VPC network peering (in both directions) for different namespaces
 				if peeringCloudInfo.Namespace != req.Namespace {
-					// Get all vnets in peering cloud namespace
-					peeringCloudResourceIDInfo, err := getResourceIDInfo(peeringCloudInfo.Deployment)
+					err = s.createNamespacePeering(ctx, azureHandler, resourceIdInfo, *resourceVnet.Location, req.Namespace, peeringCloudInfo, rule.Targets[i])
 					if err != nil {
-						return nil, fmt.Errorf("unable to get resource ID info for peering Cloud: %w", err)
-					}
-					peeringCloudAzureHandler, err := s.setupAzureHandler(peeringCloudResourceIDInfo)
-					if err != nil {
-						return nil, err
-					}
-					invisinetsVnetsMap, err := peeringCloudAzureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(peeringCloudInfo.Namespace))
-					if err != nil {
-						return nil, fmt.Errorf("unable to create vnets address spaces for peering cloud: %w", err)
-					}
-					// Find the vnet that contains the target
-					contained := false
-					for peeringVnetLocation, peeringVnetAddressSpace := range invisinetsVnetsMap {
-						contained, err = utils.IsPermitListRuleTagInAddressSpace(rule.Targets[i], peeringVnetAddressSpace)
-						if err != nil {
-							return nil, fmt.Errorf("unable to check if tag is in vnet address space")
-						}
-						if contained {
-							// Create peering
-							currentVnetName := getVnetName(*resourceVnet.Location, req.Namespace)
-							peeringVnetName := getVnetName(peeringVnetLocation, peeringCloudInfo.Namespace)
-							err = azureHandler.CreateVnetPeeringOneWay(ctx, currentVnetName, peeringVnetName, peeringCloudResourceIDInfo.SubscriptionID, peeringCloudResourceIDInfo.ResourceGroupName)
-							if err != nil {
-								return nil, fmt.Errorf("unable to create vnet peering: %w", err)
-							}
-							err = peeringCloudAzureHandler.CreateVnetPeeringOneWay(ctx, peeringVnetName, currentVnetName, resourceIdInfo.SubscriptionID, resourceIdInfo.ResourceGroupName)
-							if err != nil {
-								return nil, fmt.Errorf("unable to create vnet peering: %w", err)
-							}
-							break
-						}
-					}
-					if !contained {
-						return nil, fmt.Errorf("unable to find vnet belonging to permit list rule target")
+						return nil, fmt.Errorf("unable to create namespace peering: %w", err)
 					}
 				}
 			}
@@ -585,6 +551,48 @@ func (s *azurePluginServer) getNSG(ctx context.Context, azureHandler AzureSDKHan
 		return nil, fmt.Errorf("resource %s does not have a default network security group", resourceID)
 	}
 	return nsg, nil
+}
+
+// Peer with another namespace within Azure
+func (s *azurePluginServer) createNamespacePeering(ctx context.Context, azureHandler AzureSDKHandler, resourceIDInfo ResourceIDInfo, resourceVnetLocation string, namespace string, peeringCloudInfo *utils.PeeringCloudInfo, permitListRuleTarget string) error {
+	peeringCloudResourceIDInfo, err := getResourceIDInfo(peeringCloudInfo.Deployment)
+	if err != nil {
+		return fmt.Errorf("unable to get resource ID info for peering Cloud: %w", err)
+	}
+	peeringCloudAzureHandler, err := s.setupAzureHandler(peeringCloudResourceIDInfo)
+	if err != nil {
+		return err
+	}
+	invisinetsVnetsMap, err := peeringCloudAzureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(peeringCloudInfo.Namespace))
+	if err != nil {
+		return fmt.Errorf("unable to create vnets address spaces for peering cloud: %w", err)
+	}
+	// Find the vnet that contains the target
+	contained := false
+	for peeringVnetLocation, peeringVnetAddressSpace := range invisinetsVnetsMap {
+		contained, err = utils.IsPermitListRuleTagInAddressSpace(permitListRuleTarget, peeringVnetAddressSpace)
+		if err != nil {
+			return fmt.Errorf("unable to check if tag is in vnet address space")
+		}
+		if contained {
+			// Create peering
+			currentVnetName := getVnetName(resourceVnetLocation, namespace)
+			peeringVnetName := getVnetName(peeringVnetLocation, peeringCloudInfo.Namespace)
+			err = azureHandler.CreateVnetPeeringOneWay(ctx, currentVnetName, peeringVnetName, peeringCloudResourceIDInfo.SubscriptionID, peeringCloudResourceIDInfo.ResourceGroupName)
+			if err != nil {
+				return fmt.Errorf("unable to create vnet peering: %w", err)
+			}
+			err = peeringCloudAzureHandler.CreateVnetPeeringOneWay(ctx, peeringVnetName, currentVnetName, resourceIDInfo.SubscriptionID, resourceIDInfo.ResourceGroupName)
+			if err != nil {
+				return fmt.Errorf("unable to create vnet peering: %w", err)
+			}
+			break
+		}
+	}
+	if !contained {
+		return fmt.Errorf("unable to find vnet belonging to permit list rule target")
+	}
+	return nil
 }
 
 // getNSGFromResource gets the NSG associated with the given resource
