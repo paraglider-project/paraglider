@@ -1,4 +1,4 @@
-//go:build ibm
+//go:build unit
 
 /*
 Copyright 2023 The Invisinets Authors.
@@ -21,129 +21,253 @@ package ibm
 import (
 	"context"
 	"encoding/json"
-	"flag"
-	"os"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
+	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/stretchr/testify/require"
 
 	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
-	ibmCommon "github.com/NetSys/invisinets/pkg/ibm_plugin"
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
-var testResGroupName = flag.String("sg", "pywren", "Name of the user's security group")
-var testResourceIDUSEast1 string
-var testResourceIDUSEast2 string
-var testResourceIDEUDE1 string
-var testResourceIDUSSouth1 string
-
-func TestMain(m *testing.M) {
-	flag.Parse()
-	testResourceIDUSEast1 = "/ResourceGroupName/" + *testResGroupName + "/Zone/" + testZoneUSEast1 + "/ResourceID/" + testInstanceNameUSEast1
-	testResourceIDUSEast2 = "/ResourceGroupName/" + *testResGroupName + "/Zone/" + testZoneUSEast2 + "/ResourceID/" + testInstanceNameUSEast2
-	testResourceIDEUDE1 = "/ResourceGroupName/" + *testResGroupName + "/Zone/" + testZoneEUDE1 + "/ResourceID/" + testInstanceNameEUDE1
-	testResourceIDUSSouth1 = "/ResourceGroupName/" + *testResGroupName + "/Zone/" + testZoneUSSouth1 + "/ResourceID/" + testInstanceNameUSSouth1
-	exitCode := m.Run()
-	os.Exit(exitCode)
-}
-
 const (
-	testUSEastRegion         = "us-east"
-	testUSSouthRegion        = "us-south"
-	testEURegion             = "eu-de"
-	testZoneUSEast1          = testUSEastRegion + "-1"
-	testZoneUSEast2          = testUSEastRegion + "-2"
-	testZoneUSSouth1         = testUSSouthRegion + "-1"
-	testZoneEUDE1            = testEURegion + "-1"
-	testInstanceNameUSEast1  = "invisinets-vm-east-1"
-	testInstanceNameUSEast2  = "invisinets-vm-east-2"
-	testInstanceNameUSSouth1 = "invisinets-vm-south-1"
-	testInstanceNameEUDE1    = "invisinets-vm-de-1"
+	fakeResGroup = "invisinets-fake"
+	fakeRegion   = "us-east"
+	fakeZone     = fakeRegion + "-a"
+	fakeInstance = "vm-invisinets-fake"
+	fakeImage    = "fake-image"
+	fakeVPC      = "invisinets-fake-vpc"
+	fakeID       = "12345"
+	fakeSubnet   = "fake-subnet"
+	fakeSG       = "fake-sg"
+	fakeIP       = "10.0.0.2"
+	fakeProfile  = "bx2-2x8"
 
-	testImageUSEast  = "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb" // us-east Ubuntu 22.04
-	testImageEUDE    = "r010-f68ef7b3-1c5e-4ef7-8040-7ae0f5bf04fd" // eu-de Ubuntu 22.04
-	testImageUSSouth = "r006-01deb923-46f6-44c3-8fdc-99d8493d2464" // us-south Ubuntu 22.04
-	testProfile      = "bx2-2x8"
-	testNamespace    = "inv-namespace"
+	fakeResourceID = "/ResourceGroupName/" + fakeResGroup + "/Zone/" + fakeZone + "/ResourceID/" + fakeInstance
+	fakeNamespace  = "inv-namespace"
 )
 
-// permit list example
-var testPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRule{
-	//TCP protocol rules
-	{
-		Direction: invisinetspb.Direction_INBOUND,
-		SrcPort:   443,
-		DstPort:   443,
-		Protocol:  6,
-		Targets:   []string{"10.0.0.0/18"},
-	},
-	{
-		Direction: invisinetspb.Direction_OUTBOUND,
-		SrcPort:   8080,
-		DstPort:   8080,
-		Protocol:  6,
-		Targets:   []string{"10.0.128.12", "10.0.128.13"},
-	},
-	//All protocol rules
-	{
-		Direction: invisinetspb.Direction_INBOUND,
-		SrcPort:   -1,
-		DstPort:   -1,
-		Protocol:  -1,
-		Targets:   []string{"10.0.64.0/22", "10.0.64.0/24"},
-	},
-	{
-		Direction: invisinetspb.Direction_OUTBOUND,
-		SrcPort:   -1,
-		DstPort:   -1,
-		Protocol:  -1,
-		Targets:   []string{"10.0.64.1"},
-	},
+type fakeIBMServerState struct {
+	fakeVPC      *vpcv1.VPC
+	fakeInstance *vpcv1.Instance
 }
 
-// TODO @praveingk: Change the tests to use fake IBM handlers
+func sendFakeResponse(w http.ResponseWriter, response interface{}) {
+	jsonResp, err := json.Marshal(response)
+	if err != nil {
+		fmt.Printf("Failed to marshal")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(jsonResp)
+}
 
-// go test --tags=ibm -run TestCreateResourceNewVPC -sg=<security group name>
+func createFakeInstance() *vpcv1.Instance {
+	var in vpcv1.Instance
+	in.CRN = core.StringPtr(fakeImage)
+	in.Name = core.StringPtr(fakeInstance)
+	in.ID = core.StringPtr(fakeID)
+	in.Status = core.StringPtr(vpcv1.InstanceStatusRunningConst)
+	in.NetworkInterfaces = make([]vpcv1.NetworkInterfaceInstanceContextReference, 1)
+	in.NetworkInterfaces[0].PrimaryIP = &vpcv1.ReservedIPReference{Address: core.StringPtr(fakeIP)}
+	return &in
+}
+
+func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.HandlerFunc {
+	// The handler should be written as minimally as possible to minimize maintenance overhead. Modifying requests (e.g. POST, DELETE)
+	// should generally not do anything other than return the operation response. Instead, initialize the fakeServerState as necessary.
+	// Keep in mind these unit tests should rely as little as possible on the functionality of this fake server.
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
+			return
+		}
+		fmt.Printf("IBM fake server %s path: %s\n", r.Method, path)
+		switch {
+		case path == "/v3/resources/search":
+			var req map[string]interface{}
+			err := json.Unmarshal(body, &req)
+			if err != nil {
+				fmt.Printf("%s\n", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			fmt.Printf("Received search query %+v\n", req["query"])
+			var searchResult globalsearchv2.ScanResult
+			searchResult.Items = make([]globalsearchv2.ResultItem, 0)
+			sendFakeResponse(w, searchResult)
+			return
+		case path == "/vpcs":
+			var req map[string]interface{}
+			err := json.Unmarshal(body, &req)
+			if err != nil {
+				fmt.Printf("%s\n", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			fmt.Printf("Received VPC %+v\n", req)
+			var newVPC vpcv1.VPC
+			newVPC.CRN = core.StringPtr(fakeVPC)
+			newVPC.Name = core.StringPtr(fakeVPC)
+			newVPC.ID = core.StringPtr(fakeID)
+			sendFakeResponse(w, newVPC)
+			return
+		case path == "/v3/tags/attach":
+			var req map[string]interface{}
+			err := json.Unmarshal(body, &req)
+			if err != nil {
+				fmt.Printf("%s\n", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			fmt.Printf("Received attach tag %+v\n", req)
+			var tagResult globaltaggingv1.TagResults
+			tagResult.Results = make([]globaltaggingv1.TagResultsItem, 1)
+			tagResult.Results[0].IsError = core.BoolPtr(false)
+			sendFakeResponse(w, tagResult)
+			return
+		case path == "/vpcs/"+fakeID+"/address_prefixes":
+			var req map[string]interface{}
+			err := json.Unmarshal(body, &req)
+			if err != nil {
+				fmt.Printf("%s\n", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			fmt.Printf("Received VPC Address Prefix: %+v\n", req)
+			var newVPCPrefix vpcv1.AddressPrefix
+			sendFakeResponse(w, newVPCPrefix)
+			return
+		case path == "/subnets":
+			var req vpcv1.CreateSubnetOptions
+			err := json.Unmarshal(body, &req)
+			if err != nil {
+				fmt.Printf("%s\n", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			fmt.Printf("Received Subnets: %+v\n", req)
+			var subnet vpcv1.Subnet
+			subnet.CRN = core.StringPtr(fakeSubnet)
+			subnet.ID = core.StringPtr(fakeID)
+			sendFakeResponse(w, subnet)
+			return
+		case path == "/keys":
+			var req map[string]interface{}
+			err := json.Unmarshal(body, &req)
+			if err != nil {
+				fmt.Printf("%s\n", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			fmt.Printf("Received Keys: %+v\n", req)
+			var key vpcv1.Key
+			key.ID = core.StringPtr(fakeID)
+			sendFakeResponse(w, key)
+			return
+		case path == "/security_groups":
+			var req map[string]interface{}
+			err := json.Unmarshal(body, &req)
+			if err != nil {
+				fmt.Printf("%s\n", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			fmt.Printf("Received Security Groups: %+v\n", req)
+			var sg vpcv1.SecurityGroup
+			sg.CRN = core.StringPtr(fakeSG)
+			sg.ID = core.StringPtr(fakeID)
+			sendFakeResponse(w, sg)
+			return
+		case path == "/instances":
+			if r.Method == http.MethodPost {
+				var req vpcv1.CreateInstanceOptions
+				err := json.Unmarshal(body, &req)
+				if err != nil {
+					fmt.Printf("%s\n", err)
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				fmt.Printf("Received Instances: %+v\n", req)
+				fakeIBMServerState.fakeInstance = createFakeInstance()
+				sendFakeResponse(w, fakeIBMServerState.fakeInstance)
+				return
+			}
+		case path == "/instances/"+fakeID:
+			if r.Method == http.MethodGet {
+				if fakeIBMServerState.fakeInstance == nil {
+					http.Error(w, "Instance not found", http.StatusNotFound)
+					return
+				}
+				sendFakeResponse(w, fakeIBMServerState.fakeInstance)
+				return
+			}
+		}
+
+		fmt.Printf("unsupported request: %s %s\n", r.Method, path)
+		http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
+	})
+}
+
+func setup(t *testing.T, fakeIBMServerState *fakeIBMServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClient *sdk.CloudClient) {
+	var err error
+	fakeServer = httptest.NewServer(getFakeIBMServerHandler(fakeIBMServerState))
+	ctx = context.Background()
+	fmt.Printf("Setting a fake server at %s\n", fakeServer.URL)
+	fakeClient, err = sdk.FakeIBMCloudClient(fakeServer.URL, fakeID, fakeRegion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return
+}
+
+// Cleans up fake http server and fake client
+func teardown(fakeServer *httptest.Server) {
+	fakeServer.Close()
+}
+
 func TestCreateResourceNewVPC(t *testing.T) {
-	// Notes for tester:
-	// to change region set the values below according to constants above, e.g.:
-	// - test arguments for EU-DE-1:
-	// image, zone, instanceName, resourceID := testImageEUDE, testZoneEUDE1, testInstanceNameEUDE1, testResourceIDEUDE1
-	// - test arguments for us-east-2:
-	// image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast2, testInstanceNameUSEast2, testResourceIDUSEast2
-	// - test arguments for us-south-1:
-	// image, zone, instanceName, resourceID := testImageUSSouth, testZoneUSSouth1, testInstanceNameUSSouth1, testResourceIDUSSouth1
-	image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1, testResourceIDUSEast1
-
 	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
 	if err != nil {
 		t.Fatal(err)
 	}
-	imageIdentity := vpcv1.ImageIdentityByID{ID: &image}
-	zoneIdentity := vpcv1.ZoneIdentityByName{Name: &zone}
-	myTestProfile := string(testProfile)
+	fakeIBMServerState := &fakeIBMServerState{}
+	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
+	defer teardown(fakeServer)
+	imageIdentity := vpcv1.ImageIdentityByID{ID: core.StringPtr(fakeImage)}
+	zoneIdentity := vpcv1.ZoneIdentityByName{Name: core.StringPtr(fakeZone)}
+	myTestProfile := string(fakeProfile)
 
 	testPrototype := &vpcv1.InstancePrototypeInstanceByImage{
 		Image:   &imageIdentity,
 		Zone:    &zoneIdentity,
-		Name:    core.StringPtr(instanceName),
+		Name:    core.StringPtr(fakeInstance),
 		Profile: &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
 	}
 
 	s := &ibmPluginServer{
 		orchestratorServerAddr: fakeControllerServerAddr,
-		cloudClient:            make(map[string]*sdk.CloudClient)}
+		cloudClient: map[string]*sdk.CloudClient{
+			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+		}}
 
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: resourceID, Description: description, Namespace: testNamespace}
-	resp, err := s.CreateResource(context.Background(), resource)
+	resource := &invisinetspb.ResourceDescription{Id: fakeResourceID, Description: description, Namespace: fakeNamespace}
+	resp, err := s.CreateResource(ctx, resource)
 	if err != nil {
 		println(err)
 	}
@@ -151,144 +275,27 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	require.NotNil(t, resp)
 }
 
-// This func tests creating a new VM in an existing region, ergo to properly test:
-// 1. Have an invisinets VPC deployed beforehand.
-// 2. create the new VM in the same region as the deployed VPC.
-// go test --tags=ibm -run TestCreateResourceExistingVPC -sg=<security group name>
-func TestCreateResourceExistingVPC(t *testing.T) {
-	// Notes for tester:
-	// to change region set the values below according to constants above, e.g.:
-	// - test arguments for EU-DE-1:
-	//   image, zone, instanceName, resourceID := testImageEUDE, testZoneEUDE1, testInstanceNameEU1, testResourceIDEUDE1
-	// - test arguments for US-EAST-1:
-	// image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast1, testInstanceNameUS1, testResourceIDUSEast1
-	// - test arguments for US-EAST-2:
-	image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast2, testInstanceNameUSEast2, testResourceIDUSEast2
-
-	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
-	if err != nil {
-		t.Fatal(err)
-	}
-	imageIdentity := vpcv1.ImageIdentityByID{ID: core.StringPtr(image)}
-	zoneIdentity := vpcv1.ZoneIdentityByName{Name: core.StringPtr(zone)}
-	myTestProfile := string(testProfile)
-
-	testPrototype := &vpcv1.InstancePrototypeInstanceByImage{
-		Image:   &imageIdentity,
-		Zone:    &zoneIdentity,
-		Name:    core.StringPtr(instanceName),
-		Profile: &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
-	}
-
-	s := &ibmPluginServer{
-		orchestratorServerAddr: fakeControllerServerAddr,
-		cloudClient:            make(map[string]*sdk.CloudClient)}
-	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
-	require.NoError(t, err)
-
-	resource := &invisinetspb.ResourceDescription{Id: resourceID, Description: description, Namespace: testNamespace}
-	resp, err := s.CreateResource(context.Background(), resource)
-	if err != nil {
-		println(err)
-	}
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-}
-
-// usage: go test --tags=ibm -run TestGetPermitList -sg=<security group name>
-func TestGetPermitList(t *testing.T) {
-	resourceID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDEUDE1
-
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
-
-	resp, err := s.GetPermitList(context.Background(), &invisinetspb.GetPermitListRequest{Resource: resourceID,
-		Namespace: testNamespace})
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-
-	b, err := json.MarshalIndent(resp, "", "  ")
-	require.NoError(t, err)
-	// Note: direction:0(inbound) will not be printed.
-	utils.Log.Printf("Permit rules of instance %v are:\n%v", testInstanceNameUSEast1, string(b))
-}
-
-// usage: go test --tags=ibm -run TestAddPermitListRules -sg=<security group name>
-func TestAddPermitListRules(t *testing.T) {
-	resourceID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDEUDE1
-
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
-		Namespace: testNamespace,
-		Resource:  resourceID,
-		Rules:     testPermitList,
-	}
-
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
-
-	resp, err := s.AddPermitListRules(context.Background(), addRulesRequest)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-
-	utils.Log.Printf("Response: %+v", resp)
-}
-
-// usage: go test --tags=ibm -run TestDeletePermitListRule -sg=<security group name>
-func TestDeletePermitListRules(t *testing.T) {
-	resourceID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDUSSouth1
-
-	rInfo, err := getResourceIDInfo(resourceID)
-	require.NoError(t, err)
-
-	region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
-	require.NoError(t, err)
-
-	cloudClient, err := sdk.NewIBMCloudClient(rInfo.ResourceGroupName, region)
-	require.NoError(t, err)
-
-	// Get the VM ID from the resource ID (typically refers to VM Name)
-	vmData, err := cloudClient.GetInstanceData(rInfo.ResourceID)
-	require.NoError(t, err)
-
-	vmID := *vmData.ID
-
-	invisinetsSgsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
-	require.NoError(t, err)
-
-	require.NotEqualValues(t, len(invisinetsSgsData), 0,"no security groups were found for VM "+ rInfo.ResourceID)
-
-	// assuming up to a single invisinets subnet can exist per zone
-	vmInvisinetsSgID := invisinetsSgsData[0].ID
-
-	ibmRulesToDelete, err := sdk.InvisinetsToIBMRules(vmInvisinetsSgID, testPermitList)
-	require.NoError(t, err)
-
-	rulesIDs, err := cloudClient.GetRulesIDs(ibmRulesToDelete, vmInvisinetsSgID)
-	require.NoError(t, err)
-
-	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
-		Namespace: testNamespace,
-		Resource:  resourceID,
-		RuleNames: rulesIDs,
-	}
-
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
-
-	resp, err := s.DeletePermitListRules(context.Background(), deleteRulesRequest)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-
-	utils.Log.Printf("Response: %v", resp)
-}
-
-// usage: go test --tags=ibm -run TestGetUsedAddressSpaces -sg=<security group name>
-// this function logs subnets' address spaces from all invisinets' VPCs.
 func TestGetUsedAddressSpaces(t *testing.T) {
-	// GetUsedAddressSpaces() is independent of any region, since it returns
-	// address spaces in global scope, so any test resource ID will do.
-	deployment := &invisinetspb.InvisinetsDeployment{Id: testResourceIDUSEast1}
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fakeIBMServerState := &fakeIBMServerState{}
+	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
+	defer teardown(fakeServer)
 
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
+	s := &ibmPluginServer{
+		orchestratorServerAddr: fakeControllerServerAddr,
+		cloudClient: map[string]*sdk.CloudClient{
+			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+		}}
+	deployment := &invisinetspb.GetUsedAddressSpacesRequest{
+		Deployments: []*invisinetspb.InvisinetsDeployment{
+			{Id: fakeResourceID, Namespace: fakeNamespace},
+		},
+	}
 
-	usedAddressSpace, err := s.GetUsedAddressSpaces(context.Background(), deployment)
+	usedAddressSpace, err := s.GetUsedAddressSpaces(ctx, deployment)
 	require.NoError(t, err)
 	require.NotEmpty(t, usedAddressSpace)
 }

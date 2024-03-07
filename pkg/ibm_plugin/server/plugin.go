@@ -154,7 +154,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	return &invisinetspb.CreateResourceResponse{Name: *vm.Name, Uri: *vm.ID, Ip: reservedIP}, nil
 }
 
-// GetUsedAddressSpaces returns a list of address spaces used by either user's or invisinets' sunbets,
+// GetUsedAddressSpaces returns a list of address spaces used by either user's or invisinets' subnets,
 // for each invisinets vpc.
 func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisinetspb.GetUsedAddressSpacesRequest) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
 	resp := &invisinetspb.GetUsedAddressSpacesResponse{}
@@ -174,14 +174,13 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisin
 			return nil, err
 		}
 
-		// using a tmp client to avoid altering the cloud client's region.
-		tmpClient, err := sdk.NewIBMCloudClient(rInfo.ResourceGroupName, region)
+		cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupName, region)
 		if err != nil {
 			return nil, err
 		}
 
 		// get all VPCs (across all namespaces).
-		deploymentVpcsData, err := tmpClient.GetInvisinetsTaggedResources(sdk.VPC, []string{}, sdk.ResourceQuery{})
+		deploymentVpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{}, sdk.ResourceQuery{})
 		if err != nil {
 			utils.Log.Print("Failed to get invisinets tagged VPCs")
 			return nil, err
@@ -190,11 +189,14 @@ func (s *ibmPluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisin
 		// for each vpc, collect the address space of all subnets, including users'.
 		for _, vpcData := range deploymentVpcsData {
 			// Set the client on the region of the current VPC, otherwise resources will be out of scope for the client.
-			err := tmpClient.UpdateRegion(vpcData.Region)
-			if err != nil {
-				return nil, err
+			if vpcData.Region != region {
+				cloudClient, err = s.setupCloudClient(rInfo.ResourceGroupName, region)
+				if err != nil {
+					return nil, err
+				}
 			}
-			subnets, err := tmpClient.GetSubnetsInVpcRegionBound(vpcData.ID)
+
+			subnets, err := cloudClient.GetSubnetsInVpcRegionBound(vpcData.ID)
 			if err != nil {
 				return nil, err
 			}
