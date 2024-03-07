@@ -57,7 +57,7 @@ const (
 )
 
 type fakeIBMServerState struct {
-	fakeVPC      *vpcv1.VPC
+	//fakeVPC      *vpcv1.VPC
 	fakeInstance *vpcv1.Instance
 }
 
@@ -69,7 +69,10 @@ func sendFakeResponse(w http.ResponseWriter, response interface{}) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(jsonResp)
+	_, err = w.Write(jsonResp)
+	if err != nil {
+		http.Error(w, "unable to write request: "+err.Error(), http.StatusBadRequest)
+	}
 }
 
 func createFakeInstance() *vpcv1.Instance {
