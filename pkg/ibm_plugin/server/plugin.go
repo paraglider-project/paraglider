@@ -53,6 +53,36 @@ func (s *ibmPluginServer) setupCloudClient(resourceGroupName, region string) (*s
 	return client, nil
 }
 
+// getRemoteVPC returns the invisinets VPC that the specified remote (IP/CIDR) resides in.
+func (s *ibmPluginServer) getRemoteVPC(cloudClient *sdk.CloudClient, remote, resourceGroupName string) (*sdk.ResourceData, error) {
+
+	// fetching VPCs from all namespaces
+	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{}, sdk.ResourceQuery{})
+	if err != nil {
+		return nil, err
+	}
+
+	// go over candidate VPCs address spaces
+	for _, vpcData := range vpcsData {
+		curVpcID := vpcData.ID
+
+		if vpcData.Region != cloudClient.Region() {
+			cloudClient, err = s.setupCloudClient(resourceGroupName, vpcData.Region)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if isRemoteInVPC, err := cloudClient.IsRemoteInVPC(curVpcID, remote); isRemoteInVPC {
+			return &vpcData, nil
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	// remote doesn't reside in any invisinets VPC
+	return nil, nil
+}
+
 // CreateResource creates the specified resource.
 // Currently only supports instance creation.
 func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
@@ -308,7 +338,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 		// 2. if the rule's remote address resides in one of the clouds create a vpn gateway.
 
 		// get the VPC of the rule's target
-		remoteVPC, err := getRemoteVPC(ibmRule.Remote, rInfo.ResourceGroupName)
+		remoteVPC, err := s.getRemoteVPC(cloudClient, ibmRule.Remote, rInfo.ResourceGroupName)
 		if err != nil {
 			return nil, err
 		}
@@ -329,7 +359,6 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 				return nil, err
 			}
 		}
-
 		rulesHashValues := make(map[uint64]bool)
 		// get current rules in SG and record their hash values
 		sgRules, err := cloudClient.GetSecurityRulesOfSG(requestSGID)
