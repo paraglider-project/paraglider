@@ -118,8 +118,7 @@ func createFakeSecurityGroup(addRules bool) *vpcv1.SecurityGroup {
 	sg.Name = core.StringPtr(fakeSG)
 	sg.ID = core.StringPtr(fakeID)
 	if addRules {
-		var sgRules []vpcv1.SecurityGroupRuleIntf
-		sgRules = make([]vpcv1.SecurityGroupRuleIntf, 2)
+		sgRules := make([]vpcv1.SecurityGroupRuleIntf, 2)
 		sgRules[0] = &vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolTcpudp{
 			ID:        core.StringPtr(fakeRuleID1),
 			Direction: core.StringPtr("inbound"),
@@ -137,19 +136,6 @@ func createFakeSecurityGroup(addRules bool) *vpcv1.SecurityGroup {
 		sg.Rules = sgRules
 	}
 	return &sg
-}
-
-func readRequest(r *http.Request, data interface{}) error {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return err
-	}
-	defer r.Body.Close()
-	err = json.Unmarshal(body, data)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.HandlerFunc {
