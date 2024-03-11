@@ -48,9 +48,12 @@ const (
 	fakeImage    = "fake-image"
 	fakeVPC      = "invisinets-fake-vpc"
 	fakeID       = "12345"
+	fakeRule     = "fake-rule"
+	fakeRuleID1  = "fake-rule1"
+	fakeRuleID2  = "fake-rule2"
 	fakeCRN      = "crn:" + fakeID
-	fakeSubnet   = "fake-subnet"
-	fakeSG       = "fake-sg"
+	fakeSubnet   = "invisinets-fake-subnet"
+	fakeSG       = "invisinets-fake-sg"
 	fakeIP       = "10.0.0.2"
 	fakeProfile  = "bx2-2x8"
 
@@ -58,10 +61,9 @@ const (
 	fakeNamespace  = "inv-namespace"
 )
 
-// permit list example
 var fakePermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRule{
-	//TCP protocol rules
 	{
+		Id:        fakeRuleID1,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   443,
 		DstPort:   443,
@@ -69,21 +71,7 @@ var fakePermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRu
 		Targets:   []string{"10.0.0.0/18"},
 	},
 	{
-		Direction: invisinetspb.Direction_OUTBOUND,
-		SrcPort:   8080,
-		DstPort:   8080,
-		Protocol:  6,
-		Targets:   []string{"10.0.128.12", "10.0.128.13"},
-	},
-	//All protocol rules
-	{
-		Direction: invisinetspb.Direction_INBOUND,
-		SrcPort:   -1,
-		DstPort:   -1,
-		Protocol:  -1,
-		Targets:   []string{"10.0.64.0/22", "10.0.64.0/24"},
-	},
-	{
+		Id:        fakeRuleID2,
 		Direction: invisinetspb.Direction_OUTBOUND,
 		SrcPort:   -1,
 		DstPort:   -1,
@@ -124,18 +112,51 @@ func createFakeInstance() *vpcv1.Instance {
 	return &in
 }
 
-func createFakeSecurityGroup() *vpcv1.SecurityGroup {
+func createFakeSecurityGroup(addRules bool) *vpcv1.SecurityGroup {
 	var sg vpcv1.SecurityGroup
 	sg.CRN = core.StringPtr(fakeCRN)
 	sg.Name = core.StringPtr(fakeSG)
 	sg.ID = core.StringPtr(fakeID)
+	if addRules {
+		var sgRules []vpcv1.SecurityGroupRuleIntf
+		sgRules = make([]vpcv1.SecurityGroupRuleIntf, 2)
+		sgRules[0] = &vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolTcpudp{
+			ID:        core.StringPtr(fakeRuleID1),
+			Direction: core.StringPtr("inbound"),
+			Protocol:  core.StringPtr("tcp"),
+			PortMin:   core.Int64Ptr(443),
+			PortMax:   core.Int64Ptr(443),
+			Remote:    &vpcv1.SecurityGroupRuleRemoteCIDR{CIDRBlock: core.StringPtr("10.0.0.0/18")},
+		}
+		sgRules[1] = &vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAll{
+			ID:        core.StringPtr(fakeRuleID2),
+			Direction: core.StringPtr("outbound"),
+			Protocol:  core.StringPtr("all"),
+			Remote:    &vpcv1.SecurityGroupRuleRemoteIP{Address: core.StringPtr("10.0.64.1")},
+		}
+		sg.Rules = sgRules
+	}
 	return &sg
+}
+
+func readRequest(r *http.Request, data interface{}) error {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+	err = json.Unmarshal(body, data)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.HandlerFunc {
 	// The handler should be written as minimally as possible to minimize maintenance overhead. Modifying requests (e.g. POST, DELETE)
 	// should generally not do anything other than return the operation response. Instead, initialize the fakeServerState as necessary.
 	// Keep in mind these unit tests should rely as little as possible on the functionality of this fake server.
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		body, err := io.ReadAll(r.Body)
@@ -259,29 +280,35 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 			key.ID = core.StringPtr(fakeID)
 			sendFakeResponse(w, key)
 			return
-		case path == "/security_groups": // Create
-			var req map[string]interface{}
-			err := json.Unmarshal(body, &req)
-			if err != nil {
-				fmt.Printf("%s\n", err)
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			fmt.Printf("Received Security Groups: %+v\n", req)
-			var sg vpcv1.SecurityGroup
-			sg.CRN = core.StringPtr(fakeSG)
-			sg.ID = core.StringPtr(fakeID)
-			sendFakeResponse(w, sg)
-			return
-		case path == "/security_groups/"+fakeID+"/rules":
-			if r.Method == http.MethodGet { // Get rules of a security group
-				fmt.Printf("Received list Security Group rules\n")
-				var sg vpcv1.SecurityGroupRuleCollection
-				sg.Rules = make([]vpcv1.SecurityGroupRuleIntf, 0)
+		case path == "/security_groups":
+			if r.Method == http.MethodPost { // Create a security group
+				var req map[string]interface{}
+				err := json.Unmarshal(body, &req)
+				if err != nil {
+					fmt.Printf("%s\n", err)
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				fmt.Printf("Received Security Groups: %+v\n", req)
+				var sg vpcv1.SecurityGroup
+				sg.CRN = core.StringPtr(fakeSG)
+				sg.ID = core.StringPtr(fakeID)
 				sendFakeResponse(w, sg)
 				return
 			}
-			if r.Method == http.MethodPost { // Add rules to a  security group
+		case path == "/security_groups/"+fakeID+"/rules":
+			if r.Method == http.MethodGet { // Get rules of a security group
+				fmt.Printf("Received list Security Group rules\n")
+				if fakeIBMServerState.fakeSecurityGroup == nil {
+					http.Error(w, "Security Group not found", http.StatusNotFound)
+					return
+				}
+				var sg vpcv1.SecurityGroupRuleCollection
+				sg.Rules = fakeIBMServerState.fakeSecurityGroup.Rules
+				sendFakeResponse(w, sg)
+				return
+			}
+			if r.Method == http.MethodPost { // Add rules to a security group
 				var req vpcv1.CreateSecurityGroupRuleOptions
 				err := json.Unmarshal(body, &req)
 				if err != nil {
@@ -292,6 +319,11 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 				fmt.Printf("Received Add Security Group rules: %v\n", req)
 				var sg vpcv1.SecurityGroupRuleIntf
 				sendFakeResponse(w, sg)
+				return
+			}
+		case strings.Contains(path, "/security_groups/"+fakeID+"/rules/"):
+			if r.Method == http.MethodDelete { // Delete a rule
+				w.WriteHeader(http.StatusOK)
 				return
 			}
 		case path == "/instances":
@@ -323,6 +355,20 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 					return
 				}
 				sendFakeResponse(w, fakeIBMServerState.fakeInstance)
+				return
+			}
+		case path == "/instances/"+fakeID+"/network_interfaces":
+			if r.Method == http.MethodGet { // List an Instance's network interfaces
+				if fakeIBMServerState.fakeInstance == nil {
+					http.Error(w, "Instance not found", http.StatusNotFound)
+					return
+				}
+				var netIntf vpcv1.NetworkInterfaceUnpaginatedCollection
+				netIntf.NetworkInterfaces = make([]vpcv1.NetworkInterface, 1)
+				netIntf.NetworkInterfaces[0].SecurityGroups = make([]vpcv1.SecurityGroupReference, 1)
+				netIntf.NetworkInterfaces[0].SecurityGroups[0].Name = fakeIBMServerState.fakeSecurityGroup.Name
+				netIntf.NetworkInterfaces[0].SecurityGroups[0].ID = fakeIBMServerState.fakeSecurityGroup.ID
+				sendFakeResponse(w, netIntf)
 				return
 			}
 		}
@@ -417,7 +463,7 @@ func TestAddPermitListRules(t *testing.T) {
 		fakeInstanceTags: map[string]bool{
 			fakeNamespace: true,
 			fakeID:        true},
-		fakeSecurityGroup: createFakeSecurityGroup(),
+		fakeSecurityGroup: createFakeSecurityGroup(false),
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer teardown(fakeServer)
@@ -436,4 +482,60 @@ func TestAddPermitListRules(t *testing.T) {
 	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
+}
+
+func TestDeletePermitListRules(t *testing.T) {
+	fakeIBMServerState := &fakeIBMServerState{
+		fakeInstance: createFakeInstance(),
+		fakeInstanceTags: map[string]bool{
+			fakeNamespace: true,
+			fakeID:        true},
+		fakeSecurityGroup: createFakeSecurityGroup(true),
+	}
+	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
+	defer teardown(fakeServer)
+	s := &ibmPluginServer{
+		cloudClient: map[string]*sdk.CloudClient{
+			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+		}}
+
+	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
+		Namespace: fakeNamespace,
+		Resource:  fakeResourceID,
+		RuleNames: []string{fakePermitList[0].Id, fakePermitList[1].Id},
+	}
+
+	resp, err := s.DeletePermitListRules(ctx, deleteRulesRequest)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+}
+
+func TestGetPermitList(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fakeIBMServerState := &fakeIBMServerState{
+		fakeInstance: createFakeInstance(),
+		fakeInstanceTags: map[string]bool{
+			fakeNamespace: true,
+			fakeID:        true},
+		fakeSecurityGroup: createFakeSecurityGroup(true),
+	}
+	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
+	defer teardown(fakeServer)
+	s := &ibmPluginServer{
+		orchestratorServerAddr: fakeControllerServerAddr,
+		cloudClient: map[string]*sdk.CloudClient{
+			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+		}}
+
+	getRulesRequest := &invisinetspb.GetPermitListRequest{
+		Namespace: fakeNamespace,
+		Resource:  fakeResourceID,
+	}
+
+	resp, err := s.GetPermitList(ctx, getRulesRequest)
+	require.NoError(t, err)
+	require.ElementsMatch(t, resp.Rules, fakePermitList)
 }
