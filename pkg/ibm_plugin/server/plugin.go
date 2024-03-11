@@ -116,7 +116,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	}
 	if len(subnetsData) == 0 {
 		// No subnets in the specified VPC.
-		utils.Log.Printf("No Subnets found in the zone, getting address space from frontend")
+		utils.Log.Printf("No Subnets found in the zone, getting address space from orchestrator")
 
 		// Find unused address space and create a subnet in it.
 		conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -408,7 +408,7 @@ func (s *ibmPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 
 }
 
-// Setup starts up the plugin server and stores the frontend server address.
+// Setup starts up the plugin server and stores the orchestrator server address.
 func Setup(port int, orchestratorServerAddr string) *ibmPluginServer {
 	pluginServerAddress := "localhost"
 	lis, err := net.Listen("tcp", fmt.Sprintf("%v:%d", pluginServerAddress, port))
