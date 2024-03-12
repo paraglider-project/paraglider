@@ -29,6 +29,7 @@ import (
 	"testing"
 
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/networking-go-sdk/transitgatewayapisv1"
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
@@ -41,21 +42,27 @@ import (
 )
 
 const (
-	fakeResGroup = "invisinets-fake"
-	fakeRegion   = "us-east"
-	fakeZone     = fakeRegion + "-a"
-	fakeInstance = "vm-invisinets-fake"
-	fakeImage    = "fake-image"
-	fakeVPC      = "invisinets-fake-vpc"
-	fakeID       = "12345"
-	fakeRule     = "fake-rule"
-	fakeRuleID1  = "fake-rule1"
-	fakeRuleID2  = "fake-rule2"
-	fakeCRN      = "crn:" + fakeID
-	fakeSubnet   = "invisinets-fake-subnet"
-	fakeSG       = "invisinets-fake-sg"
-	fakeIP       = "10.0.0.2"
-	fakeProfile  = "bx2-2x8"
+	fakeResGroup  = "invisinets-fake"
+	fakeRegion    = "us-east"
+	fakeConRegion = "us-south"
+	fakeZone      = fakeRegion + "-a"
+	fakeInstance  = "vm-invisinets-fake"
+	fakeImage     = "fake-image"
+	fakeVPC       = "invisinets-fake-vpc"
+	fakeID        = "12345"
+	fakeID2       = "123452"
+	fakeRule      = "fake-rule"
+	fakeRuleID1   = "fake-rule1"
+	fakeRuleID2   = "fake-rule2"
+	fakeCRN       = "crn:" + fakeID
+	fakeSubnet    = "invisinets-fake-subnet"
+	fakeSG        = "invisinets-fake-sg"
+	fakeGw        = "invisnets-fake-gw"
+	fakeIP        = "10.0.0.2"
+	fakeSubnet1   = "10.0.0.0/16"
+	fakeSubnet2   = "20.1.1.0/28"
+	fakeProfile   = "bx2-2x8"
+	invTag        = "inv"
 
 	fakeResourceID = "/ResourceGroupName/" + fakeResGroup + "/Zone/" + fakeZone + "/ResourceID/" + fakeInstance
 	fakeNamespace  = "inv-namespace"
@@ -80,11 +87,22 @@ var fakePermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRu
 	},
 }
 
+var fakePermitList2 []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRule{
+	{
+		Id:        fakeRuleID1,
+		Direction: invisinetspb.Direction_INBOUND,
+		SrcPort:   443,
+		DstPort:   443,
+		Protocol:  6,
+		Targets:   []string{"20.1.1.5"},
+	},
+}
+
 type fakeIBMServerState struct {
-	//fakeVPC      *vpcv1.VPC
+	fakeVPCs          []*vpcv1.VPC
 	fakeInstance      *vpcv1.Instance
-	fakeInstanceTags  map[string]bool
 	fakeSecurityGroup *vpcv1.SecurityGroup
+	connectSubnet     *string
 }
 
 func sendFakeResponse(w http.ResponseWriter, response interface{}) {
@@ -103,13 +121,34 @@ func sendFakeResponse(w http.ResponseWriter, response interface{}) {
 
 func createFakeInstance() *vpcv1.Instance {
 	var in vpcv1.Instance
+	var vpcRef vpcv1.VPCReference
 	in.CRN = core.StringPtr(fakeCRN)
 	in.Name = core.StringPtr(fakeInstance)
 	in.ID = core.StringPtr(fakeID)
 	in.Status = core.StringPtr(vpcv1.InstanceStatusRunningConst)
 	in.NetworkInterfaces = make([]vpcv1.NetworkInterfaceInstanceContextReference, 1)
 	in.NetworkInterfaces[0].PrimaryIP = &vpcv1.ReservedIPReference{Address: core.StringPtr(fakeIP)}
+	vpcRef.ID = core.StringPtr(fakeID)
+	vpcRef.CRN = core.StringPtr(fakeCRN)
+	in.VPC = &vpcRef
 	return &in
+}
+
+func createFakeVPC(connectVPC bool) []*vpcv1.VPC {
+	var vpcs []*vpcv1.VPC
+	var vpc vpcv1.VPC
+	vpc.CRN = core.StringPtr(fakeCRN)
+	vpc.Name = core.StringPtr(fakeVPC)
+	vpc.ID = core.StringPtr(fakeID)
+	vpcs = append(vpcs, &vpc)
+	if connectVPC {
+		var vpc vpcv1.VPC
+		vpc.CRN = core.StringPtr(fakeCRN + "2")
+		vpc.Name = core.StringPtr(fakeVPC)
+		vpc.ID = core.StringPtr(fakeID2)
+		vpcs = append(vpcs, &vpc)
+	}
+	return vpcs
 }
 
 func createFakeSecurityGroup(addRules bool) *vpcv1.SecurityGroup {
@@ -177,23 +216,31 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 			fmt.Printf("%s: %+v\n", res, tags)
 			switch res {
 			case "instance":
-				for _, tag := range tags {
-					if _, ok := fakeIBMServerState.fakeInstanceTags[tag]; ok { // Tag present
-						var resultItem globalsearchv2.ResultItem
-						resultItem.CRN = fakeIBMServerState.fakeInstance.CRN
-						searchResult.Items = append(searchResult.Items, resultItem)
-					}
+				if fakeIBMServerState.fakeInstance != nil {
+					var resultItem globalsearchv2.ResultItem
+					resultItem.CRN = fakeIBMServerState.fakeInstance.CRN
+					searchResult.Items = append(searchResult.Items, resultItem)
 				}
 			case "security-group":
-				fmt.Printf("%v", tags)
-				for _, tag := range tags {
-					if _, ok := fakeIBMServerState.fakeInstanceTags[tag]; ok { // Tag present
+				if fakeIBMServerState.fakeSecurityGroup != nil {
+					var resultItem globalsearchv2.ResultItem
+					resultItem.CRN = fakeIBMServerState.fakeSecurityGroup.CRN
+					searchResult.Items = append(searchResult.Items, resultItem)
+				}
+			case "vpc":
+				if fakeIBMServerState.fakeVPCs != nil {
+					for i, fakeVPC := range fakeIBMServerState.fakeVPCs {
 						var resultItem globalsearchv2.ResultItem
-						resultItem.CRN = fakeIBMServerState.fakeSecurityGroup.CRN
+						resultItem.CRN = fakeVPC.CRN
+						resultItem.SetProperty("region", fakeRegion)
+						if i == 1 {
+							resultItem.SetProperty("region", fakeConRegion)
+						}
 						searchResult.Items = append(searchResult.Items, resultItem)
 					}
 				}
 			}
+
 			fmt.Printf("Sending search result : %+v\n", searchResult)
 
 			sendFakeResponse(w, searchResult)
@@ -240,17 +287,41 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 			sendFakeResponse(w, newVPCPrefix)
 			return
 		case path == "/subnets":
-			var req vpcv1.CreateSubnetOptions
-			err := json.Unmarshal(body, &req)
-			if err != nil {
-				fmt.Printf("%s\n", err)
-				w.WriteHeader(http.StatusBadRequest)
+			if r.Method == http.MethodPost {
+				var req vpcv1.CreateSubnetOptions
+				err := json.Unmarshal(body, &req)
+				if err != nil {
+					fmt.Printf("%s\n", err)
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				fmt.Printf("Received Subnets: %+v\n", req)
+				var subnet vpcv1.Subnet
+				subnet.CRN = core.StringPtr(fakeSubnet)
+				subnet.ID = core.StringPtr(fakeID)
+				sendFakeResponse(w, subnet)
 				return
 			}
-			fmt.Printf("Received Subnets: %+v\n", req)
+			if r.Method == http.MethodGet {
+				fmt.Printf("Received Subnets: %s\n", r.URL.Query().Get("vpc.id"))
+				var subnets vpcv1.SubnetCollection
+
+				subnets.Subnets = make([]vpcv1.Subnet, 1)
+				subnets.Subnets[0].ID = core.StringPtr(r.URL.Query().Get("vpc.id"))
+
+				sendFakeResponse(w, subnets)
+				return
+			}
+		case path == "/subnets/"+fakeID:
 			var subnet vpcv1.Subnet
-			subnet.CRN = core.StringPtr(fakeSubnet)
-			subnet.ID = core.StringPtr(fakeID)
+			subnet.Ipv4CIDRBlock = core.StringPtr(fakeSubnet1)
+			sendFakeResponse(w, subnet)
+			return
+		case path == "/subnets/"+fakeID2:
+			var subnet vpcv1.Subnet
+			if fakeIBMServerState.connectSubnet != nil {
+				subnet.Ipv4CIDRBlock = fakeIBMServerState.connectSubnet
+			}
 			sendFakeResponse(w, subnet)
 			return
 		case path == "/keys":
@@ -302,7 +373,7 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 					w.WriteHeader(http.StatusBadRequest)
 					return
 				}
-				fmt.Printf("Received Add Security Group rules: %v\n", req)
+				fmt.Printf("Received Add Security Group rules: %+v\n", req)
 				var sg vpcv1.SecurityGroupRuleIntf
 				sendFakeResponse(w, sg)
 				return
@@ -355,6 +426,23 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 				netIntf.NetworkInterfaces[0].SecurityGroups[0].Name = fakeIBMServerState.fakeSecurityGroup.Name
 				netIntf.NetworkInterfaces[0].SecurityGroups[0].ID = fakeIBMServerState.fakeSecurityGroup.ID
 				sendFakeResponse(w, netIntf)
+				return
+			}
+		case path == "/transit_gateways":
+			if r.Method == http.MethodPost { // Create transit gateway
+				var gw transitgatewayapisv1.TransitGateway
+				gw.Name = core.StringPtr(fakeGw)
+				gw.ID = core.StringPtr(fakeID)
+				sendFakeResponse(w, gw)
+				return
+			}
+		case path == "/transit_gateways/"+fakeID+"/connections":
+			if r.Method == http.MethodPost {
+				var conn transitgatewayapisv1.TransitGatewayConnectionCust
+				conn.ID = core.StringPtr(fakeID)
+				conn.Name = core.StringPtr(fakeGw)
+				conn.NetworkID = core.StringPtr("vpc")
+				sendFakeResponse(w, conn)
 				return
 			}
 		}
@@ -414,6 +502,42 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	require.NotNil(t, resp)
 }
 
+func TestCreateResourceExistingVPC(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fakeIBMServerState := &fakeIBMServerState{
+		fakeVPCs: createFakeVPC(false),
+	}
+	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
+	defer teardown(fakeServer)
+	imageIdentity := vpcv1.ImageIdentityByID{ID: core.StringPtr(fakeImage)}
+	zoneIdentity := vpcv1.ZoneIdentityByName{Name: core.StringPtr(fakeZone)}
+	myTestProfile := string(fakeProfile)
+
+	testPrototype := &vpcv1.InstancePrototypeInstanceByImage{
+		Image:   &imageIdentity,
+		Zone:    &zoneIdentity,
+		Name:    core.StringPtr(fakeInstance),
+		Profile: &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
+	}
+
+	s := &ibmPluginServer{
+		orchestratorServerAddr: fakeControllerServerAddr,
+		cloudClient: map[string]*sdk.CloudClient{
+			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+		}}
+
+	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
+	require.NoError(t, err)
+
+	resource := &invisinetspb.ResourceDescription{Id: fakeResourceID, Description: description, Namespace: fakeNamespace}
+	resp, err := s.CreateResource(ctx, resource)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+}
+
 func TestGetUsedAddressSpaces(t *testing.T) {
 	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
 	if err != nil {
@@ -445,14 +569,13 @@ func TestAddPermitListRules(t *testing.T) {
 		t.Fatal(err)
 	}
 	fakeIBMServerState := &fakeIBMServerState{
-		fakeInstance: createFakeInstance(),
-		fakeInstanceTags: map[string]bool{
-			fakeNamespace: true,
-			fakeID:        true},
+		fakeVPCs:          createFakeVPC(false),
+		fakeInstance:      createFakeInstance(),
 		fakeSecurityGroup: createFakeSecurityGroup(false),
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer teardown(fakeServer)
+
 	s := &ibmPluginServer{
 		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient: map[string]*sdk.CloudClient{
@@ -470,12 +593,40 @@ func TestAddPermitListRules(t *testing.T) {
 	require.NotNil(t, resp)
 }
 
+func TestAddPermitListRulesTransitGw(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fakeIBMServerState := &fakeIBMServerState{
+		fakeVPCs:          createFakeVPC(true),
+		fakeInstance:      createFakeInstance(),
+		fakeSecurityGroup: createFakeSecurityGroup(false),
+		connectSubnet:     core.StringPtr(fakeSubnet2),
+	}
+	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
+	defer teardown(fakeServer)
+	s := &ibmPluginServer{
+		orchestratorServerAddr: fakeControllerServerAddr,
+		cloudClient: map[string]*sdk.CloudClient{
+			getClientMapKey(fakeResGroup, fakeRegion):    fakeClient,
+			getClientMapKey(fakeResGroup, fakeConRegion): fakeClient,
+		}}
+
+	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+		Namespace: fakeNamespace,
+		Resource:  fakeResourceID,
+		Rules:     fakePermitList2,
+	}
+
+	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+}
+
 func TestDeletePermitListRules(t *testing.T) {
 	fakeIBMServerState := &fakeIBMServerState{
-		fakeInstance: createFakeInstance(),
-		fakeInstanceTags: map[string]bool{
-			fakeNamespace: true,
-			fakeID:        true},
+		fakeInstance:      createFakeInstance(),
 		fakeSecurityGroup: createFakeSecurityGroup(true),
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
@@ -502,10 +653,7 @@ func TestGetPermitList(t *testing.T) {
 		t.Fatal(err)
 	}
 	fakeIBMServerState := &fakeIBMServerState{
-		fakeInstance: createFakeInstance(),
-		fakeInstanceTags: map[string]bool{
-			fakeNamespace: true,
-			fakeID:        true},
+		fakeInstance:      createFakeInstance(),
 		fakeSecurityGroup: createFakeSecurityGroup(true),
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
