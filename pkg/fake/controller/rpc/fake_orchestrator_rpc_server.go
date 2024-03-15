@@ -26,7 +26,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Sets up fake frontend controller server
+// Sets up fake orchestrator controller server
 // Note: this is only meant to be used with one cloud (i.e. primarily for each cloud plugin's unit/integration tests)
 type FakeOrchestratorRPCServer struct {
 	invisinetspb.UnimplementedControllerServer
