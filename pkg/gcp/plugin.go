@@ -273,15 +273,15 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource URI: %w", err)
 	}
-	resourceInfo.namespace = req.Namespace
+	resourceInfo.Namespace = req.Namespace
 
-	_, resourceID, err := getResourceParams(ctx, instancesClient, clustersClient, resourceInfo)
+	_, resourceID, err := getResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get firewalls for the resource
-	firewalls, err := getFirewallRules(ctx, firewallsClient, resourceInfo.project, *resourceID)
+	firewalls, err := getFirewallRules(ctx, firewallsClient, resourceInfo.Project, *resourceID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get firewalls: %w", err)
 	}
@@ -366,15 +366,15 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource URI: %w", err)
 	}
-	resourceInfo.namespace = req.Namespace
+	resourceInfo.Namespace = req.Namespace
 
-	subnet, resourceID, err := getResourceParams(ctx, instancesClient, clustersClient, resourceInfo)
+	subnet, resourceID, err := getResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get existing firewalls
-	firewalls, err := getFirewallRules(ctx, firewallsClient, resourceInfo.project, *resourceID) // need to change how rules are named to figure out this resourceID thing
+	firewalls, err := getFirewallRules(ctx, firewallsClient, resourceInfo.Project, *resourceID) // need to change how rules are named to figure out this resourceID thing
 	if err != nil {
 		return nil, fmt.Errorf("unable to get existing firewalls: %w", err)
 	}
@@ -385,12 +385,12 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 	}
 
 	// Get the network tag
-	networkTag := getNetworkTag(req.Namespace, resourceInfo.resourceType, *resourceID)
+	networkTag := getNetworkTag(req.Namespace, resourceInfo.ResourceType, *resourceID)
 
 	// Get subnetwork address space
 	parsedSubnetworkUri := parseGCPURL(*subnet)
 	getSubnetworkReq := &computepb.GetSubnetworkRequest{
-		Project:    resourceInfo.project,
+		Project:    resourceInfo.Project,
 		Region:     parsedSubnetworkUri["regions"],
 		Subnetwork: parsedSubnetworkUri["subnetworks"],
 	}
@@ -462,7 +462,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 			patchFirewallReq := &computepb.PatchFirewallRequest{
 				Firewall:         firewallName,
 				FirewallResource: firewall,
-				Project:          resourceInfo.project,
+				Project:          resourceInfo.Project,
 			}
 			patchFirewallOp, err := firewallsClient.Patch(ctx, patchFirewallReq)
 			if err != nil {
@@ -473,7 +473,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 			}
 		} else {
 			insertFirewallReq := &computepb.InsertFirewallRequest{
-				Project:          resourceInfo.project,
+				Project:          resourceInfo.Project,
 				FirewallResource: firewall,
 			}
 			insertFirewallOp, err := firewallsClient.Insert(ctx, insertFirewallReq)
@@ -522,9 +522,9 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *invis
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource URI: %w", err)
 	}
-	resourceInfo.namespace = req.Namespace
+	resourceInfo.Namespace = req.Namespace
 
-	_, resourceID, err := getResourceParams(ctx, instancesClient, clustersClient, resourceInfo)
+	_, resourceID, err := getResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -533,7 +533,7 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *invis
 	for _, ruleName := range req.RuleNames {
 		deleteFirewallReq := &computepb.DeleteFirewallRequest{
 			Firewall: getFirewallName(ruleName, *resourceID),
-			Project:  resourceInfo.project,
+			Project:  resourceInfo.Project,
 		}
 		deleteFirewallOp, err := firewallsClient.Delete(ctx, deleteFirewallReq)
 		if err != nil {
@@ -577,10 +577,10 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		return nil, fmt.Errorf("unsupported resource description: %w", err)
 	}
 
-	project, zone := resourceInfo.project, resourceInfo.zone
+	project, zone := resourceInfo.Project, resourceInfo.Zone
 	region := zone[:strings.LastIndex(zone, "-")]
-	resourceInfo.region = region
-	resourceInfo.namespace = resourceDescription.Namespace
+	resourceInfo.Region = region
+	resourceInfo.Namespace = resourceDescription.Namespace
 	subnetName := getSubnetworkName(resourceDescription.Namespace, region)
 	subnetExists := false
 
@@ -684,7 +684,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	// Read and provision the resource
 	uri, ip, err := ReadAndProvisionResource(ctx, resourceDescription, subnetName, resourceInfo, instancesClient, clustersClient)
 
-	return &invisinetspb.CreateResourceResponse{Name: resourceInfo.name, Uri: uri, Ip: ip}, nil
+	return &invisinetspb.CreateResourceResponse{Name: resourceInfo.Name, Uri: uri, Ip: ip}, nil
 }
 
 func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {

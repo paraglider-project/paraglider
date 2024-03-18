@@ -18,7 +18,7 @@ limitations under the License.
 
 package azure_plugin
 
-// TODO now: Add tests for creating AKS clusters
+// TODO now: Add tests for creating AKS clusters and other functions I added/changed
 
 import (
 	"context"
@@ -36,6 +36,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
@@ -78,6 +79,8 @@ const (
 	invalidLocalNetworkGatewayName             = "invalid-local-network-gateway"
 	validVirtualNetworkGatewayConnectionName   = "valid-virtual-network-gateway-connection"
 	invalidVirtualNetworkGatewayConnectionName = "invalid-virtual-network-gateway-connection"
+	validClusterName                           = "valid-cluster-name"
+	invalidClusterName                         = "invalid-cluster-name"
 )
 
 var (
@@ -174,6 +177,7 @@ func initializeReqRespMap() map[string]interface{} {
 	subnetUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets", subID, rgName, validVnetName)
 	localNetworkGatewayUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/localNetworkGateways", subID, rgName)
 	virtualNetworkGatewayConnectionUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/connections", subID, rgName)
+	managedClusterUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/ContainerService/managedClusters/", subID, rgName)
 
 	// Define a map of URLs to responses
 	urlToResponse := map[string]interface{}{
@@ -262,6 +266,7 @@ func initializeReqRespMap() map[string]interface{} {
 		fmt.Sprintf("%s/%s", subnetUrl, validSubnetName):                                                                          armnetwork.Subnet{},
 		fmt.Sprintf("%s/%s", localNetworkGatewayUrl, validLocalNetworkGatewayName):                                                armnetwork.LocalNetworkGateway{},
 		fmt.Sprintf("%s/%s", virtualNetworkGatewayConnectionUrl, validVirtualNetworkGatewayConnectionName):                        armnetwork.VirtualNetworkGatewayConnection{},
+		fmt.Sprintf("%s/%s", managedClusterUrl, validClusterName):                                                                 armcontainerservice.ManagedCluster{},
 	}
 	return urlToResponse
 }
@@ -350,41 +355,81 @@ func TestGetSecurityGroup(t *testing.T) {
 	})
 }
 
-func TestGetResourceNIC(t *testing.T) {
+func TestGetNetworkInterface(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
 	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
 
-	// Test 1: Successful GetResourceNIC for a VM
-	t.Run("GetResourceNIC: Success VMTest", func(t *testing.T) {
+	// Test 1: Successful GetNetworkInterface for a VM
+	t.Run("GetNetworkInterface: Success VMTest", func(t *testing.T) {
 		// Call the function to test
-		nic, err := azureSDKHandlerTest.GetResourceNIC(ctx, vmResourceID)
+		nic, err := azureSDKHandlerTest.GetNetworkInterface(ctx, validNicName)
 
 		require.NotNil(t, nic)
 		require.NoError(t, err)
 	})
 
-	// Test 2: Failed Test due to non VM resource type
-	t.Run("GetResourceNIC: FailureNonVMTest", func(t *testing.T) {
+	// Test 2: Failed Test due to invalid NIC name
+	t.Run("GetNetworkInterface: FailureNonVMTest", func(t *testing.T) {
 		// Call the function to test
-		nic, err := azureSDKHandlerTest.GetResourceNIC(ctx, invalidResourceID)
+		nic, err := azureSDKHandlerTest.GetNetworkInterface(ctx, invalidNicName)
 
 		require.Error(t, err)
 		require.Nil(t, nic)
+	})
+}
 
-		// require the error message
-		require.Equal(t, err.Error(), fmt.Sprintf("resource type %s is not supported", invalidResourceType))
+func TestGetResource(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	once.Do(setup)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+
+	// Test case: Success
+	t.Run("GetResource: Success", func(t *testing.T) {
+		// Call the function to test
+		resource, err := azureSDKHandlerTest.GetResource(ctx, vmResourceID)
+
+		require.NoError(t, err)
+		require.NotNil(t, resource)
 	})
 
-	// Test 3: Failed Test due to failed GET VM request
-	t.Run("GetResourceNIC: FailureVMTest", func(t *testing.T) {
+	// Test case: Failure
+	t.Run("GetResource: Failure", func(t *testing.T) {
 		// Call the function to test
-		nic, err := azureSDKHandlerTest.GetResourceNIC(ctx, invalidVmResourceID)
+		resource, err := azureSDKHandlerTest.GetResource(ctx, invalidResourceID)
 
 		require.Error(t, err)
-		require.Nil(t, nic)
+		require.Nil(t, resource)
+	})
+}
+
+func TestCreateAKSCluster(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	once.Do(setup)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+
+	// Test case: Success
+	t.Run("CreateAKSCluster: Success", func(t *testing.T) {
+		// Call the function to test
+		aksCluster, err := azureSDKHandlerTest.CreateAKSCluster(ctx, validClusterName, "rgName", "location", "nodeResourceGroup", "nodeResourceName")
+
+		require.NoError(t, err)
+		require.NotNil(t, aksCluster)
+	})
+
+	// Test case: Failure
+	t.Run("CreateAKSCluster: Failure", func(t *testing.T) {
+		// Call the function to test
+		aksCluster, err := azureSDKHandlerTest.CreateAKSCluster(ctx, invalidClusterName, "invalidRgName", "invalidLocation", "invalidNodeResourceGroup", "invalidNodeResourceName")
+
+		require.Error(t, err)
+		require.Nil(t, aksCluster)
 	})
 }
 
