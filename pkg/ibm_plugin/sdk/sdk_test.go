@@ -19,13 +19,10 @@ limitations under the License.
 package ibm
 
 import (
-	"flag"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
-
-var testResGroupName = flag.String("sg", "invisinets", "Name of the user's security group")
 
 // Testing a function that returns true if cidr1 is a subset of cidr2,
 // i.e. all ips in cidr1 exist within cidr2
