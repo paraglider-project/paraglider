@@ -296,6 +296,34 @@ func TestReadAndProvisionResource(t *testing.T) {
 	assert.Equal(t, ip, *getFakeSubnet().Properties.AddressPrefix)
 }
 
+func TestGetResourceInfoFromResourceDesc(t *testing.T) {
+	mockAzureHandler := &MockAzureSDKHandler{}
+	setupMockFunctions(mockAzureHandler)
+	vm := getFakeVirtualMachine(false)
+	cluster := getFakeCluster(false)
+
+	// Test for VM
+	resourceDescription, err := getFakeVMResourceDescription(&vm)
+	require.NoError(t, err)
+
+	name, id, loc, err := GetResourceInfoFromResourceDesc(context.Background(), resourceDescription)
+
+	require.NoError(t, err)
+	assert.Equal(t, *name, *vm.Name)
+	assert.Equal(t, *id, *vm.ID)
+	assert.Equal(t, *loc, *vm.Location)
+
+	// Test for AKS
+	resourceDescriptionCluster, err := getFakeClusterResourceDescription(&cluster)
+	require.NoError(t, err)
+	name, id, loc, err = GetResourceInfoFromResourceDesc(context.Background(), resourceDescriptionCluster)
+
+	require.NoError(t, err)
+	assert.Equal(t, *name, *cluster.Name)
+	assert.Equal(t, *id, *cluster.ID)
+	assert.Equal(t, *loc, *cluster.Location)
+}
+
 func TestAzureVMGetNetworkInfo(t *testing.T) {
 	mockAzureHandler := &MockAzureSDKHandler{}
 	vm, _ := setupMockFunctions(mockAzureHandler)

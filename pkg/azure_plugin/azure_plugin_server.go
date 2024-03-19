@@ -18,7 +18,6 @@ package azure_plugin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -26,7 +25,6 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
@@ -258,7 +256,7 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *invisi
 // which means the resource should be added to a valid invisinets network, the attachement to an invisinets network
 // is determined by the resource's location.
 func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
-	invisinetsVm, err := getVmFromResourceDesc(resourceDesc.Description)
+	name, id, location, err := GetResourceInfoFromResourceDesc(ctx, resourceDesc)
 	if err != nil {
 		utils.Log.Printf("Resource description is invalid:%+v", err)
 		return nil, err
@@ -275,15 +273,15 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		return nil, err
 	}
 
-	vnetName := getVnetName(*invisinetsVm.Location, resourceDesc.Namespace)
-	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, vnetName, *invisinetsVm.Location, resourceDesc.Namespace, s.orchestratorServerAddr)
+	vnetName := getVnetName(*location, resourceDesc.Namespace)
+	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, vnetName, *location, resourceDesc.Namespace, s.orchestratorServerAddr)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
 		return nil, err
 	}
 
 	// Create the resource
-	ip, err := ReadAndProvisionResource(ctx, resourceDesc, invisinetsVnet.Properties.Subnets[0], &resourceIdInfo, s.azureHandler) // TODO now: make sure this is fine - nsgs for clusters are associated with subnet, but match on source so should be fine?
+	ip, err := ReadAndProvisionResource(ctx, resourceDesc, invisinetsVnet.Properties.Subnets[0], &resourceIdInfo, s.azureHandler)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating resource:%+v", err)
 		return nil, err
@@ -360,7 +358,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		}
 	}
 
-	return &invisinetspb.CreateResourceResponse{Name: *invisinetsVm.Name, Uri: *invisinetsVm.ID, Ip: ip}, nil
+	return &invisinetspb.CreateResourceResponse{Name: *name, Uri: *id, Ip: ip}, nil
 }
 
 // GetUsedAddressSpaces returns the address spaces used by invisinets which are the address spaces of the invisinets vnets
@@ -506,28 +504,6 @@ func getPriority(reservedPriorities map[int32]bool, start int32, end int32) int3
 		}
 	}
 	return i
-}
-
-// getVmFromResourceDesc gets the armcompute.VirtualMachine object
-// from the given resource description which should be a valid resource payload for a VM
-func getVmFromResourceDesc(resourceDesc []byte) (*armcompute.VirtualMachine, error) { // TODO now: fix this -- should not be VM specific
-	vm := &armcompute.VirtualMachine{}
-	err := json.Unmarshal(resourceDesc, vm)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
-	}
-
-	// Some validations on the VM
-	if vm.Location == nil || vm.Properties == nil {
-		return nil, fmt.Errorf("resource description is missing location or properties")
-	}
-
-	// Reject VMs that already have network interfaces
-	if vm.Properties.NetworkProfile != nil && vm.Properties.NetworkProfile.NetworkInterfaces != nil {
-		return nil, fmt.Errorf("resource description cannot contain network interface")
-	}
-
-	return vm, nil
 }
 
 // getInvisinetsResourceName returns a name for the Invisinets resource

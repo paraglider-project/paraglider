@@ -98,6 +98,26 @@ func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, reso
 	return networkInfo, nil
 }
 
+func GetResourceInfoFromResourceDesc(ctx context.Context, resource *invisinetspb.ResourceDescription) (*string, *string, *string, error) {
+	if strings.Contains(resource.Id, "virtualMachines") {
+		handler := &AzureVM{}
+		vm, err := handler.FromResourceDecription(resource.Description)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return vm.Name, vm.ID, vm.Location, nil
+	} else if strings.Contains(resource.Id, "managedClusters") {
+		handler := &AzureAKS{}
+		aks, err := handler.FromResourceDecription(resource.Description)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return aks.Name, aks.ID, aks.Location, nil
+	} else {
+		return nil, nil, nil, fmt.Errorf("resource description contains unknown Azure resource")
+	}
+}
+
 // Reads the resource description and provisions the resource with the given subnet
 func ReadAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler) (string, error) {
 	var ip string
