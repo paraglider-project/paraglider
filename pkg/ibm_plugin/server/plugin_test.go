@@ -604,7 +604,8 @@ func TestGetUsedAddressSpacesMultipleVPC(t *testing.T) {
 	s := &ibmPluginServer{
 		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeResGroup, fakeRegion):    fakeClient,
+			getClientMapKey(fakeResGroup, fakeConRegion): fakeClient,
 		}}
 	deployment := &invisinetspb.GetUsedAddressSpacesRequest{
 		Deployments: []*invisinetspb.InvisinetsDeployment{
