@@ -53,7 +53,7 @@ func (c *CloudClient) UpdateRegion(region string) error {
 	return nil
 }
 
-// returns CloudClient instance with initialized clients
+// NewIBMCloudClient returns CloudClient instance with initialized clients
 func NewIBMCloudClient(resourceGroupName, region string) (*CloudClient, error) {
 	if isRegionValid, err := ibmCommon.IsRegionValid(region); !isRegionValid || err != nil {
 		return nil, fmt.Errorf("region %v isn't valid", region)
@@ -118,6 +118,7 @@ func NewIBMCloudClient(resourceGroupName, region string) (*CloudClient, error) {
 	return &client, nil
 }
 
+// FakeIBMCloudClient returns a fake/mock CloudClient instance with that needs to be handled in the URL
 func FakeIBMCloudClient(fakeURL, fakeResGroupID, fakeRegion string) (*CloudClient, error) {
 	noAuth, err := core.NewNoAuthAuthenticator()
 	if err != nil {
