@@ -31,9 +31,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
@@ -89,21 +87,13 @@ var (
 	azureSDKHandlerTest *azureSDKHandler
 )
 
-type dummyToken struct {
-	azcore.TokenCredential
-}
-
-func (d *dummyToken) GetToken(ctx context.Context, optsWW policy.TokenRequestOptions) (azcore.AccessToken, error) {
-	return azcore.AccessToken{}, nil
-}
-
 func setup() {
 	urlToResponse = initializeReqRespMap()
 	setupFakeServer(urlToResponse)
 	azureSDKHandlerTest = &azureSDKHandler{}
 	azureSDKHandlerTest.resourceGroupName = rgName
 	azureSDKHandlerTest.subscriptionID = subID
-	err := azureSDKHandlerTest.InitializeClients(&dummyToken{})
+	err := azureSDKHandlerTest.InitializeClients(nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -177,7 +167,7 @@ func initializeReqRespMap() map[string]interface{} {
 	subnetUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets", subID, rgName, validVnetName)
 	localNetworkGatewayUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/localNetworkGateways", subID, rgName)
 	virtualNetworkGatewayConnectionUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/connections", subID, rgName)
-	managedClusterUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/ContainerService/managedClusters/", subID, rgName)
+	managedClusterUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters", subID, rgName)
 
 	// Define a map of URLs to responses
 	urlToResponse := map[string]interface{}{
@@ -192,18 +182,6 @@ func initializeReqRespMap() map[string]interface{} {
 			GenericResource: armresources.GenericResource{
 				Type: to.Ptr("Microsoft.Compute/virtualMachines"),
 				Name: to.Ptr(vmResourceName),
-			},
-		},
-		// this one would have a correct type but should fail when getting the vm
-		fmt.Sprintf("/%s", invalidVmResourceID): armresources.ClientGetByIDResponse{
-			GenericResource: armresources.GenericResource{
-				Type: to.Ptr("Microsoft.Compute/virtualMachines"),
-				Name: to.Ptr(invalidVmResourceName),
-			},
-		},
-		fmt.Sprintf("/%s", invalidResourceID): armresources.ClientGetByIDResponse{
-			GenericResource: armresources.GenericResource{
-				Type: to.Ptr(invalidResourceType),
 			},
 		},
 		fmt.Sprintf("%s/%s", vmURL, vmResourceName): armcompute.VirtualMachinesClientGetResponse{
@@ -417,7 +395,7 @@ func TestCreateAKSCluster(t *testing.T) {
 	// Test case: Success
 	t.Run("CreateAKSCluster: Success", func(t *testing.T) {
 		// Call the function to test
-		aksCluster, err := azureSDKHandlerTest.CreateAKSCluster(ctx, validClusterName, "rgName", "location", "nodeResourceGroup", "nodeResourceName")
+		aksCluster, err := azureSDKHandlerTest.CreateAKSCluster(ctx, armcontainerservice.ManagedCluster{}, validClusterName)
 
 		require.NoError(t, err)
 		require.NotNil(t, aksCluster)
@@ -426,7 +404,7 @@ func TestCreateAKSCluster(t *testing.T) {
 	// Test case: Failure
 	t.Run("CreateAKSCluster: Failure", func(t *testing.T) {
 		// Call the function to test
-		aksCluster, err := azureSDKHandlerTest.CreateAKSCluster(ctx, invalidClusterName, "invalidRgName", "invalidLocation", "invalidNodeResourceGroup", "invalidNodeResourceName")
+		aksCluster, err := azureSDKHandlerTest.CreateAKSCluster(ctx, armcontainerservice.ManagedCluster{}, invalidClusterName)
 
 		require.Error(t, err)
 		require.Nil(t, aksCluster)

@@ -92,7 +92,7 @@ func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, reso
 			return nil, err
 		}
 	} else {
-		return nil, fmt.Errorf("resource type %s is not supported", resource.Type)
+		return nil, fmt.Errorf("resource type %s is not supported", *resource.Type)
 	}
 
 	return networkInfo, nil
@@ -147,13 +147,13 @@ func (r *AzureVM) GetNetworkInfo(resource *armresources.GenericResource, handler
 		return nil, fmt.Errorf("failed to convert resource.Properties to type armcompute.VirtualMachinePropertie")
 	}
 
-	nic, err := handler.GetNetworkInterface(context.Background(), *properties.NetworkProfile.NetworkInterfaces[0].ID)
+	nic, err := handler.GetNetworkInterface(context.Background(), *properties.NetworkProfile.NetworkInterfaces[0].ID) // TODO now: cahnge to name with get last segment
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network interface:%+v", err)
 		return nil, err
 	}
 
-	nsg, err := handler.GetSecurityGroup(context.Background(), *nic.Properties.NetworkSecurityGroup.ID)
+	nsg, err := handler.GetSecurityGroup(context.Background(), *nic.Properties.NetworkSecurityGroup.Name)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network security group:%+v", err)
 		return nil, err
@@ -237,7 +237,7 @@ func (r *AzureAKS) GetNetworkInfo(resource *armresources.GenericResource, handle
 		return nil, err
 	}
 
-	nsg, err := handler.GetSecurityGroup(context.Background(), *subnet.Properties.NetworkSecurityGroup.ID)
+	nsg, err := handler.GetSecurityGroup(context.Background(), *subnet.Properties.NetworkSecurityGroup.Name)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network security group:%+v", err)
 		return nil, err
@@ -259,13 +259,13 @@ func (r *AzureAKS) CreateWithNetwork(ctx context.Context, resource *armcontainer
 
 	// TODO: Add something with the network profile? Need to understand the serviceCIDR / podCIDR
 
-	aks, err := handler.CreateAKSCluster(ctx, *resource, resourceInfo.ResourceName)
+	_, err := handler.CreateAKSCluster(ctx, *resource, resourceInfo.ResourceName)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating the AKS cluster:%+v", err)
 		return "", err
 	}
 
-	return *aks.Properties.Fqdn, nil
+	return *subnet.Properties.AddressPrefix, nil
 }
 
 // Converts the resource description to an AKS cluster object

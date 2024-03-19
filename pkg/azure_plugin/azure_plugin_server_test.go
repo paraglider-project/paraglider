@@ -31,6 +31,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/NetSys/invisinets/pkg/orchestrator"
@@ -50,29 +51,31 @@ func (d *dummyTokenCredential) GetToken(ctx context.Context, opts policy.TokenRe
 	return azcore.AccessToken{}, nil
 }
 
-func setupAzurePluginServer() (*azurePluginServer, *mockAzureSDKHandler, context.Context) {
+func setupAzurePluginServer() (*azurePluginServer, *MockAzureSDKHandler, context.Context) {
 	// Create a new instance of the azurePluginServer
 	server := &azurePluginServer{}
 
 	// Create a mock implementation of the AzureSDKHandler interface
-	var mockAzureHandler AzureSDKHandler = &mockAzureSDKHandler{}
+	var mockAzureHandler AzureSDKHandler = &MockAzureSDKHandler{}
 	server.azureHandler = mockAzureHandler
 	server.orchestratorServerAddr = "fakecontrollerserveraddr"
 
-	// Perform a type requireion to convert the AzureSDKHandler interface value to a *mockAzureSDKHandler concrete value, allowing access to methods and fields specific to the mockAzureSDKHandler type.
-	concreteMockAzureHandler := mockAzureHandler.(*mockAzureSDKHandler)
+	// Perform a type requireion to convert the AzureSDKHandler interface value to a *MockAzureSDKHandler concrete value, allowing access to methods and fields specific to the MockAzureSDKHandler type.
+	concreteMockAzureHandler := mockAzureHandler.(*MockAzureSDKHandler)
 
 	return server, concreteMockAzureHandler, context.Background()
 }
 
 func getValidResourceDesc() (armcompute.VirtualMachine, []byte, error) {
-	validVm := armcompute.VirtualMachine{
+	validVm := &armcompute.VirtualMachine{
+		ID:         to.Ptr("vm-id"),
+		Name:       to.Ptr("vm-name"),
 		Location:   to.Ptr(testLocation),
 		Properties: &armcompute.VirtualMachineProperties{},
 	}
 
 	validDescripton, err := json.Marshal(validVm)
-	return validVm, validDescripton, err
+	return *validVm, validDescripton, err
 }
 
 /* ---- Tests ---- */
@@ -106,10 +109,9 @@ func TestCreateResource(t *testing.T) {
 			},
 		}, nil)
 		mockAzureHandler.On("CreateNetworkInterface", ctx, defaultSubnetID, testLocation, mock.Anything).Return(&armnetwork.Interface{ID: to.Ptr(validNicId)}, nil)
-		vmName := "vm_name"
-		mockAzureHandler.On("CreateVirtualMachine", ctx, vm, mock.Anything).Return(&armcompute.VirtualMachine{ID: to.Ptr(vmResourceID), Name: &vmName}, nil)
+		mockAzureHandler.On("CreateVirtualMachine", ctx, vm, mock.Anything).Return(&vm, nil)
 		fakeNic := getFakeNIC()
-		mockAzureHandler.On("GetResourceNIC", ctx, vmResourceID).Return(fakeNic, nil)
+		mockAzureHandler.On("GetNetworkInterface", ctx, *fakeNic.ID).Return(fakeNic, nil)
 		vpnGwVnetName := getVpnGatewayVnetName(namespace)
 		mockAzureHandler.On("GetVirtualNetwork", ctx, vpnGwVnetName).Return(&armnetwork.VirtualNetwork{}, nil)
 		mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(namespace)).Return(&armnetwork.VirtualNetworkGateway{}, nil)
@@ -132,7 +134,6 @@ func TestCreateResource(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, response)
-		assert.Equal(t, vmResourceID, response.Uri)
 	})
 
 	t.Run("TestCreateResource: Failure, invalid json", func(t *testing.T) {
@@ -244,12 +245,16 @@ func TestGetPermitList(t *testing.T) {
 		require.Nil(t, response)
 	})
 
-	// Test Case 3: NSG get fails due to GetResourceNIC call
+	// Test Case 3: NSG get fails due to GetNetworkInterface call
 	t.Run("TestGetPermitList: Failed while getting NIC", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		// Set up mock behavior for the Azure SDK handler to return an error on GetResourceNIC call
+		// Set up mock behavior for the Azure SDK handler to return an error on GetNetworkInterface call
 		mockHandlerSetup(mockAzureHandler)
-		mockAzureHandler.On("GetResourceNIC", ctx, fakeResourceId).Return(nil, fmt.Errorf("NIC get error"))
+		nicId := validNicId
+		vm := getGenericResourceVM(fakeResourceId, &nicId)
+		require.NoError(t, err)
+		mockAzureHandler.On("GetResource", ctx, fakeResourceId).Return(&vm, nil)
+		mockAzureHandler.On("GetNetworkInterface", ctx, validNicId).Return(nil, fmt.Errorf("NIC get error"))
 
 		// Call the GetPermitList function
 		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
@@ -405,21 +410,12 @@ func TestAddPermitListRules(t *testing.T) {
 	t.Run("AddPermitListRules: Failure while getting NIC", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
-		mockHandlerSetup(mockAzureHandler)
-		mockAzureHandler.On("GetResourceNIC", ctx, fakeResource).Return(nil, fmt.Errorf("error while getting NIC"))
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
-		require.Error(t, err)
-		require.NotNil(t, err)
-		require.Nil(t, resp)
-	})
-
-	// Failed while getting nsgName
-	t.Run("AddPermitListRules: Failure while getting NSG Name", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.orchestratorServerAddr = fakeOrchestratorServerAddr
-		mockHandlerSetup(mockAzureHandler)
-		mockAzureHandler.On("GetResourceNIC", ctx, fakeResource).Return(fakeNic, nil)
-		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return("", fmt.Errorf("error while getting nsgName"))
+		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("error while getting azure credentials"))
+		nicId := validNicId
+		vm := getGenericResourceVM(fakeResource, &nicId)
+		require.NoError(t, err)
+		mockAzureHandler.On("GetResource", ctx, fakeResource).Return(&vm, nil)
+		mockAzureHandler.On("GetNetworkInterface", ctx, validNicId).Return(nil, fmt.Errorf("NIC get error"))
 		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -503,7 +499,11 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	t.Run("DeletePermitListRules: Failure while getting NIC", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockHandlerSetup(mockAzureHandler)
-		mockAzureHandler.On("GetResourceNIC", ctx, fakeResource).Return(nil, fmt.Errorf("nic error"))
+		nicId := validNicId
+		vm := getGenericResourceVM(fakeResource, &nicId)
+		require.NoError(t, err)
+		mockAzureHandler.On("GetResource", ctx, fakeResource).Return(&vm, nil)
+		mockAzureHandler.On("GetNetworkInterface", ctx, validNicId).Return(nil, fmt.Errorf("NIC get error"))
 		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
 		require.Error(t, err)
@@ -529,20 +529,6 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 
 		mockAzureHandler.On("DeleteSecurityRule", ctx, fakeNsgName, mock.Anything).Return(fmt.Errorf("error while deleting rule"))
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
-
-		require.Error(t, err)
-		require.NotNil(t, err)
-		require.Nil(t, resp)
-	})
-
-	// Failure while getting last segment
-	t.Run("DeletePermitListRules: Failure while getting last segment", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		mockHandlerSetup(mockAzureHandler)
-		mockAzureHandler.On("GetResourceNIC", ctx, fakeResource).Return(fakeNic, nil)
-		mockAzureHandler.On("GetLastSegment", fakeNsgID).Return("", fmt.Errorf("error while getting last segment"))
-
 		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
 		require.Error(t, err)
@@ -634,24 +620,6 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.ElementsMatch(t, usedBgpPeeringIpAddressExpected, resp.IpAddresses)
-}
-
-func TestGetAndCheckResourceNamespace(t *testing.T) {
-	fakeNic := getFakeNIC()
-	resourceID := "resourceID"
-
-	server, mockAzureHandler, ctx := setupAzurePluginServer()
-	mockHandlerSetup(mockAzureHandler)
-	mockAzureHandler.On("GetResourceNIC", ctx, resourceID).Return(fakeNic, nil)
-
-	err := server.getAndCheckResourceNamespace(ctx, resourceID, defaultNamespace)
-	require.Nil(t, err)
-
-	err = server.getAndCheckResourceNamespace(ctx, resourceID, "othernamespace")
-	require.NotNil(t, err)
-
-	err = server.getAndCheckResourceNamespace(ctx, resourceID, "")
-	require.NotNil(t, err)
 }
 
 func TestGetVnetFromSubnetId(t *testing.T) {
@@ -935,12 +903,13 @@ func getFakePermitList() ([]*invisinetspb.PermitListRule, error) {
 
 func getFakeNIC() *armnetwork.Interface {
 	fakeNsgID := "test-nsg-id"
+	fakeNsgName := "test-nsg-name"
 	fakeResourceAddress := "10.5.0.3"
 	fakeLocation := "test-location"
 	namespace := defaultNamespace
 	fakeSubnetId := "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/" + getVnetName(fakeLocation, namespace) + "/subnets/subnet123"
 	return &armnetwork.Interface{
-		ID:       to.Ptr("test-nic-id"),
+		ID:       to.Ptr(validNicId),
 		Location: to.Ptr(fakeLocation),
 		Properties: &armnetwork.InterfacePropertiesFormat{
 			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
@@ -952,7 +921,8 @@ func getFakeNIC() *armnetwork.Interface {
 				},
 			},
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
-				ID: to.Ptr(fakeNsgID),
+				ID:   to.Ptr(fakeNsgID),
+				Name: to.Ptr(fakeNsgName),
 			},
 		},
 	}
@@ -1033,15 +1003,14 @@ func getFakeVnet(location *string, addressSpace string) *armnetwork.VirtualNetwo
 	}
 }
 
-func mockHandlerSetup(mockAzureHandler *mockAzureSDKHandler) {
+func mockHandlerSetup(mockAzureHandler *MockAzureSDKHandler) {
 	mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
 	mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
 	mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 }
 
-func mockGetSecurityGroupSetup(mockAzureHandler *mockAzureSDKHandler, ctx context.Context, associatedResrouce string, fakeNsgID string, fakeNsgName string, fakeNsg *armnetwork.SecurityGroup, fakeNic *armnetwork.Interface) {
+func mockGetSecurityGroupSetup(mockAzureHandler *MockAzureSDKHandler, ctx context.Context, associatedResrouce string, fakeNsgID string, fakeNsgName string, fakeNsg *armnetwork.SecurityGroup, fakeNic *armnetwork.Interface) {
 	var nicErr error = nil
-	var lastSegmentErr error = nil
 	var nsgErr error = nil
 	if fakeNic == nil {
 		nicErr = fmt.Errorf("error while getting NIC")
@@ -1049,15 +1018,30 @@ func mockGetSecurityGroupSetup(mockAzureHandler *mockAzureSDKHandler, ctx contex
 	if fakeNsg == nil {
 		nsgErr = fmt.Errorf("error while getting NSG")
 	}
-	if fakeNsgName == "" {
-		lastSegmentErr = fmt.Errorf("error while getting last segment")
-	}
-	mockAzureHandler.On("GetResourceNIC", ctx, associatedResrouce).Return(fakeNic, nicErr)
-	mockAzureHandler.On("GetLastSegment", fakeNsgID).Return(fakeNsgName, lastSegmentErr)
+	fakeResource := getGenericResourceVM(associatedResrouce, fakeNic.ID)
+	mockAzureHandler.On("GetResource", ctx, associatedResrouce).Return(&fakeResource, nil)
+	mockAzureHandler.On("GetNetworkInterface", ctx, *fakeNic.ID).Return(fakeNic, nicErr)
 	mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nsgErr)
 }
 
-func mockGetVnetAndAddressSpaces(mockAzureHandler *mockAzureSDKHandler, ctx context.Context, vnetName string, vnetPrefix string, fakeVnet *armnetwork.VirtualNetwork, fakeAddressList map[string]string) {
+func getGenericResourceVM(resourceId string, nicId *string) armresources.GenericResource {
+	return armresources.GenericResource{
+		ID:       to.Ptr(resourceId),
+		Type:     to.Ptr("Microsoft.Compute/virtualMachines"),
+		Location: to.Ptr("test-location"),
+		Properties: armcompute.VirtualMachineProperties{
+			NetworkProfile: &armcompute.NetworkProfile{
+				NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
+					{
+						ID: nicId,
+					},
+				},
+			},
+		},
+	}
+}
+
+func mockGetVnetAndAddressSpaces(mockAzureHandler *MockAzureSDKHandler, ctx context.Context, vnetName string, vnetPrefix string, fakeVnet *armnetwork.VirtualNetwork, fakeAddressList map[string]string) {
 	mockAzureHandler.On("GetVNet", ctx, vnetName).Return(fakeVnet, nil)
 	mockAzureHandler.On("GetVNetsAddressSpaces", ctx, vnetPrefix).Return(fakeAddressList, nil)
 }

@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
@@ -28,12 +27,6 @@ import (
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/stretchr/testify/mock"
 )
-
-type dummyTokenCredential struct{}
-
-func (d *dummyTokenCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
-	return azcore.AccessToken{}, nil
-}
 
 /* ---- Mock SDK Handler ---- */
 
