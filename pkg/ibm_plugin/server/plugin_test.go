@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 	"testing"
 
@@ -129,19 +130,21 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	myTestProfile := string(testProfile)
 
 	testPrototype := &vpcv1.InstancePrototypeInstanceByImage{
-		Image:   &imageIdentity,
-		Zone:    &zoneIdentity,
-		Name:    core.StringPtr(instanceName),
-		Profile: &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
+		Image:         &imageIdentity,
+		Zone:          &zoneIdentity,
+		Name:          core.StringPtr(instanceName),
+		ResourceGroup: &vpcv1.ResourceGroupIdentityByID{ID: core.StringPtr("a")},
+		Profile:       &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
 	}
 
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient:            make(map[string]*sdk.CloudClient)}
 
-	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
+	description, err := json.MarshalIndent(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)}, "", "  ")
 	require.NoError(t, err)
 
+	fmt.Printf(string(description))
 	resource := &invisinetspb.ResourceDescription{Id: resourceID, Description: description, Namespace: testNamespace}
 	resp, err := s.CreateResource(context.Background(), resource)
 	if err != nil {
@@ -180,7 +183,7 @@ func TestCreateResourceExistingVPC(t *testing.T) {
 		Profile: &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
 	}
 
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient:            make(map[string]*sdk.CloudClient)}
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
@@ -199,7 +202,7 @@ func TestCreateResourceExistingVPC(t *testing.T) {
 func TestGetPermitList(t *testing.T) {
 	resourceID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDEUDE1
 
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
+	s := &IBMPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
 	resp, err := s.GetPermitList(context.Background(), &invisinetspb.GetPermitListRequest{Resource: resourceID,
 		Namespace: testNamespace})
@@ -222,7 +225,7 @@ func TestAddPermitListRules(t *testing.T) {
 		Rules:     testPermitList,
 	}
 
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
+	s := &IBMPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
 	resp, err := s.AddPermitListRules(context.Background(), addRulesRequest)
 	require.NoError(t, err)
@@ -241,7 +244,7 @@ func TestDeletePermitListRules(t *testing.T) {
 	region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
 	require.NoError(t, err)
 
-	cloudClient, err := sdk.NewIBMCloudClient(rInfo.ResourceGroupName, region)
+	cloudClient, err := sdk.NewIBMCloudClient(rInfo.ResourceGroupName, region, true)
 	require.NoError(t, err)
 
 	// Get the VM ID from the resource ID (typically refers to VM Name)
@@ -253,7 +256,7 @@ func TestDeletePermitListRules(t *testing.T) {
 	invisinetsSgsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
 	require.NoError(t, err)
 
-	require.NotEqualValues(t, len(invisinetsSgsData), 0,"no security groups were found for VM "+ rInfo.ResourceID)
+	require.NotEqualValues(t, len(invisinetsSgsData), 0, "no security groups were found for VM "+rInfo.ResourceID)
 
 	// assuming up to a single invisinets subnet can exist per zone
 	vmInvisinetsSgID := invisinetsSgsData[0].ID
@@ -270,25 +273,11 @@ func TestDeletePermitListRules(t *testing.T) {
 		RuleNames: rulesIDs,
 	}
 
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
+	s := &IBMPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
 	resp, err := s.DeletePermitListRules(context.Background(), deleteRulesRequest)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
 	utils.Log.Printf("Response: %v", resp)
-}
-
-// usage: go test --tags=ibm -run TestGetUsedAddressSpaces -sg=<security group name>
-// this function logs subnets' address spaces from all invisinets' VPCs.
-func TestGetUsedAddressSpaces(t *testing.T) {
-	// GetUsedAddressSpaces() is independent of any region, since it returns
-	// address spaces in global scope, so any test resource ID will do.
-	deployment := &invisinetspb.InvisinetsDeployment{Id: testResourceIDUSEast1}
-
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
-
-	usedAddressSpace, err := s.GetUsedAddressSpaces(context.Background(), deployment)
-	require.NoError(t, err)
-	require.NotEmpty(t, usedAddressSpace)
 }

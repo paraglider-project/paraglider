@@ -1,13 +1,12 @@
 # IBM Plugin
 
 ### Authentication
-To use IBM services include your credentials in `~/.ibm/credentials.yaml`:
 
-```yaml
-iam_api_key: <KEY>
+Create a new API key by running this command:
+
 ```
-
-- Create a new API key by following this [guide](<https://www.ibm.com/docs/en/app-connect/container?topic=servers-creating-cloud-api-key>).
+ibmcloud iam api-key-create invkey | grep "API Key" | { echo -n "iam_api_key:" & grep -o '[^ ]\+$'; } > ~/.ibm/credentials.yaml
+```
 
 ### Instance Keys
 Upon invoking `CreateResource`, local SSH keys will be created automatically in `~/.ibm/keys` and be registered on the IBM VPC platform in the specified region. The keys will be associated with the newly launched instance.  

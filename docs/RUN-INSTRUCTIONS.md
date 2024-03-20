@@ -26,6 +26,10 @@ cloudPlugins:
      host: "localhost"
      port: 1001
      invDeployment: "/subscriptions/<sub_id>/resourceGroups/<resource_group_name>"
+   - name: "ibm"
+     host: "localhost"
+     port: 1002
+     invDeployment: "/ResourceGroupName/
 
 tagService:
   host: "localhost"
@@ -63,6 +67,13 @@ Using the CLI, run:
 
 The `central_controller_address` should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is "localhost:8081".
 
+### IBM 
+Using the CLI, run:
+
+`invd ibm <port> <central_controller_address>`
+
+The `central_controller_address` should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is "localhost:8081".
+
 ## Tag Service
 Using the CLI, run:
 
@@ -82,3 +93,8 @@ In order for the cloud plugins to correctly use their SDKs, ensure that these st
 
 1. [Install the gcloud CLI](https://cloud.google.com/sdk/docs/install). If you're using the dev container, this will already be installed for you.
 2. [Set up your application default credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc).
+
+### IBM Cloud
+
+1. [Install the ibmcloud CLI](https://cloud.google.com/sdk/docs/install). If you're using the dev container, this will already be installed for you.
+2. [Set up your Identity access key](../pkg/ibm_plugin/README.md).

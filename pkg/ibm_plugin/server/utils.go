@@ -26,8 +26,8 @@ import (
 // ResourceIDInfo defines the necessary fields of a resource sent in a request
 type ResourceIDInfo struct {
 	ResourceGroupName string `json:"ResourceGroupName"` // name of the resource group
-	Zone            string `json:"Zone"`
-	ResourceID      string `json:"ResourceID"`
+	Zone              string `json:"Zone"`
+	ResourceID        string `json:"ResourceID"`
 }
 
 func getClientMapKey(resGroup, region string) string {
@@ -38,18 +38,19 @@ func getClientMapKey(resGroup, region string) string {
 // "/ResourceGroupName/{ResourceGroupName}/Region/{Region}/ResourceID/{ResourceID}"
 func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	parts := strings.Split(resourceID, "/")
-	if len(parts) < 5 {
-		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected at least 5 parts in the format of '/ResourceGroupName/{ResourceGroupName}/Zone/{Zone}/ResourceID/{ResourceID}', got %d", len(parts))
-	}
 
-	if parts[0] != "" || parts[1] != "ResourceGroupName" || parts[3] != "Zone" {
-		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/ResourceGroupName/{ResourceGroupName}/Zone/{Zone}/ResourceID/{ResourceID}', got '%s'", resourceID)
+	if parts[0] != "" || parts[1] != "ResourceGroupName" {
+		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/ResourceGroupName/{ResourceGroupName}', got '%s'", resourceID)
 	}
 
 	info := ResourceIDInfo{
 		ResourceGroupName: parts[2],
-		Zone:            parts[4],
-		ResourceID:      parts[6],
+	}
+	if len(parts) >= 4 {
+		info.Zone = parts[4]
+	}
+	if len(parts) >= 5 {
+		info.ResourceID = parts[6]
 	}
 
 	return info, nil
@@ -60,7 +61,7 @@ func getRemoteVPC(remote, resourceGroupName string) (*sdk.ResourceData, error) {
 
 	// using a tmp client to avoid altering the cloud client's region.
 	// passing a random region to pass verification. region will be updated with accordance to the selected VPC.
-	tmpClient, err:=sdk.NewIBMCloudClient(resourceGroupName, "us-south") 
+	tmpClient, err := sdk.NewIBMCloudClient(resourceGroupName, "us-south", true)
 	if err != nil {
 		return nil, err
 	}
