@@ -98,7 +98,7 @@ func parseResourceUri(resourceUri string) (*ResourceInfo, error) {
 }
 
 // Gets network information about a resource and confirms it is in the correct namespace
-func getResourceInfo(ctx context.Context, instancesClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient, resourceInfo *ResourceInfo) (*string, *string, error) {
+func GetResourceInfo(ctx context.Context, instancesClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient, resourceInfo *ResourceInfo) (*string, *string, error) {
 	if resourceInfo.Namespace == "" {
 		return nil, nil, fmt.Errorf("namespace is empty")
 	}

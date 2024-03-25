@@ -234,6 +234,10 @@ func getPeerGwUri(project, peerGwName string) string {
 	return computeURLPrefix + fmt.Sprintf("projects/%s/global/externalVpnGateways/%s", project, peerGwName)
 }
 
+func convertInstanceIdToString(instanceId uint64) string {
+	return strconv.FormatUint(instanceId, 16)
+}
+
 // Checks if GCP error response is a not found error
 func isErrorNotFound(err error) bool {
 	var e *googleapi.Error
@@ -275,7 +279,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.
 	}
 	resourceInfo.Namespace = req.Namespace
 
-	_, resourceID, err := getResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
+	_, resourceID, err := GetResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -368,7 +372,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 	}
 	resourceInfo.Namespace = req.Namespace
 
-	subnet, resourceID, err := getResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
+	subnet, resourceID, err := GetResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -524,7 +528,7 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *invis
 	}
 	resourceInfo.Namespace = req.Namespace
 
-	_, resourceID, err := getResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
+	_, resourceID, err := GetResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
 	if err != nil {
 		return nil, err
 	}
