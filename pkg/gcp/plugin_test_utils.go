@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -32,6 +33,7 @@ import (
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"google.golang.org/api/option"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -65,6 +67,7 @@ var (
 	urlZone     = "/zones/" + fakeZone
 	urlRegion   = "/regions/" + fakeRegion
 	urlInstance = "/instances/" + fakeInstanceName
+	urlCluster  = "/v1/projects/" + fakeProject + "/zones/" + fakeRegion + "/clusters/"
 )
 
 // Fake firewalls and permitlists
@@ -125,8 +128,9 @@ func getFakeInstance(includeNetwork bool) *computepb.Instance {
 	if includeNetwork {
 		instance.NetworkInterfaces = []*computepb.NetworkInterface{
 			{
-				NetworkIP: proto.String("10.1.1.1"),
-				Network:   proto.String(GetVpcUri(fakeNamespace)),
+				NetworkIP:  proto.String("10.1.1.1"),
+				Network:    proto.String(GetVpcUri(fakeNamespace)),
+				Subnetwork: proto.String(fakeSubnetId),
 			},
 		}
 	}
@@ -138,9 +142,18 @@ func getFakeCluster(includeNetwork bool) *containerpb.Cluster {
 	cluster := &containerpb.Cluster{
 		Name: fakeClusterName,
 		Id:   fakeClusterId,
+		NodePools: []*containerpb.NodePool{
+			{
+				Name: "default-pool",
+				Config: &containerpb.NodeConfig{
+					Tags: []string{fakeNetworkTag},
+				},
+			},
+		},
 	}
 	if includeNetwork {
 		cluster.Subnetwork = fakeSubnetId
+		cluster.Network = GetVpcUri(fakeNamespace)
 	}
 	return cluster
 }
@@ -176,6 +189,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
 			return
 		}
+		fmt.Println("request: ", r.Method, path)
 		switch {
 		// Instances
 		case path == urlProject+urlZone+urlInstance+"/getEffectiveFirewalls":
@@ -231,7 +245,8 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				for _, value := range fakeServerState.firewallMap {
 					firewalls = append(firewalls, value)
 				}
-				sendResponse(w, &computepb.FirewallList{Items: firewalls})
+				test := &computepb.FirewallList{Items: firewalls}
+				sendResponse(w, test)
 				return
 			}
 		// Networks
@@ -313,10 +328,43 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponseDoneOperation(w)
 				return
 			}
+			// // Clusters
+			// case strings.HasPrefix(path, urlCluster):
+			// 	if r.Method == "GET" {
+			// 		if fakeServerState.cluster != nil {
+			// 			sendResponse(w, fakeServerState.cluster)
+			// 		} else {
+			// 			http.Error(w, "no cluster found", http.StatusNotFound)
+			// 		}
+			// 		return
+			// 	} else if r.Method == "POST" {
+			// 		sendResponseFakeOperation(w)
+			// 		return
+			// 	}
 		}
 		fmt.Printf("unsupported request: %s %s\n", r.Method, path)
 		http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
 	})
+}
+
+type fakeClusterManagerServer struct {
+	containerpb.UnimplementedClusterManagerServer
+}
+
+func (f *fakeClusterManagerServer) GetCluster(ctx context.Context, req *containerpb.GetClusterRequest) (*containerpb.Cluster, error) {
+	fmt.Printf("Request name: %v, fakeClusterName: %v\n", req.Name, fakeClusterName)
+	if strings.Contains(req.Name, fakeClusterName) {
+		return getFakeCluster(true), nil
+	}
+	return nil, fmt.Errorf("cluster not found")
+}
+
+func (f *fakeClusterManagerServer) CreateCluster(ctx context.Context, req *containerpb.CreateClusterRequest) (*containerpb.Operation, error) {
+	return &containerpb.Operation{Name: fakeOperation}, nil
+}
+
+func (f *fakeClusterManagerServer) UpdateCluster(ctx context.Context, req *containerpb.UpdateClusterRequest) (*containerpb.Operation, error) {
+	return &containerpb.Operation{Name: fakeOperation}, nil
 }
 
 // Struct to hold state for fake server
@@ -344,7 +392,7 @@ type fakeClients struct {
 }
 
 // Sets up fake http server and fake GCP compute clients
-func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClients fakeClients) {
+func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClients fakeClients, gsrv *grpc.Server) {
 	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
 
 	ctx = context.Background()
@@ -391,7 +439,22 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 		t.Fatal(err)
 	}
 
-	fakeClients.clusterClient, err = container.NewClusterManagerClient(ctx, clientOptions...)
+	l, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fakeGRPCServer := &fakeClusterManagerServer{}
+	gsrv = grpc.NewServer()
+	containerpb.RegisterClusterManagerServer(gsrv, fakeGRPCServer)
+	serverAddr := l.Addr().String()
+	go func() {
+		if err := gsrv.Serve(l); err != nil {
+			panic(err)
+		}
+	}()
+
+	clusterClientOptions := []option.ClientOption{option.WithoutAuthentication(), option.WithEndpoint(serverAddr), option.WithGRPCDialOption(grpc.WithInsecure())}
+	fakeClients.clusterClient, err = container.NewClusterManagerClient(ctx, clusterClientOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -400,7 +463,7 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 }
 
 // Cleans up fake http server and fake GCP compute clients
-func teardown(fakeServer *httptest.Server, fakeClients fakeClients) {
+func teardown(fakeServer *httptest.Server, fakeClients fakeClients, fakeGRPCServer *grpc.Server) {
 	fakeServer.Close()
 	if fakeClients.firewallsClient != nil {
 		fakeClients.firewallsClient.Close()
@@ -413,5 +476,11 @@ func teardown(fakeServer *httptest.Server, fakeClients fakeClients) {
 	}
 	if fakeClients.subnetworksClient != nil {
 		fakeClients.subnetworksClient.Close()
+	}
+	if fakeClients.clusterClient != nil {
+		fakeClients.clusterClient.Close()
+	}
+	if fakeGRPCServer != nil {
+		fakeGRPCServer.Stop()
 	}
 }

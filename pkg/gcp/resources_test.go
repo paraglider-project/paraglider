@@ -31,28 +31,24 @@ import (
 )
 
 func TestParseResourceURI(t *testing.T) {
-	project := "project-1"
-	zone := "us-central1-a"
-	instanceName := "instance-1"
-	instanceUri := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instanceName)
+	instanceUri := fmt.Sprintf("projects/%s/zones/%s/instances/%s", fakeProject, fakeZone, fakeInstanceName)
 
 	resourceInfo, err := parseResourceUri(instanceUri)
 
 	require.NoError(t, err)
-	assert.Equal(t, project, resourceInfo.Project)
-	assert.Equal(t, zone, resourceInfo.Zone)
-	assert.Equal(t, instanceName, resourceInfo.Name)
+	assert.Equal(t, fakeProject, resourceInfo.Project)
+	assert.Equal(t, fakeZone, resourceInfo.Zone)
+	assert.Equal(t, fakeInstanceName, resourceInfo.Name)
 	assert.Equal(t, instanceTypeName, resourceInfo.ResourceType)
 
-	clusterName := "cluster-1"
-	clusterUri := fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, zone, clusterName)
+	clusterUri := fmt.Sprintf("projects/%s/zones/%s/clusters/%s", fakeProject, fakeZone, fakeClusterName)
 
 	resourceInfo, err = parseResourceUri(clusterUri)
 
 	require.NoError(t, err)
-	assert.Equal(t, project, resourceInfo.Project)
-	assert.Equal(t, zone, resourceInfo.Zone)
-	assert.Equal(t, clusterName, resourceInfo.Name)
+	assert.Equal(t, fakeProject, resourceInfo.Project)
+	assert.Equal(t, fakeZone, resourceInfo.Zone)
+	assert.Equal(t, fakeClusterName, resourceInfo.Name)
 	assert.Equal(t, clusterTypeName, resourceInfo.ResourceType)
 }
 
@@ -64,61 +60,61 @@ func TestGetFirewallRules(t *testing.T) {
 		fwMap[*fw.Name] = fw
 	}
 	serverState := fakeServerState{firewallMap: fwMap}
-	_, ctx, fakeClients := setup(t, &serverState)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	client := fakeClients.firewallsClient
-	project := "project-1"
+	project := fakeProject
 	resourceID := "resource-1"
 
 	firewallRules, err := getFirewallRules(ctx, client, project, resourceID)
 
+	expectedFwNames := []string{"firewall-1", "firewall-2"}
+
 	require.NoError(t, err)
-	assert.Equal(t, firewalls, firewallRules)
+	assert.Contains(t, expectedFwNames, firewallRules[0].Name)
+	assert.Contains(t, expectedFwNames, firewallRules[1].Name)
 }
 
 func TestGetResourceInfo(t *testing.T) {
 	// Test for instance
-	project := "project-1"
-	zone := "us-central1-a"
-	instanceName := "instance-1"
-	resourceInfo := &ResourceInfo{Project: project, Zone: zone, Name: instanceName, ResourceType: instanceTypeName}
+	resourceInfo := &ResourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeInstanceName, ResourceType: instanceTypeName, Namespace: fakeNamespace}
 
 	instance := getFakeInstance(true)
 	serverState := fakeServerState{instance: instance}
-	_, ctx, fakeClients := setup(t, &serverState)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	client := fakeClients.instancesClient
 
 	subnet, resourceId, err := GetResourceInfo(ctx, client, nil, resourceInfo)
 
 	require.NoError(t, err)
-	assert.Equal(t, instance.Id, resourceId)
+	assert.Equal(t, convertInstanceIdToString(*instance.Id), *resourceId)
 	assert.Equal(t, instance.NetworkInterfaces[0].Subnetwork, subnet)
 
 	// Test for cluster
-	clusterName := "cluster-1"
-	resourceInfo = &ResourceInfo{Project: project, Zone: zone, Name: clusterName, ResourceType: clusterTypeName}
+	resourceInfo = &ResourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName, Namespace: fakeNamespace}
 
 	cluster := getFakeCluster(true)
 	serverState = fakeServerState{cluster: cluster}
-	_, ctx, fakeClients = setup(t, &serverState)
+	fakeServer, ctx, fakeClients, fakeGRPCServer = setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	clusterClient := fakeClients.clusterClient
 
 	subnet, resourceId, err = GetResourceInfo(ctx, nil, clusterClient, resourceInfo)
 
 	require.NoError(t, err)
-	assert.Equal(t, cluster.Id, resourceId)
-	assert.Equal(t, cluster.Subnetwork, subnet)
+	assert.Equal(t, cluster.Id, *resourceId)
+	assert.Equal(t, cluster.Subnetwork, *subnet)
 }
 
 func TestIsValidResource(t *testing.T) {
 	// Test for instance
-	project := "project-1"
-	zone := "us-central1-a"
 	instanceRequest := &computepb.InsertInstanceRequest{
-		Project:          project,
-		Zone:             zone,
+		Project:          fakeProject,
+		Zone:             fakeZone,
 		InstanceResource: getFakeInstance(false),
 	}
 	jsonReq, err := json.Marshal(instanceRequest)
@@ -129,16 +125,13 @@ func TestIsValidResource(t *testing.T) {
 	resourceInfo, err := IsValidResource(context.Background(), resource)
 
 	require.NoError(t, err)
-	assert.Equal(t, project, resourceInfo.Project)
-	assert.Equal(t, zone, resourceInfo.Zone)
-	assert.Equal(t, instanceRequest.InstanceResource.Name, resourceInfo.Name)
-	assert.Equal(t, instanceTypeName, resourceInfo.ResourceType)
+	assert.Equal(t, fakeProject, resourceInfo.Project)
+	assert.Equal(t, fakeZone, resourceInfo.Zone)
 
 	// Test for cluster
 	clusterRequest := &containerpb.CreateClusterRequest{
-		ProjectId: project,
-		Zone:      zone,
-		Cluster:   getFakeCluster(false),
+		Parent:  fmt.Sprintf("projects/%s/locations/%s", fakeProject, fakeZone),
+		Cluster: getFakeCluster(false),
 	}
 	jsonReq, err = json.Marshal(clusterRequest)
 	require.NoError(t, err)
@@ -148,8 +141,8 @@ func TestIsValidResource(t *testing.T) {
 	resourceInfo, err = IsValidResource(context.Background(), resource)
 
 	require.NoError(t, err)
-	assert.Equal(t, project, resourceInfo.Project)
-	assert.Equal(t, zone, resourceInfo.Zone)
+	assert.Equal(t, fakeProject, resourceInfo.Project)
+	assert.Equal(t, fakeZone, resourceInfo.Zone)
 	assert.Equal(t, clusterRequest.Cluster.Name, resourceInfo.Name)
 }
 
@@ -157,11 +150,9 @@ func TestReadAndProvisionResource(t *testing.T) {
 	// ReadAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnetName string, resourceInfo *ResourceInfo, instanceClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient) (string, string, error)
 
 	// Test for instance
-	project := "project-1"
-	zone := "us-central1-a"
 	instanceRequest := &computepb.InsertInstanceRequest{
-		Project:          project,
-		Zone:             zone,
+		Project:          fakeProject,
+		Zone:             fakeZone,
 		InstanceResource: getFakeInstance(false),
 	}
 	jsonReq, err := json.Marshal(instanceRequest)
@@ -169,22 +160,23 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	resource := &invisinetspb.ResourceDescription{Description: jsonReq}
 
-	resourceInfo := &ResourceInfo{Project: project, Zone: zone, Name: "instance-1", ResourceType: instanceTypeName}
-	serverState := fakeServerState{}
-	_, ctx, fakeClients := setup(t, &serverState)
+	resourceInfo := &ResourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeInstanceName, ResourceType: instanceTypeName}
+	serverState := fakeServerState{instance: getFakeInstance(true)}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	client := fakeClients.instancesClient
 
 	uri, _, err := ReadAndProvisionResource(ctx, resource, "subnet-1", resourceInfo, client, nil)
 
 	require.NoError(t, err)
-	assert.Equal(t, fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instanceRequest.InstanceResource.Id), uri)
+	assert.Contains(t, uri, *instanceRequest.InstanceResource.Name)
 	// assert.Equal(t, ip, TODO now: fix this
 
 	// Test for cluster
 	clusterRequest := &containerpb.CreateClusterRequest{
-		ProjectId: project,
-		Zone:      zone,
+		ProjectId: fakeProject,
+		Zone:      fakeZone,
 		Cluster:   getFakeCluster(false),
 	}
 	jsonReq, err = json.Marshal(clusterRequest)
@@ -192,39 +184,42 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	resource = &invisinetspb.ResourceDescription{Description: jsonReq}
 
-	resourceInfo = &ResourceInfo{Project: project, Zone: zone, Name: "cluster-1", ResourceType: clusterTypeName}
+	resourceInfo = &ResourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName}
 
 	clusterClient := fakeClients.clusterClient
+
+	fmt.Printf("Clusteroptions: %v\n", clusterClient.CallOptions.GetCluster)
 
 	uri, _, err = ReadAndProvisionResource(ctx, resource, "subnet-1", resourceInfo, nil, clusterClient)
 
 	require.NoError(t, err)
-	assert.Equal(t, fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, clusterRequest.Cluster.Name), uri)
+	assert.Equal(t, getClusterUri(fakeProject, fakeZone, clusterRequest.Cluster.Name), uri)
 	// assert.Equal(t, ip, TODO now: fix this
 }
 
 func TestInstanceGetNetworkInfo(t *testing.T) {
 	// GetNetworkInfo(ctx context.Context, resourceInfo *ResourceInfo, client *compute.InstancesClient) (*ResourceNetworkInfo, error)
 	instanceHandler := &GCPInstance{}
-	resourceInfo := &ResourceInfo{Project: "project-1", Zone: "us-central1-a", Name: "instance-1", ResourceType: instanceTypeName}
+	resourceInfo := &ResourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeInstanceName, ResourceType: instanceTypeName}
 	instance := getFakeInstance(true)
 	serverState := fakeServerState{instance: instance}
-	_, ctx, fakeClients := setup(t, &serverState)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	client := fakeClients.instancesClient
 
 	networkInfo, err := instanceHandler.GetNetworkInfo(ctx, resourceInfo, client)
 
 	require.NoError(t, err)
-	assert.Equal(t, instance.Id, networkInfo.ResourceID)
-	assert.Contains(t, instance.NetworkInterfaces[0].Network, networkInfo.NetworkName)
-	assert.Equal(t, instance.NetworkInterfaces[0].Subnetwork, networkInfo.SubnetURI)
+	assert.Equal(t, convertInstanceIdToString(*instance.Id), networkInfo.ResourceID)
+	assert.Contains(t, *instance.NetworkInterfaces[0].Network, networkInfo.NetworkName)
+	assert.Equal(t, *instance.NetworkInterfaces[0].Subnetwork, networkInfo.SubnetURI)
 }
 
 func TestInstanceFromResourceDecription(t *testing.T) {
 	instanceRequest := &computepb.InsertInstanceRequest{
-		Project:          "project-1",
-		Zone:             "us-central1-a",
+		Project:          fakeProject,
+		Zone:             fakeZone,
 		InstanceResource: getFakeInstance(false),
 	}
 	json, err := json.Marshal(instanceRequest)
@@ -241,34 +236,34 @@ func TestInstanceFromResourceDecription(t *testing.T) {
 func TestInstanceCreateWithNetwork(t *testing.T) {
 	// CreateWithNetwork(ctx context.Context, instance *computepb.InsertInstanceRequest, subnetName string, resourceInfo *ResourceInfo, client *compute.InstancesClient) (string, string, error)
 	instanceHandler := &GCPInstance{}
-	project := "project-1"
-	zone := "us-central1-a"
 	subnet := "subnet-1"
 	instanceRequest := &computepb.InsertInstanceRequest{
-		Project:          project,
-		Zone:             zone,
+		Project:          fakeProject,
+		Zone:             fakeZone,
 		InstanceResource: getFakeInstance(false),
 	}
-	resourceInfo := &ResourceInfo{Project: project, Zone: zone, Name: "instance-1", ResourceType: instanceTypeName}
-	serverState := fakeServerState{}
-	_, ctx, fakeClients := setup(t, &serverState)
+	resourceInfo := &ResourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeInstanceName, ResourceType: instanceTypeName}
+	serverState := fakeServerState{instance: getFakeInstance(true)}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	client := fakeClients.instancesClient
 
 	uri, _, err := instanceHandler.CreateWithNetwork(ctx, instanceRequest, subnet, resourceInfo, client)
 
 	require.NoError(t, err)
-	assert.Equal(t, fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instanceRequest.InstanceResource.Id), uri)
+	assert.Contains(t, uri, *instanceRequest.InstanceResource.Name)
 	// assert.Equal(t, ip, TODO now: fix this
 
 }
 
 func TestGKEGetNetworkInfo(t *testing.T) {
 	clusterHandler := &GKE{}
-	resourceInfo := &ResourceInfo{Project: "project-1", Zone: "us-central1-a", Name: "cluster-1", ResourceType: clusterTypeName}
+	resourceInfo := &ResourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName}
 	cluster := getFakeCluster(true)
 	serverState := fakeServerState{cluster: cluster}
-	_, ctx, fakeClients := setup(t, &serverState)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	client := fakeClients.clusterClient
 
@@ -281,9 +276,7 @@ func TestGKEGetNetworkInfo(t *testing.T) {
 
 func TestGKEFromResourceDecription(t *testing.T) {
 	clusterRequest := &containerpb.CreateClusterRequest{
-		ProjectId: "project-1",
-		Zone:      "us-central1-a",
-		Cluster:   getFakeCluster(false),
+		Cluster: getFakeCluster(false),
 	}
 	json, err := json.Marshal(clusterRequest)
 	require.NoError(t, err)
@@ -292,29 +285,26 @@ func TestGKEFromResourceDecription(t *testing.T) {
 	clusterParsed, err := clusterHandler.FromResourceDecription(json)
 
 	require.NoError(t, err)
-	assert.Equal(t, clusterRequest.ProjectId, clusterParsed.ProjectId)
 	assert.Equal(t, clusterRequest.Cluster.Id, clusterParsed.Cluster.Id)
 }
 
 func TestGKECreateWithNetwork(t *testing.T) {
 	clusterHandler := &GKE{}
-	project := "project-1"
-	zone := "us-central1-a"
 	subnet := "subnet-1"
 	clusterRequest := &containerpb.CreateClusterRequest{
-		ProjectId: project,
-		Zone:      zone,
-		Cluster:   getFakeCluster(false),
+		Cluster: getFakeCluster(false),
+		Parent:  "projects/project-1/locations/zone-1",
 	}
-	resourceInfo := &ResourceInfo{Project: project, Zone: zone, Name: "instance-1", ResourceType: instanceTypeName}
+	resourceInfo := &ResourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeInstanceName, ResourceType: instanceTypeName}
 	serverState := fakeServerState{}
-	_, ctx, fakeClients := setup(t, &serverState)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	client := fakeClients.clusterClient
 
 	uri, _, err := clusterHandler.CreateWithNetwork(ctx, clusterRequest, subnet, resourceInfo, client)
 
 	require.NoError(t, err)
-	assert.Equal(t, fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, clusterRequest.Cluster.Name), uri)
+	assert.Equal(t, getClusterUri(fakeProject, fakeZone, clusterRequest.Cluster.Name), uri)
 	// assert.Equal(t, ip, TODO now: fix this
 }

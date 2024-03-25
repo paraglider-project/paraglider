@@ -217,6 +217,10 @@ func getInstanceUri(project, zone, instance string) string {
 	return fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instance)
 }
 
+func getClusterUri(project, zone, cluster string) string {
+	return fmt.Sprintf("projects/%s/locations/%s/instances/%s", project, zone, cluster)
+}
+
 func getVpnGwUri(project, region, vpnGwName string) string {
 	return computeURLPrefix + fmt.Sprintf("projects/%s/regions/%s/vpnGateways/%s", project, region, vpnGwName)
 }
@@ -273,6 +277,7 @@ func parseDescriptionTags(description string) []string {
 }
 
 func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.GetPermitListRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, clustersClient *container.ClusterManagerClient) (*invisinetspb.GetPermitListResponse, error) {
+	fmt.Println("Resource: ", req.Resource)
 	resourceInfo, err := parseResourceUri(req.Resource)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource URI: %w", err)

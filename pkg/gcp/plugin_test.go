@@ -53,13 +53,13 @@ func TestGetPermitList(t *testing.T) {
 			},
 		},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
 	request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: fakeNamespace}
 
-	responseActual, err := s._GetPermitList(ctx, request, fakeClients.instancesClient)
+	responseActual, err := s._GetPermitList(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
 	require.NoError(t, err)
 	responseExpected := &invisinetspb.GetPermitListResponse{
 		Rules: []*invisinetspb.PermitListRule{fakePermitListRule1, fakePermitListRule2},
@@ -69,13 +69,13 @@ func TestGetPermitList(t *testing.T) {
 }
 
 func TestGetPermitListMissingInstance(t *testing.T) {
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{})
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &fakeServerState{})
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
 	request := &invisinetspb.GetPermitListRequest{Resource: fakeMissingResourceId, Namespace: fakeNamespace}
 
-	resp, err := s._GetPermitList(ctx, request, fakeClients.instancesClient)
+	resp, err := s._GetPermitList(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -84,13 +84,12 @@ func TestGetPermitListWrongNamespace(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		instance: getFakeInstance(true),
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
-	defer teardown(fakeServer, fakeClients)
-
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 	s := &GCPPluginServer{}
 	request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: "wrongnamespace"}
 
-	resp, err := s._GetPermitList(ctx, request, fakeClients.instancesClient)
+	resp, err := s._GetPermitList(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -105,8 +104,8 @@ func TestAddPermitListRules(t *testing.T) {
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
 		{Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")), Network: proto.String(GetVpcUri(fakeNamespace))},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	fakeOrchestratorServer, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	fakeOrchestratorServer.Counter = 1
@@ -136,14 +135,14 @@ func TestAddPermitListRules(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient, fakeClients.clusterClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
 
 func TestAddPermitListRulesMissingInstance(t *testing.T) {
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{})
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &fakeServerState{})
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
@@ -164,7 +163,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient, fakeClients.clusterClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -173,8 +172,8 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		instance: getFakeInstance(true),
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
 	request := &invisinetspb.AddPermitListRulesRequest{
@@ -191,7 +190,7 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 		Namespace: "wrongnamespace",
 	}
 
-	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient, fakeClients.clusterClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -210,8 +209,8 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
 		{Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")), Network: proto.String(GetVpcUri(fakeNamespace))},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
@@ -233,14 +232,14 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient, fakeClients.clusterClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
 
 func TestDeletePermitListRules(t *testing.T) {
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance(true)})
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &fakeServerState{instance: getFakeInstance(true)})
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
 	request := &invisinetspb.DeletePermitListRulesRequest{
@@ -249,14 +248,14 @@ func TestDeletePermitListRules(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._DeletePermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient)
+	resp, err := s._DeletePermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
 
 func TestDeletePermitListRulesMissingInstance(t *testing.T) {
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{})
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &fakeServerState{})
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
 	request := &invisinetspb.DeletePermitListRulesRequest{
@@ -265,7 +264,7 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._DeletePermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient)
+	resp, err := s._DeletePermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -274,8 +273,8 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		instance: getFakeInstance(true),
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
 	request := &invisinetspb.DeletePermitListRulesRequest{
@@ -284,7 +283,7 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 		Namespace: "wrongnamespace",
 	}
 
-	resp, err := s._DeletePermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient)
+	resp, err := s._DeletePermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -297,8 +296,8 @@ func TestCreateResource(t *testing.T) {
 			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
 		},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
@@ -315,15 +314,15 @@ func TestCreateResource(t *testing.T) {
 	}
 	resource := &invisinetspb.ResourceDescription{Description: description, Namespace: fakeNamespace}
 
-	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient)
+	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient, fakeClients.clusterClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
 
 func TestCreateResourceMissingNetwork(t *testing.T) {
 	// Include instance in server state since CreateResource will fetch after creating to add the tag
-	fakeServer, ctx, fakeClients := setup(t, &fakeServerState{instance: getFakeInstance(true)})
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &fakeServerState{instance: getFakeInstance(true)})
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
@@ -340,7 +339,7 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 	}
 	resource := &invisinetspb.ResourceDescription{Description: description}
 
-	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient)
+	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient, fakeClients.clusterClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
@@ -350,8 +349,8 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 		instance: getFakeInstance(true), // Include instance in server state since CreateResource will fetch after creating to add the tag
 		network:  &computepb.Network{Name: proto.String(getVpcName(fakeNamespace))},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
@@ -369,7 +368,7 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	}
 	resource := &invisinetspb.ResourceDescription{Description: description, Namespace: fakeNamespace}
 
-	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient)
+	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient, fakeClients.clusterClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
@@ -386,8 +385,8 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 			IpCidrRange: proto.String("10.1.2.0/24"),
 		},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
 
@@ -406,8 +405,8 @@ func TestGetUsedAsns(t *testing.T) {
 			},
 		},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
 	vpnRegion = fakeRegion
@@ -428,8 +427,8 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 			},
 		},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
 	vpnRegion = fakeRegion
@@ -450,8 +449,8 @@ func TestCreateVpnGateway(t *testing.T) {
 			},
 		},
 	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
@@ -474,8 +473,8 @@ func TestCreateVpnGateway(t *testing.T) {
 
 func TestCreateVpnConnections(t *testing.T) {
 	fakeServerState := &fakeServerState{router: &computepb.Router{}}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
-	defer teardown(fakeServer, fakeClients)
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
 	vpnRegion = fakeRegion
@@ -492,27 +491,4 @@ func TestCreateVpnConnections(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.True(t, resp.Success)
-}
-
-func TestCheckResourceNamespace(t *testing.T) {
-	fakeServerState := &fakeServerState{
-		instance: getFakeInstance(true),
-		network: &computepb.Network{
-			Name:        proto.String(getVpcName(fakeNamespace)),
-			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
-		},
-	}
-	fakeServer, ctx, fakeClients := setup(t, fakeServerState)
-	defer teardown(fakeServer, fakeClients)
-
-	s := &GCPPluginServer{}
-
-	err := s.checkInstanceNamespace(ctx, fakeClients.instancesClient, fakeInstanceName, fakeProject, fakeZone, fakeNamespace)
-	require.NoError(t, err)
-
-	err = s.checkInstanceNamespace(ctx, fakeClients.instancesClient, fakeInstanceName, fakeProject, fakeZone, "othernamespace")
-	require.Error(t, err)
-
-	err = s.checkInstanceNamespace(ctx, fakeClients.instancesClient, fakeInstanceName, fakeProject, fakeZone, "")
-	require.Error(t, err)
 }

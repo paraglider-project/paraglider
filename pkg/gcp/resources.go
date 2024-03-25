@@ -32,8 +32,9 @@ import (
 )
 
 const (
-	clusterTypeName  = "cluster"
-	instanceTypeName = "instance"
+	clusterTypeName   = "cluster"
+	instanceTypeName  = "instance"
+	clusterNameFormat = "projects/%s/locations/%s/clusters/%s"
 )
 
 var (
@@ -82,6 +83,7 @@ func getFirewallRules(ctx context.Context, client *compute.FirewallsClient, proj
 		if err != nil {
 			return nil, err
 		}
+		firewallRules = append(firewallRules, firewallRule)
 	}
 	return firewallRules, nil
 }
@@ -120,6 +122,8 @@ func GetResourceInfo(ctx context.Context, instancesClient *compute.InstancesClie
 	} else {
 		return nil, nil, fmt.Errorf("unknown resource type")
 	}
+	fmt.Printf("Network name: %v\n", netInfo.NetworkName)
+	fmt.Printf("Namespace: %v\n", resourceInfo.Namespace)
 	if !resourceIsInNamespace(netInfo.NetworkName, resourceInfo.Namespace) {
 		return nil, nil, fmt.Errorf("instance is not in namespace")
 	}
@@ -131,11 +135,11 @@ func IsValidResource(ctx context.Context, resource *invisinetspb.ResourceDescrip
 	insertInstanceRequest := &computepb.InsertInstanceRequest{}
 	createClusterRequest := &containerpb.CreateClusterRequest{}
 	err := json.Unmarshal(resource.Description, insertInstanceRequest)
-	if err == nil {
+	if err == nil && insertInstanceRequest.InstanceResource != nil {
 		return &ResourceInfo{Project: insertInstanceRequest.Project, Zone: insertInstanceRequest.Zone, Name: *insertInstanceRequest.InstanceResource.Name}, nil
 	} else if err := json.Unmarshal(resource.Description, createClusterRequest); err == nil {
 		project := strings.Split(createClusterRequest.Parent, "/")[1]
-		zone := strings.Split(createClusterRequest.Parent, "/")[4]
+		zone := strings.Split(createClusterRequest.Parent, "/")[3]
 		return &ResourceInfo{Project: project, Zone: zone, Name: createClusterRequest.Cluster.Name}, nil
 	} else {
 		return nil, fmt.Errorf("resource description contains unknown GCP resource")
@@ -147,7 +151,7 @@ func ReadAndProvisionResource(ctx context.Context, resource *invisinetspb.Resour
 	insertInstanceRequest := &computepb.InsertInstanceRequest{}
 	createClusterRequest := &containerpb.CreateClusterRequest{}
 	err := json.Unmarshal(resource.Description, insertInstanceRequest)
-	if err == nil {
+	if err == nil && insertInstanceRequest.InstanceResource != nil {
 		handler := &GCPInstance{}
 		vm, err := handler.FromResourceDecription(resource.Description)
 		if err != nil {
@@ -162,7 +166,7 @@ func ReadAndProvisionResource(ctx context.Context, resource *invisinetspb.Resour
 		}
 		return handler.CreateWithNetwork(ctx, aks, subnetName, resourceInfo, clusterClient)
 	} else {
-		return "", "", fmt.Errorf("resource description contains unknown Azure resource")
+		return "", "", fmt.Errorf("resource description contains unknown resource")
 	}
 }
 
@@ -191,7 +195,7 @@ func (r *GCPInstance) GetNetworkInfo(ctx context.Context, resourceInfo *Resource
 	}
 	networkName := *instanceResponse.NetworkInterfaces[0].Network
 	subnetURI := *instanceResponse.NetworkInterfaces[0].Subnetwork
-	resourceID := strconv.FormatUint(*instanceResponse.Id, 16)
+	resourceID := convertInstanceIdToString(*instanceResponse.Id)
 	return &ResourceNetworkInfo{NetworkName: networkName, SubnetURI: subnetURI, ResourceID: resourceID}, nil
 }
 
@@ -222,6 +226,7 @@ func (r *GCPInstance) CreateWithNetwork(ctx context.Context, instance *computepb
 		Project:  resourceInfo.Project,
 		Zone:     resourceInfo.Zone,
 	}
+	fmt.Printf("Gets instance request: %v\n", getInstanceReq)
 	getInstanceResp, err := client.Get(ctx, getInstanceReq)
 	if err != nil {
 		return "", "", fmt.Errorf("unable to get instance: %w", err)
@@ -267,15 +272,13 @@ type GKE struct {
 // Get network information about a GCP cluster
 func (r *GKE) GetNetworkInfo(ctx context.Context, resourceInfo *ResourceInfo, client *container.ClusterManagerClient) (*ResourceNetworkInfo, error) {
 	clusterRequest := &containerpb.GetClusterRequest{
-		ProjectId: resourceInfo.Project,
-		Zone:      resourceInfo.Zone,
-		ClusterId: resourceInfo.Name,
+		Name: fmt.Sprintf(clusterNameFormat, resourceInfo.Project, resourceInfo.Zone, resourceInfo.Name),
 	}
 	clusterResponse, err := client.GetCluster(ctx, clusterRequest)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get cluster: %w", err)
 	}
-	return &ResourceNetworkInfo{SubnetURI: clusterResponse.Subnetwork, ResourceID: clusterResponse.Id}, nil
+	return &ResourceNetworkInfo{SubnetURI: clusterResponse.Subnetwork, NetworkName: clusterResponse.Network, ResourceID: clusterResponse.Id}, nil
 }
 
 // Create a GCP cluster with network settings
@@ -289,20 +292,18 @@ func (r *GKE) CreateWithNetwork(ctx context.Context, cluster *containerpb.Create
 	// Create the cluster
 	_, err := client.CreateCluster(ctx, cluster)
 	if err != nil {
-		return "", "", fmt.Errorf("unable to insert instance: %w", err)
+		return "", "", fmt.Errorf("unable to insert cluster: %w", err)
 	}
 	// TODO now: what to do with the cluster response?
 
 	// Add network tag which will be used by GCP firewall rules corresponding to Invisinets permit list rules
 	// The cluster is fetched again as the Id which is used to create the tag is only available after instance creation
 	getClusterRequest := &containerpb.GetClusterRequest{
-		ProjectId: resourceInfo.Project,
-		Zone:      resourceInfo.Zone,
-		ClusterId: cluster.Cluster.Name,
+		Name: fmt.Sprintf(clusterNameFormat, resourceInfo.Project, resourceInfo.Zone, cluster.Cluster.Name),
 	}
 	getClusterResp, err := client.GetCluster(ctx, getClusterRequest)
 	if err != nil {
-		return "", "", fmt.Errorf("unable to get instance: %w", err)
+		return "", "", fmt.Errorf("unable to get cluster: %w", err)
 	}
 	updateClusterRequest := &containerpb.UpdateClusterRequest{
 		ProjectId: resourceInfo.Project,
@@ -319,7 +320,7 @@ func (r *GKE) CreateWithNetwork(ctx context.Context, cluster *containerpb.Create
 		return "", "", fmt.Errorf("unable to set tags: %w", err)
 	}
 
-	return getClusterResp.Id, *&getClusterResp.ClusterIpv4Cidr, nil
+	return getClusterUri(resourceInfo.Project, resourceInfo.Zone, getClusterResp.Name), getClusterResp.ClusterIpv4Cidr, nil
 }
 
 // Parse the resource description and return the cluster request
@@ -329,7 +330,7 @@ func (r *GKE) FromResourceDecription(resourceDesc []byte) (*containerpb.CreateCl
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource description: %w", err)
 	}
-	if createClusterRequest.Cluster.Network == "" {
+	if createClusterRequest.Cluster.Network != "" {
 		return nil, fmt.Errorf("network settings should not be specified")
 	}
 	return createClusterRequest, nil
