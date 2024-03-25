@@ -98,6 +98,8 @@ func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, reso
 	return networkInfo, nil
 }
 
+// Gets basic resource information from the description
+// Returns the resource name, ID, and location
 func GetResourceInfoFromResourceDesc(ctx context.Context, resource *invisinetspb.ResourceDescription) (*string, *string, *string, error) {
 	if strings.Contains(resource.Id, "virtualMachines") {
 		handler := &AzureVM{}
@@ -167,7 +169,11 @@ func (r *AzureVM) GetNetworkInfo(resource *armresources.GenericResource, handler
 		return nil, fmt.Errorf("failed to convert resource.Properties to type armcompute.VirtualMachinePropertie")
 	}
 
-	nic, err := handler.GetNetworkInterface(context.Background(), *properties.NetworkProfile.NetworkInterfaces[0].ID) // TODO now: cahnge to name with get last segment
+	nicName, err := handler.GetLastSegment(*properties.NetworkProfile.NetworkInterfaces[0].ID)
+	if err != nil {
+		return nil, err
+	}
+	nic, err := handler.GetNetworkInterface(context.Background(), nicName)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network interface:%+v", err)
 		return nil, err
@@ -188,6 +194,7 @@ func (r *AzureVM) GetNetworkInfo(resource *armresources.GenericResource, handler
 }
 
 // Creates a virtual machine with the given subnet
+// Returns the private IP address of the virtual machine
 func (r *AzureVM) CreateWithNetwork(ctx context.Context, vm *armcompute.VirtualMachine, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, handler AzureSDKHandler) (string, error) {
 	nic, err := handler.CreateNetworkInterface(ctx, *subnet.ID, *vm.Location, getInvisinetsResourceName("nic"))
 	if err != nil {
@@ -209,7 +216,12 @@ func (r *AzureVM) CreateWithNetwork(ctx context.Context, vm *armcompute.VirtualM
 		return "", err
 	}
 
-	nic, err = handler.GetNetworkInterface(ctx, *vm.Properties.NetworkProfile.NetworkInterfaces[0].ID)
+	nicName, err := handler.GetLastSegment(*vm.Properties.NetworkProfile.NetworkInterfaces[0].ID)
+	if err != nil {
+		return "", err
+	}
+
+	nic, err = handler.GetNetworkInterface(ctx, nicName)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network interface:%+v", err)
 		return "", err
@@ -272,12 +284,11 @@ func (r *AzureAKS) GetNetworkInfo(resource *armresources.GenericResource, handle
 }
 
 // Creates an AKS cluster with the given subnet
+// Returns the address prefix of the subnet
 func (r *AzureAKS) CreateWithNetwork(ctx context.Context, resource *armcontainerservice.ManagedCluster, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, handler AzureSDKHandler) (string, error) {
 	for _, profile := range resource.Properties.AgentPoolProfiles {
 		profile.VnetSubnetID = subnet.ID
 	}
-
-	// TODO: Add something with the network profile? Need to understand the serviceCIDR / podCIDR
 
 	_, err := handler.CreateAKSCluster(ctx, *resource, resourceInfo.ResourceName)
 	if err != nil {
@@ -307,8 +318,6 @@ func (r *AzureAKS) FromResourceDecription(resourceDesc []byte) (*armcontainerser
 			return nil, fmt.Errorf("resource description cannot contain virtual network")
 		}
 	}
-
-	// TODO: Something with the network profile? Need to understand the serviceCIDR
 
 	return aks, nil
 }

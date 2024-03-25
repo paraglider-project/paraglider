@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	compute "cloud.google.com/go/compute/apiv1"
@@ -88,7 +87,7 @@ func getFirewallRules(ctx context.Context, client *compute.FirewallsClient, proj
 	return firewallRules, nil
 }
 
-// Parse the resource URI and return information about the resource
+// Parse the resource URI and return information about the resource (such as project, zone, name, and type)
 func parseResourceUri(resourceUri string) (*ResourceInfo, error) {
 	parsedResourceId := parseGCPURL(resourceUri)
 	if name, ok := parsedResourceId["instances"]; ok {
@@ -100,6 +99,7 @@ func parseResourceUri(resourceUri string) (*ResourceInfo, error) {
 }
 
 // Gets network information about a resource and confirms it is in the correct namespace
+// Returns the subnet URI and resource ID (instance ID or cluster ID, not URI since this is used for firewall rule naming)
 func GetResourceInfo(ctx context.Context, instancesClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient, resourceInfo *ResourceInfo) (*string, *string, error) {
 	if resourceInfo.Namespace == "" {
 		return nil, nil, fmt.Errorf("namespace is empty")
@@ -183,6 +183,7 @@ type GCPInstance struct {
 }
 
 // Get network information about a GCP instance
+// Returns the network name, subnet URI, and instance ID converted to a string for rule naming
 func (r *GCPInstance) GetNetworkInfo(ctx context.Context, resourceInfo *ResourceInfo, client *compute.InstancesClient) (*ResourceNetworkInfo, error) {
 	instanceRequest := &computepb.GetInstanceRequest{
 		Instance: resourceInfo.Name,
@@ -200,6 +201,7 @@ func (r *GCPInstance) GetNetworkInfo(ctx context.Context, resourceInfo *Resource
 }
 
 // Create a GCP instance with network settings
+// Returns the instance URI and instance IP
 func (r *GCPInstance) CreateWithNetwork(ctx context.Context, instance *computepb.InsertInstanceRequest, subnetName string, resourceInfo *ResourceInfo, client *compute.InstancesClient) (string, string, error) {
 	// Configure network settings to Invisinets VPC and corresponding subnet
 	instance.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
@@ -236,7 +238,7 @@ func (r *GCPInstance) CreateWithNetwork(ctx context.Context, instance *computepb
 		Project:  resourceInfo.Project,
 		Zone:     resourceInfo.Zone,
 		TagsResource: &computepb.Tags{
-			Items:       append(getInstanceResp.Tags.Items, getNetworkTag(resourceInfo.Namespace, instanceTypeName, strconv.FormatUint(*getInstanceResp.Id, 16))), // TODO now: create a helper function for this ID conversion
+			Items:       append(getInstanceResp.Tags.Items, getNetworkTag(resourceInfo.Namespace, instanceTypeName, convertInstanceIdToString(*instance.InstanceResource.Id))),
 			Fingerprint: getInstanceResp.Tags.Fingerprint,
 		},
 	}
@@ -270,6 +272,7 @@ type GKE struct {
 }
 
 // Get network information about a GCP cluster
+// Returns the subnet URI and resource ID (cluster ID, not URI since this is used for firewall rule naming)
 func (r *GKE) GetNetworkInfo(ctx context.Context, resourceInfo *ResourceInfo, client *container.ClusterManagerClient) (*ResourceNetworkInfo, error) {
 	clusterRequest := &containerpb.GetClusterRequest{
 		Name: fmt.Sprintf(clusterNameFormat, resourceInfo.Project, resourceInfo.Zone, resourceInfo.Name),
@@ -282,9 +285,8 @@ func (r *GKE) GetNetworkInfo(ctx context.Context, resourceInfo *ResourceInfo, cl
 }
 
 // Create a GCP cluster with network settings
+// Returns the cluster URI and cluster CIDR
 func (r *GKE) CreateWithNetwork(ctx context.Context, cluster *containerpb.CreateClusterRequest, subnetName string, resourceInfo *ResourceInfo, client *container.ClusterManagerClient) (string, string, error) {
-	// Add subnet to the cluster description and provision
-	// Add tags to the cluster subnet?
 	// Configure network settings to Invisinets VPC and corresponding subnet
 	cluster.Cluster.Network = GetVpcUri(resourceInfo.Namespace)
 	cluster.Cluster.Subnetwork = "regions/" + resourceInfo.Region + "/subnetworks/" + subnetName
@@ -294,7 +296,6 @@ func (r *GKE) CreateWithNetwork(ctx context.Context, cluster *containerpb.Create
 	if err != nil {
 		return "", "", fmt.Errorf("unable to insert cluster: %w", err)
 	}
-	// TODO now: what to do with the cluster response?
 
 	// Add network tag which will be used by GCP firewall rules corresponding to Invisinets permit list rules
 	// The cluster is fetched again as the Id which is used to create the tag is only available after instance creation

@@ -578,7 +578,6 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 	return s._DeletePermitListRules(ctx, req, firewallsClient, instancesClient, clustersClient)
 }
 
-// TODO now: clusters should have their own subnets?
 func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient, clustersClient *container.ClusterManagerClient) (*invisinetspb.CreateResourceResponse, error) {
 	// Read and validate user-provided description
 	resourceInfo, err := IsValidResource(ctx, resourceDescription)

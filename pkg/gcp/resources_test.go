@@ -53,8 +53,7 @@ func TestParseResourceURI(t *testing.T) {
 }
 
 func TestGetFirewallRules(t *testing.T) {
-	// etFirewallRules(ctx context.Context, client *compute.FirewallsClient, project string, resourceID string) ([]*computepb.Firewall, error)
-	firewalls := []*computepb.Firewall{{Name: to.Ptr("firewall-1")}, {Name: to.Ptr("firewall-2")}} // TODO now: fix naming and find out if this is a get request or not
+	firewalls := []*computepb.Firewall{{Name: to.Ptr("firewall-1")}, {Name: to.Ptr("firewall-2")}}
 	fwMap := make(map[string]*computepb.Firewall)
 	for _, fw := range firewalls {
 		fwMap[*fw.Name] = fw
@@ -147,8 +146,6 @@ func TestIsValidResource(t *testing.T) {
 }
 
 func TestReadAndProvisionResource(t *testing.T) {
-	// ReadAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnetName string, resourceInfo *ResourceInfo, instanceClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient) (string, string, error)
-
 	// Test for instance
 	instanceRequest := &computepb.InsertInstanceRequest{
 		Project:          fakeProject,
@@ -167,11 +164,11 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	client := fakeClients.instancesClient
 
-	uri, _, err := ReadAndProvisionResource(ctx, resource, "subnet-1", resourceInfo, client, nil)
+	uri, ip, err := ReadAndProvisionResource(ctx, resource, "subnet-1", resourceInfo, client, nil)
 
 	require.NoError(t, err)
 	assert.Contains(t, uri, *instanceRequest.InstanceResource.Name)
-	// assert.Equal(t, ip, TODO now: fix this
+	assert.Equal(t, ip, *getFakeInstance(true).NetworkInterfaces[0].NetworkIP)
 
 	// Test for cluster
 	clusterRequest := &containerpb.CreateClusterRequest{
@@ -190,15 +187,14 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	fmt.Printf("Clusteroptions: %v\n", clusterClient.CallOptions.GetCluster)
 
-	uri, _, err = ReadAndProvisionResource(ctx, resource, "subnet-1", resourceInfo, nil, clusterClient)
+	uri, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", resourceInfo, nil, clusterClient)
 
 	require.NoError(t, err)
 	assert.Equal(t, getClusterUri(fakeProject, fakeZone, clusterRequest.Cluster.Name), uri)
-	// assert.Equal(t, ip, TODO now: fix this
+	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
 }
 
 func TestInstanceGetNetworkInfo(t *testing.T) {
-	// GetNetworkInfo(ctx context.Context, resourceInfo *ResourceInfo, client *compute.InstancesClient) (*ResourceNetworkInfo, error)
 	instanceHandler := &GCPInstance{}
 	resourceInfo := &ResourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeInstanceName, ResourceType: instanceTypeName}
 	instance := getFakeInstance(true)
@@ -234,7 +230,6 @@ func TestInstanceFromResourceDecription(t *testing.T) {
 }
 
 func TestInstanceCreateWithNetwork(t *testing.T) {
-	// CreateWithNetwork(ctx context.Context, instance *computepb.InsertInstanceRequest, subnetName string, resourceInfo *ResourceInfo, client *compute.InstancesClient) (string, string, error)
 	instanceHandler := &GCPInstance{}
 	subnet := "subnet-1"
 	instanceRequest := &computepb.InsertInstanceRequest{
@@ -249,11 +244,11 @@ func TestInstanceCreateWithNetwork(t *testing.T) {
 
 	client := fakeClients.instancesClient
 
-	uri, _, err := instanceHandler.CreateWithNetwork(ctx, instanceRequest, subnet, resourceInfo, client)
+	uri, ip, err := instanceHandler.CreateWithNetwork(ctx, instanceRequest, subnet, resourceInfo, client)
 
 	require.NoError(t, err)
 	assert.Contains(t, uri, *instanceRequest.InstanceResource.Name)
-	// assert.Equal(t, ip, TODO now: fix this
+	assert.Equal(t, ip, *getFakeInstance(true).NetworkInterfaces[0].NetworkIP)
 
 }
 
@@ -302,9 +297,9 @@ func TestGKECreateWithNetwork(t *testing.T) {
 
 	client := fakeClients.clusterClient
 
-	uri, _, err := clusterHandler.CreateWithNetwork(ctx, clusterRequest, subnet, resourceInfo, client)
+	uri, ip, err := clusterHandler.CreateWithNetwork(ctx, clusterRequest, subnet, resourceInfo, client)
 
 	require.NoError(t, err)
 	assert.Equal(t, getClusterUri(fakeProject, fakeZone, clusterRequest.Cluster.Name), uri)
-	// assert.Equal(t, ip, TODO now: fix this
+	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
 }

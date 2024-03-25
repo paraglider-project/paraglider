@@ -44,7 +44,7 @@ const (
 
 func getFakeInterface() armnetwork.Interface {
 	name := "nic-name"
-	id := "nic-id"
+	id := "nic-id/" + name
 	ipConfigName := "ip-config"
 	address := "address"
 	subnet := getFakeSubnet()
@@ -200,12 +200,14 @@ func setupMockFunctions(mockAzureHandler *MockAzureSDKHandler) (*armcompute.Virt
 	mockAzureHandler.On("GetResource", ctx, vmURI).Return(&fakeVMGeneric, nil)
 	mockAzureHandler.On("GetResource", ctx, aksURI).Return(&fakeAKSGeneric, nil)
 	mockAzureHandler.On("GetResource", ctx, badResourceID).Return(nil, errors.New("Resource with ID is not found"))
-	mockAzureHandler.On("GetNetworkInterface", ctx, *fakeNIC.ID).Return(&fakeNIC, nil)
+	mockAzureHandler.On("GetLastSegment", *fakeNIC.ID).Return(*fakeNIC.Name, nil)
+	mockAzureHandler.On("GetNetworkInterface", ctx, *fakeNIC.Name).Return(&fakeNIC, nil)
 	mockAzureHandler.On("GetSecurityGroup", ctx, *fakeNSG.Name).Return(&fakeNSG, nil) // TODO: have this depend on the security group ID?
 	mockAzureHandler.On("GetSubnetByID", ctx, *fakeSubnet.ID).Return(&fakeSubnet, nil)
 	mockAzureHandler.On("CreateNetworkInterface", ctx, *fakeSubnet.ID, *fakeVm.Location, mock.Anything).Return(&fakeNIC, nil)
 	mockAzureHandler.On("CreateVirtualMachine", ctx, mock.Anything, *fakeVm.Name).Return(&fakeVm, nil)
-	mockAzureHandler.On("GetNetworkInterface", ctx, *fakeNIC.ID).Return(&fakeNIC, nil)
+	mockAzureHandler.On("GetLastSegment", *fakeNIC.ID).Return(*fakeNIC.Name, nil)
+	mockAzureHandler.On("GetNetworkInterface", ctx, *fakeNIC.Name).Return(&fakeNIC, nil)
 	mockAzureHandler.On("CreateAKSCluster", ctx, mock.Anything, *fakeCluster.Name).Return(&fakeCluster, nil)
 	return &fakeVm, &fakeCluster
 }

@@ -30,46 +30,6 @@ import (
 
 /* ---- Mock SDK Handler ---- */
 
-/*
-type AzureSDKHandler interface {
-	InitializeClients(cred azcore.TokenCredential) error
-	GetAzureCredentials() (azcore.TokenCredential, error)
-	GetNetworkInterface(ctx context.Context, nicName string) (*armnetwork.Interface, error)
-	GetResource(ctx context.Context, resourceID string) (*armresources.GenericResource, error)
-	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
-	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
-	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error)
-	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error)
-	CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error)
-	GetVirtualNetwork(ctx context.Context, name string) (*armnetwork.VirtualNetwork, error)
-	CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error)
-	CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error)
-	GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string]string, error)
-	CreateOrUpdateVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string, parameters armnetwork.VirtualNetworkPeering) (*armnetwork.VirtualNetworkPeering, error)
-	GetVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string) (*armnetwork.VirtualNetworkPeering, error)
-	ListVirtualNetworkPeerings(ctx context.Context, virtualNetworkName string) ([]*armnetwork.VirtualNetworkPeering, error)
-	CreateVnetPeering(ctx context.Context, vnet1Name string, vnet2Name string) error
-	CreateOrUpdateVnetPeeringRemoteGateway(ctx context.Context, vnetName string, gatewayVnetName string, vnetToGatewayVnetPeering *armnetwork.VirtualNetworkPeering, gatewayVnetToVnetPeering *armnetwork.VirtualNetworkPeering) error
-	GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error)
-	GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error)
-	GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error)
-	GetLastSegment(resourceID string) (string, error)
-	SetSubIdAndResourceGroup(subID string, resourceGroupName string)
-	CreateOrUpdateVirtualNetworkGateway(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGateway) (*armnetwork.VirtualNetworkGateway, error)
-	GetVirtualNetworkGateway(ctx context.Context, name string) (*armnetwork.VirtualNetworkGateway, error)
-	CreatePublicIPAddress(ctx context.Context, name string, parameters armnetwork.PublicIPAddress) (*armnetwork.PublicIPAddress, error)
-	GetPublicIPAddress(ctx context.Context, name string) (*armnetwork.PublicIPAddress, error)
-	CreateSubnet(ctx context.Context, virtualNetworkName string, subnetName string, parameters armnetwork.Subnet) (*armnetwork.Subnet, error)
-	GetSubnet(ctx context.Context, virtualNetworkName string, subnetName string) (*armnetwork.Subnet, error)
-	GetSubnetByID(ctx context.Context, subnetID string) (*armnetwork.Subnet, error)
-	CreateLocalNetworkGateway(ctx context.Context, name string, parameters armnetwork.LocalNetworkGateway) (*armnetwork.LocalNetworkGateway, error)
-	GetLocalNetworkGateway(ctx context.Context, name string) (*armnetwork.LocalNetworkGateway, error)
-	CreateVirtualNetworkGatewayConnection(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGatewayConnection) (*armnetwork.VirtualNetworkGatewayConnection, error)
-	GetVirtualNetworkGatewayConnection(ctx context.Context, name string) (*armnetwork.VirtualNetworkGatewayConnection, error)
-	CreateAKSCluster(ctx context.Context, parameters armcontainerservice.ManagedCluster, clusterName string) (*armcontainerservice.ManagedCluster, error)
-}
-*/
-
 type MockAzureSDKHandler struct {
 	mock.Mock
 }
