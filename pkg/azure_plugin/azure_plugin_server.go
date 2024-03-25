@@ -281,7 +281,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 	}
 
 	// Create the resource
-	ip, err := ReadAndProvisionResource(ctx, resourceDesc, invisinetsVnet.Properties.Subnets[0], &resourceIdInfo, s.azureHandler)
+	ip, err := ReadAndProvisionResource(ctx, resourceDesc, invisinetsVnet.Properties.Subnets[0], &resourceIdInfo, s.azureHandler) // TODO @smcclure20: if this is a cluster, we should provision its own new subnet
 	if err != nil {
 		utils.Log.Printf("An error occured while creating resource:%+v", err)
 		return nil, err

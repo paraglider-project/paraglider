@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
+	containerpb "cloud.google.com/go/container/apiv1/containerpb"
 	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/NetSys/invisinets/pkg/orchestrator"
@@ -308,6 +309,36 @@ func TestCreateResource(t *testing.T) {
 		Project:          fakeProject,
 		Zone:             fakeZone,
 		InstanceResource: getFakeInstance(false),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource := &invisinetspb.ResourceDescription{Description: description, Namespace: fakeNamespace}
+
+	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient, fakeClients.clusterClient)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+}
+
+func TestCreateResourceCluster(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		cluster: getFakeCluster(true), // Include cluster in server state since CreateResource will fetch after creating to add the tag
+		network: &computepb.Network{
+			Name:        proto.String(getVpcName(fakeNamespace)),
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
+		},
+	}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
+	description, err := json.Marshal(&containerpb.CreateClusterRequest{
+		Cluster: getFakeCluster(false),
+		Parent:  fmt.Sprintf("projects/%s/locations/%s", fakeProject, fakeZone),
 	})
 	if err != nil {
 		t.Fatal(err)

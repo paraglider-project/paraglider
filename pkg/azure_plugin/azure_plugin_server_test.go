@@ -30,6 +30,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
@@ -66,7 +67,7 @@ func setupAzurePluginServer() (*azurePluginServer, *MockAzureSDKHandler, context
 	return server, concreteMockAzureHandler, context.Background()
 }
 
-func getValidResourceDesc() (armcompute.VirtualMachine, []byte, error) {
+func getValidVMDescription() (armcompute.VirtualMachine, []byte, error) {
 	validVm := &armcompute.VirtualMachine{
 		ID:         to.Ptr("vm-id"),
 		Name:       to.Ptr("vm-name"),
@@ -78,6 +79,18 @@ func getValidResourceDesc() (armcompute.VirtualMachine, []byte, error) {
 	return *validVm, validDescripton, err
 }
 
+func getValidClusterDescription() (armcontainerservice.ManagedCluster, []byte, error) {
+	validCluster := &armcontainerservice.ManagedCluster{
+		ID:         to.Ptr("cluster-id"),
+		Name:       to.Ptr("cluster-name"),
+		Location:   to.Ptr(testLocation),
+		Properties: &armcontainerservice.ManagedClusterProperties{},
+	}
+
+	validDescripton, err := json.Marshal(validCluster)
+	return *validCluster, validDescripton, err
+}
+
 /* ---- Tests ---- */
 
 func TestCreateResource(t *testing.T) {
@@ -87,7 +100,7 @@ func TestCreateResource(t *testing.T) {
 	vnetName := getVnetName(testLocation, namespace)
 	t.Run("TestCreateResource: Success", func(t *testing.T) {
 		// we need to recreate it for each test as it will be modified to include network interface
-		vm, desc, err := getValidResourceDesc()
+		vm, desc, err := getValidVMDescription()
 		if err != nil {
 			t.Errorf("Error while creating valid resource description: %v", err)
 		}
@@ -184,6 +197,55 @@ func TestCreateResource(t *testing.T) {
 
 		require.Error(t, err)
 		require.Nil(t, response)
+	})
+
+	t.Run("TestCreateResource: Success Cluster Creation", func(t *testing.T) {
+		// we need to recreate it for each test as it will be modified to include network interface
+		cluster, desc, err := getValidClusterDescription()
+		if err != nil {
+			t.Errorf("Error while creating valid resource description: %v", err)
+		}
+
+		server, mockAzureHandler, ctx := setupAzurePluginServer()
+
+		// Set up mock behavior for the Azure SDK handler
+		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
+		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
+		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
+		mockAzureHandler.On("GetInvisinetsVnet", ctx, vnetName, testLocation, namespace, server.orchestratorServerAddr).Return(&armnetwork.VirtualNetwork{
+			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+				Subnets: []*armnetwork.Subnet{
+					{
+						Name:       to.Ptr(defaultSubnetName),
+						ID:         to.Ptr(defaultSubnetID),
+						Properties: &armnetwork.SubnetPropertiesFormat{AddressPrefix: to.Ptr("1.1.1.1/1")},
+					},
+				},
+			},
+		}, nil)
+		mockAzureHandler.On("CreateAKSCluster", ctx, cluster, mock.Anything).Return(&cluster, nil)
+		vpnGwVnetName := getVpnGatewayVnetName(namespace)
+		mockAzureHandler.On("GetVirtualNetwork", ctx, vpnGwVnetName).Return(&armnetwork.VirtualNetwork{}, nil)
+		mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(namespace)).Return(&armnetwork.VirtualNetworkGateway{}, nil)
+		mockAzureHandler.On("GetVirtualNetworkPeering", ctx, vnetName, vpnGwVnetName).Return(nil, &azcore.ResponseError{StatusCode: http.StatusNotFound})
+		mockAzureHandler.On("CreateOrUpdateVnetPeeringRemoteGateway", ctx, vnetName, vpnGwVnetName, (*armnetwork.VirtualNetworkPeering)(nil), (*armnetwork.VirtualNetworkPeering)(nil)).Return(nil)
+
+		cluster.Properties = &armcontainerservice.ManagedClusterProperties{
+			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
+				{
+					VnetSubnetID: to.Ptr(defaultSubnetID),
+				},
+			},
+		}
+
+		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
+			Description: desc,
+			Id:          getFakeClusterUri(),
+			Namespace:   namespace,
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, response)
 	})
 }
 
@@ -856,6 +918,10 @@ func TestCreateVpnConnections(t *testing.T) {
 
 func getFakeVmUri() string {
 	return "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/vm123"
+}
+
+func getFakeClusterUri() string {
+	return "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.ContainerService/managedClusters/cluster123"
 }
 
 func getFakeNewPermitListRules() ([]*invisinetspb.PermitListRule, error) {

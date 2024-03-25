@@ -585,7 +585,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	if err != nil {
 		return nil, fmt.Errorf("unsupported resource description: %w", err)
 	}
-
+	fmt.Println("ResourceInfo: ", resourceInfo)
 	project, zone := resourceInfo.Project, resourceInfo.Zone
 	region := zone[:strings.LastIndex(zone, "-")]
 	resourceInfo.Region = region

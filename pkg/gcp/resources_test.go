@@ -72,8 +72,8 @@ func TestGetFirewallRules(t *testing.T) {
 	expectedFwNames := []string{"firewall-1", "firewall-2"}
 
 	require.NoError(t, err)
-	assert.Contains(t, expectedFwNames, firewallRules[0].Name)
-	assert.Contains(t, expectedFwNames, firewallRules[1].Name)
+	assert.Contains(t, expectedFwNames, *firewallRules[0].Name)
+	assert.Contains(t, expectedFwNames, *firewallRules[1].Name)
 }
 
 func TestGetResourceInfo(t *testing.T) {
