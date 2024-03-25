@@ -188,7 +188,6 @@ func getFakeResourceInfo(name string) ResourceIDInfo {
 }
 
 func setupMockFunctions(mockAzureHandler *MockAzureSDKHandler) (*armcompute.VirtualMachine, *armcontainerservice.ManagedCluster) {
-	// TODO: Make these variables actually exist
 	fakeNIC := getFakeInterface()
 	fakeNSG := getFakeNSG()
 	fakeSubnet := getFakeSubnet()

@@ -189,7 +189,6 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
 			return
 		}
-		fmt.Println("request: ", r.Method, path)
 		switch {
 		// Instances
 		case path == urlProject+urlZone+urlInstance+"/getEffectiveFirewalls":
@@ -352,7 +351,6 @@ type fakeClusterManagerServer struct {
 }
 
 func (f *fakeClusterManagerServer) GetCluster(ctx context.Context, req *containerpb.GetClusterRequest) (*containerpb.Cluster, error) {
-	fmt.Printf("Request name: %v, fakeClusterName: %v\n", req.Name, fakeClusterName)
 	if strings.Contains(req.Name, fakeClusterName) {
 		return getFakeCluster(true), nil
 	}

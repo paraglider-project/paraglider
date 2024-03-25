@@ -122,8 +122,6 @@ func GetResourceInfo(ctx context.Context, instancesClient *compute.InstancesClie
 	} else {
 		return nil, nil, fmt.Errorf("unknown resource type")
 	}
-	fmt.Printf("Network name: %v\n", netInfo.NetworkName)
-	fmt.Printf("Namespace: %v\n", resourceInfo.Namespace)
 	if !resourceIsInNamespace(netInfo.NetworkName, resourceInfo.Namespace) {
 		return nil, nil, fmt.Errorf("instance is not in namespace")
 	}
@@ -228,7 +226,7 @@ func (r *GCPInstance) CreateWithNetwork(ctx context.Context, instance *computepb
 		Project:  resourceInfo.Project,
 		Zone:     resourceInfo.Zone,
 	}
-	fmt.Printf("Gets instance request: %v\n", getInstanceReq)
+
 	getInstanceResp, err := client.Get(ctx, getInstanceReq)
 	if err != nil {
 		return "", "", fmt.Errorf("unable to get instance: %w", err)

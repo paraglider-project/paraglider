@@ -185,8 +185,6 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	clusterClient := fakeClients.clusterClient
 
-	fmt.Printf("Clusteroptions: %v\n", clusterClient.CallOptions.GetCluster)
-
 	uri, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", resourceInfo, nil, clusterClient)
 
 	require.NoError(t, err)

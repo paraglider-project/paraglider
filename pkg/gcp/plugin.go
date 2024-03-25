@@ -277,7 +277,6 @@ func parseDescriptionTags(description string) []string {
 }
 
 func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.GetPermitListRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, clustersClient *container.ClusterManagerClient) (*invisinetspb.GetPermitListResponse, error) {
-	fmt.Println("Resource: ", req.Resource)
 	resourceInfo, err := parseResourceUri(req.Resource)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource URI: %w", err)
@@ -584,7 +583,6 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	if err != nil {
 		return nil, fmt.Errorf("unsupported resource description: %w", err)
 	}
-	fmt.Println("ResourceInfo: ", resourceInfo)
 	project, zone := resourceInfo.Project, resourceInfo.Zone
 	region := zone[:strings.LastIndex(zone, "-")]
 	resourceInfo.Region = region
