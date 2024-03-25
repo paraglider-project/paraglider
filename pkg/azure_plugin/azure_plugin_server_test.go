@@ -224,6 +224,8 @@ func TestCreateResource(t *testing.T) {
 				},
 			},
 		}, nil)
+		subnet := getFakeSubnet()
+		mockAzureHandler.On("AddSubnetToInvisinetsVnet", ctx, namespace, vnetName, mock.Anything, server.orchestratorServerAddr).Return(&subnet, nil)
 		mockAzureHandler.On("CreateAKSCluster", ctx, cluster, mock.Anything).Return(&cluster, nil)
 		vpnGwVnetName := getVpnGatewayVnetName(namespace)
 		mockAzureHandler.On("GetVirtualNetwork", ctx, vpnGwVnetName).Return(&armnetwork.VirtualNetwork{}, nil)

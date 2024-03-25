@@ -43,6 +43,13 @@ type ResourceNetworkInfo struct {
 	NSG      *armnetwork.SecurityGroup
 }
 
+type ResourceInfo struct {
+	ResourceName   string
+	ResourceID     string
+	Location       string
+	RequiresSubnet bool
+}
+
 // Gets the resource and returns relevant networking state. Also checks that the resource is in the correct namespace.
 func GetAndCheckResourceState(c context.Context, handler AzureSDKHandler, resourceID string, namespace string) (*ResourceNetworkInfo, error) {
 	// Check the namespace
@@ -99,24 +106,24 @@ func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, reso
 }
 
 // Gets basic resource information from the description
-// Returns the resource name, ID, and location
-func GetResourceInfoFromResourceDesc(ctx context.Context, resource *invisinetspb.ResourceDescription) (*string, *string, *string, error) {
+// Returns the resource name, ID, location, and whether the resource will require its own subnet in a struct
+func GetResourceInfoFromResourceDesc(ctx context.Context, resource *invisinetspb.ResourceDescription) (*ResourceInfo, error) {
 	if strings.Contains(resource.Id, "virtualMachines") {
 		handler := &AzureVM{}
 		vm, err := handler.FromResourceDecription(resource.Description)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
-		return vm.Name, vm.ID, vm.Location, nil
+		return &ResourceInfo{ResourceName: *vm.Name, ResourceID: *vm.ID, Location: *vm.Location, RequiresSubnet: false}, nil
 	} else if strings.Contains(resource.Id, "managedClusters") {
 		handler := &AzureAKS{}
 		aks, err := handler.FromResourceDecription(resource.Description)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
-		return aks.Name, aks.ID, aks.Location, nil
+		return &ResourceInfo{ResourceName: *aks.Name, ResourceID: *aks.ID, Location: *aks.Location, RequiresSubnet: true}, nil
 	} else {
-		return nil, nil, nil, fmt.Errorf("resource description contains unknown Azure resource")
+		return nil, fmt.Errorf("resource description contains unknown Azure resource")
 	}
 }
 

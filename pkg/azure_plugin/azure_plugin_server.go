@@ -256,7 +256,7 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *invisi
 // which means the resource should be added to a valid invisinets network, the attachement to an invisinets network
 // is determined by the resource's location.
 func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
-	name, id, location, err := GetResourceInfoFromResourceDesc(ctx, resourceDesc)
+	resourceDescInfo, err := GetResourceInfoFromResourceDesc(ctx, resourceDesc)
 	if err != nil {
 		utils.Log.Printf("Resource description is invalid:%+v", err)
 		return nil, err
@@ -273,15 +273,25 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		return nil, err
 	}
 
-	vnetName := getVnetName(*location, resourceDesc.Namespace)
-	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, vnetName, *location, resourceDesc.Namespace, s.orchestratorServerAddr)
+	vnetName := getVnetName(resourceDescInfo.Location, resourceDesc.Namespace)
+	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, vnetName, resourceDescInfo.Location, resourceDesc.Namespace, s.orchestratorServerAddr)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
 		return nil, err
 	}
 
+	subnet := invisinetsVnet.Properties.Subnets[0]
+	if resourceDescInfo.RequiresSubnet {
+		// Create subnet
+		subnet, err = s.azureHandler.AddSubnetToInvisinetsVnet(ctx, resourceDesc.Namespace, vnetName, getSubnetName(resourceDescInfo.ResourceName), s.orchestratorServerAddr)
+		if err != nil {
+			utils.Log.Printf("An error occured while creating subnet:%+v", err)
+			return nil, err
+		}
+	}
+
 	// Create the resource
-	ip, err := ReadAndProvisionResource(ctx, resourceDesc, invisinetsVnet.Properties.Subnets[0], &resourceIdInfo, s.azureHandler) // TODO @smcclure20: if this is a cluster, we should provision its own new subnet
+	ip, err := ReadAndProvisionResource(ctx, resourceDesc, subnet, &resourceIdInfo, s.azureHandler)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating resource:%+v", err)
 		return nil, err
@@ -358,7 +368,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		}
 	}
 
-	return &invisinetspb.CreateResourceResponse{Name: *name, Uri: *id, Ip: ip}, nil
+	return &invisinetspb.CreateResourceResponse{Name: *&resourceDescInfo.ResourceName, Uri: *&resourceDescInfo.ResourceID, Ip: ip}, nil
 }
 
 // GetUsedAddressSpaces returns the address spaces used by invisinets which are the address spaces of the invisinets vnets
@@ -586,6 +596,10 @@ func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceV
 		// so the multicloud setup could be checked/achieved here
 	}
 	return nil
+}
+
+func getSubnetName(resourceName string) string {
+	return resourceName + "-subnet"
 }
 
 func getInvisinetsNamespacePrefix(namespace string) string {

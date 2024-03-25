@@ -468,6 +468,32 @@ func TestGetInvisinetsVnet(t *testing.T) {
 	})
 }
 
+func TestAddSubnetToInvisinetsVnet(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	once.Do(setup)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test case: Success, subnet added
+	t.Run("AddSubnetInvisinetsVnet: Success", func(t *testing.T) {
+		subnet, err := azureSDKHandlerTest.AddSubnetToInvisinetsVnet(ctx, "namespace", validVnetName, validSubnetName, fakeOrchestratorServerAddr)
+		require.NoError(t, err)
+		require.NotNil(t, subnet)
+	})
+
+	// Test case: Failure, error when getting new address space
+	t.Run("AddSubnetInvisinetsVnet: Failure, error when getting address spaces", func(t *testing.T) {
+		subnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, "namespace", validVnetName, validSubnetName, "bad address")
+		require.Error(t, err)
+		require.Nil(t, subnet)
+	})
+}
+
 func TestCreateNetworkInterface(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
 	once.Do(setup)

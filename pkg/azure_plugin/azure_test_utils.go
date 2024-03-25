@@ -115,6 +115,15 @@ func (m *MockAzureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context
 	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
 }
 
+func (m *MockAzureSDKHandler) AddSubnetToInvisinetsVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error) {
+	args := m.Called(ctx, namespace, vnetName, subnetName, orchestratorAddr)
+	subnet := args.Get(0)
+	if subnet == nil {
+		return nil, args.Error(1)
+	}
+	return subnet.(*armnetwork.Subnet), args.Error(1)
+}
+
 func (m *MockAzureSDKHandler) CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error) {
 	args := m.Called(ctx, name, parameters)
 	vnet := args.Get(0)

@@ -46,6 +46,7 @@ type AzureSDKHandler interface {
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
 	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error)
+	AddSubnetToInvisinetsVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error)
 	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error)
 	CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error)
 	GetVirtualNetwork(ctx context.Context, name string) (*armnetwork.VirtualNetwork, error)
@@ -501,6 +502,32 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 	}
 
 	return &res.VirtualNetwork, nil
+}
+
+// AddSubnetToInvisinetsVnet adds a subnet to an invisinets vnet
+func (h *azureSDKHandler) AddSubnetToInvisinetsVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error) {
+	// Get a new address space
+	conn, err := grpc.Dial(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		utils.Log.Printf("could not dial the orchestrator")
+		return nil, err
+	}
+	defer conn.Close()
+
+	client := invisinetspb.NewControllerClient(conn)
+	response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: namespace})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the subnet
+	subnet, err := h.CreateSubnet(ctx, vnetName, subnetName, armnetwork.Subnet{
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: to.Ptr(response.Address),
+		},
+	})
+	return subnet, err
 }
 
 // CreateInvisinetsVirtualNetwork creates a new invisinets virtual network with a default subnet with the same address
