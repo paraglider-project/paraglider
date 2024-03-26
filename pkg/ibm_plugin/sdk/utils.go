@@ -38,6 +38,7 @@ const (
 	SG TaggedResourceType = "security-group"
 	// transit gateway for vpc-peering
 	GATEWAY TaggedResourceType = "gateway"
+	VPN     TaggedResourceType = "vpn"
 
 	credentialsPath = ".ibm/credentials.yaml"
 	publicSSHKey    = ".ibm/keys/invisinets-key.pub"
@@ -128,4 +129,3 @@ func IsCIDRSubset(cidr1, cidr2 string) (bool, error) {
 	// fewer bits are left for user address space.
 	return netCidr2.Contains(firstIP1) && maskSize1 >= maskSize2, nil
 }
-

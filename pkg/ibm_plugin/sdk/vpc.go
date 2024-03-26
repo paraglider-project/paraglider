@@ -19,24 +19,20 @@ package ibm
 import (
 	"fmt"
 
+	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
-const vpcType = "vpc"
-
 // CreateVPC creates an Invisinets VPC for a region resources are tagged.
 func (c *CloudClient) CreateVPC(tags []string) (*vpcv1.VPC, error) {
-	var prefixManagement string
-
-	vpcName := GenerateResourceName(vpcType)
 
 	// Prefix Management is done when subnet are created separately
-	prefixManagement = vpcv1.CreateVPCOptionsAddressPrefixManagementManualConst
+	prefixManagement := vpcv1.CreateVPCOptionsAddressPrefixManagementManualConst
 
 	options := vpcv1.CreateVPCOptions{
-		Name:                    &vpcName,
+		Name:                    core.StringPtr(GenerateResourceName(string(VPC))),
 		ResourceGroup:           c.resourceGroup,
 		AddressPrefixManagement: &prefixManagement,
 	}
