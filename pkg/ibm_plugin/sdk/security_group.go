@@ -312,16 +312,10 @@ func (c *CloudClient) translateRuleProtocol(rule SecurityGroupRule) (vpcv1.Secur
 			Remote:    remotePrototype,
 		}
 	case "icmp":
-		if rule.IcmpType != -1 && rule.IcmpCode != -1 {
-			return nil, fmt.Errorf(`invisinets permitlist rule doesn't support 
-				icmp with specific codes and types`)
-		}
-
+		// NOTE invisinets permitlist rule doesn't support ICMP with specific codes and types
 		prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp{
 			Direction: direction,
 			Protocol:  core.StringPtr("icmp"),
-			Type:      &rule.IcmpType,
-			Code:      &rule.IcmpCode,
 			Remote:    remotePrototype,
 		}
 	}
