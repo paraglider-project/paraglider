@@ -1091,10 +1091,11 @@ func mockGetSecurityGroupSetup(mockAzureHandler *MockAzureSDKHandler, ctx contex
 	if fakeNsg == nil {
 		nsgErr = fmt.Errorf("error while getting NSG")
 	}
-	fakeResource := getGenericResourceVM(associatedResrouce, fakeNic.ID)
+	nicId := validNicId
+	fakeResource := getGenericResourceVM(associatedResrouce, &nicId)
 	mockAzureHandler.On("GetResource", ctx, associatedResrouce).Return(&fakeResource, nil)
-	mockAzureHandler.On("GetLastSegment", *fakeNic.ID).Return(*fakeNic.Name, nil)
-	mockAzureHandler.On("GetNetworkInterface", ctx, *fakeNic.Name).Return(fakeNic, nicErr)
+	mockAzureHandler.On("GetLastSegment", validNicId).Return(validNicName, nil)
+	mockAzureHandler.On("GetNetworkInterface", ctx, validNicName).Return(fakeNic, nicErr)
 	mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nsgErr)
 }
 

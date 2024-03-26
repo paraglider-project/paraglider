@@ -36,10 +36,6 @@ const (
 	clusterNameFormat = "projects/%s/locations/%s/clusters/%s"
 )
 
-var (
-	supportedResourceTypes = map[string]bool{clusterTypeName: true, instanceTypeName: true}
-)
-
 type ResourceInfo struct {
 	Name         string
 	Project      string

@@ -556,7 +556,10 @@ func (h *azureSDKHandler) AddSubnetToInvisinetsVnet(ctx context.Context, namespa
 		return nil, err
 	}
 	vnet.Properties.AddressSpace.AddressPrefixes = append(vnet.Properties.AddressSpace.AddressPrefixes, to.Ptr(response.Address))
-	h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vnetName, *vnet, nil)
+	_, err = h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vnetName, *vnet, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	// Create the subnet
 	subnet, err := h.CreateSubnet(ctx, vnetName, subnetName, armnetwork.Subnet{

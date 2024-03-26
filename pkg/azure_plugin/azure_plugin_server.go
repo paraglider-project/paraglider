@@ -366,7 +366,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		}
 	}
 
-	return &invisinetspb.CreateResourceResponse{Name: *&resourceDescInfo.ResourceName, Uri: *&resourceDescInfo.ResourceID, Ip: ip}, nil
+	return &invisinetspb.CreateResourceResponse{Name: resourceDescInfo.ResourceName, Uri: resourceDescInfo.ResourceID, Ip: ip}, nil
 }
 
 // GetUsedAddressSpaces returns the address spaces used by invisinets which are the address spaces of the invisinets vnets
@@ -446,33 +446,6 @@ func (s *azurePluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, re
 		resp.IpAddresses[i] = *bgpPeeringAddress.CustomBgpIPAddresses[0]
 	}
 	return resp, nil
-}
-
-// getNSG returns the network security group object given the resource NIC
-func (s *azurePluginServer) getNSG(ctx context.Context, nic *armnetwork.Interface, resourceID string) (*armnetwork.SecurityGroup, error) {
-	var nsg *armnetwork.SecurityGroup
-	if nic.Properties.NetworkSecurityGroup != nil {
-		nsg = nic.Properties.NetworkSecurityGroup
-
-		// nic.Properties.NetworkSecurityGroup returns an nsg obj with only the ID and other fields are nil
-		// so this way we need to get the nsg object from the ID using nsgClient
-		nsgID := *nsg.ID
-		nsgName, err := s.azureHandler.GetLastSegment(nsgID)
-		if err != nil {
-			utils.Log.Printf("An error occured while getting NSG name for resource %s: %+v", resourceID, err)
-			return nil, err
-		}
-
-		nsg, err = s.azureHandler.GetSecurityGroup(ctx, nsgName)
-		if err != nil {
-			utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
-			return nil, err
-		}
-	} else {
-		// TODO @nnomier: should we handle this in another way?
-		return nil, fmt.Errorf("resource %s does not have a default network security group", resourceID)
-	}
-	return nsg, nil
 }
 
 // Extract the Vnet name from the subnet ID

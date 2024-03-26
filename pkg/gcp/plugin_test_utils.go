@@ -34,6 +34,7 @@ import (
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -67,7 +68,6 @@ var (
 	urlZone     = "/zones/" + fakeZone
 	urlRegion   = "/regions/" + fakeRegion
 	urlInstance = "/instances/" + fakeInstanceName
-	urlCluster  = "/v1/projects/" + fakeProject + "/zones/" + fakeRegion + "/clusters/"
 )
 
 // Fake firewalls and permitlists
@@ -327,19 +327,6 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponseDoneOperation(w)
 				return
 			}
-			// // Clusters
-			// case strings.HasPrefix(path, urlCluster):
-			// 	if r.Method == "GET" {
-			// 		if fakeServerState.cluster != nil {
-			// 			sendResponse(w, fakeServerState.cluster)
-			// 		} else {
-			// 			http.Error(w, "no cluster found", http.StatusNotFound)
-			// 		}
-			// 		return
-			// 	} else if r.Method == "POST" {
-			// 		sendResponseFakeOperation(w)
-			// 		return
-			// 	}
 		}
 		fmt.Printf("unsupported request: %s %s\n", r.Method, path)
 		http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
@@ -451,7 +438,7 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 		}
 	}()
 
-	clusterClientOptions := []option.ClientOption{option.WithoutAuthentication(), option.WithEndpoint(serverAddr), option.WithGRPCDialOption(grpc.WithInsecure())}
+	clusterClientOptions := []option.ClientOption{option.WithoutAuthentication(), option.WithEndpoint(serverAddr), option.WithGRPCDialOption(grpc.WithTransportCredentials(insecure.NewCredentials()))}
 	fakeClients.clusterClient, err = container.NewClusterManagerClient(ctx, clusterClientOptions...)
 	if err != nil {
 		t.Fatal(err)

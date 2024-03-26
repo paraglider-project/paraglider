@@ -689,6 +689,9 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 
 	// Read and provision the resource
 	uri, ip, err := ReadAndProvisionResource(ctx, resourceDescription, subnetName, resourceInfo, instancesClient, clustersClient)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read and provision resource: %w", err)
+	}
 
 	return &invisinetspb.CreateResourceResponse{Name: resourceInfo.Name, Uri: uri, Ip: ip}, nil
 }
