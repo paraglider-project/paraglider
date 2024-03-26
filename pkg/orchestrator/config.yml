@@ -12,7 +12,7 @@ namespaces:
   default:
     cloudDeployments:
       - name: "azure"
-        deployment: "/subscriptions/4ba880a9-fe39-4105-98e1-909297ff5bb8/resourceGroups/invisinets-demo"
+        deployment: "/subscriptions/sub-id/resourceGroups/invisinets-demo"
 
 tagService:
   host: "localhost"
