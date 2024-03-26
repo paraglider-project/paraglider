@@ -39,6 +39,7 @@ const (
 	SG TaggedResourceType = "security-group"
 	// transit gateway for vpc-peering
 	GATEWAY TaggedResourceType = "gateway"
+	VPN     TaggedResourceType = "vpn"
 
 	credentialsPath = ".ibm/credentials.yaml"
 	publicSSHKey    = ".ibm/keys/paraglider-key.pub"

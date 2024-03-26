@@ -42,7 +42,7 @@ func (c *CloudClient) CreateVPC(tags []string, exclusive bool) (*vpcv1.VPC, erro
 	prefixManagement = vpcv1.CreateVPCOptionsAddressPrefixManagementManualConst
 
 	options := vpcv1.CreateVPCOptions{
-		Name:                    &vpcName,
+		Name:                   &vpcName,
 		ResourceGroup:           c.resourceGroup,
 		AddressPrefixManagement: &prefixManagement,
 	}

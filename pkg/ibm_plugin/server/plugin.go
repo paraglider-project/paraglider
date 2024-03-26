@@ -530,6 +530,108 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 	return &paragliderpb.DeletePermitListRulesResponse{}, nil
 }
 
+func (s *ibmPluginServer) CreateVpnGateway(ctx context.Context, req *invisinetspb.CreateVpnGatewayRequest) (*invisinetspb.CreateVpnGatewayResponse, error) {
+	rInfo, err := getResourceIDInfo(req.Deployment.Id)
+	if err != nil {
+		return nil, err
+	}
+	region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
+	if err != nil {
+		return nil, err
+	}
+	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupName, region)
+	if err != nil {
+		return nil, err
+	}
+	ipAddresses, err := cloudClient.CreateRouteBasedVPN(req.Deployment.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return &invisinetspb.CreateVpnGatewayResponse{GatewayIpAddresses: ipAddresses}, nil
+}
+
+// creates VPN connection
+func (s *ibmPluginServer) CreateVpnConnections(ctx context.Context, req *invisinetspb.CreateVpnConnectionsRequest) (*invisinetspb.BasicResponse, error) {
+	rInfo, err := getResourceIDInfo(req.Deployment.Id)
+	if err != nil {
+		return nil, err
+	}
+	region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
+	if err != nil {
+		return nil, err
+	}
+	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupName, region)
+	if err != nil {
+		return nil, err
+	}
+	// get VPN in the namespace and region
+	vpns, err := cloudClient.GetVPNsInNamespaceRegion(req.Deployment.Namespace, region)
+	if err != nil {
+		return nil, err
+	}
+
+	// if vpn doesn't exist before invoking this method return an error
+	// needless to check [vpn instances>1] case, since GetVPNInNamespaceRegion is filtered by region,
+	// 		and implementation guarantees one VPN per namespace and region.
+	if len(vpns) == 0 {
+		return nil, fmt.Errorf("No vpn found in namespace %v and region %v", req.Deployment.Namespace, region)
+	}
+	vpn := vpns[0]
+
+	for _, peerVPNIPAddress := range req.GatewayIpAddresses {
+		// TODO (@cohen-j-omer) REMOVE once destinationCIDR is added to API.
+		// data is mandatory to create routes that redirect egress to destinationCIDR through the VPN connection
+		destinationCIDR := strings.Replace(rInfo.ResourceID, "-", "/", 1)
+		err := cloudClient.CreateVPNConnectionRouteBased(vpn.ID, peerVPNIPAddress, req.SharedKey, destinationCIDR)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &invisinetspb.BasicResponse{Success: true}, nil
+}
+
+// returns IP addresses of VPNs referenced in request
+func (s *ibmPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *invisinetspb.GetUsedBgpPeeringIpAddressesRequest) (*invisinetspb.GetUsedBgpPeeringIpAddressesResponse, error) {
+	resp := &invisinetspb.GetUsedBgpPeeringIpAddressesResponse{}
+	// collect public IP addresses from each VPN that is referenced by deployments specified in the request
+	for _, deployment := range req.Deployments {
+		rInfo, err := getResourceIDInfo(deployment.Id)
+		if err != nil {
+			return nil, err
+		}
+		region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
+		if err != nil {
+			return nil, err
+		}
+		cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupName, region)
+		if err != nil {
+			return nil, err
+		}
+
+		// gets all VPNs associated with specified namespace 
+		vpns, err := cloudClient.GetVPNsInNamespaceRegion(deployment.Namespace, "")
+		if err != nil {
+			return nil, err
+		}
+		// collects public IPs of each VPN 
+		for _, vpn := range vpns {
+			vpnRegion:= vpn.Region
+			cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupName, vpnRegion)
+			if err != nil {
+				return nil, err
+			}
+			ips, err := cloudClient.GetVPNIPs(vpn.ID)
+			if err != nil {
+				return nil, err
+			}
+			resp.IpAddresses = append(resp.IpAddresses, ips...)
+		}
+	}
+	return resp, nil
+}
+
 // Setup starts up the plugin server and stores the orchestrator server address.
 func Setup(port int, orchestratorServerAddr string) *IBMPluginServer {
 	pluginServerAddress := "localhost"
