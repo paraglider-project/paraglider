@@ -124,6 +124,24 @@ func (m *MockAzureSDKHandler) AddSubnetToInvisinetsVnet(ctx context.Context, nam
 	return subnet.(*armnetwork.Subnet), args.Error(1)
 }
 
+func (m *MockAzureSDKHandler) CreateSecurityGroup(ctx context.Context, name string, location string, allowedCIDRS map[string]string) (*armnetwork.SecurityGroup, error) {
+	args := m.Called(ctx, location, name)
+	nsg := args.Get(0)
+	if nsg == nil {
+		return nil, args.Error(1)
+	}
+	return nsg.(*armnetwork.SecurityGroup), args.Error(1)
+}
+
+func (m *MockAzureSDKHandler) AssociateNSGWithSubnet(ctx context.Context, subnetID string, nsgID string) error {
+	args := m.Called(ctx, subnetID, nsgID)
+	subnet := args.Get(0)
+	if subnet == nil {
+		return args.Error(1)
+	}
+	return args.Error(1)
+}
+
 func (m *MockAzureSDKHandler) CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error) {
 	args := m.Called(ctx, name, parameters)
 	vnet := args.Get(0)

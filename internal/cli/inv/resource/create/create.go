@@ -37,6 +37,7 @@ func NewCommand() (*cobra.Command, *executor) {
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
+	cmd.Flags().String("uri", "", "Resource URI if necessary for creation")
 	return cmd, executor
 }
 
@@ -45,6 +46,7 @@ type executor struct {
 	writer      io.Writer
 	cliSettings settings.CLISettings
 	description []byte
+	uri         string
 }
 
 func (e *executor) SetOutput(w io.Writer) {
@@ -61,17 +63,26 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	e.uri, err = cmd.Flags().GetString("uri")
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	resource := &invisinetspb.ResourceDescriptionString{Description: string(e.description)}
+	resource := &invisinetspb.ResourceDescriptionString{Id: e.uri, Description: string(e.description)}
 
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	resourceInfo, err := c.CreateResource(e.cliSettings.ActiveNamespace, args[0], args[1], resource)
 
-	fmt.Fprintf(e.writer, "Resource Created.\ntag: %s\nuri: %s\nip: %s\n", resourceInfo["name"], resourceInfo["uri"], resourceInfo["ip"])
+	if err != nil {
+		fmt.Fprintf(e.writer, "Failed to create resource: %v\n", err)
+	}
 
+	fmt.Fprintf(e.writer, "Resource Created.\ntag: %s\nuri: %s\nip: %s\n", resourceInfo["name"], resourceInfo["uri"], resourceInfo["ip"])
 
 	return err
 }

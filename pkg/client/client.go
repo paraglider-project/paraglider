@@ -116,9 +116,9 @@ func (c *Client) AddPermitListRules(namespace string, cloud string, resourceName
 		return err
 	}
 
-	_, err = c.sendRequest(path, http.MethodPost, bytes.NewBuffer(reqBody))
+	resp, err := c.sendRequest(path, http.MethodPost, bytes.NewBuffer(reqBody))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create resource: %w\nResponse: %v", err, resp)
 	}
 
 	return nil
@@ -152,7 +152,7 @@ func (c *Client) CreateResource(namespace string, cloud string, resourceName str
 
 	response, err := c.sendRequest(path, http.MethodPut, bytes.NewBuffer(reqBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create resource: %w\nResponse: %v", err, response)
 	}
 
 	resourceDict := map[string]string{}

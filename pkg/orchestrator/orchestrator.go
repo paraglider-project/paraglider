@@ -969,7 +969,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	defer conn.Close()
 
 	tagClient := tagservicepb.NewTagServiceClient(conn)
-	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name), Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
+	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceResp.Name), Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error())) // TODO @smcclure20: change this to a warning?
 		return

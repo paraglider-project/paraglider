@@ -4,17 +4,15 @@ server:
   rpcPort: 8081
 
 cloudPlugins:
-  - name: "gcp"
+  - name: "azure"
     host: "localhost"
     port: 1001
 
 namespaces: 
   default:
     cloudDeployments:
-      - name: "gcp"
-        deployment: "projects/project-name"
       - name: "azure"
-        deployment: "/subscriptions/sub-id/resourceGroups/rg-name"
+        deployment: "/subscriptions/4ba880a9-fe39-4105-98e1-909297ff5bb8/resourceGroups/invisinets-demo"
 
 tagService:
   host: "localhost"

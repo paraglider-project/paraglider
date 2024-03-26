@@ -61,7 +61,9 @@ type AzureSDKHandler interface {
 	GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error)
 	GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error)
 	GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error)
-	GetLastSegment(resourceID string) (string, error)
+	CreateSecurityGroup(ctx context.Context, resourceName string, location string, allowedCIDRs map[string]string) (*armnetwork.SecurityGroup, error) // TODO now: add tests
+	GetLastSegment(resourceID string) (string, error)                                                                                                 // TODO now: make this static
+	AssociateNSGWithSubnet(ctx context.Context, subnetID string, nsgID string) error                                                                  // TODO now: add tests
 	SetSubIdAndResourceGroup(subID string, resourceGroupName string)
 	CreateOrUpdateVirtualNetworkGateway(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGateway) (*armnetwork.VirtualNetworkGateway, error)
 	GetVirtualNetworkGateway(ctx context.Context, name string) (*armnetwork.VirtualNetworkGateway, error)
@@ -200,7 +202,7 @@ func (h *azureSDKHandler) SetSubIdAndResourceGroup(subid string, resourceGroupNa
 }
 
 func (h *azureSDKHandler) GetResource(ctx context.Context, resourceID string) (*armresources.GenericResource, error) {
-	var apiVersion string = "2021-04-01"
+	var apiVersion string = "2023-08-01"
 	options := armresources.ClientGetByIDOptions{}
 
 	resource, err := h.resourcesClient.GetByID(ctx, resourceID, apiVersion, &options)
@@ -279,6 +281,33 @@ func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisine
 	}
 
 	return &resp.SecurityRule, nil
+}
+
+func (h *azureSDKHandler) AssociateNSGWithSubnet(ctx context.Context, subnetID string, nsgID string) error {
+	// get the subnet
+	subnet, err := h.GetSubnetByID(ctx, subnetID)
+	if err != nil {
+		return err
+	}
+
+	// update the subnet with the nsg
+	subnet.Properties.NetworkSecurityGroup = &armnetwork.SecurityGroup{
+		ID: to.Ptr(nsgID),
+	}
+
+	vnetName := getVnetFromSubnetId(subnetID)
+
+	pollerResp, err := h.subnetsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vnetName, *subnet.Name, *subnet, nil)
+	if err != nil {
+		return err
+	}
+
+	_, err = pollerResp.PollUntilDone(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // DeleteSecurityRule deletes a security rule from a network security group (NSG).
@@ -521,6 +550,14 @@ func (h *azureSDKHandler) AddSubnetToInvisinetsVnet(ctx context.Context, namespa
 		return nil, err
 	}
 
+	// Add address space to the vnet
+	vnet, err := h.GetVirtualNetwork(ctx, vnetName)
+	if err != nil {
+		return nil, err
+	}
+	vnet.Properties.AddressSpace.AddressPrefixes = append(vnet.Properties.AddressSpace.AddressPrefixes, to.Ptr(response.Address))
+	h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vnetName, *vnet, nil)
+
 	// Create the subnet
 	subnet, err := h.CreateSubnet(ctx, vnetName, subnetName, armnetwork.Subnet{
 		Properties: &armnetwork.SubnetPropertiesFormat{
@@ -586,9 +623,7 @@ func (h *azureSDKHandler) GetVirtualNetwork(ctx context.Context, name string) (*
 	return &resp.VirtualNetwork, nil
 }
 
-// CreateNetworkInterface creates a new network interface with a dynamic private IP address
-func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error) {
-	// first we need to create a default nsg that denies all traffic
+func (h *azureSDKHandler) CreateSecurityGroup(ctx context.Context, resourceName string, location string, allowedCIDRs map[string]string) (*armnetwork.SecurityGroup, error) {
 	nsgParameters := armnetwork.SecurityGroup{
 		Location: to.Ptr(location),
 		Properties: &armnetwork.SecurityGroupPropertiesFormat{
@@ -622,7 +657,37 @@ func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 			},
 		},
 	}
-	pollerResponse, err := h.securityGroupsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nicName+nsgNameSuffix, nsgParameters, nil)
+	i := 1
+	for name, cidr := range allowedCIDRs {
+		nsgParameters.Properties.SecurityRules = append(nsgParameters.Properties.SecurityRules, &armnetwork.SecurityRule{
+			Name: to.Ptr("invisinets-allow-inbound-" + name),
+			Properties: &armnetwork.SecurityRulePropertiesFormat{
+				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+				SourceAddressPrefix:      to.Ptr(cidr),
+				DestinationAddressPrefix: to.Ptr(azureSecurityRuleAsterisk),
+				DestinationPortRange:     to.Ptr(azureSecurityRuleAsterisk),
+				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+				Priority:                 to.Ptr(int32(maxPriority - i)),
+				Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
+				SourcePortRange:          to.Ptr(azureSecurityRuleAsterisk),
+			},
+		})
+		nsgParameters.Properties.SecurityRules = append(nsgParameters.Properties.SecurityRules, &armnetwork.SecurityRule{
+			Name: to.Ptr("invisinets-allow-outbound-" + name),
+			Properties: &armnetwork.SecurityRulePropertiesFormat{
+				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+				SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
+				DestinationAddressPrefix: to.Ptr(cidr),
+				DestinationPortRange:     to.Ptr(azureSecurityRuleAsterisk),
+				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+				Priority:                 to.Ptr(int32(maxPriority - i)),
+				Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
+				SourcePortRange:          to.Ptr(azureSecurityRuleAsterisk),
+			},
+		})
+		i++
+	}
+	pollerResponse, err := h.securityGroupsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, resourceName+nsgNameSuffix, nsgParameters, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -632,6 +697,15 @@ func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 		return nil, err
 	}
 
+	return &nsgResp.SecurityGroup, nil
+}
+
+// CreateNetworkInterface creates a new network interface with a dynamic private IP address
+func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error) {
+	nsg, err := h.CreateSecurityGroup(ctx, nicName, location, map[string]string{})
+	if err != nil {
+		return nil, err
+	}
 	parameters := armnetwork.Interface{
 		Location: to.Ptr(location),
 		Properties: &armnetwork.InterfacePropertiesFormat{
@@ -647,7 +721,7 @@ func (h *azureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 				},
 			},
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
-				ID: nsgResp.SecurityGroup.ID,
+				ID: nsg.ID,
 			},
 		},
 	}
@@ -816,10 +890,10 @@ func (h *azureSDKHandler) GetVirtualNetworkGatewayConnection(ctx context.Context
 
 func parseSubnetURI(subnetURI string) (string, string, error) {
 	segments := strings.Split(subnetURI, "/")
-	if len(segments) < 10 {
+	if len(segments) < 11 {
 		return "", "", fmt.Errorf("invalid subnet URI")
 	}
-	return segments[7], segments[9], nil
+	return segments[8], segments[10], nil
 }
 
 // getIPs returns the source and destination IP addresses for a given permit list rule and resource IP address.

@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	virtualMachineTypeName = "Microsoft.Compute/virtualMachines"
-	managedClusterTypeName = "Microsoft.ContainerService/managedClusters"
+	virtualMachineTypeName = "Microsoft.Compute/VirtualMachines"
+	managedClusterTypeName = "Microsoft.ContainerService/ManagedClusters"
 )
 
 type ResourceNetworkInfo struct {
@@ -84,14 +84,14 @@ func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, reso
 
 	// get the network info using typed handler
 	var networkInfo *ResourceNetworkInfo
-	if *resource.Type == virtualMachineTypeName {
+	if strings.Contains(*resource.Type, virtualMachineTypeName) {
 		resourceHandler := &AzureVM{}
 		networkInfo, err = resourceHandler.GetNetworkInfo(resource, handler)
 		if err != nil {
 			utils.Log.Printf("An error occured while getting network info for resource %s: %+v", resourceID, err)
 			return nil, err
 		}
-	} else if *resource.Type == managedClusterTypeName {
+	} else if strings.Contains(*resource.Type, managedClusterTypeName) {
 		resourceHandler := &AzureAKS{}
 		networkInfo, err = resourceHandler.GetNetworkInfo(resource, handler)
 		if err != nil {
@@ -101,7 +101,6 @@ func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, reso
 	} else {
 		return nil, fmt.Errorf("resource type %s is not supported", *resource.Type)
 	}
-
 	return networkInfo, nil
 }
 
@@ -114,14 +113,14 @@ func GetResourceInfoFromResourceDesc(ctx context.Context, resource *invisinetspb
 		if err != nil {
 			return nil, err
 		}
-		return &ResourceInfo{ResourceName: *vm.Name, ResourceID: *vm.ID, Location: *vm.Location, RequiresSubnet: false}, nil
+		return &ResourceInfo{ResourceName: *vm.Name, ResourceID: resource.Id, Location: *vm.Location, RequiresSubnet: false}, nil
 	} else if strings.Contains(resource.Id, "managedClusters") {
 		handler := &AzureAKS{}
 		aks, err := handler.FromResourceDecription(resource.Description)
 		if err != nil {
 			return nil, err
 		}
-		return &ResourceInfo{ResourceName: *aks.Name, ResourceID: *aks.ID, Location: *aks.Location, RequiresSubnet: true}, nil
+		return &ResourceInfo{ResourceName: *aks.Name, ResourceID: resource.Id, Location: *aks.Location, RequiresSubnet: true}, nil
 	} else {
 		return nil, fmt.Errorf("resource description contains unknown Azure resource")
 	}
@@ -171,12 +170,15 @@ type AzureVM struct {
 
 // Gets the network information for a virtual machine
 func (r *AzureVM) GetNetworkInfo(resource *armresources.GenericResource, handler AzureSDKHandler) (*ResourceNetworkInfo, error) {
-	properties, ok := resource.Properties.(armcompute.VirtualMachineProperties)
+	properties, ok := resource.Properties.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("failed to convert resource.Properties to type armcompute.VirtualMachinePropertie")
+		return nil, fmt.Errorf("failed to read resource.Properties")
 	}
 
-	nicName, err := handler.GetLastSegment(*properties.NetworkProfile.NetworkInterfaces[0].ID)
+	netprofile := properties["networkProfile"].(map[string]interface{})
+	nicID := netprofile["networkInterfaces"].([]interface{})[0].(map[string]interface{})["id"].(string)
+
+	nicName, err := handler.GetLastSegment(nicID)
 	if err != nil {
 		return nil, err
 	}
@@ -265,18 +267,23 @@ type AzureAKS struct {
 
 // Gets the network information for an AKS cluster
 func (r *AzureAKS) GetNetworkInfo(resource *armresources.GenericResource, handler AzureSDKHandler) (*ResourceNetworkInfo, error) {
-	properties, ok := resource.Properties.(armcontainerservice.ManagedClusterProperties)
+	properties, ok := resource.Properties.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("failed to convert resource.Properties to type armcontainerservice.ManagedClusterProperties")
+		return nil, fmt.Errorf("failed to read resource.Properties")
 	}
-	profile := properties.AgentPoolProfiles[0]
-	subnet, err := handler.GetSubnetByID(context.Background(), *profile.VnetSubnetID)
+	profiles := properties["agentPoolProfiles"].([]interface{})
+	firstProfile := profiles[0].(map[string]interface{})
+	subnetID := firstProfile["vnetSubnetID"].(string)
+	subnet, err := handler.GetSubnetByID(context.Background(), subnetID)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the subnet:%+v", err)
 		return nil, err
 	}
-
-	nsg, err := handler.GetSecurityGroup(context.Background(), *subnet.Properties.NetworkSecurityGroup.Name)
+	nsgName, err := handler.GetLastSegment(*subnet.Properties.NetworkSecurityGroup.ID)
+	if err != nil {
+		return nil, err
+	}
+	nsg, err := handler.GetSecurityGroup(context.Background(), nsgName)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network security group:%+v", err)
 		return nil, err
@@ -296,10 +303,23 @@ func (r *AzureAKS) CreateWithNetwork(ctx context.Context, resource *armcontainer
 	for _, profile := range resource.Properties.AgentPoolProfiles {
 		profile.VnetSubnetID = subnet.ID
 	}
-
 	_, err := handler.CreateAKSCluster(ctx, *resource, resourceInfo.ResourceName)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating the AKS cluster:%+v", err)
+		return "", err
+	}
+
+	// Associate the subnet with an NSG for the cluster
+	allowedAddrs := map[string]string{"serviceCIDR": *resource.Properties.NetworkProfile.ServiceCidr, "localsubnet": *subnet.Properties.AddressPrefix}
+	nsg, err := handler.CreateSecurityGroup(ctx, resourceInfo.ResourceName, *resource.Location, allowedAddrs)
+	if err != nil {
+		utils.Log.Printf("An error occured while creating the network security group:%+v", err)
+		return "", err
+	}
+
+	err = handler.AssociateNSGWithSubnet(ctx, *subnet.ID, *nsg.ID)
+	if err != nil {
+		utils.Log.Printf("An error occured while associating the network security group with the subnet:%+v", err)
 		return "", err
 	}
 

@@ -125,12 +125,10 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 	if err != nil {
 		return nil, err
 	}
-
 	netInfo, err := GetAndCheckResourceState(ctx, s.azureHandler, resourceID, req.Namespace)
 	if err != nil {
 		return nil, err
 	}
-
 	var existingRulePriorities map[string]int32 = make(map[string]int32)
 	var reservedPrioritiesInbound map[int32]bool = make(map[int32]bool)
 	var reservedPrioritiesOutbound map[int32]bool = make(map[int32]bool)
@@ -550,7 +548,6 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	}
 
 	info.ResourceName = parts[len(parts)-1]
-
 	return info, nil
 }
 
