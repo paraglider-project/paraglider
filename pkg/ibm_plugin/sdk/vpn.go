@@ -18,7 +18,6 @@ package ibm
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -54,16 +53,31 @@ func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 
 	subnetID := *subnets[0].ID
 
-	routeVPNPrototype := vpcv1.VPNGatewayPrototypeVPNGatewayRouteModePrototype{
+	vpnPrototype := vpcv1.VPNGatewayPrototypeVPNGatewayRouteModePrototype{
 		Name:          core.StringPtr(GenerateResourceName(string(VPN))),
 		ResourceGroup: c.resourceGroup,
 		Subnet:        &vpcv1.SubnetIdentity{ID: &subnetID},
 		Mode:          core.StringPtr(vpcv1.VPNGatewayPrototypeVPNGatewayRouteModePrototypeModeRouteConst),
 	}
 	utils.Log.Printf("Creating VPN at %v", c.region)
-	vpnInterface, _, err := c.vpcService.CreateVPNGateway(&vpcv1.CreateVPNGatewayOptions{VPNGatewayPrototype: &routeVPNPrototype})
+	vpnInterface, _, err := c.vpcService.CreateVPNGateway(&vpcv1.CreateVPNGatewayOptions{VPNGatewayPrototype: &vpnPrototype})
 	if err != nil {
-		log.Printf("Failed to create a VPN with Error:\n%+v", err)
+		// check if a VPN was already deployed in the VPC.
+		if strings.Contains(err.Error(), "quota") {
+
+			utils.Log.Printf("Retrieving already deployed VPN gateway of VPC %v.\nNOTE: IBM has a 1 route based VPN per VPC per region quota.", vpcData[0].ID)
+			// retrieving existing VPN
+			vpn, err := c.GetVPNsInNamespaceRegion(namespace, c.region)
+			if err != nil {
+				return nil, err
+			}
+			ipAddresses, err := c.GetVPNIPs(vpn[0].ID) // array lookup is safe since a VPN exists
+			if err != nil {
+				return nil, err
+			}
+			return ipAddresses, nil
+		}
+		utils.Log.Printf("Failed to create a VPN with Error:\n%+v", err)
 		return nil, err
 	}
 	vpnData := vpnInterface.(*vpcv1.VPNGateway)
