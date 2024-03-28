@@ -4,7 +4,7 @@ server:
   rpcPort: 8081
 
 cloudPlugins:
-  - name: "azure"
+  - name: "gcp"
     host: "localhost"
     port: 1001
 
