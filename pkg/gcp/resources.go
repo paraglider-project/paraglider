@@ -72,14 +72,6 @@ func shortenClusterId(clusterId string) string {
 	return clusterId[:8]
 }
 
-func getDefaultClusterTag() string {
-	return "invisinets-cluster-default-tag"
-}
-
-func getDefaultClusterFirewallRuleName() string {
-	return "invisinets-cluster-allow-internet-access"
-}
-
 func getClusterNodeTag(clusterName string, clusterId string) string {
 	return "gke-" + clusterName + "-" + shortenClusterId(clusterId) + "-node"
 }

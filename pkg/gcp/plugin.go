@@ -168,11 +168,6 @@ func getSubnetworkName(namespace string, region string) string {
 	return getInvisinetsNamespacePrefix(namespace) + "-" + region + "-subnet"
 }
 
-// Gets a GCP subnetwork name for Invisinets for resources that need their own subnet
-func getIndividualSubnetworkName(namespace string, region string, resource string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-" + region + "-" + resource + "-subnet"
-}
-
 func getVpnGwName(namespace string) string {
 	return getInvisinetsNamespacePrefix(namespace) + "-vpn-gw"
 }
@@ -381,22 +376,18 @@ func (s *GCPPluginServer) GetPermitList(ctx context.Context, req *invisinetspb.G
 }
 
 func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisinetspb.AddPermitListRulesRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, subnetworksClient *compute.SubnetworksClient, clustersClient *container.ClusterManagerClient) (*invisinetspb.AddPermitListRulesResponse, error) {
-	utils.Log.Printf("Adding permit list rules: %v", req.Resource)
 	resourceInfo, err := parseResourceUri(req.Resource)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource URI: %w", err)
 	}
 	resourceInfo.Namespace = req.Namespace
 
-	utils.Log.Printf("Getting Resource INfo")
 	subnet, resourceID, err := GetResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
 	if err != nil {
-		utils.Log.Printf("Error getting resource info: %v", err)
 		return nil, err
 	}
 
 	// Get existing firewalls
-	utils.Log.Printf("Getting existing firewalls")
 	firewalls, err := getFirewallRules(ctx, firewallsClient, resourceInfo.Project, *resourceID) // need to change how rules are named to figure out this resourceID thing
 	if err != nil {
 		return nil, fmt.Errorf("unable to get existing firewalls: %w", err)
@@ -408,27 +399,22 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 	}
 
 	// Get the network tag
-	utils.Log.Printf("Getting the network tag")
 	networkTag := getNetworkTag(req.Namespace, resourceInfo.ResourceType, *resourceID)
 
 	// Get subnetwork address space
-	utils.Log.Printf("Getting the subnet address space: %v", *subnet)
 	parsedSubnetworkUri := parseGCPURL(*subnet)
 	getSubnetworkReq := &computepb.GetSubnetworkRequest{
 		Project:    resourceInfo.Project,
 		Region:     parsedSubnetworkUri["regions"],
 		Subnetwork: parsedSubnetworkUri["subnetworks"],
 	}
-	utils.Log.Printf("Getting the subnet address space2")
 	getSubnetworkResp, err := subnetworksClient.Get(ctx, getSubnetworkReq)
 	if err != nil {
-		utils.Log.Printf("Error getting subnetwork: %v", err)
 		return nil, fmt.Errorf("unable to get subnetwork: %w", err)
 	}
 	subnetworkAddressSpace := *getSubnetworkResp.IpCidrRange
 
 	// Get used address spaces of all clouds
-	utils.Log.Printf("Getting the used address spaces of all clouds")
 	controllerConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
@@ -440,7 +426,6 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
 
-	utils.Log.Printf("Creating firewall rules")
 	for _, permitListRule := range req.Rules {
 		// TODO @seankimkdy: should we throw an error/warning if user specifies a srcport since GCP doesn't support srcport based firewalls?
 		firewallName := getFirewallName(permitListRule.Name, *resourceID)
@@ -600,10 +585,8 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 
 func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient, clustersClient *container.ClusterManagerClient) (*invisinetspb.CreateResourceResponse, error) {
 	// Read and validate user-provided description
-	utils.Log.Printf(fmt.Sprintf("Creating resource."))
 	resourceInfo, err := IsValidResource(ctx, resourceDescription)
 	if err != nil {
-		utils.Log.Printf("Invalid resource description")
 		return nil, fmt.Errorf("unsupported resource description: %w", err)
 	}
 	project, zone := resourceInfo.Project, resourceInfo.Zone
@@ -615,7 +598,6 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	subnetName := getSubnetworkName(resourceDescription.Namespace, region)
 
 	// Check if Invisinets specific VPC already exists
-	utils.Log.Printf("Checking if the Invisinets VPC already exists.")
 	nsVpcName := getVpcName(resourceDescription.Namespace)
 	getNetworkReq := &computepb.GetNetworkRequest{
 		Network: nsVpcName,
@@ -637,11 +619,9 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 			}
 			insertNetworkOp, err := networksClient.Insert(ctx, insertNetworkRequest)
 			if err != nil {
-				utils.Log.Printf("Unable to insert network %v", err)
 				return nil, fmt.Errorf("unable to insert network: %w", err)
 			}
 			if err = insertNetworkOp.Wait(ctx); err != nil {
-				utils.Log.Printf("Unable to wait for operation %v", err)
 				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 			}
 			// Deny all egress traffic since GCP implicitly allows all egress traffic
@@ -663,15 +643,12 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 			}
 			insertFirewallOp, err := firewallsClient.Insert(ctx, insertFirewallReq)
 			if err != nil {
-				utils.Log.Printf("Unable to insert firewall rule %v", err)
 				return nil, fmt.Errorf("unable to create firewall rule: %w", err)
 			}
 			if err = insertFirewallOp.Wait(ctx); err != nil {
-				utils.Log.Printf("Unable to wait for firewall rule%v", err)
 				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 			}
 		} else {
-			utils.Log.Printf("Failed to get invisinets vpc networ %v", err)
 			return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
 		}
 	} else {
@@ -688,11 +665,9 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	// Find unused address spaces
 	addressSpaces := []string{}
 	numAddressSpacesNeeded := int32(resourceInfo.NumAdditionalAddressSpaces)
-	utils.Log.Printf("Collecting needed address spaces")
 	if !subnetExists || resourceInfo.NumAdditionalAddressSpaces > 0 {
 		conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
-			utils.Log.Printf("Unable to connect to orchestrator")
 			return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 		}
 		defer conn.Close()
@@ -704,16 +679,12 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 
 		response, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: resourceDescription.Namespace, Num: &numAddressSpacesNeeded})
 		if err != nil {
-			utils.Log.Printf("Unable to get address spaces %v", err)
 			return nil, fmt.Errorf("unable to find unused address space: %w", err)
 		}
 
-		utils.Log.Printf("Address spaces: %v", response.AddressSpaces)
-		utils.Log.Printf("Subnet exists: %v", subnetExists)
 		addressSpaces = response.AddressSpaces
 	}
 
-	utils.Log.Printf("Create a subnet if it does not exist")
 	if !subnetExists {
 
 		insertSubnetworkRequest := &computepb.InsertSubnetworkRequest{
@@ -737,12 +708,10 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	}
 
 	// Read and provision the resource
-	utils.Log.Printf("Read and provision the resource")
 	uri, ip, err := ReadAndProvisionResource(ctx, resourceDescription, subnetName, resourceInfo, instancesClient, clustersClient, firewallsClient, addressSpaces)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read and provision resource: %w", err)
 	}
-	utils.Log.Printf("Return")
 	return &invisinetspb.CreateResourceResponse{Name: resourceInfo.Name, Uri: uri, Ip: ip}, nil
 }
 
@@ -811,7 +780,6 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, invisinetsD
 			}
 		}
 	}
-	utils.Log.Printf("Address space list: %v", addressSpaceList)
 
 	return addressSpaceList, nil
 }
