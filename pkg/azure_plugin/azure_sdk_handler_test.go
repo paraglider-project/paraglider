@@ -71,12 +71,15 @@ const (
 	invalidPublicIpAddressName                 = "invalid-public-ip-address-name"
 	validSubnetName                            = "valid-subnet-name"
 	invalidSubnetName                          = "invalid-subnet-name"
+	validSubnetId                              = "valid-subnet-id"
+	invalidSubnetId                            = "invalid-subnet-id"
 	validLocalNetworkGatewayName               = "valid-local-network-gateway"
 	invalidLocalNetworkGatewayName             = "invalid-local-network-gateway"
 	validVirtualNetworkGatewayConnectionName   = "valid-virtual-network-gateway-connection"
 	invalidVirtualNetworkGatewayConnectionName = "invalid-virtual-network-gateway-connection"
 	validClusterName                           = "valid-cluster-name"
 	invalidClusterName                         = "invalid-cluster-name"
+	validResourceName                          = "valid-resource-name"
 )
 
 var (
@@ -207,9 +210,17 @@ func initializeReqRespMap() map[string]interface{} {
 				Name: to.Ptr(validSecurityRuleName),
 			},
 		},
+		fmt.Sprintf("%s/%s-%s", nsgRuleUrl, validResourceName, nsgNameSuffix): armnetwork.SecurityRulesClientGetResponse{
+			SecurityRule: armnetwork.SecurityRule{
+				Name: to.Ptr(validSecurityRuleName),
+			},
+		},
 		fmt.Sprintf("%s/%s", vnetUrl, validVnetName): armnetwork.VirtualNetworksClientGetResponse{
 			VirtualNetwork: armnetwork.VirtualNetwork{
 				Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+					AddressSpace: &armnetwork.AddressSpace{
+						AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+					},
 					Subnets: []*armnetwork.Subnet{
 						{
 							Properties: &armnetwork.SubnetPropertiesFormat{
@@ -328,6 +339,95 @@ func TestGetSecurityGroup(t *testing.T) {
 		// Check if error is not nil and nsgFail is nil
 		require.Error(t, err)
 		require.Nil(t, nsgFail)
+	})
+}
+
+func TestCreateSecurityGroup(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	once.Do(setup)
+
+	t.Run("CreateSecurityGroup: Success", func(t *testing.T) {
+		prefixName1 := "cidr1"
+		prefixName2 := "cidr2"
+		allowedCidrs := map[string]string{prefixName1: "1.1.1.1/1", prefixName2: "2.2.2.2/2"}
+		nsg, err := azureSDKHandlerTest.CreateSecurityGroup(context.Background(), validResourceName, testLocation, allowedCidrs)
+
+		require.NoError(t, err)
+		assert.NotNil(t, nsg)
+		assert.Contains(t, *nsg.Name, validResourceName)
+		assert.Len(t, nsg.Properties.SecurityRules, 6) // inbound and outbound for both allowed and the default deny
+		rulePrefixes := make([]string, len(nsg.Properties.SecurityRules))
+		for i, rule := range nsg.Properties.SecurityRules {
+			if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
+				rulePrefixes[i] = *rule.Properties.SourceAddressPrefix
+			} else {
+				rulePrefixes[i] = *rule.Properties.DestinationAddressPrefix
+			}
+		}
+		assert.Contains(t, rulePrefixes, allowedCidrs[prefixName1])
+		assert.Contains(t, rulePrefixes, allowedCidrs[prefixName2])
+		assert.Contains(t, rulePrefixes, "0.0.0.0/0")
+	})
+
+	t.Run("CreateSecurityGroup: Success - none allowed", func(t *testing.T) {
+		allowedCidrs := map[string]string{}
+		nsg, err := azureSDKHandlerTest.CreateSecurityGroup(context.Background(), validResourceName, testLocation, allowedCidrs)
+
+		require.NoError(t, err)
+		assert.NotNil(t, nsg)
+		assert.Contains(t, *nsg.Name, validResourceName)
+		assert.Len(t, nsg.Properties.SecurityRules, 2) // inbound and outbound for both allowed and the default deny
+		rulePrefixes := make([]string, len(nsg.Properties.SecurityRules))
+		for i, rule := range nsg.Properties.SecurityRules {
+			if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
+				rulePrefixes[i] = *rule.Properties.SourceAddressPrefix
+			} else {
+				rulePrefixes[i] = *rule.Properties.DestinationAddressPrefix
+			}
+		}
+		assert.Contains(t, rulePrefixes, "0.0.0.0/0")
+	})
+}
+
+func TestAssociateNSGWithSubnet(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	once.Do(setup)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+
+	t.Run("AssociateNSGWithSubnet: Success", func(t *testing.T) {
+		err := azureSDKHandlerTest.AssociateNSGWithSubnet(ctx, validSubnetId, validSecurityGroupID)
+
+		require.NoError(t, err)
+	})
+
+	t.Run("AssociateNSGWithSubnet: Failure - subnet does not exist", func(t *testing.T) {
+		err := azureSDKHandlerTest.AssociateNSGWithSubnet(ctx, invalidSubnetId, validSecurityGroupID)
+
+		require.Error(t, err)
+	})
+}
+
+func TestGetSubnetById(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	once.Do(setup)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+
+	t.Run("GetSubnetById: Success", func(t *testing.T) {
+		subnet, err := azureSDKHandlerTest.GetSubnetByID(ctx, validSubnetId)
+
+		require.NoError(t, err)
+		require.NotNil(t, subnet)
+	})
+
+	t.Run("GetSubnetById: Failure", func(t *testing.T) {
+		subnet, err := azureSDKHandlerTest.GetSubnetByID(ctx, invalidSubnetId)
+
+		require.Error(t, err)
+		require.Nil(t, subnet)
 	})
 }
 
@@ -474,6 +574,7 @@ func TestAddSubnetToInvisinetsVnet(t *testing.T) {
 
 	// Create a new context for the tests
 	ctx := context.Background()
+
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
@@ -488,7 +589,7 @@ func TestAddSubnetToInvisinetsVnet(t *testing.T) {
 
 	// Test case: Failure, error when getting new address space
 	t.Run("AddSubnetInvisinetsVnet: Failure, error when getting address spaces", func(t *testing.T) {
-		subnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, "namespace", validVnetName, validSubnetName, "bad address")
+		subnet, err := azureSDKHandlerTest.AddSubnetToInvisinetsVnet(ctx, "namespace", validVnetName, validSubnetName, "bad address")
 		require.Error(t, err)
 		require.Nil(t, subnet)
 	})

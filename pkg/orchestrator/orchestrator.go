@@ -570,13 +570,22 @@ func (s *ControllerServer) updateUsedAddressSpacesMap(namespace string) error {
 
 // Get a new address block for a new virtual network
 // TODO @smcclure20: Later, this should allocate more efficiently and with different size address blocks (eg, GCP needs larger than Azure since a VPC will span all regions)
-func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, ns *invisinetspb.Namespace) (*invisinetspb.AddressSpace, error) {
-	err := s.updateUsedAddressSpacesMap(ns.Namespace)
+func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *invisinetspb.FindUnusedAddressSpacesRequest) (*invisinetspb.FindUnusedAddressSpacesResponse, error) {
+	err := s.updateUsedAddressSpacesMap(req.Namespace)
 	if err != nil {
 		return nil, err
 	}
+
+	var requestedAddressSpaces int
+	if req.Num != nil {
+		requestedAddressSpaces = int(*req.Num)
+	} else {
+		requestedAddressSpaces = 1
+	}
+
+	addressSpaces := make([]string, requestedAddressSpaces)
 	highestBlockUsed := -1
-	for _, addressList := range s.usedAddressSpaces[ns.Namespace] {
+	for _, addressList := range s.usedAddressSpaces[req.Namespace] {
 		for _, address := range addressList {
 			blockNumber, err := strconv.Atoi(strings.Split(address, ".")[1])
 			if err != nil {
@@ -592,8 +601,11 @@ func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, ns *invisin
 		return nil, errors.New("all address blocks used")
 	}
 
-	newAddressSpace := &invisinetspb.AddressSpace{Address: fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+1)}
-	return newAddressSpace, nil
+	for i := 0; i < requestedAddressSpaces; i++ {
+		addressSpaces[i] = fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+i+1)
+	}
+
+	return &invisinetspb.FindUnusedAddressSpacesResponse{AddressSpaces: addressSpaces}, nil
 }
 
 // Gets unused address spaces across all clouds
@@ -952,7 +964,6 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	defer conn.Close()
 
 	// Send RPC to create the resource
-	utils.Log.Printf("Creating resource %v", &resourceWithString)
 	resource := invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description), Namespace: resourceInfo.namespace}
 	client := invisinetspb.NewCloudPluginClient(conn)
 	resourceResp, err := client.CreateResource(context.Background(), &resource)

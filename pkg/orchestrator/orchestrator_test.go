@@ -29,6 +29,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/protobuf/proto"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	config "github.com/NetSys/invisinets/pkg/orchestrator/config"
@@ -617,24 +618,33 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 	orchestratorServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
 
 	// No entries in address space map
-	address, err := orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
+	resp, err := orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: defaultNamespace})
 	require.Nil(t, err)
-	assert.Equal(t, address.Address, "10.0.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
 
 	// Next entry
 	orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.0.0.0/16"}
-	address, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: defaultNamespace})
 	require.Nil(t, err)
-	assert.Equal(t, address.Address, "10.1.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[0], "10.1.0.0/16")
 
 	// Different Namespace
-	address, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: "other"})
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: "other"})
 	require.Nil(t, err)
-	assert.Equal(t, address.Address, "10.0.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
+
+	// Multiple spaces
+	req := &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: defaultNamespace}
+	req.Num = proto.Int32(3)
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), req)
+	require.Nil(t, err)
+	assert.Equal(t, resp.AddressSpaces[0], "10.1.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[1], "10.2.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[2], "10.3.0.0/16")
 
 	// Out of addresses
 	orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.255.0.0/16"}
-	_, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
+	_, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: defaultNamespace})
 	require.NotNil(t, err)
 }
 

@@ -34,13 +34,21 @@ type FakeOrchestratorRPCServer struct {
 	Counter int
 }
 
-func (f *FakeOrchestratorRPCServer) FindUnusedAddressSpace(ctx context.Context, namespace *invisinetspb.Namespace) (*invisinetspb.AddressSpace, error) {
+func (f *FakeOrchestratorRPCServer) FindUnusedAddressSpaces(ctx context.Context, req *invisinetspb.FindUnusedAddressSpacesRequest) (*invisinetspb.FindUnusedAddressSpacesResponse, error) {
 	if f.Counter == 256 {
 		return nil, fmt.Errorf("ran out of address spaces")
 	}
-	address := fmt.Sprintf("10.%d.0.0/16", f.Counter)
-	f.Counter = f.Counter + 1
-	return &invisinetspb.AddressSpace{Address: address}, nil
+	numSpaces := 1
+	if req.Num != nil {
+		numSpaces = int(*req.Num)
+	}
+
+	addressSpaces := make([]string, numSpaces)
+	for i := 0; i < numSpaces; i++ {
+		addressSpaces[i] = fmt.Sprintf("10.%d.0.0/16", f.Counter)
+		f.Counter = f.Counter + 1
+	}
+	return &invisinetspb.FindUnusedAddressSpacesResponse{AddressSpaces: addressSpaces}, nil
 }
 
 func (f *FakeOrchestratorRPCServer) FindUnusedAsn(ctx context.Context, req *invisinetspb.FindUnusedAsnRequest) (*invisinetspb.FindUnusedAsnResponse, error) {

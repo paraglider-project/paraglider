@@ -164,7 +164,7 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	client := fakeClients.instancesClient
 
-	uri, ip, err := ReadAndProvisionResource(ctx, resource, "subnet-1", resourceInfo, client, nil)
+	uri, ip, err := ReadAndProvisionResource(ctx, resource, "subnet-1", resourceInfo, client, nil, nil, make([]string, 0))
 
 	require.NoError(t, err)
 	assert.Contains(t, uri, *instanceRequest.InstanceResource.Name)
@@ -184,8 +184,10 @@ func TestReadAndProvisionResource(t *testing.T) {
 	resourceInfo = &ResourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName}
 
 	clusterClient := fakeClients.clusterClient
+	firewallClient := fakeClients.firewallsClient
+	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
-	uri, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", resourceInfo, nil, clusterClient)
+	uri, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", resourceInfo, nil, clusterClient, firewallClient, additionalAddressSpaces)
 
 	require.NoError(t, err)
 	assert.Equal(t, getClusterUri(fakeProject, fakeZone, clusterRequest.Cluster.Name), uri)
@@ -242,7 +244,7 @@ func TestInstanceCreateWithNetwork(t *testing.T) {
 
 	client := fakeClients.instancesClient
 
-	uri, ip, err := instanceHandler.CreateWithNetwork(ctx, instanceRequest, subnet, resourceInfo, client)
+	uri, ip, err := instanceHandler.CreateWithNetwork(ctx, instanceRequest, subnet, resourceInfo, client, nil)
 
 	require.NoError(t, err)
 	assert.Contains(t, uri, *instanceRequest.InstanceResource.Name)
@@ -294,8 +296,10 @@ func TestGKECreateWithNetwork(t *testing.T) {
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	client := fakeClients.clusterClient
+	fwClient := fakeClients.firewallsClient
+	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
-	uri, ip, err := clusterHandler.CreateWithNetwork(ctx, clusterRequest, subnet, resourceInfo, client)
+	uri, ip, err := clusterHandler.CreateWithNetwork(ctx, clusterRequest, subnet, resourceInfo, client, fwClient, additionalAddressSpaces)
 
 	require.NoError(t, err)
 	assert.Equal(t, getClusterUri(fakeProject, fakeZone, clusterRequest.Cluster.Name), uri)

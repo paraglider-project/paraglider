@@ -124,12 +124,12 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		}
 		defer conn.Close()
 		client := invisinetspb.NewControllerClient(conn)
-		resp, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: resourceDesc.Namespace})
+		resp, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: resourceDesc.Namespace})
 		if err != nil {
 			return nil, err
 		}
-		utils.Log.Printf("Using %s address space", resp.Address)
-		subnet, err := cloudClient.CreateSubnet(vpcID, rInfo.Zone, resp.Address, requiredTags)
+		utils.Log.Printf("Using %s address space", resp.AddressSpaces[0])
+		subnet, err := cloudClient.CreateSubnet(vpcID, rInfo.Zone, resp.AddressSpaces[0], requiredTags)
 		if err != nil {
 			return nil, err
 		}

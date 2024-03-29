@@ -227,6 +227,8 @@ func TestCreateResource(t *testing.T) {
 		subnet := getFakeSubnet()
 		mockAzureHandler.On("AddSubnetToInvisinetsVnet", ctx, namespace, vnetName, mock.Anything, server.orchestratorServerAddr).Return(&subnet, nil)
 		mockAzureHandler.On("CreateAKSCluster", ctx, cluster, mock.Anything).Return(&cluster, nil)
+		mockAzureHandler.On("CreateSecurityGroup", ctx, mock.Anything, mock.Anything).Return(&armnetwork.SecurityGroup{ID: to.Ptr("fake-nsg-id")}, nil)
+		mockAzureHandler.On("AssociateNSGWithSubnet", ctx, mock.Anything, mock.Anything).Return(nil)
 		vpnGwVnetName := getVpnGatewayVnetName(namespace)
 		mockAzureHandler.On("GetVirtualNetwork", ctx, vpnGwVnetName).Return(&armnetwork.VirtualNetwork{}, nil)
 		mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(namespace)).Return(&armnetwork.VirtualNetworkGateway{}, nil)
@@ -238,6 +240,9 @@ func TestCreateResource(t *testing.T) {
 				{
 					VnetSubnetID: to.Ptr(defaultSubnetID),
 				},
+			},
+			NetworkProfile: &armcontainerservice.NetworkProfile{
+				ServiceCidr: to.Ptr("2.2.2.2/1"),
 			},
 		}
 

@@ -134,12 +134,7 @@ func (m *MockAzureSDKHandler) CreateSecurityGroup(ctx context.Context, name stri
 }
 
 func (m *MockAzureSDKHandler) AssociateNSGWithSubnet(ctx context.Context, subnetID string, nsgID string) error {
-	args := m.Called(ctx, subnetID, nsgID)
-	subnet := args.Get(0)
-	if subnet == nil {
-		return args.Error(1)
-	}
-	return args.Error(1)
+	return nil
 }
 
 func (m *MockAzureSDKHandler) CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error) {
@@ -190,11 +185,6 @@ func (m *MockAzureSDKHandler) GetInvisinetsVnet(ctx context.Context, prefix stri
 func (m *MockAzureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string]string, error) {
 	args := m.Called(ctx, prefix)
 	return args.Get(0).(map[string]string), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) GetLastSegment(resourceID string) (string, error) {
-	args := m.Called(resourceID)
-	return args.String(0), args.Error(1)
 }
 
 func (m *MockAzureSDKHandler) SetSubIdAndResourceGroup(subid string, resourceGroup string) {

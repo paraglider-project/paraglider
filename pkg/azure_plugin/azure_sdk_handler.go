@@ -61,9 +61,8 @@ type AzureSDKHandler interface {
 	GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error)
 	GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error)
 	GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error)
-	CreateSecurityGroup(ctx context.Context, resourceName string, location string, allowedCIDRs map[string]string) (*armnetwork.SecurityGroup, error) // TODO now: add tests
-	GetLastSegment(resourceID string) (string, error)                                                                                                 // TODO now: make this static
-	AssociateNSGWithSubnet(ctx context.Context, subnetID string, nsgID string) error                                                                  // TODO now: add tests
+	CreateSecurityGroup(ctx context.Context, resourceName string, location string, allowedCIDRs map[string]string) (*armnetwork.SecurityGroup, error)
+	AssociateNSGWithSubnet(ctx context.Context, subnetID string, nsgID string) error
 	SetSubIdAndResourceGroup(subID string, resourceGroupName string)
 	CreateOrUpdateVirtualNetworkGateway(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGateway) (*armnetwork.VirtualNetworkGateway, error)
 	GetVirtualNetworkGateway(ctx context.Context, name string) (*armnetwork.VirtualNetworkGateway, error)
@@ -222,18 +221,6 @@ func (h *azureSDKHandler) GetNetworkInterface(ctx context.Context, nicName strin
 	}
 	resourceNic := &nicResponse.Interface
 	return resourceNic, nil
-}
-
-// getLastSegment returns the last segment of a resource ID.
-func (h *azureSDKHandler) GetLastSegment(ID string) (string, error) {
-	// TODO @nnomier: might need to use stricter validations to check if the ID is valid like a regex
-	segments := strings.Split(ID, "/")
-	// The smallest possible len would be 1 because in go if a string s does not contain sep and sep is not empty,
-	// Split returns a slice of length 1 whose only element is s.
-	if len(segments) <= 1 {
-		return "", fmt.Errorf("invalid resource ID format")
-	}
-	return segments[len(segments)-1], nil
 }
 
 // GetPermitListRuleFromNSGRulecurityRule creates a new security rule in a network security group (NSG).
@@ -518,11 +505,11 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 			}
 			defer conn.Close()
 			client := invisinetspb.NewControllerClient(conn)
-			response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: namespace})
+			response, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: namespace})
 			if err != nil {
 				return nil, err
 			}
-			vnet, err := h.CreateInvisinetsVirtualNetwork(ctx, location, vnetName, response.Address)
+			vnet, err := h.CreateInvisinetsVirtualNetwork(ctx, location, vnetName, response.AddressSpaces[0])
 			return vnet, err
 		} else {
 			// Return the error if it's not ResourceNotFound
@@ -544,7 +531,7 @@ func (h *azureSDKHandler) AddSubnetToInvisinetsVnet(ctx context.Context, namespa
 	defer conn.Close()
 
 	client := invisinetspb.NewControllerClient(conn)
-	response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: namespace})
+	response, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: namespace})
 
 	if err != nil {
 		return nil, err
@@ -555,7 +542,7 @@ func (h *azureSDKHandler) AddSubnetToInvisinetsVnet(ctx context.Context, namespa
 	if err != nil {
 		return nil, err
 	}
-	vnet.Properties.AddressSpace.AddressPrefixes = append(vnet.Properties.AddressSpace.AddressPrefixes, to.Ptr(response.Address))
+	vnet.Properties.AddressSpace.AddressPrefixes = append(vnet.Properties.AddressSpace.AddressPrefixes, to.Ptr(response.AddressSpaces[0]))
 	_, err = h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vnetName, *vnet, nil)
 	if err != nil {
 		return nil, err
@@ -564,7 +551,7 @@ func (h *azureSDKHandler) AddSubnetToInvisinetsVnet(ctx context.Context, namespa
 	// Create the subnet
 	subnet, err := h.CreateSubnet(ctx, vnetName, subnetName, armnetwork.Subnet{
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr(response.Address),
+			AddressPrefix: to.Ptr(response.AddressSpaces[0]),
 		},
 	})
 	return subnet, err
@@ -970,4 +957,16 @@ func isErrorNotFound(err error) bool {
 // Returns peering name from local vnet to remote vnet
 func getPeeringName(localVnetName string, remoteVnetName string) string {
 	return localVnetName + "-to-" + remoteVnetName
+}
+
+// getLastSegment returns the last segment of a resource ID.
+func GetLastSegment(ID string) (string, error) {
+	// TODO @nnomier: might need to use stricter validations to check if the ID is valid like a regex
+	segments := strings.Split(ID, "/")
+	// The smallest possible len would be 1 because in go if a string s does not contain sep and sep is not empty,
+	// Split returns a slice of length 1 whose only element is s.
+	if len(segments) <= 1 {
+		return "", fmt.Errorf("invalid resource ID format")
+	}
+	return segments[len(segments)-1], nil
 }

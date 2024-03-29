@@ -178,7 +178,7 @@ func (r *AzureVM) GetNetworkInfo(resource *armresources.GenericResource, handler
 	netprofile := properties["networkProfile"].(map[string]interface{})
 	nicID := netprofile["networkInterfaces"].([]interface{})[0].(map[string]interface{})["id"].(string)
 
-	nicName, err := handler.GetLastSegment(nicID)
+	nicName, err := GetLastSegment(nicID)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ func (r *AzureVM) CreateWithNetwork(ctx context.Context, vm *armcompute.VirtualM
 		return "", err
 	}
 
-	nicName, err := handler.GetLastSegment(*vm.Properties.NetworkProfile.NetworkInterfaces[0].ID)
+	nicName, err := GetLastSegment(*vm.Properties.NetworkProfile.NetworkInterfaces[0].ID)
 	if err != nil {
 		return "", err
 	}
@@ -279,7 +279,7 @@ func (r *AzureAKS) GetNetworkInfo(resource *armresources.GenericResource, handle
 		utils.Log.Printf("An error occured while getting the subnet:%+v", err)
 		return nil, err
 	}
-	nsgName, err := handler.GetLastSegment(*subnet.Properties.NetworkSecurityGroup.ID)
+	nsgName, err := GetLastSegment(*subnet.Properties.NetworkSecurityGroup.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -303,14 +303,15 @@ func (r *AzureAKS) CreateWithNetwork(ctx context.Context, resource *armcontainer
 	for _, profile := range resource.Properties.AgentPoolProfiles {
 		profile.VnetSubnetID = subnet.ID
 	}
-	_, err := handler.CreateAKSCluster(ctx, *resource, resourceInfo.ResourceName)
+	cluster, err := handler.CreateAKSCluster(ctx, *resource, resourceInfo.ResourceName)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating the AKS cluster:%+v", err)
 		return "", err
 	}
 
 	// Associate the subnet with an NSG for the cluster
-	allowedAddrs := map[string]string{"serviceCIDR": *resource.Properties.NetworkProfile.ServiceCidr, "localsubnet": *subnet.Properties.AddressPrefix}
+	// TODO NOW: set resource.Properties.NetworkProfile.PodCidr and serviceCidr above
+	allowedAddrs := map[string]string{"serviceCIDR": *cluster.Properties.NetworkProfile.ServiceCidr, "localsubnet": *subnet.Properties.AddressPrefix}
 	nsg, err := handler.CreateSecurityGroup(ctx, resourceInfo.ResourceName, *resource.Location, allowedAddrs)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating the network security group:%+v", err)
