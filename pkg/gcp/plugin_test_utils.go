@@ -45,11 +45,12 @@ const (
 	fakeZone         = fakeRegion + "-a"
 	fakeInstanceName = "vm-invisinets-fake"
 	fakeClusterName  = "cluster-invisinets-fake"
-	fakeClusterId    = "1234"
+	fakeClusterId    = "12345678910"
 	fakeInstanceId   = uint64(1234)
 	fakeResourceId   = "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
 	fakeNamespace    = "defaultnamespace"
-	fakeSubnetId     = "projects/" + fakeProject + "/zones/" + fakeZone + "/subnetworks/subnet-invisinets-fake"
+	fakeSubnetName   = "subnet-invisinets-fake"
+	fakeSubnetId     = "projects/" + fakeProject + "/regions/" + fakeRegion + "/subnetworks/" + fakeSubnetName
 
 	// Missing resources not registered in fake server
 	fakeMissingInstance   = "vm-invisinets-missing"
@@ -152,7 +153,7 @@ func getFakeCluster(includeNetwork bool) *containerpb.Cluster {
 		},
 	}
 	if includeNetwork {
-		cluster.Subnetwork = fakeSubnetId
+		cluster.Subnetwork = fakeSubnetName
 		cluster.Network = GetVpcUri(fakeNamespace)
 	}
 	return cluster

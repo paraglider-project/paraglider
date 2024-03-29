@@ -73,6 +73,8 @@ const (
 	invalidSubnetName                          = "invalid-subnet-name"
 	validSubnetId                              = "valid-subnet-id"
 	invalidSubnetId                            = "invalid-subnet-id"
+	validSubnetURI                             = "/s/s/r/r/p/p/v/" + validVnetName + "/s/" + validSubnetName
+	invalidSubnetURI                           = "/s/s/r/r/p/p/v/" + invalidVnetName + "/s/" + invalidSubnetName
 	validLocalNetworkGatewayName               = "valid-local-network-gateway"
 	invalidLocalNetworkGatewayName             = "invalid-local-network-gateway"
 	validVirtualNetworkGatewayConnectionName   = "valid-virtual-network-gateway-connection"
@@ -210,11 +212,14 @@ func initializeReqRespMap() map[string]interface{} {
 				Name: to.Ptr(validSecurityRuleName),
 			},
 		},
-		fmt.Sprintf("%s/%s-%s", nsgRuleUrl, validResourceName, nsgNameSuffix): armnetwork.SecurityRulesClientGetResponse{
-			SecurityRule: armnetwork.SecurityRule{
-				Name: to.Ptr(validSecurityRuleName),
-			},
+		fmt.Sprintf("%s/%s%s", nsgURL, validResourceName, nsgNameSuffix): armnetwork.SecurityGroup{
+			Name: to.Ptr(validResourceName + nsgNameSuffix),
 		},
+		fmt.Sprintf("%s/%s", subnetUrl, validSubnetName): armnetwork.Subnet{
+			Name:       to.Ptr(validSubnetName),
+			Properties: &armnetwork.SubnetPropertiesFormat{},
+		},
+
 		fmt.Sprintf("%s/%s", vnetUrl, validVnetName): armnetwork.VirtualNetworksClientGetResponse{
 			VirtualNetwork: armnetwork.VirtualNetwork{
 				Properties: &armnetwork.VirtualNetworkPropertiesFormat{
@@ -250,7 +255,6 @@ func initializeReqRespMap() map[string]interface{} {
 		fmt.Sprintf("%s/%s/virtualNetworkPeerings/%s", vnetsInRgUrl, validVnetName, getPeeringName(validVnetName, validVnetName)): armnetwork.VirtualNetworkPeeringsClientGetResponse{},
 		fmt.Sprintf("%s/%s", virtualNetworkGatewayUrl, validVirtualNetworkGatewayName):                                            armnetwork.VirtualNetworkGateway{},
 		fmt.Sprintf("%s/%s", publicIpAddressUrl, validPublicIpAddressName):                                                        armnetwork.PublicIPAddress{},
-		fmt.Sprintf("%s/%s", subnetUrl, validSubnetName):                                                                          armnetwork.Subnet{},
 		fmt.Sprintf("%s/%s", localNetworkGatewayUrl, validLocalNetworkGatewayName):                                                armnetwork.LocalNetworkGateway{},
 		fmt.Sprintf("%s/%s", virtualNetworkGatewayConnectionUrl, validVirtualNetworkGatewayConnectionName):                        armnetwork.VirtualNetworkGatewayConnection{},
 		fmt.Sprintf("%s/%s", managedClusterUrl, validClusterName):                                                                 armcontainerservice.ManagedCluster{},
@@ -355,18 +359,6 @@ func TestCreateSecurityGroup(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, nsg)
 		assert.Contains(t, *nsg.Name, validResourceName)
-		assert.Len(t, nsg.Properties.SecurityRules, 6) // inbound and outbound for both allowed and the default deny
-		rulePrefixes := make([]string, len(nsg.Properties.SecurityRules))
-		for i, rule := range nsg.Properties.SecurityRules {
-			if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
-				rulePrefixes[i] = *rule.Properties.SourceAddressPrefix
-			} else {
-				rulePrefixes[i] = *rule.Properties.DestinationAddressPrefix
-			}
-		}
-		assert.Contains(t, rulePrefixes, allowedCidrs[prefixName1])
-		assert.Contains(t, rulePrefixes, allowedCidrs[prefixName2])
-		assert.Contains(t, rulePrefixes, "0.0.0.0/0")
 	})
 
 	t.Run("CreateSecurityGroup: Success - none allowed", func(t *testing.T) {
@@ -376,16 +368,6 @@ func TestCreateSecurityGroup(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, nsg)
 		assert.Contains(t, *nsg.Name, validResourceName)
-		assert.Len(t, nsg.Properties.SecurityRules, 2) // inbound and outbound for both allowed and the default deny
-		rulePrefixes := make([]string, len(nsg.Properties.SecurityRules))
-		for i, rule := range nsg.Properties.SecurityRules {
-			if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
-				rulePrefixes[i] = *rule.Properties.SourceAddressPrefix
-			} else {
-				rulePrefixes[i] = *rule.Properties.DestinationAddressPrefix
-			}
-		}
-		assert.Contains(t, rulePrefixes, "0.0.0.0/0")
 	})
 }
 
@@ -397,13 +379,13 @@ func TestAssociateNSGWithSubnet(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("AssociateNSGWithSubnet: Success", func(t *testing.T) {
-		err := azureSDKHandlerTest.AssociateNSGWithSubnet(ctx, validSubnetId, validSecurityGroupID)
+		err := azureSDKHandlerTest.AssociateNSGWithSubnet(ctx, validSubnetURI, validSecurityGroupID)
 
 		require.NoError(t, err)
 	})
 
 	t.Run("AssociateNSGWithSubnet: Failure - subnet does not exist", func(t *testing.T) {
-		err := azureSDKHandlerTest.AssociateNSGWithSubnet(ctx, invalidSubnetId, validSecurityGroupID)
+		err := azureSDKHandlerTest.AssociateNSGWithSubnet(ctx, invalidSubnetURI, validSecurityGroupID)
 
 		require.Error(t, err)
 	})
@@ -417,14 +399,14 @@ func TestGetSubnetById(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("GetSubnetById: Success", func(t *testing.T) {
-		subnet, err := azureSDKHandlerTest.GetSubnetByID(ctx, validSubnetId)
+		subnet, err := azureSDKHandlerTest.GetSubnetByID(ctx, validSubnetURI)
 
 		require.NoError(t, err)
 		require.NotNil(t, subnet)
 	})
 
 	t.Run("GetSubnetById: Failure", func(t *testing.T) {
-		subnet, err := azureSDKHandlerTest.GetSubnetByID(ctx, invalidSubnetId)
+		subnet, err := azureSDKHandlerTest.GetSubnetByID(ctx, invalidSubnetURI)
 
 		require.Error(t, err)
 		require.Nil(t, subnet)

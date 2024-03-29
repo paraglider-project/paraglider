@@ -124,7 +124,6 @@ func TestCreateResource(t *testing.T) {
 		mockAzureHandler.On("CreateNetworkInterface", ctx, defaultSubnetID, testLocation, mock.Anything).Return(&armnetwork.Interface{ID: to.Ptr(validNicId)}, nil)
 		mockAzureHandler.On("CreateVirtualMachine", ctx, vm, mock.Anything).Return(&vm, nil)
 		fakeNic := getFakeNIC()
-		mockAzureHandler.On("GetLastSegment", validNicId).Return(validNicName, nil)
 		mockAzureHandler.On("GetNetworkInterface", ctx, *fakeNic.Name).Return(fakeNic, nil)
 		vpnGwVnetName := getVpnGatewayVnetName(namespace)
 		mockAzureHandler.On("GetVirtualNetwork", ctx, vpnGwVnetName).Return(&armnetwork.VirtualNetwork{}, nil)
@@ -324,7 +323,6 @@ func TestGetPermitList(t *testing.T) {
 		vm := getGenericResourceVM(fakeResourceId, &nicId)
 		require.NoError(t, err)
 		mockAzureHandler.On("GetResource", ctx, fakeResourceId).Return(&vm, nil)
-		mockAzureHandler.On("GetLastSegment", validNicId).Return(validNicName, nil)
 		mockAzureHandler.On("GetNetworkInterface", ctx, validNicName).Return(nil, fmt.Errorf("NIC get error"))
 
 		// Call the GetPermitList function
@@ -486,7 +484,6 @@ func TestAddPermitListRules(t *testing.T) {
 		vm := getGenericResourceVM(fakeResource, &nicId)
 		require.NoError(t, err)
 		mockAzureHandler.On("GetResource", ctx, fakeResource).Return(&vm, nil)
-		mockAzureHandler.On("GetLastSegment", validNicId).Return(validNicName, nil)
 		mockAzureHandler.On("GetNetworkInterface", ctx, validNicName).Return(nil, fmt.Errorf("NIC get error"))
 		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
 		require.Error(t, err)
@@ -575,7 +572,6 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		vm := getGenericResourceVM(fakeResource, &nicId)
 		require.NoError(t, err)
 		mockAzureHandler.On("GetResource", ctx, fakeResource).Return(&vm, nil)
-		mockAzureHandler.On("GetLastSegment", validNicId).Return(validNicName, nil)
 		mockAzureHandler.On("GetNetworkInterface", ctx, validNicName).Return(nil, fmt.Errorf("NIC get error"))
 		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
@@ -1099,7 +1095,6 @@ func mockGetSecurityGroupSetup(mockAzureHandler *MockAzureSDKHandler, ctx contex
 	nicId := validNicId
 	fakeResource := getGenericResourceVM(associatedResrouce, &nicId)
 	mockAzureHandler.On("GetResource", ctx, associatedResrouce).Return(&fakeResource, nil)
-	mockAzureHandler.On("GetLastSegment", validNicId).Return(validNicName, nil)
 	mockAzureHandler.On("GetNetworkInterface", ctx, validNicName).Return(fakeNic, nicErr)
 	mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nsgErr)
 }
@@ -1107,14 +1102,12 @@ func mockGetSecurityGroupSetup(mockAzureHandler *MockAzureSDKHandler, ctx contex
 func getGenericResourceVM(resourceId string, nicId *string) armresources.GenericResource {
 	return armresources.GenericResource{
 		ID:       to.Ptr(resourceId),
-		Type:     to.Ptr("Microsoft.Compute/virtualMachines"),
+		Type:     to.Ptr("Microsoft.Compute/VirtualMachines"),
 		Location: to.Ptr("test-location"),
-		Properties: armcompute.VirtualMachineProperties{
-			NetworkProfile: &armcompute.NetworkProfile{
-				NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
-					{
-						ID: nicId,
-					},
+		Properties: map[string]interface{}{
+			"networkProfile": map[string]interface{}{
+				"networkInterfaces": []interface{}{
+					map[string]interface{}{"id": *getFakeNIC().ID},
 				},
 			},
 		},

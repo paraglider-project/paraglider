@@ -41,7 +41,7 @@ func TestParseResourceURI(t *testing.T) {
 	assert.Equal(t, fakeInstanceName, resourceInfo.Name)
 	assert.Equal(t, instanceTypeName, resourceInfo.ResourceType)
 
-	clusterUri := fmt.Sprintf("projects/%s/zones/%s/clusters/%s", fakeProject, fakeZone, fakeClusterName)
+	clusterUri := fmt.Sprintf("projects/%s/locations/%s/clusters/%s", fakeProject, fakeZone, fakeClusterName)
 
 	resourceInfo, err = parseResourceUri(clusterUri)
 
@@ -93,7 +93,7 @@ func TestGetResourceInfo(t *testing.T) {
 	assert.Equal(t, instance.NetworkInterfaces[0].Subnetwork, subnet)
 
 	// Test for cluster
-	resourceInfo = &ResourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName, Namespace: fakeNamespace}
+	resourceInfo = &ResourceInfo{Project: fakeProject, Region: fakeRegion, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName, Namespace: fakeNamespace}
 
 	cluster := getFakeCluster(true)
 	serverState = fakeServerState{cluster: cluster}
@@ -105,8 +105,8 @@ func TestGetResourceInfo(t *testing.T) {
 	subnet, resourceId, err = GetResourceInfo(ctx, nil, clusterClient, resourceInfo)
 
 	require.NoError(t, err)
-	assert.Equal(t, cluster.Id, *resourceId)
-	assert.Equal(t, cluster.Subnetwork, *subnet)
+	assert.Equal(t, shortenClusterId(cluster.Id), *resourceId)
+	assert.Equal(t, fakeSubnetId, *subnet)
 }
 
 func TestIsValidResource(t *testing.T) {
@@ -254,7 +254,7 @@ func TestInstanceCreateWithNetwork(t *testing.T) {
 
 func TestGKEGetNetworkInfo(t *testing.T) {
 	clusterHandler := &GKE{}
-	resourceInfo := &ResourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName}
+	resourceInfo := &ResourceInfo{Project: fakeProject, Region: fakeRegion, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName}
 	cluster := getFakeCluster(true)
 	serverState := fakeServerState{cluster: cluster}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
@@ -266,7 +266,7 @@ func TestGKEGetNetworkInfo(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, cluster.Id, networkInfo.ResourceID)
-	assert.Equal(t, cluster.Subnetwork, networkInfo.SubnetURI)
+	assert.Equal(t, fakeSubnetId, networkInfo.SubnetURI)
 }
 
 func TestGKEFromResourceDecription(t *testing.T) {

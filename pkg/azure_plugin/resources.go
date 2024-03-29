@@ -66,7 +66,7 @@ func GetAndCheckResourceState(c context.Context, handler AzureSDKHandler, resour
 	// Check its namespace
 	vnet := getVnetFromSubnetId(netInfo.SubnetID)
 	if !strings.HasPrefix(vnet, getInvisinetsNamespacePrefix(namespace)) {
-		return nil, fmt.Errorf("resource %s is not in the namespace %s", resourceID, namespace)
+		return nil, fmt.Errorf("resource %s is not in the namespace %s (subnet ID: %s)", resourceID, namespace, netInfo.SubnetID)
 	}
 
 	// Return the relevant NSG
