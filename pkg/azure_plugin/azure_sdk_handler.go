@@ -52,7 +52,7 @@ type AzureSDKHandler interface {
 	GetVirtualNetwork(ctx context.Context, name string) (*armnetwork.VirtualNetwork, error)
 	CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error)
 	CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error)
-	GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string]string, error)
+	GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string][]string, error)
 	CreateOrUpdateVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string, parameters armnetwork.VirtualNetworkPeering) (*armnetwork.VirtualNetworkPeering, error)
 	GetVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string) (*armnetwork.VirtualNetworkPeering, error)
 	ListVirtualNetworkPeerings(ctx context.Context, virtualNetworkName string) ([]*armnetwork.VirtualNetworkPeering, error)
@@ -315,8 +315,8 @@ func (h *azureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string
 }
 
 // GetVnetAddressSpaces returns a map of location to address space for all virtual networks (VNets) with a given prefix.
-func (h *azureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string]string, error) {
-	addressSpaces := make(map[string]string)
+func (h *azureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string][]string, error) {
+	addressSpaces := make(map[string][]string)
 	pager := h.virtualNetworksClient.NewListPager(h.resourceGroupName, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -325,7 +325,11 @@ func (h *azureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix stri
 		}
 		for _, v := range page.Value {
 			if strings.HasPrefix(*v.Name, prefix) {
-				addressSpaces[*v.Location] = *v.Properties.AddressSpace.AddressPrefixes[0]
+				prefixes := make([]string, len(v.Properties.AddressSpace.AddressPrefixes))
+				for i, prefix := range v.Properties.AddressSpace.AddressPrefixes {
+					prefixes[i] = *prefix
+				}
+				addressSpaces[*v.Location] = prefixes
 			}
 		}
 	}

@@ -275,7 +275,7 @@ func TestGetVNetsAddressSpaces(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, addresses)
 		require.Len(t, addresses, 1)
-		assert.Equal(t, addresses[testLocation], validAddressSpace)
+		assert.Equal(t, addresses[testLocation], []string{validAddressSpace})
 	})
 }
 

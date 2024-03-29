@@ -55,27 +55,32 @@ func init() {
 }
 
 // Checks if an Invisinets permit list rule tag (either an address or address space) is contained within an address space.
-func IsPermitListRuleTagInAddressSpace(permitListRuleTag, addressSpace string) (bool, error) {
-	prefix, err := netip.ParsePrefix(addressSpace)
-	if err != nil {
-		return false, err
-	}
-
-	var addr netip.Addr
-	if strings.Contains(permitListRuleTag, "/") {
-		permitListRuleTagPrefix, err := netip.ParsePrefix(permitListRuleTag)
+func IsPermitListRuleTagInAddressSpace(permitListRuleTag string, addressSpaces []string) (bool, error) {
+	for _, addressSpace := range addressSpaces {
+		prefix, err := netip.ParsePrefix(addressSpace)
 		if err != nil {
 			return false, err
 		}
-		addr = permitListRuleTagPrefix.Addr()
-	} else {
-		addr, err = netip.ParseAddr(permitListRuleTag)
-		if err != nil {
-			return false, err
+
+		var addr netip.Addr
+		if strings.Contains(permitListRuleTag, "/") {
+			permitListRuleTagPrefix, err := netip.ParsePrefix(permitListRuleTag)
+			if err != nil {
+				return false, err
+			}
+			addr = permitListRuleTagPrefix.Addr()
+		} else {
+			addr, err = netip.ParseAddr(permitListRuleTag)
+			if err != nil {
+				return false, err
+			}
+		}
+		if prefix.Contains(addr) {
+			return true, nil
 		}
 	}
 
-	return prefix.Contains(addr), nil
+	return false, nil
 }
 
 // Checks if an IP address is public
@@ -111,7 +116,7 @@ func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string,
 		}
 		if isPrivate {
 			// Check early to see if tag belongs in current cloud's address space (i.e. local to subnet)
-			contained, err := IsPermitListRuleTagInAddressSpace(target, currentCloudAddressSpace)
+			contained, err := IsPermitListRuleTagInAddressSpace(target, []string{currentCloudAddressSpace})
 			if err != nil {
 				return fmt.Errorf("unable to determine if tag is in current address space: %w", err)
 			}
@@ -119,7 +124,7 @@ func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string,
 				var peeringCloud, peeringCloudNamespace string
 				for _, usedAddressSpaceMapping := range usedAddressSpaceMappings.AddressSpaceMappings {
 					for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
-						contained, err := IsPermitListRuleTagInAddressSpace(target, addressSpace)
+						contained, err := IsPermitListRuleTagInAddressSpace(target, []string{addressSpace})
 						if err != nil {
 							return fmt.Errorf("unable to determine if tag is in address space: %w", err)
 						}

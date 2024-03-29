@@ -31,6 +31,7 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 )
 
 const maxPriority = 4096
@@ -129,6 +130,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 	if err != nil {
 		return nil, err
 	}
+
 	var existingRulePriorities map[string]int32 = make(map[string]int32)
 	var reservedPrioritiesInbound map[int32]bool = make(map[int32]bool)
 	var reservedPrioritiesOutbound map[int32]bool = make(map[int32]bool)
@@ -158,11 +160,12 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		utils.Log.Printf("An error occured while getting resource vnet:%+v", err)
 		return nil, err
 	}
+	resourceSubnetID := netInfo.SubnetID
 
 	// Get subnet address space
 	var subnetAddressPrefix string
 	for _, subnet := range resourceVnet.Properties.Subnets {
-		if *subnet.Name == "default" {
+		if *subnet.ID == resourceSubnetID {
 			if subnet.Properties.AddressPrefix != nil {
 				// Check to avoid nil pointer dereference
 				subnetAddressPrefix = *subnet.Properties.AddressPrefix
@@ -254,12 +257,14 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *invisi
 // which means the resource should be added to a valid invisinets network, the attachement to an invisinets network
 // is determined by the resource's location.
 func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
+	utils.Log.Printf("Creating resource: %+v", resourceDesc)
 	resourceDescInfo, err := GetResourceInfoFromResourceDesc(ctx, resourceDesc)
 	if err != nil {
 		utils.Log.Printf("Resource description is invalid:%+v", err)
 		return nil, err
 	}
 
+	utils.Log.Printf("Getting resource ID info")
 	resourceIdInfo, err := getResourceIDInfo(resourceDesc.Id)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting resource id info:%+v", err)
@@ -271,6 +276,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		return nil, err
 	}
 
+	utils.Log.Printf("Getting invisinet vnet")
 	vnetName := getVnetName(resourceDescInfo.Location, resourceDesc.Namespace)
 	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, vnetName, resourceDescInfo.Location, resourceDesc.Namespace, s.orchestratorServerAddr)
 	if err != nil {
@@ -278,18 +284,52 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		return nil, err
 	}
 
-	subnet := invisinetsVnet.Properties.Subnets[0]
+	utils.Log.Printf("Adding subnet if required")
+	resourceSubnet := invisinetsVnet.Properties.Subnets[0]
 	if resourceDescInfo.RequiresSubnet {
+		// Check if subnet already exists (could happen if resource provisioning failed after this step)
+		subnetExists := false
+		for _, subnet := range invisinetsVnet.Properties.Subnets {
+			if *subnet.Name == getSubnetName(resourceDescInfo.ResourceName) {
+				utils.Log.Printf("Subnet already exists")
+				resourceSubnet = subnet
+				subnetExists = true
+				break
+			}
+		}
 		// Create subnet
-		subnet, err = s.azureHandler.AddSubnetToInvisinetsVnet(ctx, resourceDesc.Namespace, vnetName, getSubnetName(resourceDescInfo.ResourceName), s.orchestratorServerAddr)
-		if err != nil {
-			utils.Log.Printf("An error occured while creating subnet:%+v", err)
-			return nil, err
+		if !subnetExists {
+			resourceSubnet, err = s.azureHandler.AddSubnetToInvisinetsVnet(ctx, resourceDesc.Namespace, vnetName, getSubnetName(resourceDescInfo.ResourceName), s.orchestratorServerAddr)
+			if err != nil {
+				utils.Log.Printf("An error occured while creating subnet:%+v", err)
+				return nil, err
+			}
 		}
 	}
 
+	utils.Log.Printf("Getting additional address spaces")
+	additionalAddrs := []string{}
+	if resourceDescInfo.NumAdditionalAddressSpaces > 0 {
+		// Create additional address spaces
+		conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			utils.Log.Printf("could not dial the orchestrator")
+			return nil, err
+		}
+		defer conn.Close()
+		client := invisinetspb.NewControllerClient(conn)
+		response, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: resourceDesc.Namespace, Num: proto.Int32(int32(resourceDescInfo.NumAdditionalAddressSpaces))})
+		if err != nil {
+			utils.Log.Printf("failed to find unused address spaces: %v", err)
+			return nil, err
+		}
+		additionalAddrs = response.AddressSpaces
+	}
+	utils.Log.Printf("Additional address spaces: %v", additionalAddrs)
+
 	// Create the resource
-	ip, err := ReadAndProvisionResource(ctx, resourceDesc, subnet, &resourceIdInfo, s.azureHandler)
+	utils.Log.Printf("Reading and provisioning the resource")
+	ip, err := ReadAndProvisionResource(ctx, resourceDesc, resourceSubnet, &resourceIdInfo, s.azureHandler, additionalAddrs)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating resource:%+v", err)
 		return nil, err
@@ -386,11 +426,11 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment
 		utils.Log.Printf("An error occured while getting address spaces:%+v", err)
 		return nil, err
 	}
-	invisinetAddressList := make([]string, len(addressSpaces))
-	i := 0
-	for _, address := range addressSpaces {
-		invisinetAddressList[i] = address
-		i++
+	invisinetAddressList := []string{}
+	for _, addresses := range addressSpaces {
+		if addresses != nil {
+			invisinetAddressList = append(invisinetAddressList, addresses...)
+		}
 	}
 	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetAddressList}, nil
 }
@@ -526,9 +566,13 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 
 // checkAndCreatePeering checks whether the given rule has a tag that is in the address space of any of the invisinets vnets
 // and if requires a peering or not
-func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceVnet *armnetwork.VirtualNetwork, rule *invisinetspb.PermitListRule, invisinetsVnetsMap map[string]string, namespace string) error {
+func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceVnet *armnetwork.VirtualNetwork, rule *invisinetspb.PermitListRule, invisinetsVnetsMap map[string][]string, namespace string) error {
 	for _, target := range rule.Targets {
-		isTagInResourceAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(target, *resourceVnet.Properties.AddressSpace.AddressPrefixes[0])
+		prefixes := make([]string, len(resourceVnet.Properties.AddressSpace.AddressPrefixes))
+		for i, addressSpace := range resourceVnet.Properties.AddressSpace.AddressPrefixes {
+			prefixes[i] = *addressSpace
+		}
+		isTagInResourceAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(target, prefixes) // TODO NOW: generalize this to many address prefixes
 		if err != nil {
 			return err
 		}
@@ -538,8 +582,8 @@ func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceV
 
 		// if the tag is not in the resource address space, then check on the other invisinets vnets
 		// if it matches one of them, then a peering is required (if it doesn't exist already)
-		for vnetLocation, vnetAddressSpace := range invisinetsVnetsMap {
-			isTagInVnetAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(target, vnetAddressSpace)
+		for vnetLocation, vnetAddressSpaces := range invisinetsVnetsMap {
+			isTagInVnetAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(target, vnetAddressSpaces)
 			if err != nil {
 				return err
 			}

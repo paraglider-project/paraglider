@@ -42,7 +42,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var fakeAddressList = map[string]string{testLocation: validAddressSpace}
+var fakeAddressList = map[string][]string{testLocation: []string{validAddressSpace}}
 
 const defaultNamespace = "default"
 
@@ -59,7 +59,13 @@ func setupAzurePluginServer() (*azurePluginServer, *MockAzureSDKHandler, context
 	// Create a mock implementation of the AzureSDKHandler interface
 	var mockAzureHandler AzureSDKHandler = &MockAzureSDKHandler{}
 	server.azureHandler = mockAzureHandler
-	server.orchestratorServerAddr = "fakecontrollerserveraddr"
+
+	// Create fake orchestrator server
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
+	if err != nil {
+		fmt.Println("Error while setting up fake orchestrator server: ", err)
+	}
+	server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 	// Perform a type requireion to convert the AzureSDKHandler interface value to a *MockAzureSDKHandler concrete value, allowing access to methods and fields specific to the MockAzureSDKHandler type.
 	concreteMockAzureHandler := mockAzureHandler.(*MockAzureSDKHandler)
@@ -81,10 +87,14 @@ func getValidVMDescription() (armcompute.VirtualMachine, []byte, error) {
 
 func getValidClusterDescription() (armcontainerservice.ManagedCluster, []byte, error) {
 	validCluster := &armcontainerservice.ManagedCluster{
-		ID:         to.Ptr("cluster-id"),
-		Name:       to.Ptr("cluster-name"),
-		Location:   to.Ptr(testLocation),
-		Properties: &armcontainerservice.ManagedClusterProperties{},
+		ID:       to.Ptr("cluster-id"),
+		Name:     to.Ptr("cluster-name"),
+		Location: to.Ptr(testLocation),
+		Properties: &armcontainerservice.ManagedClusterProperties{
+			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
+				{Name: to.Ptr("agent-pool-name")},
+			},
+		},
 	}
 
 	validDescripton, err := json.Marshal(validCluster)
@@ -208,6 +218,14 @@ func TestCreateResource(t *testing.T) {
 
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 
+		subnet := getFakeSubnet()
+
+		cluster.Properties.NetworkProfile = &armcontainerservice.NetworkProfile{
+			ServiceCidr:  to.Ptr("10.0.0.0/16"),
+			DNSServiceIP: to.Ptr("10.0.0.10"),
+		}
+		cluster.Properties.AgentPoolProfiles[0].VnetSubnetID = subnet.ID
+
 		// Set up mock behavior for the Azure SDK handler
 		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
 		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
@@ -217,13 +235,12 @@ func TestCreateResource(t *testing.T) {
 				Subnets: []*armnetwork.Subnet{
 					{
 						Name:       to.Ptr(defaultSubnetName),
-						ID:         to.Ptr(defaultSubnetID),
+						ID:         subnet.ID,
 						Properties: &armnetwork.SubnetPropertiesFormat{AddressPrefix: to.Ptr("1.1.1.1/1")},
 					},
 				},
 			},
 		}, nil)
-		subnet := getFakeSubnet()
 		mockAzureHandler.On("AddSubnetToInvisinetsVnet", ctx, namespace, vnetName, mock.Anything, server.orchestratorServerAddr).Return(&subnet, nil)
 		mockAzureHandler.On("CreateAKSCluster", ctx, cluster, mock.Anything).Return(&cluster, nil)
 		mockAzureHandler.On("CreateSecurityGroup", ctx, mock.Anything, mock.Anything).Return(&armnetwork.SecurityGroup{ID: to.Ptr("fake-nsg-id")}, nil)
@@ -233,17 +250,6 @@ func TestCreateResource(t *testing.T) {
 		mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(namespace)).Return(&armnetwork.VirtualNetworkGateway{}, nil)
 		mockAzureHandler.On("GetVirtualNetworkPeering", ctx, vnetName, vpnGwVnetName).Return(nil, &azcore.ResponseError{StatusCode: http.StatusNotFound})
 		mockAzureHandler.On("CreateOrUpdateVnetPeeringRemoteGateway", ctx, vnetName, vpnGwVnetName, (*armnetwork.VirtualNetworkPeering)(nil), (*armnetwork.VirtualNetworkPeering)(nil)).Return(nil)
-
-		cluster.Properties = &armcontainerservice.ManagedClusterProperties{
-			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
-				{
-					VnetSubnetID: to.Ptr(defaultSubnetID),
-				},
-			},
-			NetworkProfile: &armcontainerservice.NetworkProfile{
-				ServiceCidr: to.Ptr("2.2.2.2/1"),
-			},
-		}
 
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
 			Description: desc,
@@ -397,6 +403,7 @@ func TestAddPermitListRules(t *testing.T) {
 		Subnets: []*armnetwork.Subnet{
 			{
 				Name: to.Ptr("default"),
+				ID:   fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID,
 				Properties: &armnetwork.SubnetPropertiesFormat{
 					AddressPrefix: to.Ptr("10.0.0.0/16"),
 				},
@@ -767,14 +774,14 @@ func TestCheckAndCreatePeering(t *testing.T) {
 		},
 	}
 
-	vnetMap := map[string]string{"westus": "10.5.0.0/16", "westus2": "10.2.0.0/16"}
+	vnetMap := map[string][]string{"westus": []string{"10.5.0.0/16"}, "westus2": []string{"10.2.0.0/16"}}
 
 	// each tag will represent a test case
 	fakeList := &invisinetspb.PermitListRule{Targets: []string{
-		"10.0.0.1",   // A tag that matches resourceVnet's address space
-		"10.1.0.0/8", // A tag that matches resourceVnet's address space but is in a CIDR format
-		"10.5.3.4",   // A tag outside of the resourceVnet's address space but is in another (westus) invisinets network and has an existing peering
-		"10.2.3.4",   // A tag outside of the resourceVnet's address space but is in another invisinets network and requires a new peering
+		"10.0.0.1",    // A tag that matches resourceVnet's address space
+		"10.0.1.0/24", // A tag that matches resourceVnet's address space but is in a CIDR format
+		"10.5.3.4",    // A tag outside of the resourceVnet's address space but is in another (westus) invisinets network and has an existing peering
+		"10.2.3.4",    // A tag outside of the resourceVnet's address space but is in another invisinets network and requires a new peering
 	}}
 
 	mockAzureHandler.On("CreateVnetPeering", ctx, getVnetName("westus2", "defaultnamespace"), getVnetName(testLocation, "defaultnamespace")).Return(nil)
@@ -1114,7 +1121,7 @@ func getGenericResourceVM(resourceId string, nicId *string) armresources.Generic
 	}
 }
 
-func mockGetVnetAndAddressSpaces(mockAzureHandler *MockAzureSDKHandler, ctx context.Context, vnetName string, vnetPrefix string, fakeVnet *armnetwork.VirtualNetwork, fakeAddressList map[string]string) {
+func mockGetVnetAndAddressSpaces(mockAzureHandler *MockAzureSDKHandler, ctx context.Context, vnetName string, vnetPrefix string, fakeVnet *armnetwork.VirtualNetwork, fakeAddressList map[string][]string) {
 	mockAzureHandler.On("GetVNet", ctx, vnetName).Return(fakeVnet, nil)
 	mockAzureHandler.On("GetVNetsAddressSpaces", ctx, vnetPrefix).Return(fakeAddressList, nil)
 }

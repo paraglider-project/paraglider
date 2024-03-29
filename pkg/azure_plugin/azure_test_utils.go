@@ -182,9 +182,9 @@ func (m *MockAzureSDKHandler) GetInvisinetsVnet(ctx context.Context, prefix stri
 	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string]string, error) {
+func (m *MockAzureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string][]string, error) {
 	args := m.Called(ctx, prefix)
-	return args.Get(0).(map[string]string), args.Error(1)
+	return args.Get(0).(map[string][]string), args.Error(1)
 }
 
 func (m *MockAzureSDKHandler) SetSubIdAndResourceGroup(subid string, resourceGroup string) {

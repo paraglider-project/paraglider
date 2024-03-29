@@ -284,7 +284,7 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	subnet := getFakeSubnet()
 	resourceInfo := getFakeResourceInfo(*vm.Name)
-	ip, err := ReadAndProvisionResource(context.Background(), resourceDescription, &subnet, &resourceInfo, mockAzureHandler)
+	ip, err := ReadAndProvisionResource(context.Background(), resourceDescription, &subnet, &resourceInfo, mockAzureHandler, []string{})
 
 	require.NoError(t, err)
 	assert.Equal(t, ip, *getFakeInterface().Properties.IPConfigurations[0].Properties.PrivateIPAddress)
@@ -293,7 +293,7 @@ func TestReadAndProvisionResource(t *testing.T) {
 	resourceInfo = getFakeResourceInfo(*cluster.Name)
 	resourceDescriptionCluster, err := getFakeClusterResourceDescription(&cluster)
 	require.NoError(t, err)
-	ip, err = ReadAndProvisionResource(context.Background(), resourceDescriptionCluster, &subnet, &resourceInfo, mockAzureHandler)
+	ip, err = ReadAndProvisionResource(context.Background(), resourceDescriptionCluster, &subnet, &resourceInfo, mockAzureHandler, []string{"1.1.1.1/1", "2.2.2.2/2"})
 
 	require.NoError(t, err)
 	assert.Equal(t, ip, *getFakeSubnet().Properties.AddressPrefix)
@@ -364,7 +364,7 @@ func TestAzureVMCreateWithNetwork(t *testing.T) {
 
 	subnet := getFakeSubnet()
 	resourceInfo := &ResourceIDInfo{ResourceName: *vm.Name}
-	ip, err := vmHandler.CreateWithNetwork(context.Background(), vm, &subnet, resourceInfo, mockAzureHandler)
+	ip, err := vmHandler.CreateWithNetwork(context.Background(), vm, &subnet, resourceInfo, mockAzureHandler, []string{})
 
 	require.NoError(t, err)
 	assert.Equal(t, ip, *getFakeInterface().Properties.IPConfigurations[0].Properties.PrivateIPAddress)
@@ -407,7 +407,7 @@ func TestAzureAKSCreateWithNetwork(t *testing.T) {
 
 	subnet := getFakeSubnet()
 	resourceInfo := &ResourceIDInfo{ResourceName: *cluster.Name}
-	ip, err := aksHandler.CreateWithNetwork(context.Background(), cluster, &subnet, resourceInfo, mockAzureHandler)
+	ip, err := aksHandler.CreateWithNetwork(context.Background(), cluster, &subnet, resourceInfo, mockAzureHandler, []string{"1.1.1.1/1", "2.2.2.2/2"})
 
 	require.NoError(t, err)
 	assert.Equal(t, ip, *getFakeSubnet().Properties.AddressPrefix)
