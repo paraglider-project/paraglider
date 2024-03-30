@@ -201,7 +201,7 @@ message FindUnusedAddressSpacesRequest {
 }
 
 message FindUnusedAddressSpacesResponse {
-    string address_space = 1;
+    repeated string address_spaces = 1;
 }
 
 message FindUnusedAsnRequest {
