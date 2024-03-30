@@ -26,6 +26,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -58,9 +59,7 @@ func getNewPortNumber() int {
 func newOrchestratorServer() *ControllerServer {
 	s := &ControllerServer{
 		pluginAddresses:           make(map[string]string),
-		usedAddressSpaces:         make(map[string]map[string][]string),
-		usedAsns:                  make(map[string]map[string][]uint32),
-		usedBgpPeeringIpAddresses: make(map[string]map[string][]string),
+		usedBgpPeeringIpAddresses: make(map[string][]string),
 		namespace:                 defaultNamespace,
 	}
 	return s
@@ -472,8 +471,13 @@ func TestCreateResourcePost(t *testing.T) {
 	tagServerPort := getNewPortNumber()
 	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
-	orchestratorServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
-	orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.1.0.0/24"}
+	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
+		{
+			AddressSpaces: []string{"10.1.0.0/24"},
+			Cloud:         exampleCloudName,
+			Namespace:     defaultNamespace,
+		},
+	}
 
 	fakeplugin.SetupFakePluginServer(port)
 	faketagservice.SetupFakeTagServer(tagServerPort)
@@ -524,8 +528,13 @@ func TestCreateResourcePut(t *testing.T) {
 	tagServerPort := getNewPortNumber()
 	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
-	orchestratorServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
-	orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.1.0.0/24"}
+	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
+		{
+			AddressSpaces: []string{"10.0.0.0/16"},
+			Cloud:         exampleCloudName,
+			Namespace:     defaultNamespace,
+		},
+	}
 
 	fakeplugin.SetupFakePluginServer(port)
 	faketagservice.SetupFakeTagServer(tagServerPort)
@@ -577,11 +586,12 @@ func TestGetAddressSpaces(t *testing.T) {
 	fakeplugin.SetupFakePluginServer(port)
 
 	// Well-formed call
-	addressList, _ := orchestratorServer.getAddressSpaces(exampleCloudName, "id", defaultNamespace)
-	assert.Equal(t, addressList.AddressSpaces[0], fakeplugin.AddressSpaceAddress)
+	addressSpaceMappings, _ := orchestratorServer.getAddressSpaces(exampleCloudName)
+	assert.Len(t, addressSpaceMappings, 1)
+	assert.Equal(t, addressSpaceMappings[0].AddressSpaces[0], fakeplugin.AddressSpaceAddress)
 
 	// Bad cloud name
-	emptyList, err := orchestratorServer.getAddressSpaces("wrong", "id", defaultNamespace)
+	emptyList, err := orchestratorServer.getAddressSpaces("wrong")
 	require.NotNil(t, err)
 
 	require.Nil(t, emptyList)
@@ -595,57 +605,76 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	fakeplugin.SetupFakePluginServer(port)
 
 	// Valid cloud list
-	deployment := config.CloudDeployment{Name: exampleCloudName, Deployment: ""}
-	orchestratorServer.config = config.Config{
-		Namespaces: map[string][]config.CloudDeployment{
-			defaultNamespace: []config.CloudDeployment{deployment}}}
-	err := orchestratorServer.updateUsedAddressSpacesMap(defaultNamespace)
+	cloud := config.CloudPlugin{Name: exampleCloudName, Host: "localhost", Port: strconv.Itoa(port)}
+	orchestratorServer.config = config.Config{CloudPlugins: []config.CloudPlugin{cloud}}
+	err := orchestratorServer.updateUsedAddressSpaces()
 	require.Nil(t, err)
-	assert.Equal(t, orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName][0], fakeplugin.AddressSpaceAddress)
+	assert.Len(t, orchestratorServer.usedAddressSpaces, 1)
+	assert.Equal(t, orchestratorServer.usedAddressSpaces[0].AddressSpaces[0], fakeplugin.AddressSpaceAddress)
 
 	// Invalid cloud list
-	deployment = config.CloudDeployment{Name: "wrong", Deployment: ""}
-	orchestratorServer.config = config.Config{
-		Namespaces: map[string][]config.CloudDeployment{
-			defaultNamespace: []config.CloudDeployment{deployment}}}
-	err = orchestratorServer.updateUsedAddressSpacesMap(defaultNamespace)
+	cloud = config.CloudPlugin{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port)}
+	orchestratorServer.config = config.Config{CloudPlugins: []config.CloudPlugin{cloud}}
+	err = orchestratorServer.updateUsedAddressSpaces()
 
 	require.NotNil(t, err)
 }
 
 func TestFindUnusedAddressSpace(t *testing.T) {
 	orchestratorServer := newOrchestratorServer()
-	orchestratorServer.usedAddressSpaces[defaultNamespace] = make(map[string][]string)
 
 	// No entries in address space map
-	resp, err := orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: defaultNamespace})
+	resp, err := orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
 	require.Nil(t, err)
 	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
 
 	// Next entry
-	orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.0.0.0/16"}
-	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: defaultNamespace})
+	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
+		{
+			AddressSpaces: []string{"10.0.0.0/16"},
+			Cloud:         exampleCloudName,
+			Namespace:     defaultNamespace,
+		},
+	}
+	resp, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
 	require.Nil(t, err)
 	assert.Equal(t, resp.AddressSpaces[0], "10.1.0.0/16")
 
-	// Different Namespace
-	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: "other"})
+	// Account for all namespaces
+	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
+		{
+			AddressSpaces: []string{"10.0.0.0/16"},
+			Cloud:         exampleCloudName,
+			Namespace:     defaultNamespace,
+		},
+		{
+			AddressSpaces: []string{"10.1.0.0/16"},
+			Cloud:         exampleCloudName,
+			Namespace:     "otherNamespace",
+		},
+	}
+	resp, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
 	require.Nil(t, err)
-	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
-
-	// Multiple spaces
-	req := &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: defaultNamespace}
-	req.Num = proto.Int32(3)
-	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), req)
-	require.Nil(t, err)
-	assert.Equal(t, resp.AddressSpaces[0], "10.1.0.0/16")
-	assert.Equal(t, resp.AddressSpaces[1], "10.2.0.0/16")
-	assert.Equal(t, resp.AddressSpaces[2], "10.3.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[0], "10.2.0.0/16")
 
 	// Out of addresses
-	orchestratorServer.usedAddressSpaces[defaultNamespace][exampleCloudName] = []string{"10.255.0.0/16"}
-	_, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: defaultNamespace})
-	require.NotNil(t, err)
+	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
+		{
+			AddressSpaces: []string{"10.255.0.0/16"},
+			Cloud:         exampleCloudName,
+			Namespace:     defaultNamespace,
+		},
+	}
+	_, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})	
+  
+  require.NotNil(t, err)
+  
+  // Multiple spaces
+  orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{}
+  resp, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{Num: proto.Int32(2)})	
+	require.Nil(t, err)
+	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[1], "10.1.0.0/16")
 }
 
 func TestGetUsedAsns(t *testing.T) {
@@ -657,12 +686,12 @@ func TestGetUsedAsns(t *testing.T) {
 	fakeplugin.SetupFakePluginServer(port)
 
 	// Well-formed call
-	resp, err := orchestratorServer.getUsedAsns(exampleCloudName, "id", defaultNamespace)
+	resp, err := orchestratorServer.getUsedAsns(exampleCloudName)
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []uint32{fakeplugin.Asn}, resp.Asns)
 
 	// Bad cloud name
-	_, err = orchestratorServer.getUsedAsns("wrong", "id", defaultNamespace)
+	_, err = orchestratorServer.getUsedAsns("wrong")
 	require.Error(t, err)
 }
 
@@ -674,57 +703,47 @@ func TestUpdateUsedAsns(t *testing.T) {
 	fakeplugin.SetupFakePluginServer(port)
 
 	// Valid cloud list
-	orchestratorServer.config = config.Config{
-		Namespaces: map[string][]config.CloudDeployment{
-			defaultNamespace: []config.CloudDeployment{config.CloudDeployment{Name: exampleCloudName, Deployment: ""}}},
-	}
-	err := orchestratorServer.updateUsedAsns(defaultNamespace)
+	cloud := config.CloudPlugin{Name: exampleCloudName, Host: "localhost", Port: strconv.Itoa(port)}
+	orchestratorServer.config = config.Config{CloudPlugins: []config.CloudPlugin{cloud}}
+	err := orchestratorServer.updateUsedAsns()
 	require.NoError(t, err)
-	require.ElementsMatch(t, []uint32{fakeplugin.Asn}, orchestratorServer.usedAsns[defaultNamespace][exampleCloudName])
+	require.ElementsMatch(t, []uint32{fakeplugin.Asn}, orchestratorServer.usedAsns)
 
 	// Invalid cloud list
-	orchestratorServer.config = config.Config{
-		Namespaces: map[string][]config.CloudDeployment{
-			defaultNamespace: []config.CloudDeployment{config.CloudDeployment{Name: "wrong", Deployment: ""}}},
-	}
-	err = orchestratorServer.updateUsedAsns(defaultNamespace)
+	cloud = config.CloudPlugin{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port)}
+	orchestratorServer.config = config.Config{CloudPlugins: []config.CloudPlugin{cloud}}
+	err = orchestratorServer.updateUsedAsns()
 	require.Error(t, err)
 }
 
 func TestFindUnusedAsn(t *testing.T) {
 	orchestratorServer := newOrchestratorServer()
-	orchestratorServer.usedAsns[defaultNamespace] = make(map[string][]uint32)
 	ctx := context.Background()
 
 	// Typical case
-	orchestratorServer.usedAsns[defaultNamespace][exampleCloudName] = []uint32{64512}
-	asn, err := orchestratorServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{Namespace: defaultNamespace})
+	orchestratorServer.usedAsns = []uint32{64512}
+	asn, err := orchestratorServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
 	require.NoError(t, err)
 	require.Equal(t, uint32(64513), asn.Asn)
 
 	// Gap in usedAsns
-	orchestratorServer.usedAsns[defaultNamespace][exampleCloudName] = []uint32{64512, 64514}
-	asn, err = orchestratorServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{Namespace: defaultNamespace})
+	orchestratorServer.usedAsns = []uint32{64512, 64514}
+	asn, err = orchestratorServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
 	require.NoError(t, err)
 	require.Equal(t, uint32(64513), asn.Asn)
 
 	// No entries in asn map
-	orchestratorServer.usedAsns[defaultNamespace][exampleCloudName] = []uint32{}
-	asn, err = orchestratorServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{Namespace: defaultNamespace})
-	require.NoError(t, err)
-	require.Equal(t, uint32(64512), asn.Asn)
-
-	// Different Namespace
-	asn, err = orchestratorServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{Namespace: "other"})
+	orchestratorServer.usedAsns = []uint32{}
+	asn, err = orchestratorServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
 	require.NoError(t, err)
 	require.Equal(t, uint32(64512), asn.Asn)
 
 	// 4-bit ASN
-	orchestratorServer.usedAsns[defaultNamespace][exampleCloudName] = make([]uint32, MAX_PRIVATE_ASN_2BYTE-MIN_PRIVATE_ASN_2BYTE+1)
+	orchestratorServer.usedAsns = make([]uint32, MAX_PRIVATE_ASN_2BYTE-MIN_PRIVATE_ASN_2BYTE+1)
 	for i := MIN_PRIVATE_ASN_2BYTE; i <= MAX_PRIVATE_ASN_2BYTE; i++ {
-		orchestratorServer.usedAsns[defaultNamespace][exampleCloudName][i-MIN_PRIVATE_ASN_2BYTE] = i
+		orchestratorServer.usedAsns[i-MIN_PRIVATE_ASN_2BYTE] = i
 	}
-	asn, err = orchestratorServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{Namespace: defaultNamespace})
+	asn, err = orchestratorServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
 	require.NoError(t, err)
 	require.Equal(t, uint32(4200000000), asn.Asn)
 }
@@ -738,12 +757,12 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 	fakeplugin.SetupFakePluginServer(port)
 
 	// Well-formed call
-	resp, err := orchestratorServer.getUsedBgpPeeringIpAddresses(exampleCloudName, "id", defaultNamespace)
+	resp, err := orchestratorServer.getUsedBgpPeeringIpAddresses(exampleCloudName)
 	require.NoError(t, err)
 	assert.ElementsMatch(t, fakeplugin.BgpPeeringIpAddresses, resp.IpAddresses)
 
 	// Bad cloud name
-	_, err = orchestratorServer.getUsedBgpPeeringIpAddresses("wrong", "id", defaultNamespace)
+	_, err = orchestratorServer.getUsedBgpPeeringIpAddresses("wrong")
 	require.Error(t, err)
 }
 
@@ -755,54 +774,47 @@ func TestUpdateUsedBgpPeeringIpAddresses(t *testing.T) {
 	fakeplugin.SetupFakePluginServer(port)
 
 	// Valid cloud list
-	orchestratorServer.config = config.Config{
-		Namespaces: map[string][]config.CloudDeployment{
-			defaultNamespace: []config.CloudDeployment{config.CloudDeployment{Name: exampleCloudName, Deployment: ""}},
-		},
-	}
+	cloud := config.CloudPlugin{Name: exampleCloudName, Host: "localhost", Port: strconv.Itoa(port)}
+	orchestratorServer.config = config.Config{CloudPlugins: []config.CloudPlugin{cloud}}
 	err := orchestratorServer.updateUsedBgpPeeringIpAddresses(defaultNamespace)
 	require.NoError(t, err)
-	require.ElementsMatch(t, fakeplugin.BgpPeeringIpAddresses, orchestratorServer.usedBgpPeeringIpAddresses[defaultNamespace][exampleCloudName])
+	require.ElementsMatch(t, fakeplugin.BgpPeeringIpAddresses, orchestratorServer.usedBgpPeeringIpAddresses[exampleCloudName])
 
 	// Invalid cloud list
-	orchestratorServer.config = config.Config{
-		Namespaces: map[string][]config.CloudDeployment{
-			defaultNamespace: []config.CloudDeployment{config.CloudDeployment{Name: "wrong", Deployment: ""}},
-		},
-	}
+	cloud = config.CloudPlugin{Name: "wrong", Host: "localhost", Port: strconv.Itoa(port)}
+	orchestratorServer.config = config.Config{CloudPlugins: []config.CloudPlugin{cloud}}
 	err = orchestratorServer.updateUsedBgpPeeringIpAddresses(defaultNamespace)
 	require.Error(t, err)
 }
 
 func TestFindUnusedBgpPeeringSubnets(t *testing.T) {
 	orchestratorServer := newOrchestratorServer()
-	orchestratorServer.usedBgpPeeringIpAddresses[defaultNamespace] = make(map[string][]string)
 	ctx := context.Background()
 
 	// Typical case between Azure and GCP
-	orchestratorServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.AZURE] = []string{"169.254.21.1", "169.254.21.5"}
-	orchestratorServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.GCP] = []string{"169.254.21.2", "169.254.21.6"}
+	orchestratorServer.usedBgpPeeringIpAddresses[utils.AZURE] = []string{"169.254.21.1", "169.254.21.5"}
+	orchestratorServer.usedBgpPeeringIpAddresses[utils.GCP] = []string{"169.254.21.2", "169.254.21.6"}
 	subnets, err := orchestratorServer.findUnusedBgpPeeringIpAddresses(ctx, utils.AZURE, utils.GCP, defaultNamespace)
 	require.NoError(t, err)
 	require.ElementsMatch(t, []string{"169.254.21.9", "169.254.21.10", "169.254.21.13", "169.254.21.14"}, subnets)
 
 	// Gap in usedBgpPeeringIpAddresses
-	orchestratorServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.AZURE] = []string{"169.254.21.1", "169.254.22.1"}
-	orchestratorServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.GCP] = []string{"169.254.21.2", "169.254.22.2"}
+	orchestratorServer.usedBgpPeeringIpAddresses[utils.AZURE] = []string{"169.254.21.1", "169.254.22.1"}
+	orchestratorServer.usedBgpPeeringIpAddresses[utils.GCP] = []string{"169.254.21.2", "169.254.22.2"}
 	subnets, err = orchestratorServer.findUnusedBgpPeeringIpAddresses(ctx, utils.AZURE, utils.GCP, defaultNamespace)
 	require.NoError(t, err)
 	require.ElementsMatch(t, []string{"169.254.21.5", "169.254.21.6", "169.254.21.9", "169.254.21.10"}, subnets)
 
 	// No entries in bgp peering map
-	orchestratorServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.AZURE] = []string{}
-	orchestratorServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.GCP] = []string{}
+	orchestratorServer.usedBgpPeeringIpAddresses[utils.AZURE] = []string{}
+	orchestratorServer.usedBgpPeeringIpAddresses[utils.GCP] = []string{}
 	subnets, err = orchestratorServer.findUnusedBgpPeeringIpAddresses(ctx, utils.AZURE, utils.GCP, defaultNamespace)
 	require.NoError(t, err)
 	require.ElementsMatch(t, []string{"169.254.21.1", "169.254.21.2", "169.254.21.5", "169.254.21.6"}, subnets)
 
 	// Different spaces
-	orchestratorServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.AZURE] = []string{"169.254.21.1", "169.254.21.9"}
-	orchestratorServer.usedBgpPeeringIpAddresses[defaultNamespace][utils.GCP] = []string{"169.254.21.2", "169.254.21.5"}
+	orchestratorServer.usedBgpPeeringIpAddresses[utils.AZURE] = []string{"169.254.21.1", "169.254.21.9"}
+	orchestratorServer.usedBgpPeeringIpAddresses[utils.GCP] = []string{"169.254.21.2", "169.254.21.5"}
 	subnets, err = orchestratorServer.findUnusedBgpPeeringIpAddresses(ctx, utils.AZURE, utils.GCP, defaultNamespace)
 	require.NoError(t, err)
 	require.ElementsMatch(t, []string{"169.254.21.13", "169.254.21.14", "169.254.21.17", "169.254.21.18"}, subnets)
@@ -1255,23 +1267,29 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 	gcp_address_spaces := []string{"10.0.0.0/16", "10.1.0.0/16"}
 	azure_address_spaces := []string{"10.2.0.0/16", "10.3.0.0/16"}
-	orchestratorServer.usedAddressSpaces = map[string]map[string][]string{
-		defaultNamespace: {
-			utils.GCP:   {"10.0.0.0/16", "10.1.0.0/16"},
-			utils.AZURE: {"10.2.0.0/16", "10.3.0.0/16"},
+	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
+		{
+			AddressSpaces: gcp_address_spaces,
+			Cloud:         utils.GCP,
+			Namespace:     defaultNamespace,
+		},
+		{
+			AddressSpaces: azure_address_spaces,
+			Cloud:         utils.AZURE,
+			Namespace:     "otherNamespace",
 		},
 	}
-	addressSpaces, err := orchestratorServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: defaultNamespace})
-	require.Nil(t, err)
-	assert.ElementsMatch(t, addressSpaces.AddressSpaceMappings, []*invisinetspb.AddressSpaceMapping{
-		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP, Namespace: defaultNamespace},
-		{AddressSpaces: azure_address_spaces, Cloud: utils.AZURE, Namespace: defaultNamespace},
-	})
+	orchestratorServer.config.Namespaces = map[string][]config.CloudDeployment{
+		defaultNamespace: {{Name: utils.GCP, Deployment: "deployment1"}},
+		"otherNamespace": {{Name: utils.AZURE, Deployment: "deployment2"}},
+	}
 
-	// Empty namespace
-	addressSpaces, err = orchestratorServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: "empty"})
+	getUsedAddressSpacesResp, err := orchestratorServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
 	require.Nil(t, err)
-	assert.Equal(t, 0, len(addressSpaces.AddressSpaceMappings))
+	assert.ElementsMatch(t, getUsedAddressSpacesResp.AddressSpaceMappings, []*invisinetspb.AddressSpaceMapping{
+		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP, Namespace: defaultNamespace, Deployment: proto.String("deployment1")},
+		{AddressSpaces: azure_address_spaces, Cloud: utils.AZURE, Namespace: "otherNamespace", Deployment: proto.String("deployment2")},
+	})
 }
 
 func TestGetTagUri(t *testing.T) {

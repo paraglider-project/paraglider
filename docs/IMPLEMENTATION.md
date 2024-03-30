@@ -82,7 +82,7 @@ Returns an address space that is currently not used in any cloud in the Invisine
 Returns a list of address spaces currently used in the namespace. The address spaces are mapped to their respective cloud.
 
 **rpc ConnectClouds(ConnectCloudsRequest) returns (BasicResponse) {}**
-Initiates a request to the frontend to orchestrate the connection of two clouds via VPN.
+Initiates a request to the orchestrator to orchestrate the connection of two clouds via VPN.
 
 ## Cloud Plugins
 The `CloudPlugin` interface can be found in `pkg/invisinetspb/invisinets.proto`.
@@ -128,7 +128,7 @@ Resources to Create:
 High-Level Logic:
 * Check if there exists an Invisinets virtual network in the region and namespace of the new resource
 * If there is not, create one
-    * Note: to get the address space for the new region and ensure that it does not overlap with others controlled by the controller, you must call `FindUnusedAddressSpace` at the frontend server, which will call `GetUsedAddressSpaces` on all registered clouds
+    * Note: to get the address space for the new region and ensure that it does not overlap with others controlled by the controller, you must call `FindUnusedAddressSpace` at the orchestrator server, which will call `GetUsedAddressSpaces` on all registered clouds
     * If the vpc/subnet are provided, the rpc should return an error
 * Create the resource, ensuring it is in the Invisinets virtual network for the region and namespace
 * Create the permit list for the resource with all traffic denied by default

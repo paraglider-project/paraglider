@@ -35,9 +35,7 @@ const (
 func SetupControllerServer(cfg config.Config) string {
 	controllerServer := &ControllerServer{
 		pluginAddresses:           make(map[string]string),
-		usedAddressSpaces:         make(map[string]map[string][]string),
-		usedAsns:                  make(map[string]map[string][]uint32),
-		usedBgpPeeringIpAddresses: make(map[string]map[string][]string),
+		usedBgpPeeringIpAddresses: make(map[string][]string),
 		config:                    cfg,
 	}
 	for _, c := range controllerServer.config.CloudPlugins {
