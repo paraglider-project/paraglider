@@ -35,9 +35,10 @@ import (
 
 	grpc "google.golang.org/grpc"
 	insecure "google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	cfg "github.com/NetSys/invisinets/pkg/orchestrator/config"
+	config "github.com/NetSys/invisinets/pkg/orchestrator/config"
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
@@ -65,11 +66,11 @@ type Warning struct {
 type ControllerServer struct {
 	invisinetspb.UnimplementedControllerServer
 	pluginAddresses           map[string]string
-	usedAddressSpaces         map[string]map[string][]string
-	usedAsns                  map[string]map[string][]uint32
-	usedBgpPeeringIpAddresses map[string]map[string][]string
+	usedAddressSpaces         []*invisinetspb.AddressSpaceMapping
+	usedAsns                  []uint32
+	usedBgpPeeringIpAddresses map[string][]string
 	localTagService           string
-	config                    cfg.Config
+	config                    config.Config
 	namespace                 string
 }
 
@@ -529,7 +530,7 @@ func (s *ControllerServer) permitListRuleDelete(c *gin.Context) {
 }
 
 // Get used address spaces from a specified cloud
-func (s *ControllerServer) getAddressSpaces(cloud string, deploymentId string, namespace string) (*invisinetspb.AddressSpaceList, error) {
+func (s *ControllerServer) getAddressSpaces(cloud string) ([]*invisinetspb.AddressSpaceMapping, error) {
 	// Ensure correct cloud name
 	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
@@ -545,25 +546,21 @@ func (s *ControllerServer) getAddressSpaces(cloud string, deploymentId string, n
 
 	// Send the RPC to get the address spaces
 	client := invisinetspb.NewCloudPluginClient(conn)
-	deployment := invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace}
-	addressSpaces, err := client.GetUsedAddressSpaces(context.Background(), &deployment)
+	req := &invisinetspb.GetUsedAddressSpacesRequest{Deployments: s.getInvisinetsDeployments(cloud)}
+	resp, err := client.GetUsedAddressSpaces(context.Background(), req)
 
-	return addressSpaces, err
+	return resp.AddressSpaceMappings, err
 }
 
 // Update local address space map by getting used address spaces from each cloud plugin
-func (s *ControllerServer) updateUsedAddressSpacesMap(namespace string) error {
+func (s *ControllerServer) updateUsedAddressSpaces() error {
 	// Call each cloud to get address spaces used
-	for _, cloud := range s.config.Namespaces[namespace] {
-		addressList, err := s.getAddressSpaces(cloud.Name, cloud.Deployment, namespace)
+	for _, cloud := range s.config.CloudPlugins {
+		addressSpaceMappings, err := s.getAddressSpaces(cloud.Name)
 		if err != nil {
 			return fmt.Errorf("could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
 		}
-
-		if _, ok := s.usedAddressSpaces[namespace]; !ok {
-			s.usedAddressSpaces[namespace] = make(map[string][]string)
-		}
-		s.usedAddressSpaces[namespace][cloud.Name] = addressList.AddressSpaces
+		s.usedAddressSpaces = append(s.usedAddressSpaces, addressSpaceMappings...)
 	}
 	return nil
 }
@@ -571,7 +568,7 @@ func (s *ControllerServer) updateUsedAddressSpacesMap(namespace string) error {
 // Get a new address block for a new virtual network
 // TODO @smcclure20: Later, this should allocate more efficiently and with different size address blocks (eg, GCP needs larger than Azure since a VPC will span all regions)
 func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *invisinetspb.FindUnusedAddressSpacesRequest) (*invisinetspb.FindUnusedAddressSpacesResponse, error) {
-	err := s.updateUsedAddressSpacesMap(req.Namespace)
+	err := s.updateUsedAddressSpaces()
 	if err != nil {
 		return nil, err
 	}
@@ -585,8 +582,9 @@ func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *invis
 
 	addressSpaces := make([]string, requestedAddressSpaces)
 	highestBlockUsed := -1
-	for _, addressList := range s.usedAddressSpaces[req.Namespace] {
-		for _, address := range addressList {
+
+	for _, addressSpaceMapping := range s.usedAddressSpaces {
+		for _, address := range addressSpaceMapping.AddressSpaces {
 			blockNumber, err := strconv.Atoi(strings.Split(address, ".")[1])
 			if err != nil {
 				return nil, err
@@ -609,29 +607,20 @@ func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *invis
 }
 
 // Gets unused address spaces across all clouds
-func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, ns *invisinetspb.Namespace) (*invisinetspb.AddressSpaceMappingList, error) {
-	err := s.updateUsedAddressSpacesMap(ns.Namespace)
+func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, _ *invisinetspb.Empty) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
+	err := s.updateUsedAddressSpaces()
 	if err != nil {
 		return nil, err
 	}
-
-	usedAddressSpaceMappings := &invisinetspb.AddressSpaceMappingList{}
-	usedAddressSpaceMappings.AddressSpaceMappings = make([]*invisinetspb.AddressSpaceMapping, len(s.usedAddressSpaces[ns.Namespace]))
-	i := 0
-	for cloud, addressSpaces := range s.usedAddressSpaces[ns.Namespace] {
-		usedAddressSpaceMappings.AddressSpaceMappings[i] = &invisinetspb.AddressSpaceMapping{
-			AddressSpaces: addressSpaces,
-			Cloud:         cloud,
-			Namespace:     ns.Namespace,
-		}
-		i++
+	// Fill in deployment fields since the cloud plugins don't do that
+	for _, addressSpace := range s.usedAddressSpaces {
+		addressSpace.Deployment = proto.String(s.getCloudDeployment(addressSpace.Cloud, addressSpace.Namespace))
 	}
-
-	return usedAddressSpaceMappings, nil
+	return &invisinetspb.GetUsedAddressSpacesResponse{AddressSpaceMappings: s.usedAddressSpaces}, nil
 }
 
 // Get used ASNs from a specified cloud
-func (s *ControllerServer) getUsedAsns(cloud string, deploymentId string, namespace string) (*invisinetspb.GetUsedAsnsResponse, error) {
+func (s *ControllerServer) getUsedAsns(cloud string) (*invisinetspb.GetUsedAsnsResponse, error) {
 	// Ensure correct cloud name
 	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
@@ -647,39 +636,32 @@ func (s *ControllerServer) getUsedAsns(cloud string, deploymentId string, namesp
 
 	// Send the RPC to get the ASNs
 	client := invisinetspb.NewCloudPluginClient(conn)
-	req := &invisinetspb.GetUsedAsnsRequest{
-		Deployment: &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
-	}
+	req := &invisinetspb.GetUsedAsnsRequest{Deployments: s.getInvisinetsDeployments(cloud)}
 	resp, err := client.GetUsedAsns(context.Background(), req)
 
 	return resp, err
 }
 
-func (s *ControllerServer) updateUsedAsns(namespace string) error {
-	for _, cloud := range s.config.Namespaces[namespace] {
-		asnList, err := s.getUsedAsns(cloud.Name, cloud.Deployment, namespace)
+func (s *ControllerServer) updateUsedAsns() error {
+	for _, cloud := range s.config.CloudPlugins {
+		asnList, err := s.getUsedAsns(cloud.Name)
 		if err != nil {
 			return fmt.Errorf("Could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
 		}
-		if _, ok := s.usedAsns[namespace]; !ok {
-			s.usedAsns[namespace] = make(map[string][]uint32)
-		}
-		s.usedAsns[namespace][cloud.Name] = asnList.Asns
+		s.usedAsns = append(s.usedAsns, asnList.Asns...)
 	}
 	return nil
 }
 
-func (s *ControllerServer) FindUnusedAsn(c context.Context, req *invisinetspb.FindUnusedAsnRequest) (*invisinetspb.FindUnusedAsnResponse, error) {
-	err := s.updateUsedAsns(req.Namespace)
+func (s *ControllerServer) FindUnusedAsn(c context.Context, _ *invisinetspb.FindUnusedAsnRequest) (*invisinetspb.FindUnusedAsnResponse, error) {
+	err := s.updateUsedAsns()
 	if err != nil {
 		return nil, fmt.Errorf("unable to update used asns: %w", err)
 	}
 
-	usedAsnsInNamespace := make(map[uint32]bool)
-	for _, cloud := range s.usedAsns[req.Namespace] {
-		for _, asn := range cloud {
-			usedAsnsInNamespace[asn] = true
-		}
+	usedAsns := make(map[uint32]bool)
+	for _, asn := range s.usedAsns {
+		usedAsns[asn] = true
 	}
 
 	// Find smallest unused ASN
@@ -687,7 +669,7 @@ func (s *ControllerServer) FindUnusedAsn(c context.Context, req *invisinetspb.Fi
 	var i uint32
 	// 2-byte ASNs
 	for i = MIN_PRIVATE_ASN_2BYTE; i <= MAX_PRIVATE_ASN_2BYTE; i++ {
-		if !usedAsnsInNamespace[i] {
+		if !usedAsns[i] {
 			unusedAsn = i
 			break
 		}
@@ -695,7 +677,7 @@ func (s *ControllerServer) FindUnusedAsn(c context.Context, req *invisinetspb.Fi
 	if unusedAsn == 0 {
 		// 4-byte ASNs
 		for i = MIN_PRIVATE_ASN_4BYTE; i <= MAX_PRIVATE_ASN_4BYTE; i++ {
-			if !usedAsnsInNamespace[i] {
+			if !usedAsns[i] {
 				unusedAsn = i
 				break
 			}
@@ -710,7 +692,7 @@ func (s *ControllerServer) FindUnusedAsn(c context.Context, req *invisinetspb.Fi
 }
 
 // Get used BGP peering IP addresses from a specified cloud
-func (s *ControllerServer) getUsedBgpPeeringIpAddresses(cloud string, deploymentId string, namespace string) (*invisinetspb.GetUsedBgpPeeringIpAddressesResponse, error) {
+func (s *ControllerServer) getUsedBgpPeeringIpAddresses(cloud string) (*invisinetspb.GetUsedBgpPeeringIpAddressesResponse, error) {
 	// Ensure correct cloud name
 	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
@@ -726,24 +708,19 @@ func (s *ControllerServer) getUsedBgpPeeringIpAddresses(cloud string, deployment
 
 	// Send the RPC to get the BGP peering IP addresses
 	client := invisinetspb.NewCloudPluginClient(conn)
-	req := &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{
-		Deployment: &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
-	}
+	req := &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{Deployments: s.getInvisinetsDeployments(cloud)}
 	resp, err := client.GetUsedBgpPeeringIpAddresses(context.Background(), req)
 
 	return resp, err
 }
 
 func (s *ControllerServer) updateUsedBgpPeeringIpAddresses(namespace string) error {
-	for _, cloud := range s.config.Namespaces[namespace] {
-		bgpPeeringIpAddressesList, err := s.getUsedBgpPeeringIpAddresses(cloud.Name, cloud.Deployment, namespace)
+	for _, cloud := range s.config.CloudPlugins {
+		bgpPeeringIpAddressesList, err := s.getUsedBgpPeeringIpAddresses(cloud.Name)
 		if err != nil {
 			return fmt.Errorf("Could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
 		}
-		if _, ok := s.usedBgpPeeringIpAddresses[namespace]; !ok {
-			s.usedBgpPeeringIpAddresses[namespace] = make(map[string][]string)
-		}
-		s.usedBgpPeeringIpAddresses[namespace][cloud.Name] = bgpPeeringIpAddressesList.IpAddresses
+		s.usedBgpPeeringIpAddresses[cloud.Name] = bgpPeeringIpAddressesList.IpAddresses
 	}
 	return nil
 }
@@ -758,7 +735,7 @@ func (s *ControllerServer) findUnusedBgpPeeringIpAddresses(ctx context.Context, 
 
 	// Compile used ips into a map
 	usedBgpPeeringIpAddresses := make(map[string]bool)
-	for _, cloudBgpPeeringIpAddresses := range s.usedBgpPeeringIpAddresses[namespace] {
+	for _, cloudBgpPeeringIpAddresses := range s.usedBgpPeeringIpAddresses {
 		for _, ipAddressString := range cloudBgpPeeringIpAddresses {
 			ipAddress, err := netip.ParseAddr(ipAddressString)
 			if err != nil {
@@ -824,10 +801,14 @@ func generateSharedKey() (string, error) {
 
 // Gets the Invisinets deployment field of a cloud
 // TODO @seankimkdy: make this more efficient by using maps to maintain clouds in config?
-func (s *ControllerServer) getCloudDeployment(namespace string, cloudName string) string {
-	for _, cloud := range s.config.Namespaces[namespace] {
-		if cloud.Name == cloudName {
-			return cloud.Deployment
+func (s *ControllerServer) getCloudDeployment(cloud, namespace string) string {
+	for ns, deployments := range s.config.Namespaces {
+		if ns == namespace {
+			for _, deployment := range deployments {
+				if deployment.Name == cloud {
+					return deployment.Deployment
+				}
+			}
 		}
 	}
 	return ""
@@ -837,9 +818,6 @@ func (s *ControllerServer) getCloudDeployment(namespace string, cloudName string
 func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.ConnectCloudsRequest) (*invisinetspb.BasicResponse, error) {
 	if req.CloudA == req.CloudB {
 		return nil, fmt.Errorf("must specify different clouds to connect")
-	}
-	if req.CloudANamespace != req.CloudBNamespace {
-		return nil, fmt.Errorf("connecting across different namespaces is not supported")
 	}
 
 	// TODO @seankimkdy: cloudA and cloudB naming seems to be very prone to typos, so perhaps use another naming scheme[?
@@ -880,7 +858,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 			cloudBBgpPeeringIpAddresses[i] = bgpPeeringIpAddresses[i*2+1]
 		}
 
-		cloudAInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudDeployment(req.CloudANamespace, req.CloudA), Namespace: req.CloudANamespace}
+		cloudAInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudDeployment(req.CloudA, req.CloudANamespace), Namespace: req.CloudANamespace}
 		cloudACreateVpnGatewayReq := &invisinetspb.CreateVpnGatewayRequest{
 			Deployment:            cloudAInvisinetsDeployment,
 			Cloud:                 req.CloudB,
@@ -890,7 +868,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 		if err != nil {
 			return nil, fmt.Errorf("unable to create vpn gateway in cloud %s: %w", req.CloudA, err)
 		}
-		cloudBInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudDeployment(req.CloudBNamespace, req.CloudB), Namespace: req.CloudBNamespace}
+		cloudBInvisinetsDeployment := &invisinetspb.InvisinetsDeployment{Id: s.getCloudDeployment(req.CloudB, req.CloudBNamespace), Namespace: req.CloudBNamespace}
 		cloudBCreateVpnGatewayReq := &invisinetspb.CreateVpnGatewayRequest{
 			Deployment:            cloudBInvisinetsDeployment,
 			Cloud:                 req.CloudA,
@@ -933,6 +911,19 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 		return &invisinetspb.BasicResponse{Success: true}, nil
 	}
 	return nil, fmt.Errorf("clouds %s and %s are not supported for multi-cloud connecting", req.CloudA, req.CloudB)
+}
+
+// Gets all deployments (in Invisinets) format for a given cloud
+func (s *ControllerServer) getInvisinetsDeployments(cloud string) []*invisinetspb.InvisinetsDeployment {
+	invDeployments := []*invisinetspb.InvisinetsDeployment{}
+	for namespace, cloudDeployments := range s.config.Namespaces {
+		for _, cloudDeployment := range cloudDeployments {
+			if cloudDeployment.Name == cloud {
+				invDeployments = append(invDeployments, &invisinetspb.InvisinetsDeployment{Id: cloudDeployment.Deployment, Namespace: namespace})
+			}
+		}
+	}
+	return invDeployments
 }
 
 // Create resource in specified cloud region
@@ -1195,9 +1186,9 @@ func Setup(configPath string) {
 	}
 	defer f.Close()
 
-	var config cfg.Config
+	var cfg config.Config
 	decoder := yaml.NewDecoder(f)
-	err = decoder.Decode(&config)
+	err = decoder.Decode(&cfg)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -1205,19 +1196,18 @@ func Setup(configPath string) {
 	// Populate server info
 	server := ControllerServer{
 		pluginAddresses:           make(map[string]string),
-		usedAddressSpaces:         make(map[string]map[string][]string),
-		usedAsns:                  make(map[string]map[string][]uint32),
-		usedBgpPeeringIpAddresses: make(map[string]map[string][]string),
+		usedBgpPeeringIpAddresses: make(map[string][]string),
+		namespace:                 "default",
 	}
-	server.config = config
-	server.localTagService = config.TagService.Host + ":" + config.TagService.Port
+	server.config = cfg
+	server.localTagService = cfg.TagService.Host + ":" + cfg.TagService.Port
 
 	for _, c := range server.config.CloudPlugins {
 		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port
 	}
 
 	// Setup GRPC server
-	lis, err := net.Listen("tcp", config.Server.Host+":"+config.Server.RpcPort)
+	lis, err := net.Listen("tcp", cfg.Server.Host+":"+cfg.Server.RpcPort)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
 	}

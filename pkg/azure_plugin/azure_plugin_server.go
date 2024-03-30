@@ -48,8 +48,8 @@ type ResourceIDInfo struct {
 
 type azurePluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
-	azureHandler           AzureSDKHandler
 	orchestratorServerAddr string
+	mockAzureHandler       AzureSDKHandler // Should only be set for for unit tests (TODO @seankimkdy: remove this hack in the future?)
 }
 
 const (
@@ -58,20 +58,26 @@ const (
 	gatewaySubnetAddressPrefix = "192.168.255.0/27"
 )
 
-func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) error {
-	cred, err := s.azureHandler.GetAzureCredentials()
+func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) (AzureSDKHandler, error) {
+	var azureHandler AzureSDKHandler
+	if s.mockAzureHandler != nil {
+		// Use mock for tests
+		azureHandler = s.mockAzureHandler
+	} else {
+		azureHandler = &azureSDKHandler{}
+	}
+	cred, err := azureHandler.GetAzureCredentials()
 	if err != nil {
 		utils.Log.Printf("An error occured while getting azure credentials:%+v", err)
-		return err
+		return nil, err
 	}
-	s.azureHandler.SetSubIdAndResourceGroup(resourceIdInfo.SubscriptionID, resourceIdInfo.ResourceGroupName)
-	err = s.azureHandler.InitializeClients(cred)
+	azureHandler.SetSubIdAndResourceGroup(resourceIdInfo.SubscriptionID, resourceIdInfo.ResourceGroupName)
+	err = azureHandler.InitializeClients(cred)
 	if err != nil {
 		utils.Log.Printf("An error occured while initializing azure clients: %+v", err)
-		return err
+		return nil, err
 	}
-
-	return nil
+	return azureHandler, nil
 }
 
 // GetPermitList returns the permit list for the given resource by getting the NSG rules
@@ -83,7 +89,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *invisinetspb
 		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
 	}
-	err = s.setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +106,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *invisinetspb
 	// get the NSG rules
 	for _, rule := range nsg.Properties.SecurityRules {
 		if !strings.HasPrefix(*rule.Name, denyAllNsgRulePrefix) && strings.HasPrefix(*rule.Name, invisinetsPrefix) {
-			plRule, err := s.azureHandler.GetPermitListRuleFromNSGRule(rule)
+			plRule, err := azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
 				utils.Log.Printf("An error occured while getting Invisinets rule from NSG rule: %+v", err)
 				return nil, err
@@ -122,11 +128,12 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
 	}
-	err = s.setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, err
 	}
-	netInfo, err := GetAndCheckResourceState(ctx, s.azureHandler, resourceID, req.Namespace)
+  
+	netInfo, err := GetAndCheckResourceState(ctx, azureHandler, resourceID, req.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -149,13 +156,13 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 	}
 	defer controllerConn.Close()
 	controllerClient := invisinetspb.NewControllerClient(controllerConn)
-	usedAddressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Namespace{Namespace: req.Namespace})
+	getUsedAddressSpacesResp, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
 
 	// get the vnet to be able to get both the address space as well as the peering when needed
-	resourceVnet, err := s.azureHandler.GetVNet(ctx, getVnetName(netInfo.Location, req.Namespace))
+	resourceVnet, err := azureHandler.GetVNet(ctx, getVnetName(netInfo.Location, req.Namespace))
 	if err != nil {
 		utils.Log.Printf("An error occured while getting resource vnet:%+v", err)
 		return nil, err
@@ -177,8 +184,6 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		return nil, fmt.Errorf("unable to get subnet address prefix")
 	}
 
-	invisinetsVnetsMap, err := s.azureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(req.Namespace))
-
 	if err != nil {
 		utils.Log.Printf("An error occured while getting invisinets vnets address spaces:%+v", err)
 		return nil, err
@@ -186,16 +191,37 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 
 	// Add the rules to the NSG
 	for _, rule := range req.GetRules() {
-		err = utils.CheckAndConnectClouds(utils.AZURE, subnetAddressPrefix, req.Namespace, ctx, rule, usedAddressSpaceMappings, controllerClient)
+		// Get all peering cloud infos
+		peeringCloudInfos, err := utils.GetPermitListRulePeeringCloudInfo(rule, getUsedAddressSpacesResp.AddressSpaceMappings)
 		if err != nil {
-			return nil, fmt.Errorf("unable to check and connect clouds: %w", err)
+			return nil, fmt.Errorf("unable to get peering cloud infos: %w", err)
 		}
 
-		// TODO @seankimkdy: merge this process with the checking address spaces across all clouds to avoid duplicate checking of Azure address spaces
-		err := s.checkAndCreatePeering(ctx, resourceVnet, rule, invisinetsVnetsMap, req.Namespace)
-		if err != nil {
-			utils.Log.Printf("An error occured while checking network peering:%+v", err)
-			return nil, err
+		for i, peeringCloudInfo := range peeringCloudInfos {
+			if peeringCloudInfo == nil {
+				continue
+			}
+			if peeringCloudInfo.Cloud != utils.AZURE {
+				// Create VPN connections
+				connectCloudsReq := &invisinetspb.ConnectCloudsRequest{
+					CloudA:          utils.AZURE,
+					CloudANamespace: req.Namespace,
+					CloudB:          peeringCloudInfo.Cloud,
+					CloudBNamespace: peeringCloudInfo.Namespace,
+				}
+				_, err := controllerClient.ConnectClouds(ctx, connectCloudsReq)
+				if err != nil {
+					return nil, fmt.Errorf("unable to connect clouds : %w", err)
+				}
+			} else {
+				// Create VPC network peering (in both directions) for different namespaces
+				if peeringCloudInfo.Namespace != req.Namespace {
+					err = s.createNamespacePeering(ctx, azureHandler, resourceIdInfo, *resourceVnet.Location, req.Namespace, peeringCloudInfo, rule.Targets[i])
+					if err != nil {
+						return nil, fmt.Errorf("unable to create namespace peering: %w", err)
+					}
+				}
+			}
 		}
 
 		// To avoid conflicted priorities, we need to check whether the priority is already used by other rules
@@ -212,7 +238,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		}
 
 		// Create the NSG rule
-		securityRule, err := s.azureHandler.CreateSecurityRule(ctx, rule, *netInfo.NSG.Name, getNSGRuleName(rule.Name), netInfo.Address, priority)
+		securityRule, err := azureHandler.CreateSecurityRule(ctx, rule, *netInfo.NSG.Name, getNSGRuleName(rule.Name), netInfo.Address, priority)
 		if err != nil {
 			utils.Log.Printf("An error occured while creating security rule:%+v", err)
 			return nil, err
@@ -231,18 +257,18 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *invisi
 		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
 	}
-	err = s.setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	netInfo, err := GetAndCheckResourceState(c, s.azureHandler, resourceID, req.Namespace)
+	netInfo, err := GetAndCheckResourceState(c, azureHandler, resourceID, req.Namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, rule := range req.GetRuleNames() {
-		err := s.azureHandler.DeleteSecurityRule(c, *netInfo.NSG.Name, getNSGRuleName(rule))
+		err := azureHandler.DeleteSecurityRule(c, *netInfo.NSG.Name, getNSGRuleName(rule))
 		if err != nil {
 			utils.Log.Printf("An error occured while deleting security rule:%+v", err)
 			return nil, err
@@ -269,13 +295,13 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		return nil, err
 	}
 
-	err = s.setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, err
 	}
 
 	vnetName := getVnetName(resourceDescInfo.Location, resourceDesc.Namespace)
-	invisinetsVnet, err := s.azureHandler.GetInvisinetsVnet(ctx, vnetName, resourceDescInfo.Location, resourceDesc.Namespace, s.orchestratorServerAddr)
+	invisinetsVnet, err := azureHandler.GetInvisinetsVnet(ctx, vnetName, resourceDescInfo.Location, resourceDesc.Namespace, s.orchestratorServerAddr)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
 		return nil, err
@@ -294,7 +320,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		}
 		// Create subnet
 		if !subnetExists {
-			resourceSubnet, err = s.azureHandler.AddSubnetToInvisinetsVnet(ctx, resourceDesc.Namespace, vnetName, getSubnetName(resourceDescInfo.ResourceName), s.orchestratorServerAddr)
+			resourceSubnet, err = azureHandler.AddSubnetToInvisinetsVnet(ctx, resourceDesc.Namespace, vnetName, getSubnetName(resourceDescInfo.ResourceName), s.orchestratorServerAddr)
 			if err != nil {
 				utils.Log.Printf("An error occured while creating subnet:%+v", err)
 				return nil, err
@@ -321,7 +347,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 	}
 
 	// Create the resource
-	ip, err := ReadAndProvisionResource(ctx, resourceDesc, resourceSubnet, &resourceIdInfo, s.azureHandler, additionalAddrs)
+	ip, err := ReadAndProvisionResource(ctx, resourceDesc, resourceSubnet, &resourceIdInfo, azureHandler, additionalAddrs)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating resource:%+v", err)
 		return nil, err
@@ -331,7 +357,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 	// The vnet is created even if there's no multicloud connections at the moment for ease of connection in the future.
 	// Note that vnets are free, so this is not a problem.
 	vpnGwVnetName := getVpnGatewayVnetName(resourceDesc.Namespace)
-	_, err = s.azureHandler.GetVirtualNetwork(ctx, vpnGwVnetName)
+	_, err = azureHandler.GetVirtualNetwork(ctx, vpnGwVnetName)
 	if err != nil {
 		if isErrorNotFound(err) {
 			virtualNetworkParameters := armnetwork.VirtualNetwork{
@@ -350,7 +376,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 					},
 				},
 			}
-			_, err = s.azureHandler.CreateVirtualNetwork(ctx, getVpnGatewayVnetName(resourceDesc.Namespace), virtualNetworkParameters)
+			_, err = azureHandler.CreateVirtualNetwork(ctx, getVpnGatewayVnetName(resourceDesc.Namespace), virtualNetworkParameters)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create VPN gateway vnet: %w", err)
 			}
@@ -364,7 +390,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 	// - Peerings are only charge based on amount of data transferred, so this will not incur extra charge until the VPN gateway is created.
 	// - VPN gateway transit relationship cannot be established before the VPN gateway creation.
 	// - If the VPN gateway hasn't been created, then the gateway transit relationship will be established on VPN gateway creation.
-	_, err = s.azureHandler.GetVirtualNetworkPeering(ctx, vnetName, vpnGwVnetName)
+	_, err = azureHandler.GetVirtualNetworkPeering(ctx, vnetName, vpnGwVnetName)
 	var peeringExists bool
 	if err != nil {
 		if isErrorNotFound(err) {
@@ -378,11 +404,11 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 	// Only add peering if it doesn't exist
 	if !peeringExists {
 		vpnGwName := getVpnGatewayName(resourceDesc.Namespace)
-		_, err = s.azureHandler.GetVirtualNetworkGateway(ctx, vpnGwName)
+		_, err = azureHandler.GetVirtualNetworkGateway(ctx, vpnGwName)
 		if err != nil {
 			if isErrorNotFound(err) {
 				// Create regular peering which will be augmented with gateway transit relationship later on VPN gateway creation
-				err = s.azureHandler.CreateVnetPeering(ctx, vnetName, vpnGwVnetName)
+				err = azureHandler.CreateVnetPeering(ctx, vnetName, vpnGwVnetName)
 				if err != nil {
 					return nil, fmt.Errorf("unable to create vnet peerings between VM vnet and VPN gateway vnet: %w", err)
 				}
@@ -391,7 +417,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 			}
 		} else {
 			// Create peering with gateway transit relationship if VPN gateway already exists
-			err = s.azureHandler.CreateOrUpdateVnetPeeringRemoteGateway(ctx, vnetName, vpnGwVnetName, nil, nil)
+			err = azureHandler.CreateOrUpdateVnetPeeringRemoteGateway(ctx, vnetName, vpnGwVnetName, nil, nil)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create vnet peerings (with gateway transit) between VM vnet and VPN gateway vnet: %w", err)
 			}
@@ -402,18 +428,25 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 }
 
 // GetUsedAddressSpaces returns the address spaces used by invisinets which are the address spaces of the invisinets vnets
-func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
-	resourceIdInfo, err := getResourceIDInfo(deployment.Id)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
-		return nil, err
-	}
-	err = s.setupAzureHandler(resourceIdInfo)
-	if err != nil {
-		return nil, err
-	}
+func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisinetspb.GetUsedAddressSpacesRequest) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
+	resp := &invisinetspb.GetUsedAddressSpacesResponse{}
+	resp.AddressSpaceMappings = make([]*invisinetspb.AddressSpaceMapping, len(req.Deployments))
+	for i, deployment := range req.Deployments {
+		resp.AddressSpaceMappings[i] = &invisinetspb.AddressSpaceMapping{
+			Cloud:     utils.AZURE,
+			Namespace: deployment.Namespace,
+		}
+		resourceIdInfo, err := getResourceIDInfo(deployment.Id)
+		if err != nil {
+			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+			return nil, err
+		}
+		azureHandler, err := s.setupAzureHandler(resourceIdInfo)
+		if err != nil {
+			return nil, err
+		}
 
-	addressSpaces, err := s.azureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(deployment.Namespace))
+	addressSpaces, err := azureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(deployment.Namespace))
 	if err != nil {
 		utils.Log.Printf("An error occured while getting address spaces:%+v", err)
 		return nil, err
@@ -424,60 +457,105 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, deployment
 			invisinetAddressList = append(invisinetAddressList, addresses...)
 		}
 	}
-	return &invisinetspb.AddressSpaceList{AddressSpaces: invisinetAddressList}, nil
+	return resp, nil
 }
 
 func (s *azurePluginServer) GetUsedAsns(ctx context.Context, req *invisinetspb.GetUsedAsnsRequest) (*invisinetspb.GetUsedAsnsResponse, error) {
-	resourceIdInfo, err := getResourceIDInfo(req.Deployment.Id)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
-		return nil, err
-	}
-	err = s.setupAzureHandler(resourceIdInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	virtualNetworkGatewayName := getVpnGatewayName(req.Deployment.Namespace)
-	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
-	if err != nil {
-		if isErrorNotFound(err) {
-			return &invisinetspb.GetUsedAsnsResponse{}, nil
-		} else {
-			return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
+	resp := &invisinetspb.GetUsedAsnsResponse{}
+	for _, deployment := range req.Deployments {
+		resourceIdInfo, err := getResourceIDInfo(deployment.Id)
+		if err != nil {
+			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+			return nil, err
 		}
-	}
+		azureHandler, err := s.setupAzureHandler(resourceIdInfo)
+		if err != nil {
+			return nil, err
+		}
 
-	return &invisinetspb.GetUsedAsnsResponse{Asns: []uint32{uint32(*virtualNetworkGateway.Properties.BgpSettings.Asn)}}, nil
+		virtualNetworkGatewayName := getVpnGatewayName(deployment.Namespace)
+		virtualNetworkGateway, err := azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
+		if err != nil {
+			if isErrorNotFound(err) {
+				continue
+			} else {
+				return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
+			}
+		}
+		resp.Asns = append(resp.Asns, uint32(*virtualNetworkGateway.Properties.BgpSettings.Asn))
+	}
+	return resp, nil
 }
 
 func (s *azurePluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *invisinetspb.GetUsedBgpPeeringIpAddressesRequest) (*invisinetspb.GetUsedBgpPeeringIpAddressesResponse, error) {
-	resourceIdInfo, err := getResourceIDInfo(req.Deployment.Id)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
-		return nil, err
-	}
-	err = s.setupAzureHandler(resourceIdInfo)
-	if err != nil {
-		return nil, err
-	}
-
 	resp := &invisinetspb.GetUsedBgpPeeringIpAddressesResponse{}
-	virtualNetworkGatewayName := getVpnGatewayName(req.Deployment.Namespace)
-	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
-	if err != nil {
-		if isErrorNotFound(err) {
-			return resp, nil
-		} else {
-			return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
+	for _, deployment := range req.Deployments {
+		resourceIdInfo, err := getResourceIDInfo(deployment.Id)
+		if err != nil {
+			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+			return nil, err
+		}
+		azureHandler, err := s.setupAzureHandler(resourceIdInfo)
+		if err != nil {
+			return nil, err
+		}
+
+		virtualNetworkGatewayName := getVpnGatewayName(deployment.Namespace)
+		virtualNetworkGateway, err := azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
+		if err != nil {
+			if isErrorNotFound(err) {
+				continue
+			} else {
+				return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
+			}
+		}
+		for _, bgpPeeringAddress := range virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses {
+			resp.IpAddresses = append(resp.IpAddresses, *bgpPeeringAddress.CustomBgpIPAddresses[0])
 		}
 	}
-
-	resp.IpAddresses = make([]string, len(virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses))
-	for i, bgpPeeringAddress := range virtualNetworkGateway.Properties.BgpSettings.BgpPeeringAddresses {
-		resp.IpAddresses[i] = *bgpPeeringAddress.CustomBgpIPAddresses[0]
-	}
 	return resp, nil
+}
+
+// Peer with another namespace within Azure
+func (s *azurePluginServer) createNamespacePeering(ctx context.Context, azureHandler AzureSDKHandler, resourceIDInfo ResourceIDInfo, resourceVnetLocation string, namespace string, peeringCloudInfo *utils.PeeringCloudInfo, permitListRuleTarget string) error {
+	peeringCloudResourceIDInfo, err := getResourceIDInfo(peeringCloudInfo.Deployment)
+	if err != nil {
+		return fmt.Errorf("unable to get resource ID info for peering Cloud: %w", err)
+	}
+	peeringCloudAzureHandler, err := s.setupAzureHandler(peeringCloudResourceIDInfo)
+	if err != nil {
+		return err
+	}
+	invisinetsVnetsMap, err := peeringCloudAzureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(peeringCloudInfo.Namespace))
+	if err != nil {
+		return fmt.Errorf("unable to create vnets address spaces for peering cloud: %w", err)
+	}
+	// Find the vnet that contains the target
+	contained := false
+	for peeringVnetLocation, peeringVnetAddressSpaces := range invisinetsVnetsMap {
+		contained, err = utils.IsPermitListRuleTagInAddressSpace(permitListRuleTarget, peeringVnetAddressSpaces)
+		if err != nil {
+			return fmt.Errorf("unable to check if tag is in vnet address space")
+		}
+		if contained {
+			// Create peering
+			currentVnetName := getVnetName(resourceVnetLocation, namespace)
+			peeringVnetName := getVnetName(peeringVnetLocation, peeringCloudInfo.Namespace)
+			err = azureHandler.CreateVnetPeeringOneWay(ctx, currentVnetName, peeringVnetName, peeringCloudResourceIDInfo.SubscriptionID, peeringCloudResourceIDInfo.ResourceGroupName)
+			if err != nil {
+				return fmt.Errorf("unable to create vnet peering: %w", err)
+			}
+			err = peeringCloudAzureHandler.CreateVnetPeeringOneWay(ctx, peeringVnetName, currentVnetName, resourceIDInfo.SubscriptionID, resourceIDInfo.ResourceGroupName)
+			if err != nil {
+				return fmt.Errorf("unable to create vnet peering: %w", err)
+			}
+			break
+		}
+	}
+	if !contained {
+		return fmt.Errorf("unable to find vnet belonging to permit list rule target")
+	}
+	return nil
 }
 
 // Extract the Vnet name from the subnet ID
@@ -645,7 +723,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 	if err != nil {
 		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
 	}
-	err = s.setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, fmt.Errorf("unable to setup azure handler: %w", err)
 	}
@@ -653,7 +731,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 	vpnNumConnections := utils.GetNumVpnConnections(req.Cloud, utils.AZURE)
 	publicIPAddresses := make([]*armnetwork.PublicIPAddress, vpnNumConnections)
 	virtualNetworkGatewayName := getVpnGatewayName(namespace)
-	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
+	virtualNetworkGateway, err := azureHandler.GetVirtualNetworkGateway(ctx, virtualNetworkGatewayName)
 	var asn uint32
 	if err != nil {
 		if isErrorNotFound(err) {
@@ -670,10 +748,10 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 			}
 			for i := 0; i < vpnNumConnections; i++ {
 				vpnGatewayIPAddressName := getVPNGatewayIPAddressName(namespace, i)
-				publicIPAddress, err := s.azureHandler.GetPublicIPAddress(ctx, vpnGatewayIPAddressName)
+				publicIPAddress, err := azureHandler.GetPublicIPAddress(ctx, vpnGatewayIPAddressName)
 				if err != nil {
 					if isErrorNotFound(err) {
-						publicIPAddress, err = s.azureHandler.CreatePublicIPAddress(ctx, vpnGatewayIPAddressName, publicIPAddressParameters)
+						publicIPAddress, err = azureHandler.CreatePublicIPAddress(ctx, vpnGatewayIPAddressName, publicIPAddressParameters)
 						if err != nil {
 							return nil, fmt.Errorf("unable to create public IP address: %w", err)
 						}
@@ -686,18 +764,18 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 
 			// Get VPN gateway subnet
 			gatewayVnetName := getVpnGatewayVnetName(namespace)
-			vpnGwSubnet, err := s.azureHandler.GetSubnet(ctx, gatewayVnetName, gatewaySubnetName)
+			vpnGwSubnet, err := azureHandler.GetSubnet(ctx, gatewayVnetName, gatewaySubnetName)
 			if err != nil {
 				return nil, fmt.Errorf("unable to get VPN gateway subnet: %w", err)
 			}
 
 			conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
-				return nil, fmt.Errorf("unable to establish connection with frontend: %w", err)
+				return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 			}
 			defer conn.Close()
 			client := invisinetspb.NewControllerClient(conn)
-			findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{Namespace: req.Deployment.Namespace})
+			findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
 			if err != nil {
 				return nil, fmt.Errorf("unable to find unused address space: %w", err)
 			}
@@ -744,7 +822,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 					},
 				}
 			}
-			virtualNetworkGateway, err = s.azureHandler.CreateOrUpdateVirtualNetworkGateway(ctx, virtualNetworkGatewayName, virtualNetworkGatewayParameters)
+			virtualNetworkGateway, err = azureHandler.CreateOrUpdateVirtualNetworkGateway(ctx, virtualNetworkGatewayName, virtualNetworkGatewayParameters)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create virtual network gateway: %w", err)
 			}
@@ -757,13 +835,13 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 					IPConfigurationID:    virtualNetworkGateway.Properties.IPConfigurations[i].ID,
 				}
 			}
-			_, err = s.azureHandler.CreateOrUpdateVirtualNetworkGateway(ctx, virtualNetworkGatewayName, *virtualNetworkGateway)
+			_, err = azureHandler.CreateOrUpdateVirtualNetworkGateway(ctx, virtualNetworkGatewayName, *virtualNetworkGateway)
 			if err != nil {
 				return nil, fmt.Errorf("unable to update virtual network gateway with BGP IP addresses: %w", err)
 			}
 
 			// Update existing peerings with gateway transit relationship
-			gatewayVnetPeerings, err := s.azureHandler.ListVirtualNetworkPeerings(ctx, gatewayVnetName)
+			gatewayVnetPeerings, err := azureHandler.ListVirtualNetworkPeerings(ctx, gatewayVnetName)
 			if err != nil {
 				return nil, fmt.Errorf("unable to get peerings of virtual gateway vnet: %w", err)
 			}
@@ -773,11 +851,11 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 					return nil, fmt.Errorf("unable to parse vnet resource ID from the gateway vnet to vnet peering: %w", err)
 				}
 				vnetName := vnetResourceIDInfo.ResourceName
-				vnetToGatewayVnetPeering, err := s.azureHandler.GetVirtualNetworkPeering(ctx, vnetName, getPeeringName(vnetName, gatewayVnetName))
+				vnetToGatewayVnetPeering, err := azureHandler.GetVirtualNetworkPeering(ctx, vnetName, getPeeringName(vnetName, gatewayVnetName))
 				if err != nil {
 					return nil, fmt.Errorf("unable to get vnet to gateway vnet peering: %w", err)
 				}
-				err = s.azureHandler.CreateOrUpdateVnetPeeringRemoteGateway(ctx, vnetName, gatewayVnetName, vnetToGatewayVnetPeering, gatewayVnetToVnetPeering)
+				err = azureHandler.CreateOrUpdateVnetPeeringRemoteGateway(ctx, vnetName, gatewayVnetName, vnetToGatewayVnetPeering, gatewayVnetToVnetPeering)
 				if err != nil {
 					return nil, fmt.Errorf("unable to update peerings between vnet and gateway vnet for VPN gateway transit: %w", err)
 				}
@@ -793,7 +871,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 			if err != nil {
 				return nil, fmt.Errorf("unable to get public IP address ID info: %w", err)
 			}
-			publicIPAddress, err := s.azureHandler.GetPublicIPAddress(ctx, publicIPAddressIdInfo.ResourceName)
+			publicIPAddress, err := azureHandler.GetPublicIPAddress(ctx, publicIPAddressIdInfo.ResourceName)
 			if err != nil {
 				return nil, fmt.Errorf("unable to get public IP address: %w", err)
 			}
@@ -814,7 +892,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 	if err != nil {
 		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
 	}
-	err = s.setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, fmt.Errorf("unable to setup azure handler: %w", err)
 	}
@@ -823,7 +901,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 	localNetworkGateways := make([]*armnetwork.LocalNetworkGateway, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {
 		localNetworkGatewayName := getLocalNetworkGatewayName(req.Deployment.Namespace, req.Cloud, i)
-		localNetworkGateway, err := s.azureHandler.GetLocalNetworkGateway(ctx, localNetworkGatewayName)
+		localNetworkGateway, err := azureHandler.GetLocalNetworkGateway(ctx, localNetworkGatewayName)
 		if err != nil {
 			if isErrorNotFound(err) {
 				localNetworkGatewayParameters := armnetwork.LocalNetworkGateway{
@@ -837,7 +915,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 					},
 					Location: to.Ptr(vpnLocation),
 				}
-				localNetworkGateway, err = s.azureHandler.CreateLocalNetworkGateway(ctx, localNetworkGatewayName, localNetworkGatewayParameters)
+				localNetworkGateway, err = azureHandler.CreateLocalNetworkGateway(ctx, localNetworkGatewayName, localNetworkGatewayParameters)
 				if err != nil {
 					return nil, fmt.Errorf("unable to create local network gateway: %w", err)
 				}
@@ -848,13 +926,13 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 		localNetworkGateways[i] = localNetworkGateway
 	}
 
-	virtualNetworkGateway, err := s.azureHandler.GetVirtualNetworkGateway(ctx, getVpnGatewayName(req.Deployment.Namespace))
+	virtualNetworkGateway, err := azureHandler.GetVirtualNetworkGateway(ctx, getVpnGatewayName(req.Deployment.Namespace))
 	if err != nil {
 		return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
 	}
 	for i := 0; i < vpnNumConnections; i++ {
 		virtualNetworkGatewayconnectionName := getVirtualNetworkGatewayConnectionName(req.Deployment.Namespace, req.Cloud, i)
-		_, err := s.azureHandler.GetVirtualNetworkGatewayConnection(ctx, virtualNetworkGatewayconnectionName)
+		_, err := azureHandler.GetVirtualNetworkGatewayConnection(ctx, virtualNetworkGatewayconnectionName)
 		if err != nil {
 			if isErrorNotFound(err) {
 				// Checks if a virtual network gateway connection already exists. Even though CreateOrUpdate is a PUT (i.e. idempotent),
@@ -879,7 +957,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 					},
 					Location: to.Ptr(vpnLocation),
 				}
-				_, err := s.azureHandler.CreateVirtualNetworkGatewayConnection(ctx, virtualNetworkGatewayconnectionName, *virtualNetworkGatewayConnectionParameters)
+				_, err := azureHandler.CreateVirtualNetworkGatewayConnection(ctx, virtualNetworkGatewayconnectionName, *virtualNetworkGatewayConnectionParameters)
 				if err != nil {
 					return nil, fmt.Errorf("unable to create virtual network gateway connection: %w", err)
 				}
@@ -899,7 +977,6 @@ func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 	}
 	grpcServer := grpc.NewServer()
 	azureServer := &azurePluginServer{
-		azureHandler:           &azureSDKHandler{},
 		orchestratorServerAddr: orchestratorServerAddr,
 	}
 	invisinetspb.RegisterCloudPluginServer(grpcServer, azureServer)

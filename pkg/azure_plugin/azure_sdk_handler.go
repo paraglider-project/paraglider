@@ -56,6 +56,7 @@ type AzureSDKHandler interface {
 	CreateOrUpdateVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string, parameters armnetwork.VirtualNetworkPeering) (*armnetwork.VirtualNetworkPeering, error)
 	GetVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string) (*armnetwork.VirtualNetworkPeering, error)
 	ListVirtualNetworkPeerings(ctx context.Context, virtualNetworkName string) ([]*armnetwork.VirtualNetworkPeering, error)
+	CreateVnetPeeringOneWay(ctx context.Context, vnet1Name string, vnet2Name string, vnet2SubscriptionID string, vnet2ResourceGroupName string) error
 	CreateVnetPeering(ctx context.Context, vnet1Name string, vnet2Name string) error
 	CreateOrUpdateVnetPeeringRemoteGateway(ctx context.Context, vnetName string, gatewayVnetName string, vnetToGatewayVnetPeering *armnetwork.VirtualNetworkPeering, gatewayVnetToVnetPeering *armnetwork.VirtualNetworkPeering) error
 	GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error)
@@ -336,9 +337,9 @@ func (h *azureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix stri
 	return addressSpaces, nil
 }
 
-// Create Vnet Peering between two VNets, this is important in the case of a multi-region deployment
-// For peering to work, two peering links must be created. By selecting remote virtual network, Azure will create both peering links.
-func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name string, vnet2Name string) error {
+// Temporarily needed method to deal with the mess of azureSDKHandlers
+// TODO @seankimkdy: remove once azureSDKHandler is no longer a mess
+func (h *azureSDKHandler) CreateVnetPeeringOneWay(ctx context.Context, vnet1Name string, vnet2Name string, vnet2SubscriptionID string, vnet2ResourceGroupName string) error {
 	// create first link from vnet1 to vnet2
 	vnet1ToVnet2PeeringParameters := armnetwork.VirtualNetworkPeering{
 		Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
@@ -346,7 +347,7 @@ func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name strin
 			AllowGatewayTransit:       to.Ptr(false),
 			AllowVirtualNetworkAccess: to.Ptr(true),
 			RemoteVirtualNetwork: &armnetwork.SubResource{
-				ID: to.Ptr(fmt.Sprintf(virtualNetworkResourceID, h.subscriptionID, h.resourceGroupName, vnet2Name)),
+				ID: to.Ptr(fmt.Sprintf(virtualNetworkResourceID, vnet2SubscriptionID, vnet2ResourceGroupName, vnet2Name)),
 			},
 			UseRemoteGateways: to.Ptr(false),
 		},
@@ -355,21 +356,21 @@ func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name strin
 	if err != nil {
 		return err
 	}
-	// create second link from vnet2 to vnet1
-	vnet2ToVnet1PeeringParameters := armnetwork.VirtualNetworkPeering{
-		Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
-			AllowForwardedTraffic:     to.Ptr(false),
-			AllowGatewayTransit:       to.Ptr(false),
-			AllowVirtualNetworkAccess: to.Ptr(true),
-			RemoteVirtualNetwork: &armnetwork.SubResource{
-				ID: to.Ptr(fmt.Sprintf(virtualNetworkResourceID, h.subscriptionID, h.resourceGroupName, vnet1Name)),
-			},
-			UseRemoteGateways: to.Ptr(false),
-		},
-	}
-	_, err = h.CreateOrUpdateVirtualNetworkPeering(ctx, vnet2Name, getPeeringName(vnet2Name, vnet1Name), vnet2ToVnet1PeeringParameters)
+	return nil
+}
+
+// Create Vnet Peering between two VNets, this is important in the case of a multi-region deployment
+// For peering to work, two peering links must be created. By selecting remote virtual network, Azure will create both peering links.
+func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name string, vnet2Name string) error {
+	// create first link from vnet1 to vnet2
+	err := h.CreateVnetPeeringOneWay(ctx, vnet1Name, vnet2Name, h.subscriptionID, h.resourceGroupName)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to create peering from %s to %s: %w", vnet1Name, vnet2Name, err)
+	}
+	// create second link from vnet2 to vnet1
+	err = h.CreateVnetPeeringOneWay(ctx, vnet2Name, vnet1Name, h.subscriptionID, h.resourceGroupName)
+	if err != nil {
+		return fmt.Errorf("unable to create peering from %s to %s: %w", vnet2Name, vnet1Name, err)
 	}
 	return nil
 }
@@ -496,7 +497,6 @@ func (h *azureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) 
 func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
 	// Get the virtual network
 	res, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, &armnetwork.VirtualNetworksClientGetOptions{Expand: nil})
-
 	if err != nil {
 		// Check if the error is Resource Not Found
 		if isErrorNotFound(err) {
@@ -509,7 +509,7 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 			}
 			defer conn.Close()
 			client := invisinetspb.NewControllerClient(conn)
-			response, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: namespace})
+			response, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 			if err != nil {
 				return nil, err
 			}

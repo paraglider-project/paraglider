@@ -29,40 +29,47 @@ import (
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/stretchr/testify/require"
 
-	"github.com/NetSys/invisinets/pkg/fake"
+	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
+	ibmCommon "github.com/NetSys/invisinets/pkg/ibm_plugin"
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
-var testResGroupName = flag.String("sg", "invisinets", "Name of the user's security group")
+var testResGroupName = flag.String("sg", "pywren", "Name of the user's security group")
 var testResourceIDUSEast1 string
 var testResourceIDUSEast2 string
 var testResourceIDEUDE1 string
+var testResourceIDUSSouth1 string
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	testResourceIDUSEast1 = "/ResourceGroupID/" + *testResGroupName + "/Zone/" + testZoneUSEast1 + "/ResourceID/" + testInstanceNameUS1
-	testResourceIDUSEast2 = "/ResourceGroupID/" + *testResGroupName + "/Zone/" + testZoneUSEast2 + "/ResourceID/" + testInstanceNameUS2
-	testResourceIDEUDE1 = "/ResourceGroupID/" + *testResGroupName + "/Zone/" + testZoneEUDE1 + "/ResourceID/" + testInstanceNameEU1
+	testResourceIDUSEast1 = "/ResourceGroupName/" + *testResGroupName + "/Zone/" + testZoneUSEast1 + "/ResourceID/" + testInstanceNameUSEast1
+	testResourceIDUSEast2 = "/ResourceGroupName/" + *testResGroupName + "/Zone/" + testZoneUSEast2 + "/ResourceID/" + testInstanceNameUSEast2
+	testResourceIDEUDE1 = "/ResourceGroupName/" + *testResGroupName + "/Zone/" + testZoneEUDE1 + "/ResourceID/" + testInstanceNameEUDE1
+	testResourceIDUSSouth1 = "/ResourceGroupName/" + *testResGroupName + "/Zone/" + testZoneUSSouth1 + "/ResourceID/" + testInstanceNameUSSouth1
 	exitCode := m.Run()
 	os.Exit(exitCode)
 }
 
 const (
-	testUSRegion        = "us-east"
-	testZoneUSEast1     = testUSRegion + "-1"
-	testZoneUSEast2     = testUSRegion + "-2"
-	testEURegion        = "eu-de"
-	testZoneEUDE1       = testEURegion + "-1"
-	testInstanceNameUS1 = "invisinets-vm-1"
-	testInstanceNameUS2 = "invisinets-vm-2"
-	testInstanceNameEU1 = "invisinets-vm-3"
+	testUSEastRegion         = "us-east"
+	testUSSouthRegion        = "us-south"
+	testEURegion             = "eu-de"
+	testZoneUSEast1          = testUSEastRegion + "-1"
+	testZoneUSEast2          = testUSEastRegion + "-2"
+	testZoneUSSouth1         = testUSSouthRegion + "-1"
+	testZoneEUDE1            = testEURegion + "-1"
+	testInstanceNameUSEast1  = "invisinets-vm-east-1"
+	testInstanceNameUSEast2  = "invisinets-vm-east-2"
+	testInstanceNameUSSouth1 = "invisinets-vm-south-1"
+	testInstanceNameEUDE1    = "invisinets-vm-de-1"
 
-	testImageUSEast = "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb" // us-east Ubuntu 22.04
-	testImageEUDE   = "r010-f68ef7b3-1c5e-4ef7-8040-7ae0f5bf04fd" // eu-de Ubuntu 22.04
-	testProfile     = "bx2-2x8"
-	testNamespace   = "inv-namespace"
+	testImageUSEast  = "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb" // us-east Ubuntu 22.04
+	testImageEUDE    = "r010-f68ef7b3-1c5e-4ef7-8040-7ae0f5bf04fd" // eu-de Ubuntu 22.04
+	testImageUSSouth = "r006-01deb923-46f6-44c3-8fdc-99d8493d2464" // us-south Ubuntu 22.04
+	testProfile      = "bx2-2x8"
+	testNamespace    = "inv-namespace"
 )
 
 // permit list example
@@ -106,12 +113,14 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	// Notes for tester:
 	// to change region set the values below according to constants above, e.g.:
 	// - test arguments for EU-DE-1:
-	// image, zone, instanceName, resourceID := testImageEUDE, testZoneEUDE1, testInstanceNameEU1, testResourceIDEUDE1
+	// image, zone, instanceName, resourceID := testImageEUDE, testZoneEUDE1, testInstanceNameEUDE1, testResourceIDEUDE1
 	// - test arguments for us-east-2:
-	// image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast2, testInstanceNameUS2, testResourceIDUSEast2
-	image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast1, testInstanceNameUS1, testResourceIDUSEast1
+	// image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast2, testInstanceNameUSEast2, testResourceIDUSEast2
+	// - test arguments for us-south-1:
+	// image, zone, instanceName, resourceID := testImageUSSouth, testZoneUSSouth1, testInstanceNameUSSouth1, testResourceIDUSSouth1
+	image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1, testResourceIDUSEast1
 
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.IBM)
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,8 +136,8 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	}
 
 	s := &ibmPluginServer{
-		frontendServerAddr: fakeControllerServerAddr,
-		cloudClient:        make(map[string]*sdk.CloudClient)}
+		orchestratorServerAddr: fakeControllerServerAddr,
+		cloudClient:            make(map[string]*sdk.CloudClient)}
 
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)
@@ -153,10 +162,10 @@ func TestCreateResourceExistingVPC(t *testing.T) {
 	//   image, zone, instanceName, resourceID := testImageEUDE, testZoneEUDE1, testInstanceNameEU1, testResourceIDEUDE1
 	// - test arguments for US-EAST-1:
 	// image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast1, testInstanceNameUS1, testResourceIDUSEast1
-	// - test arguments for us-east-2:
-	image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast2, testInstanceNameUS2, testResourceIDUSEast2
+	// - test arguments for US-EAST-2:
+	image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast2, testInstanceNameUSEast2, testResourceIDUSEast2
 
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.IBM)
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,8 +181,8 @@ func TestCreateResourceExistingVPC(t *testing.T) {
 	}
 
 	s := &ibmPluginServer{
-		frontendServerAddr: fakeControllerServerAddr,
-		cloudClient:        make(map[string]*sdk.CloudClient)}
+		orchestratorServerAddr: fakeControllerServerAddr,
+		cloudClient:            make(map[string]*sdk.CloudClient)}
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)
 
@@ -188,15 +197,11 @@ func TestCreateResourceExistingVPC(t *testing.T) {
 
 // usage: go test --tags=ibm -run TestGetPermitList -sg=<security group name>
 func TestGetPermitList(t *testing.T) {
-	// Notes for tester:
-	// to change region set the values below according to constants above, e.g.:
-	// resourceID := testResourceIDEUDE1
-	// resourceID := testResourceIDUSEast2
-	resourceID := testResourceIDUSEast1
+	resourceID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDEUDE1
 
 	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
-	resp, err := s.GetPermitList(context.Background(), &invisinetspb.ResourceID{Id: resourceID,
+	resp, err := s.GetPermitList(context.Background(), &invisinetspb.GetPermitListRequest{Resource: resourceID,
 		Namespace: testNamespace})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -204,49 +209,70 @@ func TestGetPermitList(t *testing.T) {
 	b, err := json.MarshalIndent(resp, "", "  ")
 	require.NoError(t, err)
 	// Note: direction:0(inbound) will not be printed.
-	utils.Log.Printf("Permit rules of instance %v are:\n%v", testInstanceNameUS1, string(b))
+	utils.Log.Printf("Permit rules of instance %v are:\n%v", testInstanceNameUSEast1, string(b))
 }
 
 // usage: go test --tags=ibm -run TestAddPermitListRules -sg=<security group name>
 func TestAddPermitListRules(t *testing.T) {
-	// Notes for tester:
-	// to change region set the values below according to constants above, e.g.:
-	// resourceID := testResourceIDUSEast2
-	// resourceID := testResourceIDEUDE1
-	resourceID := testResourceIDUSEast1
+	resourceID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDEUDE1
 
-	permitList := &invisinetspb.PermitList{
-		AssociatedResource: resourceID,
-		Rules:              testPermitList,
-		Namespace:          testNamespace,
+	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+		Namespace: testNamespace,
+		Resource:  resourceID,
+		Rules:     testPermitList,
 	}
 
 	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
-	resp, err := s.AddPermitListRules(context.Background(), permitList)
+	resp, err := s.AddPermitListRules(context.Background(), addRulesRequest)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	utils.Log.Printf("Response: %v", resp)
+	utils.Log.Printf("Response: %+v", resp)
 }
 
 // usage: go test --tags=ibm -run TestDeletePermitListRule -sg=<security group name>
 func TestDeletePermitListRules(t *testing.T) {
-	// Notes for tester:
-	// to change region set the values below according to constants above, e.g.:
-	// resourceID := testResourceIDUSEast2
-	// resourceID := testResourceIDEUDE1
-	resourceID := testResourceIDUSEast1
+	resourceID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDUSSouth1
 
-	permitList := &invisinetspb.PermitList{
-		AssociatedResource: resourceID,
-		Rules:              testPermitList,
-		Namespace:          testNamespace,
+	rInfo, err := getResourceIDInfo(resourceID)
+	require.NoError(t, err)
+
+	region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
+	require.NoError(t, err)
+
+	cloudClient, err := sdk.NewIBMCloudClient(rInfo.ResourceGroupName, region)
+	require.NoError(t, err)
+
+	// Get the VM ID from the resource ID (typically refers to VM Name)
+	vmData, err := cloudClient.GetInstanceData(rInfo.ResourceID)
+	require.NoError(t, err)
+
+	vmID := *vmData.ID
+
+	invisinetsSgsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
+	require.NoError(t, err)
+
+	require.NotEqualValues(t, len(invisinetsSgsData), 0,"no security groups were found for VM "+ rInfo.ResourceID)
+
+	// assuming up to a single invisinets subnet can exist per zone
+	vmInvisinetsSgID := invisinetsSgsData[0].ID
+
+	ibmRulesToDelete, err := sdk.InvisinetsToIBMRules(vmInvisinetsSgID, testPermitList)
+	require.NoError(t, err)
+
+	rulesIDs, err := cloudClient.GetRulesIDs(ibmRulesToDelete, vmInvisinetsSgID)
+	require.NoError(t, err)
+
+	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
+		Namespace: testNamespace,
+		Resource:  resourceID,
+		RuleNames: rulesIDs,
 	}
 
 	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
-	resp, err := s.DeletePermitListRules(context.Background(), permitList)
+	resp, err := s.DeletePermitListRules(context.Background(), deleteRulesRequest)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
