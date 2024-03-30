@@ -101,6 +101,9 @@ func TestAddPermitListRules(t *testing.T) {
 		subnetwork: &computepb.Subnetwork{
 			IpCidrRange: proto.String("10.0.0.0/16"),
 		},
+		network: &computepb.Network{
+			Name: proto.String(getVpcName(fakeNamespace)),
+		},
 	}
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
@@ -211,6 +214,9 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 			*fakeFirewallRule1.Name: fakeFirewallRule1,
 			*fakeFirewallRule2.Name: fakeFirewallRule2,
 		},
+		network: &computepb.Network{
+			Name: proto.String(getVpcName(fakeNamespace)),
+		},
 	}
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
@@ -243,7 +249,7 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 	}
 
 	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient, fakeClients.networksClient, fakeClients.clusterClient)
-  
+
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }

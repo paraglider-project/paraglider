@@ -35,13 +35,21 @@ type FakeOrchestratorRPCServer struct {
 	Counter int
 }
 
-func (f *FakeOrchestratorRPCServer) FindUnusedAddressSpaces(ctx context.Context, _ *invisinetspb.FindUnusedAddressSpacesRequest) (*invisinetspb.FindUnusedAddressSpacesResponse, error) {
-	if f.Counter == 256 {
-		return nil, fmt.Errorf("ran out of address spaces")
+func (f *FakeOrchestratorRPCServer) FindUnusedAddressSpaces(ctx context.Context, req *invisinetspb.FindUnusedAddressSpacesRequest) (*invisinetspb.FindUnusedAddressSpacesResponse, error) {
+	numAddresses := 1
+	if req.Num != nil {
+		numAddresses = int(*req.Num)
 	}
-	address := fmt.Sprintf("10.%d.0.0/16", f.Counter)
-	f.Counter = f.Counter + 1
-	return &invisinetspb.FindUnusedAddressSpacesResponse{AddressSpaces: []string{address}}, nil
+	addresses := make([]string, numAddresses)
+	for i := 0; i < numAddresses; i++ {
+		if f.Counter == 256 {
+			return nil, fmt.Errorf("ran out of address spaces")
+		}
+		address := fmt.Sprintf("10.%d.0.0/16", f.Counter)
+		f.Counter = f.Counter + 1
+		addresses[i] = address
+	}
+	return &invisinetspb.FindUnusedAddressSpacesResponse{AddressSpaces: addresses}, nil
 }
 
 func (f *FakeOrchestratorRPCServer) FindUnusedAsn(ctx context.Context, _ *invisinetspb.FindUnusedAsnRequest) (*invisinetspb.FindUnusedAsnResponse, error) {
@@ -55,10 +63,10 @@ func (f *FakeOrchestratorRPCServer) GetUsedAddressSpaces(ctx context.Context, _ 
 	}
 	resp := &invisinetspb.GetUsedAddressSpacesResponse{
 		AddressSpaceMappings: []*invisinetspb.AddressSpaceMapping{
-			{AddressSpaces: addressSpaces, Cloud: f.Cloud, Namespace: "default", Deployment: proto.String("fakedeployment")},
+			{AddressSpaces: addressSpaces, Cloud: f.Cloud, Namespace: "default", Deployment: proto.String("projects/invisinets-fake")},
 		},
 	}
-	fmt.Println(resp.AddressSpaceMappings[0].AddressSpaces)
+
 	return resp, nil
 }
 
