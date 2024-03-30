@@ -69,15 +69,6 @@ message AddressSpaceMappingList {
     repeated AddressSpaceMapping address_space_mappings = 1;
 }
 
-message FindUnusedAddressSpacesRequest {
-    string namespace = 1;
-    optional int32 num = 2;
-}
-
-message FindUnusedAddressSpacesResponse {
-    repeated string address_spaces = 1;
-}
-
 message ResourceID {
     string id = 1;
     string namespace = 2;
