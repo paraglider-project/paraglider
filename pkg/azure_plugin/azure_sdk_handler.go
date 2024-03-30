@@ -535,7 +535,7 @@ func (h *azureSDKHandler) AddSubnetToInvisinetsVnet(ctx context.Context, namespa
 	defer conn.Close()
 
 	client := invisinetspb.NewControllerClient(conn)
-	response, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: namespace})
+	response, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 
 	if err != nil {
 		return nil, err

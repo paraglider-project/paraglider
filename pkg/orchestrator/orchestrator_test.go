@@ -620,11 +620,11 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	require.NotNil(t, err)
 }
 
-func TestFindUnusedAddressSpace(t *testing.T) {
+func TestFindUnusedAddressSpaces(t *testing.T) {
 	orchestratorServer := newOrchestratorServer()
 
 	// No entries in address space map
-	resp, err := orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	resp, err := orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
 	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
 
@@ -636,7 +636,7 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     defaultNamespace,
 		},
 	}
-	resp, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
 	assert.Equal(t, resp.AddressSpaces[0], "10.1.0.0/16")
 
@@ -653,7 +653,7 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     "otherNamespace",
 		},
 	}
-	resp, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
 	assert.Equal(t, resp.AddressSpaces[0], "10.2.0.0/16")
 
@@ -665,13 +665,13 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     defaultNamespace,
 		},
 	}
-	_, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})	
-  
-  require.NotNil(t, err)
-  
-  // Multiple spaces
-  orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{}
-  resp, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{Num: proto.Int32(2)})	
+	_, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
+
+	require.NotNil(t, err)
+
+	// Multiple spaces
+	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{}
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Num: proto.Int32(2)})
 	require.Nil(t, err)
 	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
 	assert.Equal(t, resp.AddressSpaces[1], "10.1.0.0/16")

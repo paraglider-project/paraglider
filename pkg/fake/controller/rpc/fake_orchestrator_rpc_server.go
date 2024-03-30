@@ -41,7 +41,7 @@ func (f *FakeOrchestratorRPCServer) FindUnusedAddressSpaces(ctx context.Context,
 	}
 	address := fmt.Sprintf("10.%d.0.0/16", f.Counter)
 	f.Counter = f.Counter + 1
-	return &invisinetspb.FindUnusedAddressSpacexResponse{AddressSpacex: address}, nil
+	return &invisinetspb.FindUnusedAddressSpacesResponse{AddressSpaces: []string{address}}, nil
 }
 
 func (f *FakeOrchestratorRPCServer) FindUnusedAsn(ctx context.Context, _ *invisinetspb.FindUnusedAsnRequest) (*invisinetspb.FindUnusedAsnResponse, error) {

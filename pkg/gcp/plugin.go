@@ -430,13 +430,13 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 	}
 	resourceInfo.Namespace = req.Namespace
 
-	subnet, resourceID, err := GetResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
+	_, resourceID, err := GetResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get existing firewalls
-	firewalls, err := getFirewallRules(ctx, firewallsClient, resourceInfo.Project, *resourceID) // need to change how rules are named to figure out this resourceID thing
+	firewalls, err := getFirewallRules(ctx, firewallsClient, resourceInfo.Project, *resourceID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get existing firewalls: %w", err)
 	}
@@ -448,19 +448,6 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 
 	// Get the network tag
 	networkTag := getNetworkTag(req.Namespace, resourceInfo.ResourceType, *resourceID)
-
-	// Get subnetwork address space
-	parsedSubnetworkUri := parseGCPURL(*subnet)
-	getSubnetworkReq := &computepb.GetSubnetworkRequest{
-		Project:    resourceInfo.Project,
-		Region:     parsedSubnetworkUri["regions"],
-		Subnetwork: parsedSubnetworkUri["subnetworks"],
-	}
-	getSubnetworkResp, err := subnetworksClient.Get(ctx, getSubnetworkReq)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get subnetwork: %w", err)
-	}
-	subnetworkAddressSpace := *getSubnetworkResp.IpCidrRange
 
 	// Get used address spaces of all clouds
 	controllerConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -516,11 +503,11 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 				if peeringCloudInfo.Namespace != req.Namespace {
 					// Create VPC network peering (in both directions) for different namespaces
 					peerProject := parseGCPURL(peeringCloudInfo.Deployment)["projects"]
-					err = peerVpcNetwork(ctx, networksClient, project, req.Namespace, peerProject, peeringCloudInfo.Namespace)
+					err = peerVpcNetwork(ctx, networksClient, resourceInfo.Project, req.Namespace, peerProject, peeringCloudInfo.Namespace)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create peering from %s to %s: %w", req.Namespace, peeringCloudInfo.Namespace, err)
 					}
-					err = peerVpcNetwork(ctx, networksClient, peerProject, peeringCloudInfo.Namespace, project, req.Namespace)
+					err = peerVpcNetwork(ctx, networksClient, peerProject, peeringCloudInfo.Namespace, resourceInfo.Project, req.Namespace)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create peering from %s to %s: %w", peeringCloudInfo.Namespace, req.Namespace, err)
 					}
@@ -537,7 +524,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 			Description: proto.String(getRuleDescription(permitListRule.Tags)),
 			Direction:   proto.String(firewallDirectionMapInvisinetsToGCP[permitListRule.Direction]),
 			Name:        proto.String(firewallName),
-			Network:     proto.String(GetVpcUri(project, req.Namespace)),
+			Network:     proto.String(GetVpcUri(resourceInfo.Project, req.Namespace)),
 			TargetTags:  []string{networkTag},
 		}
 		if permitListRule.DstPort != -1 {
@@ -600,7 +587,7 @@ func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 		return nil, fmt.Errorf("NewClusterManagerClient: %w", err)
 	}
 	defer clustersClient.Close()
-  
+
 	subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewSubnetworksRESTClient: %w", err)
@@ -611,7 +598,7 @@ func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 		return nil, fmt.Errorf("NewNetworksRESTClient: %w", err)
 	}
 	defer networksClient.Close()
-  
+
 	return s._AddPermitListRules(ctx, req, firewallsClient, instancesClient, subnetworksClient, networksClient, clustersClient)
 }
 
@@ -846,7 +833,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *invisi
 			Network: vpcName,
 			Project: project,
 		}
-    
+
 		getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
 		if err != nil {
 			if isErrorNotFound(err) {
@@ -855,8 +842,8 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *invisi
 				return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
 			}
 		}
-    resp.AddressSpaceMappings[i].AddressSpaces = []string{}
-		for j, subnetURL := range getNetworkResp.Subnetworks {
+		resp.AddressSpaceMappings[i].AddressSpaces = []string{}
+		for _, subnetURL := range getNetworkResp.Subnetworks {
 			parsedSubnetURL := parseGCPURL(subnetURL)
 			getSubnetworkRequest := &computepb.GetSubnetworkRequest{
 				Project:    project,
@@ -867,10 +854,10 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *invisi
 			if err != nil {
 				return nil, fmt.Errorf("failed to get invisinets subnetwork: %w", err)
 			}
-      
-			resp.AddressSpaceMappings[i].AddressSpaces[j] = appendresp.AddressSpaceMappings[i].AddressSpaces[j], *getSubnetworkResp.IpCidrRange)
+
+			resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, *getSubnetworkResp.IpCidrRange)
 			for _, secondaryRange := range getSubnetworkResp.SecondaryIpRanges {
-				resp.AddressSpaceMappings[i].AddressSpaces[j] = append(resp.AddressSpaceMappings[i].AddressSpaces[j], *secondaryRange.IpCidrRange)
+				resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, *secondaryRange.IpCidrRange)
 			}
 		}
 	}

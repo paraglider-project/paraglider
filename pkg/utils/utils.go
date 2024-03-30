@@ -129,19 +129,17 @@ func GetPermitListRulePeeringCloudInfo(permitListRule *invisinetspb.PermitListRu
 			contained := false
 		out: // Indentation is correct and can't be fixed
 			for _, usedAddressSpaceMapping := range usedAddressSpaceMappings {
-				for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
-          contained, err = IsPermitListRuleTagInAddressSpace(target, []string{addressSpace})
-					if err != nil {
-						return nil, fmt.Errorf("unable to determine if tag is in address space: %w", err)
+				contained, err = IsPermitListRuleTagInAddressSpace(target, usedAddressSpaceMapping.AddressSpaces)
+				if err != nil {
+					return nil, fmt.Errorf("unable to determine if tag is in address space: %w", err)
+				}
+				if contained {
+					peeringCloudInfos[i] = &PeeringCloudInfo{
+						Cloud:      usedAddressSpaceMapping.Cloud,
+						Namespace:  usedAddressSpaceMapping.Namespace,
+						Deployment: *usedAddressSpaceMapping.Deployment,
 					}
-					if contained {
-						peeringCloudInfos[i] = &PeeringCloudInfo{
-							Cloud:      usedAddressSpaceMapping.Cloud,
-							Namespace:  usedAddressSpaceMapping.Namespace,
-							Deployment: *usedAddressSpaceMapping.Deployment,
-						}
-						break out
-					}
+					break out
 				}
 			}
 			// Return error if target does not belong to any cloud

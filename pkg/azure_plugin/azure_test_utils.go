@@ -205,6 +205,11 @@ func (m *MockAzureSDKHandler) CreateOrUpdateVirtualNetworkPeering(ctx context.Co
 	return virtualNetworkPeering.(*armnetwork.VirtualNetworkPeering), args.Error(1)
 }
 
+func (m *MockAzureSDKHandler) CreateVnetPeeringOneWay(ctx context.Context, vnet1Name string, vnet2Name string, vnet2SubscriptionID string, vnet2ResourceGroupName string) error {
+	args := m.Called(ctx, vnet1Name, vnet2Name, vnet2SubscriptionID, vnet2ResourceGroupName)
+	return args.Error(0)
+}
+
 func (m *MockAzureSDKHandler) GetVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string) (*armnetwork.VirtualNetworkPeering, error) {
 	args := m.Called(ctx, virtualNetworkName, virtualNetworkPeeringName)
 	virtualNetworkPeering := args.Get(0)

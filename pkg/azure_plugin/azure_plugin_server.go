@@ -94,7 +94,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *invisinetspb
 		return nil, err
 	}
 
-	netInfo, err := GetAndCheckResourceState(ctx, s.azureHandler, resourceId, req.Namespace)
+	netInfo, err := GetAndCheckResourceState(ctx, azureHandler, resourceId, req.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 	if err != nil {
 		return nil, err
 	}
-  
+
 	netInfo, err := GetAndCheckResourceState(ctx, azureHandler, resourceID, req.Namespace)
 	if err != nil {
 		return nil, err
@@ -338,7 +338,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		}
 		defer conn.Close()
 		client := invisinetspb.NewControllerClient(conn)
-		response, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Namespace: resourceDesc.Namespace, Num: proto.Int32(int32(resourceDescInfo.NumAdditionalAddressSpaces))})
+		response, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Num: proto.Int32(int32(resourceDescInfo.NumAdditionalAddressSpaces))})
 		if err != nil {
 			utils.Log.Printf("Failed to find unused address spaces: %v", err)
 			return nil, err
@@ -446,18 +446,21 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *invis
 			return nil, err
 		}
 
-	addressSpaces, err := azureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(deployment.Namespace))
-	if err != nil {
-		utils.Log.Printf("An error occured while getting address spaces:%+v", err)
-		return nil, err
-	}
-	invisinetAddressList := []string{}
-	for _, addresses := range addressSpaces {
-		if addresses != nil {
-			invisinetAddressList = append(invisinetAddressList, addresses...)
+		addressSpaces, err := azureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(deployment.Namespace))
+		if err != nil {
+			utils.Log.Printf("An error occured while getting address spaces:%+v", err)
+			return nil, err
 		}
+		invisinetAddressList := []string{}
+		for _, addresses := range addressSpaces {
+			if addresses != nil {
+				invisinetAddressList = append(invisinetAddressList, addresses...)
+			}
+		}
+		resp.AddressSpaceMappings[i].AddressSpaces = invisinetAddressList
 	}
 	return resp, nil
+
 }
 
 func (s *azurePluginServer) GetUsedAsns(ctx context.Context, req *invisinetspb.GetUsedAsnsRequest) (*invisinetspb.GetUsedAsnsResponse, error) {
@@ -632,54 +635,6 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 
 	info.ResourceName = parts[len(parts)-1]
 	return info, nil
-}
-
-// checkAndCreatePeering checks whether the given rule has a tag that is in the address space of any of the invisinets vnets
-// and if requires a peering or not
-func (s *azurePluginServer) checkAndCreatePeering(ctx context.Context, resourceVnet *armnetwork.VirtualNetwork, rule *invisinetspb.PermitListRule, invisinetsVnetsMap map[string][]string, namespace string) error {
-	for _, target := range rule.Targets {
-		prefixes := make([]string, len(resourceVnet.Properties.AddressSpace.AddressPrefixes))
-		for i, addressSpace := range resourceVnet.Properties.AddressSpace.AddressPrefixes {
-			prefixes[i] = *addressSpace
-		}
-		isTagInResourceAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(target, prefixes)
-		if err != nil {
-			return err
-		}
-		if isTagInResourceAddressSpace {
-			continue
-		}
-
-		// if the tag is not in the resource address space, then check on the other invisinets vnets
-		// if it matches one of them, then a peering is required (if it doesn't exist already)
-		for vnetLocation, vnetAddressSpaces := range invisinetsVnetsMap {
-			isTagInVnetAddressSpace, err := utils.IsPermitListRuleTagInAddressSpace(target, vnetAddressSpaces)
-			if err != nil {
-				return err
-			}
-			if isTagInVnetAddressSpace {
-				peeringExists := false
-				for _, peeredVnet := range resourceVnet.Properties.VirtualNetworkPeerings {
-					if strings.HasSuffix(*peeredVnet.Properties.RemoteVirtualNetwork.ID, getVnetName(vnetLocation, namespace)) {
-						peeringExists = true
-						break
-					}
-				}
-
-				if !peeringExists {
-					err := s.azureHandler.CreateVnetPeering(ctx, getVnetName(vnetLocation, namespace), getVnetName(*resourceVnet.Location, namespace))
-					if err != nil {
-						return err
-					}
-				}
-				break // No need to continue checking other vnets
-			}
-		}
-
-		// TODO @nnomier: if the tag is not in any of the invisinets vnets (peeringExists = false), this might mean it's remote (another cloud),
-		// so the multicloud setup could be checked/achieved here
-	}
-	return nil
 }
 
 func getSubnetName(resourceName string) string {

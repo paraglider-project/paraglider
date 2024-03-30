@@ -225,7 +225,7 @@ func (r *GCPInstance) CreateWithNetwork(ctx context.Context, instance *computepb
 	// Configure network settings to Invisinets VPC and corresponding subnet
 	instance.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
-			Network:    proto.String(GetVpcUri(resourceInfo.Namespace)),
+			Network:    proto.String(GetVpcUri(resourceInfo.Project, resourceInfo.Namespace)),
 			Subnetwork: proto.String("regions/" + resourceInfo.Region + "/subnetworks/" + subnetName),
 		},
 	}
@@ -353,7 +353,7 @@ func (r *GKE) CreateWithNetwork(ctx context.Context, cluster *containerpb.Create
 				Description: proto.String("Invisinets allow cluster egress traffic"),
 				Direction:   proto.String(direction),
 				Name:        proto.String("invisinets-allow-control-plane-" + strings.ToLower(direction) + "-" + resourceInfo.Name),
-				Network:     proto.String(GetVpcUri(resourceInfo.Namespace)),
+				Network:     proto.String(GetVpcUri(resourceInfo.Project, resourceInfo.Namespace)),
 				Priority:    proto.Int32(65500),
 				TargetTags:  []string{getClusterNodeTag(getClusterResp.Name, getClusterResp.Id)},
 			},
