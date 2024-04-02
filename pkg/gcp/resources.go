@@ -257,7 +257,7 @@ func (r *GCPInstance) CreateWithNetwork(ctx context.Context, instance *computepb
 		Project:  resourceInfo.Project,
 		Zone:     resourceInfo.Zone,
 		TagsResource: &computepb.Tags{
-			Items:       append(getInstanceResp.Tags.Items, getNetworkTag(resourceInfo.Namespace, instanceTypeName, convertInstanceIdToString(*instance.InstanceResource.Id))),
+			Items:       append(getInstanceResp.Tags.Items, getNetworkTag(resourceInfo.Namespace, instanceTypeName, convertInstanceIdToString(*getInstanceResp.Id))),
 			Fingerprint: getInstanceResp.Tags.Fingerprint,
 		},
 	}
