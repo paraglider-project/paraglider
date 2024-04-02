@@ -62,6 +62,7 @@ message AddressSpaceMapping{
     repeated string address_spaces = 1;
     string cloud = 2;
     string namespace = 3;
+    optional string deployment = 4;
 }
 
 message AddressSpaceMappingList {

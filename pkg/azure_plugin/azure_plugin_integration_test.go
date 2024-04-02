@@ -18,38 +18,32 @@ package azure_plugin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strconv"
 	"testing"
 
 	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/orchestrator"
+	"github.com/NetSys/invisinets/pkg/orchestrator/config"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	vmNamePrefix = "sample-vm"
-	vmLocation   = "westus"
-)
-
-var (
-	subscriptionId    string
-	resourceGroupName string
-)
-
-// Deletes Resource group which in turn deletes all the resources created
-// If deletion fails: refer to https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/delete-resource-group
-
-// Main integration test function
-// any test that needs to be run as part of integration test should be added here
-// as a subtest, this is to ensure that the setup and teardown is done only once before or after all the tests
-func TestAzurePluginIntegration(t *testing.T) {
-	subscriptionId = GetAzureSubscriptionId()
-	resourceGroupName = SetupAzureTesting(subscriptionId, "integration")
-	defer TeardownAzureTesting(subscriptionId, resourceGroupName)
-
-	t.Run("TestAddAndGetPermitList", testAddAndGetPermitList)
+func createVM(ctx context.Context, server *azurePluginServer, subscriptionId string, resourceGroupName string, namespace string, location string, name string) (*invisinetspb.CreateResourceResponse, error) {
+	parameters := GetTestVmParameters(location)
+	parametersBytes, err := json.Marshal(parameters)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal VM parameters")
+	}
+	resourceDescription := &invisinetspb.ResourceDescription{
+		Id:          fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s", subscriptionId, resourceGroupName, name),
+		Description: parametersBytes,
+		Namespace:   namespace,
+	}
+	return server.CreateResource(ctx, resourceDescription)
 }
 
 // This test will test the following:
@@ -58,7 +52,10 @@ func TestAzurePluginIntegration(t *testing.T) {
 // 3. Get the permit list
 // 4- Delete permit list rule
 // 5. Get the permit list and valdiates again
-func testAddAndGetPermitList(t *testing.T) {
+func TestBasicPermitListOps(t *testing.T) {
+	subscriptionId := GetAzureSubscriptionId()
+	resourceGroupName := SetupAzureTesting(subscriptionId, "integration")
+	defer TeardownAzureTesting(subscriptionId, resourceGroupName)
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
@@ -67,6 +64,8 @@ func testAddAndGetPermitList(t *testing.T) {
 	s := InitializeServer(fakeOrchestratorServerAddr)
 	ctx := context.Background()
 
+	vmNamePrefix := "sample-vm"
+	vmLocation := "westus"
 	parameters := GetTestVmParameters(vmLocation)
 	descriptionJson, err := json.Marshal(parameters)
 	require.NoError(t, err)
@@ -115,4 +114,125 @@ func testAddAndGetPermitList(t *testing.T) {
 	require.NotNil(t, getPermitListResp)
 
 	assert.ElementsMatch(t, getPermitListResp.Rules, []*invisinetspb.PermitListRule{})
+}
+
+func TestCrossNamespaces(t *testing.T) {
+	// Setup resource groups
+	subscriptionId := GetAzureSubscriptionId()
+	resourceGroup1Name := SetupAzureTesting(subscriptionId, "integration3")
+	defer TeardownAzureTesting(subscriptionId, resourceGroup1Name)
+	resourceGroup2Name := SetupAzureTesting(subscriptionId, "integration4")
+	defer TeardownAzureTesting(subscriptionId, resourceGroup2Name)
+
+	// Set Azure plugin port
+	azureServerPort := 7991
+
+	// Setup orchestrator server
+	resourceGroup1Namespace := "rg1"
+	resourceGroup2Namespace := "rg2"
+	orchestratorServerConfig := config.Config{
+		CloudPlugins: []config.CloudPlugin{
+			{
+				Name: utils.AZURE,
+				Host: "localhost",
+				Port: strconv.Itoa(azureServerPort),
+			},
+		},
+		Namespaces: map[string][]config.CloudDeployment{
+			resourceGroup1Namespace: {
+				{
+					Name:       utils.AZURE,
+					Deployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroup1Name),
+				},
+			},
+			resourceGroup2Namespace: {
+				{
+					Name:       utils.AZURE,
+					Deployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroup2Name),
+				},
+			},
+		},
+	}
+	orchestratorServerAddr := orchestrator.SetupControllerServer(orchestratorServerConfig)
+
+	// Setup Azure plugin server
+	azureServer := Setup(azureServerPort, orchestratorServerAddr)
+	ctx := context.Background()
+
+	// Create vm1 in rg1
+	vm1Name := "vm-invisinets-test1"
+	vm1Location := "westus"
+	createVM1Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroup1Name, resourceGroup1Namespace, vm1Location, vm1Name)
+	require.NoError(t, err)
+	require.NotNil(t, createVM1Resp)
+	assert.Equal(t, createVM1Resp.Name, vm1Name)
+
+	// Create vm2 in rg2
+	vm2Name := "vm-invisinets-test2"
+	vm2Location := "westus"
+	createVM2Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroup2Name, resourceGroup2Namespace, vm2Location, vm2Name)
+	require.NoError(t, err)
+	require.NotNil(t, createVM2Resp)
+	assert.Equal(t, createVM2Resp.Name, vm2Name)
+
+	// Add permit list rules to vm1 and vm2 to ping each other
+	vm1ResourceId := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s", subscriptionId, resourceGroup1Name, vm1Name)
+	vm2ResourceId := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s", subscriptionId, resourceGroup2Name, vm2Name)
+	vmResourceIds := []string{vm1ResourceId, vm2ResourceId}
+	vm1Ip, err := GetVmIpAddress(vm1ResourceId)
+	require.NoError(t, err)
+	vm2Ip, err := GetVmIpAddress(vm2ResourceId)
+	require.NoError(t, err)
+	vm1Rules := []*invisinetspb.PermitListRule{
+		{
+			Name:      "vm2-ping-ingress",
+			Direction: invisinetspb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm2Ip},
+		},
+		{
+			Name:      "vm2-ping-egress",
+			Direction: invisinetspb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm2Ip},
+		},
+	}
+	vm2Rules := []*invisinetspb.PermitListRule{
+		{
+			Name:      "vm1-ping-ingress",
+			Direction: invisinetspb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm1Ip},
+		},
+		{
+			Name:      "vm1-ping-egress",
+			Direction: invisinetspb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm1Ip},
+		},
+	}
+	vmRules := [][]*invisinetspb.PermitListRule{vm1Rules, vm2Rules}
+	namespaces := []string{resourceGroup1Namespace, resourceGroup2Namespace}
+	for i, vmResourceId := range vmResourceIds {
+		addPermitListRulesReq := &invisinetspb.AddPermitListRulesRequest{Rules: vmRules[i], Namespace: namespaces[i], Resource: vmResourceId}
+		addPermitListRulesResp, err := azureServer.AddPermitListRules(ctx, addPermitListRulesReq)
+		require.NoError(t, err)
+		require.NotNil(t, addPermitListRulesResp)
+	}
+
+	// Run connectivity checks on both directions between vm1 and vm2
+	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(vm1ResourceId, vm2Ip)
+	require.Nil(t, err)
+	require.True(t, azureConnectivityCheckVM1toVM2)
+	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(vm2ResourceId, vm1Ip)
+	require.Nil(t, err)
+	require.True(t, azureConnectivityCheckVM2toVM1)
 }
