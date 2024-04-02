@@ -79,7 +79,7 @@ func getClusterNodeTag(clusterName string, clusterId string) string {
 // Get the firewall rules associated with a resource following the naming convention
 func getFirewallRules(ctx context.Context, client *compute.FirewallsClient, project string, resourceID string) ([]*computepb.Firewall, error) {
 	firewallRules := []*computepb.Firewall{}
-	filter := fmt.Sprintf("name:%s", getFirewallName("", resourceID))
+	filter := fmt.Sprintf("name:%s", getFirewallName("", "", resourceID))
 	listFirewallsRequest := &computepb.ListFirewallsRequest{
 		Project: project,
 		Filter:  &filter,
