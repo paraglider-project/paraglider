@@ -47,7 +47,6 @@ type GCPPluginServer struct {
 // GCP naming conventions
 const (
 	invisinetsPrefix              = "invisinets"
-	firewallNamePrefix            = "invisinets-fw-"  // Prefix for firewall names related to invisinets
 	firewallRuleDescriptionPrefix = "invisinets rule" // GCP firewall rule prefix for description
 )
 
@@ -88,7 +87,7 @@ var gcpProtocolNumberMap = map[string]int{
 
 // Checks if GCP firewall rule is an Invisinets permit list rule
 func isInvisinetsPermitListRule(namespace string, firewall *computepb.Firewall) bool {
-	return strings.HasSuffix(*firewall.Network, getVpcName(namespace)) && strings.HasPrefix(*firewall.Name, firewallNamePrefix)
+	return strings.HasSuffix(*firewall.Network, getVpcName(namespace)) && strings.HasPrefix(*firewall.Name, getFirewallNamePrefix(namespace))
 }
 
 // Checks if GCP firewall rule is equivalent to an Invisinets permit list rule
@@ -139,19 +138,25 @@ func getProtocolNumber(firewallProtocol string) (int32, error) {
 
 /* --- RESOURCE NAME --- */
 
-// Gets a GCP firewall rule name for an Invisinets permit list rule
-// If two Invisinets permit list rules are equal, then they will have the same GCP firewall rule name.
-func getFirewallName(ruleName string, resourceId string) string {
-	return (fmt.Sprintf("%s-%s-%s", firewallNamePrefix, resourceId, ruleName))
-}
-
-// Retrieve the name of the firewall rule from the GCP firewall name
-func parseFirewallName(firewallName string) string {
-	return strings.SplitN(firewallName, "-", 5)[4]
-}
-
 func getInvisinetsNamespacePrefix(namespace string) string {
 	return invisinetsPrefix + "-" + namespace
+}
+
+func getFirewallNamePrefix(namespace string) string {
+	return getInvisinetsNamespacePrefix(namespace) + "-fw"
+}
+
+// Gets a GCP firewall rule name for an Invisinets permit list rule
+// If two Invisinets permit list rules are equal, then they will have the same GCP firewall rule name.
+func getFirewallName(namespace string, ruleName string, resourceId string) string {
+	return fmt.Sprintf("%s-%s-%s", getFirewallNamePrefix(namespace), resourceId, ruleName)
+}
+
+// Retrieve the name of the permit list rule from the GCP firewall name
+func parseFirewallName(namespace string, firewallName string) string {
+	fmt.Println(firewallName)
+	fmt.Println(strings.TrimPrefix(firewallName, getFirewallNamePrefix(namespace)+"-"))
+	return strings.SplitN(strings.TrimPrefix(firewallName, getFirewallNamePrefix(namespace)+"-"), "-", 2)[1]
 }
 
 // Gets a GCP VPC name
@@ -342,7 +347,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.
 				}
 
 				rules[i] = &invisinetspb.PermitListRule{
-					Name:      parseFirewallName(*firewall.Name),
+					Name:      parseFirewallName(req.Namespace, *firewall.Name),
 					Direction: firewallDirectionMapGCPToInvisinets[*firewall.Direction],
 					SrcPort:   -1,
 					DstPort:   int32(dstPort),
@@ -463,7 +468,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 
 	for _, permitListRule := range req.Rules {
 		// TODO @seankimkdy: should we throw an error/warning if user specifies a srcport since GCP doesn't support srcport based firewalls?
-		firewallName := getFirewallName(permitListRule.Name, *resourceID)
+    firewallName := getFirewallName(req.Namespace, permitListRule.Name, *resourceID)
 
 		patchRequired := false
 		if existingFw, ok := existingFirewalls[firewallName]; ok {
@@ -617,7 +622,7 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *invis
 	// Delete firewalls corresponding to provided permit list rules
 	for _, ruleName := range req.RuleNames {
 		deleteFirewallReq := &computepb.DeleteFirewallRequest{
-			Firewall: getFirewallName(ruleName, *resourceID),
+			Firewall: getFirewallName(req.Namespace, ruleName, *resourceID),
 			Project:  resourceInfo.Project,
 		}
 		deleteFirewallOp, err := firewallsClient.Delete(ctx, deleteFirewallReq)
