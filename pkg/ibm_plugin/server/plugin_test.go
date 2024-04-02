@@ -343,16 +343,14 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 			if r.Method == http.MethodGet { // Get Subnet Info for a VPC
 				index := strings.LastIndex(path, "/")
 				if cidrBlock, ok := fakeIBMServerState.subnetVPC[path[index+1:]]; ok {
-					var subnet vpcv1.Subnet
-					subnet.Ipv4CIDRBlock = &cidrBlock
+					subnet := vpcv1.Subnet{Ipv4CIDRBlock: &cidrBlock}
 					sendFakeResponse(w, subnet)
 					return
 				}
 			}
 		case path == "/keys":
 			if r.Method == http.MethodPost { // Create Key
-				var key vpcv1.Key
-				key.ID = core.StringPtr(fakeID)
+				key := vpcv1.Key{ID: core.StringPtr(fakeID)}
 				sendFakeResponse(w, key)
 				return
 			}
