@@ -138,8 +138,13 @@ func createFakeInstance() *vpcv1.Instance {
 	in.Name = core.StringPtr(fakeInstance)
 	in.ID = core.StringPtr(fakeID)
 	in.Status = core.StringPtr(vpcv1.InstanceStatusRunningConst)
-	in.NetworkInterfaces = make([]vpcv1.NetworkInterfaceInstanceContextReference, 1)
-	in.NetworkInterfaces[0].PrimaryIP = &vpcv1.ReservedIPReference{Address: core.StringPtr(fakeIP)}
+	in.NetworkInterfaces = []vpcv1.NetworkInterfaceInstanceContextReference{
+    {
+        PrimaryIP: &vpcv1.ReservedIPReference{
+            Address: core.StringPtr(fakeIP),
+        },
+    },
+}
 	vpcRef.ID = core.StringPtr(fakeID)
 	vpcRef.CRN = core.StringPtr(fakeCRN)
 	in.VPC = &vpcRef
