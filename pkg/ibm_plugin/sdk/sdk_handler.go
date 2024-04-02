@@ -54,6 +54,8 @@ func (c *CloudClient) UpdateRegion(region string) error {
 }
 
 // NewIBMCloudClient returns CloudClient instance with initialized clients
+// Note: This will be used by IBM plugin through setupCloudClient, and
+// should not be used directly to create a cloud client otherwise.
 func NewIBMCloudClient(resourceGroupName, region string) (*CloudClient, error) {
 	if isRegionValid, err := ibmCommon.IsRegionValid(region); !isRegionValid || err != nil {
 		return nil, fmt.Errorf("region %v isn't valid", region)
@@ -118,7 +120,7 @@ func NewIBMCloudClient(resourceGroupName, region string) (*CloudClient, error) {
 	return &client, nil
 }
 
-// FakeIBMCloudClient returns a fake/mock CloudClient instance with that needs to be handled in the URL
+// FakeIBMCloudClient returns a fake/mock CloudClient instance without auth, that needs to be handled in the URL
 func FakeIBMCloudClient(fakeURL, fakeResGroupID, fakeRegion string) (*CloudClient, error) {
 	noAuth, err := core.NewNoAuthAuthenticator()
 	if err != nil {

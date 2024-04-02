@@ -325,6 +325,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 		for vpcID, client := range clients {
 			if isRemoteInVPC, _ := client.IsRemoteInVPC(vpcID, ibmRule.Remote); isRemoteInVPC {
 				remoteVPC = vpcID
+				break
 			}
 		}
 		// if the remote resides inside an invisinets VPC that isn't the request VM's VPC, connect them
