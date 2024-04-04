@@ -202,7 +202,7 @@ func (h *azureSDKHandler) SetSubIdAndResourceGroup(subid string, resourceGroupNa
 }
 
 func (h *azureSDKHandler) GetResource(ctx context.Context, resourceID string) (*armresources.GenericResource, error) {
-	var apiVersion string = "2023-08-01"
+	var apiVersion string = "2024-03-01"
 	options := armresources.ClientGetByIDOptions{}
 
 	resource, err := h.resourcesClient.GetByID(ctx, resourceID, apiVersion, &options)
