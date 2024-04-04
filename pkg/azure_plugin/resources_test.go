@@ -93,7 +93,7 @@ func getFakeSubnet() armnetwork.Subnet {
 }
 
 func getFakeVirtualMachine(networkInfo bool) armcompute.VirtualMachine {
-	name := "vm-name"
+	name := "vm"
 	location := "location"
 	vm := armcompute.VirtualMachine{
 		Name:       &name,
@@ -112,7 +112,7 @@ func getFakeVirtualMachine(networkInfo bool) armcompute.VirtualMachine {
 }
 
 func getFakeCluster(networkInfo bool) armcontainerservice.ManagedCluster {
-	name := "cluster-name"
+	name := "cluster"
 	location := "location"
 	cluster := armcontainerservice.ManagedCluster{
 		Name:       &name,
