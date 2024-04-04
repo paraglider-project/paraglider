@@ -252,12 +252,16 @@ func (r *GCPInstance) CreateWithNetwork(ctx context.Context, instance *computepb
 	if err != nil {
 		return "", "", fmt.Errorf("unable to get instance: %w", err)
 	}
+	existingTags := []string{}
+	if getInstanceResp.Tags != nil {
+		existingTags = getInstanceResp.Tags.Items
+	}
 	setTagsReq := &computepb.SetTagsInstanceRequest{
 		Instance: instanceName,
 		Project:  resourceInfo.Project,
 		Zone:     resourceInfo.Zone,
 		TagsResource: &computepb.Tags{
-			Items:       append(getInstanceResp.Tags.Items, getNetworkTag(resourceInfo.Namespace, instanceTypeName, convertInstanceIdToString(*getInstanceResp.Id))),
+			Items:       append(existingTags, getNetworkTag(resourceInfo.Namespace, instanceTypeName, convertInstanceIdToString(*getInstanceResp.Id))),
 			Fingerprint: getInstanceResp.Tags.Fingerprint,
 		},
 	}

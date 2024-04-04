@@ -52,6 +52,11 @@ type ResourceInfo struct {
 	NumAdditionalAddressSpaces int
 }
 
+func getNameFromUri(uri string) string {
+	split := strings.Split(uri, "/")
+	return split[len(split)-1]
+}
+
 func getDnsServiceCidr(serviceCidr string) string {
 	// Get the first three octets of the service CIDR
 	split := strings.Split(serviceCidr, ".")
@@ -122,7 +127,7 @@ func GetResourceInfoFromResourceDesc(ctx context.Context, resource *invisinetspb
 			return nil, err
 		}
 		requiresSubnet, extraPrefixes := handler.GetNetworkRequirements()
-		return &ResourceInfo{ResourceName: *vm.Name, ResourceID: resource.Id, Location: *vm.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
+		return &ResourceInfo{ResourceName: getNameFromUri(resource.Id), ResourceID: resource.Id, Location: *vm.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
 	} else if strings.Contains(resource.Id, "managedClusters") {
 		handler := &AzureAKS{}
 		aks, err := handler.FromResourceDecription(resource.Description)
