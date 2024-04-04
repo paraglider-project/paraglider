@@ -22,12 +22,14 @@ option go_package="github.com/NetSys/invisinets/pkg/kv_store/storepb";
 service KVStore {
     rpc Set(SetRequest) returns (SetResponse) {}
     rpc Get(GetRequest) returns (GetResponse) {}
-    rpc Delete(DeleteRequest) returns (DeleteResp) {}
+    rpc Delete(DeleteRequest) returns (DeleteResponse) {}
 }
 
 message SetRequest {
     string key = 1;
     string value = 2;
+    string cloud = 3;
+    string namespace = 4;
 }
 
 message SetResponse {
@@ -35,6 +37,8 @@ message SetResponse {
 
 message GetRequest {
     string key = 1;
+    string cloud = 3;
+    string namespace = 4;
 }
 
 message GetResponse {
@@ -43,7 +47,9 @@ message GetResponse {
 
 message DeleteRequest {
     string key = 1;
+    string cloud = 3;
+    string namespace = 4;
 }
 
-message DeleteResp {
+message DeleteResponse {
 }

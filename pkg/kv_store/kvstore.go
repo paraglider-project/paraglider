@@ -16,9 +16,80 @@ limitations under the License.
 
 package kvstore
 
-import "github.com/go-redis/redis"
+import (
+	"context"
+	"fmt"
+	"log"
+	"net"
+
+	storepb "github.com/NetSys/invisinets/pkg/kv_store/storepb"
+	redis "github.com/redis/go-redis/v9"
+	"google.golang.org/grpc"
+)
+
+func getFullKey(key string, cloud string, namespace string) string {
+	return fmt.Sprintf("%s:%s:%s", namespace, cloud, key)
+}
 
 type kvStoreServer struct {
-	kvstorepb.UnimplementedKVStoreService
+	storepb.UnimplementedKVStoreServer
 	client *redis.Client
+}
+
+func NewKVStoreServer(client *redis.Client) *kvStoreServer {
+	return &kvStoreServer{
+		client: client,
+	}
+}
+
+func (s *kvStoreServer) Get(ctx context.Context, req *storepb.GetRequest) (*storepb.GetResponse, error) {
+	value, err := s.client.Get(ctx, getFullKey(req.Key, req.Cloud, req.Namespace)).Result()
+	if err != nil {
+		return nil, err
+	}
+	return &storepb.GetResponse{
+		Value: value,
+	}, nil
+}
+
+func (s *kvStoreServer) Set(ctx context.Context, req *storepb.SetRequest) (*storepb.SetResponse, error) {
+	err := s.client.Set(ctx, getFullKey(req.Key, req.Cloud, req.Namespace), req.Value, 0).Err()
+	if err != nil {
+		return nil, err
+	}
+	return &storepb.SetResponse{}, nil
+}
+
+func (s *kvStoreServer) Delete(ctx context.Context, req *storepb.DeleteRequest) (*storepb.DeleteResponse, error) {
+	err := s.client.Del(ctx, getFullKey(req.Key, req.Cloud, req.Namespace)).Err()
+	if err != nil {
+		return nil, err
+	}
+	return &storepb.DeleteResponse{}, nil
+}
+
+// Setup and run the server
+func Setup(dbPort int, serverPort int, clearKeys bool) {
+	client := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("localhost:%d", dbPort),
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+	if clearKeys {
+		fmt.Printf("Flushed all keys.")
+		client.FlushAll(context.Background())
+	}
+
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", serverPort))
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	var opts []grpc.ServerOption
+	grpcServer := grpc.NewServer(opts...)
+	storepb.RegisterKVStoreServer(grpcServer, NewKVStoreServer(client))
+	fmt.Printf("Serving KV Store at localhost:%d", serverPort)
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }
