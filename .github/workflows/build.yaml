@@ -239,3 +239,8 @@ jobs:
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         run: |
           make multicloud-test
+      - name: Build docs
+        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
+        uses: ammaraskar/sphinx-action@master
+        with:
+          docs-folder: "docs/"
