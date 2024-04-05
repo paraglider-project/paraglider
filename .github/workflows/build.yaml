@@ -93,8 +93,11 @@ jobs:
       - name: Parse release version and set environment variables
         run: python ./.github/scripts/get_release_version.py
       - name: Make build
-        run: make build
         uses: arduino/setup-protoc@v3
+        run: |
+          go get github.com/golang/protobuf/protoc-gen-go
+          go get google.golang.org/grpc/cmd/protoc-gen-go-grpc  
+          make build
       - name: Run linter
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'  
         uses: golangci/golangci-lint-action@v3
