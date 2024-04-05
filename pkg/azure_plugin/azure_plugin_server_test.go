@@ -964,8 +964,8 @@ func getFakePermitList() ([]*invisinetspb.PermitListRule, error) {
 }
 
 func getFakeNIC() *armnetwork.Interface {
-	fakeNsgID := "test-nsg-id"
 	fakeNsgName := "test-nsg-name"
+	fakeNsgID := "a/b/" + fakeNsgName
 	fakeResourceAddress := "10.5.0.3"
 	fakeLocation := "test-location"
 	namespace := defaultNamespace
