@@ -35,7 +35,7 @@ type CloudClient struct {
 	region         string // region resources will be created in/fetched from
 	globalSearch   *globalsearchv2.GlobalSearchV2
 	taggingService *globaltaggingv1.GlobalTaggingV1
-	resourceGroup  *vpcv1.ResourceGroupIdentityByID   // required mainly to create/delete resources
+	resourceGroup  *vpcv1.ResourceGroupIdentityByID // required mainly to create/delete resources
 	transitGW      *transitgatewayapisv1.TransitGatewayApisV1
 }
 
@@ -53,7 +53,9 @@ func (c *CloudClient) UpdateRegion(region string) error {
 	return nil
 }
 
-// returns CloudClient instance with initialized clients
+// NewIBMCloudClient returns CloudClient instance with initialized clients
+// Note: This will be used by IBM plugin through setupCloudClient, and
+// should not be used directly to create a cloud client otherwise.
 func NewIBMCloudClient(resourceGroupName, region string) (*CloudClient, error) {
 	if isRegionValid, err := ibmCommon.IsRegionValid(region); !isRegionValid || err != nil {
 		return nil, fmt.Errorf("region %v isn't valid", region)
@@ -84,6 +86,7 @@ func NewIBMCloudClient(resourceGroupName, region string) (*CloudClient, error) {
 	taggingService, err := globaltaggingv1.NewGlobalTaggingV1(&globaltaggingv1.GlobalTaggingV1Options{
 		Authenticator: authenticator,
 	})
+
 	if err != nil {
 		utils.Log.Println("Failed to create tagging client with error:\n", err)
 		return nil, err
@@ -109,6 +112,60 @@ func NewIBMCloudClient(resourceGroupName, region string) (*CloudClient, error) {
 	client := CloudClient{
 		vpcService:     vpcService,
 		region:         region,
+		globalSearch:   globalSearch,
+		taggingService: taggingService,
+		resourceGroup:  resourceGroupIdentity,
+		transitGW:      transitGatewayService,
+	}
+	return &client, nil
+}
+
+// FakeIBMCloudClient returns a fake/mock CloudClient instance without auth, that needs to be handled in the URL
+func FakeIBMCloudClient(fakeURL, fakeResGroupID, fakeRegion string) (*CloudClient, error) {
+	noAuth, err := core.NewNoAuthAuthenticator()
+	if err != nil {
+		return nil, err
+	}
+	vpcService, err := vpcv1.NewVpcV1UsingExternalConfig(&vpcv1.VpcV1Options{
+		Authenticator: noAuth,
+		URL:           fakeURL,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	globalSearch, err := globalsearchv2.NewGlobalSearchV2UsingExternalConfig(&globalsearchv2.GlobalSearchV2Options{
+		Authenticator: noAuth,
+		URL:           fakeURL,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	taggingService, err := globaltaggingv1.NewGlobalTaggingV1UsingExternalConfig(&globaltaggingv1.GlobalTaggingV1Options{
+		Authenticator: noAuth,
+		URL:           fakeURL,
+	})
+	if err != nil {
+		utils.Log.Println("Failed to create tagging client with error:\n", err)
+		return nil, err
+	}
+
+	resID := fakeResGroupID
+	resourceGroupIdentity := &vpcv1.ResourceGroupIdentityByID{ID: &resID}
+
+	transitGatewayService, err := transitgatewayapisv1.NewTransitGatewayApisV1UsingExternalConfig(&transitgatewayapisv1.TransitGatewayApisV1Options{
+		Authenticator: noAuth,
+		URL:           fakeURL,
+		Version:       core.StringPtr("2023-12-05"), // version is a mandatory field
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	client := CloudClient{
+		vpcService:     vpcService,
+		region:         fakeRegion,
 		globalSearch:   globalSearch,
 		taggingService: taggingService,
 		resourceGroup:  resourceGroupIdentity,

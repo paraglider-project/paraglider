@@ -82,7 +82,6 @@ var ibmToInvisinetsProtocol = map[string]int32{
 	"udp":  17,
 }
 
-
 // creates security group in the specified VPC and tags it.
 func (c *CloudClient) createSecurityGroup(
 	vpcID string) (*vpcv1.SecurityGroup, error) {
@@ -449,7 +448,6 @@ func (c *CloudClient) GetRulesIDs(rules []SecurityGroupRule, sgID string) ([]str
 	}
 	return rulesIDs, nil
 }
-
 
 // returns rules in invisinets format from IBM cloud format
 // TODO @cohen-j-omer: handle permitList tags if required.
