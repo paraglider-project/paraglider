@@ -138,7 +138,7 @@ func getFakeVMGenericResource() armresources.GenericResource {
 	return armresources.GenericResource{
 		ID:       vm.ID,
 		Location: vm.Location,
-		Type:     to.Ptr("Microsoft.Compute/VirtualMachines"),
+		Type:     to.Ptr("Microsoft.Compute/virtualMachines"),
 		Properties: map[string]interface{}{
 			"networkProfile": map[string]interface{}{
 				"networkInterfaces": []interface{}{
