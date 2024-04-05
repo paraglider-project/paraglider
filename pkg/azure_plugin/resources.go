@@ -208,7 +208,11 @@ func (r *AzureVM) GetNetworkInfo(resource *armresources.GenericResource, handler
 		return nil, err
 	}
 
-	nsg, err := handler.GetSecurityGroup(context.Background(), *nic.Properties.NetworkSecurityGroup.Name)
+	nsgName, err := GetLastSegment(*nic.Properties.NetworkSecurityGroup.ID)
+	if err != nil {
+		return nil, err
+	}
+	nsg, err := handler.GetSecurityGroup(context.Background(), nsgName)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network security group:%+v", err)
 		return nil, err
