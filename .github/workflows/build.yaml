@@ -23,7 +23,7 @@ env:
   GOPROXY: https://proxy.golang.org
 
   # Python
-  PYTHONVER: '3.9.2'
+  PYTHONVER: '3.11'
   
   # gotestsum version - see: https://github.com/gotestyourself/gotestsum
   GOTESTSUMVERSION: 1.10.0
