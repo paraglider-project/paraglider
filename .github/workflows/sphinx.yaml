@@ -14,6 +14,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Build docs
+        working-directory: ./docs
+        run:
+          pip install -r requirements.txt
+          make html
       - name: Upload doc artifacts
         uses: actions/upload-artifact@v4
         with:

@@ -23,7 +23,7 @@ env:
   GOPROXY: https://proxy.golang.org
 
   # Python
-  PYTHONVER: '3.9'
+  PYTHONVER: '3.9.2'
   
   # gotestsum version - see: https://github.com/gotestyourself/gotestsum
   GOTESTSUMVERSION: 1.10.0
@@ -248,6 +248,8 @@ jobs:
           make multicloud-test
       - name: Build docs
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        uses: ammaraskar/sphinx-action@master
-        with:
-          docs-folder: "docs/"
+        working-directory: ./docs
+        run:
+          cd docs/
+          pip install -r requirements.txt
+          make html
