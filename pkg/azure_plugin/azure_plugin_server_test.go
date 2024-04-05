@@ -1091,7 +1091,7 @@ func mockGetSecurityGroupSetup(mockAzureHandler *MockAzureSDKHandler, ctx contex
 func getGenericResourceVM(resourceId string, nicId *string) armresources.GenericResource {
 	return armresources.GenericResource{
 		ID:       to.Ptr(resourceId),
-		Type:     to.Ptr("Microsoft.Compute/VirtualMachines"),
+		Type:     to.Ptr("Microsoft.Compute/virtualMachines"),
 		Location: to.Ptr("test-location"),
 		Properties: map[string]interface{}{
 			"networkProfile": map[string]interface{}{

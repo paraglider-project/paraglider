@@ -154,7 +154,7 @@ func getFakeAKSGenericResource() armresources.GenericResource {
 	return armresources.GenericResource{
 		ID:       cluster.ID,
 		Location: cluster.Location,
-		Type:     to.Ptr("Microsoft.ContainerService/ManagedClusters"),
+		Type:     to.Ptr("Microsoft.ContainerService/managedClusters"),
 		Properties: map[string]interface{}{
 			"agentPoolProfiles": []interface{}{
 				map[string]interface{}{"vnetSubnetID": *getFakeSubnet().ID},
