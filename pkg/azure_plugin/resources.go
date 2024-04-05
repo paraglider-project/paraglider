@@ -33,8 +33,8 @@ import (
 )
 
 const (
-	virtualMachineTypeName = "Microsoft.Compute/VirtualMachines"
-	managedClusterTypeName = "Microsoft.ContainerService/ManagedClusters"
+	virtualMachineTypeName = "Microsoft.Compute/virtualMachines"
+	managedClusterTypeName = "Microsoft.ContainerService/managedClusters"
 )
 
 type ResourceNetworkInfo struct {
