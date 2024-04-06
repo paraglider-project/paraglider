@@ -249,7 +249,6 @@ jobs:
       - name: Build docs
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         working-directory: ./docs
-        run:
-          cd docs/
+        run: |
           pip install -r requirements.txt
           make html

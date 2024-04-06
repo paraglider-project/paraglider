@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Build docs
         working-directory: ./docs
-        run:
+        run: |
           pip install -r requirements.txt
           make html
       - name: Upload doc artifacts
