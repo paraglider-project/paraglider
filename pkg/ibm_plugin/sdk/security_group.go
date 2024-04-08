@@ -109,7 +109,7 @@ func (c *CloudClient) createSecurityGroup(
 	return sg, nil
 }
 
-// GetSecurityRulesOfSG gets the rules of security groups
+// GetSecurityRulesOfSG returns rules of the specified security group
 func (c *CloudClient) GetSecurityRulesOfSG(sgID string) ([]SecurityGroupRule, error) {
 	options := &vpcv1.ListSecurityGroupRulesOptions{}
 	options.SetSecurityGroupID(sgID)
@@ -120,6 +120,7 @@ func (c *CloudClient) GetSecurityRulesOfSG(sgID string) ([]SecurityGroupRule, er
 	return c.translateSecurityGroupRules(rules.Rules, sgID)
 }
 
+// returns SecurityGroupRule objects, converted from abstract rules
 func (c *CloudClient) translateSecurityGroupRules(
 	ibmRules []vpcv1.SecurityGroupRuleIntf, sgID string) ([]SecurityGroupRule, error) {
 
@@ -135,6 +136,7 @@ func (c *CloudClient) translateSecurityGroupRules(
 	return rules, nil
 }
 
+// returns a SecurityGroupRule of an IBM rule interface based on its concrete type
 func (c *CloudClient) translateSecurityGroupRule(
 	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
 	switch ibmRule.(type) {
@@ -148,6 +150,8 @@ func (c *CloudClient) translateSecurityGroupRule(
 	return nil, nil
 }
 
+// returns SecurityGroupRule object converted from an abstract rule whose concrete
+// type is an "all" protocol rule
 func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolAll(
 	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
 
@@ -170,6 +174,8 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolAll(
 	return &rule, nil
 }
 
+// returns SecurityGroupRule object converted from an abstract rule whose concrete
+// type is an ICMP protocol rule
 func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolICMP(
 	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
 
@@ -183,13 +189,14 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolICMP(
 		isEgress = true
 	}
 	icmpCode := int64(-1)
-	if ibmRuleIcmp.Code != nil {
+	if ibmRuleIcmp.Code != nil { // rule allows specific icmp code
 		icmpCode = *ibmRuleIcmp.Code
 	}
 	icmpType := int64(-1)
-	if ibmRuleIcmp.Type != nil {
+	if ibmRuleIcmp.Type != nil { // rule allows specific icmp type
 		icmpType = *ibmRuleIcmp.Type
 	}
+
 	rule := SecurityGroupRule{
 		ID:         *ibmRuleIcmp.ID,
 		Protocol:   *ibmRuleIcmp.Protocol,
@@ -199,10 +206,15 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolICMP(
 		IcmpCode:   icmpCode,
 		IcmpType:   icmpType,
 		Egress:     isEgress,
+		// although ICMP protocol doesn't support ports, fields are required for rules comparison
+		PortMin: -1,
+		PortMax: -1,
 	}
 	return &rule, nil
 }
 
+// returns SecurityGroupRule object converted from an abstract rule whose concrete
+// type is either a TCP or a UDP protocol rule
 func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolTCPUDP(
 	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
 
@@ -228,6 +240,7 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolTCPUDP(
 	return &rule, nil
 }
 
+// returns remote(IP/CIDR address) and remote-type(IP/CIDR) of an abstract rule
 func (c *CloudClient) translateSecurityGroupRuleRemote(
 	ibmRuleRemoteIntf vpcv1.SecurityGroupRuleRemoteIntf) (string, string, error) {
 
@@ -258,8 +271,9 @@ func (c *CloudClient) translateSecurityGroupRuleRemote(
 	)
 }
 
-// AddSecurityGroupRule adds following functions are responsible for assigning SecurityGroupRules
-// to a security group.
+// Following functions are responsible for assigning SecurityGroupRules to a security group.
+
+// adds security group rule specified in SecurityGroupRule
 func (c *CloudClient) AddSecurityGroupRule(rule SecurityGroupRule) error {
 	prototype, err := c.translateRuleProtocol(rule)
 	if err != nil {
@@ -278,6 +292,7 @@ func (c *CloudClient) addSecurityGroupRule(sgID string, prototype vpcv1.Security
 	return err
 }
 
+// returns an IBM abstract rule object, converted from a SecurityGroupRule
 func (c *CloudClient) translateRuleProtocol(rule SecurityGroupRule) (vpcv1.SecurityGroupRulePrototypeIntf, error) {
 	var remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf
 	if len(rule.Remote) == 0 {
@@ -313,6 +328,10 @@ func (c *CloudClient) translateRuleProtocol(rule SecurityGroupRule) (vpcv1.Secur
 		}
 	case "icmp":
 		// NOTE invisinets permitlist rule doesn't support ICMP with specific codes and types
+		if rule.IcmpType != -1 || rule.IcmpCode != -1 {
+			return nil, fmt.Errorf(`invisinets permitlist rule doesn't support 
+				icmp with specific codes and types`)
+		}
 		prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp{
 			Direction: direction,
 			Protocol:  core.StringPtr("icmp"),
@@ -323,6 +342,7 @@ func (c *CloudClient) translateRuleProtocol(rule SecurityGroupRule) (vpcv1.Secur
 	return prototype, nil
 }
 
+// Adds rule represented by the SecurityGroupRule object to its security group
 func (c *CloudClient) UpdateSecurityGroupRule(rule SecurityGroupRule) error {
 	prototype, err := c.translateRuleProtocol(rule)
 	if err != nil {
@@ -444,7 +464,6 @@ func (c *CloudClient) GetRulesIDs(rules []SecurityGroupRule, sgID string) ([]str
 }
 
 // returns rules in invisinets format from IBM cloud format
-// TODO @cohen-j-omer: handle permitList tags if required.
 func IBMToInvisinetsRules(rules []SecurityGroupRule) ([]*invisinetspb.PermitListRule, error) {
 	var invisinetsRules []*invisinetspb.PermitListRule
 
@@ -495,10 +514,15 @@ func InvisinetsToIBMRules(securityGroupID string, rules []*invisinetspb.PermitLi
 				PortMin:    int64(rule.SrcPort),
 				PortMax:    int64(rule.SrcPort),
 				Egress:     invisinetsToIBMDirection[rule.Direction],
-				// explicitly setting value to 0. other icmp values have meaning.
-				IcmpType: 0,
-				IcmpCode: 0,
 			}
+
+			if rule.Protocol == 1 { // icmp rule
+				// setting value to -1 to indicate that all codes and types are allowed.
+				// non negative icmp values have meaning, which is not supported by invisinets.
+				sgRule.IcmpType = -1
+				sgRule.IcmpCode = -1
+			}
+
 			sgRules = append(sgRules, sgRule)
 		}
 	}
