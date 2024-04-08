@@ -234,6 +234,11 @@ func TestCrossNamespace(t *testing.T) {
 	project1Namespace := "project1"
 	project2Namespace := "project2"
 	orchestratorServerConfig := config.Config{
+		Server: config.Server{
+			Host:    "localhost",
+			Port:    "8082",
+			RpcPort: "8083",
+		},
 		CloudPlugins: []config.CloudPlugin{
 			{
 				Name: utils.GCP,
@@ -256,7 +261,8 @@ func TestCrossNamespace(t *testing.T) {
 			},
 		},
 	}
-	orchestratorServerAddr := orchestrator.SetupControllerServer(orchestratorServerConfig)
+	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
+	orchestrator.Setup(orchestratorServerConfig)
 
 	// Setup GCP plugin server
 	gcpServer := Setup(gcpServerPort, orchestratorServerAddr)

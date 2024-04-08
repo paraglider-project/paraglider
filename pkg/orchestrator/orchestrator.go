@@ -1164,8 +1164,7 @@ func (s *ControllerServer) listNamespaces(c *gin.Context) {
 	c.JSON(http.StatusOK, s.config.Namespaces)
 }
 
-// Setup and run the server
-func Setup(configPath string) {
+func SetupWithFile(configPath string) {
 	// Read the config
 	f, err := os.Open(configPath)
 	if err != nil {
@@ -1180,16 +1179,21 @@ func Setup(configPath string) {
 		fmt.Println(err.Error())
 	}
 
+	Setup(cfg)
+}
+
+// Setup and run the server
+func Setup(cfg config.Config) {
 	// Populate server info
 	server := ControllerServer{
+		config:                    cfg,
 		pluginAddresses:           make(map[string]string),
 		usedBgpPeeringIpAddresses: make(map[string][]string),
 		namespace:                 "default",
 	}
-	server.config = cfg
 	server.localTagService = cfg.TagService.Host + ":" + cfg.TagService.Port
 
-	for _, c := range server.config.CloudPlugins {
+	for _, c := range cfg.CloudPlugins {
 		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port
 	}
 
@@ -1230,7 +1234,7 @@ func Setup(configPath string) {
 	router.GET(ListNamespacesURL, server.listNamespaces)
 
 	// Run server
-	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
+	err = router.Run(cfg.Server.Host + ":" + cfg.Server.Port)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
