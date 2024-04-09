@@ -334,10 +334,13 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	}
 	utils.Log.Printf("Translated permit list to intermediate IBM Rule : %v\n", ibmRulesToAdd)
 
-	conn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// get current rules in SG and record their hash values
+	sgRules, err := cloudClient.GetSecurityRulesOfSG(requestSGID)
 	if err != nil {
 		return nil, err
 	}
+
+	conn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	defer conn.Close()
 	client := paragliderpb.NewControllerClient(conn)
 
@@ -379,12 +382,6 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 			}
 		}
 		rulesHashValues := make(map[uint64]bool)
-		// get current rules in SG and record their hash values
-		sgRules, err := cloudClient.GetSecurityRulesOfSG(requestSGID)
-		if err != nil {
-			utils.Log.Printf("Failed to get sg rules: %v.\n", err)
-			return nil, err
-		}
 		_, err = cloudClient.GetUniqueSGRules(sgRules, rulesHashValues)
 		if err != nil {
 			utils.Log.Printf("Failed to get unique sg rules: %v.\n", err)
@@ -530,7 +527,7 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 	return &paragliderpb.DeletePermitListRulesResponse{}, nil
 }
 
-func (s *ibmPluginServer) CreateVpnGateway(ctx context.Context, req *invisinetspb.CreateVpnGatewayRequest) (*invisinetspb.CreateVpnGatewayResponse, error) {
+func (s *IBMPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderpb.CreateVpnGatewayRequest) (*paragliderpb.CreateVpnGatewayResponse, error) {
 	rInfo, err := getResourceIDInfo(req.Deployment.Id)
 	if err != nil {
 		return nil, err
@@ -539,7 +536,7 @@ func (s *ibmPluginServer) CreateVpnGateway(ctx context.Context, req *invisinetsp
 	if err != nil {
 		return nil, err
 	}
-	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupName, region)
+	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 	if err != nil {
 		return nil, err
 	}
@@ -548,11 +545,11 @@ func (s *ibmPluginServer) CreateVpnGateway(ctx context.Context, req *invisinetsp
 		return nil, err
 	}
 
-	return &invisinetspb.CreateVpnGatewayResponse{GatewayIpAddresses: ipAddresses}, nil
+	return &paragliderpb.CreateVpnGatewayResponse{GatewayIpAddresses: ipAddresses}, nil
 }
 
 // creates VPN connection
-func (s *ibmPluginServer) CreateVpnConnections(ctx context.Context, req *invisinetspb.CreateVpnConnectionsRequest) (*invisinetspb.BasicResponse, error) {
+func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.BasicResponse, error) {
 	rInfo, err := getResourceIDInfo(req.Deployment.Id)
 	if err != nil {
 		return nil, err
@@ -561,7 +558,7 @@ func (s *ibmPluginServer) CreateVpnConnections(ctx context.Context, req *invisin
 	if err != nil {
 		return nil, err
 	}
-	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupName, region)
+	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 	if err != nil {
 		return nil, err
 	}
@@ -580,21 +577,18 @@ func (s *ibmPluginServer) CreateVpnConnections(ctx context.Context, req *invisin
 	vpn := vpns[0]
 
 	for _, peerVPNIPAddress := range req.GatewayIpAddresses {
-		// TODO (@cohen-j-omer) REMOVE once destinationCIDR is added to API.
-		// data is mandatory to create routes that redirect egress to destinationCIDR through the VPN connection
-		destinationCIDR := strings.Replace(rInfo.ResourceID, "-", "/", 1)
-		err := cloudClient.CreateVPNConnectionRouteBased(vpn.ID, peerVPNIPAddress, req.SharedKey, destinationCIDR)
+		err := cloudClient.CreateVPNConnectionRouteBased(vpn.ID, peerVPNIPAddress, req.SharedKey, req.RemoteAddress)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return &invisinetspb.BasicResponse{Success: true}, nil
+	return &paragliderpb.BasicResponse{Success: true}, nil
 }
 
 // returns IP addresses of VPNs referenced in request
-func (s *ibmPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *invisinetspb.GetUsedBgpPeeringIpAddressesRequest) (*invisinetspb.GetUsedBgpPeeringIpAddressesResponse, error) {
-	resp := &invisinetspb.GetUsedBgpPeeringIpAddressesResponse{}
+func (s *IBMPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *paragliderpb.GetUsedBgpPeeringIpAddressesRequest) (*paragliderpb.GetUsedBgpPeeringIpAddressesResponse, error) {
+	resp := &paragliderpb.GetUsedBgpPeeringIpAddressesResponse{}
 	// collect public IP addresses from each VPN that is referenced by deployments specified in the request
 	for _, deployment := range req.Deployments {
 		rInfo, err := getResourceIDInfo(deployment.Id)
@@ -605,20 +599,20 @@ func (s *ibmPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req 
 		if err != nil {
 			return nil, err
 		}
-		cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupName, region)
+		cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 		if err != nil {
 			return nil, err
 		}
 
-		// gets all VPNs associated with specified namespace 
+		// gets all VPNs associated with specified namespace
 		vpns, err := cloudClient.GetVPNsInNamespaceRegion(deployment.Namespace, "")
 		if err != nil {
 			return nil, err
 		}
-		// collects public IPs of each VPN 
+		// collects public IPs of each VPN
 		for _, vpn := range vpns {
-			vpnRegion:= vpn.Region
-			cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupName, vpnRegion)
+			vpnRegion := vpn.Region
+			cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, vpnRegion)
 			if err != nil {
 				return nil, err
 			}

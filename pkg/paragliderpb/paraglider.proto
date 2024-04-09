@@ -130,6 +130,7 @@ message ConnectCloudsRequest {
     string cloudB = 2;
     string cloudANamespace = 3;
     string cloudBNamespace = 4;
+    string remoteAddress = 5;    // address of remote subnet. used by the IBM plugin.
 }
 
 message ConnectCloudsResponse {
@@ -156,6 +157,7 @@ message CreateVpnConnectionsRequest {
     repeated string gateway_ip_addresses = 4;
     repeated string bgp_ip_addresses = 5;
     string shared_key = 6;
+    string remoteAddress = 7;    // address of remote subnet. used by the IBM plugin.
 }
 
 message CreateVpnConnectionsResponse {
