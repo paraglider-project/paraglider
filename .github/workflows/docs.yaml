@@ -40,6 +40,7 @@ jobs:
           make html
       - name: Preview docs
         uses: rossjrw/pr-preview-action@v1
+        if: github.event_name == 'pull_request'
         with:
           source-dir: ./docs/build/html
       - name: Deploy docs
