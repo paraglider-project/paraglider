@@ -6,11 +6,15 @@ on:
       - release/*
     tags:
       - v*
+    paths-ignore:
+      - 'docs/**'
   pull_request:
     branches:
       - main
       - features/*
       - release/*
+    paths-ignore:
+      - 'docs/**'
 
 concurrency:
   # Cancel the previously triggered build for only PR build.
@@ -21,9 +25,6 @@ env:
   # Go version to install
   GOVER: '^1.20'
   GOPROXY: https://proxy.golang.org
-
-  # Python
-  PYTHONVER: '3.11'
   
   # gotestsum version - see: https://github.com/gotestyourself/gotestsum
   GOTESTSUMVERSION: 1.10.0
@@ -71,10 +72,6 @@ jobs:
     steps:
       - name: Check out repo
         uses: actions/checkout@v3
-      - name: Set up Python ${{ env.PYTHONVER}}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHONVER }}
       - name: Set up Go ${{ env.GOVER }}
         uses: actions/setup-go@v3
         with:
@@ -246,9 +243,3 @@ jobs:
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         run: |
           make multicloud-test
-      - name: Build docs
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        working-directory: ./docs
-        run: |
-          pip install -r requirements.txt
-          make html
