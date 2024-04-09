@@ -1234,8 +1234,10 @@ func Setup(cfg config.Config) {
 	router.GET(ListNamespacesURL, server.listNamespaces)
 
 	// Run server
-	err = router.Run(cfg.Server.Host + ":" + cfg.Server.Port)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	go func() {
+		err = router.Run(cfg.Server.Host + ":" + cfg.Server.Port)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
 }
