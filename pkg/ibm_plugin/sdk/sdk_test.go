@@ -26,6 +26,7 @@ import (
 )
 
 var testResGroupName = flag.String("sg", "invisinets", "Name of the user's security group")
+var shouldTearDownProject = flag.Bool("cleanup", false, "if set to true test procedure will include TestCleanup")
 
 const (
 	testRegion = "us-east"
@@ -33,9 +34,13 @@ const (
 
 // TODO @praveingk: Expand tests of SDK functions
 
-// run via: go test --tags=ibm -run TestCleanup -sg=<security group name>
+// run via: go test --tags=ibm -run TestCleanup -sg=<security group name> -cleanup
 // deletes all invisinets VPCs
 func TestCleanup(t *testing.T) {
+	if !*shouldTearDownProject {
+		println("TestCleanup skipped - cleanup flag wasn't set")
+		t.Skip("TestCleanup skipped - cleanup flag wasn't set")
+	}
 	cloudClient, err := NewIBMCloudClient(*testResGroupName, testRegion)
 	require.NoError(t, err)
 
