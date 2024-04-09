@@ -36,7 +36,7 @@ func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 	// fetch the the specified namespace's VPC in the region
 	vpcData, err := c.GetInvisinetsTaggedResources(VPC, []string{namespace}, ResourceQuery{Region: c.region})
 	if err != nil {
-		utils.Log.Print("Failed to get VPC to deploy the VPN at")
+		utils.Log.Print("Failed to get VPC data for VPN deployment")
 		return nil, err
 	}
 	if len(vpcData) == 0 {
@@ -135,7 +135,6 @@ func (c *CloudClient) pollVPNStatus(vpnId string, readyOrDeleted bool) error {
 // returns the public IPs of a VPN
 // Note: route based VPN gateway uses the tunnel with the smaller public IP as the primary egress path if both tunnels are active.
 func (c *CloudClient) GetVPNIPs(vpnId string) ([]string, error) {
-	publicIPs := []string{}
 	vpnData, _, err := c.vpcService.GetVPNGateway(c.vpcService.NewGetVPNGatewayOptions(
 		vpnId,
 	))
@@ -143,8 +142,10 @@ func (c *CloudClient) GetVPNIPs(vpnId string) ([]string, error) {
 		return nil, err
 	}
 	vpnMembers := vpnData.(*vpcv1.VPNGateway).Members
-	for _, member := range vpnMembers {
-		publicIPs = append(publicIPs, *member.PublicIP.Address)
+
+	publicIPs := make([]string, len(vpnMembers))
+	for i, member := range vpnMembers {
+		publicIPs[i] = *member.PublicIP.Address
 	}
 
 	return publicIPs, nil
@@ -255,7 +256,7 @@ func (c *CloudClient) CreateVPNConnectionRouteBased(VPNGatewayID, peerGatewayIP,
 		return err
 	}
 
-	// create routes for all regions in the default routing table of the VPC
+	// create routes for all zones in the default routing table of the VPC
 	err = c.createRoute(*defaultRoutingTable.ID, vpcID, destinationCIDR, connectionID)
 	if err != nil {
 		return err

@@ -33,18 +33,6 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-const (
-	CloudPlugin_GetUsedAddressSpaces_FullMethodName         = "/invisinetspb.CloudPlugin/GetUsedAddressSpaces"
-	CloudPlugin_GetUsedAsns_FullMethodName                  = "/invisinetspb.CloudPlugin/GetUsedAsns"
-	CloudPlugin_GetUsedBgpPeeringIpAddresses_FullMethodName = "/invisinetspb.CloudPlugin/GetUsedBgpPeeringIpAddresses"
-	CloudPlugin_CreateResource_FullMethodName               = "/invisinetspb.CloudPlugin/CreateResource"
-	CloudPlugin_GetPermitList_FullMethodName                = "/invisinetspb.CloudPlugin/GetPermitList"
-	CloudPlugin_AddPermitListRules_FullMethodName           = "/invisinetspb.CloudPlugin/AddPermitListRules"
-	CloudPlugin_DeletePermitListRules_FullMethodName        = "/invisinetspb.CloudPlugin/DeletePermitListRules"
-	CloudPlugin_CreateVpnGateway_FullMethodName             = "/invisinetspb.CloudPlugin/CreateVpnGateway"
-	CloudPlugin_CreateVpnConnections_FullMethodName         = "/invisinetspb.CloudPlugin/CreateVpnConnections"
-)
-
 // CloudPluginClient is the client API for CloudPlugin service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
@@ -70,7 +58,7 @@ func NewCloudPluginClient(cc grpc.ClientConnInterface) CloudPluginClient {
 
 func (c *cloudPluginClient) GetUsedAddressSpaces(ctx context.Context, in *GetUsedAddressSpacesRequest, opts ...grpc.CallOption) (*GetUsedAddressSpacesResponse, error) {
 	out := new(GetUsedAddressSpacesResponse)
-	err := c.cc.Invoke(ctx, CloudPlugin_GetUsedAddressSpaces_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, "/invisinetspb.CloudPlugin/GetUsedAddressSpaces", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +67,7 @@ func (c *cloudPluginClient) GetUsedAddressSpaces(ctx context.Context, in *GetUse
 
 func (c *cloudPluginClient) GetUsedAsns(ctx context.Context, in *GetUsedAsnsRequest, opts ...grpc.CallOption) (*GetUsedAsnsResponse, error) {
 	out := new(GetUsedAsnsResponse)
-	err := c.cc.Invoke(ctx, CloudPlugin_GetUsedAsns_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, "/invisinetspb.CloudPlugin/GetUsedAsns", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +76,7 @@ func (c *cloudPluginClient) GetUsedAsns(ctx context.Context, in *GetUsedAsnsRequ
 
 func (c *cloudPluginClient) GetUsedBgpPeeringIpAddresses(ctx context.Context, in *GetUsedBgpPeeringIpAddressesRequest, opts ...grpc.CallOption) (*GetUsedBgpPeeringIpAddressesResponse, error) {
 	out := new(GetUsedBgpPeeringIpAddressesResponse)
-	err := c.cc.Invoke(ctx, CloudPlugin_GetUsedBgpPeeringIpAddresses_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, "/invisinetspb.CloudPlugin/GetUsedBgpPeeringIpAddresses", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +85,7 @@ func (c *cloudPluginClient) GetUsedBgpPeeringIpAddresses(ctx context.Context, in
 
 func (c *cloudPluginClient) CreateResource(ctx context.Context, in *ResourceDescription, opts ...grpc.CallOption) (*CreateResourceResponse, error) {
 	out := new(CreateResourceResponse)
-	err := c.cc.Invoke(ctx, CloudPlugin_CreateResource_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, "/invisinetspb.CloudPlugin/CreateResource", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +94,7 @@ func (c *cloudPluginClient) CreateResource(ctx context.Context, in *ResourceDesc
 
 func (c *cloudPluginClient) GetPermitList(ctx context.Context, in *GetPermitListRequest, opts ...grpc.CallOption) (*GetPermitListResponse, error) {
 	out := new(GetPermitListResponse)
-	err := c.cc.Invoke(ctx, CloudPlugin_GetPermitList_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, "/invisinetspb.CloudPlugin/GetPermitList", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +103,7 @@ func (c *cloudPluginClient) GetPermitList(ctx context.Context, in *GetPermitList
 
 func (c *cloudPluginClient) AddPermitListRules(ctx context.Context, in *AddPermitListRulesRequest, opts ...grpc.CallOption) (*AddPermitListRulesResponse, error) {
 	out := new(AddPermitListRulesResponse)
-	err := c.cc.Invoke(ctx, CloudPlugin_AddPermitListRules_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, "/invisinetspb.CloudPlugin/AddPermitListRules", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +112,7 @@ func (c *cloudPluginClient) AddPermitListRules(ctx context.Context, in *AddPermi
 
 func (c *cloudPluginClient) DeletePermitListRules(ctx context.Context, in *DeletePermitListRulesRequest, opts ...grpc.CallOption) (*DeletePermitListRulesResponse, error) {
 	out := new(DeletePermitListRulesResponse)
-	err := c.cc.Invoke(ctx, CloudPlugin_DeletePermitListRules_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, "/invisinetspb.CloudPlugin/DeletePermitListRules", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +121,7 @@ func (c *cloudPluginClient) DeletePermitListRules(ctx context.Context, in *Delet
 
 func (c *cloudPluginClient) CreateVpnGateway(ctx context.Context, in *CreateVpnGatewayRequest, opts ...grpc.CallOption) (*CreateVpnGatewayResponse, error) {
 	out := new(CreateVpnGatewayResponse)
-	err := c.cc.Invoke(ctx, CloudPlugin_CreateVpnGateway_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, "/invisinetspb.CloudPlugin/CreateVpnGateway", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +130,7 @@ func (c *cloudPluginClient) CreateVpnGateway(ctx context.Context, in *CreateVpnG
 
 func (c *cloudPluginClient) CreateVpnConnections(ctx context.Context, in *CreateVpnConnectionsRequest, opts ...grpc.CallOption) (*BasicResponse, error) {
 	out := new(BasicResponse)
-	err := c.cc.Invoke(ctx, CloudPlugin_CreateVpnConnections_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, "/invisinetspb.CloudPlugin/CreateVpnConnections", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +207,7 @@ func _CloudPlugin_GetUsedAddressSpaces_Handler(srv interface{}, ctx context.Cont
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CloudPlugin_GetUsedAddressSpaces_FullMethodName,
+		FullMethod: "/invisinetspb.CloudPlugin/GetUsedAddressSpaces",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CloudPluginServer).GetUsedAddressSpaces(ctx, req.(*GetUsedAddressSpacesRequest))
@@ -237,7 +225,7 @@ func _CloudPlugin_GetUsedAsns_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CloudPlugin_GetUsedAsns_FullMethodName,
+		FullMethod: "/invisinetspb.CloudPlugin/GetUsedAsns",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CloudPluginServer).GetUsedAsns(ctx, req.(*GetUsedAsnsRequest))
@@ -255,7 +243,7 @@ func _CloudPlugin_GetUsedBgpPeeringIpAddresses_Handler(srv interface{}, ctx cont
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CloudPlugin_GetUsedBgpPeeringIpAddresses_FullMethodName,
+		FullMethod: "/invisinetspb.CloudPlugin/GetUsedBgpPeeringIpAddresses",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CloudPluginServer).GetUsedBgpPeeringIpAddresses(ctx, req.(*GetUsedBgpPeeringIpAddressesRequest))
@@ -273,7 +261,7 @@ func _CloudPlugin_CreateResource_Handler(srv interface{}, ctx context.Context, d
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CloudPlugin_CreateResource_FullMethodName,
+		FullMethod: "/invisinetspb.CloudPlugin/CreateResource",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CloudPluginServer).CreateResource(ctx, req.(*ResourceDescription))
@@ -291,7 +279,7 @@ func _CloudPlugin_GetPermitList_Handler(srv interface{}, ctx context.Context, de
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CloudPlugin_GetPermitList_FullMethodName,
+		FullMethod: "/invisinetspb.CloudPlugin/GetPermitList",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CloudPluginServer).GetPermitList(ctx, req.(*GetPermitListRequest))
@@ -309,7 +297,7 @@ func _CloudPlugin_AddPermitListRules_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CloudPlugin_AddPermitListRules_FullMethodName,
+		FullMethod: "/invisinetspb.CloudPlugin/AddPermitListRules",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CloudPluginServer).AddPermitListRules(ctx, req.(*AddPermitListRulesRequest))
@@ -327,7 +315,7 @@ func _CloudPlugin_DeletePermitListRules_Handler(srv interface{}, ctx context.Con
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CloudPlugin_DeletePermitListRules_FullMethodName,
+		FullMethod: "/invisinetspb.CloudPlugin/DeletePermitListRules",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CloudPluginServer).DeletePermitListRules(ctx, req.(*DeletePermitListRulesRequest))
@@ -345,7 +333,7 @@ func _CloudPlugin_CreateVpnGateway_Handler(srv interface{}, ctx context.Context,
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CloudPlugin_CreateVpnGateway_FullMethodName,
+		FullMethod: "/invisinetspb.CloudPlugin/CreateVpnGateway",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CloudPluginServer).CreateVpnGateway(ctx, req.(*CreateVpnGatewayRequest))
@@ -363,7 +351,7 @@ func _CloudPlugin_CreateVpnConnections_Handler(srv interface{}, ctx context.Cont
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CloudPlugin_CreateVpnConnections_FullMethodName,
+		FullMethod: "/invisinetspb.CloudPlugin/CreateVpnConnections",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CloudPluginServer).CreateVpnConnections(ctx, req.(*CreateVpnConnectionsRequest))
@@ -452,7 +440,7 @@ func NewControllerClient(cc grpc.ClientConnInterface) ControllerClient {
 
 func (c *controllerClient) FindUnusedAddressSpace(ctx context.Context, in *FindUnusedAddressSpaceRequest, opts ...grpc.CallOption) (*FindUnusedAddressSpaceResponse, error) {
 	out := new(FindUnusedAddressSpaceResponse)
-	err := c.cc.Invoke(ctx, Controller_FindUnusedAddressSpace_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, "/invisinetspb.Controller/FindUnusedAddressSpace", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -461,7 +449,7 @@ func (c *controllerClient) FindUnusedAddressSpace(ctx context.Context, in *FindU
 
 func (c *controllerClient) GetUsedAddressSpaces(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*GetUsedAddressSpacesResponse, error) {
 	out := new(GetUsedAddressSpacesResponse)
-	err := c.cc.Invoke(ctx, Controller_GetUsedAddressSpaces_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, "/invisinetspb.Controller/GetUsedAddressSpaces", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -470,7 +458,7 @@ func (c *controllerClient) GetUsedAddressSpaces(ctx context.Context, in *Empty, 
 
 func (c *controllerClient) FindUnusedAsn(ctx context.Context, in *FindUnusedAsnRequest, opts ...grpc.CallOption) (*FindUnusedAsnResponse, error) {
 	out := new(FindUnusedAsnResponse)
-	err := c.cc.Invoke(ctx, Controller_FindUnusedAsn_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, "/invisinetspb.Controller/FindUnusedAsn", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -479,7 +467,7 @@ func (c *controllerClient) FindUnusedAsn(ctx context.Context, in *FindUnusedAsnR
 
 func (c *controllerClient) ConnectClouds(ctx context.Context, in *ConnectCloudsRequest, opts ...grpc.CallOption) (*BasicResponse, error) {
 	out := new(BasicResponse)
-	err := c.cc.Invoke(ctx, Controller_ConnectClouds_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, "/invisinetspb.Controller/ConnectClouds", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -575,7 +563,7 @@ func _Controller_FindUnusedAddressSpace_Handler(srv interface{}, ctx context.Con
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Controller_FindUnusedAddressSpace_FullMethodName,
+		FullMethod: "/invisinetspb.Controller/FindUnusedAddressSpace",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControllerServer).FindUnusedAddressSpace(ctx, req.(*FindUnusedAddressSpaceRequest))
@@ -593,7 +581,7 @@ func _Controller_GetUsedAddressSpaces_Handler(srv interface{}, ctx context.Conte
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Controller_GetUsedAddressSpaces_FullMethodName,
+		FullMethod: "/invisinetspb.Controller/GetUsedAddressSpaces",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControllerServer).GetUsedAddressSpaces(ctx, req.(*Empty))
@@ -611,7 +599,7 @@ func _Controller_FindUnusedAsn_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Controller_FindUnusedAsn_FullMethodName,
+		FullMethod: "/invisinetspb.Controller/FindUnusedAsn",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControllerServer).FindUnusedAsn(ctx, req.(*FindUnusedAsnRequest))
@@ -629,7 +617,7 @@ func _Controller_ConnectClouds_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Controller_ConnectClouds_FullMethodName,
+		FullMethod: "/invisinetspb.Controller/ConnectClouds",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControllerServer).ConnectClouds(ctx, req.(*ConnectCloudsRequest))

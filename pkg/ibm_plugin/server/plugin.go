@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -304,6 +303,12 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 		return nil, err
 	}
 
+	// get current rules in SG and record their hash values
+	sgRules, err := cloudClient.GetSecurityRulesOfSG(requestSGID)
+	if err != nil {
+		return nil, err
+	}
+
 	// translate invisinets rules to IBM rules to compare hash values with current rules.
 	ibmRulesToAdd, err := sdk.InvisinetsToIBMRules(requestSGID, req.Rules)
 	if err != nil {
@@ -347,11 +352,6 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 			}
 		}
 		rulesHashValues := make(map[uint64]bool)
-		// get current rules in SG and record their hash values
-		sgRules, err := cloudClient.GetSecurityRulesOfSG(requestSGID)
-		if err != nil {
-			return nil, err
-		}
 		_, err = cloudClient.GetUniqueSGRules(sgRules, rulesHashValues)
 		if err != nil {
 			return nil, err
@@ -476,10 +476,7 @@ func (s *ibmPluginServer) CreateVpnConnections(ctx context.Context, req *invisin
 	vpn := vpns[0]
 
 	for _, peerVPNIPAddress := range req.GatewayIpAddresses {
-		// TODO (@cohen-j-omer) REMOVE once destinationCIDR is added to API.
-		// data is mandatory to create routes that redirect egress to destinationCIDR through the VPN connection
-		destinationCIDR := strings.Replace(rInfo.ResourceID, "-", "/", 1)
-		err := cloudClient.CreateVPNConnectionRouteBased(vpn.ID, peerVPNIPAddress, req.SharedKey, destinationCIDR)
+		err := cloudClient.CreateVPNConnectionRouteBased(vpn.ID, peerVPNIPAddress, req.SharedKey, req.RemoteAddress)
 		if err != nil {
 			return nil, err
 		}
@@ -506,14 +503,14 @@ func (s *ibmPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req 
 			return nil, err
 		}
 
-		// gets all VPNs associated with specified namespace 
+		// gets all VPNs associated with specified namespace
 		vpns, err := cloudClient.GetVPNsInNamespaceRegion(deployment.Namespace, "")
 		if err != nil {
 			return nil, err
 		}
-		// collects public IPs of each VPN 
+		// collects public IPs of each VPN
 		for _, vpn := range vpns {
-			vpnRegion:= vpn.Region
+			vpnRegion := vpn.Region
 			cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupName, vpnRegion)
 			if err != nil {
 				return nil, err

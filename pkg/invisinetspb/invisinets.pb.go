@@ -1119,6 +1119,7 @@ type ConnectCloudsRequest struct {
 	CloudB          string `protobuf:"bytes,2,opt,name=cloudB,proto3" json:"cloudB,omitempty"`
 	CloudANamespace string `protobuf:"bytes,3,opt,name=cloudANamespace,proto3" json:"cloudANamespace,omitempty"`
 	CloudBNamespace string `protobuf:"bytes,4,opt,name=cloudBNamespace,proto3" json:"cloudBNamespace,omitempty"`
+	RemoteAddress   string `protobuf:"bytes,5,opt,name=remoteAddress,proto3" json:"remoteAddress,omitempty"` // address of remote subnet. used by the IBM plugin.
 }
 
 func (x *ConnectCloudsRequest) Reset() {
@@ -1177,6 +1178,13 @@ func (x *ConnectCloudsRequest) GetCloudANamespace() string {
 func (x *ConnectCloudsRequest) GetCloudBNamespace() string {
 	if x != nil {
 		return x.CloudBNamespace
+	}
+	return ""
+}
+
+func (x *ConnectCloudsRequest) GetRemoteAddress() string {
+	if x != nil {
+		return x.RemoteAddress
 	}
 	return ""
 }
@@ -1310,6 +1318,7 @@ type CreateVpnConnectionsRequest struct {
 	GatewayIpAddresses []string              `protobuf:"bytes,4,rep,name=gateway_ip_addresses,json=gatewayIpAddresses,proto3" json:"gateway_ip_addresses,omitempty"`
 	BgpIpAddresses     []string              `protobuf:"bytes,5,rep,name=bgp_ip_addresses,json=bgpIpAddresses,proto3" json:"bgp_ip_addresses,omitempty"`
 	SharedKey          string                `protobuf:"bytes,6,opt,name=shared_key,json=sharedKey,proto3" json:"shared_key,omitempty"`
+	RemoteAddress      string                `protobuf:"bytes,7,opt,name=remoteAddress,proto3" json:"remoteAddress,omitempty"` // address of remote subnet. used by the IBM plugin.
 }
 
 func (x *CreateVpnConnectionsRequest) Reset() {
@@ -1382,6 +1391,13 @@ func (x *CreateVpnConnectionsRequest) GetBgpIpAddresses() []string {
 func (x *CreateVpnConnectionsRequest) GetSharedKey() string {
 	if x != nil {
 		return x.SharedKey
+	}
+	return ""
+}
+
+func (x *CreateVpnConnectionsRequest) GetRemoteAddress() string {
+	if x != nil {
+		return x.RemoteAddress
 	}
 	return ""
 }
