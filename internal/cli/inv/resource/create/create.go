@@ -69,9 +69,10 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	resourceInfo, err := c.CreateResource(e.cliSettings.ActiveNamespace, args[0], args[1], resource)
-
+	if err != nil {
+		return err
+	}
 	fmt.Fprintf(e.writer, "Resource Created.\ntag: %s\nuri: %s\nip: %s\n", resourceInfo["name"], resourceInfo["uri"], resourceInfo["ip"])
 
-
-	return err
+	return nil
 }
