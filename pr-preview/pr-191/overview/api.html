@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>API &#8212; Invisinets  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Contributing" href="../developers/contributing.html" />
+    <link rel="prev" title="Design" href="design.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="api">
+<span id="id1"></span><h1>API<a class="headerlink" href="#api" title="Link to this heading">¶</a></h1>
+<section id="namespace-operations">
+<h2>Namespace Operations<a class="headerlink" href="#namespace-operations" title="Link to this heading">¶</a></h2>
+<p>Interact with the namespaces on the Invisinets Controller. The active namespace is a client-side CLI construct. All REST requests to the controller will be scoped on a namespace.</p>
+<section id="set">
+<h3>Set<a class="headerlink" href="#set" title="Link to this heading">¶</a></h3>
+<p><strong>CLI:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>namespace<span class="w"> </span><span class="nb">set</span><span class="w"> </span>&lt;namespace&gt;
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: namespace to set on the controller</p></li>
+</ul>
+</section>
+<section id="get">
+<h3>Get<a class="headerlink" href="#get" title="Link to this heading">¶</a></h3>
+<p>Gets the current active namespace in the CLI (Note: this is only a CLI feature).</p>
+<p><strong>CLI:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>namespace<span class="w"> </span>get
+</pre></div>
+</div>
+</section>
+<section id="list">
+<h3>List<a class="headerlink" href="#list" title="Link to this heading">¶</a></h3>
+<p>Lists all namespaces configured on the controller.</p>
+<p><strong>CLI:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>namespace<span class="w"> </span>list
+</pre></div>
+</div>
+<p><strong>HTTP:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>GET<span class="w"> </span>/namespaces/
+</pre></div>
+</div>
+</section>
+</section>
+<section id="resource-operations">
+<h2>Resource Operations<a class="headerlink" href="#resource-operations" title="Link to this heading">¶</a></h2>
+<section id="create">
+<h3>Create<a class="headerlink" href="#create" title="Link to this heading">¶</a></h3>
+<p>Creates a resource according to the description provided in the specified cloud. Some clouds may require a URI before resource creation and others may leave this field blank. Note that a tag is automatically created for the resource with the name <code class="docutils literal notranslate"><span class="pre">&lt;namespace&gt;.&lt;cloud&gt;.&lt;vm_name&gt;</span></code> (where <code class="docutils literal notranslate"><span class="pre">vm_name</span></code> is pulled from the name field in the resource description).</p>
+<p><strong>CLI:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;<span class="w"> </span>&lt;path_to_json&gt;
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud to create the resource in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource_name</span></code> : name of the resource to be created in the Invisinets controller (note: this name will be scoped on cloud and namespace when stored)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">path_to_json</span></code>: path to JSON file describing the resource to be created (excluding networking details)</p></li>
+</ul>
+<p><strong>REST:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>
+</pre></div>
+</div>
+<ul>
+<li><p>Example request body:</p>
+<blockquote>
+<div><div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resource/uri&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resourceName&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;{</span>
+<span class="s2">                \&quot;location\&quot;: \&quot;eastus\&quot;,</span>
+<span class="s2">                \&quot;properties\&quot;: {</span>
+<span class="s2">                    \&quot;hardwareProfile\&quot;: {</span>
+<span class="s2">                        \&quot;vmSize\&quot;: \&quot;Standard_B1s\&quot;</span>
+<span class="s2">                    },</span>
+<span class="s2">                    \&quot;osProfile\&quot;: {</span>
+<span class="s2">                        \&quot;adminPassword\&quot;: \&quot;\&quot;,</span>
+<span class="s2">                        \&quot;adminUsername\&quot;: \&quot;\&quot;,</span>
+<span class="s2">                        \&quot;computerName\&quot;: \&quot;sample-compute\&quot;</span>
+<span class="s2">                    },</span>
+<span class="s2">                    \&quot;storageProfile\&quot;: {</span>
+<span class="s2">                        \&quot;imageReference\&quot;: {</span>
+<span class="s2">                            \&quot;offer\&quot;: \&quot;debian-10\&quot;,</span>
+<span class="s2">                            \&quot;publisher\&quot;: \&quot;Debian\&quot;,</span>
+<span class="s2">                            \&quot;sku\&quot;: \&quot;10\&quot;,</span>
+<span class="s2">                            \&quot;version\&quot;: \&quot;latest\&quot;</span>
+<span class="s2">                        }</span>
+<span class="s2">                    }</span>
+<span class="s2">                }</span>
+<span class="s2">            }&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Invisinets namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud to create the resource in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">name</span></code> : name of the resource to be created in the Invisinets controller (note: this name will be scoped on cloud and namespace when stored)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">id</span></code> : URI of the resource to create (required by Azure for metadata, can be left blank for GCP)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">description</span></code>: JSON string describing the resource to be created (excluding networking details)</p></li>
+</ul>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>PUT<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>
+</pre></div>
+</div>
+<ul>
+<li><p>Example request body:</p>
+<blockquote>
+<div><div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resource/uri&quot;</span><span class="p">,</span>
+<span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;{</span>
+<span class="s2">                \&quot;location\&quot;: \&quot;eastus\&quot;,</span>
+<span class="s2">                \&quot;properties\&quot;: {</span>
+<span class="s2">                    \&quot;hardwareProfile\&quot;: {</span>
+<span class="s2">                        \&quot;vmSize\&quot;: \&quot;Standard_B1s\&quot;</span>
+<span class="s2">                    },</span>
+<span class="s2">                    \&quot;osProfile\&quot;: {</span>
+<span class="s2">                        \&quot;adminPassword\&quot;: \&quot;\&quot;,</span>
+<span class="s2">                        \&quot;adminUsername\&quot;: \&quot;\&quot;,</span>
+<span class="s2">                        \&quot;computerName\&quot;: \&quot;sample-compute\&quot;</span>
+<span class="s2">                    },</span>
+<span class="s2">                    \&quot;storageProfile\&quot;: {</span>
+<span class="s2">                        \&quot;imageReference\&quot;: {</span>
+<span class="s2">                            \&quot;offer\&quot;: \&quot;debian-10\&quot;,</span>
+<span class="s2">                            \&quot;publisher\&quot;: \&quot;Debian\&quot;,</span>
+<span class="s2">                            \&quot;sku\&quot;: \&quot;10\&quot;,</span>
+<span class="s2">                            \&quot;version\&quot;: \&quot;latest\&quot;</span>
+<span class="s2">                        }</span>
+<span class="s2">                    }</span>
+<span class="s2">                }</span>
+<span class="s2">            }&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Invisinets namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud to create the resource in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource_name</span></code> : name of the resource to be created in the Invisinets controller (note: this name will be scoped on cloud and namespace when stored)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">id</span></code> : URI of the resource to create (required by Azure for metadata, can be left blank for GCP)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">description</span></code>: JSON string describing the resource to be created (excluding networking details)</p></li>
+</ul>
+</section>
+</section>
+<section id="permit-list-operations">
+<h2>Permit List Operations<a class="headerlink" href="#permit-list-operations" title="Link to this heading">¶</a></h2>
+<p>These operations interact with the permit list associated with a given resource by adding/deleting/getting rules.</p>
+<section id="id2">
+<h3>Get<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<p>Gets the rules associated with a resource.</p>
+<p><strong>CLI:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>rule<span class="w"> </span>get<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource_name</span></code>: Invisinets name of the resource</p></li>
+</ul>
+<p><strong>REST:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>GET<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/rules
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Invisinets namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resourceName</span></code>: Invisinets name of the resource</p></li>
+</ul>
+</section>
+<section id="add">
+<h3>Add<a class="headerlink" href="#add" title="Link to this heading">¶</a></h3>
+<p>Adds one or many rules to the permit list associated with a resource.</p>
+<p><strong>CLI:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;<span class="w"> </span><span class="o">[</span>--ssh<span class="w"> </span>&lt;tag&gt;<span class="w"> </span>--ping<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="p">|</span><span class="w"> </span>--ruleFile<span class="w"> </span>&lt;path_to_file&gt;<span class="o">]</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource_name</span></code>: Invisinets name of the resource</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">path_to_file</span></code>: path to JSON file describing rules to add</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tag</span></code>: Invisinets tag or IP to allow SSH/ICMP traffic to/from</p></li>
+</ul>
+<p><strong>REST:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/rules
+</pre></div>
+</div>
+<p>Creates/updates one rule of a resource’s permit list.</p>
+<ul>
+<li><p>Example Request Body:</p>
+<blockquote>
+<div><div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rulename&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;id&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;tags&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;tagname&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;direction&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;src_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dst_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;protocol&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Invisinets namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resourceName</span></code>: Invisinets name of the resource</p></li>
+</ul>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>PUT<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/rules/<span class="o">{</span>ruleName<span class="o">}</span>
+</pre></div>
+</div>
+<p>Creates/updates one rule of a resource’s permit list.</p>
+<ul>
+<li><p>Example Request Body:</p>
+<blockquote>
+<div><div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rulename&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;id&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;tags&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;tagname&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;direction&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;src_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dst_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;protocol&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Invisinets namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resourceName</span></code>: Invisinets name of the resource</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ruleName</span></code>: name of the rule</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the name is provided in the request body, it will be ignored</p>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/applyRules
+</pre></div>
+</div>
+<p>Creates/updates rules of resource in bulk.</p>
+<ul>
+<li><p>Example Request Body:</p>
+<blockquote>
+<div><div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rulename&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;id&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;tags&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;tagname&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;direction&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;src_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dst_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;protocol&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Invisinets namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resourceName</span></code>: Invisinets name of the resource</p></li>
+</ul>
+</section>
+<section id="delete">
+<h3>Delete<a class="headerlink" href="#delete" title="Link to this heading">¶</a></h3>
+<p>Deletes one or many rules from the permit list associated with the specified resource.</p>
+<p><strong>CLI:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>rule<span class="w"> </span>delete<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;<span class="w"> </span>--rules<span class="w"> </span>&lt;rule_names&gt;
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource_name</span></code>: Invisinets name of the resource</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rule_names</span></code>: list of rule names to delete</p></li>
+</ul>
+<p><strong>REST:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>DELETE<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/rules/<span class="o">{</span>ruleName<span class="o">}</span>
+</pre></div>
+</div>
+<p>Deletes one rule of a resource’s permit list.</p>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Invisinets namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resourceName</span></code>: Invisinets name of the resource</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ruleName</span></code>: name of the rule</p></li>
+</ul>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/deleteRules
+</pre></div>
+</div>
+<p>Deletes rules of resource in bulk.</p>
+<ul>
+<li><p>Example Request Body:</p>
+<blockquote>
+<div><div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="p">[</span>
+<span class="w">        </span><span class="s2">&quot;rulename1&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;rulename2&quot;</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Invisinets namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resourceName</span></code>: Invisinets name of the resource</p></li>
+</ul>
+</section>
+</section>
+<section id="tag-operations">
+<h2>Tag Operations<a class="headerlink" href="#tag-operations" title="Link to this heading">¶</a></h2>
+<p>Operations on Invisinets tags.</p>
+<section id="id3">
+<h3>Get<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<p>Gets the children tags associated with a tag or resolves the tag down to last-level entries (IPs).</p>
+<p><strong>CLI:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--resolve<span class="o">]</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tag</span></code>: tag to get</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resolve</span></code>: true/false value indicating whether to resolve to last-level tags or not</p></li>
+</ul>
+<p><strong>REST:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>GET<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</span>/
+POST<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</span>/resolve
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tag</span></code>: tag to get</p></li>
+</ul>
+</section>
+<section id="id4">
+<h3>Set<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<p>Adds children tags to a parent tag or creates a last-level tag that associates a names with an URI and/or IP.</p>
+<p><strong>CLI:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--children<span class="w"> </span>&lt;child_tag_list&gt;<span class="o">]</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="o">[</span>--uri<span class="w"> </span>&lt;uri&gt;<span class="o">]</span><span class="w"> </span><span class="o">[</span>--ip<span class="w"> </span>&lt;ip&gt;<span class="o">]</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tag</span></code>: tag to set</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">children</span></code>: list of tags to add as children</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">uri</span></code>: uri to associate with tag</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ip</span></code>: ip to associate with tag</p></li>
+</ul>
+<p><strong>REST:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</span>/applyMembers
+</pre></div>
+</div>
+<ul>
+<li><p>Example Request Body:</p>
+<blockquote>
+<div><div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="nt">&quot;tag_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tag&quot;</span><span class="p">,</span>
+<span class="nt">&quot;uri&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uri&quot;</span><span class="p">,</span>
+<span class="nt">&quot;ip&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.1.1.1&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p>Example Request Body</p>
+<blockquote>
+<div><div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="nt">&quot;tag_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tag&quot;</span><span class="p">,</span>
+<span class="nt">&quot;child_tags&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="s2">&quot;child1&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">&quot;child2&quot;</span>
+<span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+<p>Parameters:
+* <code class="docutils literal notranslate"><span class="pre">tag</span></code>: tag to set
+* <code class="docutils literal notranslate"><span class="pre">children</span></code>: list of tags to add as children
+* <code class="docutils literal notranslate"><span class="pre">uri</span></code>: uri to associate with tag
+* <code class="docutils literal notranslate"><span class="pre">ip</span></code>: ip to associate with tag</p>
+</section>
+<section id="id5">
+<h3>Delete<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
+<p>Deletes a tag or the association of members tags to that tag.</p>
+<p><strong>CLI:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>tag<span class="w"> </span>delete<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--member<span class="w"> </span>&lt;members_list&gt;<span class="o">]</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tag</span></code>: tag to delete</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">member</span></code>: child tag to remove membership</p></li>
+</ul>
+<p><strong>REST:</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>DELETE<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</span>/member/<span class="o">{</span>member<span class="o">}</span>
+</pre></div>
+</div>
+<p>Deletes a single member from a parent tag.</p>
+<p>Parameters:
+* <code class="docutils literal notranslate"><span class="pre">tag</span></code>: parent tag
+* <code class="docutils literal notranslate"><span class="pre">members</span></code>: child tag to remove membership</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>DELETE<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</span>
+</pre></div>
+</div>
+<p>Deletes an entire tag (and all its child associations).</p>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tag</span></code>: tag to delete</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Invisinets</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Overview</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="design.html">Design</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developers</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../developers/contributing.html">Contributing</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="design.html" title="previous chapter">Design</a></li>
+      <li>Next: <a href="../developers/contributing.html" title="next chapter">Contributing</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024, Sean Kim.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/overview/api.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

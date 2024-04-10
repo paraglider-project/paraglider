@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Quickstart &#8212; Invisinets  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Design" href="design.html" />
+    <link rel="prev" title="Welcome to Invisinets!" href="../index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="quickstart">
+<span id="id1"></span><h1>Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading">¶</a></h1>
+<p>The controller consists of a central orchestrating controller that sends requests to per-cloud plugins/controllers and a tag service. These services can be started individually or all at once on the localhost.</p>
+<section id="build-install">
+<h2>Build / Install<a class="headerlink" href="#build-install" title="Link to this heading">¶</a></h2>
+<p>Run the following command to build and install the CLI locally.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>build<span class="w"> </span>install
+</pre></div>
+</div>
+</section>
+<section id="cli">
+<h2>CLI<a class="headerlink" href="#cli" title="Link to this heading">¶</a></h2>
+<p>All of the services can be started using the <code class="docutils literal notranslate"><span class="pre">invd</span></code> CLI. For additional help, look at the help docs in the CLI.</p>
+</section>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">¶</a></h2>
+<p>The central controller takes a configuration file in the following format.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">server</span><span class="p">:</span>
+<span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
+<span class="nt">rpcPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8081</span>
+
+<span class="nt">cloudPlugins</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;gcp&quot;</span>
+<span class="w">    </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
+<span class="w">    </span><span class="nt">invDeployment</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;projects/&lt;project_name&gt;&quot;</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;azure&quot;</span>
+<span class="w">    </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1001</span>
+<span class="w">    </span><span class="nt">invDeployment</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/subscriptions/&lt;sub_id&gt;/resourceGroups/&lt;resource_group_name&gt;&quot;</span>
+
+<span class="nt">tagService</span><span class="p">:</span>
+<span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6000</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">cloudPlugins`</span></code> list may contain one or multiple cloud plugins. Though all listed should be reachable (otherwise, requests to the central controller may only result in errors). The <code class="docutils literal notranslate"><span class="pre">server</span></code> section is used to describe where the central controller will bind on the local machine to serve the HTTP server for users (<code class="docutils literal notranslate"><span class="pre">port</span></code>) and the RPC server for the cloud plugins (<code class="docutils literal notranslate"><span class="pre">rpcPort</span></code>). All other hosts/ports are where the other services are expected to be and may or may not be locally hosted.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">invDeployment</span></code> parameter in the cloud plugin specification includes the minimum URI necessary to find the Invisinets resources for that cloud. In GCP, this is project ID while in Azure this is the resource group URI.</p>
+<p>If no tags are used, the <code class="docutils literal notranslate"><span class="pre">tagService</span></code> does not have to be running for requests to complete.</p>
+</section>
+<section id="startup-all-services">
+<h2>Startup All Services<a class="headerlink" href="#startup-all-services" title="Link to this heading">¶</a></h2>
+<section id="using-the-cli-run">
+<h3>Using the CLI, run:<a class="headerlink" href="#using-the-cli-run" title="Link to this heading">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>startup<span class="w"> </span>&lt;path_to_config&gt;
+</pre></div>
+</div>
+</section>
+<section id="orchestrator">
+<h3>Orchestrator<a class="headerlink" href="#orchestrator" title="Link to this heading">¶</a></h3>
+<p>Using the CLI, run:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>orch<span class="w"> </span>&lt;path_to_config&gt;
+</pre></div>
+</div>
+</section>
+</section>
+<section id="cloud-plugins">
+<h2>Cloud Plugins<a class="headerlink" href="#cloud-plugins" title="Link to this heading">¶</a></h2>
+<section id="azure">
+<h3>Azure<a class="headerlink" href="#azure" title="Link to this heading">¶</a></h3>
+<p>Using the CLI, run:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>az<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">central_controller_address</span></code> should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is “localhost:8081”.</p>
+</section>
+<section id="gcp">
+<h3>GCP<a class="headerlink" href="#gcp" title="Link to this heading">¶</a></h3>
+<p>Using the CLI, run:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>gcp<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">central_controller_address</span></code> should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is “localhost:8081”.</p>
+</section>
+</section>
+<section id="tag-service">
+<h2>Tag Service<a class="headerlink" href="#tag-service" title="Link to this heading">¶</a></h2>
+<p>Using the CLI, run:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>tagserv<span class="w"> </span>&lt;redis_port&gt;<span class="w"> </span>&lt;server_port&gt;<span class="w"> </span>&lt;clear_keys&gt;
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">clear_keys</span></code> is a bool (“true” or “false”) which determines whether the database state should be cleared on startup or not.</p>
+</section>
+<section id="cloud-resources">
+<h2>Cloud Resources<a class="headerlink" href="#cloud-resources" title="Link to this heading">¶</a></h2>
+<p>In order for the cloud plugins to correctly use their SDKs, ensure that these steps have been completed.</p>
+<section id="id2">
+<h3>Azure<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><a class="reference external" href="https://learn.microsoft.com/en-us/cli/azure/install-azure-cli">Install azure cli</a>. If you’re using the dev container, this will already be installed for you.</p></li>
+<li><p><a class="reference external" href="https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli">Authenticate to your account with azure login</a>.</p></li>
+</ol>
+</section>
+<section id="google-cloud">
+<h3>Google Cloud<a class="headerlink" href="#google-cloud" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><a class="reference external" href="https://cloud.google.com/sdk/docs/install">Install the gcloud CLI</a>. If you’re using the dev container, this will already be installed for you.</p></li>
+<li><p><a class="reference external" href="https://cloud.google.com/docs/authentication/provide-credentials-adc">Set up your application default credentials</a>.</p></li>
+</ol>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Invisinets</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Overview</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developers</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../developers/contributing.html">Contributing</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../index.html" title="previous chapter">Welcome to Invisinets!</a></li>
+      <li>Next: <a href="design.html" title="next chapter">Design</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024, Sean Kim.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/overview/quickstart.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
