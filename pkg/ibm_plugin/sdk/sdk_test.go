@@ -33,7 +33,7 @@ const (
 
 // TODO @praveingk: Expand tests of SDK functions
 
-// run via: go test --tags=ibm -run TestCleanup -sg=<security group name>
+// run via: go test --tags=ibm -run TestCleanup
 // deletes all invisinets VPCs
 func TestCleanup(t *testing.T) {
 	cloudClient, err := NewIBMCloudClient(*testResGroupName, testRegion)
@@ -43,7 +43,7 @@ func TestCleanup(t *testing.T) {
 	// terminate all VPCs and their associated resources.
 	for _, vpcsData := range vpcsData {
 		// cloud client must be set to the region of the current VPC
-		cloudClient, err := NewIBMCloudClient(*testResGroupName, vpcsData.Region)
+		cloudClient, err := NewIBMCloudClient(*testResGroupName, vpcsData.Region, false)
 		require.NoError(t, err)
 		err = cloudClient.TerminateVPC(vpcsData.ID)
 		require.NoError(t, err)

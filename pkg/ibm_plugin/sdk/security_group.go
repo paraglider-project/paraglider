@@ -82,7 +82,6 @@ var ibmToInvisinetsProtocol = map[string]int32{
 	"udp":  17,
 }
 
-
 // creates security group in the specified VPC and tags it.
 func (c *CloudClient) createSecurityGroup(
 	vpcID string) (*vpcv1.SecurityGroup, error) {
@@ -305,25 +304,36 @@ func (c *CloudClient) translateRuleProtocol(rule SecurityGroupRule) (vpcv1.Secur
 			Remote:    remotePrototype,
 		}
 	case "tcp", "udp":
-		prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolTcpudp{
-			Direction: direction,
-			Protocol:  &rule.Protocol,
-			PortMin:   &rule.PortMin,
-			PortMax:   &rule.PortMax,
-			Remote:    remotePrototype,
+		if rule.PortMin == -1 && rule.PortMax == -1 {
+			prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolTcpudp{
+				Direction: direction,
+				Protocol:  &rule.Protocol,
+				Remote:    remotePrototype,
+			}
+		} else {
+			prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolTcpudp{
+				Direction: direction,
+				Protocol:  &rule.Protocol,
+				PortMin:   &rule.PortMin,
+				PortMax:   &rule.PortMax,
+				Remote:    remotePrototype,
+			}
 		}
 	case "icmp":
-		if rule.IcmpType != -1 && rule.IcmpCode != -1 {
-			return nil, fmt.Errorf(`invisinets permitlist rule doesn't support 
-				icmp with specific codes and types`)
-		}
-
-		prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp{
-			Direction: direction,
-			Protocol:  core.StringPtr("icmp"),
-			Type:      &rule.IcmpType,
-			Code:      &rule.IcmpCode,
-			Remote:    remotePrototype,
+		if rule.IcmpType == -1 && rule.IcmpCode == -1 {
+			prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp{
+				Direction: direction,
+				Protocol:  core.StringPtr("icmp"),
+				Remote:    remotePrototype,
+			}
+		} else {
+			prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp{
+				Code:      &rule.IcmpCode,
+				Direction: direction,
+				Protocol:  core.StringPtr("icmp"),
+				Type:      &rule.IcmpType,
+				Remote:    remotePrototype,
+			}
 		}
 	}
 
@@ -450,7 +460,6 @@ func (c *CloudClient) GetRulesIDs(rules []SecurityGroupRule, sgID string) ([]str
 	return rulesIDs, nil
 }
 
-
 // returns rules in invisinets format from IBM cloud format
 // TODO @cohen-j-omer: handle permitList tags if required.
 func IBMToInvisinetsRules(rules []SecurityGroupRule) ([]*invisinetspb.PermitListRule, error) {
@@ -503,9 +512,9 @@ func InvisinetsToIBMRules(securityGroupID string, rules []*invisinetspb.PermitLi
 				PortMin:    int64(rule.SrcPort),
 				PortMax:    int64(rule.SrcPort),
 				Egress:     invisinetsToIBMDirection[rule.Direction],
-				// explicitly setting value to 0. other icmp values have meaning.
-				IcmpType: 0,
-				IcmpCode: 0,
+				// explicitly setting value to -1. other icmp values have meaning.
+				IcmpType: -1,
+				IcmpCode: -1,
 			}
 			sgRules = append(sgRules, sgRule)
 		}

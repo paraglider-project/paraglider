@@ -5,7 +5,8 @@
 Create a new API key by running this command:
 
 ```
-ibmcloud iam api-key-create invkey | grep "API Key" | { echo -n "iam_api_key:" & grep -o '[^ ]\+$'; } > ~/.ibm/credentials.yaml
+mkdir -p ~/.ibm
+ibmcloud iam api-key-create invkey | grep "API Key" | { echo -n "iam_api_key: " & grep -o '[^ ]\+$'; } > ~/.ibm/credentials.yaml
 ```
 
 ### Instance Keys

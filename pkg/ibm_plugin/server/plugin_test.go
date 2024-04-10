@@ -109,7 +109,7 @@ var testPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRu
 
 // TODO @praveingk: Change the tests to use fake IBM handlers
 
-// go test --tags=ibm -run TestCreateResourceNewVPC -sg=<security group name>
+// go test --tags=ibm -run TestCreateResourceNewVPCcd -sg=<security group name>
 func TestCreateResourceNewVPC(t *testing.T) {
 	// Notes for tester:
 	// to change region set the values below according to constants above, e.g.:

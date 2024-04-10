@@ -198,7 +198,7 @@ func (c *CloudClient) VMToVPCObject(vmID string) (*vpcv1.VPCReference, error) {
 // region is an optional argument used to increase effectiveness of resource search
 func (c *CloudClient) IsInstanceInNamespace(InstanceName, namespace, region string) (bool, error) {
 	resourceQuery := ResourceQuery{}
-	vmData, err := c.GetInstanceData(InstanceName)
+	vmData, err := c.getInstanceDataFromID(InstanceName)
 	if err != nil {
 		return false, err
 	}
@@ -235,4 +235,14 @@ func (c *CloudClient) GetInstanceData(name string) (*vpcv1.Instance, error) {
 		return nil, fmt.Errorf("instance %s not found", name)
 	}
 	return &collection.Instances[0], nil
+}
+
+// GetInstanceID returns ID of the instance matching the specified name
+func (c *CloudClient) getInstanceDataFromID(id string) (*vpcv1.Instance, error) {
+	options := &vpcv1.GetInstanceOptions{ID: &id}
+	instance, _, err := c.vpcService.GetInstance(options)
+	if err != nil {
+		return nil, err
+	}
+	return instance, nil
 }

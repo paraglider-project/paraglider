@@ -25,9 +25,9 @@ import (
 
 // ResourceIDInfo defines the necessary fields of a resource sent in a request
 type ResourceIDInfo struct {
-	ResourceGroupName string `json:"ResourceGroupName"` // name of the resource group
-	Zone              string `json:"Zone"`
-	ResourceID        string `json:"ResourceID"`
+	ResourceGroup string `json:"resourcegroup"` // name of the resource group
+	Zone          string `json:"zone"`
+	ResourceID    string `json:"resourceid"`
 }
 
 func getClientMapKey(resGroup, region string) string {
@@ -35,16 +35,16 @@ func getClientMapKey(resGroup, region string) string {
 }
 
 // returns ResourceIDInfo out of an agreed upon formatted string:
-// "/ResourceGroupName/{ResourceGroupName}/Region/{Region}/ResourceID/{ResourceID}"
+// "/resourcegroup/{ResourceGroupName}/zone/{zone}/resourcetype/{ResourceID}"
 func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	parts := strings.Split(resourceID, "/")
 
-	if parts[0] != "" || parts[1] != "ResourceGroupName" {
-		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/ResourceGroupName/{ResourceGroupName}', got '%s'", resourceID)
+	if parts[0] != "" || parts[1] != "resourcegroup" {
+		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}', got '%s'", resourceID)
 	}
 
 	info := ResourceIDInfo{
-		ResourceGroupName: parts[2],
+		ResourceGroup: parts[2],
 	}
 	if len(parts) >= 4 {
 		info.Zone = parts[4]
@@ -56,12 +56,16 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	return info, nil
 }
 
+func createInstanceID(resGroup, zone, resName string) string {
+	return fmt.Sprintf("/resourcegroup/%s/zone/%s/instances/%s", resGroup, zone, resName)
+}
+
 // returns the invisinets VPC that the specified remote (IP/CIDR) resides in.
-func getRemoteVPC(remote, resourceGroupName string) (*sdk.ResourceData, error) {
+func getRemoteVPC(remote, resourceGroup string) (*sdk.ResourceData, error) {
 
 	// using a tmp client to avoid altering the cloud client's region.
 	// passing a random region to pass verification. region will be updated with accordance to the selected VPC.
-	tmpClient, err := sdk.NewIBMCloudClient(resourceGroupName, "us-south", true)
+	tmpClient, err := sdk.NewIBMCloudClient(resourceGroup, "us-south", false)
 	if err != nil {
 		return nil, err
 	}
