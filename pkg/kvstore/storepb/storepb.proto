@@ -37,8 +37,8 @@ message SetResponse {
 
 message GetRequest {
     string key = 1;
-    string cloud = 3;
-    string namespace = 4;
+    string cloud = 2;
+    string namespace = 3;
 }
 
 message GetResponse {
@@ -47,8 +47,8 @@ message GetResponse {
 
 message DeleteRequest {
     string key = 1;
-    string cloud = 3;
-    string namespace = 4;
+    string cloud = 2;
+    string namespace = 3;
 }
 
 message DeleteResponse {
