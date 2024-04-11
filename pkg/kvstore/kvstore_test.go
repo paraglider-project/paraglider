@@ -20,7 +20,7 @@ import (
 	"context"
 	"testing"
 
-	storepb "github.com/NetSys/invisinets/pkg/kv_store/storepb"
+	storepb "github.com/NetSys/invisinets/pkg/kvstore/storepb"
 	"github.com/go-redis/redismock/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

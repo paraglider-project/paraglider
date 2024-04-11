@@ -22,7 +22,7 @@ import (
 	"log"
 	"net"
 
-	storepb "github.com/NetSys/invisinets/pkg/kv_store/storepb"
+	storepb "github.com/NetSys/invisinets/pkg/kvstore/storepb"
 	redis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 )

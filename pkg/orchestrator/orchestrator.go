@@ -38,7 +38,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/NetSys/invisinets/pkg/kv_store/storepb"
+	"github.com/NetSys/invisinets/pkg/kvstore/storepb"
 	config "github.com/NetSys/invisinets/pkg/orchestrator/config"
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
@@ -1175,6 +1175,7 @@ func (s *ControllerServer) GetValue(c context.Context, req *invisinetspb.GetValu
 	defer conn.Close()
 
 	client := storepb.NewKVStoreClient(conn)
+
 	response, err := client.Get(c, &storepb.GetRequest{Key: req.Key, Namespace: req.Namespace, Cloud: req.Cloud})
 	if err != nil {
 		return nil, err
@@ -1191,6 +1192,7 @@ func (s *ControllerServer) SetValue(c context.Context, req *invisinetspb.SetValu
 	defer conn.Close()
 
 	client := storepb.NewKVStoreClient(conn)
+
 	_, err = client.Set(c, &storepb.SetRequest{Key: req.Key, Value: req.Value, Namespace: req.Namespace, Cloud: req.Cloud})
 	if err != nil {
 		return nil, err
@@ -1207,8 +1209,10 @@ func (s *ControllerServer) DeleteValue(c context.Context, req *invisinetspb.Dele
 	defer conn.Close()
 
 	client := storepb.NewKVStoreClient(conn)
+
 	_, err = client.Delete(c, &storepb.DeleteRequest{Key: req.Key, Namespace: req.Namespace, Cloud: req.Cloud})
 	if err != nil {
+		fmt.Printf("Error getting KV store service connection: %s\n", err.Error())
 		return nil, err
 	}
 	return &invisinetspb.DeleteValueResponse{}, nil
