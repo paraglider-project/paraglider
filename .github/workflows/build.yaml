@@ -103,7 +103,7 @@ jobs:
           export GOPATH=$HOME/go
           export PATH=$PATH:$GOPATH/bin
       - name: Make build
-          run: make build
+        run: make build
       - name: Run linter
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'  
         uses: golangci/golangci-lint-action@v3
