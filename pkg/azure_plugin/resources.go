@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// TODO NOW: Naming / cleanup (also look at comments from the PR when doing this)
+
 package azure_plugin
 
 import (
@@ -37,14 +39,14 @@ const (
 	managedClusterTypeName = "Microsoft.ContainerService/managedClusters"
 )
 
-type ResourceNetworkInfo struct {
+type resourceNetworkInfo struct {
 	SubnetID string
 	Address  string
 	Location string
 	NSG      *armnetwork.SecurityGroup
 }
 
-type ResourceInfo struct {
+type resourceInfo struct {
 	ResourceName               string
 	ResourceID                 string
 	Location                   string
@@ -63,8 +65,35 @@ func getDnsServiceCidr(serviceCidr string) string {
 	return fmt.Sprintf("%s.%s.%s.10", split[0], split[1], split[2])
 }
 
+// Determine type of resource based on ID and return the relevant network handler
+func getResourceNetworkHandler(resourceID string) (azureResourceNetworkHandler, error) {
+	if strings.Contains(resourceID, virtualMachineTypeName) {
+		return &azureVM{}, nil
+	} else if strings.Contains(resourceID, managedClusterTypeName) {
+		return &azureAKS{}, nil
+	} else {
+		return nil, fmt.Errorf("resource type %s is not supported", resourceID)
+	}
+}
+
+// Determine type of resource based on ID and return the relevant full resource handler
+func getResourceHandlerNew(resourceID string) (iAzureResourceHandler, error) {
+	if strings.Contains(resourceID, virtualMachineTypeName) {
+		return &azureResourceHandlerVM{}, nil
+	} else if strings.Contains(resourceID, managedClusterTypeName) {
+		return &azureResourceHandlerAKS{}, nil
+	} else {
+		return nil, fmt.Errorf("resource type %s is not supported", resourceID)
+	}
+}
+
+// Type defition for supported Azure resources
+type supportedAzureResource interface {
+	armcompute.VirtualMachine | armcontainerservice.ManagedCluster
+}
+
 // Gets the resource and returns relevant networking state. Also checks that the resource is in the correct namespace.
-func GetAndCheckResourceState(c context.Context, handler AzureSDKHandler, resourceID string, namespace string) (*ResourceNetworkInfo, error) {
+func GetAndCheckResourceState(c context.Context, handler AzureSDKHandler, resourceID string, namespace string) (*resourceNetworkInfo, error) {
 	// Check the namespace
 	if namespace == "" {
 		return nil, fmt.Errorf("namespace cannot be empty")
@@ -87,7 +116,7 @@ func GetAndCheckResourceState(c context.Context, handler AzureSDKHandler, resour
 }
 
 // Gets the resource and returns relevant networking state
-func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, resourceID string) (*ResourceNetworkInfo, error) {
+func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, resourceID string) (*resourceNetworkInfo, error) {
 	// get a generic resource
 	resource, err := handler.GetResource(c, resourceID)
 	if err != nil {
@@ -95,101 +124,107 @@ func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, reso
 		return nil, err
 	}
 
-	// get the network info using typed handler
-	var networkInfo *ResourceNetworkInfo
-	if strings.Contains(*resource.Type, virtualMachineTypeName) {
-		resourceHandler := &AzureVM{}
-		networkInfo, err = resourceHandler.GetNetworkInfo(resource, handler)
-		if err != nil {
-			utils.Log.Printf("An error occured while getting network info for resource %s: %+v", resourceID, err)
-			return nil, err
-		}
-	} else if strings.Contains(*resource.Type, managedClusterTypeName) {
-		resourceHandler := &AzureAKS{}
-		networkInfo, err = resourceHandler.GetNetworkInfo(resource, handler)
-		if err != nil {
-			utils.Log.Printf("An error occured while getting network info for resource %s: %+v", resourceID, err)
-			return nil, err
-		}
-	} else {
-		return nil, fmt.Errorf("resource type %s is not supported", *resource.Type)
+	// get the network info using network handler
+	netHandler, err := getResourceNetworkHandler(resourceID)
+	networkInfo, err := netHandler.getNetworkInfo(resource, handler)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting network info for resource %s: %+v", resourceID, err)
+		return nil, err
 	}
 	return networkInfo, nil
 }
 
 // Gets basic resource information from the description
 // Returns the resource name, ID, location, and whether the resource will require its own subnet in a struct
-func GetResourceInfoFromResourceDesc(ctx context.Context, resource *invisinetspb.ResourceDescription) (*ResourceInfo, error) {
-	if strings.Contains(resource.Id, "virtualMachines") {
-		handler := &AzureVM{}
-		vm, err := handler.FromResourceDecription(resource.Description)
-		if err != nil {
-			return nil, err
-		}
-		requiresSubnet, extraPrefixes := handler.GetNetworkRequirements()
-		return &ResourceInfo{ResourceName: getNameFromUri(resource.Id), ResourceID: resource.Id, Location: *vm.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
-	} else if strings.Contains(resource.Id, "managedClusters") {
-		handler := &AzureAKS{}
-		aks, err := handler.FromResourceDecription(resource.Description)
-		if err != nil {
-			return nil, err
-		}
-		requiresSubnet, extraPrefixes := handler.GetNetworkRequirements()
-		return &ResourceInfo{ResourceName: *aks.Name, ResourceID: resource.Id, Location: *aks.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
-	} else {
-		return nil, fmt.Errorf("resource description contains unknown Azure resource")
+func GetResourceInfoFromResourceDesc(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
+	handler, err := getResourceHandlerNew(resource.Id)
+	if err != nil {
+		return nil, err
 	}
+	return handler.getResourceInfoFromDescription(ctx, resource)
 }
 
 // Reads the resource description and provisions the resource with the given subnet
 func ReadAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
-	var ip string
-	if strings.Contains(resource.Id, "virtualMachines") {
-		handler := &AzureVM{}
-		vm, err := handler.FromResourceDecription(resource.Description)
-		if err != nil {
-			return "", err
-		}
-		ip, err = handler.CreateWithNetwork(ctx, vm, subnet, resourceInfo, sdkHandler, make([]string, 0))
-		if err != nil {
-			return "", err
-		}
-	} else if strings.Contains(resource.Id, "managedClusters") {
-		handler := &AzureAKS{}
-		aks, err := handler.FromResourceDecription(resource.Description)
-		if err != nil {
-			return "", err
-		}
-		ip, err = handler.CreateWithNetwork(ctx, aks, subnet, resourceInfo, sdkHandler, additionalAddressSpaces)
-		if err != nil {
-			return "", err
-		}
-	} else {
-		return "", fmt.Errorf("resource description contains unknown Azure resource")
+	handler, err := getResourceHandlerNew(resource.Id)
+	if err != nil {
+		return "", err
 	}
-
-	return ip, nil
+	return handler.readAndProvisionResource(ctx, resource, subnet, resourceInfo, sdkHandler, additionalAddressSpaces)
 }
 
 // Interface that must be implemented for a resource to be supported
-type AzureResourceHandler[T any] interface {
-	CreateWithNetwork(ctx context.Context, resource *T, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, handler AzureSDKHandler, additionalAddressSpaces []string) (string, error)
-	FromResourceDecription(resourceDesc []byte) (T, error)
-	GetNetworkInfo(resource *armresources.GenericResource, handler AzureSDKHandler) (*ResourceNetworkInfo, error)
-	GetNetworkRequirements() (bool, int)
+type iAzureResourceHandler interface {
+	initialize() // TODO NOW: do we need this?
+	getResourceInfoFromDescription(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error)
+	readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error)
+}
+
+// Struct that holds the handler and network handler for a resource while implementing the interface
+type azureResourceHandler[T supportedAzureResource] struct {
+	iAzureResourceHandler
+	handler    azureResourceProvisioningHandler[T]
+	netHandler azureResourceNetworkHandler
+}
+
+// Interface to implement for the resource provisioning handler
+type azureResourceProvisioningHandler[T supportedAzureResource] interface {
+	createWithNetwork(ctx context.Context, resource *T, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error)
+	fromResourceDecription(resourceDesc []byte) (*T, error)
+}
+
+// Interface to implement for the resource network handler
+type azureResourceNetworkHandler interface {
+	getNetworkInfo(resource *armresources.GenericResource, sdkHandler AzureSDKHandler) (*resourceNetworkInfo, error)
+	getNetworkRequirements() (bool, int)
 }
 
 // VM implementation of the AzureResourceHandler interface
-type AzureVM struct {
-	AzureResourceHandler[armcompute.VirtualMachine]
+type azureResourceHandlerVM struct {
+	azureResourceHandler[armcompute.VirtualMachine]
 }
 
-func (r *AzureVM) GetNetworkRequirements() (bool, int) {
+func (r *azureResourceHandlerVM) initialize() {
+	handler := &azureVM{}
+	r.handler = handler
+	r.netHandler = handler
+}
+
+func (r *azureResourceHandlerVM) getResourceInfoFromDescription(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
+	r.initialize()
+	vm, err := r.handler.fromResourceDecription(resource.Description)
+	if err != nil {
+		return nil, err
+	}
+	requiresSubnet, extraPrefixes := r.netHandler.getNetworkRequirements()
+	return &resourceInfo{ResourceName: getNameFromUri(resource.Id), ResourceID: resource.Id, Location: *vm.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
+}
+
+func (r *azureResourceHandlerVM) readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+	r.initialize()
+	vm, err := r.handler.fromResourceDecription(resource.Description)
+	if err != nil {
+		return "", err
+	}
+	ip, err := r.handler.createWithNetwork(ctx, vm, subnet, resourceInfo, sdkHandler, make([]string, 0))
+	if err != nil {
+		return "", err
+	}
+	return ip, nil
+}
+
+// VM implementation of the resource provisioning handler and network handler
+type azureVM struct {
+	azureResourceProvisioningHandler[armcompute.VirtualMachine]
+	azureResourceNetworkHandler
+}
+
+func (r *azureVM) getNetworkRequirements() (bool, int) {
 	return false, 0
 }
 
 // Gets the network information for a virtual machine
-func (r *AzureVM) GetNetworkInfo(resource *armresources.GenericResource, handler AzureSDKHandler) (*ResourceNetworkInfo, error) {
+func (r *azureVM) getNetworkInfo(resource *armresources.GenericResource, sdkHandler AzureSDKHandler) (*resourceNetworkInfo, error) {
 	properties, ok := resource.Properties.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("failed to read resource.Properties")
@@ -202,7 +237,7 @@ func (r *AzureVM) GetNetworkInfo(resource *armresources.GenericResource, handler
 	if err != nil {
 		return nil, err
 	}
-	nic, err := handler.GetNetworkInterface(context.Background(), nicName)
+	nic, err := sdkHandler.GetNetworkInterface(context.Background(), nicName)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network interface:%+v", err)
 		return nil, err
@@ -212,24 +247,25 @@ func (r *AzureVM) GetNetworkInfo(resource *armresources.GenericResource, handler
 	if err != nil {
 		return nil, err
 	}
-	nsg, err := handler.GetSecurityGroup(context.Background(), nsgName)
+	nsg, err := sdkHandler.GetSecurityGroup(context.Background(), nsgName)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network security group:%+v", err)
 		return nil, err
 	}
 
-	return &ResourceNetworkInfo{
+	info := resourceNetworkInfo{
 		SubnetID: *nic.Properties.IPConfigurations[0].Properties.Subnet.ID,
 		Address:  *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress,
 		Location: *resource.Location,
 		NSG:      nsg,
-	}, nil
+	}
+	return &info, nil
 }
 
 // Creates a virtual machine with the given subnet
 // Returns the private IP address of the virtual machine
-func (r *AzureVM) CreateWithNetwork(ctx context.Context, vm *armcompute.VirtualMachine, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, handler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
-	nic, err := handler.CreateNetworkInterface(ctx, *subnet.ID, *vm.Location, getInvisinetsResourceName("nic"))
+func (r *azureVM) createWithNetwork(ctx context.Context, vm *armcompute.VirtualMachine, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+	nic, err := sdkHandler.CreateNetworkInterface(ctx, *subnet.ID, *vm.Location, getInvisinetsResourceName("nic"))
 	if err != nil {
 		utils.Log.Printf("An error occured while creating network interface:%+v", err)
 		return "", err
@@ -243,7 +279,7 @@ func (r *AzureVM) CreateWithNetwork(ctx context.Context, vm *armcompute.VirtualM
 		},
 	}
 
-	vm, err = handler.CreateVirtualMachine(ctx, *vm, resourceInfo.ResourceName)
+	vm, err = sdkHandler.CreateVirtualMachine(ctx, *vm, resourceInfo.ResourceName)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating the virtual machine:%+v", err)
 		return "", err
@@ -254,7 +290,7 @@ func (r *AzureVM) CreateWithNetwork(ctx context.Context, vm *armcompute.VirtualM
 		return "", err
 	}
 
-	nic, err = handler.GetNetworkInterface(ctx, nicName)
+	nic, err = sdkHandler.GetNetworkInterface(ctx, nicName)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network interface:%+v", err)
 		return "", err
@@ -264,7 +300,7 @@ func (r *AzureVM) CreateWithNetwork(ctx context.Context, vm *armcompute.VirtualM
 }
 
 // Converts the resource description to a virtual machine object
-func (r *AzureVM) FromResourceDecription(resourceDesc []byte) (*armcompute.VirtualMachine, error) {
+func (r *azureVM) fromResourceDecription(resourceDesc []byte) (*armcompute.VirtualMachine, error) {
 	vm := &armcompute.VirtualMachine{}
 	err := json.Unmarshal(resourceDesc, vm)
 	if err != nil {
@@ -284,17 +320,53 @@ func (r *AzureVM) FromResourceDecription(resourceDesc []byte) (*armcompute.Virtu
 	return vm, nil
 }
 
-// AKS implementation of the AzureResourceHandler interface
-type AzureAKS struct {
-	AzureResourceHandler[armcontainerservice.ManagedCluster]
+// AKS implementation of the NewAzureResourceHandler interface
+type azureResourceHandlerAKS struct {
+	azureResourceHandler[armcontainerservice.ManagedCluster]
 }
 
-func (r *AzureAKS) GetNetworkRequirements() (bool, int) {
+func (r *azureResourceHandlerAKS) initialize() {
+	handler := &azureAKS{}
+	r.handler = handler
+	r.netHandler = handler
+}
+
+func (r *azureResourceHandlerAKS) getResourceInfoFromDescription(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
+	r.initialize()
+	aks, err := r.handler.fromResourceDecription(resource.Description)
+	if err != nil {
+		return nil, err
+	}
+	requiresSubnet, extraPrefixes := r.netHandler.getNetworkRequirements()
+	return &resourceInfo{ResourceName: *aks.Name, ResourceID: resource.Id, Location: *aks.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
+
+}
+
+func (r *azureResourceHandlerAKS) readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+	r.initialize()
+	aks, err := r.handler.fromResourceDecription(resource.Description)
+	if err != nil {
+		return "", err
+	}
+	ip, err := r.handler.createWithNetwork(ctx, aks, subnet, resourceInfo, sdkHandler, additionalAddressSpaces)
+	if err != nil {
+		return "", err
+	}
+	return ip, nil
+}
+
+// AKS implementation of the AzureResourceHandler interface
+type azureAKS struct {
+	azureResourceProvisioningHandler[armcontainerservice.ManagedCluster]
+	azureResourceNetworkHandler
+}
+
+func (r *azureAKS) getNetworkRequirements() (bool, int) {
 	return true, 1 // TODO @smcclure20: change with support for kubenet
 }
 
 // Gets the network information for an AKS cluster
-func (r *AzureAKS) GetNetworkInfo(resource *armresources.GenericResource, handler AzureSDKHandler) (*ResourceNetworkInfo, error) {
+func (r *azureAKS) getNetworkInfo(resource *armresources.GenericResource, sdkHandler AzureSDKHandler) (*resourceNetworkInfo, error) {
 	properties, ok := resource.Properties.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("failed to read resource.Properties")
@@ -302,7 +374,7 @@ func (r *AzureAKS) GetNetworkInfo(resource *armresources.GenericResource, handle
 	profiles := properties["agentPoolProfiles"].([]interface{})
 	firstProfile := profiles[0].(map[string]interface{})
 	subnetID := firstProfile["vnetSubnetID"].(string)
-	subnet, err := handler.GetSubnetByID(context.Background(), subnetID)
+	subnet, err := sdkHandler.GetSubnetByID(context.Background(), subnetID)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the subnet:%+v", err)
 		return nil, err
@@ -311,13 +383,13 @@ func (r *AzureAKS) GetNetworkInfo(resource *armresources.GenericResource, handle
 	if err != nil {
 		return nil, err
 	}
-	nsg, err := handler.GetSecurityGroup(context.Background(), nsgName)
+	nsg, err := sdkHandler.GetSecurityGroup(context.Background(), nsgName)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network security group:%+v", err)
 		return nil, err
 	}
 
-	return &ResourceNetworkInfo{
+	return &resourceNetworkInfo{
 		SubnetID: *subnet.ID,
 		Address:  *subnet.Properties.AddressPrefix,
 		Location: *resource.Location,
@@ -327,7 +399,7 @@ func (r *AzureAKS) GetNetworkInfo(resource *armresources.GenericResource, handle
 
 // Creates an AKS cluster with the given subnet
 // Returns the address prefix of the subnet
-func (r *AzureAKS) CreateWithNetwork(ctx context.Context, resource *armcontainerservice.ManagedCluster, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, handler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+func (r *azureAKS) createWithNetwork(ctx context.Context, resource *armcontainerservice.ManagedCluster, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	// Set network parameters
 	for _, profile := range resource.Properties.AgentPoolProfiles {
 		profile.VnetSubnetID = subnet.ID
@@ -340,7 +412,7 @@ func (r *AzureAKS) CreateWithNetwork(ctx context.Context, resource *armcontainer
 	resource.Properties.NetworkProfile.DNSServiceIP = to.Ptr(getDnsServiceCidr(additionalAddressSpaces[0]))
 
 	// Create the AKS cluster
-	_, err := handler.CreateAKSCluster(ctx, *resource, resourceInfo.ResourceName)
+	_, err := sdkHandler.CreateAKSCluster(ctx, *resource, resourceInfo.ResourceName)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating the AKS cluster:%+v", err)
 		return "", err
@@ -348,13 +420,13 @@ func (r *AzureAKS) CreateWithNetwork(ctx context.Context, resource *armcontainer
 
 	// Associate the subnet with an NSG for the cluster
 	allowedAddrs := map[string]string{"localsubnet": *subnet.Properties.AddressPrefix} // TODO @smcclure20: change with support for kubenet (include pod cidr)
-	nsg, err := handler.CreateSecurityGroup(ctx, resourceInfo.ResourceName, *resource.Location, allowedAddrs)
+	nsg, err := sdkHandler.CreateSecurityGroup(ctx, resourceInfo.ResourceName, *resource.Location, allowedAddrs)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating the network security group:%+v", err)
 		return "", err
 	}
 
-	err = handler.AssociateNSGWithSubnet(ctx, *subnet.ID, *nsg.ID)
+	err = sdkHandler.AssociateNSGWithSubnet(ctx, *subnet.ID, *nsg.ID)
 	if err != nil {
 		utils.Log.Printf("An error occured while associating the network security group with the subnet:%+v", err)
 		return "", err
@@ -364,7 +436,7 @@ func (r *AzureAKS) CreateWithNetwork(ctx context.Context, resource *armcontainer
 }
 
 // Converts the resource description to an AKS cluster object
-func (r *AzureAKS) FromResourceDecription(resourceDesc []byte) (*armcontainerservice.ManagedCluster, error) {
+func (r *azureAKS) fromResourceDecription(resourceDesc []byte) (*armcontainerservice.ManagedCluster, error) {
 	aks := &armcontainerservice.ManagedCluster{}
 	err := json.Unmarshal(resourceDesc, aks)
 	if err != nil {

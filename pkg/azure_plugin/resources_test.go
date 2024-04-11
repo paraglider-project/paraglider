@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// TODO: these tests need re-written to match the new interfaces
+
 package azure_plugin
 
 import (
@@ -327,14 +329,45 @@ func TestGetResourceInfoFromResourceDesc(t *testing.T) {
 	assert.Equal(t, resourceInfo.Location, *cluster.Location)
 }
 
+func TestAzureResourceHandlerVMGetResourceInfoFromDescription(t *testing.T) {
+	mockAzureHandler := &MockAzureSDKHandler{}
+	setupMockFunctions(mockAzureHandler)
+	vm := getFakeVirtualMachine(false)
+
+	vmHandler := &azureResourceHandlerVM{}
+	resourceDescription, err := getFakeVMResourceDescription(&vm)
+	require.NoError(t, err)
+	resourceInfo, err := vmHandler.getResourceInfoFromDescription(context.Background(), resourceDescription)
+
+	require.NoError(t, err)
+	assert.Equal(t, resourceInfo.ResourceName, *vm.Name)
+}
+
+func TestAzureResourceHandlerVMReadAndProvisionResource(t *testing.T) {
+	mockAzureHandler := &MockAzureSDKHandler{}
+	setupMockFunctions(mockAzureHandler)
+	vm := getFakeVirtualMachine(false)
+
+	vmHandler := &azureResourceHandlerVM{}
+	resourceDescription, err := getFakeVMResourceDescription(&vm)
+	require.NoError(t, err)
+
+	resourceInfo := getFakeResourceInfo(*vm.Name)
+	subnet := getFakeSubnet()
+	ip, err := vmHandler.readAndProvisionResource(context.Background(), resourceDescription, &subnet, &resourceInfo, mockAzureHandler, []string{})
+
+	require.NoError(t, err)
+	assert.Equal(t, ip, *getFakeInterface().Properties.IPConfigurations[0].Properties.PrivateIPAddress)
+}
+
 func TestAzureVMGetNetworkInfo(t *testing.T) {
 	mockAzureHandler := &MockAzureSDKHandler{}
 	vm, _ := setupMockFunctions(mockAzureHandler)
 
-	vmHandler := &AzureVM{}
+	vmHandler := &azureVM{}
 	resource := getFakeVMGenericResource()
 
-	netInfo, err := vmHandler.GetNetworkInfo(&resource, mockAzureHandler)
+	netInfo, err := vmHandler.getNetworkInfo(&resource, mockAzureHandler)
 
 	require.NoError(t, err)
 	assert.Equal(t, netInfo.SubnetID, *getFakeSubnet().ID)
@@ -344,27 +377,26 @@ func TestAzureVMGetNetworkInfo(t *testing.T) {
 }
 
 func TestAzureVMFromResourceDecription(t *testing.T) {
-	vmHandler := &AzureVM{}
+	vmHandler := &azureVM{}
 	fakeVm := getFakeVirtualMachine(false)
 
 	resourceDescription, err := getFakeVMResourceDescription(&fakeVm)
 	require.NoError(t, err)
-	vm, err := vmHandler.FromResourceDecription(resourceDescription.Description)
+	vm, err := vmHandler.fromResourceDecription(resourceDescription.Description)
 
 	require.NoError(t, err)
 	assert.Equal(t, vm.Name, fakeVm.Name)
-
 }
 
 func TestAzureVMCreateWithNetwork(t *testing.T) {
 	mockAzureHandler := &MockAzureSDKHandler{}
 	vm, _ := setupMockFunctions(mockAzureHandler)
 
-	vmHandler := &AzureVM{}
+	vmHandler := &azureVM{}
 
 	subnet := getFakeSubnet()
 	resourceInfo := &ResourceIDInfo{ResourceName: *vm.Name}
-	ip, err := vmHandler.CreateWithNetwork(context.Background(), vm, &subnet, resourceInfo, mockAzureHandler, []string{})
+	ip, err := vmHandler.createWithNetwork(context.Background(), vm, &subnet, resourceInfo, mockAzureHandler, []string{})
 
 	require.NoError(t, err)
 	assert.Equal(t, ip, *getFakeInterface().Properties.IPConfigurations[0].Properties.PrivateIPAddress)
@@ -374,10 +406,10 @@ func TestAzureAKSGetNetworkInfo(t *testing.T) {
 	mockAzureHandler := &MockAzureSDKHandler{}
 	_, cluster := setupMockFunctions(mockAzureHandler)
 
-	aksHandler := &AzureAKS{}
+	aksHandler := &azureAKS{}
 	resource := getFakeAKSGenericResource()
 
-	netInfo, err := aksHandler.GetNetworkInfo(&resource, mockAzureHandler)
+	netInfo, err := aksHandler.getNetworkInfo(&resource, mockAzureHandler)
 
 	require.NoError(t, err)
 	assert.Equal(t, netInfo.SubnetID, *getFakeSubnet().ID)
@@ -388,14 +420,14 @@ func TestAzureAKSGetNetworkInfo(t *testing.T) {
 
 func TestAzureAKSFromResourceDecription(t *testing.T) {
 	fakeCluster := getFakeCluster(false)
-	aksHandler := &AzureAKS{}
+	aksHandler := &azureAKS{}
 
 	resourceDescription, err := getFakeClusterResourceDescription(&fakeCluster)
 	require.NoError(t, err)
-	cluster, err := aksHandler.FromResourceDecription(resourceDescription.Description)
+	cluster, err := aksHandler.fromResourceDecription(resourceDescription.Description)
 
 	require.NoError(t, err)
-	assert.Equal(t, cluster.Name, cluster.Name)
+	assert.Equal(t, cluster.Name, fakeCluster.Name)
 
 }
 
@@ -403,11 +435,42 @@ func TestAzureAKSCreateWithNetwork(t *testing.T) {
 	mockAzureHandler := &MockAzureSDKHandler{}
 	_, cluster := setupMockFunctions(mockAzureHandler)
 
-	aksHandler := &AzureAKS{}
+	aksHandler := &azureAKS{}
 
 	subnet := getFakeSubnet()
 	resourceInfo := &ResourceIDInfo{ResourceName: *cluster.Name}
-	ip, err := aksHandler.CreateWithNetwork(context.Background(), cluster, &subnet, resourceInfo, mockAzureHandler, []string{"1.1.1.1/1", "2.2.2.2/2"})
+	ip, err := aksHandler.createWithNetwork(context.Background(), cluster, &subnet, resourceInfo, mockAzureHandler, []string{"1.1.1.1/1", "2.2.2.2/2"})
+
+	require.NoError(t, err)
+	assert.Equal(t, ip, *getFakeSubnet().Properties.AddressPrefix)
+}
+
+func TestAzureResourceHandlerAKSGetResourceInfoFromDescription(t *testing.T) {
+	mockAzureHandler := &MockAzureSDKHandler{}
+	setupMockFunctions(mockAzureHandler)
+	cluster := getFakeCluster(false)
+
+	aksHandler := &azureResourceHandlerAKS{}
+	resourceDescription, err := getFakeClusterResourceDescription(&cluster)
+	require.NoError(t, err)
+	resourceInfo, err := aksHandler.getResourceInfoFromDescription(context.Background(), resourceDescription)
+
+	require.NoError(t, err)
+	assert.Equal(t, resourceInfo.ResourceName, *cluster.Name)
+}
+
+func TestAzureResourceHandlerAKSReadAndProvisionResource(t *testing.T) {
+	mockAzureHandler := &MockAzureSDKHandler{}
+	setupMockFunctions(mockAzureHandler)
+	cluster := getFakeCluster(false)
+
+	aksHandler := &azureResourceHandlerAKS{}
+	resourceDescription, err := getFakeClusterResourceDescription(&cluster)
+	require.NoError(t, err)
+
+	resourceInfo := getFakeResourceInfo(*cluster.Name)
+	subnet := getFakeSubnet()
+	ip, err := aksHandler.readAndProvisionResource(context.Background(), resourceDescription, &subnet, &resourceInfo, mockAzureHandler, []string{"1.1.1.1/1", "2.2.2.2/2"})
 
 	require.NoError(t, err)
 	assert.Equal(t, ip, *getFakeSubnet().Properties.AddressPrefix)
