@@ -96,8 +96,8 @@ jobs:
         uses: arduino/setup-protoc@v3
       - name: Make build
         run: |
-          go get github.com/golang/protobuf/protoc-gen-go
-          go get google.golang.org/grpc/cmd/protoc-gen-go-grpc  
+          go install github.com/golang/protobuf/protoc-gen-go
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc  
           make build
       - name: Run linter
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'  
