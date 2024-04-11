@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/NetSys/invisinets/pkg/orchestrator"
@@ -70,6 +71,12 @@ func (c *Client) sendRequest(url string, method string, body io.Reader) ([]byte,
 	client := &http.Client{}
 
 	url = c.ControllerAddress + url
+
+	// Prepend with http to make net/http happy
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		url = "http://" + url
+	}
+	fmt.Println(url)
 
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
