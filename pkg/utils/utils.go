@@ -17,7 +17,6 @@ limitations under the License.
 package log
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/netip"
@@ -79,7 +78,7 @@ func IsPermitListRuleTagInAddressSpace(permitListRuleTag, addressSpace string) (
 }
 
 // Checks if an IP address is public
-func IsAddressPrivate(addressString string) (bool, error) {
+func isIPAddressPrivate(addressString string) (bool, error) {
 	var addr netip.Addr
 	var err error
 	if strings.Contains(addressString, "/") {
@@ -102,52 +101,51 @@ func IsAddressPrivate(addressString string) (bool, error) {
 	return false, nil
 }
 
-// Checks and connect clouds as necessary
-func CheckAndConnectClouds(currentCloud string, currentCloudAddressSpace string, currentCloudNamespace string, ctx context.Context, permitListRule *invisinetspb.PermitListRule, usedAddressSpaceMappings []*invisinetspb.AddressSpaceMapping, controllerClient invisinetspb.ControllerClient) error {
-	for _, target := range permitListRule.Targets {
-		isPrivate, err := IsAddressPrivate(target)
+type PeeringCloudInfo struct {
+	Cloud      string
+	Namespace  string
+	Deployment string
+}
+
+// Retrieves the peering cloud info (name, namespace, deployment) for a given permit list rule
+// Notes
+// 1. this method may return duplicate PeeringCloudInfos, so it's the responsibility of the cloud plugin to gracefully handle duplicates
+// 2. peeringCloudInfo[i] will be nil if the target is a public IP address, so make sure to check for that
+func GetPermitListRulePeeringCloudInfo(permitListRule *invisinetspb.PermitListRule, usedAddressSpaceMappings []*invisinetspb.AddressSpaceMapping) ([]*PeeringCloudInfo, error) {
+	peeringCloudInfos := make([]*PeeringCloudInfo, len(permitListRule.Targets))
+	for i, target := range permitListRule.Targets {
+		isPrivate, err := isIPAddressPrivate(target)
 		if err != nil {
-			return fmt.Errorf("unable to determine if address is private: %w", err)
+			return nil, fmt.Errorf("unable to determine if address is private: %w", err)
 		}
+		// Public IP addresses don't require any peering setup
 		if isPrivate {
-			// Check early to see if tag belongs in current cloud's address space (i.e. local to subnet)
-			contained, err := IsPermitListRuleTagInAddressSpace(target, currentCloudAddressSpace)
-			if err != nil {
-				return fmt.Errorf("unable to determine if tag is in current address space: %w", err)
-			}
-			if !contained {
-				var peeringCloud, peeringCloudNamespace string
-				for _, usedAddressSpaceMapping := range usedAddressSpaceMappings {
-					for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
-						contained, err := IsPermitListRuleTagInAddressSpace(target, addressSpace)
-						if err != nil {
-							return fmt.Errorf("unable to determine if tag is in address space: %w", err)
-						}
-						if contained {
-							peeringCloud = usedAddressSpaceMapping.Cloud
-							peeringCloudNamespace = usedAddressSpaceMapping.Namespace
-							break
-						}
-					}
-				}
-				if peeringCloud == "" {
-					return fmt.Errorf("permit list rule tag must belong to a specific cloud if it's a private address")
-				} else if peeringCloud != currentCloud {
-					connectCloudsRequest := &invisinetspb.ConnectCloudsRequest{
-						CloudA:          currentCloud,
-						CloudANamespace: currentCloudNamespace,
-						CloudB:          peeringCloud,
-						CloudBNamespace: peeringCloudNamespace,
-					}
-					_, err := controllerClient.ConnectClouds(ctx, connectCloudsRequest)
+			// Iterate through used address space mappings to find the cloud that the target belongs to
+			contained := false
+		out: // Indentation is correct and can't be fixed
+			for _, usedAddressSpaceMapping := range usedAddressSpaceMappings {
+				for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
+					contained, err = IsPermitListRuleTagInAddressSpace(target, addressSpace)
 					if err != nil {
-						return fmt.Errorf("unable to connect clouds : %w", err)
+						return nil, fmt.Errorf("unable to determine if tag is in address space: %w", err)
+					}
+					if contained {
+						peeringCloudInfos[i] = &PeeringCloudInfo{
+							Cloud:      usedAddressSpaceMapping.Cloud,
+							Namespace:  usedAddressSpaceMapping.Namespace,
+							Deployment: *usedAddressSpaceMapping.Deployment,
+						}
+						break out
 					}
 				}
+			}
+			// Return error if target does not belong to any cloud
+			if !contained {
+				return nil, fmt.Errorf("permit list rule target must belong to a specific cloud if it's a private address")
 			}
 		}
 	}
-	return nil
+	return peeringCloudInfos, nil
 }
 
 // Returns prefix with GitHub workflow run numbers for integration tests

@@ -125,12 +125,12 @@ func getIBMCred() (Credentials, error) {
 }
 
 // returns a user authenticator object to authorize IBM cloud services
-func getAuthenticator() (*core.IamAuthenticator, error){
+func getAuthenticator() (*core.IamAuthenticator, error) {
 	creds, err := getIBMCred()
 	if err != nil {
 		return nil, err
 	}
-	return &core.IamAuthenticator{ApiKey: creds.APIKey},err
+	return &core.IamAuthenticator{ApiKey: creds.APIKey}, err
 }
 
 // returns local public key contents if exists, else

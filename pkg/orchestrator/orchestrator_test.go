@@ -30,6 +30,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/protobuf/proto"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	config "github.com/NetSys/invisinets/pkg/orchestrator/config"
@@ -1270,11 +1271,16 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 			Namespace:     "otherNamespace",
 		},
 	}
-	addressSpaces, err := orchestratorServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	orchestratorServer.config.Namespaces = map[string][]config.CloudDeployment{
+		defaultNamespace: {{Name: utils.GCP, Deployment: "deployment1"}},
+		"otherNamespace": {{Name: utils.AZURE, Deployment: "deployment2"}},
+	}
+
+	getUsedAddressSpacesResp, err := orchestratorServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
 	require.Nil(t, err)
-	assert.ElementsMatch(t, addressSpaces.AddressSpaceMappings, []*invisinetspb.AddressSpaceMapping{
-		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP, Namespace: defaultNamespace},
-		{AddressSpaces: azure_address_spaces, Cloud: utils.AZURE, Namespace: "otherNamespace"},
+	assert.ElementsMatch(t, getUsedAddressSpacesResp.AddressSpaceMappings, []*invisinetspb.AddressSpaceMapping{
+		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP, Namespace: defaultNamespace, Deployment: proto.String("deployment1")},
+		{AddressSpaces: azure_address_spaces, Cloud: utils.AZURE, Namespace: "otherNamespace", Deployment: proto.String("deployment2")},
 	})
 }
 

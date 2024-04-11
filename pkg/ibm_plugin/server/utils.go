@@ -19,8 +19,6 @@ package ibm
 import (
 	"fmt"
 	"strings"
-
-	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
 )
 
 // ResourceIDInfo defines the necessary fields of a resource sent in a request
@@ -58,41 +56,4 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 
 func createInstanceID(resGroup, zone, resName string) string {
 	return fmt.Sprintf("/resourcegroup/%s/zone/%s/instances/%s", resGroup, zone, resName)
-}
-
-// returns the invisinets VPC that the specified remote (IP/CIDR) resides in.
-func getRemoteVPC(remote, resourceGroup string) (*sdk.ResourceData, error) {
-
-	// using a tmp client to avoid altering the cloud client's region.
-	// passing a random region to pass verification. region will be updated with accordance to the selected VPC.
-	tmpClient, err := sdk.NewIBMCloudClient(resourceGroup, "us-south", false)
-	if err != nil {
-		return nil, err
-	}
-
-	// fetching VPCs from all namespaces
-	vpcsData, err := tmpClient.GetInvisinetsTaggedResources(sdk.VPC, []string{}, sdk.ResourceQuery{})
-	if err != nil {
-		return nil, err
-	}
-
-	// go over candidate VPCs address spaces
-	for _, vpcData := range vpcsData {
-		curVpcID := vpcData.ID
-
-		// Set the client on the region of the current VPC. If the client's region is
-		// different than the VPC's, it won't be detected.
-		err := tmpClient.UpdateRegion(vpcData.Region)
-		if err != nil {
-			return nil, err
-		}
-
-		if isRemoteInVPC, err := tmpClient.IsRemoteInVPC(curVpcID, remote); isRemoteInVPC {
-			return &vpcData, nil
-		} else if err != nil {
-			return nil, err
-		}
-	}
-	// remote doesn't reside in any invisinets VPC
-	return nil, nil
 }
