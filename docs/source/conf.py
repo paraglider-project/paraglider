@@ -7,8 +7,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Invisinets'
-copyright = '2024, Sean Kim'
-author = 'Sean Kim'
+copyright = '2024, Invisinets Authors'
+author = 'Invisinets Authors'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
