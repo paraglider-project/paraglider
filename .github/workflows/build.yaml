@@ -94,8 +94,6 @@ jobs:
         run: python ./.github/scripts/get_release_version.py
       - name: Get protoc
         uses: arduino/setup-protoc@v3
-        with:
-          version: "latest"
       - name: Make build
         run: |
           go get github.com/golang/protobuf/protoc-gen-go
