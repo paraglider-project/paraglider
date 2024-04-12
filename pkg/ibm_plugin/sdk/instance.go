@@ -41,7 +41,7 @@ func (c *CloudClient) CreateInstance(vpcID, subnetID string,
 		return nil, err
 	}
 
-	instance, err := c.createInstance(keyID, vpcID, subnetID, instanceOptions, securityGroup, tags)
+	instance, err := c.createInstance(keyID, subnetID, instanceOptions, securityGroup, tags)
 	if err != nil {
 		utils.Log.Println("Failed to launch instance with error:\n", err)
 		return nil, err
@@ -49,7 +49,7 @@ func (c *CloudClient) CreateInstance(vpcID, subnetID string,
 	return instance, nil
 }
 
-func (c *CloudClient) createInstance(keyID, vpcID, subnetID string, instanceOptions *vpcv1.CreateInstanceOptions, securityGroup *vpcv1.SecurityGroup, tags []string) (
+func (c *CloudClient) createInstance(keyID, subnetID string, instanceOptions *vpcv1.CreateInstanceOptions, securityGroup *vpcv1.SecurityGroup, tags []string) (
 	*vpcv1.Instance, error) {
 
 	sgGrps := []vpcv1.SecurityGroupIdentityIntf{
@@ -92,17 +92,11 @@ func (c *CloudClient) createInstance(keyID, vpcID, subnetID string, instanceOpti
 	return instance, nil
 }
 
-// returns the security group ID that's associated with the VM's network interfaces
-func (c *CloudClient) GetInstanceSecurityGroupID(name string) (string, error) {
-
-	vmData, err := c.GetInstanceData(name)
-	if err != nil {
-		return "", err
-	}
-	vmID := vmData.ID
+// GetInstanceSecurityGroupID returns the security group ID that's associated with the VM's network interfaces
+func (c *CloudClient) GetInstanceSecurityGroupID(id string) (string, error) {
 
 	nics, _, err := c.vpcService.ListInstanceNetworkInterfaces(
-		&vpcv1.ListInstanceNetworkInterfacesOptions{InstanceID: vmID})
+		&vpcv1.ListInstanceNetworkInterfacesOptions{InstanceID: &id})
 	if err != nil {
 		return "", err
 	}
@@ -114,7 +108,7 @@ func (c *CloudClient) GetInstanceSecurityGroupID(name string) (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("no invisinets SG is associated with the specified instance.")
+	return "", fmt.Errorf("no invisinets SG is associated with the specified instance")
 }
 
 // NOTE: Currently not in use, as public ips are not provisioned.

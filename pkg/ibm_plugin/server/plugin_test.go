@@ -42,7 +42,6 @@ import (
 )
 
 const (
-	fakeResGroup  = "invisinets-fake"
 	fakeRegion    = "us-east"  // Primary region used for tests
 	fakeConRegion = "us-south" // Region used to test VPC connectivity across regions
 	fakeZone      = fakeRegion + "-a"
@@ -64,7 +63,7 @@ const (
 	fakeProfile   = "bx2-2x8"
 	invTag        = "inv"
 
-	fakeResourceID = "/resourcegroup/" + fakeResGroup + "/Zone/" + fakeZone + "/ResourceID/" + fakeID
+	fakeResourceID = "/resourcegroup/" + fakeID + "/Zone/" + fakeZone + "/ResourceID/" + fakeID
 	fakeNamespace  = "inv-namespace"
 	wrongNamespace = "wrong-inv-namespace"
 )
@@ -562,7 +561,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	deployment := &invisinetspb.GetUsedAddressSpacesRequest{
@@ -591,8 +590,8 @@ func TestGetUsedAddressSpacesMultipleVPC(t *testing.T) {
 
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion):    fakeClient,
-			getClientMapKey(fakeResGroup, fakeConRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion):    fakeClient,
+			getClientMapKey(fakeID, fakeConRegion): fakeClient,
 		}}
 
 	deployment := &invisinetspb.GetUsedAddressSpacesRequest{
@@ -622,7 +621,7 @@ func TestAddPermitListRules(t *testing.T) {
 
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
@@ -652,7 +651,7 @@ func TestAddPermitListRulesExisting(t *testing.T) {
 
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
@@ -674,7 +673,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
@@ -702,7 +701,7 @@ func TestAddPermitListRulesMissingSecurityGroup(t *testing.T) {
 
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
@@ -732,7 +731,7 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
@@ -760,8 +759,8 @@ func TestAddPermitListRulesTransitGateway(t *testing.T) {
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion):    fakeClient,
-			getClientMapKey(fakeResGroup, fakeConRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion):    fakeClient,
+			getClientMapKey(fakeID, fakeConRegion): fakeClient,
 		}}
 
 	// fakePermitList2 is added to the permit list which will trigger creation of a link
@@ -787,7 +786,7 @@ func TestDeletePermitListRules(t *testing.T) {
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
@@ -808,7 +807,7 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	// Currently the plugin takes rule ID since names are not supported by IBM Cloud SDK
@@ -833,7 +832,7 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
@@ -856,7 +855,7 @@ func TestGetPermitList(t *testing.T) {
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	getRulesRequest := &invisinetspb.GetPermitListRequest{
@@ -882,7 +881,7 @@ func TestGetPermitListEmpty(t *testing.T) {
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	getRulesRequest := &invisinetspb.GetPermitListRequest{
@@ -902,7 +901,7 @@ func TestGetPermitListMissingInstance(t *testing.T) {
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	getRulesRequest := &invisinetspb.GetPermitListRequest{
@@ -925,7 +924,7 @@ func TestGetPermitListWrongNamespace(t *testing.T) {
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	getRulesRequest := &invisinetspb.GetPermitListRequest{
