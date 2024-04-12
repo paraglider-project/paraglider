@@ -21,9 +21,13 @@ import (
 	"strings"
 )
 
+const (
+	instanceResourceType = "instance"
+)
+
 // ResourceIDInfo defines the necessary fields of a resource sent in a request
 type ResourceIDInfo struct {
-	ResourceGroup string `json:"resourcegroup"` // name of the resource group
+	ResourceGroup string `json:"resourcegroup"`
 	Zone          string `json:"zone"`
 	ResourceID    string `json:"resourceid"`
 }
@@ -44,10 +48,19 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	info := ResourceIDInfo{
 		ResourceGroup: parts[2],
 	}
+
 	if len(parts) >= 4 {
+		if parts[3] != "zone" {
+			return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}/zone/{zone}', got '%s'", resourceID)
+		}
 		info.Zone = parts[4]
 	}
+
 	if len(parts) >= 5 {
+		// In future, validate multiple resource type
+		if parts[5] != instanceResourceType {
+			return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}/zone/{zone}/instance/{instance_id}', got '%s'", resourceID)
+		}
 		info.ResourceID = parts[6]
 	}
 
@@ -55,5 +68,5 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 }
 
 func createInstanceID(resGroup, zone, resName string) string {
-	return fmt.Sprintf("/resourcegroup/%s/zone/%s/instances/%s", resGroup, zone, resName)
+	return fmt.Sprintf("/resourcegroup/%s/zone/%s/%s/%s", resGroup, zone, instanceResourceType, resName)
 }

@@ -63,7 +63,7 @@ const (
 	fakeProfile   = "bx2-2x8"
 	invTag        = "inv"
 
-	fakeResourceID = "/resourcegroup/" + fakeID + "/Zone/" + fakeZone + "/ResourceID/" + fakeID
+	fakeInstanceID = "/resourcegroup/" + fakeID + "/zone/" + fakeZone + "/instance/" + fakeID
 	fakeNamespace  = "inv-namespace"
 	wrongNamespace = "wrong-inv-namespace"
 )
@@ -485,7 +485,7 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: fakeResourceID, Description: description, Namespace: fakeNamespace}
+	resource := &invisinetspb.ResourceDescription{Id: fakeInstanceID, Description: description, Namespace: fakeNamespace}
 	resp, err := s.CreateResource(ctx, resource)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -515,7 +515,7 @@ func TestCreateResourceExistingVPCSubnet(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: fakeResourceID, Description: description, Namespace: fakeNamespace}
+	resource := &invisinetspb.ResourceDescription{Id: fakeInstanceID, Description: description, Namespace: fakeNamespace}
 	resp, err := s.CreateResource(ctx, resource)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -542,7 +542,7 @@ func TestCreateResourceExistingVPCMissingSubnet(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: fakeResourceID, Description: description, Namespace: fakeNamespace}
+	resource := &invisinetspb.ResourceDescription{Id: fakeInstanceID, Description: description, Namespace: fakeNamespace}
 	resp, err := s.CreateResource(ctx, resource)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -566,7 +566,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 	deployment := &invisinetspb.GetUsedAddressSpacesRequest{
 		Deployments: []*invisinetspb.InvisinetsDeployment{
-			{Id: fakeResourceID, Namespace: fakeNamespace},
+			{Id: fakeInstanceID, Namespace: fakeNamespace},
 		},
 	}
 
@@ -596,7 +596,7 @@ func TestGetUsedAddressSpacesMultipleVPC(t *testing.T) {
 
 	deployment := &invisinetspb.GetUsedAddressSpacesRequest{
 		Deployments: []*invisinetspb.InvisinetsDeployment{
-			{Id: fakeResourceID, Namespace: fakeNamespace},
+			{Id: fakeInstanceID, Namespace: fakeNamespace},
 		},
 	}
 
@@ -626,7 +626,7 @@ func TestAddPermitListRules(t *testing.T) {
 
 	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
 	}
 
@@ -656,7 +656,7 @@ func TestAddPermitListRulesExisting(t *testing.T) {
 
 	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
 	}
 
@@ -678,7 +678,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 
 	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
 	}
 
@@ -706,7 +706,7 @@ func TestAddPermitListRulesMissingSecurityGroup(t *testing.T) {
 
 	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
 	}
 
@@ -736,7 +736,7 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 
 	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
 		Namespace: wrongNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
 	}
 
@@ -767,7 +767,7 @@ func TestAddPermitListRulesTransitGateway(t *testing.T) {
 	// between VPCs across regions, and hence requiriing deployment of a transit gateway.
 	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		Rules:     fakePermitList2,
 	}
 
@@ -791,7 +791,7 @@ func TestDeletePermitListRules(t *testing.T) {
 
 	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		RuleNames: []string{fakePermitList1[0].Id, fakePermitList1[1].Id},
 	}
 
@@ -813,7 +813,7 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 	// Currently the plugin takes rule ID since names are not supported by IBM Cloud SDK
 	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		RuleNames: []string{fakePermitList1[0].Id, fakePermitList1[1].Id},
 	}
 
@@ -837,7 +837,7 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 
 	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		RuleNames: []string{fakePermitList1[0].Id, fakePermitList1[1].Id},
 	}
 
@@ -860,7 +860,7 @@ func TestGetPermitList(t *testing.T) {
 
 	getRulesRequest := &invisinetspb.GetPermitListRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 	}
 
 	resp, err := s.GetPermitList(ctx, getRulesRequest)
@@ -886,7 +886,7 @@ func TestGetPermitListEmpty(t *testing.T) {
 
 	getRulesRequest := &invisinetspb.GetPermitListRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 	}
 
 	resp, err := s.GetPermitList(ctx, getRulesRequest)
@@ -906,7 +906,7 @@ func TestGetPermitListMissingInstance(t *testing.T) {
 
 	getRulesRequest := &invisinetspb.GetPermitListRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 	}
 
 	resp, err := s.GetPermitList(ctx, getRulesRequest)
@@ -929,7 +929,7 @@ func TestGetPermitListWrongNamespace(t *testing.T) {
 
 	getRulesRequest := &invisinetspb.GetPermitListRequest{
 		Namespace: wrongNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 	}
 
 	resp, err := s.GetPermitList(ctx, getRulesRequest)

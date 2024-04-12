@@ -29,7 +29,7 @@ cloudPlugins:
    - name: "ibm"
      host: "localhost"
      port: 1002
-     invDeployment: "/ResourceGroupName/
+     invDeployment: "/resourcegroup/<resource_group_id>
 
 tagService:
   host: "localhost"
