@@ -299,7 +299,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.
 	}
 	resourceInfo.Namespace = req.Namespace
 
-	_, resourceID, err := GetResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
+	_, resourceID, err := GetResourceNetworkInfo(ctx, instancesClient, clustersClient, resourceInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -435,7 +435,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 	}
 	resourceInfo.Namespace = req.Namespace
 
-	_, resourceID, err := GetResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
+	_, resourceID, err := GetResourceNetworkInfo(ctx, instancesClient, clustersClient, resourceInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -468,7 +468,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 
 	for _, permitListRule := range req.Rules {
 		// TODO @seankimkdy: should we throw an error/warning if user specifies a srcport since GCP doesn't support srcport based firewalls?
-    firewallName := getFirewallName(req.Namespace, permitListRule.Name, *resourceID)
+		firewallName := getFirewallName(req.Namespace, permitListRule.Name, *resourceID)
 
 		patchRequired := false
 		if existingFw, ok := existingFirewalls[firewallName]; ok {
@@ -614,7 +614,7 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *invis
 	}
 	resourceInfo.Namespace = req.Namespace
 
-	_, resourceID, err := GetResourceInfo(ctx, instancesClient, clustersClient, resourceInfo)
+	_, resourceID, err := GetResourceNetworkInfo(ctx, instancesClient, clustersClient, resourceInfo)
 	if err != nil {
 		return nil, err
 	}

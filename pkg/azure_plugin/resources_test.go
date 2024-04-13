@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// TODO: these tests need re-written to match the new interfaces
-
 package azure_plugin
 
 import (
@@ -364,7 +362,7 @@ func TestAzureVMGetNetworkInfo(t *testing.T) {
 	mockAzureHandler := &MockAzureSDKHandler{}
 	vm, _ := setupMockFunctions(mockAzureHandler)
 
-	vmHandler := &azureVM{}
+	vmHandler := &azureResourceHandlerVM{}
 	resource := getFakeVMGenericResource()
 
 	netInfo, err := vmHandler.getNetworkInfo(&resource, mockAzureHandler)
@@ -377,7 +375,7 @@ func TestAzureVMGetNetworkInfo(t *testing.T) {
 }
 
 func TestAzureVMFromResourceDecription(t *testing.T) {
-	vmHandler := &azureVM{}
+	vmHandler := &azureResourceHandlerVM{}
 	fakeVm := getFakeVirtualMachine(false)
 
 	resourceDescription, err := getFakeVMResourceDescription(&fakeVm)
@@ -392,7 +390,7 @@ func TestAzureVMCreateWithNetwork(t *testing.T) {
 	mockAzureHandler := &MockAzureSDKHandler{}
 	vm, _ := setupMockFunctions(mockAzureHandler)
 
-	vmHandler := &azureVM{}
+	vmHandler := &azureResourceHandlerVM{}
 
 	subnet := getFakeSubnet()
 	resourceInfo := &ResourceIDInfo{ResourceName: *vm.Name}
@@ -406,7 +404,7 @@ func TestAzureAKSGetNetworkInfo(t *testing.T) {
 	mockAzureHandler := &MockAzureSDKHandler{}
 	_, cluster := setupMockFunctions(mockAzureHandler)
 
-	aksHandler := &azureAKS{}
+	aksHandler := &azureResourceHandlerAKS{}
 	resource := getFakeAKSGenericResource()
 
 	netInfo, err := aksHandler.getNetworkInfo(&resource, mockAzureHandler)
@@ -420,7 +418,7 @@ func TestAzureAKSGetNetworkInfo(t *testing.T) {
 
 func TestAzureAKSFromResourceDecription(t *testing.T) {
 	fakeCluster := getFakeCluster(false)
-	aksHandler := &azureAKS{}
+	aksHandler := &azureResourceHandlerAKS{}
 
 	resourceDescription, err := getFakeClusterResourceDescription(&fakeCluster)
 	require.NoError(t, err)
@@ -435,7 +433,7 @@ func TestAzureAKSCreateWithNetwork(t *testing.T) {
 	mockAzureHandler := &MockAzureSDKHandler{}
 	_, cluster := setupMockFunctions(mockAzureHandler)
 
-	aksHandler := &azureAKS{}
+	aksHandler := &azureResourceHandlerAKS{}
 
 	subnet := getFakeSubnet()
 	resourceInfo := &ResourceIDInfo{ResourceName: *cluster.Name}
