@@ -424,6 +424,9 @@ const (
 	Controller_GetUsedAddressSpaces_FullMethodName    = "/invisinetspb.Controller/GetUsedAddressSpaces"
 	Controller_FindUnusedAsn_FullMethodName           = "/invisinetspb.Controller/FindUnusedAsn"
 	Controller_ConnectClouds_FullMethodName           = "/invisinetspb.Controller/ConnectClouds"
+	Controller_SetValue_FullMethodName                = "/invisinetspb.Controller/SetValue"
+	Controller_GetValue_FullMethodName                = "/invisinetspb.Controller/GetValue"
+	Controller_DeleteValue_FullMethodName             = "/invisinetspb.Controller/DeleteValue"
 )
 
 // ControllerClient is the client API for Controller service.
@@ -434,6 +437,9 @@ type ControllerClient interface {
 	GetUsedAddressSpaces(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*GetUsedAddressSpacesResponse, error)
 	FindUnusedAsn(ctx context.Context, in *FindUnusedAsnRequest, opts ...grpc.CallOption) (*FindUnusedAsnResponse, error)
 	ConnectClouds(ctx context.Context, in *ConnectCloudsRequest, opts ...grpc.CallOption) (*BasicResponse, error)
+	SetValue(ctx context.Context, in *SetValueRequest, opts ...grpc.CallOption) (*SetValueResponse, error)
+	GetValue(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*GetValueResponse, error)
+	DeleteValue(ctx context.Context, in *DeleteValueRequest, opts ...grpc.CallOption) (*DeleteValueResponse, error)
 }
 
 type controllerClient struct {
@@ -480,6 +486,33 @@ func (c *controllerClient) ConnectClouds(ctx context.Context, in *ConnectCloudsR
 	return out, nil
 }
 
+func (c *controllerClient) SetValue(ctx context.Context, in *SetValueRequest, opts ...grpc.CallOption) (*SetValueResponse, error) {
+	out := new(SetValueResponse)
+	err := c.cc.Invoke(ctx, Controller_SetValue_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controllerClient) GetValue(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*GetValueResponse, error) {
+	out := new(GetValueResponse)
+	err := c.cc.Invoke(ctx, Controller_GetValue_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controllerClient) DeleteValue(ctx context.Context, in *DeleteValueRequest, opts ...grpc.CallOption) (*DeleteValueResponse, error) {
+	out := new(DeleteValueResponse)
+	err := c.cc.Invoke(ctx, Controller_DeleteValue_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControllerServer is the server API for Controller service.
 // All implementations must embed UnimplementedControllerServer
 // for forward compatibility
@@ -488,6 +521,9 @@ type ControllerServer interface {
 	GetUsedAddressSpaces(context.Context, *Empty) (*GetUsedAddressSpacesResponse, error)
 	FindUnusedAsn(context.Context, *FindUnusedAsnRequest) (*FindUnusedAsnResponse, error)
 	ConnectClouds(context.Context, *ConnectCloudsRequest) (*BasicResponse, error)
+	SetValue(context.Context, *SetValueRequest) (*SetValueResponse, error)
+	GetValue(context.Context, *GetValueRequest) (*GetValueResponse, error)
+	DeleteValue(context.Context, *DeleteValueRequest) (*DeleteValueResponse, error)
 	mustEmbedUnimplementedControllerServer()
 }
 
@@ -506,6 +542,15 @@ func (UnimplementedControllerServer) FindUnusedAsn(context.Context, *FindUnusedA
 }
 func (UnimplementedControllerServer) ConnectClouds(context.Context, *ConnectCloudsRequest) (*BasicResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ConnectClouds not implemented")
+}
+func (UnimplementedControllerServer) SetValue(context.Context, *SetValueRequest) (*SetValueResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetValue not implemented")
+}
+func (UnimplementedControllerServer) GetValue(context.Context, *GetValueRequest) (*GetValueResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetValue not implemented")
+}
+func (UnimplementedControllerServer) DeleteValue(context.Context, *DeleteValueRequest) (*DeleteValueResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteValue not implemented")
 }
 func (UnimplementedControllerServer) mustEmbedUnimplementedControllerServer() {}
 
@@ -592,6 +637,60 @@ func _Controller_ConnectClouds_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Controller_SetValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetValueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControllerServer).SetValue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Controller_SetValue_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControllerServer).SetValue(ctx, req.(*SetValueRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Controller_GetValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetValueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControllerServer).GetValue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Controller_GetValue_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControllerServer).GetValue(ctx, req.(*GetValueRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Controller_DeleteValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteValueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControllerServer).DeleteValue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Controller_DeleteValue_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControllerServer).DeleteValue(ctx, req.(*DeleteValueRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Controller_ServiceDesc is the grpc.ServiceDesc for Controller service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -614,6 +713,18 @@ var Controller_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ConnectClouds",
 			Handler:    _Controller_ConnectClouds_Handler,
+		},
+		{
+			MethodName: "SetValue",
+			Handler:    _Controller_SetValue_Handler,
+		},
+		{
+			MethodName: "GetValue",
+			Handler:    _Controller_GetValue_Handler,
+		},
+		{
+			MethodName: "DeleteValue",
+			Handler:    _Controller_DeleteValue_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
