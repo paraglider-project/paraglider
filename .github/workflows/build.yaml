@@ -96,16 +96,12 @@ jobs:
         uses: arduino/setup-protoc@v3
       - name: Get protoc-gen-go
         run: |
-          go get -u google.golang.org/protobuf
-          # go get google.golang.org/protobuf
-          # go install google.golang.org/protobuf
-          # go get google.golang.org/grpc/cmd/protoc-gen-go-grpc
-          # go install google.golang.org/grpc/cmd/protoc-gen-go-grpc 
+          go get google.golang.org/protobuf/cmd/protoc-gen-go
+          go install google.golang.org/protobuf/cmd/protoc-gen-go
+          go get google.golang.org/grpc/cmd/protoc-gen-go-grpc
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
       - name: Make build
-        env: 
-          GOPATH: ${{ github.workspace }}/go
         run: |
-          echo "${{ env.GOPATH }}/bin" >> $GITHUB_PATH
           make build
       - name: Run linter
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'  
