@@ -37,11 +37,20 @@ export GOPROXY ?= https://proxy.golang.org
 export GOSUMDB ?= sum.golang.org
 export CGO_ENABLED=0
 
+PROTOFILES := $(shell find . -type f -name '*.proto')
+
 ##@ Build
 
 .PHONY: build
-build: build-packages build-binaries ## Build all go targets.
+build: compile-protoc build-packages build-binaries ## Build all go targets.
 
+.PHONY: compile-protoc
+compile-protoc: ## Compiles all proto files.
+	@echo "$(ARROW) Compiling all proto files"
+	@$(foreach file,$(PROTOFILES),echo "compiling $(file)" & protoc --go_out=$(dir $(file)) \
+	--go_opt=paths=source_relative --go-grpc_out=$(dir $(file))  --go-grpc_opt=paths=source_relative \
+	--proto_path=$(dir $(file)) $(file);)
+	
 .PHONY: build-packages
 build-packages: ## Builds all go packages.
 	@echo "$(ARROW) Building all packages"
