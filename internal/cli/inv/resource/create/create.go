@@ -80,9 +80,10 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 
 	if err != nil {
 		fmt.Fprintf(e.writer, "Failed to create resource: %v\n", err)
+		return err
 	}
 
 	fmt.Fprintf(e.writer, "Resource Created.\ntag: %s\nuri: %s\nip: %s\n", resourceInfo["name"], resourceInfo["uri"], resourceInfo["ip"])
 
-	return err
+	return nil
 }
