@@ -476,7 +476,7 @@ func (s *ibmPluginServer) CreateVpnConnections(ctx context.Context, req *invisin
 	vpn := vpns[0]
 
 	for _, peerVPNIPAddress := range req.GatewayIpAddresses {
-		err := cloudClient.CreateVPNConnectionRouteBased(vpn.ID, peerVPNIPAddress, req.SharedKey, req.RemoteAddress)
+		err := cloudClient.CreateVPNConnectionRouteBased(vpn.ID, peerVPNIPAddress, req.SharedKey, req.RemoteAddress, req.Cloud)
 		if err != nil {
 			return nil, err
 		}
