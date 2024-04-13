@@ -63,14 +63,14 @@ func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 	vpnInterface, _, err := c.vpcService.CreateVPNGateway(&vpcv1.CreateVPNGatewayOptions{VPNGatewayPrototype: &vpnPrototype})
 	if err != nil {
 		// check if a VPN was already deployed in the VPC.
-		if strings.Contains(err.Error(), "quota") {
-
-			utils.Log.Printf("Retrieving already deployed VPN gateway of VPC %v.\nNOTE: IBM has a 1 route based VPN per VPC per region quota.", vpcData[0].ID)
-			// retrieving existing VPN
+		if strings.Contains(err.Error(), "quota") { // Note: relying on error string, since status code is shared with multiple errors.
+			utils.Log.Printf("Route based VPN has reached its max quota of 1 VPN per VPC per region in %v.\n", c.region)
+			// retrieve existing VPN
 			vpn, err := c.GetVPNsInNamespaceRegion(namespace, c.region)
 			if err != nil {
 				return nil, err
 			}
+			utils.Log.Printf("Retrieving already deployed VPN gateway of VPC %v\n", vpcData[0].ID)
 			ipAddresses, err := c.GetVPNIPs(vpn[0].ID) // array lookup is safe since a VPN exists
 			if err != nil {
 				return nil, err
@@ -177,7 +177,7 @@ func (c *CloudClient) createRoute(routingTableID, vpcID, destinationCIDR, VPNCon
 		if err != nil {
 			// return err if not a route duplication error, otherwise we can use existing route
 			// Note: forced to rely on error message, as no error code is provided.
-			if !strings.Contains(err.Error(), "conflict with another route") {
+			if !strings.Contains(err.Error(), "conflict with another route") { // Note: relying on error string, since status code is shared with multiple errors.
 				return err
 			}
 		} else { // no existing route was found, a new one was created.
@@ -211,24 +211,39 @@ func (c *CloudClient) getVPNConnectionMatchingPeerIP(VPNGatewayID, peerGWAddress
 // - peerGatewayIP - the remote VPN the newly created connection will connect to.
 // - preSharedKey - pre-shared key for authentication between the 2 VPN connections.
 // - destinationCIDR - traffic destined to this CIDR will be redirect to the newly created connection via newly created routing table routes
-func (c *CloudClient) CreateVPNConnectionRouteBased(VPNGatewayID, peerGatewayIP, preSharedKey, destinationCIDR string) error {
+// - peerCloud - cloud residing the peer VPN gateway this connection is set to bridge
+func (c *CloudClient) CreateVPNConnectionRouteBased(VPNGatewayID, peerGatewayIP, preSharedKey, destinationCIDR, peerCloud string) error {
 	var connectionID string
 
+	if peerCloud != utils.AZURE {
+		return fmt.Errorf("VPN connections are not yet supported between IBM and Peer cloud %v", peerCloud)
+	}
+	// get or create IKE and IPSec policies to establish a secure VPN connection
+	IKEPolicyID, err := c.getOrCreateIKEPolicy(peerCloud)
+	if err != nil {
+		return err
+	}
+	IPSecPolicyID, err := c.getOrCreateIPSecPolicy(peerCloud)
+	if err != nil {
+		return err
+	}
+
+	// get or create a VPN connection
 	connectionConfig := &vpcv1.CreateVPNGatewayConnectionOptions{
 		VPNGatewayID: &VPNGatewayID,
 		VPNGatewayConnectionPrototype: &vpcv1.VPNGatewayConnectionPrototypeVPNGatewayConnectionStaticRouteModePrototype{
 			PeerAddress: &peerGatewayIP,
 			Psk:         &preSharedKey,
 			Name:        core.StringPtr(GenerateResourceName(string(vpnConnectionType))),
+			IkePolicy:   &vpcv1.VPNGatewayConnectionIkePolicyPrototypeIkePolicyIdentityByID{ID: IKEPolicyID},
+			IpsecPolicy: &vpcv1.VPNGatewayConnectionIPsecPolicyPrototypeIPsecPolicyIdentityByID{ID: IPSecPolicyID},
 		},
 	}
-	connectionInterface, _, err := c.vpcService.CreateVPNGatewayConnection(
-		connectionConfig,
-	)
+	connectionInterface, _, err := c.vpcService.CreateVPNGatewayConnection(connectionConfig)
 
 	if err != nil {
 		// check if connection already exists. Note: forced to rely on error message, as no error code is provided.
-		if strings.Contains(err.Error(), "duplicate") {
+		if strings.Contains(err.Error(), "duplicate") { // Note: relying on error string, since status code is shared with multiple errors.
 			connection, err := c.getVPNConnectionMatchingPeerIP(VPNGatewayID, peerGatewayIP)
 			if err != nil {
 				return err
@@ -416,4 +431,97 @@ func (c *CloudClient) GetVPNsInNamespaceRegion(namespace, region string) ([]Reso
 		return nil, err
 	}
 	return vpns, nil
+}
+
+// returns an IKE policy ID that's compatible with the specified peer cloud
+func (c *CloudClient) getOrCreateIKEPolicy(peerCloud string) (*string, error) {
+	// return an existing IPSec policy for the specified cloud if one exists
+	existingPolicyID, err := c.getIKEPolicy(peerCloud)
+	if err != nil {
+		return nil, err
+	}
+	if existingPolicyID != nil {
+		return existingPolicyID, nil
+	}
+
+	// create a new IKE policy for specified cloud
+	config := &vpcv1.CreateIkePolicyOptions{
+		Name:          core.StringPtr(GenerateResourceName("ike-" + peerCloud)),
+		IkeVersion:    core.Int64Ptr(2),
+		ResourceGroup: c.resourceGroup,
+	}
+	if peerCloud == utils.AZURE {
+		config.SetAuthenticationAlgorithm(vpcv1.CreateIkePolicyOptionsAuthenticationAlgorithmSha384Const)
+		config.SetDhGroup(24)
+		config.SetEncryptionAlgorithm(vpcv1.CreateIkePolicyOptionsEncryptionAlgorithmAes256Const)
+		config.SetKeyLifetime(27000)
+	}
+
+	ikePolicy, response, err := c.vpcService.CreateIkePolicy(config)
+	fmt.Print(response)
+	if err != nil {
+		return nil, err
+	}
+
+	return ikePolicy.ID, nil
+}
+
+// returns existing IKE policy for the peer cloud
+func (c *CloudClient) getIKEPolicy(peerCloud string) (*string, error) {
+	ikePolicies, _, err := c.vpcService.ListIkePolicies(&vpcv1.ListIkePoliciesOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, policy := range ikePolicies.IkePolicies {
+		if strings.Contains(*policy.Name, peerCloud) {
+			return policy.ID, nil
+		}
+	}
+	// no policy matching the specified cloud was found
+	return nil, nil
+}
+
+// returns an IPsec policy ID that's compatible with the specified peer cloud
+func (c *CloudClient) getOrCreateIPSecPolicy(peerCloud string) (*string, error) {
+	// return an existing IPSec policy for the specified cloud if one exists
+	existingPolicyID, err := c.getIPSecPolicy(peerCloud)
+	if err != nil {
+		return nil, err
+	}
+	if existingPolicyID != nil {
+		return existingPolicyID, nil
+	}
+
+	// create a new IPSec policy for specified cloud
+	config := &vpcv1.CreateIpsecPolicyOptions{
+		Name:          core.StringPtr(GenerateResourceName("ipsec-" + peerCloud)),
+		ResourceGroup: c.resourceGroup,
+	}
+	if peerCloud == utils.AZURE {
+		config.SetAuthenticationAlgorithm("sha256")
+		config.SetEncryptionAlgorithm("aes256")
+		config.SetKeyLifetime(27000)
+		config.SetPfs(vpcv1.CreateIpsecPolicyOptionsPfsDisabledConst) // disable perfect forward secrecy
+	}
+	ipsecPolicy, _, err := c.vpcService.CreateIpsecPolicy(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return ipsecPolicy.ID, nil
+}
+
+// returns existing IKE policy for the peer cloud
+func (c *CloudClient) getIPSecPolicy(peerCloud string) (*string, error) {
+	ipSecPolicies, _, err := c.vpcService.ListIpsecPolicies(&vpcv1.ListIpsecPoliciesOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, policy := range ipSecPolicies.IpsecPolicies {
+		if strings.Contains(*policy.Name, peerCloud) {
+			return policy.ID, nil
+		}
+	}
+	// no policy matching the specified cloud was found
+	return nil, nil
 }
