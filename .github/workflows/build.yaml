@@ -94,16 +94,19 @@ jobs:
         run: python ./.github/scripts/get_release_version.py
       - name: Get protoc
         uses: arduino/setup-protoc@v3
-      - name: Prep protoc
+      - name: Get protoc-gen-go
         run: |
-          go get github.com/golang/protobuf/protoc-gen-go
-          go install github.com/golang/protobuf/protoc-gen-go
-          go get google.golang.org/grpc/cmd/protoc-gen-go-grpc
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc  
-          export GOPATH=$HOME/go
-          export PATH=$PATH:$GOPATH/bin
+          go get -u google.golang.org/protobuf
+          # go get google.golang.org/protobuf
+          # go install google.golang.org/protobuf
+          # go get google.golang.org/grpc/cmd/protoc-gen-go-grpc
+          # go install google.golang.org/grpc/cmd/protoc-gen-go-grpc 
       - name: Make build
-        run: make build
+        env: 
+          GOPATH: ${{ github.workspace }}/go
+        run: |
+          echo "${{ env.GOPATH }}/bin" >> $GITHUB_PATH
+          make build
       - name: Run linter
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'  
         uses: golangci/golangci-lint-action@v3

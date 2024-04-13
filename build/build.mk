@@ -47,6 +47,7 @@ build: compile-protoc build-packages build-binaries ## Build all go targets.
 .PHONY: compile-protoc
 compile-protoc: ## Compiles all proto files.
 	@echo "$(ARROW) Compiling all proto files"
+	export PATH=$(GOPATH)/bin:$(PATH)
 	@$(foreach file,$(PROTOFILES),echo "compiling $(file)" & protoc --go_out=$(dir $(file)) \
 	--go_opt=paths=source_relative --go-grpc_out=$(dir $(file))  --go-grpc_opt=paths=source_relative \
 	--proto_path=$(dir $(file)) $(file);)
