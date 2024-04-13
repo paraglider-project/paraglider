@@ -63,7 +63,7 @@ func (f *FakeOrchestratorRPCServer) GetUsedAddressSpaces(ctx context.Context, _ 
 	}
 	resp := &invisinetspb.GetUsedAddressSpacesResponse{
 		AddressSpaceMappings: []*invisinetspb.AddressSpaceMapping{
-			{AddressSpaces: addressSpaces, Cloud: f.Cloud, Namespace: "default", Deployment: proto.String("projects/invisinets-fake")},
+			{AddressSpaces: addressSpaces, Cloud: f.Cloud, Namespace: "default", Deployment: proto.String("test-deployment")},
 		},
 	}
 

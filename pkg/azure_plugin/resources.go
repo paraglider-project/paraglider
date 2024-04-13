@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// TODO NOW: Naming / cleanup (also look at comments from the PR when doing this)
-
 package azure_plugin
 
 import (
@@ -195,6 +193,7 @@ func (r *azureResourceHandlerVM) getNetworkInfo(resource *armresources.GenericRe
 	return &info, nil
 }
 
+// Gets the resource information from the description
 func (r *azureResourceHandlerVM) getResourceInfoFromDescription(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
 	vm, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
@@ -204,6 +203,7 @@ func (r *azureResourceHandlerVM) getResourceInfoFromDescription(ctx context.Cont
 	return &resourceInfo{ResourceName: getNameFromUri(resource.Id), ResourceID: resource.Id, Location: *vm.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
 }
 
+// Reads the resource description and provisions the resource with the given subnet
 func (r *azureResourceHandlerVM) readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	vm, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
@@ -216,6 +216,7 @@ func (r *azureResourceHandlerVM) readAndProvisionResource(ctx context.Context, r
 	return ip, nil
 }
 
+// Returns the network requirements (requires its own subnet, how many address spaces) for a virtual machine
 func (r *azureResourceHandlerVM) getNetworkRequirements() (bool, int) {
 	return false, 0
 }
@@ -283,6 +284,7 @@ type azureResourceHandlerAKS struct {
 	AzureResourceHandler
 }
 
+// Gets the network information for an AKS cluster
 func (r *azureResourceHandlerAKS) getResourceInfoFromDescription(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
 	aks, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
@@ -293,6 +295,7 @@ func (r *azureResourceHandlerAKS) getResourceInfoFromDescription(ctx context.Con
 
 }
 
+// Reads the resource description and provisions the resource with the given subnet
 func (r *azureResourceHandlerAKS) readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	aks, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
@@ -305,6 +308,7 @@ func (r *azureResourceHandlerAKS) readAndProvisionResource(ctx context.Context, 
 	return ip, nil
 }
 
+// Returns the network requirements (requires its own subnet, how many address spaces) for an AKS cluster
 func (r *azureResourceHandlerAKS) getNetworkRequirements() (bool, int) {
 	return true, 1 // TODO @smcclure20: change with support for kubenet
 }

@@ -48,7 +48,7 @@ const (
 	fakeClusterId    = "12345678910"
 	fakeInstanceId   = uint64(1234)
 	fakeResourceId   = "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
-	fakeNamespace    = "defaultnamespace"
+	fakeNamespace    = "default"
 	fakeSubnetName   = "subnet-invisinets-fake"
 	fakeSubnetId     = "projects/" + fakeProject + "/regions/" + fakeRegion + "/subnetworks/" + fakeSubnetName
 

@@ -72,8 +72,8 @@ func shortenClusterId(clusterId string) string {
 	return clusterId[:8]
 }
 
-func getClusterNodeTag(clusterName string, clusterId string) string {
-	return "gke-" + clusterName + "-" + shortenClusterId(clusterId) + "-node"
+func getClusterNodeTag(namespace string, clusterName string, clusterId string) string {
+	return getInvisinetsNamespacePrefix(namespace) + "-gke-" + clusterName + "-" + shortenClusterId(clusterId) + "-node"
 }
 
 // Get the firewall rules associated with a resource following the naming convention
@@ -111,6 +111,7 @@ func parseResourceUri(resourceUri string) (*resourceInfo, error) {
 	return nil, fmt.Errorf("unable to parse resource URI")
 }
 
+// Get the resource handler for a given resource type with the client field set
 func getResourceHandlerWithClient(resourceType string, instancesClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient) (iGCPResourceHandler, error) {
 	if resourceType == instanceTypeName {
 		handler := &gcpInstance{}
@@ -125,8 +126,7 @@ func getResourceHandlerWithClient(resourceType string, instancesClient *compute.
 	}
 }
 
-// TODO NOW: Comment!
-
+// Get the resource handler for a given resource description, the handler will not have a client
 func getResourceHandlerFromDescription(resourceDesc []byte) (iGCPResourceHandler, error) {
 	insertInstanceRequest := &computepb.InsertInstanceRequest{}
 	createClusterRequest := &containerpb.CreateClusterRequest{}
@@ -189,12 +189,17 @@ type supportedGCPResourceClient interface {
 	compute.InstancesClient | container.ClusterManagerClient
 }
 
+// Interface to implement to support a resource
 type iGCPResourceHandler interface {
+	// Read and provision the resource with the provided subnet
 	readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error)
+	// Get network information about the resource
 	getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo) (*resourceNetworkInfo, error)
+	// Get information about the reosurce from the resource description
 	getResourceInfo(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error)
 }
 
+// Generic GCP resource handler
 type gcpResourceHandler[T supportedGCPResourceClient] struct {
 	iGCPResourceHandler
 	client *T
@@ -205,6 +210,7 @@ type gcpInstance struct {
 	gcpResourceHandler[compute.InstancesClient]
 }
 
+// Get the resource information for a GCP instance
 func (r *gcpInstance) getResourceInfo(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
 	insertInstanceRequest := &computepb.InsertInstanceRequest{}
 	err := json.Unmarshal(resource.Description, insertInstanceRequest)
@@ -214,6 +220,7 @@ func (r *gcpInstance) getResourceInfo(ctx context.Context, resource *invisinetsp
 	return &resourceInfo{Project: insertInstanceRequest.Project, Zone: insertInstanceRequest.Zone, Name: *insertInstanceRequest.InstanceResource.Name, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: instanceTypeName}, nil
 }
 
+// Read and provision a GCP instance
 func (r *gcpInstance) readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
 	vm, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
@@ -320,6 +327,7 @@ type gcpGKE struct {
 	gcpResourceHandler[container.ClusterManagerClient]
 }
 
+// Read and provision a GCP cluster
 func (r *gcpGKE) readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
 	gke, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
@@ -328,6 +336,7 @@ func (r *gcpGKE) readAndProvisionResource(ctx context.Context, resource *invisin
 	return r.createWithNetwork(ctx, gke, subnetName, resourceInfo, firewallsClient, additionalAddrSpaces)
 }
 
+// Get the resource information for a GCP cluster
 func (r *gcpGKE) getResourceInfo(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
 	createClusterRequest := &containerpb.CreateClusterRequest{}
 	err := json.Unmarshal(resource.Description, createClusterRequest)
@@ -404,7 +413,7 @@ func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.Cre
 				Name:        proto.String("invisinets-allow-control-plane-" + strings.ToLower(direction) + "-" + resourceInfo.Name),
 				Network:     proto.String(GetVpcUri(resourceInfo.Project, resourceInfo.Namespace)),
 				Priority:    proto.Int32(65500),
-				TargetTags:  []string{getClusterNodeTag(getClusterResp.Name, getClusterResp.Id)},
+				TargetTags:  []string{getClusterNodeTag(resourceInfo.Namespace, getClusterResp.Name, getClusterResp.Id)},
 			},
 		}
 		if direction == computepb.Firewall_EGRESS.String() {
