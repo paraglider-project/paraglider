@@ -38,6 +38,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/kvstore/storepb"
 	config "github.com/NetSys/invisinets/pkg/orchestrator/config"
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
@@ -70,6 +71,7 @@ type ControllerServer struct {
 	usedAsns                  []uint32
 	usedBgpPeeringIpAddresses map[string][]string
 	localTagService           string
+	localKVStoreService       string
 	config                    config.Config
 	namespace                 string
 }
@@ -1164,6 +1166,58 @@ func (s *ControllerServer) listNamespaces(c *gin.Context) {
 	c.JSON(http.StatusOK, s.config.Namespaces)
 }
 
+// Get a value from the KV store
+func (s *ControllerServer) GetValue(c context.Context, req *invisinetspb.GetValueRequest) (*invisinetspb.GetValueResponse, error) {
+	conn, err := grpc.Dial(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	client := storepb.NewKVStoreClient(conn)
+
+	response, err := client.Get(c, &storepb.GetRequest{Key: req.Key, Namespace: req.Namespace, Cloud: req.Cloud})
+	if err != nil {
+		return nil, err
+	}
+	return &invisinetspb.GetValueResponse{Value: response.Value}, nil
+}
+
+// Set a value in the KV store
+func (s *ControllerServer) SetValue(c context.Context, req *invisinetspb.SetValueRequest) (*invisinetspb.SetValueResponse, error) {
+	conn, err := grpc.Dial(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	client := storepb.NewKVStoreClient(conn)
+
+	_, err = client.Set(c, &storepb.SetRequest{Key: req.Key, Value: req.Value, Namespace: req.Namespace, Cloud: req.Cloud})
+	if err != nil {
+		return nil, err
+	}
+	return &invisinetspb.SetValueResponse{}, nil
+}
+
+// Delete a value in the KV store
+func (s *ControllerServer) DeleteValue(c context.Context, req *invisinetspb.DeleteValueRequest) (*invisinetspb.DeleteValueResponse, error) {
+	conn, err := grpc.Dial(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	client := storepb.NewKVStoreClient(conn)
+
+	_, err = client.Delete(c, &storepb.DeleteRequest{Key: req.Key, Namespace: req.Namespace, Cloud: req.Cloud})
+	if err != nil {
+		fmt.Printf("Error getting KV store service connection: %s\n", err.Error())
+		return nil, err
+	}
+	return &invisinetspb.DeleteValueResponse{}, nil
+}
+
 // Setup and run the server
 func Setup(configPath string) {
 	// Read the config
@@ -1188,6 +1242,7 @@ func Setup(configPath string) {
 	}
 	server.config = cfg
 	server.localTagService = cfg.TagService.Host + ":" + cfg.TagService.Port
+	server.localKVStoreService = cfg.KVStore.Host + ":" + cfg.KVStore.Port
 
 	for _, c := range server.config.CloudPlugins {
 		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port

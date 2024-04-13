@@ -37,6 +37,7 @@ import (
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 
 	fakeplugin "github.com/NetSys/invisinets/pkg/fake/cloudplugin"
+	fakekvstore "github.com/NetSys/invisinets/pkg/fake/kvstore"
 	faketagservice "github.com/NetSys/invisinets/pkg/fake/tagservice"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 
@@ -1337,4 +1338,55 @@ func TestGetAndValidateResourceURLParams(t *testing.T) {
 	_, _, err = orchestratorServer.getAndValidateResourceURLParams(&ctx, true)
 
 	assert.NotNil(t, err)
+}
+
+func TestGetValue(t *testing.T) {
+	orchestratorServer := newOrchestratorServer()
+	kvStorePort := getNewPortNumber()
+	fakekvstore.SetupFakeTagServer(kvStorePort)
+	orchestratorServer.localKVStoreService = fmt.Sprintf("localhost:%d", kvStorePort)
+
+	// Well-formed call
+	resp, err := orchestratorServer.GetValue(context.Background(), &invisinetspb.GetValueRequest{Key: fakekvstore.ValidKey, Cloud: exampleCloudName, Namespace: defaultNamespace})
+	require.Nil(t, err)
+	assert.Equal(t, resp.Value, fakekvstore.ValidValue)
+
+	// Non-existent key
+	resp, err = orchestratorServer.GetValue(context.Background(), &invisinetspb.GetValueRequest{Key: "invalidkey", Cloud: exampleCloudName, Namespace: defaultNamespace})
+	require.NotNil(t, err)
+	require.Nil(t, resp)
+}
+
+func TestSetValue(t *testing.T) {
+	orchestratorServer := newOrchestratorServer()
+	kvStorePort := getNewPortNumber()
+	fakekvstore.SetupFakeTagServer(kvStorePort)
+	orchestratorServer.localKVStoreService = fmt.Sprintf("localhost:%d", kvStorePort)
+
+	// Well-formed call
+	resp, err := orchestratorServer.SetValue(context.Background(), &invisinetspb.SetValueRequest{Key: fakekvstore.ValidKey, Value: fakekvstore.ValidValue, Cloud: exampleCloudName, Namespace: defaultNamespace})
+	require.Nil(t, err)
+	require.NotNil(t, resp)
+
+	// Bad key (already used, for example)
+	resp, err = orchestratorServer.SetValue(context.Background(), &invisinetspb.SetValueRequest{Key: "invalidkey", Value: fakekvstore.ValidValue, Cloud: exampleCloudName, Namespace: defaultNamespace})
+	require.NotNil(t, err)
+	require.Nil(t, resp)
+}
+
+func TestDeleteValue(t *testing.T) {
+	orchestratorServer := newOrchestratorServer()
+	kvStorePort := getNewPortNumber()
+	fakekvstore.SetupFakeTagServer(kvStorePort)
+	orchestratorServer.localKVStoreService = fmt.Sprintf("localhost:%d", kvStorePort)
+
+	// Well-formed call
+	resp, err := orchestratorServer.DeleteValue(context.Background(), &invisinetspb.DeleteValueRequest{Key: fakekvstore.ValidKey, Cloud: exampleCloudName, Namespace: defaultNamespace})
+	require.Nil(t, err)
+	require.NotNil(t, resp)
+
+	// Bad key
+	resp, err = orchestratorServer.DeleteValue(context.Background(), &invisinetspb.DeleteValueRequest{Key: "invalidkey", Cloud: exampleCloudName, Namespace: defaultNamespace})
+	require.NotNil(t, err)
+	require.Nil(t, resp)
 }
