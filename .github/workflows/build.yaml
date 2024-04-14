@@ -96,10 +96,8 @@ jobs:
         uses: arduino/setup-protoc@v3
       - name: Get protoc-gen-go
         run: |
-          go get google.golang.org/protobuf/cmd/protoc-gen-go
-          go install google.golang.org/protobuf/cmd/protoc-gen-go
-          go get google.golang.org/grpc/cmd/protoc-gen-go-grpc
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
+          GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
       - name: Make build
         run: |
           make build
