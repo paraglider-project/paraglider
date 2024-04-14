@@ -102,9 +102,9 @@ jobs:
           echo "$(go env GOPATH)/bin/${GOOS}_${GOARCH}" >> $GITHUB_PATH
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
-      # - name: Make build
-      #   run: |
-      #     make build
+      - name: Make build
+        run: |
+          make build
       # - name: Run linter
       #   if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'  
       #   uses: golangci/golangci-lint-action@v3
