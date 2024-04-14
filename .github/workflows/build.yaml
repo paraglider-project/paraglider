@@ -6,11 +6,15 @@ on:
       - release/*
     tags:
       - v*
+    paths-ignore:
+      - 'docs/**'
   pull_request:
     branches:
       - main
       - features/*
       - release/*
+    paths-ignore:
+      - 'docs/**'
 
 concurrency:
   # Cancel the previously triggered build for only PR build.
