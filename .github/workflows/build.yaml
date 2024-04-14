@@ -72,7 +72,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GOVER }}
-          cache: false
       - name: Get Go Cache path
         id: go-cache-paths
         run: |
@@ -99,7 +98,7 @@ jobs:
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-          : # When GOOS_GOARCH is not the same as the host OS_ARCH, the binaries get put into GOOS_GOARCH, so we need to add this to PATH.
+          # When GOOS_GOARCH is not the same as the host OS_ARCH, the binaries get put into GOOS_GOARCH, so we need to add this to PATH.
           echo "$(go env GOPATH)/bin/$GOOS_$GOARCH" >> $GITHUB_OUTPUT
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
