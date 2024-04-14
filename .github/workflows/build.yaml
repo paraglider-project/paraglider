@@ -73,24 +73,24 @@ jobs:
         with:
           go-version: ${{ env.GOVER }}
           cache: false
-      - name: Get Go Cache path
-        id: go-cache-paths
-        run: |
-          echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
-          echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ${{ steps.go-cache-paths.outputs.go-build }}
-            ${{ steps.go-cache-paths.outputs.go-mod }}
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - name: Restore the previous coverage
-        uses: actions/cache/restore@v3
-        with:
-          path: ./dist/cache
-          key: code-coverage-
+      # - name: Get Go Cache path
+      #   id: go-cache-paths
+      #   run: |
+      #     echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
+      #     echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
+      # - uses: actions/cache@v3
+      #   with:
+      #     path: |
+      #       ${{ steps.go-cache-paths.outputs.go-build }}
+      #       ${{ steps.go-cache-paths.outputs.go-mod }}
+      #     key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-go-
+      # - name: Restore the previous coverage
+      #   uses: actions/cache/restore@v3
+      #   with:
+      #     path: ./dist/cache
+      #     key: code-coverage-
       - name: Parse release version and set environment variables
         run: python ./.github/scripts/get_release_version.py
       - name: Get protoc
