@@ -72,6 +72,7 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GOVER }}
+          cache: false
       - name: Get Go Cache path
         id: go-cache-paths
         run: |
