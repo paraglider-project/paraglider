@@ -138,10 +138,8 @@ var pingTestPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitLi
 	},
 }
 
-// TODO @praveingk: Change the tests to use fake IBM handlers
-
 // go test --tags=ibm -run TestCreateResourceNewVPC -sg=<security group name>
-func TestCreateResourceNewVPC(t *testing.T) {
+func TestCreateNewResource(t *testing.T) {
 	// Notes for tester:
 	// to change region set the values below according to constants above, e.g.:
 	// - test arguments for EU-DE-1:
@@ -183,54 +181,8 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	require.NotNil(t, resp)
 }
 
-// This func tests creating a new VM in an existing region, ergo to properly test:
-// 1. Have an invisinets VPC deployed beforehand.
-// 2. create the new VM in the same region as the deployed VPC.
-// go test --tags=ibm -run TestCreateResourceExistingVPC -sg=<security group name>
-func TestCreateResourceExistingVPC(t *testing.T) {
-	// Notes for tester:
-	// to change region set the values below according to constants above, e.g.:
-	// - test arguments for EU-DE-1:
-	// image, zone, instanceName, resourceID := testImageEUDE, testZoneEUDE1, testInstanceNameEUDE1, testResourceIDEUDE1
-	// - test arguments for US-EAST-1:
-	image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1, testResourceIDUSEast1
-	// - test arguments for US-EAST-2:
-	// image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast2, testInstanceNameUSEast2, testResourceIDUSEast2
-	// - test arguments for US-EAST-3:
-	// image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast3, testInstanceNameUSEast3, testResourceIDUSEast3
-
-	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
-	if err != nil {
-		t.Fatal(err)
-	}
-	imageIdentity := vpcv1.ImageIdentityByID{ID: core.StringPtr(image)}
-	zoneIdentity := vpcv1.ZoneIdentityByName{Name: core.StringPtr(zone)}
-	myTestProfile := string(testProfile)
-
-	testPrototype := &vpcv1.InstancePrototypeInstanceByImage{
-		Image:   &imageIdentity,
-		Zone:    &zoneIdentity,
-		Name:    core.StringPtr(instanceName),
-		Profile: &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
-	}
-
-	s := &ibmPluginServer{
-		orchestratorServerAddr: fakeControllerServerAddr,
-		cloudClient:            make(map[string]*sdk.CloudClient)}
-	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
-	require.NoError(t, err)
-
-	resource := &invisinetspb.ResourceDescription{Id: resourceID, Description: description, Namespace: testNamespace}
-	resp, err := s.CreateResource(context.Background(), resource)
-	if err != nil {
-		println(err)
-	}
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-}
-
 // usage: go test --tags=ibm -run TestGetPermitList -sg=<security group name>
-func TestGetPermitList(t *testing.T) {
+func TestGetPermitRules(t *testing.T) {
 	resourceID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDEUDE1
 
 	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
@@ -247,13 +199,13 @@ func TestGetPermitList(t *testing.T) {
 }
 
 // usage: go test --tags=ibm -run TestAddPermitListRules -sg=<security group name>
-func TestAddPermitListRules(t *testing.T) {
+func TestAddPermitRules(t *testing.T) {
 	resourceID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDEUDE1
 
 	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
 		Namespace: testNamespace,
 		Resource:  resourceID,
-		Rules:     testPermitList,
+		Rules:     pingTestPermitList,
 	}
 
 	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
@@ -266,7 +218,7 @@ func TestAddPermitListRules(t *testing.T) {
 }
 
 // usage: go test --tags=ibm -run TestDeletePermitListRule -sg=<security group name>
-func TestDeletePermitListRules(t *testing.T) {
+func TestDeletePermitRules(t *testing.T) {
 	resourceID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDUSSouth1
 
 	rInfo, err := getResourceIDInfo(resourceID)
@@ -315,7 +267,7 @@ func TestDeletePermitListRules(t *testing.T) {
 
 // usage: go test --tags=ibm -run TestGetUsedAddressSpaces -sg=<security group name>
 // this function logs subnets' address spaces from all invisinets' VPCs.
-func TestGetUsedAddressSpaces(t *testing.T) {
+func TestGetExistingAddressSpaces(t *testing.T) {
 	// GetUsedAddressSpaces() is independent of any region, since it returns
 	// address spaces in global scope, so any test resource ID will do.
 	deployments := &invisinetspb.GetUsedAddressSpacesRequest{
@@ -327,6 +279,8 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	usedAddressSpace, err := s.GetUsedAddressSpaces(context.Background(), deployments)
 	require.NoError(t, err)
 	require.NotEmpty(t, usedAddressSpace)
+
+	utils.Log.Printf("Response: %v", usedAddressSpace)
 }
 
 // usage: go test --tags=ibm -run TestCreateVpnGateway -sg=<security group name>
