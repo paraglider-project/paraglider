@@ -47,8 +47,7 @@ build: compile-protoc build-packages build-binaries ## Build all go targets.
 .PHONY: compile-protoc
 compile-protoc: ## Compiles all proto files.
 	@echo "$(ARROW) Compiling all proto files"
-	$(shell which protoc-gen-go)
-	@export PATH=$(GOPATH)/bin:$$PATH; echo $$PATH;$(foreach file,$(PROTOFILES),echo "compiling $(file)" & protoc --go_out=$(dir $(file)) \
+	@export PATH=$(GOPATH)/bin:$$PATH;$(foreach file,$(PROTOFILES),echo "compiling $(file)" & protoc --go_out=$(dir $(file)) \
 	--go_opt=paths=source_relative --go-grpc_out=$(dir $(file))  --go-grpc_opt=paths=source_relative \
 	--proto_path=$(dir $(file)) $(file);)
 	
@@ -108,7 +107,9 @@ clean: ## Cleans output directory.
 	rm -rf $(OUT_DIR)
 
 # Due to https://github.com/golangci/golangci-lint/issues/580, we need to add --fix for windows
-.PHONY: lint
-lint: ## Runs golangci-lint
+.PHONY: lint 
+lint: compile-protoc run-lint
+
+run-lint: ## Runs golangci-lint
 	$(GOLANGCI_LINT) run --fix --timeout 5m
 
