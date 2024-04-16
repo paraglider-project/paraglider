@@ -46,8 +46,13 @@ func TestMulticloud(t *testing.T) {
 	gcpProjectId := gcp.SetupGcpTesting("multicloud")
 	defer gcp.TeardownGcpTesting(gcpProjectId)
 
-	// Setup controller server
-	controllerServerConfig := config.Config{
+	// Setup orchestrator server
+	orchestratorServerConfig := config.Config{
+		Server: config.Server{
+			Host:    "localhost",
+			Port:    "8080",
+			RpcPort: "8081",
+		},
 		CloudPlugins: []config.CloudPlugin{
 			{
 				Name: utils.AZURE,
@@ -75,15 +80,16 @@ func TestMulticloud(t *testing.T) {
 			},
 		},
 	}
-	controllerServerAddr := orchestrator.SetupControllerServer(controllerServerConfig)
+	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
+	orchestrator.Setup(orchestratorServerConfig)
 	fmt.Println("Setup controller server")
 
 	// Setup Azure
-	azureServer := azure_plugin.Setup(azurePluginPort, controllerServerAddr)
+	azureServer := azure_plugin.Setup(azurePluginPort, orchestratorServerAddr)
 	fmt.Println("Setup Azure server")
 
 	// Setup GCP
-	gcpServer := gcp.Setup(gcpPluginPort, controllerServerAddr)
+	gcpServer := gcp.Setup(gcpPluginPort, orchestratorServerAddr)
 	fmt.Println("Setup GCP server")
 
 	ctx := context.Background()
