@@ -45,11 +45,11 @@ func NewCommand() *cobra.Command {
 }
 
 type executor struct {
-	tagPort        int
-	azPort         int
-	gcpPort        int
-	controllerAddr string
-	clearKeys      bool
+	tagPort          int
+	azPort           int
+	gcpPort          int
+	orchestratorAddr string
+	clearKeys        bool
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
@@ -67,7 +67,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	e.controllerAddr = cfg.Server.Host + ":" + cfg.Server.RpcPort
+	e.orchestratorAddr = cfg.Server.Host + ":" + cfg.Server.RpcPort
 
 	e.tagPort, err = strconv.Atoi(cfg.TagService.Port)
 	if err != nil {
@@ -102,11 +102,11 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	}()
 
 	go func() {
-		gcp.Setup(e.gcpPort, e.controllerAddr)
+		gcp.Setup(e.gcpPort, e.orchestratorAddr)
 	}()
 
 	go func() {
-		az.Setup(e.azPort, e.controllerAddr)
+		az.Setup(e.azPort, e.orchestratorAddr)
 	}()
 
 	orchestrator.SetupWithFile(args[0])

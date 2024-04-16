@@ -176,13 +176,13 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 	resourceAddress := *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
 
 	// Get used address spaces of all clouds
-	controllerConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	orchestratorConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
-	defer controllerConn.Close()
-	controllerClient := invisinetspb.NewControllerClient(controllerConn)
-	getUsedAddressSpacesResp, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	defer orchestratorConn.Close()
+	orchestratorClient := invisinetspb.NewControllerClient(orchestratorConn)
+	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
@@ -234,7 +234,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 					CloudB:          peeringCloudInfo.Cloud,
 					CloudBNamespace: peeringCloudInfo.Namespace,
 				}
-				_, err := controllerClient.ConnectClouds(ctx, connectCloudsReq)
+				_, err := orchestratorClient.ConnectClouds(ctx, connectCloudsReq)
 				if err != nil {
 					return nil, fmt.Errorf("unable to connect clouds : %w", err)
 				}
@@ -996,7 +996,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 		if err != nil {
 			if isErrorNotFound(err) {
 				// Checks if a virtual network gateway connection already exists. Even though CreateOrUpdate is a PUT (i.e. idempotent),
-				// a new random shared key is generated upon every call to this method from the controller server. Therefore, we don't
+				// a new random shared key is generated upon every call to this method from the orchestrator server. Therefore, we don't
 				// want to update the shared key since some other cloud plugins (e.g. GCP) will not update the shared key due to POST
 				// semantics (i.e. GCP will not update the shared key).
 				virtualNetworkGatewayConnectionParameters := &armnetwork.VirtualNetworkGatewayConnection{

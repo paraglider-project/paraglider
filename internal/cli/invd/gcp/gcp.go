@@ -28,7 +28,7 @@ import (
 func NewCommand() *cobra.Command {
 	executor := &executor{}
 	return &cobra.Command{
-		Use:     "gcp <port> <central controller address>",
+		Use:     "gcp <port> <central orchestrator address>",
 		Aliases: []string{"gcp"},
 		Short:   "Starts the GCP plugin server with given config file",
 		Args:    cobra.ExactArgs(2),

@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
-
-	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
+	orchestrator
+	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/NetSys/invisinets/pkg/orchestrator"
 	"github.com/NetSys/invisinets/pkg/orchestrator/config"

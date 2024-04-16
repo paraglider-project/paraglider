@@ -35,7 +35,7 @@ import (
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/stretchr/testify/require"
 
-	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
+	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
