@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Design &#8212; Invisinets  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="https://unpkg.com/mermaid@10.2.0/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="API" href="api.html" />
+    <link rel="prev" title="Quickstart" href="quickstart.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="design">
+<span id="id1"></span><h1>Design<a class="headerlink" href="#design" title="Link to this heading">¶</a></h1>
+<a class="reference internal image-reference" href="../_images/logo.png"><img alt="Invisinets Logo" src="../_images/logo.png" style="width: 200px;" /></a>
+<section id="what-is-invisinets">
+<h2>What is Invisinets?<a class="headerlink" href="#what-is-invisinets" title="Link to this heading">¶</a></h2>
+<p>Invisinets is a control plane for cloud networking resources designed to simplify the tenant networking experience. The Invisinets Controller exposes the Invisinets API to tenants and uses public cloud APIs to manage the tenant’s cloud network.</p>
+<section id="conceptual-overview">
+<h3>Conceptual Overview<a class="headerlink" href="#conceptual-overview" title="Link to this heading">¶</a></h3>
+<p>Invisinets takes an “endpoint-centric” view of networking: all non-networking resources should simply define their high-level networking intents and the rest should be deployed automatically – making the network <em>invisible</em>.</p>
+<p>Core Concepts</p>
+<ul class="simple">
+<li><p><strong>Endpoint</strong>: Any resource in a cloud network (eg, a VM)</p></li>
+<li><p><strong>Permit List</strong>: A list associated with an endpoint which defines the allowed traffic for that endpoint</p></li>
+<li><p><strong>Tags</strong>: Strings associated with an endpoint or group of endpoint which can be referred to in permit lists and commands</p></li>
+<li><p><strong>Namespaces</strong>: An Invisinets deployment controlled by an Invisinets controller separated (both in infrastructure and in control plane) from other namespaces under the same controller</p></li>
+</ul>
+</section>
+<section id="use">
+<h3>Use<a class="headerlink" href="#use" title="Link to this heading">¶</a></h3>
+<p>To use Invisinets, a tenant would run the Invisinets Controller and use the Invisinets API to create cloud deployments. This task largely consists of creating endpoints and modifying their permit lists to enable connectivity between them.</p>
+</section>
+</section>
+<section id="how-invisinets-works">
+<h2>How Invisinets Works<a class="headerlink" href="#how-invisinets-works" title="Link to this heading">¶</a></h2>
+<p>The Invisinets Controller uses public cloud APIs to deploy networking resources (eg, VPCs, subnets, security rules, VPN gateways) as necessary to match the high-level intents specified via the Invisinets API. [MORE?]</p>
+<section id="controller-design">
+<h3>Controller Design<a class="headerlink" href="#controller-design" title="Link to this heading">¶</a></h3>
+<div class="mermaid">
+            graph TB
+UR[/User Request/] --&gt; CC[Central Controller]
+
+subgraph &quot; &quot;
+    CC[Orchestrator]
+    CC --&gt; AP[Azure Plugin]
+    CC --&gt; GP[GCP Plugin]
+    CC --&gt; IP[IBM Plugin]
+end
+
+subgraph &quot; &quot;
+    CC --&gt; TS[Tag Service]
+    TS[Tag Service] --&gt; DS[(Tag Store)]
+end
+
+AP --&gt; AC[Azure Cloud]
+GP --&gt; GC[GCP Cloud]
+IP --&gt; IC[IBM Cloud]
+        </div><p><strong>Overview</strong></p>
+<p>The Invisinets Controller consists of several microservices: a Central Controller, a Tag Service, and potentially multiple Cloud Plugins. Each service is described below.</p>
+<p><strong>Central Controller</strong></p>
+<p>The Central Controller accepts user requests and sends requests to the other microservices to complete these tasks. It is the central point of coordination for multi-service tasks.</p>
+<p><strong>Tag Service</strong></p>
+<p>The Tag Service is a light-weight service on top of a key-value store which stores data about the mappings between tags and the resources that reference them (“subscribers”). Subscribers must be tracked in order to push updates to permit lists when tag membership changes.</p>
+<p><strong>Cloud Plugins</strong></p>
+<p>Cloud Plugins implement the Invisinets Cloud Plugin Interface for their respective cloud. For more about the Invisinets Cloud Plugin Interface, see [link to implementation doc]</p>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Invisinets</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Overview</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developers</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../developers/contributing.html">Contributing</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="quickstart.html" title="previous chapter">Quickstart</a></li>
+      <li>Next: <a href="api.html" title="next chapter">API</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024, Invisinets Authors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/overview/design.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
