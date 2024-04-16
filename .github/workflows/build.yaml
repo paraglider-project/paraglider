@@ -6,11 +6,15 @@ on:
       - release/*
     tags:
       - v*
+    paths-ignore:
+      - 'docs/**'
   pull_request:
     branches:
       - main
       - features/*
       - release/*
+    paths-ignore:
+      - 'docs/**'
 
 concurrency:
   # Cancel the previously triggered build for only PR build.
@@ -19,7 +23,7 @@ concurrency:
 
 env:
   # Go version to install
-  GOVER: '^1.20'
+  GOVER: '^1.21'
   GOPROXY: https://proxy.golang.org
   
   # gotestsum version - see: https://github.com/gotestyourself/gotestsum

@@ -39,8 +39,14 @@ type TagService struct {
 }
 
 type Config struct {
-	Server       Server                       `yaml:"server"`
-	TagService   TagService                   `yaml:"tagService"`
+	Server     Server     `yaml:"server"`
+	TagService TagService `yaml:"tagService"`
+
+	KVStore struct {
+		Port string `yaml:"port"`
+		Host string `yaml:"host"`
+	} `yaml:"kvStore"`
+
 	Namespaces   map[string][]CloudDeployment `yaml:"namespaces"`
 	CloudPlugins []CloudPlugin                `yaml:"cloudPlugins"`
 }

@@ -35,3 +35,9 @@ gomock_*
 
 # Key
 *key*.json
+
+# Sphinx
+docs/build/
+
+# Python
+.venv/

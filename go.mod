@@ -1,6 +1,6 @@
 module github.com/NetSys/invisinets
 
-go 1.20
+go 1.21
 
 require (
 	cloud.google.com/go/compute v1.21.0
