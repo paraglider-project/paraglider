@@ -22,24 +22,25 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
-	"github.com/NetSys/invisinets/pkg/frontend"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/orchestrator"
+	"github.com/NetSys/invisinets/pkg/orchestrator/config"
 	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 )
 
 type InvisinetsControllerClient interface {
-	GetPermitList(cloud string, id string) (*invisinetspb.PermitList, error)
-	AddPermitListRules(cloud string, permitList *invisinetspb.PermitList) error
-	DeletePermitListRules(cloud string, permitList *invisinetspb.PermitList) error
-	CreateResource(cloud string, resource *invisinetspb.ResourceDescriptionString) (map[string]string, error)
+	GetPermitList(namespace string, cloud string, resourceName string) ([]*invisinetspb.PermitListRule, error)
+	AddPermitListRules(namespace string, cloud string, resourceName string, rules []*invisinetspb.PermitListRule) error
+	DeletePermitListRules(namespace string, cloud string, resourceName string, rules []string) error
+	CreateResource(namespace string, cloud string, resourceName string, resource *invisinetspb.ResourceDescriptionString) (map[string]string, error)
 	GetTag(tag string) (*tagservicepb.TagMapping, error)
 	ResolveTag(tag string) ([]*tagservicepb.TagMapping, error)
 	SetTag(tag string, tagMapping *tagservicepb.TagMapping) error
 	DeleteTag(tag string) error
 	DeleteTagMembers(tag string, members []string) error
-	GetNamespace() (string, error)
-	SetNamespace(namespace string) error
+	ListNamespaces() (map[string][]config.CloudDeployment, error)
 }
 
 type Client struct {
@@ -49,6 +50,9 @@ type Client struct {
 
 // Proccess the response from the controller and return the body
 func (c *Client) processResponse(resp *http.Response) ([]byte, error) {
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("request failed with status code %d", resp.StatusCode)
+	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -67,6 +71,12 @@ func (c *Client) sendRequest(url string, method string, body io.Reader) ([]byte,
 	client := &http.Client{}
 
 	url = c.ControllerAddress + url
+
+	// Prepend with http to make net/http happy
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		url = "http://" + url
+	}
+	fmt.Println(url)
 
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
@@ -87,28 +97,28 @@ func (c *Client) sendRequest(url string, method string, body io.Reader) ([]byte,
 }
 
 // Get a permit list for a resource
-func (c *Client) GetPermitList(cloud string, id string) (*invisinetspb.PermitList, error) {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.GetPermitListRulesURL), cloud, id)
+func (c *Client) GetPermitList(namespace string, cloud string, resourceName string) ([]*invisinetspb.PermitListRule, error) {
+	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.GetPermitListRulesURL), namespace, cloud, resourceName)
 
 	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	permitList := &invisinetspb.PermitList{}
-	err = json.Unmarshal(respBytes, permitList)
+	var rules []*invisinetspb.PermitListRule
+	err = json.Unmarshal(respBytes, &rules)
 	if err != nil {
 		return nil, err
 	}
 
-	return permitList, nil
+	return rules, nil
 }
 
 // Add permit list rules to a resource
-func (c *Client) AddPermitListRules(cloud string, permitList *invisinetspb.PermitList) error {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.AddPermitListRulesURL), cloud)
+func (c *Client) AddPermitListRules(namespace string, cloud string, resourceName string, rules []*invisinetspb.PermitListRule) error {
+	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.AddPermitListRulesURL), namespace, cloud, resourceName)
 
-	reqBody, err := json.Marshal(permitList)
+	reqBody, err := json.Marshal(rules)
 	if err != nil {
 		return err
 	}
@@ -122,15 +132,15 @@ func (c *Client) AddPermitListRules(cloud string, permitList *invisinetspb.Permi
 }
 
 // Delete permit list rules from a resource
-func (c *Client) DeletePermitListRules(cloud string, permitList *invisinetspb.PermitList) error {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.DeletePermitListRulesURL), cloud)
+func (c *Client) DeletePermitListRules(namespace string, cloud string, resourceName string, rules []string) error {
+	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.DeletePermitListRulesURL), namespace, cloud, resourceName)
 
-	reqBody, err := json.Marshal(permitList)
+	reqBody, err := json.Marshal(rules)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.sendRequest(path, http.MethodDelete, bytes.NewBuffer(reqBody))
+	_, err = c.sendRequest(path, http.MethodPost, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return err
 	}
@@ -139,15 +149,15 @@ func (c *Client) DeletePermitListRules(cloud string, permitList *invisinetspb.Pe
 }
 
 // Create a resource
-func (c *Client) CreateResource(cloud string, resource *invisinetspb.ResourceDescriptionString) (map[string]string, error) {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.CreateResourceURL), cloud)
+func (c *Client) CreateResource(namespace string, cloud string, resourceName string, resource *invisinetspb.ResourceDescriptionString) (map[string]string, error) {
+	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.CreateResourcePUTURL), namespace, cloud, resourceName)
 
 	reqBody, err := json.Marshal(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	response, err := c.sendRequest(path, http.MethodPost, bytes.NewBuffer(reqBody))
+	response, err := c.sendRequest(path, http.MethodPut, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +173,7 @@ func (c *Client) CreateResource(cloud string, resource *invisinetspb.ResourceDes
 
 // Get the members of a tag
 func (c *Client) GetTag(tag string) (*tagservicepb.TagMapping, error) {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.GetTagURL), tag)
+	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.GetTagURL), tag)
 
 	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
 	if err != nil {
@@ -181,7 +191,7 @@ func (c *Client) GetTag(tag string) (*tagservicepb.TagMapping, error) {
 
 // Resolve a tag down to all IP/URI members
 func (c *Client) ResolveTag(tag string) ([]*tagservicepb.TagMapping, error) {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.ResolveTagURL), tag)
+	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.ResolveTagURL), tag)
 
 	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
 	if err != nil {
@@ -199,7 +209,7 @@ func (c *Client) ResolveTag(tag string) ([]*tagservicepb.TagMapping, error) {
 
 // Set a tag as a member of a group or as a mapping to a URI/IP
 func (c *Client) SetTag(tag string, tagMapping *tagservicepb.TagMapping) error {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.SetTagURL), tag)
+	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.SetTagURL), tag)
 
 	reqBody, err := json.Marshal(tagMapping)
 	if err != nil {
@@ -216,7 +226,7 @@ func (c *Client) SetTag(tag string, tagMapping *tagservicepb.TagMapping) error {
 
 // Delete an entire tag and all its member associations under it
 func (c *Client) DeleteTag(tag string) error {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.DeleteTagURL), tag)
+	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.DeleteTagURL), tag)
 
 	_, err := c.sendRequest(path, http.MethodDelete, nil)
 	if err != nil {
@@ -226,16 +236,11 @@ func (c *Client) DeleteTag(tag string) error {
 	return nil
 }
 
-// Delete member(s) from a tag
-func (c *Client) DeleteTagMembers(tag string, members []string) error {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.DeleteTagMembersURL), tag)
+// Delete member from a tag
+func (c *Client) DeleteTagMembers(tag string, member string) error {
+	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.DeleteTagMemberURL), tag, member)
 
-	reqBody, err := json.Marshal(members)
-	if err != nil {
-		return err
-	}
-
-	_, err = c.sendRequest(path, http.MethodDelete, bytes.NewBuffer(reqBody))
+	_, err := c.sendRequest(path, http.MethodDelete, nil)
 	if err != nil {
 		return err
 	}
@@ -243,32 +248,18 @@ func (c *Client) DeleteTagMembers(tag string, members []string) error {
 	return nil
 }
 
-// Get the current namespace of the controller
-func (c *Client) GetNamespace() (string, error) {
-	path := frontend.GetFormatterString(frontend.GetNamespaceURL)
-
-	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
+// List all configured namespaces
+func (c *Client) ListNamespaces() (map[string][]config.CloudDeployment, error) {
+	result, err := c.sendRequest(orchestrator.ListNamespacesURL, http.MethodGet, nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	namespaceDict := map[string]string{}
-	err = json.Unmarshal(respBytes, &namespaceDict)
+	namespaces := map[string][]config.CloudDeployment{}
+	err = json.Unmarshal(result, &namespaces)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return namespaceDict["namespace"], nil
-}
-
-// Set the namespace of the controller
-func (c *Client) SetNamespace(namespace string) error {
-	path := fmt.Sprintf(frontend.GetFormatterString(frontend.SetNamespaceURL), namespace)
-
-	_, err := c.sendRequest(path, http.MethodPost, nil)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return namespaces, nil
 }

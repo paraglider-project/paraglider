@@ -39,17 +39,19 @@ func TestResourceCreateValidate(t *testing.T) {
 }
 
 func TestResourceCreateExecute(t *testing.T) {
-	server := &fake.FakeFrontendServer{}
-	settings.ServerAddr = server.SetupFakeFrontendServer()
+	server := &fake.FakeOrchestratorRESTServer{}
+	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
 	cmd, executor := NewCommand()
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
+
 	var output bytes.Buffer
 	executor.writer = &output
 	executor.description = []byte(`descriptionstring`)
 
-	args := []string{fake.CloudName, "example-uri", ""}
+	args := []string{fake.CloudName, "resourceName"}
 	err := executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
-	assert.Contains(t, output.String(), "example-uri")
+	assert.Contains(t, output.String(), "resourceName")
 }

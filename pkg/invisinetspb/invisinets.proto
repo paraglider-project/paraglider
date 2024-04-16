@@ -20,21 +20,25 @@ package invisinetspb;
 option go_package="github.com/NetSys/invisinets/pkg/invisinetspb";
 
 service CloudPlugin {
-    rpc GetUsedAddressSpaces(InvisinetsDeployment) returns (AddressSpaceList) {}
+    rpc GetUsedAddressSpaces(GetUsedAddressSpacesRequest) returns (GetUsedAddressSpacesResponse) {}
     rpc GetUsedAsns(GetUsedAsnsRequest) returns (GetUsedAsnsResponse) {}
+    rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}
     rpc CreateResource(ResourceDescription) returns (CreateResourceResponse) {}
-    rpc GetPermitList(ResourceID) returns (PermitList) {}
-    rpc AddPermitListRules(PermitList) returns (BasicResponse) {}
-    rpc DeletePermitListRules(PermitList) returns (BasicResponse) {}
+    rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}
+    rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}
+    rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}
     rpc CreateVpnGateway(CreateVpnGatewayRequest) returns (CreateVpnGatewayResponse) {}
     rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (BasicResponse) {}
 }
 
 service Controller {
-    rpc FindUnusedAddressSpace(Namespace) returns (AddressSpace) {}
-    rpc GetUsedAddressSpaces(Namespace) returns (AddressSpaceMappingList) {}
+    rpc FindUnusedAddressSpace(FindUnusedAddressSpaceRequest) returns (FindUnusedAddressSpaceResponse) {}
+    rpc GetUsedAddressSpaces(Empty) returns (GetUsedAddressSpacesResponse) {} // TODO @seankimkdy: we should rename either this or the CloudPlugin's to not share the same method name
     rpc FindUnusedAsn(FindUnusedAsnRequest) returns (FindUnusedAsnResponse) {}
     rpc ConnectClouds(ConnectCloudsRequest) returns (BasicResponse) {}
+    rpc SetValue(SetValueRequest) returns (SetValueResponse) {}
+    rpc GetValue(GetValueRequest) returns (GetValueResponse) {}
+    rpc DeleteValue(DeleteValueRequest) returns (DeleteValueResponse) {}
 }
 
 message Empty {
@@ -57,18 +61,11 @@ message InvisinetsDeployment {
     string namespace = 2;
 }
 
-message AddressSpace {
-    string address = 1;
-}
-
-message AddressSpaceList {
-    repeated string address_spaces = 1;
-}
-
 message AddressSpaceMapping{
     repeated string address_spaces = 1;
     string cloud = 2;
     string namespace = 3;
+    optional string deployment = 4;
 }
 
 message AddressSpaceMappingList {
@@ -88,7 +85,8 @@ message ResourceDescription {
 
 message ResourceDescriptionString {
     string id = 1;
-    string description = 2;
+    string name = 2;
+    string description = 3;
 }
 
 message BasicResponse {
@@ -105,18 +103,45 @@ enum Direction {
 // TODO ?: have a version of this without the tags field to avoid users setting that at all
 message PermitListRule {
     string id = 1;
-    repeated string targets = 2;
-    Direction direction = 3;
-    int32 src_port = 4;
-    int32 dst_port = 5;
-    int32 protocol = 6;
-    repeated string tags = 7;
+    string name = 2;
+    repeated string targets = 3;
+    Direction direction = 4;
+    int32 src_port = 5;
+    int32 dst_port = 6;
+    int32 protocol = 7;
+    repeated string tags = 8;
 }
 
 message PermitList {
     string associated_resource = 1; 
     repeated PermitListRule rules = 2;
-    string namespace = 3;
+}
+
+message AddPermitListRulesRequest {
+    string namespace = 1;
+    string resource = 2;
+    repeated PermitListRule rules = 3;
+}
+
+message AddPermitListRulesResponse {
+}
+
+message DeletePermitListRulesRequest {
+    string namespace = 1;
+    string resource = 2;
+    repeated string rule_names = 3;
+}
+
+message DeletePermitListRulesResponse {
+}
+
+message GetPermitListRequest {
+    string namespace = 1;
+    string resource = 2;
+}
+
+message GetPermitListResponse {
+    repeated PermitListRule rules = 1;
 }
 
 message ConnectCloudsRequest {
@@ -132,12 +157,12 @@ message ConnectCloudsRequest {
 message CreateVpnGatewayRequest {
     InvisinetsDeployment deployment = 1;
     string cloud = 2;
+    repeated string bgp_peering_ip_addresses = 3;
 }
 
 message CreateVpnGatewayResponse {
     uint32 asn = 1;
     repeated string gateway_ip_addresses = 2;
-    repeated string bgp_ip_addresses = 3;
 }
 
 message CreateVpnConnectionsRequest {
@@ -149,18 +174,75 @@ message CreateVpnConnectionsRequest {
     string shared_key = 6;
 }
 
+message GetUsedAddressSpacesRequest{
+    repeated InvisinetsDeployment deployments = 1;
+}
+
+message GetUsedAddressSpacesResponse{
+    // NOTE: this is shared by both the CloudPlugin and Controller
+    repeated AddressSpaceMapping address_space_mappings = 1;
+}
+
 message GetUsedAsnsRequest {
-    InvisinetsDeployment deployment = 1;
+    repeated InvisinetsDeployment deployments = 1;
 }
 
 message GetUsedAsnsResponse {
     repeated uint32 asns = 1; // Currently APIs only return one ASN since it's per namespace but it may change in the future
 }
 
+message GetUsedBgpPeeringIpAddressesRequest {
+    repeated InvisinetsDeployment deployments = 1;
+}
+
+message GetUsedBgpPeeringIpAddressesResponse {
+    repeated string ip_addresses = 1;
+}
+
+message FindUnusedAddressSpaceRequest {
+
+}
+
+message FindUnusedAddressSpaceResponse {
+    string address_space = 1;
+}
+
 message FindUnusedAsnRequest {
-    string namespace = 1;
+
 }
 
 message FindUnusedAsnResponse {
     uint32 asn = 1;
 }
+
+message SetValueRequest {
+    string key = 1;
+    string value = 2;
+    string cloud = 3;
+    string namespace = 4;
+}
+
+message SetValueResponse {
+}
+
+message GetValueRequest {
+    string key = 1;
+    string cloud = 2;
+    string namespace = 3;
+}
+
+message GetValueResponse {
+    string value = 1;
+}
+
+message DeleteValueRequest {
+    string key = 1;
+    string cloud = 2;
+    string namespace = 3;
+}
+
+message DeleteValueResponse {
+}
+
+
+

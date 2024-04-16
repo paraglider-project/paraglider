@@ -27,9 +27,8 @@ import (
 )
 
 func TestServerGetExecute(t *testing.T) {
-	settings.ServerAddr = "serverAddr"
-
 	cmd, executor := NewCommand()
+	executor.cliSettings = settings.CLISettings{ServerAddr: "serverAddr"}
 	var b bytes.Buffer
 	executor.writer = &b
 

@@ -17,12 +17,15 @@ limitations under the License.
 package ibm
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
+	ibmCommon "github.com/NetSys/invisinets/pkg/ibm_plugin"
 
+	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
@@ -51,6 +54,34 @@ type SecurityGroupRule struct {
 	Egress     bool   // The rule affects to outbound traffic (true) or inbound (false)
 }
 
+// mapping invisinets traffic directions to booleans
+var invisinetsToIBMDirection = map[invisinetspb.Direction]bool{
+	invisinetspb.Direction_OUTBOUND: true,
+	invisinetspb.Direction_INBOUND:  false,
+}
+
+// mapping booleans invisinets traffic directions
+var ibmToInvisinetsDirection = map[bool]invisinetspb.Direction{
+	true:  invisinetspb.Direction_OUTBOUND,
+	false: invisinetspb.Direction_INBOUND,
+}
+
+// mapping integers determined by the IANA standard to IBM protocols
+var invisinetsToIBMprotocol = map[int32]string{
+	-1: "all",
+	1:  "icmp",
+	6:  "tcp",
+	17: "udp",
+}
+
+// mapping IBM protocols to integers determined by the IANA standard
+var ibmToInvisinetsProtocol = map[string]int32{
+	"all":  -1,
+	"icmp": 1,
+	"tcp":  6,
+	"udp":  17,
+}
+
 // creates security group in the specified VPC and tags it.
 func (c *CloudClient) createSecurityGroup(
 	vpcID string) (*vpcv1.SecurityGroup, error) {
@@ -72,7 +103,7 @@ func (c *CloudClient) createSecurityGroup(
 
 	err = c.attachTag(sg.CRN, sgTags)
 	if err != nil {
-		utils.Log.Print("Failed to tag VPC with error:", err)
+		utils.Log.Print("Failed to tag SG with error:", err)
 		return nil, err
 	}
 	return sg, nil
@@ -230,86 +261,11 @@ func (c *CloudClient) translateSecurityGroupRuleRemote(
 // AddSecurityGroupRule adds following functions are responsible for assigning SecurityGroupRules
 // to a security group.
 func (c *CloudClient) AddSecurityGroupRule(rule SecurityGroupRule) error {
-	var remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf
-	if len(rule.Remote) == 0 {
-		return fmt.Errorf("SecurityGroupRule is missing remote value")
-	}
-	remote, err := GetRemoteType(rule.Remote)
+	prototype, err := c.translateRuleProtocol(rule)
 	if err != nil {
 		return err
 	}
-
-	if remote == ipType {
-		remotePrototype = &vpcv1.SecurityGroupRuleRemotePrototypeIP{Address: &rule.Remote}
-	} else { // CIDR
-		remotePrototype = &vpcv1.SecurityGroupRuleRemotePrototypeCIDR{CIDRBlock: &rule.Remote}
-	}
-
-	direction := getEgressDirection(rule.Egress)
-	switch rule.Protocol {
-	case "all":
-		return c.addAnyProtoSecurityGroupRule(rule.SgID, remotePrototype, direction)
-	case "tcp", "udp":
-		return c.addTCPUDPSecurityGroupRule(rule.SgID, remotePrototype, rule.Protocol, rule.PortMin, rule.PortMax, direction)
-	case "icmp":
-		return c.addIcmpSecurityGroupRule(rule.SgID, remotePrototype, rule.IcmpType, rule.IcmpCode, direction)
-	}
-	return nil
-}
-
-func (c *CloudClient) addTCPUDPSecurityGroupRule(
-	sgID string,
-	remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf,
-	protocol string,
-	portMin, portMax int64,
-	direction *string,
-) error {
-
-	prototype := vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolTcpudp{
-		Direction: direction,
-		Protocol:  &protocol,
-		PortMin:   &portMin,
-		PortMax:   &portMax,
-		Remote:    remotePrototype,
-	}
-	return c.addSecurityGroupRule(sgID, &prototype)
-}
-
-func (c *CloudClient) addIcmpSecurityGroupRule(
-	sgID string,
-	remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf,
-	icmpType, icmpCode int64,
-	direction *string,
-) error {
-
-	// In IBM Cloud, -1 is not accepted to signal "all types and codes", and
-	// a nil pointer is used instead
-	if icmpType != -1 && icmpCode != -1 {
-		return fmt.Errorf(`invisinets permitlist rule doesn't support 
-			icmp with specific codes and types`)
-	}
-
-	prototype := vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp{
-		Direction: direction,
-		Protocol:  core.StringPtr("icmp"),
-		Type:      &icmpType,
-		Code:      &icmpCode,
-		Remote:    remotePrototype,
-	}
-	return c.addSecurityGroupRule(sgID, &prototype)
-}
-
-func (c *CloudClient) addAnyProtoSecurityGroupRule(
-	sgID string,
-	remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf,
-	direction *string,
-) error {
-	prototype := vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolAll{
-		Direction: direction,
-		Protocol:  core.StringPtr("all"),
-		Remote:    remotePrototype,
-	}
-	return c.addSecurityGroupRule(sgID, &prototype)
+	return c.addSecurityGroupRule(rule.SgID, prototype)
 }
 
 func (c *CloudClient) addSecurityGroupRule(sgID string, prototype vpcv1.SecurityGroupRulePrototypeIntf) error {
@@ -319,6 +275,85 @@ func (c *CloudClient) addSecurityGroupRule(sgID string, prototype vpcv1.Security
 		SecurityGroupRulePrototype: prototype,
 	}
 	_, _, err := c.vpcService.CreateSecurityGroupRule(&options)
+	return err
+}
+
+func (c *CloudClient) translateRuleProtocol(rule SecurityGroupRule) (vpcv1.SecurityGroupRulePrototypeIntf, error) {
+	var remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf
+	if len(rule.Remote) == 0 {
+		return nil, fmt.Errorf("SecurityGroupRule is missing remote value")
+	}
+	remote, err := GetRemoteType(rule.Remote)
+	if err != nil {
+		return nil, err
+	}
+
+	if remote == ipType {
+		remotePrototype = &vpcv1.SecurityGroupRuleRemotePrototypeIP{Address: &rule.Remote}
+	} else { // CIDR
+		remotePrototype = &vpcv1.SecurityGroupRuleRemotePrototypeCIDR{CIDRBlock: &rule.Remote}
+	}
+
+	direction := getEgressDirection(rule.Egress)
+	var prototype vpcv1.SecurityGroupRulePrototypeIntf
+	switch rule.Protocol {
+	case "all":
+		prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolAll{
+			Direction: direction,
+			Protocol:  core.StringPtr("all"),
+			Remote:    remotePrototype,
+		}
+	case "tcp", "udp":
+		prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolTcpudp{
+			Direction: direction,
+			Protocol:  &rule.Protocol,
+			PortMin:   &rule.PortMin,
+			PortMax:   &rule.PortMax,
+			Remote:    remotePrototype,
+		}
+	case "icmp":
+		if rule.IcmpType != -1 && rule.IcmpCode != -1 {
+			return nil, fmt.Errorf(`invisinets permitlist rule doesn't support 
+				icmp with specific codes and types`)
+		}
+
+		prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp{
+			Direction: direction,
+			Protocol:  core.StringPtr("icmp"),
+			Type:      &rule.IcmpType,
+			Code:      &rule.IcmpCode,
+			Remote:    remotePrototype,
+		}
+	}
+
+	return prototype, nil
+}
+
+func (c *CloudClient) UpdateSecurityGroupRule(rule SecurityGroupRule) error {
+	prototype, err := c.translateRuleProtocol(rule)
+	if err != nil {
+		return err
+	}
+	var patchMap map[string]interface{}
+	jsonVersion, err := json.Marshal(&prototype)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(jsonVersion, &patchMap)
+	if err != nil {
+		return err
+	}
+	return c.updateSecurityGroupRule(rule.SgID, rule.ID, patchMap)
+}
+
+func (c *CloudClient) updateSecurityGroupRule(sgID string, ruleID string, patch map[string]interface{}) error {
+
+	options := vpcv1.UpdateSecurityGroupRuleOptions{
+		SecurityGroupID:        &sgID,
+		ID:                     &ruleID,
+		SecurityGroupRulePatch: patch,
+	}
+	_, _, err := c.vpcService.UpdateSecurityGroupRule(&options)
 	return err
 }
 
@@ -375,4 +410,103 @@ func getEgressDirection(egress bool) *string {
 	} else {
 		return core.StringPtr(inboundType)
 	}
+}
+
+// return the specified rules without duplicates, while keeping the rules' hash values updated for future use.
+func (c *CloudClient) GetUniqueSGRules(rules []SecurityGroupRule, rulesHashValues map[uint64]bool) ([]SecurityGroupRule, error) {
+	var res []SecurityGroupRule
+	for _, rule := range rules {
+		// exclude unique field "ID" from hash calculation.
+		ruleHashValue, err := ibmCommon.GetStructHash(rule, []string{"ID"})
+		if err != nil {
+			return nil, err
+		}
+		if _, ruleExists := rulesHashValues[ruleHashValue]; !ruleExists {
+			res = append(res, rule)
+			rulesHashValues[ruleHashValue] = true
+		}
+	}
+	return res, nil
+}
+
+// return IDs of rules matching the specified specifications.
+func (c *CloudClient) GetRulesIDs(rules []SecurityGroupRule, sgID string) ([]string, error) {
+	var rulesIDs []string
+	sgRules, err := c.GetSecurityRulesOfSG(sgID)
+	if err != nil {
+		return nil, err
+	}
+	for _, sgRule := range sgRules {
+		for _, rule := range rules {
+			// aggregate rules matching the specified rules, based on all fields except their IDs and SG IDs.
+			if ibmCommon.AreStructsEqual(rule, sgRule, []string{"ID", "SgID"}) {
+				rulesIDs = append(rulesIDs, sgRule.ID)
+				// found matching rule, continue to the next sgRule
+				break
+			}
+		}
+	}
+	return rulesIDs, nil
+}
+
+// returns rules in invisinets format from IBM cloud format
+// TODO @cohen-j-omer: handle permitList tags if required.
+func IBMToInvisinetsRules(rules []SecurityGroupRule) ([]*invisinetspb.PermitListRule, error) {
+	var invisinetsRules []*invisinetspb.PermitListRule
+
+	for _, rule := range rules {
+		if rule.PortMin != rule.PortMax {
+			return nil, fmt.Errorf("SG rules with port ranges aren't currently supported")
+		}
+		// PortMin=PortMax since port ranges aren't supported.
+		// srcPort=dstPort since ibm security rules are stateful,
+		// i.e. they automatically also permit the reverse traffic.
+		srcPort, dstPort := rule.PortMin, rule.PortMin
+
+		permitListRule := &invisinetspb.PermitListRule{
+			Targets:   []string{rule.Remote},
+			Id:        rule.ID,
+			Direction: ibmToInvisinetsDirection[rule.Egress],
+			SrcPort:   int32(srcPort),
+			DstPort:   int32(dstPort),
+			Protocol:  ibmToInvisinetsProtocol[rule.Protocol],
+		}
+		invisinetsRules = append(invisinetsRules, permitListRule)
+
+	}
+	return invisinetsRules, nil
+}
+
+// returns rules in IBM cloud format to invisinets format
+// NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code
+func InvisinetsToIBMRules(securityGroupID string, rules []*invisinetspb.PermitListRule) (
+	[]SecurityGroupRule, error) {
+	var sgRules []SecurityGroupRule
+	for _, rule := range rules {
+		if len(rule.Targets) == 0 {
+			return nil, fmt.Errorf("PermitListRule is missing Tag value. Rule:%+v", rule)
+		}
+		for _, target := range rule.Targets {
+			remote := target
+			remoteType, err := GetRemoteType(remote)
+			if err != nil {
+				return nil, err
+			}
+			sgRule := SecurityGroupRule{
+				ID:         rule.Id,
+				SgID:       securityGroupID,
+				Protocol:   invisinetsToIBMprotocol[rule.Protocol],
+				Remote:     remote,
+				RemoteType: remoteType,
+				PortMin:    int64(rule.SrcPort),
+				PortMax:    int64(rule.SrcPort),
+				Egress:     invisinetsToIBMDirection[rule.Direction],
+				// explicitly setting value to 0. other icmp values have meaning.
+				IcmpType: 0,
+				IcmpCode: 0,
+			}
+			sgRules = append(sgRules, sgRule)
+		}
+	}
+	return sgRules, nil
 }

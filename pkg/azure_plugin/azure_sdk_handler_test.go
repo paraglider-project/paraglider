@@ -408,28 +408,28 @@ func TestGetInvisinetsVnet(t *testing.T) {
 
 	// Create a new context for the tests
 	ctx := context.Background()
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.AZURE)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Test case: Success, vnet already existed
 	t.Run("GetInvisinetsVnet: Success, vnet exists", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation, "namespace", fakeControllerServerAddr)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
 
 	// Test case: Success, vnet doesn't exist, create new one
 	t.Run("GetInvisinetsVnet: Success, create new vnet", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, notFoundVnetName, testLocation, "namespace", fakeControllerServerAddr)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, notFoundVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
 
 	// Test case: Failure, error when getting vnet
 	t.Run("GetInvisinetsVnet: Failure, error when getting vnet", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, invalidVnetName, testLocation, "namespace", fakeControllerServerAddr)
+		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, invalidVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.Error(t, err)
 		require.Nil(t, vnet)
 	})
@@ -534,7 +534,8 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 	// Test case: Inbound rule
 	t.Run("Inbound", func(t *testing.T) {
 		inboundRule := &armnetwork.SecurityRule{
-			ID: to.Ptr("security/rule/id"),
+			ID:   to.Ptr("security/rule/id"),
+			Name: to.Ptr("invisinets-rulename"),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Direction:             to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 				SourcePortRange:       to.Ptr("100"),
@@ -550,6 +551,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
 			Id:        "security/rule/id",
+			Name:      "invisinets-rulename",
 			Targets:   []string{"10.5.1.0", "10.6.1.0"},
 			Direction: invisinetspb.Direction_INBOUND,
 			SrcPort:   100,
@@ -566,7 +568,8 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 	// Test case: Outbound rule
 	t.Run("Outbound", func(t *testing.T) {
 		outboundRule := &armnetwork.SecurityRule{
-			ID: to.Ptr("security/rule/id"),
+			ID:   to.Ptr("security/rule/id"),
+			Name: to.Ptr("invisinets-rulename"),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 				SourcePortRange:            to.Ptr("200"),
@@ -582,6 +585,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
 			Id:        "security/rule/id",
+			Name:      "invisinets-rulename",
 			Targets:   []string{"10.3.1.0", "10.2.1.0"},
 			Direction: invisinetspb.Direction_OUTBOUND,
 			SrcPort:   200,
@@ -599,7 +603,8 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 	// Test case: success, any port
 	t.Run("Success:AnyPort", func(t *testing.T) {
 		anyPortRule := &armnetwork.SecurityRule{
-			ID: to.Ptr("security/rule/id"),
+			ID:   to.Ptr("security/rule/id"),
+			Name: to.Ptr("invisinets-rulename"),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 				SourcePortRange:            to.Ptr("*"),
@@ -615,6 +620,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
 			Id:        "security/rule/id",
+			Name:      "invisinets-rulename",
 			Targets:   []string{"10.3.1.0", "10.2.1.0"},
 			Direction: invisinetspb.Direction_OUTBOUND,
 			SrcPort:   -1,
@@ -632,7 +638,8 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 	// Test case: success, tags included
 	t.Run("Success:TagsIncluded", func(t *testing.T) {
 		anyPortRule := &armnetwork.SecurityRule{
-			ID: to.Ptr("security/rule/id"),
+			ID:   to.Ptr("security/rule/id"),
+			Name: to.Ptr("invisinets-rulename"),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 				SourcePortRange:            to.Ptr("1"),
@@ -649,6 +656,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
 			Id:        "security/rule/id",
+			Name:      "invisinets-rulename",
 			Targets:   []string{"10.3.1.0", "10.2.1.0"},
 			Direction: invisinetspb.Direction_OUTBOUND,
 			SrcPort:   1,
@@ -662,51 +670,6 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 
 		// Compare the result with the expected rule
 		require.Equal(t, expectedRule, result)
-	})
-}
-
-func TestGetInvisinetsRuleDesc(t *testing.T) {
-	azureSDKHandlerTest := &azureSDKHandler{}
-
-	// Test case: Create a sample permit list rule
-	t.Run("Success:NoTags", func(t *testing.T) {
-		rule := &invisinetspb.PermitListRule{
-			Targets:   []string{"10.0.0.1", "192.168.0.1"},
-			Direction: invisinetspb.Direction_INBOUND,
-			SrcPort:   80,
-			DstPort:   8080,
-			Protocol:  17,
-		}
-
-		// Expected description based on the sample rule
-		expectedDescription := "10.0.0.1-192.168.0.1-0-80-8080-17-"
-
-		// Call the function to test
-		result := azureSDKHandlerTest.GetInvisinetsRuleDesc(rule)
-
-		// Compare the result with the expected description
-		require.Equal(t, expectedDescription, result)
-	})
-
-	// Test case: Create a sample permit list rule with tags
-	t.Run("Success:Tags", func(t *testing.T) {
-		rule := &invisinetspb.PermitListRule{
-			Targets:   []string{"10.0.0.1", "192.168.0.1"},
-			Direction: invisinetspb.Direction_INBOUND,
-			SrcPort:   80,
-			DstPort:   8080,
-			Protocol:  17,
-			Tags:      []string{"tag1", "tag2"},
-		}
-
-		// Expected description based on the sample rule
-		expectedDescription := "10.0.0.1-192.168.0.1-0-80-8080-17-tag1-tag2"
-
-		// Call the function to test
-		result := azureSDKHandlerTest.GetInvisinetsRuleDesc(rule)
-
-		// Compare the result with the expected description
-		require.Equal(t, expectedDescription, result)
 	})
 }
 

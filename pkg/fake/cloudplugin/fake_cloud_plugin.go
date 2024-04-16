@@ -32,6 +32,7 @@ import (
 const AddressSpaceAddress = "10.0.0.0/16"
 const Asn = 64512
 
+var BgpPeeringIpAddresses = []string{"169.254.21.1", "169.254.22.1"}
 var ExampleRule = &invisinetspb.PermitListRule{Id: "example-rule", Tags: []string{fake.ValidTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
 
 // Mock Cloud Plugin Server
@@ -40,28 +41,41 @@ type fakeCloudPluginServer struct {
 	fake.FakeTagServiceServer
 }
 
-func (s *fakeCloudPluginServer) GetPermitList(c context.Context, r *invisinetspb.ResourceID) (*invisinetspb.PermitList, error) {
-	return &invisinetspb.PermitList{AssociatedResource: r.Id, Rules: []*invisinetspb.PermitListRule{ExampleRule}}, nil
+func (s *fakeCloudPluginServer) GetPermitList(c context.Context, req *invisinetspb.GetPermitListRequest) (*invisinetspb.GetPermitListResponse, error) {
+	return &invisinetspb.GetPermitListResponse{Rules: []*invisinetspb.PermitListRule{ExampleRule}}, nil
 }
 
-func (s *fakeCloudPluginServer) AddPermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
+func (s *fakeCloudPluginServer) AddPermitListRules(c context.Context, req *invisinetspb.AddPermitListRulesRequest) (*invisinetspb.AddPermitListRulesResponse, error) {
+	return &invisinetspb.AddPermitListRulesResponse{}, nil
 }
 
-func (s *fakeCloudPluginServer) DeletePermitListRules(c context.Context, permitList *invisinetspb.PermitList) (*invisinetspb.BasicResponse, error) {
-	return &invisinetspb.BasicResponse{Success: true, Message: permitList.AssociatedResource}, nil
+func (s *fakeCloudPluginServer) DeletePermitListRules(c context.Context, req *invisinetspb.DeletePermitListRulesRequest) (*invisinetspb.DeletePermitListRulesResponse, error) {
+	return &invisinetspb.DeletePermitListRulesResponse{}, nil
 }
 
-func (s *fakeCloudPluginServer) CreateResource(c context.Context, resource *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
-	return &invisinetspb.CreateResourceResponse{Name: "resource_name", Uri: resource.Id}, nil
+func (s *fakeCloudPluginServer) CreateResource(c context.Context, req *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
+	return &invisinetspb.CreateResourceResponse{Name: "resource_name", Uri: req.Id}, nil
 }
 
-func (s *fakeCloudPluginServer) GetUsedAddressSpaces(c context.Context, deployment *invisinetspb.InvisinetsDeployment) (*invisinetspb.AddressSpaceList, error) {
-	return &invisinetspb.AddressSpaceList{AddressSpaces: []string{AddressSpaceAddress}}, nil
+func (s *fakeCloudPluginServer) GetUsedAddressSpaces(c context.Context, req *invisinetspb.GetUsedAddressSpacesRequest) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
+	resp := &invisinetspb.GetUsedAddressSpacesResponse{
+		AddressSpaceMappings: []*invisinetspb.AddressSpaceMapping{
+			{
+				AddressSpaces: []string{AddressSpaceAddress},
+				Cloud:         "fakecloud",
+				Namespace:     "fakenamespace",
+			},
+		},
+	}
+	return resp, nil
 }
 
 func (s *fakeCloudPluginServer) GetUsedAsns(c context.Context, req *invisinetspb.GetUsedAsnsRequest) (*invisinetspb.GetUsedAsnsResponse, error) {
 	return &invisinetspb.GetUsedAsnsResponse{Asns: []uint32{Asn}}, nil
+}
+
+func (s *fakeCloudPluginServer) GetUsedBgpPeeringIpAddresses(c context.Context, req *invisinetspb.GetUsedBgpPeeringIpAddressesRequest) (*invisinetspb.GetUsedBgpPeeringIpAddressesResponse, error) {
+	return &invisinetspb.GetUsedBgpPeeringIpAddressesResponse{IpAddresses: BgpPeeringIpAddresses}, nil
 }
 
 func NewFakePluginServer() *fakeCloudPluginServer {

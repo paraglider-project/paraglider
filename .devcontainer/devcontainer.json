@@ -2,7 +2,7 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/go
 {
 	"name": "Go",
-	"image": "mcr.microsoft.com/devcontainers/go:0-1.20",
+	"image": "mcr.microsoft.com/devcontainers/go:1.21",
 	"features": {
 		"ghcr.io/guiyomh/features/golangci-lint:0": {
 			"version": "latest"
@@ -13,7 +13,8 @@
         },
 		"azure-cli": "latest",
 		"ghcr.io/devcontainers-contrib/features/protoc:1": "latest",
-		"ghcr.io/devcontainers-contrib/features/tmux-apt-get:1": "latest"
+		"ghcr.io/devcontainers-contrib/features/tmux-apt-get:1": "latest",
+		"ghcr.io/devcontainers/features/python:1": {"version": "3.11"}
 	},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.

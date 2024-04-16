@@ -5,6 +5,10 @@
 *.so
 *.dylib
 
+# Compiled proto files
+*.pb.go
+*_grpc.pb.go
+
 # Test binary, built with `go test -c`
 *.test
 
@@ -35,3 +39,9 @@ gomock_*
 
 # Key
 *key*.json
+
+# Sphinx
+docs/build/
+
+# Python
+.venv/

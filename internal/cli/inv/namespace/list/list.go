@@ -14,27 +14,39 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package frontend
+package list
 
 import (
-	"github.com/spf13/cobra"
+	"fmt"
+	"io"
+	"os"
 
-	frontend "github.com/NetSys/invisinets/pkg/frontend"
+	common "github.com/NetSys/invisinets/internal/cli/common"
+	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/NetSys/invisinets/pkg/client"
+	"github.com/spf13/cobra"
 )
 
-func NewCommand() *cobra.Command {
-	executor := &executor{}
-	return &cobra.Command{
-		Use:     "frontend <path to config>",
-		Aliases: []string{"frontend"},
-		Short:   "Starts the frontend server with given config file",
-		Args:    cobra.ExactArgs(1),
+func NewCommand() (*cobra.Command, *executor) {
+	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
+	cmd := &cobra.Command{
+		Use:     "list",
+		Short:   "List all configured namespaces",
+		Args:    cobra.ExactArgs(0),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
+	return cmd, executor
 }
 
 type executor struct {
+	common.CommandExecutor
+	writer      io.Writer
+	cliSettings settings.CLISettings
+}
+
+func (e *executor) SetOutput(w io.Writer) {
+	e.writer = w
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
@@ -42,6 +54,14 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	frontend.Setup(args[0])
+	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
+	namespaces, err := c.ListNamespaces()
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(e.writer, "Namespaces: %v", namespaces)
+
 	return nil
 }

@@ -73,6 +73,7 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string) {
 		resourceGroupsClient := createResourceGroupsClient(subscriptionId)
 		poller, err := resourceGroupsClient.BeginDelete(ctx, resourceGroupName, nil)
 		if err != nil {
+			// If deletion fails: refer to https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/delete-resource-group
 			panic(fmt.Sprintf("Error while deleting resource group: %v", err))
 		}
 		_, err = poller.PollUntilDone(ctx, nil)
@@ -108,10 +109,9 @@ func GetTestVmParameters(location string) armcompute.VirtualMachine {
 	}
 }
 
-func InitializeServer(frontendAddr string) *azurePluginServer {
+func InitializeServer(orchestratorAddr string) *azurePluginServer {
 	return &azurePluginServer{
-		azureHandler:       &azureSDKHandler{},
-		frontendServerAddr: frontendAddr,
+		orchestratorServerAddr: orchestratorAddr,
 	}
 }
 

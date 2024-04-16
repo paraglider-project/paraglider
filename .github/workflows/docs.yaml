@@ -1,0 +1,49 @@
+name: "Docs"
+
+on:
+  push:
+    branches:
+      - main
+      - release/*
+    tags:
+      - v*
+    paths:
+      docs/**
+  pull_request:
+    branches:
+      - main
+      - features/*
+      - release/*
+    paths:
+      docs/**
+
+env:
+  # Python
+  PYTHONVER: '3.11'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v3
+      - name: Set up Python ${{ env.PYTHONVER}}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHONVER }}
+      - name: Build docs
+        working-directory: ./docs
+        run: |
+          pip install -r requirements.txt
+          make html
+      - name: Preview docs
+        uses: rossjrw/pr-preview-action@v1
+        if: github.event_name == 'pull_request'
+        with:
+          source-dir: ./docs/build/html
+      - name: Deploy docs
+        uses: JamesIves/github-pages-deploy-action@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          clean-exclude: pr-preview/
+          folder: docs/build/html

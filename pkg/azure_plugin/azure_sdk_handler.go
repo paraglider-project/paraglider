@@ -43,7 +43,7 @@ type AzureSDKHandler interface {
 	GetResourceNIC(ctx context.Context, resourceID string) (*armnetwork.Interface, error)
 	CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
-	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, frontendAddr string) (*armnetwork.VirtualNetwork, error)
+	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error)
 	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error)
 	CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error)
 	GetVirtualNetwork(ctx context.Context, name string) (*armnetwork.VirtualNetwork, error)
@@ -53,11 +53,11 @@ type AzureSDKHandler interface {
 	CreateOrUpdateVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string, parameters armnetwork.VirtualNetworkPeering) (*armnetwork.VirtualNetworkPeering, error)
 	GetVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string) (*armnetwork.VirtualNetworkPeering, error)
 	ListVirtualNetworkPeerings(ctx context.Context, virtualNetworkName string) ([]*armnetwork.VirtualNetworkPeering, error)
+	CreateVnetPeeringOneWay(ctx context.Context, vnet1Name string, vnet2Name string, vnet2SubscriptionID string, vnet2ResourceGroupName string) error
 	CreateVnetPeering(ctx context.Context, vnet1Name string, vnet2Name string) error
 	CreateOrUpdateVnetPeeringRemoteGateway(ctx context.Context, vnetName string, gatewayVnetName string, vnetToGatewayVnetPeering *armnetwork.VirtualNetworkPeering, gatewayVnetToVnetPeering *armnetwork.VirtualNetworkPeering) error
 	GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error)
 	GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error)
-	GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string
 	GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error)
 	GetLastSegment(resourceID string) (string, error)
 	SetSubIdAndResourceGroup(subID string, resourceGroupName string)
@@ -249,7 +249,7 @@ func (h *azureSDKHandler) GetLastSegment(ID string) (string, error) {
 	return segments[len(segments)-1], nil
 }
 
-// CreateSecurityRule creates a new security rule in a network security group (NSG).
+// GetPermitListRuleFromNSGRulecurityRule creates a new security rule in a network security group (NSG).
 func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
 	sourceIP, destIP := getIPs(rule, resourceIpAddress)
 	var srcPort string
@@ -331,9 +331,9 @@ func (h *azureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix stri
 	return addressSpaces, nil
 }
 
-// Create Vnet Peering between two VNets, this is important in the case of a multi-region deployment
-// For peering to work, two peering links must be created. By selecting remote virtual network, Azure will create both peering links.
-func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name string, vnet2Name string) error {
+// Temporarily needed method to deal with the mess of azureSDKHandlers
+// TODO @seankimkdy: remove once azureSDKHandler is no longer a mess
+func (h *azureSDKHandler) CreateVnetPeeringOneWay(ctx context.Context, vnet1Name string, vnet2Name string, vnet2SubscriptionID string, vnet2ResourceGroupName string) error {
 	// create first link from vnet1 to vnet2
 	vnet1ToVnet2PeeringParameters := armnetwork.VirtualNetworkPeering{
 		Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
@@ -341,7 +341,7 @@ func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name strin
 			AllowGatewayTransit:       to.Ptr(false),
 			AllowVirtualNetworkAccess: to.Ptr(true),
 			RemoteVirtualNetwork: &armnetwork.SubResource{
-				ID: to.Ptr(fmt.Sprintf(virtualNetworkResourceID, h.subscriptionID, h.resourceGroupName, vnet2Name)),
+				ID: to.Ptr(fmt.Sprintf(virtualNetworkResourceID, vnet2SubscriptionID, vnet2ResourceGroupName, vnet2Name)),
 			},
 			UseRemoteGateways: to.Ptr(false),
 		},
@@ -350,21 +350,21 @@ func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name strin
 	if err != nil {
 		return err
 	}
-	// create second link from vnet2 to vnet1
-	vnet2ToVnet1PeeringParameters := armnetwork.VirtualNetworkPeering{
-		Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{
-			AllowForwardedTraffic:     to.Ptr(false),
-			AllowGatewayTransit:       to.Ptr(false),
-			AllowVirtualNetworkAccess: to.Ptr(true),
-			RemoteVirtualNetwork: &armnetwork.SubResource{
-				ID: to.Ptr(fmt.Sprintf(virtualNetworkResourceID, h.subscriptionID, h.resourceGroupName, vnet1Name)),
-			},
-			UseRemoteGateways: to.Ptr(false),
-		},
-	}
-	_, err = h.CreateOrUpdateVirtualNetworkPeering(ctx, vnet2Name, getPeeringName(vnet2Name, vnet1Name), vnet2ToVnet1PeeringParameters)
+	return nil
+}
+
+// Create Vnet Peering between two VNets, this is important in the case of a multi-region deployment
+// For peering to work, two peering links must be created. By selecting remote virtual network, Azure will create both peering links.
+func (h *azureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name string, vnet2Name string) error {
+	// create first link from vnet1 to vnet2
+	err := h.CreateVnetPeeringOneWay(ctx, vnet1Name, vnet2Name, h.subscriptionID, h.resourceGroupName)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to create peering from %s to %s: %w", vnet1Name, vnet2Name, err)
+	}
+	// create second link from vnet2 to vnet1
+	err = h.CreateVnetPeeringOneWay(ctx, vnet2Name, vnet1Name, h.subscriptionID, h.resourceGroupName)
+	if err != nil {
+		return fmt.Errorf("unable to create peering from %s to %s: %w", vnet2Name, vnet1Name, err)
 	}
 	return nil
 }
@@ -464,6 +464,7 @@ func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 
 	// create permit list rule object
 	permitListRule := &invisinetspb.PermitListRule{
+		Name:      *rule.Name,
 		Id:        *rule.ID,
 		Targets:   getTargets(rule),
 		Direction: azureToInvisinetsDirection[*rule.Properties.Direction],
@@ -473,11 +474,6 @@ func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 		Tags:      parseDescriptionTags(rule.Properties.Description),
 	}
 	return permitListRule, nil
-}
-
-// GetNSGRuleDesc returns a description of an invisinets permit list rule for easier comparison
-func (h *azureSDKHandler) GetInvisinetsRuleDesc(rule *invisinetspb.PermitListRule) string {
-	return fmt.Sprintf("%s-%d-%d-%d-%d-%s", strings.Join(rule.Targets, "-"), rule.Direction, rule.SrcPort, rule.DstPort, rule.Protocol, strings.Join(rule.Tags, "-"))
 }
 
 // GetSecurityGroup reutrns the network security group object given the nsg name
@@ -492,27 +488,26 @@ func (h *azureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) 
 
 // GetInvisinetsVnet returns a valid invisinets vnet, an invisinets vnet is a vnet with a default subnet with the same
 // address space as the vnet and there is only one vnet per location
-func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, frontendAddr string) (*armnetwork.VirtualNetwork, error) {
+func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
 	// Get the virtual network
 	res, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, &armnetwork.VirtualNetworksClientGetOptions{Expand: nil})
-
 	if err != nil {
 		// Check if the error is Resource Not Found
 		if isErrorNotFound(err) {
 			// Create the virtual network if it doesn't exist
 			// Get the address space from the controller service
-			conn, err := grpc.Dial(frontendAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.Dial(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
-				utils.Log.Printf("could not dial the frontend")
+				utils.Log.Printf("could not dial the orchestrator")
 				return nil, err
 			}
 			defer conn.Close()
 			client := invisinetspb.NewControllerClient(conn)
-			response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.Namespace{Namespace: namespace})
+			response, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
 			if err != nil {
 				return nil, err
 			}
-			vnet, err := h.CreateInvisinetsVirtualNetwork(ctx, location, vnetName, response.Address)
+			vnet, err := h.CreateInvisinetsVirtualNetwork(ctx, location, vnetName, response.AddressSpace)
 			return vnet, err
 		} else {
 			// Return the error if it's not ResourceNotFound

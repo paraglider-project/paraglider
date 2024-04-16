@@ -48,10 +48,11 @@ func TestRuleAddValidate(t *testing.T) {
 }
 
 func TestRuleAddExecute(t *testing.T) {
-	server := &fake.FakeFrontendServer{}
-	settings.ServerAddr = server.SetupFakeFrontendServer()
+	server := &fake.FakeOrchestratorRESTServer{}
+	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
 	cmd, executor := NewCommand()
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
 	executor.pingTag = "pingTag"
 	executor.sshTag = "sshTag"
 

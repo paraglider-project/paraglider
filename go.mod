@@ -1,6 +1,6 @@
 module github.com/NetSys/invisinets
 
-go 1.20
+go 1.21
 
 require (
 	cloud.google.com/go/compute v1.23.3
@@ -35,6 +35,10 @@ require (
 	cloud.google.com/go/serviceusage v1.8.3 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.5.1 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.0 // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
+	gopkg.in/go-playground/validator.v9 v9.30.0 // indirect
+	github.com/IBM/go-sdk-core v1.1.0
+	github.com/IBM/networking-go-sdk v0.44.0
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/bytedance/sonic v1.10.2 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect

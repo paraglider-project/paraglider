@@ -1,4 +1,4 @@
-//go:build ibm
+//go:build unit
 
 /*
 Copyright 2023 The Invisinets Authors.
@@ -19,35 +19,10 @@ limitations under the License.
 package ibm
 
 import (
-	"flag"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
-
-var testResGroupName = flag.String("sg", "invisinets", "Name of the user's security group")
-
-const (
-	testRegion = "us-east"
-)
-
-// TODO @praveingk: Expand tests of SDK functions
-
-// run via: go test --tags=ibm -run TestCleanup -sg=<security group name>
-// deletes all invisinets VPCs
-func TestCleanup(t *testing.T) {
-	cloudClient, err := NewIBMCloudClient(*testResGroupName, testRegion)
-	require.NoError(t, err)
-	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(VPC, []string{}, ResourceQuery{})
-	require.NoError(t, err)
-	for _, vpcsData := range vpcsData {
-		// cloud client must be set to the region of the current VPC
-		cloudClient, err := NewIBMCloudClient(*testResGroupName, vpcsData.Region)
-		require.NoError(t, err)
-		err = cloudClient.TerminateVPC(vpcsData.ID)
-		require.NoError(t, err)
-	}
-}
 
 // Testing a function that returns true if cidr1 is a subset of cidr2,
 // i.e. all ips in cidr1 exist within cidr2

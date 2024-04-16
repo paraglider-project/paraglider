@@ -21,47 +21,49 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/NetSys/invisinets/pkg/frontend"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/orchestrator"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
-// Sets up fake frontend controller server
+// Sets up fake orchestrator controller server
 // Note: this is only meant to be used with one cloud (i.e. primarily for each cloud plugin's unit/integration tests)
-type FakeControllerServer struct {
+type FakeOrchestratorRPCServer struct {
 	invisinetspb.UnimplementedControllerServer
 	Cloud   string
 	Counter int
 }
 
-func (f *FakeControllerServer) FindUnusedAddressSpace(ctx context.Context, namespace *invisinetspb.Namespace) (*invisinetspb.AddressSpace, error) {
+func (f *FakeOrchestratorRPCServer) FindUnusedAddressSpace(ctx context.Context, _ *invisinetspb.FindUnusedAddressSpaceRequest) (*invisinetspb.FindUnusedAddressSpaceResponse, error) {
 	if f.Counter == 256 {
 		return nil, fmt.Errorf("ran out of address spaces")
 	}
 	address := fmt.Sprintf("10.%d.0.0/16", f.Counter)
 	f.Counter = f.Counter + 1
-	return &invisinetspb.AddressSpace{Address: address}, nil
+	return &invisinetspb.FindUnusedAddressSpaceResponse{AddressSpace: address}, nil
 }
 
-func (f *FakeControllerServer) FindUnusedAsn(ctx context.Context, req *invisinetspb.FindUnusedAsnRequest) (*invisinetspb.FindUnusedAsnResponse, error) {
-	return &invisinetspb.FindUnusedAsnResponse{Asn: frontend.MIN_PRIVATE_ASN_2BYTE}, nil
+func (f *FakeOrchestratorRPCServer) FindUnusedAsn(ctx context.Context, _ *invisinetspb.FindUnusedAsnRequest) (*invisinetspb.FindUnusedAsnResponse, error) {
+	return &invisinetspb.FindUnusedAsnResponse{Asn: orchestrator.MIN_PRIVATE_ASN_2BYTE}, nil
 }
 
-func (f *FakeControllerServer) GetUsedAddressSpaces(ctx context.Context, namespace *invisinetspb.Namespace) (*invisinetspb.AddressSpaceMappingList, error) {
+func (f *FakeOrchestratorRPCServer) GetUsedAddressSpaces(ctx context.Context, _ *invisinetspb.Empty) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
 	addressSpaces := make([]string, f.Counter)
 	for i := 0; i < f.Counter; i++ {
 		addressSpaces[i] = fmt.Sprintf("10.%d.0.0/16", i)
 	}
-	addressSpaceMappingList := &invisinetspb.AddressSpaceMappingList{
+	resp := &invisinetspb.GetUsedAddressSpacesResponse{
 		AddressSpaceMappings: []*invisinetspb.AddressSpaceMapping{
-			{AddressSpaces: addressSpaces, Cloud: f.Cloud},
+			{AddressSpaces: addressSpaces, Cloud: f.Cloud, Namespace: "default", Deployment: proto.String("fakedeployment")},
 		},
 	}
-	return addressSpaceMappingList, nil
+	fmt.Println(resp.AddressSpaceMappings[0].AddressSpaces)
+	return resp, nil
 }
 
-func SetupFakeControllerServer(cloud string) (*FakeControllerServer, string, error) {
-	fakeControllerServer := &FakeControllerServer{Counter: 0, Cloud: cloud}
+func SetupFakeOrchestratorRPCServer(cloud string) (*FakeOrchestratorRPCServer, string, error) {
+	fakeControllerServer := &FakeOrchestratorRPCServer{Counter: 0, Cloud: cloud}
 	l, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return nil, "", err

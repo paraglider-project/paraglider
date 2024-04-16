@@ -27,10 +27,8 @@ import (
 const subnetType = "subnet"
 
 // CreateSubnet creates subnet in specified vpc and zone.
-// tag subnet with invisinets prefix and vpc ID.
 func (c *CloudClient) CreateSubnet(
-	vpcID, zone, addressSpace string) (*vpcv1.Subnet, error) {
-	subnetTags := []string{vpcID}
+	vpcID, zone, addressSpace string, tags []string) (*vpcv1.Subnet, error) {
 	zone = strings.TrimSpace(zone)
 
 	zoneIdentity := vpcv1.ZoneIdentity{Name: &zone}
@@ -64,40 +62,72 @@ func (c *CloudClient) CreateSubnet(
 	}
 	utils.Log.Printf("Created subnet %v with id %v", subnetName, *subnet.ID)
 
-	err = c.attachTag(subnet.CRN, subnetTags)
+	err = c.attachTag(subnet.CRN, tags)
 	if err != nil {
 		utils.Log.Print("Failed to tag subnet with error:", err)
 		return nil, err
 	}
 
-	// TODO @praveingk: If required, attach the subnet to a gateway:
+	// TODO @cohen-j-omer: If instances require direct outbound traffic, attach subnet to a gateway:
 	// 1. if a public gateway doesn't already exist in the zone, create it.
 	// 2. attach subnet to gateway.
 	return subnet, nil
 }
 
-// GetSubnetsInVPC returns all subnets in vpc, user's and invisinets'
-// in the region set by the client.
-//
-// NOTE: before invoking this function Set VPC client to the
-// region the VPC is located in.
-func (c *CloudClient) GetSubnetsInVPC(vpcID string) ([]vpcv1.Subnet, error) {
-	subnetOptions := &vpcv1.ListSubnetsOptions{VPCID: &vpcID}
-	utils.Log.Printf("Getting subnets for vpc : %s", vpcID)
-	subnets, resp, err := c.vpcService.ListSubnets(subnetOptions)
+// GetSubnetsInVPC returns all invisinets subnets in the specified VPC.
+// NOTE: unlike GetSubnetsInVpcRegionBound isn't reliant on the vpcService's region.
+func (c *CloudClient) GetSubnetsInVPC(vpcID string) ([]ResourceData, error) {
+	subnets, err := c.GetInvisinetsTaggedResources(SUBNET, []string{vpcID}, ResourceQuery{})
 	if err != nil {
-		utils.Log.Printf("%s", resp)
 		return nil, err
 	}
-	utils.Log.Printf("subnets: %+v", subnets)
+	return subnets, nil
+}
+
+// GetSubnetsInVpcRegionBound returns all subnets in vpc, user's and invisinets'
+// in the region set by the client.
+// NOTES: before invoking this function Set VPC client to the region the VPC is located in.
+// 		  This function returns more info in contrast to GetSubnetsInVPC.
+func (c *CloudClient) GetSubnetsInVpcRegionBound(vpcID string) ([]vpcv1.Subnet, error) {
+	subnetOptions := &vpcv1.ListSubnetsOptions{VPCID: &vpcID}
+	subnets, resp, err := c.vpcService.ListSubnets(subnetOptions)
+	if err != nil {
+		utils.Log.Printf("error fetching subnets: %+v", resp)
+		return nil, err
+	}
 	return subnets.Subnets, nil
 }
 
-// DoSubnetsInVPCOverlapCIDR returns true if any of the specified vpc's subnets'
-// address space overlap with given cidr
+// returns true if the specified remote (CIDR/IP) is a subset of the specified VPC's address space.
+// NOTE: address space refers to that of the subnets within the VPC's, not to its address prefixes.
+func (c *CloudClient) IsRemoteInVPC(vpcID string, remote string) (bool, error) {
+		subnets,err:=c.GetSubnetsInVpcRegionBound(vpcID)
+		if err != nil {
+			return false, err
+		}
+		// check whether the remote cidr belongs to one of the VPC's subnets
+		for _, subnet := range subnets {
+			subnetSpace, err := c.GetSubnetCIDR(*subnet.ID)
+			if err != nil {
+				return false, err
+			}
+			isSubset, err := IsRemoteInCIDR(remote, subnetSpace)
+			if err != nil {
+				return false, err
+			}
+			if isSubset {
+				return true, nil
+			}
+		}
+		// remote doesn't reside in any of the VPCs' subnets.
+		return false, nil
+}
+
+// returns true if any of the specified vpc's subnets' address spaces overlap with given cidr
+// NOTE: before invoking this function Set VPC client to the region the VPC is located in.
 func (c *CloudClient) DoSubnetsInVPCOverlapCIDR(vpcID string,
 	CIDR string) (bool, error) {
-	subnets, err := c.GetSubnetsInVPC(vpcID)
+	subnets, err := c.GetSubnetsInVpcRegionBound(vpcID)
 	if err != nil {
 		return true, err
 	}
@@ -115,8 +145,9 @@ func (c *CloudClient) DoSubnetsInVPCOverlapCIDR(vpcID string,
 }
 
 // DeleteSubnets deletes all subnets in the specified VPC.
+// NOTE: before invoking this function Set VPC client to the region the VPC is located in.
 func (c *CloudClient) DeleteSubnets(vpcID string) error {
-	subnets, err := c.GetSubnetsInVPC(vpcID)
+	subnets, err := c.GetSubnetsInVpcRegionBound(vpcID)
 	if err != nil {
 		return err
 	}
@@ -134,6 +165,7 @@ func (c *CloudClient) DeleteSubnets(vpcID string) error {
 }
 
 // GetSubnetCIDR returns address space of subnet
+// NOTE: before invoking this function Set VPC client to the region the VPC is located in.
 func (c *CloudClient) GetSubnetCIDR(subnetID string) (string, error) {
 	subnet, _, err := c.vpcService.GetSubnet(c.vpcService.NewGetSubnetOptions(subnetID))
 	if err != nil {

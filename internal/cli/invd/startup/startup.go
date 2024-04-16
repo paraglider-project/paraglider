@@ -24,8 +24,9 @@ import (
 	"gopkg.in/yaml.v2"
 
 	az "github.com/NetSys/invisinets/pkg/azure_plugin"
-	frontend "github.com/NetSys/invisinets/pkg/frontend"
 	gcp "github.com/NetSys/invisinets/pkg/gcp"
+	orchestrator "github.com/NetSys/invisinets/pkg/orchestrator"
+	"github.com/NetSys/invisinets/pkg/orchestrator/config"
 	tagservice "github.com/NetSys/invisinets/pkg/tag_service"
 )
 
@@ -59,7 +60,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	}
 	defer f.Close()
 
-	var cfg frontend.Config
+	var cfg config.Config
 	decoder := yaml.NewDecoder(f)
 	err = decoder.Decode(&cfg)
 	if err != nil {
@@ -73,7 +74,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	for _, cloud := range cfg.Clouds {
+	for _, cloud := range cfg.CloudPlugins {
 		if cloud.Name == "gcp" {
 			e.gcpPort, err = strconv.Atoi(cloud.Port)
 			if err != nil {
@@ -108,7 +109,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		az.Setup(e.azPort, e.controllerAddr)
 	}()
 
-	frontend.Setup(args[0])
+	orchestrator.SetupWithFile(args[0])
 
 	return nil
 }
