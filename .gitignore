@@ -5,6 +5,10 @@
 *.so
 *.dylib
 
+# Compiled proto files
+*.pb.go
+*_grpc.pb.go
+
 # Test binary, built with `go test -c`
 *.test
 
