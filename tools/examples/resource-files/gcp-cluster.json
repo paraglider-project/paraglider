@@ -1,0 +1,87 @@
+{
+    "parent": "projects/invisinets/locations/us-central1-c",
+    "cluster": {
+        "name": "test-cluster-5",
+        "master_auth": {
+        "client_certificate_config": {}
+        },
+        "addons_config": {
+        "http_load_balancing": {},
+        "horizontal_pod_autoscaling": {},
+        "kubernetes_dashboard": {
+            "disabled": true
+        },
+        "dns_cache_config": {},
+        "gce_persistent_disk_csi_driver_config": {
+            "enabled": true
+        },
+        "gcs_fuse_csi_driver_config": {}
+        },
+        "node_pools": [
+        {
+            "name": "default-pool",
+            "config": {
+                "machine_type": "e2-micro",
+                "disk_size_gb": 10,
+                "oauth_scopes": [
+                    "https://www.googleapis.com/auth/devstorage.read_only",
+                    "https://www.googleapis.com/auth/logging.write",
+                    "https://www.googleapis.com/auth/monitoring",
+                    "https://www.googleapis.com/auth/servicecontrol",
+                    "https://www.googleapis.com/auth/service.management.readonly",
+                    "https://www.googleapis.com/auth/trace.append"
+                ],
+                "metadata": {
+                    "disable-legacy-endpoints": "true"
+                },
+                "image_type": "COS_CONTAINERD",
+                "disk_type": "pd-balanced",
+                "shielded_instance_config": {
+                    "enable_integrity_monitoring": true
+                }
+            },
+            "initial_node_count": 2,
+            "autoscaling": {},
+            "management": {
+                "auto_upgrade": true,
+                "auto_repair": true
+            },
+            "network_config": {},
+            "upgrade_settings": {
+                "max_surge": 1
+            }
+        }
+        ],
+        "locations": [
+            "us-central1-c"
+        ],
+        "network_policy": {},
+        "ip_allocation_policy": {
+            "use_ip_aliases": true
+        },
+        "master_authorized_networks_config": {},
+        "autoscaling": {},
+        "default_max_pods_constraint": {
+            "max_pods_per_node": 110
+        },
+        "authenticator_groups_config": {},
+        "private_cluster_config": {
+            "enable_private_nodes": true
+        },
+        "shielded_nodes": {
+            "enabled": true
+        },
+        "notification_config": {
+            "pubsub": {}
+        },
+        "initial_cluster_version": "1.27.8-gke.1067004",
+        "location": "us-central1-c",
+        "logging_config": {
+        },
+        "monitoring_config": {
+            "managed_prometheus_config": {
+                "enabled": true
+            }
+        }
+    }
+  }
