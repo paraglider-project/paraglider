@@ -3,7 +3,7 @@
 Quickstart
 ==========
 
-The controller consists of a central orchestrator that sends requests to per-cloud plugins/controllers and a tag service. These services can be started individually or all at once on the localhost.
+The controller consists of a orchestrator that sends requests to per-cloud plugins/controllers and a tag service. These services can be started individually or all at once on the localhost.
 
 Build / Install
 ---------------
