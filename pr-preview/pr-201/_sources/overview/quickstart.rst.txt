@@ -43,7 +43,7 @@ The orchestrator takes a configuration file in the following format.
     port: 6000
 
 
-The ``cloudPlugins``` list may contain one or multiple cloud plugins. Though all listed should be reachable (otherwise, requests to the central orchestrator may only result in errors). The ``server`` section is used to describe where the orchestrator will bind on the local machine to serve the HTTP server for users (``port``) and the RPC server for the cloud plugins (``rpcPort``). All other hosts/ports are where the other services are expected to be and may or may not be locally hosted. 
+The ``cloudPlugins``` list may contain one or multiple cloud plugins. Though all listed should be reachable (otherwise, requests to the orchestrator may only result in errors). The ``server`` section is used to describe where the orchestrator will bind on the local machine to serve the HTTP server for users (``port``) and the RPC server for the cloud plugins (``rpcPort``). All other hosts/ports are where the other services are expected to be and may or may not be locally hosted. 
 
 The ``invDeployment`` parameter in the cloud plugin specification includes the minimum URI necessary to find the Invisinets resources for that cloud. In GCP, this is project ID while in Azure this is the resource group URI.
 
