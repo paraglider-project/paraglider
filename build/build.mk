@@ -108,8 +108,6 @@ clean: ## Cleans output directory.
 
 # Due to https://github.com/golangci/golangci-lint/issues/580, we need to add --fix for windows
 .PHONY: lint 
-lint: compile-protoc run-lint
-
-run-lint: ## Runs golangci-lint
+lint: compile-protoc ## Runs golangci-lint
 	$(GOLANGCI_LINT) run --fix --timeout 5m
 
