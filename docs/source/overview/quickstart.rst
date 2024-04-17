@@ -19,7 +19,7 @@ All of the services can be started using the ``invd`` CLI. For additional help, 
 
 Configuration
 -------------
-The central orchestrator takes a configuration file in the following format.
+The orchestrator takes a configuration file in the following format.
 
 .. code-block:: yaml
 
