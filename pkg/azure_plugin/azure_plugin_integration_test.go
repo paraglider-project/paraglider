@@ -159,7 +159,7 @@ func TestCrossNamespaces(t *testing.T) {
 		},
 	}
 	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
-	orchestrator.Setup(orchestratorServerConfig)
+	orchestrator.Setup(orchestratorServerConfig, true)
 
 	// Setup Azure plugin server
 	azureServer := Setup(azureServerPort, orchestratorServerAddr)

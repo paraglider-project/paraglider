@@ -262,7 +262,7 @@ func TestCrossNamespace(t *testing.T) {
 		},
 	}
 	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
-	orchestrator.Setup(orchestratorServerConfig)
+	orchestrator.Setup(orchestratorServerConfig, true)
 
 	// Setup GCP plugin server
 	gcpServer := Setup(gcpServerPort, orchestratorServerAddr)
