@@ -485,7 +485,11 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: fakeResourceID, Description: description, Namespace: fakeNamespace}
+	resource := &invisinetspb.ResourceDescription{
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeResourceID, Namespace: fakeNamespace},
+		Name:        fakeInstance,
+		Description: description,
+	}
 	resp, err := s.CreateResource(ctx, resource)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -515,7 +519,11 @@ func TestCreateResourceExistingVPCSubnet(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: fakeResourceID, Description: description, Namespace: fakeNamespace}
+	resource := &invisinetspb.ResourceDescription{
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeResourceID, Namespace: fakeNamespace},
+		Name:        fakeInstance,
+		Description: description,
+	}
 	resp, err := s.CreateResource(ctx, resource)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -542,7 +550,11 @@ func TestCreateResourceExistingVPCMissingSubnet(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: fakeResourceID, Description: description, Namespace: fakeNamespace}
+	resource := &invisinetspb.ResourceDescription{
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeResourceID, Namespace: fakeNamespace},
+		Name:        fakeInstance,
+		Description: description,
+	}
 	resp, err := s.CreateResource(ctx, resource)
 	require.NoError(t, err)
 	require.NotNil(t, resp)

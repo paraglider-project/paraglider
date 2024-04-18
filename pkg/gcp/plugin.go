@@ -674,6 +674,8 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 }
 
 func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient) (*invisinetspb.CreateResourceResponse, error) {
+	project := parseGCPURL(resourceDescription.Deployment.Id)["projects"]
+
 	// Validate user-provided description
 	insertInstanceRequest := &computepb.InsertInstanceRequest{}
 	err := json.Unmarshal(resourceDescription.Description, insertInstanceRequest)
@@ -684,13 +686,18 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		return nil, fmt.Errorf("network settings should not be specified")
 	}
 
-	project, zone := insertInstanceRequest.Project, insertInstanceRequest.Zone
+	// Set project and instance name
+	insertInstanceRequest.Project = project
+	insertInstanceRequest.InstanceResource.Name = proto.String(resourceDescription.Name)
+
+	zone := insertInstanceRequest.Zone
 	region := zone[:strings.LastIndex(zone, "-")]
-	subnetName := getSubnetworkName(resourceDescription.Namespace, region)
+
+	subnetName := getSubnetworkName(resourceDescription.Deployment.Namespace, region)
 	subnetExists := false
 
 	// Check if Invisinets specific VPC already exists
-	nsVpcName := getVpcName(resourceDescription.Namespace)
+	nsVpcName := getVpcName(resourceDescription.Deployment.Namespace)
 	getNetworkReq := &computepb.GetNetworkRequest{
 		Network: nsVpcName,
 		Project: project,
@@ -728,8 +735,8 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 					Description:       proto.String("Invisinets deny all traffic"),
 					DestinationRanges: []string{"0.0.0.0/0"},
 					Direction:         proto.String(computepb.Firewall_EGRESS.String()),
-					Name:              proto.String(getDenyAllIngressFirewallName(resourceDescription.Namespace)),
-					Network:           proto.String(GetVpcUri(project, resourceDescription.Namespace)),
+					Name:              proto.String(getDenyAllIngressFirewallName(resourceDescription.Deployment.Namespace)),
+					Network:           proto.String(GetVpcUri(project, resourceDescription.Deployment.Namespace)),
 					Priority:          proto.Int32(65534),
 				},
 			}
@@ -773,7 +780,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 			SubnetworkResource: &computepb.Subnetwork{
 				Name:        proto.String(subnetName),
 				Description: proto.String("Invisinets subnetwork for " + region),
-				Network:     proto.String(GetVpcUri(project, resourceDescription.Namespace)),
+				Network:     proto.String(GetVpcUri(project, resourceDescription.Deployment.Namespace)),
 				IpCidrRange: proto.String(findUnusedAddressSpaceResp.AddressSpace),
 			},
 		}
@@ -789,7 +796,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	// Configure network settings to Invisinets VPC and corresponding subnet
 	insertInstanceRequest.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
-			Network:    proto.String(GetVpcUri(project, resourceDescription.Namespace)),
+			Network:    proto.String(GetVpcUri(project, resourceDescription.Deployment.Namespace)),
 			Subnetwork: proto.String("regions/" + region + "/subnetworks/" + subnetName),
 		},
 	}
@@ -820,7 +827,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		Project:  project,
 		Zone:     zone,
 		TagsResource: &computepb.Tags{
-			Items:       append(getInstanceResp.Tags.Items, getNetworkTag(resourceDescription.Namespace, *getInstanceResp.Id)),
+			Items:       append(getInstanceResp.Tags.Items, getNetworkTag(resourceDescription.Deployment.Namespace, *getInstanceResp.Id)),
 			Fingerprint: getInstanceResp.Tags.Fingerprint,
 		},
 	}

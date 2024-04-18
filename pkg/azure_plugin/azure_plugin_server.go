@@ -321,7 +321,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		return nil, err
 	}
 
-	resourceIdInfo, err := getResourceIDInfo(resourceDesc.Id)
+	resourceIdInfo, err := getResourceIDInfo(resourceDesc.Deployment.Id)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting resource id info:%+v", err)
 		return nil, err
@@ -332,8 +332,8 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		return nil, err
 	}
 
-	vnetName := getVnetName(*invisinetsVm.Location, resourceDesc.Namespace)
-	invisinetsVnet, err := azureHandler.GetInvisinetsVnet(ctx, vnetName, *invisinetsVm.Location, resourceDesc.Namespace, s.orchestratorServerAddr)
+	vnetName := getVnetName(*invisinetsVm.Location, resourceDesc.Deployment.Namespace)
+	invisinetsVnet, err := azureHandler.GetInvisinetsVnet(ctx, vnetName, *invisinetsVm.Location, resourceDesc.Deployment.Namespace, s.orchestratorServerAddr)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
 		return nil, err
@@ -368,7 +368,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 	// Create VPN gateway vnet if not already created
 	// The vnet is created even if there's no multicloud connections at the moment for ease of connection in the future.
 	// Note that vnets are free, so this is not a problem.
-	vpnGwVnetName := getVpnGatewayVnetName(resourceDesc.Namespace)
+	vpnGwVnetName := getVpnGatewayVnetName(resourceDesc.Deployment.Namespace)
 	_, err = azureHandler.GetVirtualNetwork(ctx, vpnGwVnetName)
 	if err != nil {
 		if isErrorNotFound(err) {
@@ -388,7 +388,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 					},
 				},
 			}
-			_, err = azureHandler.CreateVirtualNetwork(ctx, getVpnGatewayVnetName(resourceDesc.Namespace), virtualNetworkParameters)
+			_, err = azureHandler.CreateVirtualNetwork(ctx, getVpnGatewayVnetName(resourceDesc.Deployment.Namespace), virtualNetworkParameters)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create VPN gateway vnet: %w", err)
 			}
@@ -415,7 +415,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 	}
 	// Only add peering if it doesn't exist
 	if !peeringExists {
-		vpnGwName := getVpnGatewayName(resourceDesc.Namespace)
+		vpnGwName := getVpnGatewayName(resourceDesc.Deployment.Namespace)
 		_, err = azureHandler.GetVirtualNetworkGateway(ctx, vpnGwName)
 		if err != nil {
 			if isErrorNotFound(err) {

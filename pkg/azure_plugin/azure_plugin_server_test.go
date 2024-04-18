@@ -403,9 +403,9 @@ func TestCreateResource(t *testing.T) {
 		}
 
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
+			Deployment:  &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: namespace},
+			Name:        vmName,
 			Description: desc,
-			Id:          getFakeVmUri(),
-			Namespace:   namespace,
 		})
 
 		require.NoError(t, err)

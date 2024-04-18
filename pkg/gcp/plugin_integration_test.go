@@ -44,7 +44,11 @@ func createInstance(ctx context.Context, server *GCPPluginServer, project string
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal insert instance request: %w", err)
 	}
-	resourceDescription := &invisinetspb.ResourceDescription{Description: insertInstanceReqBytes, Namespace: namespace}
+	resourceDescription := &invisinetspb.ResourceDescription{
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: "projects/" + project, Namespace: namespace},
+		Name:        name,
+		Description: insertInstanceReqBytes,
+	}
 	return server.CreateResource(ctx, resourceDescription)
 }
 
@@ -69,7 +73,11 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription1 := &invisinetspb.ResourceDescription{Description: insertInstanceReq1Bytes, Namespace: namespace}
+	resourceDescription1 := &invisinetspb.ResourceDescription{
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: "projects/" + projectId, Namespace: namespace},
+		Name:        vm1Name,
+		Description: insertInstanceReq1Bytes,
+	}
 	createResource1Resp, err := s.CreateResource(
 		ctx,
 		resourceDescription1,
@@ -86,7 +94,11 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription2 := &invisinetspb.ResourceDescription{Description: insertInstanceReq2Bytes, Namespace: namespace}
+	resourceDescription2 := &invisinetspb.ResourceDescription{
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: "projects/" + projectId, Namespace: namespace},
+		Name:        vm2Name,
+		Description: insertInstanceReq2Bytes,
+	}
 	createResource2Resp, err := s.CreateResource(
 		ctx,
 		resourceDescription2,

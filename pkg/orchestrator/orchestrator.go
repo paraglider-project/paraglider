@@ -944,7 +944,11 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	defer conn.Close()
 
 	// Send RPC to create the resource
-	resource := invisinetspb.ResourceDescription{Id: resourceWithString.Id, Description: []byte(resourceWithString.Description), Namespace: resourceInfo.namespace}
+	resource := invisinetspb.ResourceDescription{
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: s.getCloudDeployment(resourceInfo.cloud, resourceInfo.namespace), Namespace: resourceInfo.namespace},
+		Name:        resourceInfo.name,
+		Description: []byte(resourceWithString.Description),
+	}
 	client := invisinetspb.NewCloudPluginClient(conn)
 	resourceResp, err := client.CreateResource(context.Background(), &resource)
 	if err != nil {

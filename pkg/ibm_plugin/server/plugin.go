@@ -94,7 +94,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
 	}
 
-	rInfo, err := getResourceIDInfo(resourceDesc.Id)
+	rInfo, err := getResourceIDInfo(resourceDesc.Deployment.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	}
 
 	// get VPCs in the request's namespace
-	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{resourceDesc.Namespace},
+	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{resourceDesc.Deployment.Namespace},
 		sdk.ResourceQuery{Region: region})
 	if err != nil {
 		return nil, err
@@ -117,7 +117,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	if len(vpcsData) == 0 {
 		// No VPC found in the requested namespace and region. Create one.
 		utils.Log.Printf("No VPCs found in the region, will be creating.")
-		vpc, err := cloudClient.CreateVPC([]string{resourceDesc.Namespace})
+		vpc, err := cloudClient.CreateVPC([]string{resourceDesc.Deployment.Namespace})
 		if err != nil {
 			return nil, err
 		}
@@ -129,7 +129,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	}
 
 	// get subnets of VPC
-	requiredTags := []string{vpcID, resourceDesc.Namespace}
+	requiredTags := []string{vpcID, resourceDesc.Deployment.Namespace}
 	subnetsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SUBNET, requiredTags,
 		sdk.ResourceQuery{Zone: rInfo.Zone})
 	if err != nil {
