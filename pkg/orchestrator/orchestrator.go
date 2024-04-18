@@ -1290,10 +1290,8 @@ func Setup(cfg config.Config) {
 	router.GET(ListNamespacesURL, server.listNamespaces)
 
 	// Run server
-	go func() {
-		err = router.Run(cfg.Server.Host + ":" + cfg.Server.Port)
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-	}()
+	err = router.Run(cfg.Server.Host + ":" + cfg.Server.Port)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }
