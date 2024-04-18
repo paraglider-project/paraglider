@@ -165,7 +165,7 @@ func (s *ControllerServer) getTagUri(tag string) (string, error) {
 		return "", fmt.Errorf("could not get tag: %s", err.Error())
 	}
 
-	if *response.Uri == "" {
+	if response.Uri == nil || *response.Uri == "" {
 		return "", fmt.Errorf("tag %s is not an individual resource tag", tag)
 	}
 	return *response.Uri, nil
@@ -284,7 +284,6 @@ func (s *ControllerServer) _permitListRulesAdd(req *invisinetspb.AddPermitListRu
 		return nil, err
 	}
 	req.Rules = rules
-
 	// Create connection to cloud plugin
 	conn, err := grpc.Dial(pluginAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -960,14 +959,15 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	}
 	defer conn.Close()
 
+	tagName := createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
 	tagClient := tagservicepb.NewTagServiceClient(conn)
-	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name), Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
+	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: tagName, Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error())) // TODO @smcclure20: change this to a warning?
 		return
 	}
 
-	resourceResp.Name = resourceInfo.namespace + "." + resourceInfo.cloud + "." + resourceResp.Name
+	resourceResp.Name = tagName
 
 	c.JSON(http.StatusOK, resourceResp)
 }
@@ -1085,7 +1085,6 @@ func (s *ControllerServer) setTag(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-
 	// Look up subscribers and re-resolve the tag
 	if err := s.updateSubscribers(tagMapping.TagName); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
@@ -1290,10 +1289,8 @@ func Setup(cfg config.Config) {
 	router.GET(ListNamespacesURL, server.listNamespaces)
 
 	// Run server
-	go func() {
-		err = router.Run(cfg.Server.Host + ":" + cfg.Server.Port)
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-	}()
+	err = router.Run(cfg.Server.Host + ":" + cfg.Server.Port)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }

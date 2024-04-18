@@ -50,10 +50,6 @@ type Client struct {
 
 // Proccess the response from the controller and return the body
 func (c *Client) processResponse(resp *http.Response) ([]byte, error) {
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("request failed with status code %d", resp.StatusCode)
-	}
-
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -76,7 +72,6 @@ func (c *Client) sendRequest(url string, method string, body io.Reader) ([]byte,
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		url = "http://" + url
 	}
-	fmt.Println(url)
 
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
@@ -193,18 +188,18 @@ func (c *Client) GetTag(tag string) (*tagservicepb.TagMapping, error) {
 func (c *Client) ResolveTag(tag string) ([]*tagservicepb.TagMapping, error) {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.ResolveTagURL), tag)
 
-	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
+	respBytes, err := c.sendRequest(path, http.MethodPost, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	tagMappings := []*tagservicepb.TagMapping{}
+	tagMappings := tagservicepb.TagMappingList{}
 	err = json.Unmarshal(respBytes, &tagMappings)
 	if err != nil {
 		return nil, err
 	}
 
-	return tagMappings, nil
+	return tagMappings.Mappings, nil
 }
 
 // Set a tag as a member of a group or as a mapping to a URI/IP

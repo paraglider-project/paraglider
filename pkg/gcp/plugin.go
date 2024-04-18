@@ -89,37 +89,103 @@ func isInvisinetsPermitListRule(namespace string, firewall *computepb.Firewall) 
 	return strings.HasSuffix(*firewall.Network, getVpcName(namespace)) && strings.HasPrefix(*firewall.Name, getFirewallNamePrefix(namespace))
 }
 
-// Checks if GCP firewall rule is equivalent to an Invisinets permit list rule
-func isFirewallEqPermitListRule(namespace string, firewall *computepb.Firewall, permitListRule *invisinetspb.PermitListRule) bool {
-	if !isInvisinetsPermitListRule(namespace, firewall) {
-		return false
+// Converts a GCP firewall rule to an Invisinets permit list rule
+func firewallRuleToInvisinetsRule(namespace string, fw *computepb.Firewall) (*invisinetspb.PermitListRule, error) {
+	if len(fw.Allowed) != 1 {
+		return nil, fmt.Errorf("firewall rule has more than one allowed protocol")
 	}
-	if *firewall.Direction != firewallDirectionMapInvisinetsToGCP[permitListRule.Direction] {
-		return false
-	}
-	if len(firewall.Allowed) != 1 {
-		return false
-	}
-	protocolNumber, err := getProtocolNumber(*firewall.Allowed[0].IPProtocol)
+	protocolNumber, err := getProtocolNumber(*fw.Allowed[0].IPProtocol)
 	if err != nil {
-		return false
+		return nil, fmt.Errorf("could not get protocol number: %w", err)
 	}
-	if protocolNumber != permitListRule.Protocol {
-		return false
+
+	direction := firewallDirectionMapGCPToInvisinets[*fw.Direction]
+
+	var targets []string
+	if direction == invisinetspb.Direction_INBOUND {
+		targets = append(fw.SourceRanges, fw.SourceTags...)
+	} else {
+		targets = fw.DestinationRanges
 	}
-	if len(firewall.Allowed[0].Ports) == 0 && permitListRule.DstPort != -1 {
-		return false
+
+	var dstPort int
+	if len(fw.Allowed[0].Ports) == 0 {
+		dstPort = -1
+	} else {
+		dstPort, err = strconv.Atoi(fw.Allowed[0].Ports[0])
+		if err != nil {
+			return nil, fmt.Errorf("could not convert port to int")
+		}
 	}
-	if len(firewall.Allowed[0].Ports) == 1 && firewall.Allowed[0].Ports[0] != strconv.Itoa(int(permitListRule.DstPort)) {
-		return false
+
+	var tags []string
+	if fw.Description != nil {
+		tags = parseDescriptionTags(*fw.Description)
 	}
-	return true
+
+	rule := &invisinetspb.PermitListRule{
+		Name:      parseFirewallName(namespace, *fw.Name),
+		Direction: firewallDirectionMapGCPToInvisinets[*fw.Direction],
+		SrcPort:   -1,
+		DstPort:   int32(dstPort),
+		Protocol:  int32(protocolNumber),
+		Targets:   targets,
+		Tags:      tags,
+	} // SrcPort not specified since GCP doesn't support rules based on source ports
+	return rule, nil
 }
 
-// Hashes values to lowercase hex string for use in naming GCP resources
-func hash(values ...string) string {
-	hash := sha256.Sum256([]byte(strings.Join(values, "")))
-	return strings.ToLower(hex.EncodeToString(hash[:]))
+// Converts an Invisinets permit list rule to a GCP firewall rule
+func invisinetsRuleToFirewallRule(namespace string, project string, firewallName string, networkTag string, rule *invisinetspb.PermitListRule) (*computepb.Firewall, error) {
+	firewall := &computepb.Firewall{
+		Allowed: []*computepb.Allowed{
+			{
+				IPProtocol: proto.String(strconv.Itoa(int(rule.Protocol))),
+			},
+		},
+		Description: proto.String(getRuleDescription(rule.Tags)),
+		Direction:   proto.String(firewallDirectionMapInvisinetsToGCP[rule.Direction]),
+		Name:        proto.String(firewallName),
+		Network:     proto.String(GetVpcUri(project, namespace)),
+		TargetTags:  []string{networkTag},
+	}
+	if rule.DstPort != -1 {
+		// Users must explicitly set DstPort to -1 if they want it to apply to all ports since proto can't
+		// differentiate between empty and 0 for an int field. Ports of 0 are valid for protocols like TCP/UDP.
+		firewall.Allowed[0].Ports = []string{strconv.Itoa(int(rule.DstPort))}
+	}
+	if rule.Direction == invisinetspb.Direction_INBOUND {
+		// TODO @seankimkdy: use SourceTags as well once we start supporting tags
+		firewall.SourceRanges = rule.Targets
+	} else {
+		firewall.DestinationRanges = rule.Targets
+	}
+	return firewall, nil
+}
+
+// Determine if a firewall rule and permit list rule are equivalent
+func isFirewallEqPermitListRule(namespace string, firewall *computepb.Firewall, rule *invisinetspb.PermitListRule) (bool, error) {
+	invisinetsVersion, err := firewallRuleToInvisinetsRule(namespace, firewall)
+	if err != nil {
+		return false, fmt.Errorf("could not convert firewall rule to permit list rule: %w", err)
+	}
+
+	targetMap := map[string]bool{}
+	for _, target := range invisinetsVersion.Targets {
+		targetMap[target] = true
+	}
+
+	for _, target := range rule.Targets {
+		if !targetMap[target] {
+			return false, nil
+		}
+	}
+
+	return invisinetsVersion.Name == rule.Name &&
+		invisinetsVersion.Direction == rule.Direction &&
+		invisinetsVersion.Protocol == rule.Protocol &&
+		invisinetsVersion.DstPort == rule.DstPort &&
+		invisinetsVersion.SrcPort == rule.SrcPort, nil
 }
 
 // Gets protocol number from GCP specificiation (either a name like "tcp" or an int-string like "6")
@@ -133,6 +199,12 @@ func getProtocolNumber(firewallProtocol string) (int32, error) {
 		}
 	}
 	return int32(protocolNumber), nil
+}
+
+// Hashes values to lowercase hex string for use in naming GCP resources
+func hash(values ...string) string {
+	hash := sha256.Sum256([]byte(strings.Join(values, "")))
+	return strings.ToLower(hex.EncodeToString(hash[:]))
 }
 
 /* --- RESOURCE NAME --- */
@@ -337,48 +409,11 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.
 	for _, firewall := range resp.Firewalls {
 		// Exclude default deny all egress from being included since it applies to every VM
 		if isInvisinetsPermitListRule(req.Namespace, firewall) && *firewall.Name != getDenyAllIngressFirewallName(req.Namespace) {
-			rules := make([]*invisinetspb.PermitListRule, len(firewall.Allowed))
-			for i, rule := range firewall.Allowed {
-				protocolNumber, err := getProtocolNumber(*rule.IPProtocol)
-				if err != nil {
-					return nil, fmt.Errorf("could not get protocol number: %w", err)
-				}
-
-				direction := firewallDirectionMapGCPToInvisinets[*firewall.Direction]
-
-				var targets []string
-				if direction == invisinetspb.Direction_INBOUND {
-					targets = append(firewall.SourceRanges, firewall.SourceTags...)
-				} else {
-					targets = firewall.DestinationRanges
-				}
-
-				var dstPort int
-				if len(rule.Ports) == 0 {
-					dstPort = -1
-				} else {
-					dstPort, err = strconv.Atoi(rule.Ports[0])
-					if err != nil {
-						return nil, fmt.Errorf("could not convert port to int")
-					}
-				}
-
-				var tags []string
-				if firewall.Description != nil {
-					tags = parseDescriptionTags(*firewall.Description)
-				}
-
-				rules[i] = &invisinetspb.PermitListRule{
-					Name:      parseFirewallName(req.Namespace, *firewall.Name),
-					Direction: firewallDirectionMapGCPToInvisinets[*firewall.Direction],
-					SrcPort:   -1,
-					DstPort:   int32(dstPort),
-					Protocol:  int32(protocolNumber),
-					Targets:   targets,
-					Tags:      tags,
-				} // SrcPort not specified since GCP doesn't support rules based on source ports
+			rule, err := firewallRuleToInvisinetsRule(req.Namespace, firewall)
+			if err != nil {
+				return nil, fmt.Errorf("could not convert firewall rule to permit list rule: %w", err)
 			}
-			permitListRules = append(permitListRules, rules...)
+			permitListRules = append(permitListRules, rule)
 		}
 	}
 
@@ -492,7 +527,11 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 
 		patchRequired := false
 		if existingFw, ok := existingFirewalls[firewallName]; ok {
-			if isFirewallEqPermitListRule(req.Namespace, existingFw, permitListRule) {
+			equivalent, err := isFirewallEqPermitListRule(req.Namespace, existingFw, permitListRule)
+			if err != nil {
+				return nil, fmt.Errorf("unable to check if firewall is equivalent to permit list rule: %w", err)
+			}
+			if equivalent {
 				// Firewall already exists and is equivalent to the provided permit list rule
 				continue
 			} else {
@@ -540,28 +579,9 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 			}
 		}
 
-		firewall := &computepb.Firewall{
-			Allowed: []*computepb.Allowed{
-				{
-					IPProtocol: proto.String(strconv.Itoa(int(permitListRule.Protocol))),
-				},
-			},
-			Description: proto.String(getRuleDescription(permitListRule.Tags)),
-			Direction:   proto.String(firewallDirectionMapInvisinetsToGCP[permitListRule.Direction]),
-			Name:        proto.String(firewallName),
-			Network:     proto.String(GetVpcUri(project, req.Namespace)),
-			TargetTags:  []string{networkTag},
-		}
-		if permitListRule.DstPort != -1 {
-			// Users must explicitly set DstPort to -1 if they want it to apply to all ports since proto can't
-			// differentiate between empty and 0 for an int field. Ports of 0 are valid for protocols like TCP/UDP.
-			firewall.Allowed[0].Ports = []string{strconv.Itoa(int(permitListRule.DstPort))}
-		}
-		if permitListRule.Direction == invisinetspb.Direction_INBOUND {
-			// TODO @seankimkdy: use SourceTags as well once we start supporting tags
-			firewall.SourceRanges = permitListRule.Targets
-		} else {
-			firewall.DestinationRanges = permitListRule.Targets
+		firewall, err := invisinetsRuleToFirewallRule(req.Namespace, project, firewallName, networkTag, permitListRule)
+		if err != nil {
+			return nil, fmt.Errorf("unable to convert permit list rule to firewall rule: %w", err)
 		}
 
 		if patchRequired {
