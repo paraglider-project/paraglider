@@ -30,7 +30,7 @@ Tag Example
         inv rule add gcp vm1 --ping parenttag
 
 5. Create a tag, `iptag2`
-    .. code-block:: shell
+   .. code-block:: console
     
         inv tag set iptag2 --ip 2.2.2.2
 
