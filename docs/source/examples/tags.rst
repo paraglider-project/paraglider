@@ -15,7 +15,7 @@ Tag Example
 
 
 3. Resolve the parent tag down to list of names
-    .. code-block:: shell
+   .. code-block:: console
     
         inv tag get parenttag --resolve
 
