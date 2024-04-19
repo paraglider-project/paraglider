@@ -105,7 +105,7 @@ func TestMulticloud(t *testing.T) {
 		&invisinetspb.ResourceDescription{
 			Deployment:  &invisinetspb.InvisinetsDeployment{Id: azureVm1ResourceId, Namespace: "default"},
 			Name: azureVm1Name, 
-			Description: azureVm1Description
+			Description: azureVm1Description,
 		},
 	)
 	require.NoError(t, err)
@@ -236,7 +236,7 @@ func TestMulticloud(t *testing.T) {
 		&invisinetspb.ResourceDescription{
 			Deployment: &invisinetspb.InvisinetsDeployment{Id: azureVm2ResourceId, Namespace: "default"},
 			Name: azureVm2Name,
-			Description: azureVm2Description
+			Description: azureVm2Description,
 		},
 	)
 	require.NoError(t, err)
@@ -301,7 +301,7 @@ func TestMulticloud(t *testing.T) {
 				SrcPort:   -1,
 				DstPort:   -1,
 				Protocol:  1,
-				Targets:   []string{gcpVmIpAddress},
+				Targ`ets:   []string{gcpVmIpAddress},
 			},
 			{ // SSH rule for debugging
 				Name:      "ssh-inbound-rule",
