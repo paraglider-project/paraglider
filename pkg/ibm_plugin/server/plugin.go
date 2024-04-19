@@ -25,6 +25,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	ibmCommon "github.com/NetSys/invisinets/pkg/ibm_plugin"
@@ -93,17 +94,22 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
 	}
-
-	rInfo, err := getResourceIDInfo(resourceDesc.Deployment.Id)
-	if err != nil {
-		return nil, err
-	}
-	region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
+	zone := *resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Zone.(*vpcv1.ZoneIdentityByName).Name
+	region, err := ibmCommon.ZoneToRegion(zone)
 	if err != nil {
 		return nil, err
 	}
 
-	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroupName, region)
+	resourceGroupName, err := getResourceGroupName(resourceDesc.Deployment.Id)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("RG Name: %s\n", resourceGroupName)
+
+	resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Name = proto.String(resourceDesc.Name)
+	resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).ResourceGroup.(*vpcv1.ResourceGroupIdentityByID).ID = proto.String(resourceGroupName)
+
+	cloudClient, err := s.setupCloudClient(resourceGroupName, region)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +137,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	// get subnets of VPC
 	requiredTags := []string{vpcID, resourceDesc.Deployment.Namespace}
 	subnetsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SUBNET, requiredTags,
-		sdk.ResourceQuery{Zone: rInfo.Zone})
+		sdk.ResourceQuery{Zone: zone})
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +157,7 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 			return nil, err
 		}
 		utils.Log.Printf("Using %s address space", resp.AddressSpace)
-		subnet, err := cloudClient.CreateSubnet(vpcID, rInfo.Zone, resp.AddressSpace, requiredTags)
+		subnet, err := cloudClient.CreateSubnet(vpcID, zone, resp.AddressSpace, requiredTags)
 		if err != nil {
 			return nil, err
 		}

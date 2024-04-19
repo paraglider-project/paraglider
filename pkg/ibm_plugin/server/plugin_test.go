@@ -64,7 +64,7 @@ const (
 	fakeProfile   = "bx2-2x8"
 	invTag        = "inv"
 
-	fakeDeploymentID = "/ResourceGroupName/" + fakeResGroup + "/Zone/" + fakeZone
+	fakeDeploymentID = "/ResourceGroupName/" + fakeResGroup
 	fakeResourceID   = "/ResourceGroupName/" + fakeResGroup + "/Zone/" + fakeZone + "/ResourceID/" + fakeInstance
 	fakeNamespace    = "inv-namespace"
 	wrongNamespace   = "wrong-inv-namespace"
@@ -74,7 +74,6 @@ var (
 	fakeInstancePrototype = vpcv1.InstancePrototypeInstanceByImage{
 		Image:   &vpcv1.ImageIdentityByID{ID: core.StringPtr(fakeImage)},
 		Zone:    &vpcv1.ZoneIdentityByName{Name: core.StringPtr(fakeZone)},
-		Name:    core.StringPtr(fakeInstance),
 		Profile: &vpcv1.InstanceProfileIdentityByName{Name: core.StringPtr(fakeProfile)},
 	}
 
