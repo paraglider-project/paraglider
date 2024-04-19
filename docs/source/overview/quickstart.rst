@@ -72,15 +72,24 @@ Copy paste the following configuration into a new file called ``invisinets_confi
         .. code-block:: yaml
 
             server: 
-            host: "localhost"
-            port: 8080
-            rpcPort: 8081
-
-            cloudPlugins:
-            - name: "azure"
               host: "localhost"
-              port: 1000
-              invDeployment: "/subscriptions/<subscription_id>/resourceGroups/<resource_group_name>"
+              port: 8080
+              rpcPort: 8081
+
+              cloudPlugins:
+              - name: "azure"
+                  host: "localhost"
+                  port: 8082
+            
+            namespaces:
+              default:
+                - name: "azure"
+                  deployment: "/subscriptions/4ba880a9-fe39-4105-98e1-909297ff5bb8/resourceGroups/invisinets"
+
+            tagService:
+              host: "localhost"
+              port: 8083
+
 
     .. tab-item:: GCP
         :sync: gcp
@@ -88,15 +97,23 @@ Copy paste the following configuration into a new file called ``invisinets_confi
         .. code-block:: yaml
 
             server: 
-            host: "localhost"
-            port: 8080
-            rpcPort: 8081
+              host: "localhost"
+              port: 8080
+              rpcPort: 8081
 
-            cloudPlugins:
-            - name: "gcp"
-                host: "localhost"
-                port: 1000
-                invDeployment: "projects/<project_name>"
+              cloudPlugins:
+              - name: "gcp"
+                  host: "localhost"
+                  port: 8082
+            
+            namespaces:
+              default:
+                - name: "gcp"
+                  deployment: "projects/invisinets-playground"
+
+            tagService:
+              host: "localhost"
+              port: 8083
 
 
 The ``cloudPlugins`` list may contain one or multiple cloud plugins. Though all listed should be reachable (otherwise, requests to the central controller may only result in errors). The ``server`` section is used to describe where the central controller will bind on the local machine to serve the HTTP server for users (``port``) and the RPC server for the cloud plugins (``rpcPort``). All other hosts/ports are where the other services are expected to be and may or may not be locally hosted. 
