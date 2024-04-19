@@ -45,6 +45,6 @@ Tag Example
         inv rule get gcp vm1
 
 8. Resolve the parent tag
-    .. code-block:: shell
+   .. code-block:: console
     
         inv tag get parenttag --resolve
