@@ -31,7 +31,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
-	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
+	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/NetSys/invisinets/pkg/orchestrator"
 	utils "github.com/NetSys/invisinets/pkg/utils"
@@ -334,7 +334,7 @@ func setupAzurePluginServer() (*azurePluginServer, *mockAzureSDKHandler, context
 	// Create a mock implementation of the AzureSDKHandler interface
 	var mockAzureHandler AzureSDKHandler = &mockAzureSDKHandler{}
 	server.mockAzureHandler = mockAzureHandler
-	server.orchestratorServerAddr = "fakecontrollerserveraddr"
+	server.orchestratorServerAddr = "fakeorchestratorserveraddr"
 
 	// Perform a type requireion to convert the AzureSDKHandler interface value to a *mockAzureSDKHandler concrete value, allowing access to methods and fields specific to the mockAzureSDKHandler type.
 	concreteMockAzureHandler := mockAzureHandler.(*mockAzureSDKHandler)
