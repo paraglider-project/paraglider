@@ -4,7 +4,7 @@ Tag Example
 ===========
 
 1. Create a tag for an IP address with name `iptag`
-    .. code-block:: shell
+   .. code-block:: console
 
         inv tag set iptag --ip 1.1.1.1
 

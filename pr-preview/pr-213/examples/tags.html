@@ -200,12 +200,11 @@
           <section id="tag-example">
 <span id="tagexample"></span><h1>Tag Example<a class="headerlink" href="#tag-example" title="Link to this heading">#</a></h1>
 <ol class="arabic">
-<li><dl>
-<dt>Create a tag for an IP address with name <cite>iptag</cite></dt><dd><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>iptag<span class="w"> </span>--ip<span class="w"> </span><span class="m">1</span>.1.1.1
-</pre></div>
-</div>
-</dd>
-</dl>
+<li><p>Create a tag for an IP address with name <cite>iptag</cite>
+.. code-block:: console</p>
+<blockquote>
+<div><p>inv tag set iptag –ip 1.1.1.1</p>
+</div></blockquote>
 </li>
 <li><dl>
 <dt>Assign <cite>iptag</cite> to a parent tag named <cite>parenttag</cite></dt><dd><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parenttag<span class="w"> </span>--children<span class="w"> </span>iptag
