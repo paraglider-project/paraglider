@@ -9,7 +9,7 @@ Tag Example
         inv tag set iptag --ip 1.1.1.1
 
 2. Assign `iptag` to a parent tag named `parenttag`
-    .. code-block:: shell
+   .. code-block:: console
 
         inv tag set parenttag --children iptag
 

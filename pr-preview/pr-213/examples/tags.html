@@ -206,12 +206,11 @@
 <div><p>inv tag set iptag –ip 1.1.1.1</p>
 </div></blockquote>
 </li>
-<li><dl>
-<dt>Assign <cite>iptag</cite> to a parent tag named <cite>parenttag</cite></dt><dd><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parenttag<span class="w"> </span>--children<span class="w"> </span>iptag
-</pre></div>
-</div>
-</dd>
-</dl>
+<li><p>Assign <cite>iptag</cite> to a parent tag named <cite>parenttag</cite>
+.. code-block:: console</p>
+<blockquote>
+<div><p>inv tag set parenttag –children iptag</p>
+</div></blockquote>
 </li>
 <li><dl>
 <dt>Resolve the parent tag down to list of names</dt><dd><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>parenttag<span class="w"> </span>--resolve
