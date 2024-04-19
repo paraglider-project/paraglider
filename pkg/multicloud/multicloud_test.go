@@ -104,7 +104,7 @@ func TestMulticloud(t *testing.T) {
 		ctx,
 		&invisinetspb.ResourceDescription{
 			Deployment:  &invisinetspb.InvisinetsDeployment{Id: azureVm1ResourceId, Namespace: "default"},
-			Name: azureVm1Name, 
+			Name:        azureVm1Name,
 			Description: azureVm1Description,
 		},
 	)
@@ -122,8 +122,8 @@ func TestMulticloud(t *testing.T) {
 	gcpCreateResourceResp, err := gcpServer.CreateResource(
 		ctx,
 		&invisinetspb.ResourceDescription{
-			Deployment: &invisinetspb.InvisinetsDeployment{Id: "projects/" + gcpProjectId, Namespace: "other"},
-			Name: gcpVmName,
+			Deployment:  &invisinetspb.InvisinetsDeployment{Id: "projects/" + gcpProjectId, Namespace: "other"},
+			Name:        gcpVmName,
 			Description: gcpVmDescription,
 		},
 	)
@@ -234,8 +234,8 @@ func TestMulticloud(t *testing.T) {
 	azureCreateResourceResp2, err := azureServer.CreateResource(
 		ctx,
 		&invisinetspb.ResourceDescription{
-			Deployment: &invisinetspb.InvisinetsDeployment{Id: azureVm2ResourceId, Namespace: "default"},
-			Name: azureVm2Name,
+			Deployment:  &invisinetspb.InvisinetsDeployment{Id: azureVm2ResourceId, Namespace: "default"},
+			Name:        azureVm2Name,
 			Description: azureVm2Description,
 		},
 	)
@@ -301,7 +301,7 @@ func TestMulticloud(t *testing.T) {
 				SrcPort:   -1,
 				DstPort:   -1,
 				Protocol:  1,
-				Targ`ets:   []string{gcpVmIpAddress},
+				Targets:   []string{gcpVmIpAddress},
 			},
 			{ // SSH rule for debugging
 				Name:      "ssh-inbound-rule",
