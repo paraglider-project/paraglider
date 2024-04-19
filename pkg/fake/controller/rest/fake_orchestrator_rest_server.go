@@ -257,7 +257,7 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 		// Resolve Tag
 		case urlMatches(path, orchestrator.ResolveTagURL) && r.Method == http.MethodPost:
 			mappings := tagservicepb.TagMappingList{Mappings: GetFakeTagMappingLeafTags(getURLParams(path, string(orchestrator.ResolveTagURL))["tag"])}
-			err := s.writeResponse(w, mappings)
+			err := s.writeResponse(w, &mappings)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 				return
