@@ -23,6 +23,7 @@ Tag Example
         inv tag get parenttag --resolve
 
 4. Create a resource name `vm1`
+
    .. code-block:: console
     
         inv resource create gcp vm1 <path_to_config>
