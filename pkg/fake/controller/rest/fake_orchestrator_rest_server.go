@@ -255,13 +255,14 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 			w.WriteHeader(http.StatusOK)
 			return
 		// Resolve Tag
-		case urlMatches(path, orchestrator.ResolveTagURL) && r.Method == http.MethodGet:
-			w.WriteHeader(http.StatusOK)
-			err := s.writeResponse(w, GetFakeTagMappingLeafTags(getURLParams(path, string(orchestrator.ResolveTagURL))["tag"]))
+		case urlMatches(path, orchestrator.ResolveTagURL) && r.Method == http.MethodPost:
+			mappings := tagservicepb.TagMappingList{Mappings: GetFakeTagMappingLeafTags(getURLParams(path, string(orchestrator.ResolveTagURL))["tag"])}
+			err := s.writeResponse(w, mappings)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 				return
 			}
+
 			return
 		}
 		fmt.Printf("unsupported request: %s %s\n", r.Method, path)
