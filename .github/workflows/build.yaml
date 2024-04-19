@@ -235,7 +235,7 @@ jobs:
         uses: google-github-actions/auth@v1
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         with:
-          workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/invisinets'
+          workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/paraglider'
           service_account: 'invisinets-cicd@invisinets-cicd.iam.gserviceaccount.com'
       - name: 'Az CLI login'
         uses: azure/login@v1
