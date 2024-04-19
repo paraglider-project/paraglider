@@ -33,7 +33,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TODO @seankimkdy: should this be turned into a system test where we actually call the cloud plugins through the controller GRPC?
+// TODO @seankimkdy: should this be turned into a system test where we actually call the cloud plugins through the orchestrator GRPC?
 func TestMulticloud(t *testing.T) {
 	// Azure config
 	azurePluginPort := 7991
@@ -82,7 +82,7 @@ func TestMulticloud(t *testing.T) {
 	}
 	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
 	orchestrator.Setup(orchestratorServerConfig, true)
-	fmt.Println("Setup controller server")
+	fmt.Println("Setup orchestrator server")
 
 	// Setup Azure
 	azureServer := azure_plugin.Setup(azurePluginPort, orchestratorServerAddr)
