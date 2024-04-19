@@ -46,6 +46,7 @@ Tag Example
          inv tag set parenttag --children iptag2
 
 7. Get the permit list of the resource we added to
+
    .. code-block:: console
     
         inv rule get gcp vm1
