@@ -21,7 +21,9 @@ Phase 0: Multicloud Prep
 Steps:
 
 1. Create VM A in Azure
+
    .. code-block:: console
+   
         inv resource create azure vm-a azure-vm-westus.json
 
 2. Create VM C in GCP
