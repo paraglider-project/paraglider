@@ -21,7 +21,7 @@ package client
 import (
 	"testing"
 
-	fake "github.com/NetSys/invisinets/pkg/fake/controller/rest"
+	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rest"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/stretchr/testify/assert"
 )

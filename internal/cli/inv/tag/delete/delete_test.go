@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/NetSys/invisinets/internal/cli/inv/settings"
-	fake "github.com/NetSys/invisinets/pkg/fake/controller/rest"
+	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
