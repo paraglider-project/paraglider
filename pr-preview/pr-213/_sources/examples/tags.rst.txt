@@ -35,12 +35,12 @@ Tag Example
         inv tag set iptag2 --ip 2.2.2.2
 
 6. Add `iptag2` to `parenttag`
-    .. code-block:: shell
+   .. code-block:: console
     
          inv tag set parenttag --children iptag2
 
 7. Get the permit list of the resource we added to
-    .. code-block:: shell
+   .. code-block:: console
     
         inv rule get gcp vm1
 
