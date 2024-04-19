@@ -501,7 +501,7 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 		// Check if the error is Resource Not Found
 		if isErrorNotFound(err) {
 			// Create the virtual network if it doesn't exist
-			// Get the address space from the controller service
+			// Get the address space from the orchestrator service
 			conn, err := grpc.Dial(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
 				utils.Log.Printf("could not dial the orchestrator")

@@ -25,7 +25,7 @@ import (
 
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
-	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
+	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/NetSys/invisinets/pkg/orchestrator"
 	utils "github.com/NetSys/invisinets/pkg/utils"

@@ -27,7 +27,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Sets up fake orchestrator controller server
+// Sets up fake orchestrator server
 // Note: this is only meant to be used with one cloud (i.e. primarily for each cloud plugin's unit/integration tests)
 type FakeOrchestratorRPCServer struct {
 	invisinetspb.UnimplementedControllerServer

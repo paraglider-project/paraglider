@@ -313,7 +313,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 	for _, ibmRule := range ibmRulesToAdd {
 
 		// TODO @cohen-j-omer Connect clouds if needed:
-		// 1. use the controllerClient's GetUsedAddressSpaces to get used addresses.
+		// 1. use the orchestratorClient's GetUsedAddressSpaces to get used addresses.
 		// 2. if the rule's remote address resides in one of the clouds create a vpn gateway.
 
 		// get the VPCs and clients to search if the remote IP resides in any of them

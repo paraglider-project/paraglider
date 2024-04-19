@@ -16,14 +16,6 @@ limitations under the License.
 
 package orchestrator
 
-import (
-	"net"
-
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/NetSys/invisinets/pkg/orchestrator/config"
-	grpc "google.golang.org/grpc"
-)
-
 // Private ASN ranges (RFC 6996)
 const (
 	MIN_PRIVATE_ASN_2BYTE uint32 = 64512
@@ -31,27 +23,3 @@ const (
 	MIN_PRIVATE_ASN_4BYTE uint32 = 4200000000
 	MAX_PRIVATE_ASN_4BYTE uint32 = 4294967294
 )
-
-func SetupControllerServer(cfg config.Config) string {
-	controllerServer := &ControllerServer{
-		pluginAddresses:           make(map[string]string),
-		usedBgpPeeringIpAddresses: make(map[string][]string),
-		config:                    cfg,
-	}
-	for _, c := range controllerServer.config.CloudPlugins {
-		controllerServer.pluginAddresses[c.Name] = c.Host + ":" + c.Port
-	}
-	l, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		panic("error occured while setting up controller server")
-	}
-	gsrv := grpc.NewServer()
-	invisinetspb.RegisterControllerServer(gsrv, controllerServer)
-	controllerServerAddr := l.Addr().String()
-	go func() {
-		if err := gsrv.Serve(l); err != nil {
-			panic(err)
-		}
-	}()
-	return controllerServerAddr
-}

@@ -27,17 +27,20 @@ type CloudPlugin struct {
 	Port string `yaml:"port"`
 }
 
-type Config struct {
-	Server struct {
-		Port    string `yaml:"port"`
-		Host    string `yaml:"host"`
-		RpcPort string `yaml:"rpcPort"`
-	} `yaml:"server"`
+type Server struct {
+	Port    string `yaml:"port"`
+	Host    string `yaml:"host"`
+	RpcPort string `yaml:"rpcPort"`
+}
 
-	TagService struct {
-		Port string `yaml:"port"`
-		Host string `yaml:"host"`
-	} `yaml:"tagService"`
+type TagService struct {
+	Port string `yaml:"port"`
+	Host string `yaml:"host"`
+}
+
+type Config struct {
+	Server     Server     `yaml:"server"`
+	TagService TagService `yaml:"tagService"`
 
 	KVStore struct {
 		Port string `yaml:"port"`

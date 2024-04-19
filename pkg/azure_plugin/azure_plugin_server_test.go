@@ -59,13 +59,7 @@ func setupAzurePluginServer() (*azurePluginServer, *MockAzureSDKHandler, context
 	// Create a mock implementation of the AzureSDKHandler interface
 	var mockAzureHandler AzureSDKHandler = &MockAzureSDKHandler{}
 	server.mockAzureHandler = mockAzureHandler
-
-	// Create fake orchestrator server
-	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
-	if err != nil {
-		fmt.Println("Error while setting up fake orchestrator server: ", err)
-	}
-	server.orchestratorServerAddr = fakeOrchestratorServerAddr
+	server.orchestratorServerAddr = "fakecontrollerserveraddr"
 
 	// Perform a type requireion to convert the AzureSDKHandler interface value to a *MockAzureSDKHandler concrete value, allowing access to methods and fields specific to the MockAzureSDKHandler type.
 	concreteMockAzureHandler := mockAzureHandler.(*MockAzureSDKHandler)

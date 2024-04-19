@@ -455,13 +455,13 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 	networkTag := getNetworkTag(req.Namespace, resourceInfo.ResourceType, *resourceID)
 
 	// Get used address spaces of all clouds
-	controllerConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	orchestratorConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
-	defer controllerConn.Close()
-	controllerClient := invisinetspb.NewControllerClient(controllerConn)
-	getUsedAddressSpacesResp, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	defer orchestratorConn.Close()
+	orchestratorClient := invisinetspb.NewControllerClient(orchestratorConn)
+	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
@@ -500,7 +500,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 					CloudB:          peeringCloudInfo.Cloud,
 					CloudBNamespace: peeringCloudInfo.Namespace,
 				}
-				_, err := controllerClient.ConnectClouds(ctx, connectCloudsReq)
+				_, err := orchestratorClient.ConnectClouds(ctx, connectCloudsReq)
 				if err != nil {
 					return nil, fmt.Errorf("unable to connect clouds : %w", err)
 				}

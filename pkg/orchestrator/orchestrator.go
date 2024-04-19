@@ -120,7 +120,7 @@ func getIPsFromResolvedTag(mappings []*tagservicepb.TagMapping) []string {
 	return ips
 }
 
-// Check if rules given by the user have tags (requirement) and remove any targets they contain (should only be written by the controller)
+// Check if rules given by the user have tags (requirement) and remove any targets they contain (should only be written by the orchestrator)
 func checkAndCleanRule(rule *invisinetspb.PermitListRule) (*invisinetspb.PermitListRule, *Warning, error) {
 	if len(rule.Tags) == 0 {
 		return nil, nil, fmt.Errorf("rule %s contains no tags", rule.Id)
@@ -1231,8 +1231,8 @@ func (s *ControllerServer) DeleteValue(c context.Context, req *invisinetspb.Dele
 	return &invisinetspb.DeleteValueResponse{}, nil
 }
 
-// Setup and run the server
-func Setup(configPath string) {
+// Setup with config file
+func SetupWithFile(configPath string) {
 	// Read the config
 	f, err := os.Open(configPath)
 	if err != nil {
@@ -1247,17 +1247,22 @@ func Setup(configPath string) {
 		fmt.Println(err.Error())
 	}
 
+	Setup(cfg)
+}
+
+// Setup and run the server
+func Setup(cfg config.Config) {
 	// Populate server info
 	server := ControllerServer{
+		config:                    cfg,
 		pluginAddresses:           make(map[string]string),
 		usedBgpPeeringIpAddresses: make(map[string][]string),
 		namespace:                 "default",
 	}
-	server.config = cfg
 	server.localTagService = cfg.TagService.Host + ":" + cfg.TagService.Port
 	server.localKVStoreService = cfg.KVStore.Host + ":" + cfg.KVStore.Port
 
-	for _, c := range server.config.CloudPlugins {
+	for _, c := range cfg.CloudPlugins {
 		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port
 	}
 
@@ -1298,8 +1303,10 @@ func Setup(configPath string) {
 	router.GET(ListNamespacesURL, server.listNamespaces)
 
 	// Run server
-	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	go func() {
+		err = router.Run(cfg.Server.Host + ":" + cfg.Server.Port)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
 }
