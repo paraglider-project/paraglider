@@ -216,10 +216,12 @@
 <section id="phase-0-multicloud-prep">
 <h2>Phase 0: Multicloud Prep<a class="headerlink" href="#phase-0-multicloud-prep" title="Link to this heading">#</a></h2>
 <p>Steps:</p>
-<ol class="arabic simple">
-<li><dl class="simple">
-<dt>Create VM A in Azure</dt><dd></dd>
-</dl>
+<ol class="arabic">
+<li><p>Create VM A in Azure
+.. code-block:: console</p>
+<blockquote>
+<div><p>inv resource create azure vm-a azure-vm-westus.json</p>
+</div></blockquote>
 </li>
 <li><p>Create VM C in GCP</p></li>
 </ol>

@@ -3,7 +3,7 @@
 Quickstart
 ==========
 
-The controller consists of a central orchestrating controller that sends requests to per-cloud plugins/controllers and a tag service. These services can be started individually or all at once on the localhost.
+The controller consists of a orchestrator that sends requests to per-cloud plugins/controllers and a tag service. These services can be started individually or all at once on the localhost.
 
 Build / Install
 ---------------
@@ -19,7 +19,7 @@ All of the services can be started using the ``invd`` CLI. For additional help, 
 
 Configuration
 -------------
-The central controller takes a configuration file in the following format.
+The orchestrator takes a configuration file in the following format.
 
 .. code-block:: yaml
 
@@ -43,7 +43,7 @@ The central controller takes a configuration file in the following format.
     port: 6000
 
 
-The ``cloudPlugins``` list may contain one or multiple cloud plugins. Though all listed should be reachable (otherwise, requests to the central controller may only result in errors). The ``server`` section is used to describe where the central controller will bind on the local machine to serve the HTTP server for users (``port``) and the RPC server for the cloud plugins (``rpcPort``). All other hosts/ports are where the other services are expected to be and may or may not be locally hosted. 
+The ``cloudPlugins``` list may contain one or multiple cloud plugins. Though all listed should be reachable (otherwise, requests to the orchestrator may only result in errors). The ``server`` section is used to describe where the orchestrator will bind on the local machine to serve the HTTP server for users (``port``) and the RPC server for the cloud plugins (``rpcPort``). All other hosts/ports are where the other services are expected to be and may or may not be locally hosted. 
 
 The ``invDeployment`` parameter in the cloud plugin specification includes the minimum URI necessary to find the Invisinets resources for that cloud. In GCP, this is project ID while in Azure this is the resource group URI.
 
@@ -78,9 +78,9 @@ Using the CLI, run:
 
 .. code-block:: shell
 
-    invd az <port> <central_controller_address>
+    invd az <port> <orchestrator_address>
 
-The ``central_controller_address`` should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is "localhost:8081".
+The ``orchestrator_address`` should be the full host:port address where the orchestrator is hosted for RPC traffic. In the example config above, this is "localhost:8081".
 
 GCP
 ^^^
@@ -89,9 +89,9 @@ Using the CLI, run:
 
 .. code-block:: shell
 
-    invd gcp <port> <central_controller_address>
+    invd gcp <port> <orchestrator_address>
 
-The ``central_controller_address`` should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is "localhost:8081".
+The ``orchestrator_address`` should be the full host:port address where the orchestrator is hosted for RPC traffic. In the example config above, this is "localhost:8081".
 
 Tag Service
 -----------
