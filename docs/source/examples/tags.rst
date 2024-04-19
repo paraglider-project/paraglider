@@ -29,12 +29,12 @@ Tag Example
     
         inv rule add gcp vm1 --ping parenttag
 
-5. Create a tag, iptag2
+5. Create a tag, `iptag2`
     .. code-block:: shell
     
         inv tag set iptag2 --ip 2.2.2.2
 
-6. Add resourcename2 to parenttag
+6. Add `iptag2` to `parenttag`
     .. code-block:: shell
     
          inv tag set parenttag --children iptag2
@@ -44,7 +44,7 @@ Tag Example
     
         inv rule get gcp vm1
 
-8. Resolve parent tag
+8. Resolve the parent tag
     .. code-block:: shell
     
         inv tag get parenttag --resolve
