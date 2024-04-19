@@ -39,7 +39,7 @@ func createVM(ctx context.Context, server *azurePluginServer, subscriptionId str
 		return nil, fmt.Errorf("unable to marshal VM parameters")
 	}
 	resourceDescription := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s", subscriptionId, resourceGroupName, name), Namespace: namespace},
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: namespace},
 		Name:        name,
 		Description: parametersBytes,
 	}
@@ -72,7 +72,7 @@ func TestBasicPermitListOps(t *testing.T) {
 	vmName := vmNamePrefix + "-" + uuid.NewString()
 	vmID := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + vmName
 	createResourceResp, err := s.CreateResource(ctx, &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: vmID, Namespace: "default"},
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: "default"},
 		Name:        vmName,
 		Description: descriptionJson,
 	})

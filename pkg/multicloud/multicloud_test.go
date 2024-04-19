@@ -39,6 +39,7 @@ func TestMulticloud(t *testing.T) {
 	azurePluginPort := 7991
 	azureSubscriptionId := azure_plugin.GetAzureSubscriptionId()
 	azureResourceGroupName := azure_plugin.SetupAzureTesting(azureSubscriptionId, "multicloud")
+	azureDeploymentId := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName)
 	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
 
 	// GCP config
@@ -103,7 +104,7 @@ func TestMulticloud(t *testing.T) {
 	azureCreateResourceResp1, err := azureServer.CreateResource(
 		ctx,
 		&invisinetspb.ResourceDescription{
-			Deployment:  &invisinetspb.InvisinetsDeployment{Id: azureVm1ResourceId, Namespace: "default"},
+			Deployment:  &invisinetspb.InvisinetsDeployment{Id: azureDeploymentId, Namespace: "default"},
 			Name:        azureVm1Name,
 			Description: azureVm1Description,
 		},
@@ -234,7 +235,7 @@ func TestMulticloud(t *testing.T) {
 	azureCreateResourceResp2, err := azureServer.CreateResource(
 		ctx,
 		&invisinetspb.ResourceDescription{
-			Deployment:  &invisinetspb.InvisinetsDeployment{Id: azureVm2ResourceId, Namespace: "default"},
+			Deployment:  &invisinetspb.InvisinetsDeployment{Id: azureDeploymentId, Namespace: "default"},
 			Name:        azureVm2Name,
 			Description: azureVm2Description,
 		},

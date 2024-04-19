@@ -64,9 +64,10 @@ const (
 	fakeProfile   = "bx2-2x8"
 	invTag        = "inv"
 
-	fakeResourceID = "/ResourceGroupName/" + fakeResGroup + "/Zone/" + fakeZone + "/ResourceID/" + fakeInstance
-	fakeNamespace  = "inv-namespace"
-	wrongNamespace = "wrong-inv-namespace"
+	fakeDeploymentID = "/ResourceGroupName/" + fakeResGroup + "/Zone/" + fakeZone
+	fakeResourceID   = "/ResourceGroupName/" + fakeResGroup + "/Zone/" + fakeZone + "/ResourceID/" + fakeInstance
+	fakeNamespace    = "inv-namespace"
+	wrongNamespace   = "wrong-inv-namespace"
 )
 
 var (
@@ -486,7 +487,7 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeResourceID, Namespace: fakeNamespace},
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
 	}
@@ -520,7 +521,7 @@ func TestCreateResourceExistingVPCSubnet(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeResourceID, Namespace: fakeNamespace},
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
 	}
@@ -551,7 +552,7 @@ func TestCreateResourceExistingVPCMissingSubnet(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeResourceID, Namespace: fakeNamespace},
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
 	}

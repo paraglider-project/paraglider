@@ -353,7 +353,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		},
 	}
 
-	invisinetsVm, err = azureHandler.CreateVirtualMachine(ctx, *invisinetsVm, resourceIdInfo.ResourceName)
+	invisinetsVm, err = azureHandler.CreateVirtualMachine(ctx, *invisinetsVm, resourceDesc.Name)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating the virtual machine:%+v", err)
 		return nil, err
