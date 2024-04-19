@@ -33,7 +33,7 @@ import (
 func NewCommand() *cobra.Command {
 	executor := &executor{}
 	cmd := &cobra.Command{
-		Use:     "startup <path to config> [--background]",
+		Use:     "startup <path to config>",
 		Aliases: []string{"startup"},
 		Short:   "Starts all the microservices with given config file",
 		Args:    cobra.ExactArgs(1),
@@ -41,7 +41,6 @@ func NewCommand() *cobra.Command {
 		RunE:    executor.Execute,
 	}
 	cmd.Flags().Bool("clearkeys", true, "Clears all the keys in the redis database")
-	cmd.Flags().Bool("background", false, "Run the command in the background")
 	return cmd
 }
 
@@ -51,7 +50,6 @@ type executor struct {
 	gcpPort        int
 	controllerAddr string
 	clearKeys      bool
-	background     bool
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
@@ -94,10 +92,6 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	e.background, err = cmd.Flags().GetBool("background")
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -115,7 +109,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		az.Setup(e.azPort, e.controllerAddr)
 	}()
 
-	orchestrator.SetupWithFile(args[0], e.background)
+	orchestrator.SetupWithFile(args[0], false)
 
 	return nil
 }
