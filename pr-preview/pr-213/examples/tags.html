@@ -226,12 +226,11 @@
 </li>
 </ol>
 <ol class="arabic" start="4">
-<li><dl>
-<dt>Add a rule referencing the parent tag to a resource</dt><dd><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm1<span class="w"> </span>--ping<span class="w"> </span>parenttag
-</pre></div>
-</div>
-</dd>
-</dl>
+<li><p>Add a rule referencing the parent tag to a resource
+.. code-block:: console</p>
+<blockquote>
+<div><p>inv rule add gcp vm1 –ping parenttag</p>
+</div></blockquote>
 </li>
 <li><dl>
 <dt>Create a tag, <cite>iptag2</cite></dt><dd><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>iptag2<span class="w"> </span>--ip<span class="w"> </span><span class="m">2</span>.2.2.2

@@ -25,7 +25,7 @@ Tag Example
         inv resource create gcp vm1 <path_to_config>
 
 4. Add a rule referencing the parent tag to a resource
-    .. code-block:: shell
+   .. code-block:: console
     
         inv rule add gcp vm1 --ping parenttag
 
