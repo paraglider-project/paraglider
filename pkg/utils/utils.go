@@ -54,27 +54,32 @@ func init() {
 }
 
 // Checks if an Invisinets permit list rule tag (either an address or address space) is contained within an address space.
-func IsPermitListRuleTagInAddressSpace(permitListRuleTag, addressSpace string) (bool, error) {
-	prefix, err := netip.ParsePrefix(addressSpace)
-	if err != nil {
-		return false, err
-	}
-
-	var addr netip.Addr
-	if strings.Contains(permitListRuleTag, "/") {
-		permitListRuleTagPrefix, err := netip.ParsePrefix(permitListRuleTag)
+func IsPermitListRuleTagInAddressSpace(permitListRuleTag string, addressSpaces []string) (bool, error) {
+	for _, addressSpace := range addressSpaces {
+		prefix, err := netip.ParsePrefix(addressSpace)
 		if err != nil {
 			return false, err
 		}
-		addr = permitListRuleTagPrefix.Addr()
-	} else {
-		addr, err = netip.ParseAddr(permitListRuleTag)
-		if err != nil {
-			return false, err
+
+		var addr netip.Addr
+		if strings.Contains(permitListRuleTag, "/") {
+			permitListRuleTagPrefix, err := netip.ParsePrefix(permitListRuleTag)
+			if err != nil {
+				return false, err
+			}
+			addr = permitListRuleTagPrefix.Addr()
+		} else {
+			addr, err = netip.ParseAddr(permitListRuleTag)
+			if err != nil {
+				return false, err
+			}
+		}
+		if prefix.Contains(addr) {
+			return true, nil
 		}
 	}
 
-	return prefix.Contains(addr), nil
+	return false, nil
 }
 
 // Checks if an IP address is public
@@ -124,19 +129,17 @@ func GetPermitListRulePeeringCloudInfo(permitListRule *invisinetspb.PermitListRu
 			contained := false
 		out: // Indentation is correct and can't be fixed
 			for _, usedAddressSpaceMapping := range usedAddressSpaceMappings {
-				for _, addressSpace := range usedAddressSpaceMapping.AddressSpaces {
-					contained, err = IsPermitListRuleTagInAddressSpace(target, addressSpace)
-					if err != nil {
-						return nil, fmt.Errorf("unable to determine if tag is in address space: %w", err)
+				contained, err = IsPermitListRuleTagInAddressSpace(target, usedAddressSpaceMapping.AddressSpaces)
+				if err != nil {
+					return nil, fmt.Errorf("unable to determine if tag is in address space: %w", err)
+				}
+				if contained {
+					peeringCloudInfos[i] = &PeeringCloudInfo{
+						Cloud:      usedAddressSpaceMapping.Cloud,
+						Namespace:  usedAddressSpaceMapping.Namespace,
+						Deployment: *usedAddressSpaceMapping.Deployment,
 					}
-					if contained {
-						peeringCloudInfos[i] = &PeeringCloudInfo{
-							Cloud:      usedAddressSpaceMapping.Cloud,
-							Namespace:  usedAddressSpaceMapping.Namespace,
-							Deployment: *usedAddressSpaceMapping.Deployment,
-						}
-						break out
-					}
+					break out
 				}
 			}
 			// Return error if target does not belong to any cloud

@@ -569,12 +569,22 @@ func (s *ControllerServer) updateUsedAddressSpaces() error {
 
 // Get a new address block for a new virtual network
 // TODO @smcclure20: Later, this should allocate more efficiently and with different size address blocks (eg, GCP needs larger than Azure since a VPC will span all regions)
-func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, _ *invisinetspb.FindUnusedAddressSpaceRequest) (*invisinetspb.FindUnusedAddressSpaceResponse, error) {
+func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *invisinetspb.FindUnusedAddressSpacesRequest) (*invisinetspb.FindUnusedAddressSpacesResponse, error) {
 	err := s.updateUsedAddressSpaces()
 	if err != nil {
 		return nil, err
 	}
+
+	var requestedAddressSpaces int
+	if req.Num != nil {
+		requestedAddressSpaces = int(*req.Num)
+	} else {
+		requestedAddressSpaces = 1
+	}
+
+	addressSpaces := make([]string, requestedAddressSpaces)
 	highestBlockUsed := -1
+
 	for _, addressSpaceMapping := range s.usedAddressSpaces {
 		for _, address := range addressSpaceMapping.AddressSpaces {
 			blockNumber, err := strconv.Atoi(strings.Split(address, ".")[1])
@@ -591,8 +601,11 @@ func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, _ *invisine
 		return nil, errors.New("all address blocks used")
 	}
 
-	newAddressSpace := &invisinetspb.FindUnusedAddressSpaceResponse{AddressSpace: fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+1)}
-	return newAddressSpace, nil
+	for i := 0; i < requestedAddressSpaces; i++ {
+		addressSpaces[i] = fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+i+1)
+	}
+
+	return &invisinetspb.FindUnusedAddressSpacesResponse{AddressSpaces: addressSpaces}, nil
 }
 
 // Gets unused address spaces across all clouds
@@ -961,7 +974,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	defer conn.Close()
 
 	tagClient := tagservicepb.NewTagServiceClient(conn)
-	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name), Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
+	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceResp.Name), Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error())) // TODO @smcclure20: change this to a warning?
 		return

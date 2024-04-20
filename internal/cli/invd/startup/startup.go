@@ -40,7 +40,7 @@ func NewCommand() *cobra.Command {
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
-	cmd.Flags().Bool("clearkeys", true, "Clears all the keys in the redis database")
+	cmd.Flags().Bool("clearkeys", false, "Clears all the keys in the redis database")
 	return cmd
 }
 
