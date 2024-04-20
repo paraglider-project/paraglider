@@ -1219,7 +1219,7 @@ func (s *ControllerServer) DeleteValue(c context.Context, req *invisinetspb.Dele
 }
 
 // Setup with config file
-func SetupWithFile(configPath string) {
+func SetupWithFile(configPath string, background bool) {
 	// Read the config
 	f, err := os.Open(configPath)
 	if err != nil {
@@ -1234,11 +1234,11 @@ func SetupWithFile(configPath string) {
 		fmt.Println(err.Error())
 	}
 
-	Setup(cfg)
+	Setup(cfg, background)
 }
 
 // Setup and run the server
-func Setup(cfg config.Config) {
+func Setup(cfg config.Config, background bool) {
 	// Populate server info
 	server := ControllerServer{
 		config:                    cfg,
@@ -1290,10 +1290,17 @@ func Setup(cfg config.Config) {
 	router.GET(ListNamespacesURL, server.listNamespaces)
 
 	// Run server
-	go func() {
+	if background {
+		go func() {
+			err = router.Run(cfg.Server.Host + ":" + cfg.Server.Port)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+		}()
+	} else {
 		err = router.Run(cfg.Server.Host + ":" + cfg.Server.Port)
 		if err != nil {
 			fmt.Println(err.Error())
 		}
-	}()
+	}
 }

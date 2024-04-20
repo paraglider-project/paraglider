@@ -109,7 +109,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		az.Setup(e.azPort, e.orchestratorAddr)
 	}()
 
-	orchestrator.SetupWithFile(args[0])
+	orchestrator.SetupWithFile(args[0], false)
 
 	return nil
 }

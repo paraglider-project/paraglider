@@ -81,7 +81,7 @@ func TestMulticloud(t *testing.T) {
 		},
 	}
 	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
-	orchestrator.Setup(orchestratorServerConfig)
+	orchestrator.Setup(orchestratorServerConfig, true)
 	fmt.Println("Setup orchestrator server")
 
 	// Setup Azure
