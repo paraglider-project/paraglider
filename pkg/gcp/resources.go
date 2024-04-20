@@ -102,7 +102,6 @@ func getFirewallRules(ctx context.Context, client *compute.FirewallsClient, proj
 // Parse the resource URI and return information about the resource (such as project, zone, name, and type)
 func parseResourceUri(resourceUri string) (*resourceInfo, error) {
 	parsedResourceId := parseGCPURL(resourceUri)
-	fmt.Printf("Parsed resource ID: %v\n", parsedResourceId)
 	if name, ok := parsedResourceId["instances"]; ok {
 		return &resourceInfo{Project: parsedResourceId["projects"], Zone: parsedResourceId["zones"], Region: getRegionFromZone(parsedResourceId["zones"]), Name: name, ResourceType: instanceTypeName}, nil
 	} else if name, ok := parsedResourceId["clusters"]; ok {

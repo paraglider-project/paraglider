@@ -72,7 +72,6 @@ func (c *Client) sendRequest(url string, method string, body io.Reader) ([]byte,
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		url = "http://" + url
 	}
-	fmt.Println(url)
 
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {

@@ -212,6 +212,11 @@ func TestCreateResource(t *testing.T) {
 		}
 
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
+		_, orchAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
+		if err != nil {
+			t.Fatal(err)
+		}
+		server.orchestratorServerAddr = orchAddr
 
 		subnet := getFakeSubnet()
 
