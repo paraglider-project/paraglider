@@ -1,7 +1,7 @@
 Welcome to Paraglider!
 ======================================
 
-.. image:: ./_static/paraglider-logo.png
+.. image:: ./_static/paraglider-logo-dark-transparent.png
     :width: 200
     :alt: Paraglider Logo
 
