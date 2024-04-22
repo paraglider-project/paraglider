@@ -471,7 +471,6 @@ func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 	// create permit list rule object
 	permitListRule := &invisinetspb.PermitListRule{
 		Name:      *rule.Name,
-		Id:        *rule.ID,
 		Targets:   getTargets(rule),
 		Direction: azureToInvisinetsDirection[*rule.Properties.Direction],
 		SrcPort:   int32(srcPort),

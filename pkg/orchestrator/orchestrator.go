@@ -123,11 +123,11 @@ func getIPsFromResolvedTag(mappings []*tagservicepb.TagMapping) []string {
 // Check if rules given by the user have tags (requirement) and remove any targets they contain (should only be written by the orchestrator)
 func checkAndCleanRule(rule *invisinetspb.PermitListRule) (*invisinetspb.PermitListRule, *Warning, error) {
 	if len(rule.Tags) == 0 {
-		return nil, nil, fmt.Errorf("rule %s contains no tags", rule.Id)
+		return nil, nil, fmt.Errorf("rule %s contains no tags", rule.Name)
 	}
 	if len(rule.Targets) != 0 {
 		rule.Targets = []string{}
-		return rule, &Warning{Message: fmt.Sprintf("Warning: targets for rule %s ignored", rule.Id)}, nil
+		return rule, &Warning{Message: fmt.Sprintf("Warning: targets for rule %s ignored", rule.Name)}, nil
 	}
 	return rule, nil, nil
 }

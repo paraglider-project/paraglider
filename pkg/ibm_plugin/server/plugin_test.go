@@ -50,8 +50,8 @@ const (
 	fakeVPC       = "invisinets-fake-vpc"
 	fakeID        = "12345"
 	fakeID2       = "123452"
-	fakeRuleID1   = "fake-rule1"
-	fakeRuleID2   = "fake-rule2"
+	fakeRuleName1 = "fake-rule1"
+	fakeRuleName2 = "fake-rule2"
 	fakeCRN       = "crn:" + fakeID
 	fakeCRN2      = "crn:" + fakeID2
 	fakeSubnet    = "invisinets-fake-subnet"
@@ -79,7 +79,7 @@ var (
 
 	fakePermitList1 = []*invisinetspb.PermitListRule{
 		{
-			Id:        fakeRuleID1,
+			Name:      fakeRuleName1,
 			Direction: invisinetspb.Direction_INBOUND,
 			SrcPort:   443,
 			DstPort:   443,
@@ -87,7 +87,7 @@ var (
 			Targets:   []string{"10.0.0.0/18"},
 		},
 		{
-			Id:        fakeRuleID2,
+			Name:      fakeRuleName2,
 			Direction: invisinetspb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
@@ -97,7 +97,7 @@ var (
 	}
 	fakePermitList2 = []*invisinetspb.PermitListRule{
 		{
-			Id:        fakeRuleID1,
+			Name:      fakeRuleName1,
 			Direction: invisinetspb.Direction_INBOUND,
 			SrcPort:   443,
 			DstPort:   443,
@@ -180,7 +180,7 @@ func createFakeSecurityGroup(addRules bool) *vpcv1.SecurityGroup {
 	if addRules {
 		sgRules := []vpcv1.SecurityGroupRuleIntf{
 			&vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolTcpudp{
-				ID:        core.StringPtr(fakeRuleID1),
+				ID:        core.StringPtr(fakeRuleName1),
 				Direction: core.StringPtr("inbound"),
 				Protocol:  core.StringPtr("tcp"),
 				PortMin:   core.Int64Ptr(443),
@@ -188,7 +188,7 @@ func createFakeSecurityGroup(addRules bool) *vpcv1.SecurityGroup {
 				Remote:    &vpcv1.SecurityGroupRuleRemoteCIDR{CIDRBlock: core.StringPtr("10.0.0.0/18")},
 			},
 			&vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAll{
-				ID:        core.StringPtr(fakeRuleID2),
+				ID:        core.StringPtr(fakeRuleName2),
 				Direction: core.StringPtr("outbound"),
 				Protocol:  core.StringPtr("all"),
 				Remote:    &vpcv1.SecurityGroupRuleRemoteIP{Address: core.StringPtr("10.0.64.1")},
@@ -791,8 +791,8 @@ func TestDeletePermitListRules(t *testing.T) {
 
 	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeInstanceID,
-		RuleNames: []string{fakePermitList1[0].Id, fakePermitList1[1].Id},
+		Resource:  fakeResourceID,
+		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
 	}
 
 	resp, err := s.DeletePermitListRules(ctx, deleteRulesRequest)
@@ -813,8 +813,8 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 	// Currently the plugin takes rule ID since names are not supported by IBM Cloud SDK
 	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeInstanceID,
-		RuleNames: []string{fakePermitList1[0].Id, fakePermitList1[1].Id},
+		Resource:  fakeResourceID,
+		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
 	}
 
 	resp, err := s.DeletePermitListRules(ctx, deleteRulesRequest)
@@ -837,8 +837,8 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 
 	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeInstanceID,
-		RuleNames: []string{fakePermitList1[0].Id, fakePermitList1[1].Id},
+		Resource:  fakeResourceID,
+		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
 	}
 
 	resp, err := s.DeletePermitListRules(ctx, deleteRulesRequest)

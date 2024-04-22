@@ -50,7 +50,7 @@ const exampleCloudName = "example"
 
 var portNum = 10000
 
-var exampleRule = &invisinetspb.PermitListRule{Id: "example-rule", Tags: []string{faketagservice.ValidTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
+var exampleRule = &invisinetspb.PermitListRule{Name: "example-rule", Tags: []string{faketagservice.ValidTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
 
 func getNewPortNumber() int {
 	portNum = portNum + 1
@@ -131,7 +131,6 @@ func TestPermitListRulesAdd(t *testing.T) {
 	tags := []string{faketagservice.ValidTagName}
 	rule := &invisinetspb.PermitListRule{
 		Name:      "rulename",
-		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
@@ -162,7 +161,6 @@ func TestPermitListRulesAdd(t *testing.T) {
 	tags = []string{"tag"}
 	rule = &invisinetspb.PermitListRule{
 		Name:      "rulename",
-		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
@@ -216,7 +214,6 @@ func TestPermitListRulePut(t *testing.T) {
 	tags := []string{faketagservice.ValidTagName}
 	rule := &invisinetspb.PermitListRule{
 		Name:      "rulename",
-		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
@@ -245,7 +242,6 @@ func TestPermitListRulePut(t *testing.T) {
 	tags = []string{"tag"}
 	rule = &invisinetspb.PermitListRule{
 		Name:      "rulename",
-		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
@@ -298,7 +294,6 @@ func TestPermitListRulePost(t *testing.T) {
 	tags := []string{faketagservice.ValidTagName}
 	rule := &invisinetspb.PermitListRule{
 		Name:      "rulename",
-		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
@@ -328,7 +323,6 @@ func TestPermitListRulePost(t *testing.T) {
 	tags = []string{"tag"}
 	rule = &invisinetspb.PermitListRule{
 		Name:      "rulename",
-		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
@@ -1054,7 +1048,7 @@ func TestResolvePermitListRules(t *testing.T) {
 
 	// Permit list rule that contains tags, IPs, and names
 	rule := &invisinetspb.PermitListRule{
-		Id:        "id",
+		Name:      "rulename",
 		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Targets:   []string{},
 		Direction: invisinetspb.Direction_INBOUND,
@@ -1063,7 +1057,7 @@ func TestResolvePermitListRules(t *testing.T) {
 		Protocol:  1}
 	rulesList := []*invisinetspb.PermitListRule{rule}
 	expectedRule := &invisinetspb.PermitListRule{
-		Id:        "id",
+		Name:      "rulename",
 		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Targets:   []string{faketagservice.ResolvedTagIp, faketagservice.ResolvedTagIp, "2.3.4.5"},
 		Direction: invisinetspb.Direction_INBOUND,
@@ -1096,7 +1090,7 @@ func TestGetIPsFromResolvedTag(t *testing.T) {
 func TestCheckAndCleanRule(t *testing.T) {
 	// Rule with correct formatting
 	rule := &invisinetspb.PermitListRule{
-		Id:        "id",
+		Name:      "rulename",
 		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Targets:   []string{},
 		Direction: invisinetspb.Direction_INBOUND,
@@ -1110,7 +1104,7 @@ func TestCheckAndCleanRule(t *testing.T) {
 
 	// Rule with no tags
 	badRule := &invisinetspb.PermitListRule{
-		Id:        "id",
+		Name:      "rulename",
 		Tags:      []string{},
 		Targets:   []string{},
 		Direction: invisinetspb.Direction_INBOUND,
@@ -1123,7 +1117,7 @@ func TestCheckAndCleanRule(t *testing.T) {
 
 	// Rule with targets
 	badRule = &invisinetspb.PermitListRule{
-		Id:        "id",
+		Name:      "rulename",
 		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Targets:   []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Direction: invisinetspb.Direction_INBOUND,
