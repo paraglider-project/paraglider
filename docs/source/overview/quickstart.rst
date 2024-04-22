@@ -37,7 +37,10 @@ The orchestrator takes a configuration file in the following format.
         host: "localhost"
         port: 1001
         invDeployment: "/subscriptions/<sub_id>/resourceGroups/<resource_group_name>"
-
+    - name: "ibm"
+        host: "localhost"
+        port: 1002
+        invDeployment: "/resourcegroup/<resource_group_id>
     tagService:
     host: "localhost"
     port: 6000
@@ -93,6 +96,17 @@ Using the CLI, run:
 
 The ``orchestrator_address`` should be the full host:port address where the orchestrator is hosted for RPC traffic. In the example config above, this is "localhost:8081".
 
+IBM
+^^^
+
+Using the CLI, run:
+
+.. code-block:: shell
+
+    invd ibm <port> <orchestrator_address>
+
+The ``orchestrator_address`` should be the full host:port address where the orchestrator is hosted for RPC traffic. In the example config above, this is "localhost:8081".
+
 Tag Service
 -----------
 
@@ -120,3 +134,9 @@ Google Cloud
 
 1. `Install the gcloud CLI <https://cloud.google.com/sdk/docs/install>`_. If you're using the dev container, this will already be installed for you.
 2. `Set up your application default credentials <https://cloud.google.com/docs/authentication/provide-credentials-adc>`_.
+
+IBM Cloud 
+^^^^^^^^^
+
+1. `Install the ibmcloud CLI <https://cloud.google.com/sdk/docs/install>`_. If you're using the dev container, this will already be installed for you.
+2. `Set up your identity access key <https://github.com/paraglider-project/paraglider/blob/main/pkg/ibm_plugin/README.md>`_.
