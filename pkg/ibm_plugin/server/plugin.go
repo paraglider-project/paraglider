@@ -420,6 +420,7 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 	// assuming up to a single invisinets subnet can exist per zone
 	vmInvisinetsSgID := invisinetsSgsData[0].ID
 
+	// TODO @praveingk Deduct rule IDs from the rule names using orchestrator's KV-store
 	for _, ruleID := range req.RuleNames {
 		err = cloudClient.DeleteSecurityGroupRule(vmInvisinetsSgID, ruleID)
 		if err != nil {

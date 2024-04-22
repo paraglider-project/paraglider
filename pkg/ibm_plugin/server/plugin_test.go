@@ -791,7 +791,7 @@ func TestDeletePermitListRules(t *testing.T) {
 
 	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
 	}
 
@@ -813,7 +813,7 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 	// Currently the plugin takes rule ID since names are not supported by IBM Cloud SDK
 	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
 	}
 
@@ -837,7 +837,7 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 
 	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
 	}
 
