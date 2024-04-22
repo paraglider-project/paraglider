@@ -559,7 +559,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 			}
 		}
 
-		firewall, err := invisinetsRuleToFirewallRule(req.Namespace, project, firewallName, networkTag, permitListRule)
+		firewall, err := invisinetsRuleToFirewallRule(req.Namespace, resourceInfo.Project, firewallName, networkTag, permitListRule)
 		if err != nil {
 			return nil, fmt.Errorf("unable to convert permit list rule to firewall rule: %w", err)
 		}
