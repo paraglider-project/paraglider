@@ -692,7 +692,6 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
-			Id:        "security/rule/id",
 			Name:      "invisinets-rulename",
 			Targets:   []string{"10.5.1.0", "10.6.1.0"},
 			Direction: invisinetspb.Direction_INBOUND,
@@ -726,7 +725,6 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
-			Id:        "security/rule/id",
 			Name:      "invisinets-rulename",
 			Targets:   []string{"10.3.1.0", "10.2.1.0"},
 			Direction: invisinetspb.Direction_OUTBOUND,
@@ -761,7 +759,6 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
-			Id:        "security/rule/id",
 			Name:      "invisinets-rulename",
 			Targets:   []string{"10.3.1.0", "10.2.1.0"},
 			Direction: invisinetspb.Direction_OUTBOUND,
@@ -797,7 +794,6 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 
 		// Expected permit list rule
 		expectedRule := &invisinetspb.PermitListRule{
-			Id:        "security/rule/id",
 			Name:      "invisinets-rulename",
 			Targets:   []string{"10.3.1.0", "10.2.1.0"},
 			Direction: invisinetspb.Direction_OUTBOUND,

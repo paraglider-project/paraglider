@@ -98,9 +98,6 @@ func TestBasicPermitListOps(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListResp)
 
-	// add the id to the initial permit list  for an easier comparison
-	// because it is only set in the get not the add
-	rules[0].Id = getPermitListResp.Rules[0].Id
 	assert.ElementsMatch(t, getPermitListResp.Rules, rules)
 
 	// Delete permit list rule
