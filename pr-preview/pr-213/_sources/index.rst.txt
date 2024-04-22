@@ -26,3 +26,11 @@ Invisinets is a cross-cloud control plane for configuring networking.
 
    examples/tags.rst
    examples/multicloud.rst
+   
+.. toctree::
+   :maxdepth: 1
+   :caption: Examples
+   :caption: Project Status
+
+   project/feature-status.rst
+   project/roadmap.rst
