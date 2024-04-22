@@ -621,13 +621,13 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	require.NotNil(t, err)
 }
 
-func TestFindUnusedAddressSpace(t *testing.T) {
+func TestFindUnusedAddressSpaces(t *testing.T) {
 	orchestratorServer := newOrchestratorServer()
 
 	// No entries in address space map
-	resp, err := orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	resp, err := orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
-	assert.Equal(t, resp.AddressSpace, "10.0.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
 
 	// Next entry
 	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
@@ -637,9 +637,9 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     defaultNamespace,
 		},
 	}
-	resp, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
-	assert.Equal(t, resp.AddressSpace, "10.1.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[0], "10.1.0.0/16")
 
 	// Account for all namespaces
 	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
@@ -654,9 +654,9 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     "otherNamespace",
 		},
 	}
-	resp, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
-	assert.Equal(t, resp.AddressSpace, "10.2.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[0], "10.2.0.0/16")
 
 	// Out of addresses
 	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
@@ -666,8 +666,16 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     defaultNamespace,
 		},
 	}
-	_, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	_, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
+
 	require.NotNil(t, err)
+
+	// Multiple spaces
+	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{}
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Num: proto.Int32(2)})
+	require.Nil(t, err)
+	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[1], "10.1.0.0/16")
 }
 
 func TestGetUsedAsns(t *testing.T) {
