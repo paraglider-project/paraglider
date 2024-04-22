@@ -11,10 +11,8 @@ cloudPlugins:
 namespaces: 
   default:
     cloudDeployments:
-      - name: "gcp"
-        deployment: "projects/project-name"
       - name: "azure"
-        deployment: "/subscriptions/sub-id/resourceGroups/rg-name"
+        deployment: "/subscriptions/sub-id/resourceGroups/invisinets-demo"
 
 tagService:
   host: "localhost"

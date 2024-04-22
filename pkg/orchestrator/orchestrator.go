@@ -38,6 +38,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/kvstore/storepb"
 	config "github.com/NetSys/invisinets/pkg/orchestrator/config"
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
@@ -70,6 +71,7 @@ type ControllerServer struct {
 	usedAsns                  []uint32
 	usedBgpPeeringIpAddresses map[string][]string
 	localTagService           string
+	localKVStoreService       string
 	config                    config.Config
 	namespace                 string
 }
@@ -118,7 +120,7 @@ func getIPsFromResolvedTag(mappings []*tagservicepb.TagMapping) []string {
 	return ips
 }
 
-// Check if rules given by the user have tags (requirement) and remove any targets they contain (should only be written by the controller)
+// Check if rules given by the user have tags (requirement) and remove any targets they contain (should only be written by the orchestrator)
 func checkAndCleanRule(rule *invisinetspb.PermitListRule) (*invisinetspb.PermitListRule, *Warning, error) {
 	if len(rule.Tags) == 0 {
 		return nil, nil, fmt.Errorf("rule %s contains no tags", rule.Id)
@@ -567,12 +569,22 @@ func (s *ControllerServer) updateUsedAddressSpaces() error {
 
 // Get a new address block for a new virtual network
 // TODO @smcclure20: Later, this should allocate more efficiently and with different size address blocks (eg, GCP needs larger than Azure since a VPC will span all regions)
-func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, _ *invisinetspb.FindUnusedAddressSpaceRequest) (*invisinetspb.FindUnusedAddressSpaceResponse, error) {
+func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *invisinetspb.FindUnusedAddressSpacesRequest) (*invisinetspb.FindUnusedAddressSpacesResponse, error) {
 	err := s.updateUsedAddressSpaces()
 	if err != nil {
 		return nil, err
 	}
+
+	var requestedAddressSpaces int
+	if req.Num != nil {
+		requestedAddressSpaces = int(*req.Num)
+	} else {
+		requestedAddressSpaces = 1
+	}
+
+	addressSpaces := make([]string, requestedAddressSpaces)
 	highestBlockUsed := -1
+
 	for _, addressSpaceMapping := range s.usedAddressSpaces {
 		for _, address := range addressSpaceMapping.AddressSpaces {
 			blockNumber, err := strconv.Atoi(strings.Split(address, ".")[1])
@@ -589,8 +601,11 @@ func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, _ *invisine
 		return nil, errors.New("all address blocks used")
 	}
 
-	newAddressSpace := &invisinetspb.FindUnusedAddressSpaceResponse{AddressSpace: fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+1)}
-	return newAddressSpace, nil
+	for i := 0; i < requestedAddressSpaces; i++ {
+		addressSpaces[i] = fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+i+1)
+	}
+
+	return &invisinetspb.FindUnusedAddressSpacesResponse{AddressSpaces: addressSpaces}, nil
 }
 
 // Gets unused address spaces across all clouds
@@ -959,7 +974,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	defer conn.Close()
 
 	tagClient := tagservicepb.NewTagServiceClient(conn)
-	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name), Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
+	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceResp.Name), Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error())) // TODO @smcclure20: change this to a warning?
 		return
@@ -1164,8 +1179,60 @@ func (s *ControllerServer) listNamespaces(c *gin.Context) {
 	c.JSON(http.StatusOK, s.config.Namespaces)
 }
 
-// Setup and run the server
-func Setup(configPath string) {
+// Get a value from the KV store
+func (s *ControllerServer) GetValue(c context.Context, req *invisinetspb.GetValueRequest) (*invisinetspb.GetValueResponse, error) {
+	conn, err := grpc.Dial(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	client := storepb.NewKVStoreClient(conn)
+
+	response, err := client.Get(c, &storepb.GetRequest{Key: req.Key, Namespace: req.Namespace, Cloud: req.Cloud})
+	if err != nil {
+		return nil, err
+	}
+	return &invisinetspb.GetValueResponse{Value: response.Value}, nil
+}
+
+// Set a value in the KV store
+func (s *ControllerServer) SetValue(c context.Context, req *invisinetspb.SetValueRequest) (*invisinetspb.SetValueResponse, error) {
+	conn, err := grpc.Dial(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	client := storepb.NewKVStoreClient(conn)
+
+	_, err = client.Set(c, &storepb.SetRequest{Key: req.Key, Value: req.Value, Namespace: req.Namespace, Cloud: req.Cloud})
+	if err != nil {
+		return nil, err
+	}
+	return &invisinetspb.SetValueResponse{}, nil
+}
+
+// Delete a value in the KV store
+func (s *ControllerServer) DeleteValue(c context.Context, req *invisinetspb.DeleteValueRequest) (*invisinetspb.DeleteValueResponse, error) {
+	conn, err := grpc.Dial(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	client := storepb.NewKVStoreClient(conn)
+
+	_, err = client.Delete(c, &storepb.DeleteRequest{Key: req.Key, Namespace: req.Namespace, Cloud: req.Cloud})
+	if err != nil {
+		fmt.Printf("Error getting KV store service connection: %s\n", err.Error())
+		return nil, err
+	}
+	return &invisinetspb.DeleteValueResponse{}, nil
+}
+
+// Setup with config file
+func SetupWithFile(configPath string, background bool) {
 	// Read the config
 	f, err := os.Open(configPath)
 	if err != nil {
@@ -1180,16 +1247,22 @@ func Setup(configPath string) {
 		fmt.Println(err.Error())
 	}
 
+	Setup(cfg, background)
+}
+
+// Setup and run the server
+func Setup(cfg config.Config, background bool) {
 	// Populate server info
 	server := ControllerServer{
+		config:                    cfg,
 		pluginAddresses:           make(map[string]string),
 		usedBgpPeeringIpAddresses: make(map[string][]string),
 		namespace:                 "default",
 	}
-	server.config = cfg
 	server.localTagService = cfg.TagService.Host + ":" + cfg.TagService.Port
+	server.localKVStoreService = cfg.KVStore.Host + ":" + cfg.KVStore.Port
 
-	for _, c := range server.config.CloudPlugins {
+	for _, c := range cfg.CloudPlugins {
 		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port
 	}
 
@@ -1230,8 +1303,17 @@ func Setup(configPath string) {
 	router.GET(ListNamespacesURL, server.listNamespaces)
 
 	// Run server
-	err = router.Run(server.config.Server.Host + ":" + server.config.Server.Port)
-	if err != nil {
-		fmt.Println(err.Error())
+	if background {
+		go func() {
+			err = router.Run(cfg.Server.Host + ":" + cfg.Server.Port)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+		}()
+	} else {
+		err = router.Run(cfg.Server.Host + ":" + cfg.Server.Port)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 	}
 }

@@ -17,7 +17,7 @@ limitations under the License.
 package settings
 
 var (
-	Global CLISettings = CLISettings{ServerAddr: "localhost:8080", ActiveNamespace: "default"}
+	Global CLISettings = CLISettings{ServerAddr: "http://localhost:8080", ActiveNamespace: "default"}
 )
 
 type CLISettings struct {

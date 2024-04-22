@@ -29,14 +29,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
+	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/stretchr/testify/assert"
@@ -72,10 +71,17 @@ const (
 	invalidPublicIpAddressName                 = "invalid-public-ip-address-name"
 	validSubnetName                            = "valid-subnet-name"
 	invalidSubnetName                          = "invalid-subnet-name"
+	validSubnetId                              = "valid-subnet-id"
+	invalidSubnetId                            = "invalid-subnet-id"
+	validSubnetURI                             = "/s/s/r/r/p/p/v/" + validVnetName + "/s/" + validSubnetName
+	invalidSubnetURI                           = "/s/s/r/r/p/p/v/" + invalidVnetName + "/s/" + invalidSubnetName
 	validLocalNetworkGatewayName               = "valid-local-network-gateway"
 	invalidLocalNetworkGatewayName             = "invalid-local-network-gateway"
 	validVirtualNetworkGatewayConnectionName   = "valid-virtual-network-gateway-connection"
 	invalidVirtualNetworkGatewayConnectionName = "invalid-virtual-network-gateway-connection"
+	validClusterName                           = "valid-cluster-name"
+	invalidClusterName                         = "invalid-cluster-name"
+	validResourceName                          = "valid-resource-name"
 )
 
 var (
@@ -84,21 +90,13 @@ var (
 	azureSDKHandlerTest *azureSDKHandler
 )
 
-type dummyToken struct {
-	azcore.TokenCredential
-}
-
-func (d *dummyToken) GetToken(ctx context.Context, optsWW policy.TokenRequestOptions) (azcore.AccessToken, error) {
-	return azcore.AccessToken{}, nil
-}
-
 func setup() {
 	urlToResponse = initializeReqRespMap()
 	setupFakeServer(urlToResponse)
 	azureSDKHandlerTest = &azureSDKHandler{}
 	azureSDKHandlerTest.resourceGroupName = rgName
 	azureSDKHandlerTest.subscriptionID = subID
-	err := azureSDKHandlerTest.InitializeClients(&dummyToken{})
+	err := azureSDKHandlerTest.InitializeClients(nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -172,6 +170,7 @@ func initializeReqRespMap() map[string]interface{} {
 	subnetUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets", subID, rgName, validVnetName)
 	localNetworkGatewayUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/localNetworkGateways", subID, rgName)
 	virtualNetworkGatewayConnectionUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/connections", subID, rgName)
+	managedClusterUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters", subID, rgName)
 
 	// Define a map of URLs to responses
 	urlToResponse := map[string]interface{}{
@@ -186,18 +185,6 @@ func initializeReqRespMap() map[string]interface{} {
 			GenericResource: armresources.GenericResource{
 				Type: to.Ptr("Microsoft.Compute/virtualMachines"),
 				Name: to.Ptr(vmResourceName),
-			},
-		},
-		// this one would have a correct type but should fail when getting the vm
-		fmt.Sprintf("/%s", invalidVmResourceID): armresources.ClientGetByIDResponse{
-			GenericResource: armresources.GenericResource{
-				Type: to.Ptr("Microsoft.Compute/virtualMachines"),
-				Name: to.Ptr(invalidVmResourceName),
-			},
-		},
-		fmt.Sprintf("/%s", invalidResourceID): armresources.ClientGetByIDResponse{
-			GenericResource: armresources.GenericResource{
-				Type: to.Ptr(invalidResourceType),
 			},
 		},
 		fmt.Sprintf("%s/%s", vmURL, vmResourceName): armcompute.VirtualMachinesClientGetResponse{
@@ -225,9 +212,20 @@ func initializeReqRespMap() map[string]interface{} {
 				Name: to.Ptr(validSecurityRuleName),
 			},
 		},
+		fmt.Sprintf("%s/%s%s", nsgURL, validResourceName, nsgNameSuffix): armnetwork.SecurityGroup{
+			Name: to.Ptr(validResourceName + nsgNameSuffix),
+		},
+		fmt.Sprintf("%s/%s", subnetUrl, validSubnetName): armnetwork.Subnet{
+			Name:       to.Ptr(validSubnetName),
+			Properties: &armnetwork.SubnetPropertiesFormat{},
+		},
+
 		fmt.Sprintf("%s/%s", vnetUrl, validVnetName): armnetwork.VirtualNetworksClientGetResponse{
 			VirtualNetwork: armnetwork.VirtualNetwork{
 				Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+					AddressSpace: &armnetwork.AddressSpace{
+						AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+					},
 					Subnets: []*armnetwork.Subnet{
 						{
 							Properties: &armnetwork.SubnetPropertiesFormat{
@@ -257,9 +255,9 @@ func initializeReqRespMap() map[string]interface{} {
 		fmt.Sprintf("%s/%s/virtualNetworkPeerings/%s", vnetsInRgUrl, validVnetName, getPeeringName(validVnetName, validVnetName)): armnetwork.VirtualNetworkPeeringsClientGetResponse{},
 		fmt.Sprintf("%s/%s", virtualNetworkGatewayUrl, validVirtualNetworkGatewayName):                                            armnetwork.VirtualNetworkGateway{},
 		fmt.Sprintf("%s/%s", publicIpAddressUrl, validPublicIpAddressName):                                                        armnetwork.PublicIPAddress{},
-		fmt.Sprintf("%s/%s", subnetUrl, validSubnetName):                                                                          armnetwork.Subnet{},
 		fmt.Sprintf("%s/%s", localNetworkGatewayUrl, validLocalNetworkGatewayName):                                                armnetwork.LocalNetworkGateway{},
 		fmt.Sprintf("%s/%s", virtualNetworkGatewayConnectionUrl, validVirtualNetworkGatewayConnectionName):                        armnetwork.VirtualNetworkGatewayConnection{},
+		fmt.Sprintf("%s/%s", managedClusterUrl, validClusterName):                                                                 armcontainerservice.ManagedCluster{},
 	}
 	return urlToResponse
 }
@@ -277,7 +275,7 @@ func TestGetVNetsAddressSpaces(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, addresses)
 		require.Len(t, addresses, 1)
-		assert.Equal(t, addresses[testLocation], validAddressSpace)
+		assert.Equal(t, addresses[testLocation], []string{validAddressSpace})
 	})
 }
 
@@ -348,41 +346,148 @@ func TestGetSecurityGroup(t *testing.T) {
 	})
 }
 
-func TestGetResourceNIC(t *testing.T) {
+func TestCreateSecurityGroup(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	once.Do(setup)
+
+	t.Run("CreateSecurityGroup: Success", func(t *testing.T) {
+		prefixName1 := "cidr1"
+		prefixName2 := "cidr2"
+		allowedCidrs := map[string]string{prefixName1: "1.1.1.1/1", prefixName2: "2.2.2.2/2"}
+		nsg, err := azureSDKHandlerTest.CreateSecurityGroup(context.Background(), validResourceName, testLocation, allowedCidrs)
+
+		require.NoError(t, err)
+		assert.NotNil(t, nsg)
+		assert.Contains(t, *nsg.Name, validResourceName)
+	})
+
+	t.Run("CreateSecurityGroup: Success - none allowed", func(t *testing.T) {
+		allowedCidrs := map[string]string{}
+		nsg, err := azureSDKHandlerTest.CreateSecurityGroup(context.Background(), validResourceName, testLocation, allowedCidrs)
+
+		require.NoError(t, err)
+		assert.NotNil(t, nsg)
+		assert.Contains(t, *nsg.Name, validResourceName)
+	})
+}
+
+func TestAssociateNSGWithSubnet(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
 	once.Do(setup)
 
 	// Create a new context for the tests
 	ctx := context.Background()
 
-	// Test 1: Successful GetResourceNIC for a VM
-	t.Run("GetResourceNIC: Success VMTest", func(t *testing.T) {
+	t.Run("AssociateNSGWithSubnet: Success", func(t *testing.T) {
+		err := azureSDKHandlerTest.AssociateNSGWithSubnet(ctx, validSubnetURI, validSecurityGroupID)
+
+		require.NoError(t, err)
+	})
+
+	t.Run("AssociateNSGWithSubnet: Failure - subnet does not exist", func(t *testing.T) {
+		err := azureSDKHandlerTest.AssociateNSGWithSubnet(ctx, invalidSubnetURI, validSecurityGroupID)
+
+		require.Error(t, err)
+	})
+}
+
+func TestGetSubnetById(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	once.Do(setup)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+
+	t.Run("GetSubnetById: Success", func(t *testing.T) {
+		subnet, err := azureSDKHandlerTest.GetSubnetByID(ctx, validSubnetURI)
+
+		require.NoError(t, err)
+		require.NotNil(t, subnet)
+	})
+
+	t.Run("GetSubnetById: Failure", func(t *testing.T) {
+		subnet, err := azureSDKHandlerTest.GetSubnetByID(ctx, invalidSubnetURI)
+
+		require.Error(t, err)
+		require.Nil(t, subnet)
+	})
+}
+
+func TestGetNetworkInterface(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	once.Do(setup)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+
+	// Test 1: Successful GetNetworkInterface for a VM
+	t.Run("GetNetworkInterface: Success VMTest", func(t *testing.T) {
 		// Call the function to test
-		nic, err := azureSDKHandlerTest.GetResourceNIC(ctx, vmResourceID)
+		nic, err := azureSDKHandlerTest.GetNetworkInterface(ctx, validNicName)
 
 		require.NotNil(t, nic)
 		require.NoError(t, err)
 	})
 
-	// Test 2: Failed Test due to non VM resource type
-	t.Run("GetResourceNIC: FailureNonVMTest", func(t *testing.T) {
+	// Test 2: Failed Test due to invalid NIC name
+	t.Run("GetNetworkInterface: FailureNonVMTest", func(t *testing.T) {
 		// Call the function to test
-		nic, err := azureSDKHandlerTest.GetResourceNIC(ctx, invalidResourceID)
+		nic, err := azureSDKHandlerTest.GetNetworkInterface(ctx, invalidNicName)
 
 		require.Error(t, err)
 		require.Nil(t, nic)
+	})
+}
 
-		// require the error message
-		require.Equal(t, err.Error(), fmt.Sprintf("resource type %s is not supported", invalidResourceType))
+func TestGetResource(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	once.Do(setup)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+
+	// Test case: Success
+	t.Run("GetResource: Success", func(t *testing.T) {
+		// Call the function to test
+		resource, err := azureSDKHandlerTest.GetResource(ctx, vmResourceID)
+
+		require.NoError(t, err)
+		require.NotNil(t, resource)
 	})
 
-	// Test 3: Failed Test due to failed GET VM request
-	t.Run("GetResourceNIC: FailureVMTest", func(t *testing.T) {
+	// Test case: Failure
+	t.Run("GetResource: Failure", func(t *testing.T) {
 		// Call the function to test
-		nic, err := azureSDKHandlerTest.GetResourceNIC(ctx, invalidVmResourceID)
+		resource, err := azureSDKHandlerTest.GetResource(ctx, invalidResourceID)
 
 		require.Error(t, err)
-		require.Nil(t, nic)
+		require.Nil(t, resource)
+	})
+}
+
+func TestCreateAKSCluster(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	once.Do(setup)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+
+	// Test case: Success
+	t.Run("CreateAKSCluster: Success", func(t *testing.T) {
+		// Call the function to test
+		aksCluster, err := azureSDKHandlerTest.CreateAKSCluster(ctx, armcontainerservice.ManagedCluster{}, validClusterName)
+
+		require.NoError(t, err)
+		require.NotNil(t, aksCluster)
+	})
+
+	// Test case: Failure
+	t.Run("CreateAKSCluster: Failure", func(t *testing.T) {
+		// Call the function to test
+		aksCluster, err := azureSDKHandlerTest.CreateAKSCluster(ctx, armcontainerservice.ManagedCluster{}, invalidClusterName)
+
+		require.Error(t, err)
+		require.Nil(t, aksCluster)
 	})
 }
 
@@ -442,6 +547,33 @@ func TestGetInvisinetsVnet(t *testing.T) {
 		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, invalidVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.Error(t, err)
 		require.Nil(t, vnet)
+	})
+}
+
+func TestAddSubnetToInvisinetsVnet(t *testing.T) {
+	// Initialize and set up the test scenario with the appropriate responses
+	once.Do(setup)
+
+	// Create a new context for the tests
+	ctx := context.Background()
+
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test case: Success, subnet added
+	t.Run("AddSubnetInvisinetsVnet: Success", func(t *testing.T) {
+		subnet, err := azureSDKHandlerTest.AddSubnetToInvisinetsVnet(ctx, "namespace", validVnetName, validSubnetName, fakeOrchestratorServerAddr)
+		require.NoError(t, err)
+		require.NotNil(t, subnet)
+	})
+
+	// Test case: Failure, error when getting new address space
+	t.Run("AddSubnetInvisinetsVnet: Failure, error when getting address spaces", func(t *testing.T) {
+		subnet, err := azureSDKHandlerTest.AddSubnetToInvisinetsVnet(ctx, "namespace", validVnetName, validSubnetName, "bad address")
+		require.Error(t, err)
+		require.Nil(t, subnet)
 	})
 }
 

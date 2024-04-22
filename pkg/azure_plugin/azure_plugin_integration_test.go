@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"testing"
 
-	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
+	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/NetSys/invisinets/pkg/orchestrator"
 	"github.com/NetSys/invisinets/pkg/orchestrator/config"
@@ -131,6 +131,11 @@ func TestCrossNamespaces(t *testing.T) {
 	resourceGroup1Namespace := "rg1"
 	resourceGroup2Namespace := "rg2"
 	orchestratorServerConfig := config.Config{
+		Server: config.Server{
+			Host:    "localhost",
+			Port:    "8080",
+			RpcPort: "8081",
+		},
 		CloudPlugins: []config.CloudPlugin{
 			{
 				Name: utils.AZURE,
@@ -153,7 +158,8 @@ func TestCrossNamespaces(t *testing.T) {
 			},
 		},
 	}
-	orchestratorServerAddr := orchestrator.SetupControllerServer(orchestratorServerConfig)
+	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
+	orchestrator.Setup(orchestratorServerConfig, true)
 
 	// Setup Azure plugin server
 	azureServer := Setup(azureServerPort, orchestratorServerAddr)

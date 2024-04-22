@@ -32,10 +32,13 @@ service CloudPlugin {
 }
 
 service Controller {
-    rpc FindUnusedAddressSpace(FindUnusedAddressSpaceRequest) returns (FindUnusedAddressSpaceResponse) {}
+    rpc FindUnusedAddressSpaces(FindUnusedAddressSpacesRequest) returns (FindUnusedAddressSpacesResponse) {}
     rpc GetUsedAddressSpaces(Empty) returns (GetUsedAddressSpacesResponse) {} // TODO @seankimkdy: we should rename either this or the CloudPlugin's to not share the same method name
     rpc FindUnusedAsn(FindUnusedAsnRequest) returns (FindUnusedAsnResponse) {}
     rpc ConnectClouds(ConnectCloudsRequest) returns (BasicResponse) {}
+    rpc SetValue(SetValueRequest) returns (SetValueResponse) {}
+    rpc GetValue(GetValueRequest) returns (GetValueResponse) {}
+    rpc DeleteValue(DeleteValueRequest) returns (DeleteValueResponse) {}
 }
 
 message Empty {
@@ -196,12 +199,12 @@ message GetUsedBgpPeeringIpAddressesResponse {
     repeated string ip_addresses = 1;
 }
 
-message FindUnusedAddressSpaceRequest {
-
+message FindUnusedAddressSpacesRequest {
+    optional int32 num = 2;
 }
 
-message FindUnusedAddressSpaceResponse {
-    string address_space = 1;
+message FindUnusedAddressSpacesResponse {
+    repeated string address_spaces = 1;
 }
 
 message FindUnusedAsnRequest {
@@ -211,4 +214,35 @@ message FindUnusedAsnRequest {
 message FindUnusedAsnResponse {
     uint32 asn = 1;
 }
+
+message SetValueRequest {
+    string key = 1;
+    string value = 2;
+    string cloud = 3;
+    string namespace = 4;
+}
+
+message SetValueResponse {
+}
+
+message GetValueRequest {
+    string key = 1;
+    string cloud = 2;
+    string namespace = 3;
+}
+
+message GetValueResponse {
+    string value = 1;
+}
+
+message DeleteValueRequest {
+    string key = 1;
+    string cloud = 2;
+    string namespace = 3;
+}
+
+message DeleteValueResponse {
+}
+
+
 

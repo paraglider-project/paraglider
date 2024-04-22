@@ -42,6 +42,6 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	orchestrator.Setup(args[0])
+	orchestrator.SetupWithFile(args[0], true)
 	return nil
 }

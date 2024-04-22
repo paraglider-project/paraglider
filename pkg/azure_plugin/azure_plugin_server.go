@@ -18,7 +18,6 @@ package azure_plugin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -26,13 +25,13 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 )
 
 const maxPriority = 4096
@@ -95,18 +94,11 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *invisinetspb
 		return nil, err
 	}
 
-	// make sure the resource is in the right namespace
-	err = s.getAndCheckResourceNamespace(ctx, azureHandler, resourceId, req.Namespace)
+	netInfo, err := GetAndCheckResourceState(ctx, azureHandler, resourceId, req.Namespace)
 	if err != nil {
 		return nil, err
 	}
-
-	// get the nsg associated with the resource
-	nsg, err := s.getNSGFromResource(ctx, azureHandler, resourceId)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceId, err)
-		return nil, err
-	}
+	nsg := netInfo.NSG
 
 	// initialize a list of permit list rules
 	rules := []*invisinetspb.PermitListRule{}
@@ -141,31 +133,15 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		return nil, err
 	}
 
-	// make sure the resource is in the right namespace
-	err = s.getAndCheckResourceNamespace(ctx, azureHandler, resourceID, req.Namespace)
+	netInfo, err := GetAndCheckResourceState(ctx, azureHandler, resourceID, req.Namespace)
 	if err != nil {
-		return nil, err
-	}
-
-	// get the nic associated with the resource
-	nic, err := azureHandler.GetResourceNIC(ctx, resourceID)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting NIC for resource %s: %+v", resourceID, err)
-		return nil, err
-	}
-
-	// get the NSG associated with the resource
-	nsg, err := s.getNSG(ctx, azureHandler, nic, resourceID)
-
-	if err != nil {
-		utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
 	var existingRulePriorities map[string]int32 = make(map[string]int32)
 	var reservedPrioritiesInbound map[int32]bool = make(map[int32]bool)
 	var reservedPrioritiesOutbound map[int32]bool = make(map[int32]bool)
-	err = s.setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, existingRulePriorities, nsg)
+	err = s.setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, existingRulePriorities, netInfo.NSG)
 	if err != nil {
 		utils.Log.Printf("An error occured during setup: %+v", err)
 		return nil, err
@@ -173,31 +149,30 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 	var outboundPriority int32 = 100
 	var inboundPriority int32 = 100
 
-	resourceAddress := *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
-
 	// Get used address spaces of all clouds
-	controllerConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	orchestratorConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
-	defer controllerConn.Close()
-	controllerClient := invisinetspb.NewControllerClient(controllerConn)
-	getUsedAddressSpacesResp, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	defer orchestratorConn.Close()
+	orchestratorClient := invisinetspb.NewControllerClient(orchestratorConn)
+	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
 
 	// get the vnet to be able to get both the address space as well as the peering when needed
-	resourceVnet, err := azureHandler.GetVNet(ctx, getVnetName(*nic.Location, req.Namespace))
+	resourceVnet, err := azureHandler.GetVNet(ctx, getVnetName(netInfo.Location, req.Namespace))
 	if err != nil {
 		utils.Log.Printf("An error occured while getting resource vnet:%+v", err)
 		return nil, err
 	}
+	resourceSubnetID := netInfo.SubnetID
 
 	// Get subnet address space
 	var subnetAddressPrefix string
 	for _, subnet := range resourceVnet.Properties.Subnets {
-		if *subnet.Name == "default" {
+		if *subnet.ID == resourceSubnetID {
 			if subnet.Properties.AddressPrefix != nil {
 				// Check to avoid nil pointer dereference
 				subnetAddressPrefix = *subnet.Properties.AddressPrefix
@@ -234,7 +209,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 					CloudB:          peeringCloudInfo.Cloud,
 					CloudBNamespace: peeringCloudInfo.Namespace,
 				}
-				_, err := controllerClient.ConnectClouds(ctx, connectCloudsReq)
+				_, err := orchestratorClient.ConnectClouds(ctx, connectCloudsReq)
 				if err != nil {
 					return nil, fmt.Errorf("unable to connect clouds : %w", err)
 				}
@@ -263,7 +238,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		}
 
 		// Create the NSG rule
-		securityRule, err := azureHandler.CreateSecurityRule(ctx, rule, *nsg.Name, getNSGRuleName(rule.Name), resourceAddress, priority)
+		securityRule, err := azureHandler.CreateSecurityRule(ctx, rule, *netInfo.NSG.Name, getNSGRuleName(rule.Name), netInfo.Address, priority)
 		if err != nil {
 			utils.Log.Printf("An error occured while creating security rule:%+v", err)
 			return nil, err
@@ -287,20 +262,13 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *invisi
 		return nil, err
 	}
 
-	// make sure the resource is in the right namespace
-	err = s.getAndCheckResourceNamespace(c, azureHandler, resourceID, req.Namespace)
+	netInfo, err := GetAndCheckResourceState(c, azureHandler, resourceID, req.Namespace)
 	if err != nil {
-		return nil, err
-	}
-
-	nsg, err := s.getNSGFromResource(c, azureHandler, resourceID)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 
 	for _, rule := range req.GetRuleNames() {
-		err := azureHandler.DeleteSecurityRule(c, *nsg.Name, getNSGRuleName(rule))
+		err := azureHandler.DeleteSecurityRule(c, *netInfo.NSG.Name, getNSGRuleName(rule))
 		if err != nil {
 			utils.Log.Printf("An error occured while deleting security rule:%+v", err)
 			return nil, err
@@ -315,7 +283,7 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *invisi
 // which means the resource should be added to a valid invisinets network, the attachement to an invisinets network
 // is determined by the resource's location.
 func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
-	invisinetsVm, err := getVmFromResourceDesc(resourceDesc.Description)
+	resourceDescInfo, err := GetResourceInfoFromResourceDesc(ctx, resourceDesc)
 	if err != nil {
 		utils.Log.Printf("Resource description is invalid:%+v", err)
 		return nil, err
@@ -332,36 +300,56 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		return nil, err
 	}
 
-	vnetName := getVnetName(*invisinetsVm.Location, resourceDesc.Namespace)
-	invisinetsVnet, err := azureHandler.GetInvisinetsVnet(ctx, vnetName, *invisinetsVm.Location, resourceDesc.Namespace, s.orchestratorServerAddr)
+	vnetName := getVnetName(resourceDescInfo.Location, resourceDesc.Namespace)
+	invisinetsVnet, err := azureHandler.GetInvisinetsVnet(ctx, vnetName, resourceDescInfo.Location, resourceDesc.Namespace, s.orchestratorServerAddr)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
 		return nil, err
 	}
 
-	nic, err := azureHandler.CreateNetworkInterface(ctx, *invisinetsVnet.Properties.Subnets[0].ID, *invisinetsVm.Location, getInvisinetsResourceName("nic"))
-	if err != nil {
-		utils.Log.Printf("An error occured while creating network interface:%+v", err)
-		return nil, err
+	resourceSubnet := invisinetsVnet.Properties.Subnets[0]
+	if resourceDescInfo.RequiresSubnet {
+		// Check if subnet already exists (could happen if resource provisioning failed after this step)
+		subnetExists := false
+		for _, subnet := range invisinetsVnet.Properties.Subnets {
+			if *subnet.Name == getSubnetName(resourceDescInfo.ResourceName) {
+				resourceSubnet = subnet
+				subnetExists = true
+				break
+			}
+		}
+		// Create subnet
+		if !subnetExists {
+			resourceSubnet, err = azureHandler.AddSubnetToInvisinetsVnet(ctx, resourceDesc.Namespace, vnetName, getSubnetName(resourceDescInfo.ResourceName), s.orchestratorServerAddr)
+			if err != nil {
+				utils.Log.Printf("An error occured while creating subnet:%+v", err)
+				return nil, err
+			}
+		}
 	}
 
-	invisinetsVm.Properties.NetworkProfile = &armcompute.NetworkProfile{
-		NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
-			{
-				ID: nic.ID,
-			},
-		},
+	additionalAddrs := []string{}
+	if resourceDescInfo.NumAdditionalAddressSpaces > 0 {
+		// Create additional address spaces
+		conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			utils.Log.Printf("Could not dial the orchestrator")
+			return nil, err
+		}
+		defer conn.Close()
+		client := invisinetspb.NewControllerClient(conn)
+		response, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Num: proto.Int32(int32(resourceDescInfo.NumAdditionalAddressSpaces))})
+		if err != nil {
+			utils.Log.Printf("Failed to find unused address spaces: %v", err)
+			return nil, err
+		}
+		additionalAddrs = response.AddressSpaces
 	}
 
-	invisinetsVm, err = azureHandler.CreateVirtualMachine(ctx, *invisinetsVm, resourceIdInfo.ResourceName)
+	// Create the resource
+	ip, err := ReadAndProvisionResource(ctx, resourceDesc, resourceSubnet, &resourceIdInfo, azureHandler, additionalAddrs)
 	if err != nil {
-		utils.Log.Printf("An error occured while creating the virtual machine:%+v", err)
-		return nil, err
-	}
-
-	nic, err = azureHandler.GetResourceNIC(ctx, *invisinetsVm.ID)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting the network interface:%+v", err)
+		utils.Log.Printf("An error occured while creating resource:%+v", err)
 		return nil, err
 	}
 
@@ -436,7 +424,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		}
 	}
 
-	return &invisinetspb.CreateResourceResponse{Name: *invisinetsVm.Name, Uri: *invisinetsVm.ID, Ip: *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress}, nil
+	return &invisinetspb.CreateResourceResponse{Name: resourceDescInfo.ResourceName, Uri: resourceDescInfo.ResourceID, Ip: ip}, nil
 }
 
 // GetUsedAddressSpaces returns the address spaces used by invisinets which are the address spaces of the invisinets vnets
@@ -463,11 +451,16 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *invis
 			utils.Log.Printf("An error occured while getting address spaces:%+v", err)
 			return nil, err
 		}
-		for _, address := range addressSpaces {
-			resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, address)
+		invisinetAddressList := []string{}
+		for _, addresses := range addressSpaces {
+			if addresses != nil {
+				invisinetAddressList = append(invisinetAddressList, addresses...)
+			}
 		}
+		resp.AddressSpaceMappings[i].AddressSpaces = invisinetAddressList
 	}
 	return resp, nil
+
 }
 
 func (s *azurePluginServer) GetUsedAsns(ctx context.Context, req *invisinetspb.GetUsedAsnsRequest) (*invisinetspb.GetUsedAsnsResponse, error) {
@@ -526,33 +519,6 @@ func (s *azurePluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, re
 	return resp, nil
 }
 
-// getNSG returns the network security group object given the resource NIC
-func (s *azurePluginServer) getNSG(ctx context.Context, azureHandler AzureSDKHandler, nic *armnetwork.Interface, resourceID string) (*armnetwork.SecurityGroup, error) {
-	var nsg *armnetwork.SecurityGroup
-	if nic.Properties.NetworkSecurityGroup != nil {
-		nsg = nic.Properties.NetworkSecurityGroup
-
-		// nic.Properties.NetworkSecurityGroup returns an nsg obj with only the ID and other fields are nil
-		// so this way we need to get the nsg object from the ID using nsgClient
-		nsgID := *nsg.ID
-		nsgName, err := azureHandler.GetLastSegment(nsgID)
-		if err != nil {
-			utils.Log.Printf("An error occured while getting NSG name for resource %s: %+v", resourceID, err)
-			return nil, err
-		}
-
-		nsg, err = azureHandler.GetSecurityGroup(ctx, nsgName)
-		if err != nil {
-			utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
-			return nil, err
-		}
-	} else {
-		// TODO @nnomier: should we handle this in another way?
-		return nil, fmt.Errorf("resource %s does not have a default network security group", resourceID)
-	}
-	return nsg, nil
-}
-
 // Peer with another namespace within Azure
 func (s *azurePluginServer) createNamespacePeering(ctx context.Context, azureHandler AzureSDKHandler, resourceIDInfo ResourceIDInfo, resourceVnetLocation string, namespace string, peeringCloudInfo *utils.PeeringCloudInfo, permitListRuleTarget string) error {
 	peeringCloudResourceIDInfo, err := getResourceIDInfo(peeringCloudInfo.Deployment)
@@ -569,8 +535,8 @@ func (s *azurePluginServer) createNamespacePeering(ctx context.Context, azureHan
 	}
 	// Find the vnet that contains the target
 	contained := false
-	for peeringVnetLocation, peeringVnetAddressSpace := range invisinetsVnetsMap {
-		contained, err = utils.IsPermitListRuleTagInAddressSpace(permitListRuleTarget, peeringVnetAddressSpace)
+	for peeringVnetLocation, peeringVnetAddressSpaces := range invisinetsVnetsMap {
+		contained, err = utils.IsPermitListRuleTagInAddressSpace(permitListRuleTarget, peeringVnetAddressSpaces)
 		if err != nil {
 			return fmt.Errorf("unable to check if tag is in vnet address space")
 		}
@@ -595,62 +561,10 @@ func (s *azurePluginServer) createNamespacePeering(ctx context.Context, azureHan
 	return nil
 }
 
-// getNSGFromResource gets the NSG associated with the given resource
-// by getting the NIC associated with the resource and then getting the NSG associated with the NIC
-func (s *azurePluginServer) getNSGFromResource(c context.Context, azureHandler AzureSDKHandler, resourceID string) (*armnetwork.SecurityGroup, error) {
-	// get the nic associated with the resource
-	nic, err := azureHandler.GetResourceNIC(c, resourceID)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting NIC for resource %s: %+v", resourceID, err)
-		return nil, err
-	}
-
-	// avoid nil pointer dereference error
-	if nic.Properties.NetworkSecurityGroup == nil {
-		return nil, fmt.Errorf("resource %s does not have a network security group", resourceID)
-	}
-
-	nsgID := *nic.Properties.NetworkSecurityGroup.ID
-	nsgName, err := azureHandler.GetLastSegment(nsgID)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting NSG name for resource %s: %+v", resourceID, err)
-		return nil, err
-	}
-
-	nsg, err := azureHandler.GetSecurityGroup(c, nsgName)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting NSG for resource %s: %+v", resourceID, err)
-		return nil, err
-	}
-
-	return nsg, nil
-}
-
 // Extract the Vnet name from the subnet ID
 func getVnetFromSubnetId(subnetId string) string {
 	parts := strings.Split(subnetId, "/")
 	return parts[8] // TODO @smcclure20: do this in a less brittle way
-}
-
-// Check if the resource is in a vnet for the given namespace
-func (s *azurePluginServer) getAndCheckResourceNamespace(c context.Context, azureHandler AzureSDKHandler, resourceID string, namespace string) error {
-	if namespace == "" {
-		return fmt.Errorf("namespace cannot be empty")
-	}
-
-	// get the vnet associated with the resource
-	nic, err := azureHandler.GetResourceNIC(c, resourceID)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting nic for resource %s: %+v", resourceID, err)
-		return err
-	}
-	vnet := getVnetFromSubnetId(*nic.Properties.IPConfigurations[0].Properties.Subnet.ID)
-
-	if !strings.HasPrefix(vnet, getInvisinetsNamespacePrefix(namespace)) {
-		return fmt.Errorf("resource %s is not in the namespace %s", resourceID, namespace)
-	}
-
-	return nil
 }
 
 // setupMaps fills the reservedPrioritiesInbound and reservedPrioritiesOutbound maps with the priorities of the existing rules in the NSG
@@ -684,28 +598,6 @@ func getPriority(reservedPriorities map[int32]bool, start int32, end int32) int3
 		}
 	}
 	return i
-}
-
-// getVmFromResourceDesc gets the armcompute.VirtualMachine object
-// from the given resource description which should be a valid resource payload for a VM
-func getVmFromResourceDesc(resourceDesc []byte) (*armcompute.VirtualMachine, error) {
-	vm := &armcompute.VirtualMachine{}
-	err := json.Unmarshal(resourceDesc, vm)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
-	}
-
-	// Some validations on the VM
-	if vm.Location == nil || vm.Properties == nil {
-		return nil, fmt.Errorf("resource description is missing location or properties")
-	}
-
-	// Reject VMs that already have network interfaces
-	if vm.Properties.NetworkProfile != nil && vm.Properties.NetworkProfile.NetworkInterfaces != nil {
-		return nil, fmt.Errorf("resource description cannot contain network interface")
-	}
-
-	return vm, nil
 }
 
 // getInvisinetsResourceName returns a name for the Invisinets resource
@@ -742,8 +634,11 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	}
 
 	info.ResourceName = parts[len(parts)-1]
-
 	return info, nil
+}
+
+func getSubnetName(resourceName string) string {
+	return resourceName + "-subnet"
 }
 
 func getInvisinetsNamespacePrefix(namespace string) string {
@@ -996,7 +891,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 		if err != nil {
 			if isErrorNotFound(err) {
 				// Checks if a virtual network gateway connection already exists. Even though CreateOrUpdate is a PUT (i.e. idempotent),
-				// a new random shared key is generated upon every call to this method from the controller server. Therefore, we don't
+				// a new random shared key is generated upon every call to this method from the orchestrator server. Therefore, we don't
 				// want to update the shared key since some other cloud plugins (e.g. GCP) will not update the shared key due to POST
 				// semantics (i.e. GCP will not update the shared key).
 				virtualNetworkGatewayConnectionParameters := &armnetwork.VirtualNetworkGatewayConnection{

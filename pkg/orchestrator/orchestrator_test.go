@@ -37,6 +37,7 @@ import (
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
 
 	fakeplugin "github.com/NetSys/invisinets/pkg/fake/cloudplugin"
+	fakekvstore "github.com/NetSys/invisinets/pkg/fake/kvstore"
 	faketagservice "github.com/NetSys/invisinets/pkg/fake/tagservice"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 
@@ -620,13 +621,13 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	require.NotNil(t, err)
 }
 
-func TestFindUnusedAddressSpace(t *testing.T) {
+func TestFindUnusedAddressSpaces(t *testing.T) {
 	orchestratorServer := newOrchestratorServer()
 
 	// No entries in address space map
-	resp, err := orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	resp, err := orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
-	assert.Equal(t, resp.AddressSpace, "10.0.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
 
 	// Next entry
 	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
@@ -636,9 +637,9 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     defaultNamespace,
 		},
 	}
-	resp, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
-	assert.Equal(t, resp.AddressSpace, "10.1.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[0], "10.1.0.0/16")
 
 	// Account for all namespaces
 	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
@@ -653,9 +654,9 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     "otherNamespace",
 		},
 	}
-	resp, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
-	assert.Equal(t, resp.AddressSpace, "10.2.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[0], "10.2.0.0/16")
 
 	// Out of addresses
 	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
@@ -665,8 +666,16 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     defaultNamespace,
 		},
 	}
-	_, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	_, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
+
 	require.NotNil(t, err)
+
+	// Multiple spaces
+	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{}
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Num: proto.Int32(2)})
+	require.Nil(t, err)
+	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[1], "10.1.0.0/16")
 }
 
 func TestGetUsedAsns(t *testing.T) {
@@ -1337,4 +1346,55 @@ func TestGetAndValidateResourceURLParams(t *testing.T) {
 	_, _, err = orchestratorServer.getAndValidateResourceURLParams(&ctx, true)
 
 	assert.NotNil(t, err)
+}
+
+func TestGetValue(t *testing.T) {
+	orchestratorServer := newOrchestratorServer()
+	kvStorePort := getNewPortNumber()
+	fakekvstore.SetupFakeTagServer(kvStorePort)
+	orchestratorServer.localKVStoreService = fmt.Sprintf("localhost:%d", kvStorePort)
+
+	// Well-formed call
+	resp, err := orchestratorServer.GetValue(context.Background(), &invisinetspb.GetValueRequest{Key: fakekvstore.ValidKey, Cloud: exampleCloudName, Namespace: defaultNamespace})
+	require.Nil(t, err)
+	assert.Equal(t, resp.Value, fakekvstore.ValidValue)
+
+	// Non-existent key
+	resp, err = orchestratorServer.GetValue(context.Background(), &invisinetspb.GetValueRequest{Key: "invalidkey", Cloud: exampleCloudName, Namespace: defaultNamespace})
+	require.NotNil(t, err)
+	require.Nil(t, resp)
+}
+
+func TestSetValue(t *testing.T) {
+	orchestratorServer := newOrchestratorServer()
+	kvStorePort := getNewPortNumber()
+	fakekvstore.SetupFakeTagServer(kvStorePort)
+	orchestratorServer.localKVStoreService = fmt.Sprintf("localhost:%d", kvStorePort)
+
+	// Well-formed call
+	resp, err := orchestratorServer.SetValue(context.Background(), &invisinetspb.SetValueRequest{Key: fakekvstore.ValidKey, Value: fakekvstore.ValidValue, Cloud: exampleCloudName, Namespace: defaultNamespace})
+	require.Nil(t, err)
+	require.NotNil(t, resp)
+
+	// Bad key (already used, for example)
+	resp, err = orchestratorServer.SetValue(context.Background(), &invisinetspb.SetValueRequest{Key: "invalidkey", Value: fakekvstore.ValidValue, Cloud: exampleCloudName, Namespace: defaultNamespace})
+	require.NotNil(t, err)
+	require.Nil(t, resp)
+}
+
+func TestDeleteValue(t *testing.T) {
+	orchestratorServer := newOrchestratorServer()
+	kvStorePort := getNewPortNumber()
+	fakekvstore.SetupFakeTagServer(kvStorePort)
+	orchestratorServer.localKVStoreService = fmt.Sprintf("localhost:%d", kvStorePort)
+
+	// Well-formed call
+	resp, err := orchestratorServer.DeleteValue(context.Background(), &invisinetspb.DeleteValueRequest{Key: fakekvstore.ValidKey, Cloud: exampleCloudName, Namespace: defaultNamespace})
+	require.Nil(t, err)
+	require.NotNil(t, resp)
+
+	// Bad key
+	resp, err = orchestratorServer.DeleteValue(context.Background(), &invisinetspb.DeleteValueRequest{Key: "invalidkey", Cloud: exampleCloudName, Namespace: defaultNamespace})
+	require.NotNil(t, err)
+	require.Nil(t, resp)
 }

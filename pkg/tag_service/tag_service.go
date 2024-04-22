@@ -22,6 +22,7 @@ import (
 	"log"
 	"net"
 	"net/netip"
+	"os/exec"
 	"strings"
 
 	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
@@ -320,13 +321,27 @@ func newServer(database *redis.Client) *tagServiceServer {
 
 // Setup and run the server
 func Setup(dbPort int, serverPort int, clearKeys bool) {
+	// Start the Redis server if it's not already running
+	pgrepCmd := exec.Command("pgrep", "redis-server")
+	if err := pgrepCmd.Run(); err != nil {
+		if err.Error() == "exit status 1" {
+			// According to man pgrep, exit status 1 means "no processes matched or none of them could be signalled"
+			redisServerCmd := exec.Command("redis-server")
+			if err := redisServerCmd.Start(); err != nil {
+				fmt.Println("Failed to start redis server")
+			}
+		} else {
+			fmt.Printf("Failed to check if redis-server is already running: %v\n", err.Error())
+		}
+	}
+
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("localhost:%d", dbPort),
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
 	if clearKeys {
-		fmt.Printf("Flushed all keys.")
+		fmt.Println("Flushed all keys")
 		client.FlushAll(context.Background())
 	}
 
@@ -337,7 +352,7 @@ func Setup(dbPort int, serverPort int, clearKeys bool) {
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
 	tagservicepb.RegisterTagServiceServer(grpcServer, newServer(client))
-	fmt.Printf("Serving TagService at localhost:%d", serverPort)
+	fmt.Printf("Serving TagService at localhost:%d\n", serverPort)
 	err = grpcServer.Serve(lis)
 	if err != nil {
 		fmt.Println(err.Error())
