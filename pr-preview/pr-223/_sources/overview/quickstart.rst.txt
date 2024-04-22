@@ -144,7 +144,7 @@ To create VMs in clouds, Invisinets requires a JSON file that describes the VM. 
     .. tab-item:: Azure
         :sync: azure
 
-        #. Copy the following into a file called ``azure_vm.json``.
+        #. Copy the following into a file called ``azure_vm.json``. Make sure to fill in the ``adminUsername`` and ``adminPassword`` fields!
 
            .. code-block:: json
 
@@ -156,8 +156,8 @@ To create VMs in clouds, Invisinets requires a JSON file that describes the VM. 
                         },
                         "osProfile": {
                             "computerName": "sample-compute",
-                            "adminUsername": "sample-user",
-                            "adminPassword": "Password01!@#"
+                            "adminUsername": "<your-username>",
+                            "adminPassword": "<your-password>"
                         },
                         "storageProfile": {
                             "imageReference": {
