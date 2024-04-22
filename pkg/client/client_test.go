@@ -21,7 +21,7 @@ package client
 import (
 	"testing"
 
-	fake "github.com/NetSys/invisinets/pkg/fake/controller/rest"
+	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rest"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/stretchr/testify/assert"
 )
@@ -35,7 +35,7 @@ func TestGetPermitList(t *testing.T) {
 	rules, err := client.GetPermitList(fake.Namespace, fake.CloudName, resourceName)
 
 	assert.Nil(t, err)
-	assert.Equal(t, fake.GetFakePermitListRules()[0].Id, rules[0].Id)
+	assert.Equal(t, fake.GetFakePermitListRules()[0].Name, rules[0].Name)
 }
 
 func TestAddPermitListRules(t *testing.T) {

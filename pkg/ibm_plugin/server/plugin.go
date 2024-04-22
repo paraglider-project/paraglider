@@ -152,12 +152,12 @@ func (s *ibmPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		}
 		defer conn.Close()
 		client := invisinetspb.NewControllerClient(conn)
-		resp, err := client.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+		resp, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 		if err != nil {
 			return nil, err
 		}
-		utils.Log.Printf("Using %s address space", resp.AddressSpace)
-		subnet, err := cloudClient.CreateSubnet(vpcID, zone, resp.AddressSpace, requiredTags)
+		utils.Log.Printf("Using %s address space", resp.AddressSpaces[0])
+		subnet, err := cloudClient.CreateSubnet(vpcID, zone, resp.AddressSpaces[0], requiredTags)
 		if err != nil {
 			return nil, err
 		}
@@ -319,7 +319,7 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 	for _, ibmRule := range ibmRulesToAdd {
 
 		// TODO @cohen-j-omer Connect clouds if needed:
-		// 1. use the controllerClient's GetUsedAddressSpaces to get used addresses.
+		// 1. use the orchestratorClient's GetUsedAddressSpaces to get used addresses.
 		// 2. if the rule's remote address resides in one of the clouds create a vpn gateway.
 
 		// get the VPCs and clients to search if the remote IP resides in any of them

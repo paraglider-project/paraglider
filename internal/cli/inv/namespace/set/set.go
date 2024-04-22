@@ -50,7 +50,7 @@ func (e *executor) SetOutput(w io.Writer) {
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
-	// Get all namespaces from the controller and confirm that the given string is one of them
+	// Get all namespaces from the orchestrator and confirm that the given string is one of them
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	namespaces, err := c.ListNamespaces()
 

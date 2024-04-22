@@ -29,7 +29,7 @@ import (
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	networkmanagementpb "cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
-	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
+	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/NetSys/invisinets/pkg/orchestrator"
 	"github.com/NetSys/invisinets/pkg/orchestrator/config"
@@ -274,7 +274,7 @@ func TestCrossNamespace(t *testing.T) {
 		},
 	}
 	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
-	orchestrator.Setup(orchestratorServerConfig)
+	orchestrator.Setup(orchestratorServerConfig, true)
 
 	// Setup GCP plugin server
 	gcpServer := Setup(gcpServerPort, orchestratorServerAddr)

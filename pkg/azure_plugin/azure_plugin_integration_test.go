@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"testing"
 
-	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
+	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/NetSys/invisinets/pkg/orchestrator"
 	"github.com/NetSys/invisinets/pkg/orchestrator/config"
@@ -99,9 +99,6 @@ func TestBasicPermitListOps(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListResp)
 
-	// add the id to the initial permit list  for an easier comparison
-	// because it is only set in the get not the add
-	rules[0].Id = getPermitListResp.Rules[0].Id
 	assert.ElementsMatch(t, getPermitListResp.Rules, rules)
 
 	// Delete permit list rule
@@ -160,7 +157,7 @@ func TestCrossNamespaces(t *testing.T) {
 		},
 	}
 	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
-	orchestrator.Setup(orchestratorServerConfig)
+	orchestrator.Setup(orchestratorServerConfig, true)
 
 	// Setup Azure plugin server
 	azureServer := Setup(azureServerPort, orchestratorServerAddr)

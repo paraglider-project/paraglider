@@ -40,6 +40,7 @@ This is the list of core dependencies to install for the most common tasks. In g
 - `Git <https://git-scm.com>`_
 - `Go <https://golang.org/>`_
 - `golangci-lint <https://golangci-lint.run>`_
+- `protoc <https://grpc.io/docs/protoc-installation>` _
 - make
 
   * Linux: Install the `build-essential` package:

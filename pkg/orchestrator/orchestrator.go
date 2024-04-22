@@ -120,14 +120,14 @@ func getIPsFromResolvedTag(mappings []*tagservicepb.TagMapping) []string {
 	return ips
 }
 
-// Check if rules given by the user have tags (requirement) and remove any targets they contain (should only be written by the controller)
+// Check if rules given by the user have tags (requirement) and remove any targets they contain (should only be written by the orchestrator)
 func checkAndCleanRule(rule *invisinetspb.PermitListRule) (*invisinetspb.PermitListRule, *Warning, error) {
 	if len(rule.Tags) == 0 {
-		return nil, nil, fmt.Errorf("rule %s contains no tags", rule.Id)
+		return nil, nil, fmt.Errorf("rule %s contains no tags", rule.Name)
 	}
 	if len(rule.Targets) != 0 {
 		rule.Targets = []string{}
-		return rule, &Warning{Message: fmt.Sprintf("Warning: targets for rule %s ignored", rule.Id)}, nil
+		return rule, &Warning{Message: fmt.Sprintf("Warning: targets for rule %s ignored", rule.Name)}, nil
 	}
 	return rule, nil, nil
 }
@@ -569,12 +569,22 @@ func (s *ControllerServer) updateUsedAddressSpaces() error {
 
 // Get a new address block for a new virtual network
 // TODO @smcclure20: Later, this should allocate more efficiently and with different size address blocks (eg, GCP needs larger than Azure since a VPC will span all regions)
-func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, _ *invisinetspb.FindUnusedAddressSpaceRequest) (*invisinetspb.FindUnusedAddressSpaceResponse, error) {
+func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *invisinetspb.FindUnusedAddressSpacesRequest) (*invisinetspb.FindUnusedAddressSpacesResponse, error) {
 	err := s.updateUsedAddressSpaces()
 	if err != nil {
 		return nil, err
 	}
+
+	var requestedAddressSpaces int
+	if req.Num != nil {
+		requestedAddressSpaces = int(*req.Num)
+	} else {
+		requestedAddressSpaces = 1
+	}
+
+	addressSpaces := make([]string, requestedAddressSpaces)
 	highestBlockUsed := -1
+
 	for _, addressSpaceMapping := range s.usedAddressSpaces {
 		for _, address := range addressSpaceMapping.AddressSpaces {
 			blockNumber, err := strconv.Atoi(strings.Split(address, ".")[1])
@@ -591,8 +601,11 @@ func (s *ControllerServer) FindUnusedAddressSpace(c context.Context, _ *invisine
 		return nil, errors.New("all address blocks used")
 	}
 
-	newAddressSpace := &invisinetspb.FindUnusedAddressSpaceResponse{AddressSpace: fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+1)}
-	return newAddressSpace, nil
+	for i := 0; i < requestedAddressSpaces; i++ {
+		addressSpaces[i] = fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+i+1)
+	}
+
+	return &invisinetspb.FindUnusedAddressSpacesResponse{AddressSpaces: addressSpaces}, nil
 }
 
 // Gets unused address spaces across all clouds
@@ -965,7 +978,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	defer conn.Close()
 
 	tagClient := tagservicepb.NewTagServiceClient(conn)
-	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name), Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
+	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceResp.Name), Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error())) // TODO @smcclure20: change this to a warning?
 		return
@@ -1223,7 +1236,7 @@ func (s *ControllerServer) DeleteValue(c context.Context, req *invisinetspb.Dele
 }
 
 // Setup with config file
-func SetupWithFile(configPath string) {
+func SetupWithFile(configPath string, background bool) {
 	// Read the config
 	f, err := os.Open(configPath)
 	if err != nil {
@@ -1238,11 +1251,11 @@ func SetupWithFile(configPath string) {
 		fmt.Println(err.Error())
 	}
 
-	Setup(cfg)
+	Setup(cfg, background)
 }
 
 // Setup and run the server
-func Setup(cfg config.Config) {
+func Setup(cfg config.Config, background bool) {
 	// Populate server info
 	server := ControllerServer{
 		config:                    cfg,
@@ -1294,10 +1307,17 @@ func Setup(cfg config.Config) {
 	router.GET(ListNamespacesURL, server.listNamespaces)
 
 	// Run server
-	go func() {
+	if background {
+		go func() {
+			err = router.Run(cfg.Server.Host + ":" + cfg.Server.Port)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+		}()
+	} else {
 		err = router.Run(cfg.Server.Host + ":" + cfg.Server.Port)
 		if err != nil {
 			fmt.Println(err.Error())
 		}
-	}()
+	}
 }
