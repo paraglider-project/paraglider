@@ -2,7 +2,13 @@
 
 ### Authentication
 
-Create a new API key by running this command:
+To use IBM services include the API key of the resource group in `~/.ibm/credentials.yaml`:
+
+```yaml
+iam_api_key: <KEY>
+```
+
+To create a new API key, run the following command:
 
 ```
 mkdir -p ~/.ibm
