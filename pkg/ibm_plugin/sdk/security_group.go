@@ -465,7 +465,7 @@ func IBMToInvisinetsRules(rules []SecurityGroupRule) ([]*invisinetspb.PermitList
 
 		permitListRule := &invisinetspb.PermitListRule{
 			Targets:   []string{rule.Remote},
-			Id:        rule.ID,
+			Name:      rule.ID,
 			Direction: ibmToInvisinetsDirection[rule.Egress],
 			SrcPort:   int32(srcPort),
 			DstPort:   int32(dstPort),
@@ -493,7 +493,7 @@ func InvisinetsToIBMRules(securityGroupID string, rules []*invisinetspb.PermitLi
 				return nil, err
 			}
 			sgRule := SecurityGroupRule{
-				ID:         rule.Id,
+				ID:         rule.Name,
 				SgID:       securityGroupID,
 				Protocol:   invisinetsToIBMprotocol[rule.Protocol],
 				Remote:     remote,

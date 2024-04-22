@@ -40,5 +40,5 @@ func TestRuleGetExecute(t *testing.T) {
 	err := executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
-	assert.Contains(t, output.String(), fake.GetFakePermitListRules()[0].Id)
+	assert.Contains(t, output.String(), fake.GetFakePermitListRules()[0].Name)
 }

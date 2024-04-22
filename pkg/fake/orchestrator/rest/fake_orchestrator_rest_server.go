@@ -78,7 +78,6 @@ func getURLParams(url string, pattern string) map[string]string {
 func GetFakePermitListRules() []*invisinetspb.PermitListRule {
 	return []*invisinetspb.PermitListRule{
 		{
-			Id:        "id",
 			Name:      "name",
 			Targets:   []string{"1.1.1.1", "2.2.2.2"},
 			Direction: invisinetspb.Direction_INBOUND,
