@@ -309,70 +309,131 @@ func (s *ibmPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 		return nil, err
 	}
 
-	// translate invisinets rules to IBM rules to compare hash values with current rules.
-	ibmRulesToAdd, err := sdk.InvisinetsToIBMRules(requestSGID, req.Rules)
+	// Get used address spaces of all clouds
+	controllerConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
-
+	defer controllerConn.Close()
+	controllerClient := invisinetspb.NewControllerClient(controllerConn)
+	addressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
+	}
 	gwID := "" // global transit gateway ID for vpc-peering.
-	for _, ibmRule := range ibmRulesToAdd {
-
-		// TODO @cohen-j-omer Connect clouds if needed:
-		// 1. use the controllerClient's GetUsedAddressSpaces to get used addresses.
-		// 2. if the rule's remote address resides in one of the clouds create a vpn gateway.
-
-		// get the VPCs and clients to search if the remote IP resides in any of them
-		clients, err := s.getAllClientsForVPCs(cloudClient, rInfo.ResourceGroupName)
+	for _, invisinetsRule := range req.Rules {
+		// translate invisinets rule to IBM rules to compare hash values with current rules.
+		// multiple ibm rules can be returned due to multiple possible targets
+		ibmRules, err := sdk.InvisinetsToIBMRule(requestSGID, invisinetsRule)
 		if err != nil {
 			return nil, err
 		}
-		remoteVPC := ""
-		for vpcID, client := range clients {
-			if isRemoteInVPC, _ := client.IsRemoteInVPC(vpcID, ibmRule.Remote); isRemoteInVPC {
-				remoteVPC = vpcID
-				break
-			}
+
+		// peeringCloudInfos contains cloud info associated with the specified rule's targets
+		peeringCloudInfos, err := utils.GetPermitListRulePeeringCloudInfo(invisinetsRule, addressSpaceMappings.AddressSpaceMappings)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get peering cloud infos: %w", err)
 		}
-		// if the remote resides inside an invisinets VPC that isn't the request VM's VPC, connect them
-		if remoteVPC != "" && remoteVPC != *requestVPCData.ID {
-			utils.Log.Printf("The following rule's remote is targeting a different IBM VPC\nRule: %+v\nVPC:%+v", ibmRule, remoteVPC)
-			// fetch or create transit gateway
-			if len(gwID) == 0 { // lookup optimization, use the already fetched gateway ID if possible
-				gwID, err = cloudClient.GetOrCreateTransitGateway(region)
+		// connect clouds if needed
+		for i, peeringCloudInfo := range peeringCloudInfos {
+			if peeringCloudInfo == nil { // public IP address
+				continue
+			}
+			if peeringCloudInfo.Cloud != utils.IBM {
+				// Create VPN connections
+				connectCloudsReq := &invisinetspb.ConnectCloudsRequest{
+					CloudA:          utils.IBM,
+					CloudANamespace: req.Namespace,
+					CloudB:          peeringCloudInfo.Cloud,
+					CloudBNamespace: peeringCloudInfo.Namespace,
+				}
+				_, err := controllerClient.ConnectClouds(ctx, connectCloudsReq)
+				if err != nil {
+					return nil, fmt.Errorf("unable to connect clouds : %w", err)
+				}
+			} else {
+				// if rule targets a VPC on IBM, connect them via a transit gateway
+				err = s.connectToTransitGatewayIfNeeded(cloudClient, ibmRules[i], gwID, rInfo.ResourceGroupName, *requestVPCData.CRN, region)
 				if err != nil {
 					return nil, err
 				}
 			}
-			// connect the VPC of the request's VM to the transit gateway.
-			// the `remoteVPC` should be connected by a separate symmetric request (e.g. to allow inbound traffic to remote).
-			err = cloudClient.ConnectVPC(gwID, *requestVPCData.CRN)
+		}
+
+		// add rule to security group if aren't duplicates
+		for _, ibmRule := range ibmRules {
+			rulesHashValues := make(map[uint64]bool)
+			_, err = cloudClient.GetUniqueSGRules(sgRules, rulesHashValues)
 			if err != nil {
 				return nil, err
 			}
-		}
-		rulesHashValues := make(map[uint64]bool)
-		_, err = cloudClient.GetUniqueSGRules(sgRules, rulesHashValues)
-		if err != nil {
-			return nil, err
-		}
-		// compute hash value of rules, disregarding the ID field.
-		ruleHashValue, err := ibmCommon.GetStructHash(ibmRule, []string{"ID"})
-		if err != nil {
-			return nil, err
-		}
-		// avoid adding duplicate rules (when hash values match)
-		if !rulesHashValues[ruleHashValue] {
-			err := cloudClient.AddSecurityGroupRule(ibmRule)
+			// compute hash value of rules, disregarding the ID field.
+			ruleHashValue, err := ibmCommon.GetStructHash(ibmRule, []string{"ID"})
 			if err != nil {
 				return nil, err
 			}
-			utils.Log.Printf("attached rule %+v", ibmRule)
-		} else {
-			utils.Log.Printf("rule %+v already exists for security group ID %v", ibmRule, requestSGID)
+			// avoid adding duplicate rules (when hash values match)
+			if !rulesHashValues[ruleHashValue] {
+				err := cloudClient.AddSecurityGroupRule(ibmRule)
+				if err != nil {
+					return nil, err
+				}
+				utils.Log.Printf("attached rule %+v", ibmRule)
+			} else {
+				utils.Log.Printf("rule %+v already exists for security group ID %v", ibmRule, requestSGID)
+			}
 		}
 	}
 	return &invisinetspb.AddPermitListRulesResponse{}, nil
+}
+
+// connects the VPC matching the specified vpcCRN, and the remote VPC containing the address space in the specified ibmRule,
+// to the global transit gateway, if such a VPC exists
+func (s *ibmPluginServer) connectToTransitGatewayIfNeeded(cloudClient *sdk.CloudClient, ibmRule sdk.SecurityGroupRule, gwID, resourceGroupName, vpcCRN, region string) error {
+
+	// get the VPCs and clients to search if the remote IP resides in any of them
+	clients, err := s.getAllClientsForVPCs(cloudClient, resourceGroupName)
+	if err != nil {
+		return err
+	}
+	remoteVPC := ""
+	var remoteVPCClient *sdk.CloudClient // client scoped to the region of the remote VPC
+	for vpcID, client := range clients {
+		if isRemoteInVPC, _ := client.IsRemoteInVPC(vpcID, ibmRule.Remote); isRemoteInVPC {
+			remoteVPC = vpcID
+			remoteVPCClient = client
+			break
+		}
+	}
+	vpcID := sdk.CRN2ID(vpcCRN)
+	// if the remote resides inside an invisinets VPC that isn't the request VM's VPC, connect them
+	if remoteVPC != "" && remoteVPC != vpcID {
+		utils.Log.Printf("The following rule's remote is targeting a different IBM VPC\nRule: %+v\nVPC:%+v", ibmRule, remoteVPC)
+		// fetch or create transit gateway
+		if len(gwID) == 0 { // lookup optimization, use the already fetched gateway ID if possible
+			gwID, err = cloudClient.GetOrCreateTransitGateway(region)
+			if err != nil {
+				return err
+			}
+		}
+		// connect the VPC of the request's VM to the transit gateway.
+		err = cloudClient.ConnectVPC(gwID, vpcCRN)
+		if err != nil {
+			return err
+		}
+
+		remoteVPC, err := remoteVPCClient.GetVPCByID(remoteVPC)
+		if err != nil {
+			return err
+		}
+
+		// connect remote VPC to the transit gateway.
+		err = remoteVPCClient.ConnectVPC(gwID, *remoteVPC.CRN)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DeletePermitListRules deletes security group rules matching the attributes of the rules contained in the relevant Security group

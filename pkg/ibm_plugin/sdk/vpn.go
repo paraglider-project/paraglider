@@ -435,13 +435,14 @@ func (c *CloudClient) GetVPNsInNamespaceRegion(namespace, region string) ([]Reso
 
 // returns an IKE policy ID that's compatible with the specified peer cloud
 func (c *CloudClient) getOrCreateIKEPolicy(peerCloud string) (*string, error) {
-	// return an existing IPSec policy for the specified cloud if one exists
-	existingPolicyID, err := c.getIKEPolicy(peerCloud)
+	// return an existing IPSec policy for the specified cloud if one exists in the region
+	existingPolicy, err := c.getIKEPolicy(peerCloud)
 	if err != nil {
 		return nil, err
 	}
-	if existingPolicyID != nil {
-		return existingPolicyID, nil
+	if existingPolicy != nil {
+		utils.Log.Printf("Using existing IKE policy %v in region %v", *existingPolicy.Name, c.region)
+		return existingPolicy.ID, nil
 	}
 
 	// create a new IKE policy for specified cloud
@@ -467,14 +468,14 @@ func (c *CloudClient) getOrCreateIKEPolicy(peerCloud string) (*string, error) {
 }
 
 // returns existing IKE policy for the peer cloud
-func (c *CloudClient) getIKEPolicy(peerCloud string) (*string, error) {
+func (c *CloudClient) getIKEPolicy(peerCloud string) (*vpcv1.IkePolicy, error) {
 	ikePolicies, _, err := c.vpcService.ListIkePolicies(&vpcv1.ListIkePoliciesOptions{})
 	if err != nil {
 		return nil, err
 	}
 	for _, policy := range ikePolicies.IkePolicies {
 		if strings.Contains(*policy.Name, peerCloud) {
-			return policy.ID, nil
+			return &policy, nil
 		}
 	}
 	// no policy matching the specified cloud was found
@@ -483,13 +484,14 @@ func (c *CloudClient) getIKEPolicy(peerCloud string) (*string, error) {
 
 // returns an IPsec policy ID that's compatible with the specified peer cloud
 func (c *CloudClient) getOrCreateIPSecPolicy(peerCloud string) (*string, error) {
-	// return an existing IPSec policy for the specified cloud if one exists
-	existingPolicyID, err := c.getIPSecPolicy(peerCloud)
+	// return an existing IPSec policy for the specified cloud if one exists in the region
+	existingPolicy, err := c.getIPSecPolicy(peerCloud)
 	if err != nil {
 		return nil, err
 	}
-	if existingPolicyID != nil {
-		return existingPolicyID, nil
+	if existingPolicy != nil {
+		utils.Log.Printf("Using existing IPSec policy %v in region %v", *existingPolicy.Name, c.region)
+		return existingPolicy.ID, nil
 	}
 
 	// create a new IPSec policy for specified cloud
@@ -511,15 +513,15 @@ func (c *CloudClient) getOrCreateIPSecPolicy(peerCloud string) (*string, error) 
 	return ipsecPolicy.ID, nil
 }
 
-// returns existing IKE policy for the peer cloud
-func (c *CloudClient) getIPSecPolicy(peerCloud string) (*string, error) {
+// returns existing IPSec policy for the peer cloud
+func (c *CloudClient) getIPSecPolicy(peerCloud string) (*vpcv1.IPsecPolicy, error) {
 	ipSecPolicies, _, err := c.vpcService.ListIpsecPolicies(&vpcv1.ListIpsecPoliciesOptions{})
 	if err != nil {
 		return nil, err
 	}
 	for _, policy := range ipSecPolicies.IpsecPolicies {
 		if strings.Contains(*policy.Name, peerCloud) {
-			return policy.ID, nil
+			return &policy, nil
 		}
 	}
 	// no policy matching the specified cloud was found

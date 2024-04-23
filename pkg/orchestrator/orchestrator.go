@@ -810,7 +810,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *invisinetspb.
 	}
 
 	// TODO @seankimkdy: cloudA and cloudB naming seems to be very prone to typos, so perhaps use another naming scheme[?
-	if utils.MatchCloudProviders(req.CloudA, req.CloudB, utils.AZURE, utils.GCP) {
+	if utils.MatchCloudProviders(req.CloudA, req.CloudB, utils.AZURE, utils.GCP) || utils.MatchCloudProviders(req.CloudA, req.CloudB, utils.AZURE, utils.IBM) {
 		cloudAClientAddress, ok := s.pluginAddresses[req.CloudA]
 		if !ok {
 			return nil, fmt.Errorf("invalid cloud name: %s", req.CloudA)

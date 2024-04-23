@@ -496,35 +496,51 @@ func InvisinetsToIBMRules(securityGroupID string, rules []*invisinetspb.PermitLi
 	[]SecurityGroupRule, error) {
 	var sgRules []SecurityGroupRule
 	for _, rule := range rules {
-		if len(rule.Targets) == 0 {
-			return nil, fmt.Errorf("PermitListRule is missing Tag value. Rule:%+v", rule)
+		// one ibm rule per rule target will be returned
+		ibmRules, err := InvisinetsToIBMRule(securityGroupID, rule)
+		if err != nil {
+			return nil, err
 		}
-		for _, target := range rule.Targets {
-			remote := target
-			remoteType, err := GetRemoteType(remote)
-			if err != nil {
-				return nil, err
-			}
-			sgRule := SecurityGroupRule{
-				ID:         rule.Id,
-				SgID:       securityGroupID,
-				Protocol:   invisinetsToIBMprotocol[rule.Protocol],
-				Remote:     remote,
-				RemoteType: remoteType,
-				PortMin:    int64(rule.SrcPort),
-				PortMax:    int64(rule.SrcPort),
-				Egress:     invisinetsToIBMDirection[rule.Direction],
-			}
-
-			if rule.Protocol == 1 { // icmp rule
-				// setting value to -1 to indicate that all codes and types are allowed.
-				// non negative icmp values have meaning, which is not supported by invisinets.
-				sgRule.IcmpType = -1
-				sgRule.IcmpCode = -1
-			}
-
-			sgRules = append(sgRules, sgRule)
-		}
+		sgRules = append(sgRules, ibmRules...)
 	}
+	return sgRules, nil
+}
+
+// returns rules in IBM cloud format to invisinets format
+// NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code
+func InvisinetsToIBMRule(securityGroupID string, invRule *invisinetspb.PermitListRule) (
+	[]SecurityGroupRule, error) {
+	var sgRules []SecurityGroupRule
+
+	if len(invRule.Targets) == 0 {
+		return nil, fmt.Errorf("PermitListRule is missing target value. Rule:%+v", invRule)
+	}
+	for _, target := range invRule.Targets {
+		remote := target
+		remoteType, err := GetRemoteType(remote)
+		if err != nil {
+			return nil, err
+		}
+		sgRule := SecurityGroupRule{
+			ID:         invRule.Id,
+			SgID:       securityGroupID,
+			Protocol:   invisinetsToIBMprotocol[invRule.Protocol],
+			Remote:     remote,
+			RemoteType: remoteType,
+			PortMin:    int64(invRule.SrcPort),
+			PortMax:    int64(invRule.SrcPort),
+			Egress:     invisinetsToIBMDirection[invRule.Direction],
+		}
+
+		if invRule.Protocol == 1 { // icmp rule
+			// setting value to -1 to indicate that all codes and types are allowed.
+			// non negative icmp values have meaning, which is not supported by invisinets.
+			sgRule.IcmpType = -1
+			sgRule.IcmpCode = -1
+		}
+
+		sgRules = append(sgRules, sgRule)
+	}
+
 	return sgRules, nil
 }
