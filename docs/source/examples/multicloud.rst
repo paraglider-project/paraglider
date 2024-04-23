@@ -21,7 +21,6 @@ Goals:
       end
 
       A <---> C
-    :width: 400px
 
 Setup:
 ------
