@@ -8,7 +8,19 @@ Goals:
 * Create two VMs in Azure in different regions and connect them together
 * Create a third VM in GCP and connect to one of the Azure VMs
 
-.. image:: ../_static/multicloud-diagram.png
+.. mermaid ::
+
+   graph LR
+
+      subgraph Azure
+      A("A<br>(westus)") <---> B("B<br>(eastus)")
+      end
+
+      subgraph GCP
+      C[C]
+      end
+
+      A <---> C
     :width: 400px
 
 Setup:

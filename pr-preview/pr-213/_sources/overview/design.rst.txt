@@ -3,10 +3,6 @@
 Design
 =================
 
-.. image:: ../_static/logo.png
-    :width: 200
-    :alt: Invisinets Logo
-
 What is Invisinets?
 -------------------
 

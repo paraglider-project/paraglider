@@ -210,8 +210,20 @@
 <li><p>Create two VMs in Azure in different regions and connect them together</p></li>
 <li><p>Create a third VM in GCP and connect to one of the Azure VMs</p></li>
 </ul>
-<a class="reference internal image-reference" href="../_images/multicloud-diagram.png"><img alt="../_images/multicloud-diagram.png" src="../_images/multicloud-diagram.png" style="width: 400px;" /></a>
-</section>
+<div class="mermaid">
+            graph LR
+
+   subgraph Azure
+   A(&quot;A&lt;br&gt;(westus)&quot;) &lt;---&gt; B(&quot;B&lt;br&gt;(eastus)&quot;)
+   end
+
+   subgraph GCP
+   C[C]
+   end
+
+   A &lt;---&gt; C
+ :width: 400px
+        </div></section>
 <section id="setup">
 <h2>Setup:<a class="headerlink" href="#setup" title="Link to this heading">#</a></h2>
 <ul class="simple">
@@ -298,5 +310,7 @@ For web site terms of use, trademark policy and other project policies please se
     <script src="../_static/doctools.js?v=888ff710"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=32e29ea5"></script>
+    <script src="https://unpkg.com/mermaid@10.2.0/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
     </body>
 </html>
