@@ -8,12 +8,23 @@ Goals:
 * Create two VMs in Azure in different regions and connect them together
 * Create a third VM in GCP and connect to one of the Azure VMs
 
-.. image:: ../_static/multicloud-diagram.png
-    :width: 400px
+.. mermaid ::
+
+   graph LR
+
+      subgraph Azure
+      A("A<br>(westus)") <---> B("B<br>(eastus)")
+      end
+
+      subgraph GCP
+      C[C]
+      end
+
+      A <---> C
 
 Setup:
 ------
-* Run ``invd startup <path_to_config>`` to start all the microservices locally.
+* Run ``invd startup <path_to_config>`` to start all the microservices
 
 Phase 0: Multicloud Prep
 ------------------------
@@ -30,7 +41,7 @@ Steps:
 
    .. code-block:: console
 
-        inv resource create azure vm-c <path/to/gcp-vm.json>
+        inv resource create gcp vm-c <path/to/gcp-vm.json>
 
 3. Log into VM C and try to ping VM A. Add the following rule to allow the in-browser SSH tool from GCP. The ping should fail.
 

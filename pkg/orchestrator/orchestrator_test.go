@@ -50,7 +50,7 @@ const exampleCloudName = "example"
 
 var portNum = 10000
 
-var exampleRule = &invisinetspb.PermitListRule{Id: "example-rule", Tags: []string{faketagservice.ValidTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
+var exampleRule = &invisinetspb.PermitListRule{Name: "example-rule", Tags: []string{faketagservice.ValidTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
 
 func getNewPortNumber() int {
 	portNum = portNum + 1
@@ -131,7 +131,6 @@ func TestPermitListRulesAdd(t *testing.T) {
 	tags := []string{faketagservice.ValidTagName}
 	rule := &invisinetspb.PermitListRule{
 		Name:      "rulename",
-		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
@@ -162,7 +161,6 @@ func TestPermitListRulesAdd(t *testing.T) {
 	tags = []string{"tag"}
 	rule = &invisinetspb.PermitListRule{
 		Name:      "rulename",
-		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
@@ -216,7 +214,6 @@ func TestPermitListRulePut(t *testing.T) {
 	tags := []string{faketagservice.ValidTagName}
 	rule := &invisinetspb.PermitListRule{
 		Name:      "rulename",
-		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
@@ -245,7 +242,6 @@ func TestPermitListRulePut(t *testing.T) {
 	tags = []string{"tag"}
 	rule = &invisinetspb.PermitListRule{
 		Name:      "rulename",
-		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
@@ -298,7 +294,6 @@ func TestPermitListRulePost(t *testing.T) {
 	tags := []string{faketagservice.ValidTagName}
 	rule := &invisinetspb.PermitListRule{
 		Name:      "rulename",
-		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
@@ -328,7 +323,6 @@ func TestPermitListRulePost(t *testing.T) {
 	tags = []string{"tag"}
 	rule = &invisinetspb.PermitListRule{
 		Name:      "rulename",
-		Id:        "id",
 		Tags:      tags,
 		Direction: invisinetspb.Direction_INBOUND,
 		SrcPort:   1,
@@ -621,13 +615,13 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 	require.NotNil(t, err)
 }
 
-func TestFindUnusedAddressSpace(t *testing.T) {
+func TestFindUnusedAddressSpaces(t *testing.T) {
 	orchestratorServer := newOrchestratorServer()
 
 	// No entries in address space map
-	resp, err := orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	resp, err := orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
-	assert.Equal(t, resp.AddressSpace, "10.0.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
 
 	// Next entry
 	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
@@ -637,9 +631,9 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     defaultNamespace,
 		},
 	}
-	resp, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
-	assert.Equal(t, resp.AddressSpace, "10.1.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[0], "10.1.0.0/16")
 
 	// Account for all namespaces
 	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
@@ -654,9 +648,9 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     "otherNamespace",
 		},
 	}
-	resp, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
-	assert.Equal(t, resp.AddressSpace, "10.2.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[0], "10.2.0.0/16")
 
 	// Out of addresses
 	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
@@ -666,8 +660,16 @@ func TestFindUnusedAddressSpace(t *testing.T) {
 			Namespace:     defaultNamespace,
 		},
 	}
-	_, err = orchestratorServer.FindUnusedAddressSpace(context.Background(), &invisinetspb.FindUnusedAddressSpaceRequest{})
+	_, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
+
 	require.NotNil(t, err)
+
+	// Multiple spaces
+	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{}
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Num: proto.Int32(2)})
+	require.Nil(t, err)
+	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
+	assert.Equal(t, resp.AddressSpaces[1], "10.1.0.0/16")
 }
 
 func TestGetUsedAsns(t *testing.T) {
@@ -1046,7 +1048,7 @@ func TestResolvePermitListRules(t *testing.T) {
 
 	// Permit list rule that contains tags, IPs, and names
 	rule := &invisinetspb.PermitListRule{
-		Id:        "id",
+		Name:      "rulename",
 		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Targets:   []string{},
 		Direction: invisinetspb.Direction_INBOUND,
@@ -1055,7 +1057,7 @@ func TestResolvePermitListRules(t *testing.T) {
 		Protocol:  1}
 	rulesList := []*invisinetspb.PermitListRule{rule}
 	expectedRule := &invisinetspb.PermitListRule{
-		Id:        "id",
+		Name:      "rulename",
 		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Targets:   []string{faketagservice.ResolvedTagIp, faketagservice.ResolvedTagIp, "2.3.4.5"},
 		Direction: invisinetspb.Direction_INBOUND,
@@ -1088,7 +1090,7 @@ func TestGetIPsFromResolvedTag(t *testing.T) {
 func TestCheckAndCleanRule(t *testing.T) {
 	// Rule with correct formatting
 	rule := &invisinetspb.PermitListRule{
-		Id:        "id",
+		Name:      "rulename",
 		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Targets:   []string{},
 		Direction: invisinetspb.Direction_INBOUND,
@@ -1102,7 +1104,7 @@ func TestCheckAndCleanRule(t *testing.T) {
 
 	// Rule with no tags
 	badRule := &invisinetspb.PermitListRule{
-		Id:        "id",
+		Name:      "rulename",
 		Tags:      []string{},
 		Targets:   []string{},
 		Direction: invisinetspb.Direction_INBOUND,
@@ -1115,7 +1117,7 @@ func TestCheckAndCleanRule(t *testing.T) {
 
 	// Rule with targets
 	badRule = &invisinetspb.PermitListRule{
-		Id:        "id",
+		Name:      "rulename",
 		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Targets:   []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Direction: invisinetspb.Direction_INBOUND,

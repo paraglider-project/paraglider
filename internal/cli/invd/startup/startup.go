@@ -40,7 +40,7 @@ func NewCommand() *cobra.Command {
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
-	cmd.Flags().Bool("clearkeys", true, "Clears all the keys in the redis database")
+	cmd.Flags().Bool("clearkeys", false, "Clears all the keys in the redis database")
 	return cmd
 }
 
@@ -109,7 +109,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		az.Setup(e.azPort, e.orchestratorAddr)
 	}()
 
-	orchestrator.SetupWithFile(args[0])
+	orchestrator.SetupWithFile(args[0], false)
 
 	return nil
 }

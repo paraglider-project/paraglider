@@ -56,7 +56,7 @@ func (c *Client) processResponse(resp *http.Response) ([]byte, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Request failed with status code %d: %s", resp.StatusCode, string(bodyBytes))
+		return bodyBytes, fmt.Errorf("Request failed with status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	return bodyBytes, nil
@@ -84,11 +84,8 @@ func (c *Client) sendRequest(url string, method string, body io.Reader) ([]byte,
 	}
 
 	bodyBytes, err := c.processResponse(resp)
-	if err != nil {
-		return nil, err
-	}
 
-	return bodyBytes, nil
+	return bodyBytes, err
 }
 
 // Get a permit list for a resource
@@ -120,7 +117,7 @@ func (c *Client) AddPermitListRules(namespace string, cloud string, resourceName
 
 	_, err = c.sendRequest(path, http.MethodPost, bytes.NewBuffer(reqBody))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create resource: %w", err)
 	}
 
 	return nil
@@ -154,7 +151,7 @@ func (c *Client) CreateResource(namespace string, cloud string, resourceName str
 
 	response, err := c.sendRequest(path, http.MethodPut, bytes.NewBuffer(reqBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
 	resourceDict := map[string]string{}

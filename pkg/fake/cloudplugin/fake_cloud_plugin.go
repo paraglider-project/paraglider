@@ -33,7 +33,7 @@ const AddressSpaceAddress = "10.0.0.0/16"
 const Asn = 64512
 
 var BgpPeeringIpAddresses = []string{"169.254.21.1", "169.254.22.1"}
-var ExampleRule = &invisinetspb.PermitListRule{Id: "example-rule", Tags: []string{fake.ValidTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
+var ExampleRule = &invisinetspb.PermitListRule{Name: "example-rule", Tags: []string{fake.ValidTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
 
 // Mock Cloud Plugin Server
 type fakeCloudPluginServer struct {
