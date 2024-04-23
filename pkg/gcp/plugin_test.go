@@ -363,7 +363,11 @@ func TestCreateResourceCluster(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{Description: description, Namespace: fakeNamespace}
+	resource := &invisinetspb.ResourceDescription{
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
+		Name:        fakeClusterName,
+		Description: description,
+	}
 
 	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient, fakeClients.clusterClient)
 	require.NoError(t, err)

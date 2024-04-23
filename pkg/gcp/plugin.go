@@ -667,21 +667,17 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	if err != nil {
 		return nil, fmt.Errorf("unsupported resource description: %w", err)
 	}
-	if len(insertInstanceRequest.InstanceResource.NetworkInterfaces) != 0 {
-		return nil, fmt.Errorf("network settings should not be specified")
-	}
 
 	// Set project and instance name
-	insertInstanceRequest.Project = project
-	insertInstanceRequest.InstanceResource.Name = proto.String(resourceDescription.Name)
+	resourceInfo.Project = project
+	resourceInfo.Name = resourceDescription.Name
 
-	zone := insertInstanceRequest.Zone
-	region := zone[:strings.LastIndex(zone, "-")]
+	region := resourceInfo.Zone[:strings.LastIndex(resourceInfo.Zone, "-")]
 	resourceInfo.Region = region
-	resourceInfo.Namespace = resourceDescription.Namespace
+	resourceInfo.Namespace = resourceDescription.Deployment.Namespace
 
 	subnetExists := false
-	subnetName := getSubnetworkName(resourceDescription.Namespace, region)
+	subnetName := getSubnetworkName(resourceDescription.Deployment.Namespace, region)
 
 	// Check if Invisinets specific VPC already exists
 	nsVpcName := getVpcName(resourceDescription.Deployment.Namespace)
