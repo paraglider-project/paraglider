@@ -340,116 +340,179 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 		return nil, err
 	}
 
-	conn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	defer conn.Close()
-	client := paragliderpb.NewControllerClient(conn)
-
+	// Get used address spaces of all clouds
+	controllerConn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
+	}
+	defer controllerConn.Close()
+	controllerClient := paragliderpb.NewControllerClient(controllerConn)
+	addressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &paragliderpb.Empty{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
+	}
 	gwID := "" // global transit gateway ID for vpc-peering.
-	for _, ibmRule := range ibmRulesToAdd {
-
-		// TODO @cohen-j-omer Connect clouds if needed:
-		// 1. use the orchestratorClient's GetUsedAddressSpaces to get used addresses.
-		// 2. if the rule's remote address resides in one of the clouds create a vpn gateway.
-
-		// get the VPCs and clients to search if the remote IP resides in any of them
-		clients, err := s.getAllClientsForVPCs(cloudClient, rInfo.ResourceGroup, false)
+	for _, invisinetsRule := range req.Rules {
+		// translate invisinets rule to IBM rules to compare hash values with current rules.
+		// multiple ibm rules can be returned due to multiple possible targets
+		ibmRules, err := sdk.ParagliderToIBMRule(requestSGID, invisinetsRule)
 		if err != nil {
 			utils.Log.Printf("Failed to get remote vpc: %v.\n", err)
 			return nil, err
 		}
-		remoteVPC := ""
-		for vpcID, client := range clients {
-			if isRemoteInVPC, _ := client.IsRemoteInVPC(vpcID, ibmRule.Remote); isRemoteInVPC {
-				remoteVPC = vpcID
-				break
-			}
+
+		// peeringCloudInfos contains cloud info associated with the specified rule's targets
+		peeringCloudInfos, err := utils.GetPermitListRulePeeringCloudInfo(invisinetsRule, addressSpaceMappings.AddressSpaceMappings)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get peering cloud infos: %w", err)
 		}
-		// if the remote resides inside a paraglider VPC that isn't the request resource's VPC, connect them
-		if remoteVPC != "" && remoteVPC != *requestVPCData.ID {
-			utils.Log.Printf("The following rule's remote is targeting a different IBM VPC\nRule: %+v\nVPC:%+v", ibmRule, remoteVPC)
-			// fetch or create transit gateway
-			if len(gwID) == 0 { // lookup optimization, use the already fetched gateway ID if possible
-				gwID, err = cloudClient.GetOrCreateTransitGateway(region)
+		// connect clouds if needed
+		for i, peeringCloudInfo := range peeringCloudInfos {
+			if peeringCloudInfo == nil { // public IP address
+				continue
+			}
+			if peeringCloudInfo.Cloud != utils.IBM {
+				// Create VPN connections
+				connectCloudsReq := &paragliderpb.ConnectCloudsRequest{
+					CloudA:          utils.IBM,
+					CloudANamespace: req.Namespace,
+					CloudB:          peeringCloudInfo.Cloud,
+					CloudBNamespace: peeringCloudInfo.Namespace,
+				}
+				_, err := controllerClient.ConnectClouds(ctx, connectCloudsReq)
+				if err != nil {
+					return nil, fmt.Errorf("unable to connect clouds : %w", err)
+				}
+			} else {
+				// if rule targets a VPC on IBM, connect them via a transit gateway
+				err = s.connectToTransitGatewayIfNeeded(cloudClient, ibmRules[i], gwID, rInfo.ResourceGroup, *requestVPCData.CRN, region)
 				if err != nil {
 					return nil, err
 				}
 			}
-			// connect the VPC of the request's resource to the transit gateway.
-			// the `remoteVPC` should be connected by a separate symmetric request (e.g. to allow inbound traffic to remote).
-			err = cloudClient.ConnectVPC(gwID, *requestVPCData.CRN)
-			if err != nil {
-				return nil, err
-			}
-		}
-		rulesHashValues := make(map[uint64]bool)
-		_, err = cloudClient.GetUniqueSGRules(sgRules, rulesHashValues)
-		if err != nil {
-			utils.Log.Printf("Failed to get unique sg rules: %v.\n", err)
-			return nil, err
-		}
-		// compute hash value of rules, disregarding the ID field.
-		ruleHashValue, err := ibmCommon.GetStructHash(ibmRule, []string{"ID"})
-		if err != nil {
-			utils.Log.Printf("Failed to compute hash: %v.\n", err)
-			return nil, err
-		}
-		// avoid adding duplicate rules (when hash values match)
-		if rulesHashValues[ruleHashValue] {
-			utils.Log.Printf("Rule %+v already exists for security group ID %v.\n", ibmRule, requestSGID)
-			return &paragliderpb.AddPermitListRulesResponse{}, nil
 		}
 
-		ruleID, err := cloudClient.AddSecurityGroupRule(ibmRule)
-		if err != nil {
-			utils.Log.Printf("Failed to add security group rule: %v.\n", err)
-			return nil, err
-		}
-		utils.Log.Printf("Attached rule %s(%s), %+v\n", ruleID, ibmRule.ID, ibmRule)
+		// add rule to security group if aren't duplicates
+		for _, ibmRule := range ibmRules {
+			rulesHashValues := make(map[uint64]bool)
+			_, err = cloudClient.GetUniqueSGRules(sgRules, rulesHashValues)
+			if err != nil {
+				utils.Log.Printf("Failed to get unique sg rules: %v.\n", err)
+				return nil, err
+			}
+			// compute hash value of rules, disregarding the ID field.
+			ruleHashValue, err := ibmCommon.GetStructHash(ibmRule, []string{"ID"})
+			if err != nil {
+				utils.Log.Printf("Failed to compute hash: %v.\n", err)
+				return nil, err
+			}
+			// avoid adding duplicate rules (when hash values match)
+			if rulesHashValues[ruleHashValue] {
+				utils.Log.Printf("Rule %+v already exists for security group ID %v.\n", ibmRule, requestSGID)
+				return &paragliderpb.AddPermitListRulesResponse{}, nil
+			}
 
-		// Check if there exists a rule with the permitlist name
-		oldRuleID, err := getRuleValFromStore(ctx, client, ibmRule.ID, req.Namespace)
-		if err != nil && !strings.Contains(err.Error(), string(redis.Nil)) {
-			// In case of failure to get/set KV from store, ensure the existing ruled is deleted
-			// to ensure, there are no zombie rules
-			utils.Log.Printf("Failed to retrieve from KV store for rule %s: %v.", ibmRule.ID, err)
-			err = cloudClient.DeleteSecurityGroupRule(requestSGID, ruleID)
+			ruleID, err := cloudClient.AddSecurityGroupRule(ibmRule)
 			if err != nil {
+				utils.Log.Printf("Failed to add security group rule: %v.\n", err)
 				return nil, err
 			}
-			return nil, fmt.Errorf("failed to get from kv store %v", err)
-		}
+			utils.Log.Printf("Attached rule %s(%s), %+v\n", ruleID, ibmRule.ID, ibmRule)
 
-		if oldRuleID != "" {
-			// Existing rule found with the same permitlist name
-			err = cloudClient.DeleteSecurityGroupRule(requestSGID, oldRuleID)
-			if err != nil {
-				return nil, err
+			// Check if there exists a rule with the permitlist name
+			oldRuleID, err := getRuleValFromStore(ctx, controllerClient, ibmRule.ID, req.Namespace)
+			if err != nil && !strings.Contains(err.Error(), string(redis.Nil)) {
+				// In case of failure to get/set KV from store, ensure the existing ruled is deleted
+				// to ensure, there are no zombie rules
+				utils.Log.Printf("Failed to retrieve from KV store for rule %s: %v.", ibmRule.ID, err)
+				err = cloudClient.DeleteSecurityGroupRule(requestSGID, ruleID)
+				if err != nil {
+					return nil, err
+				}
+				return nil, fmt.Errorf("failed to get from kv store %v", err)
 			}
-			utils.Log.Printf("Cleaning up old rule %s with same permitlist name %s", oldRuleID, ibmRule.ID)
-		}
-		// The intermediate representation ibmRule.ID stores the permitlist name
-		err = setRuleValToStore(ctx, client, ibmRule.ID, ruleID, req.Namespace)
-		if err != nil {
-			utils.Log.Printf("Failed to set KV store for rule %s: %v.", ibmRule.ID, err)
-			err = cloudClient.DeleteSecurityGroupRule(requestSGID, ruleID)
-			if err != nil {
-				return nil, err
+
+			if oldRuleID != "" {
+				// Existing rule found with the same permitlist name
+				err = cloudClient.DeleteSecurityGroupRule(requestSGID, oldRuleID)
+				if err != nil {
+					return nil, err
+				}
+				utils.Log.Printf("Cleaning up old rule %s with same permitlist name %s", oldRuleID, ibmRule.ID)
 			}
-			return nil, fmt.Errorf("failed to set kv store: %v", err)
-		}
-		// Store the reverse representation to be used to retrieve permitlist name for getpermitlist requests
-		err = setRuleValToStore(ctx, client, ruleID, ibmRule.ID, req.Namespace)
-		if err != nil {
-			utils.Log.Printf("Failed to set KV store for rule %s: %v.", ibmRule.ID, err)
-			err = cloudClient.DeleteSecurityGroupRule(requestSGID, ruleID)
+			// The intermediate representation ibmRule.ID stores the permitlist name
+			err = setRuleValToStore(ctx, controllerClient, ibmRule.ID, ruleID, req.Namespace)
 			if err != nil {
-				return nil, err
+				utils.Log.Printf("Failed to set KV store for rule %s: %v.", ibmRule.ID, err)
+				err = cloudClient.DeleteSecurityGroupRule(requestSGID, ruleID)
+				if err != nil {
+					return nil, err
+				}
+				return nil, fmt.Errorf("failed to set kv store: %v", err)
 			}
-			return nil, fmt.Errorf("failed to set kv store: %v", err)
+			// Store the reverse representation to be used to retrieve permitlist name for getpermitlist requests
+			err = setRuleValToStore(ctx, controllerClient, ruleID, ibmRule.ID, req.Namespace)
+			if err != nil {
+				utils.Log.Printf("Failed to set KV store for rule %s: %v.", ibmRule.ID, err)
+				err = cloudClient.DeleteSecurityGroupRule(requestSGID, ruleID)
+				if err != nil {
+					return nil, err
+				}
+				return nil, fmt.Errorf("failed to set kv store: %v", err)
+			}
 		}
 	}
 
 	return &paragliderpb.AddPermitListRulesResponse{}, nil
+}
+
+// connects the VPC matching the specified vpcCRN, and the remote VPC containing the address space in the specified ibmRule,
+// to the global transit gateway, if such a VPC exists
+func (s *IBMPluginServer) connectToTransitGatewayIfNeeded(cloudClient *sdk.CloudClient, ibmRule sdk.SecurityGroupRule, gwID, resourceGroupName, vpcCRN, region string) error {
+
+	// get the VPCs and clients to search if the remote IP resides in any of them
+	clients, err := s.getAllClientsForVPCs(cloudClient, resourceGroupName, true)
+	if err != nil {
+		return err
+	}
+	remoteVPC := ""
+	var remoteVPCClient *sdk.CloudClient // client scoped to the region of the remote VPC
+	for vpcID, client := range clients {
+		if isRemoteInVPC, _ := client.IsRemoteInVPC(vpcID, ibmRule.Remote); isRemoteInVPC {
+			remoteVPC = vpcID
+			remoteVPCClient = client
+			break
+		}
+	}
+	vpcID := sdk.CRN2ID(vpcCRN)
+	// if the remote resides inside an invisinets VPC that isn't the request VM's VPC, connect them
+	if remoteVPC != "" && remoteVPC != vpcID {
+		utils.Log.Printf("The following rule's remote is targeting a different IBM VPC\nRule: %+v\nVPC:%+v", ibmRule, remoteVPC)
+		// fetch or create transit gateway
+		if len(gwID) == 0 { // lookup optimization, use the already fetched gateway ID if possible
+			gwID, err = cloudClient.GetOrCreateTransitGateway(region)
+			if err != nil {
+				return err
+			}
+		}
+		// connect the VPC of the request's VM to the transit gateway.
+		err = cloudClient.ConnectVPC(gwID, vpcCRN)
+		if err != nil {
+			return err
+		}
+
+		remoteVPC, err := remoteVPCClient.GetVPCByID(remoteVPC)
+		if err != nil {
+			return err
+		}
+
+		// connect remote VPC to the transit gateway.
+		err = remoteVPCClient.ConnectVPC(gwID, *remoteVPC.CRN)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DeletePermitListRules deletes security group rules matching the attributes of the rules contained in the relevant Security group
@@ -528,7 +591,7 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 }
 
 func (s *IBMPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderpb.CreateVpnGatewayRequest) (*paragliderpb.CreateVpnGatewayResponse, error) {
-	rInfo, err := getResourceIDInfo(req.Deployment.Id)
+	rInfo, err := getResourceMeta(req.Deployment.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -550,7 +613,7 @@ func (s *IBMPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderp
 
 // creates VPN connection
 func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.BasicResponse, error) {
-	rInfo, err := getResourceIDInfo(req.Deployment.Id)
+	rInfo, err := getResourceMeta(req.Deployment.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -591,7 +654,7 @@ func (s *IBMPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req 
 	resp := &paragliderpb.GetUsedBgpPeeringIpAddressesResponse{}
 	// collect public IP addresses from each VPN that is referenced by deployments specified in the request
 	for _, deployment := range req.Deployments {
-		rInfo, err := getResourceIDInfo(deployment.Id)
+		rInfo, err := getResourceMeta(deployment.Id)
 		if err != nil {
 			return nil, err
 		}
