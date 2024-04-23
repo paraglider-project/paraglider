@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Paraglider'
-copyright = 'Paraglider a Series of LF Projects, LLC \nFor web site terms of use, trademark policy and other project policies please see https://lfprojects.org/.'
+copyright = 'Paraglider a Series of LF Projects, LLC. For web site terms of use, trademark policy and other project policies please see https://lfprojects.org/.'
 author = 'Paraglider Authors'
 
 # -- General configuration ---------------------------------------------------
