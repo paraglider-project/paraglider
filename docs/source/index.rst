@@ -37,6 +37,13 @@ Paraglider began as a research project at UC Berkeley in the NetSys Lab. It is n
 
 .. toctree::
    :maxdepth: 1
+   :caption: Examples
+
+   examples/tags.rst
+   examples/multicloud.rst
+   
+.. toctree::
+   :maxdepth: 1
    :caption: Project Status
 
    project/feature-status.rst

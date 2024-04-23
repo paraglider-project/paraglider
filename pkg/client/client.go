@@ -185,18 +185,18 @@ func (c *Client) GetTag(tag string) (*tagservicepb.TagMapping, error) {
 func (c *Client) ResolveTag(tag string) ([]*tagservicepb.TagMapping, error) {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.ResolveTagURL), tag)
 
-	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
+	respBytes, err := c.sendRequest(path, http.MethodPost, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	tagMappings := []*tagservicepb.TagMapping{}
+	tagMappings := tagservicepb.TagMappingList{}
 	err = json.Unmarshal(respBytes, &tagMappings)
 	if err != nil {
 		return nil, err
 	}
 
-	return tagMappings, nil
+	return tagMappings.Mappings, nil
 }
 
 // Set a tag as a member of a group or as a mapping to a URI/IP

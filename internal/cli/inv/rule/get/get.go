@@ -62,7 +62,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Print the rules
-	fmt.Fprintf(e.writer, "Permit list for %s:\n%v\n", args[1], permitList)
+	fmt.Fprintf(e.writer, "Permit list for %s:\n%+v\n", args[1], permitList)
 
 	return nil
 }
