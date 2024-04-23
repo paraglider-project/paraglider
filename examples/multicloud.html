@@ -3,10 +3,10 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="prev" title="Feature Status" href="feature-status.html" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Feature Status" href="../project/feature-status.html" /><link rel="prev" title="Tag Example" href="tags.html" />
 
     <!-- Generated with Sphinx 7.2.6 and Furo 2024.01.29 -->
-        <title>Roadmap - Paraglider documentation</title>
+        <title>Multicloud Example - Paraglider documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=135e06be" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=36a5483c" />
@@ -134,7 +134,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -165,14 +165,14 @@
 <li class="toctree-l1"><a class="reference internal" href="../developers/contributing.html">Contributing</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Examples</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../examples/tags.html">Tag Example</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/multicloud.html">Multicloud Example</a></li>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="tags.html">Tag Example</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Multicloud Example</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Project Status</span></p>
-<ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="feature-status.html">Feature Status</a></li>
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Roadmap</a></li>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../project/feature-status.html">Feature Status</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/roadmap.html">Roadmap</a></li>
 </ul>
 
 </div>
@@ -201,21 +201,51 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main">
-          <section id="roadmap">
-<span id="id1"></span><h1>Roadmap<a class="headerlink" href="#roadmap" title="Link to this heading">#</a></h1>
-<p>This pages lists some of the features that are planned for the future of Paraglider.</p>
+          <section id="multicloud-example">
+<span id="multicloudexample"></span><h1>Multicloud Example<a class="headerlink" href="#multicloud-example" title="Link to this heading">#</a></h1>
+<section id="goals">
+<h2>Goals:<a class="headerlink" href="#goals" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p>Get the IBM plugin caught up with the other plugins in feature completeness.</p></li>
-<li><p>Add plugins for other clouds.</p></li>
-<li><p>Add support for additional resource types (e.g. private endpoints, etc.)</p></li>
-<li><p>Integrate with k8s networking plugins.</p></li>
+<li><p>Create two VMs in Azure in different regions and connect them together</p></li>
+<li><p>Create a third VM in GCP and connect to one of the Azure VMs</p></li>
 </ul>
+<div class="mermaid">
+            graph LR
+
+   subgraph Azure
+   A(&quot;A&lt;br&gt;(westus)&quot;) &lt;---&gt; B(&quot;B&lt;br&gt;(eastus)&quot;)
+   end
+
+   subgraph GCP
+   C[C]
+   end
+
+   A &lt;---&gt; C
+        </div></section>
+<section id="setup">
+<h2>Setup:<a class="headerlink" href="#setup" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">invd</span> <span class="pre">startup</span> <span class="pre">&lt;path_to_config&gt;</span></code> to start all the microservices</p></li>
+</ul>
+</section>
+<section id="phase-0-multicloud-prep">
+<h2>Phase 0: Multicloud Prep<a class="headerlink" href="#phase-0-multicloud-prep" title="Link to this heading">#</a></h2>
+<p>Steps:</p>
+<ol class="arabic">
+<li><p>Create VM A in Azure</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">inv resource create azure vm-a azure-vm-westus.json</span>
+</pre></div>
+</div>
+</li>
+<li><p>Create VM C in GCP</p></li>
+</ol>
+</section>
 </section>
 
         </article>
@@ -223,15 +253,23 @@
       <footer>
         
         <div class="related-pages">
-          
-          <a class="prev-page" href="feature-status.html">
+          <a class="next-page" href="../project/feature-status.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Feature Status</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="tags.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">Feature Status</div>
+                <div class="title">Tag Example</div>
                 
               </div>
             </a>
@@ -253,8 +291,29 @@ For web site terms of use, trademark policy and other project policies please se
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Multicloud Example</a><ul>
+<li><a class="reference internal" href="#goals">Goals:</a></li>
+<li><a class="reference internal" href="#setup">Setup:</a></li>
+<li><a class="reference internal" href="#phase-0-multicloud-prep">Phase 0: Multicloud Prep</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>
@@ -263,5 +322,7 @@ For web site terms of use, trademark policy and other project policies please se
     <script src="../_static/doctools.js?v=888ff710"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=32e29ea5"></script>
+    <script src="https://unpkg.com/mermaid@10.2.0/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
     </body>
 </html>
