@@ -1,12 +1,12 @@
 Welcome to Paraglider!
 ======================================
 
-.. image:: ./_static/paraglider-logo-dark-transparent.png
+.. image:: ./_static/paraglider-color-darkmode.png
     :width: 300
     :alt: Paraglider Logo
     :class: only-dark
 
-.. image:: ./_static/paraglider-logo-light-transparent.png
+.. image:: ./_static/paraglider-color-lightmode.png
    :width: 300
    :alt: Paraglider Logo
    :class: only-light
