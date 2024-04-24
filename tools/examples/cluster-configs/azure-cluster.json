@@ -69,8 +69,8 @@
             "enableRBAC": true,
             "supportPlan": "KubernetesOfficial",
             "servicePrincipalProfile": {
-                "clientId": "8e126cb1-420a-49ae-8e63-0b0af0b032d9",
-                "secret": "ogH8Q~0i6HCOFEE4DXgHYqlafjvDMR4eZp4e3de3"
+                "clientId": "<your-service-principal-client-id>",
+                "secret": "<your-service-principal-secret>"
             },
             "networkProfile": {
                 "networkPlugin": "azure",
