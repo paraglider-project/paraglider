@@ -1,12 +1,12 @@
-# Invisinets
+# Paraglider
 
-Invisinets is a cross-cloud control plane for configuring networking. 
+Paraglider is a cross-cloud control plane for configuring networking. 
 
 ![Paraglider Logo](logo.png)
 
 ## Current status
 
-Invisinets is in the prototype phase, and we're currently building it with a small cross-industry team.
+Paraglider is in the prototype phase, and we're currently building it with a small cross-industry team.
 
 ## Contributing
 
