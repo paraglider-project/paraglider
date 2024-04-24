@@ -16,10 +16,7 @@ author = 'Paraglider Authors'
 extensions = [
     'sphinxcontrib.mermaid',
     'sphinx_copybutton',
-<<<<<<< HEAD
-=======
     'sphinx_design',
->>>>>>> main
 ]
 
 templates_path = ['_templates']
