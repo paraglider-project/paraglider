@@ -22,7 +22,7 @@ import (
 	"os"
 
 	common "github.com/NetSys/invisinets/internal/cli/common"
-	"github.com/NetSys/invisinets/internal/cli/inv/settings"
+	"github.com/NetSys/invisinets/internal/cli/glide/settings"
 	"github.com/NetSys/invisinets/pkg/client"
 	"github.com/spf13/cobra"
 )
