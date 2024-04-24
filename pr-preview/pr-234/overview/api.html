@@ -165,6 +165,7 @@
 <p class="caption" role="heading"><span class="caption-text">Developers</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../developers/contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developers/plugin-interface.html">Plugin Interface</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul>
@@ -649,36 +650,36 @@ POST<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</
 </section>
 <section id="service-operations">
 <h2>Service Operations<a class="headerlink" href="#service-operations" title="Link to this heading">#</a></h2>
-<p>Operations to interact with Invisinets services.</p>
+<p>Operations to interact with Paraglider services.</p>
 <section id="all-services">
 <h3>All Services<a class="headerlink" href="#all-services" title="Link to this heading">#</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>startup<span class="w"> </span>&lt;path_to_config&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>startup<span class="w"> </span>&lt;path_to_config&gt;
 </pre></div>
 </div>
 </section>
 <section id="orchestrator">
 <h3>Orchestrator<a class="headerlink" href="#orchestrator" title="Link to this heading">#</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>orch<span class="w"> </span>&lt;path_to_config&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>orch<span class="w"> </span>&lt;path_to_config&gt;
 </pre></div>
 </div>
 </section>
 <section id="azure">
 <h3>Azure<a class="headerlink" href="#azure" title="Link to this heading">#</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>az<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>az<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">central_controller_address</span></code> should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is “localhost:8081”.</p>
 </section>
 <section id="gcp">
 <h3>GCP<a class="headerlink" href="#gcp" title="Link to this heading">#</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>gcp<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>gcp<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">central_controller_address</span></code> should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is “localhost:8081”.</p>
 </section>
 <section id="tag-service">
 <h3>Tag Service<a class="headerlink" href="#tag-service" title="Link to this heading">#</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>tagserv<span class="w"> </span>&lt;redis_port&gt;<span class="w"> </span>&lt;server_port&gt;<span class="w"> </span>&lt;clear_keys&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>tagserv<span class="w"> </span>&lt;redis_port&gt;<span class="w"> </span>&lt;server_port&gt;<span class="w"> </span>&lt;clear_keys&gt;
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">clear_keys</span></code> is a bool (“true” or “false”) which determines whether the database state should be cleared on startup or not.</p>
