@@ -216,7 +216,7 @@ func (r *gcpInstance) getResourceInfo(ctx context.Context, resource *invisinetsp
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource description: %w", err)
 	}
-	return &resourceInfo{Project: insertInstanceRequest.Project, Zone: insertInstanceRequest.Zone, Name: *insertInstanceRequest.InstanceResource.Name, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: instanceTypeName}, nil
+	return &resourceInfo{Zone: insertInstanceRequest.Zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: instanceTypeName}, nil
 }
 
 // Read and provision a GCP instance
@@ -254,6 +254,10 @@ func (r *gcpInstance) getNetworkInfo(ctx context.Context, resourceInfo *resource
 // Create a GCP instance with network settings
 // Returns the instance URI and instance IP
 func (r *gcpInstance) createWithNetwork(ctx context.Context, instance *computepb.InsertInstanceRequest, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient) (string, string, error) {
+	// Set project and name
+	instance.Project = resourceInfo.Project
+	instance.InstanceResource.Name = proto.String(resourceInfo.Name)
+
 	// Configure network settings to Invisinets VPC and corresponding subnet
 	instance.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
@@ -342,9 +346,8 @@ func (r *gcpGKE) getResourceInfo(ctx context.Context, resource *invisinetspb.Res
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource description: %w", err)
 	}
-	project := strings.Split(createClusterRequest.Parent, "/")[1]
 	zone := strings.Split(createClusterRequest.Parent, "/")[3]
-	return &resourceInfo{Project: project, Zone: zone, Name: createClusterRequest.Cluster.Name, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: clusterTypeName}, nil
+	return &resourceInfo{Zone: zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: clusterTypeName}, nil
 }
 
 // Get the subnet requirements for a GCP instance
@@ -368,6 +371,10 @@ func (r *gcpGKE) getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo)
 // Create a GCP cluster with network settings
 // Returns the cluster URI and cluster CIDR
 func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.CreateClusterRequest, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
+	// Set project and name
+	cluster.Parent = fmt.Sprintf("projects/%s/locations/%s", resourceInfo.Project, resourceInfo.Zone)
+	cluster.Cluster.Name = resourceInfo.Name
+
 	// Configure network settings to Invisinets VPC and corresponding subnet
 	cluster.Cluster.Network = getVpcName(resourceInfo.Namespace)
 	cluster.Cluster.Subnetwork = getSubnetworkURL(resourceInfo.Project, resourceInfo.Region, subnetName)

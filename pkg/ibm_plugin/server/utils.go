@@ -52,3 +52,12 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 
 	return info, nil
 }
+
+// Gets resource group name from Invisinets Deployment ID
+func getResourceGroupName(deploymentID string) (string, error) {
+	parts := strings.Split(deploymentID, "/")
+	if len(parts) != 3 || parts[0] != "" || parts[1] != "ResourceGroupName" {
+		return "", fmt.Errorf("invalid deployment ID format: expected format of '/ResourceGroupName/{ResourceGroupName}'")
+	}
+	return parts[2], nil
+}

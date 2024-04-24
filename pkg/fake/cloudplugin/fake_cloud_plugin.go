@@ -54,7 +54,7 @@ func (s *fakeCloudPluginServer) DeletePermitListRules(c context.Context, req *in
 }
 
 func (s *fakeCloudPluginServer) CreateResource(c context.Context, req *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
-	return &invisinetspb.CreateResourceResponse{Name: "resource_name", Uri: req.Id}, nil
+	return &invisinetspb.CreateResourceResponse{Name: "resource_name", Uri: "resource_uri"}, nil
 }
 
 func (s *fakeCloudPluginServer) GetUsedAddressSpaces(c context.Context, req *invisinetspb.GetUsedAddressSpacesRequest) (*invisinetspb.GetUsedAddressSpacesResponse, error) {

@@ -482,9 +482,7 @@ func TestCreateResourcePost(t *testing.T) {
 
 	// Well-formed request
 	name := "resource-name"
-	uri := "resource/123"
 	resource := &invisinetspb.ResourceDescriptionString{
-		Id:          uri,
 		Name:        name,
 		Description: "description",
 	}
@@ -539,9 +537,7 @@ func TestCreateResourcePut(t *testing.T) {
 
 	// Well-formed request
 	name := "resource-name"
-	uri := "resource/123"
 	resource := &invisinetspb.ResourceDescriptionString{
-		Id:          uri,
 		Description: "description",
 	}
 	jsonValue, _ := json.Marshal(resource)
