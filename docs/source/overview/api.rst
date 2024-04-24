@@ -5,7 +5,7 @@ API
 
 Namespace Operations
 --------------------
-Interact with the namespaces on the Invisinets Controller. The active namespace is a client-side CLI construct. All REST requests to the controller will be scoped on a namespace.
+Interact with the namespaces on the Paraglider Controller. The active namespace is a client-side CLI construct. All REST requests to the controller will be scoped on a namespace.
 
 Set
 ^^^
@@ -14,7 +14,7 @@ Set
 
 .. code-block:: shell
 
-    inv namespace set <namespace>
+    glide namespace set <namespace>
 
 Parameters:
 
@@ -29,7 +29,7 @@ Gets the current active namespace in the CLI (Note: this is only a CLI feature).
 
 .. code-block:: shell
 
-    inv namespace get
+    glide namespace get
 
 List
 ^^^^
@@ -40,7 +40,7 @@ Lists all namespaces configured on the controller.
 
 .. code-block:: shell
 
-    inv namespace list
+    glide namespace list
 
 **HTTP:**
 
@@ -60,7 +60,7 @@ Creates a resource according to the description provided in the specified cloud.
 
 .. code-block:: shell
     
-    inv resource create <cloud> <resource_name> <path_to_json>
+    glide resource create <cloud> <resource_name> <path_to_json>
 
 Parameters:
 
@@ -167,7 +167,7 @@ Gets the rules associated with a resource.
 
 .. code-block:: shell
     
-    inv rule get <cloud> <resource_name>
+    glide rule get <cloud> <resource_name>
 
 Parameters:
 
@@ -195,7 +195,7 @@ Adds one or many rules to the permit list associated with a resource.
 
 .. code-block:: shell
 
-    inv rule add <cloud> <resource_name> [--ssh <tag> --ping <tag> | --ruleFile <path_to_file>]
+    glide rule add <cloud> <resource_name> [--ssh <tag> --ping <tag> | --ruleFile <path_to_file>]
 
 Parameters:
 
@@ -311,7 +311,7 @@ Deletes one or many rules from the permit list associated with the specified res
 
 .. code-block:: shell
     
-    inv rule delete <cloud> <resource_name> --rules <rule_names>
+    glide rule delete <cloud> <resource_name> --rules <rule_names>
 
 Parameters:
 
@@ -373,7 +373,7 @@ Gets the children tags associated with a tag or resolves the tag down to last-le
 
 .. code-block:: shell
     
-    inv tag get <tag> [--resolve]
+    glide tag get <tag> [--resolve]
 
 Parameters:
 
@@ -400,7 +400,7 @@ Adds children tags to a parent tag or creates a last-level tag that associates a
 
 .. code-block:: shell
 
-    inv tag set <tag> [--children <child_tag_list>] | [--uri <uri>] [--ip <ip>]
+    glide tag set <tag> [--children <child_tag_list>] | [--uri <uri>] [--ip <ip>]
 
 Parameters:
 
@@ -452,7 +452,7 @@ Deletes a tag or the association of members tags to that tag.
 
 .. code-block:: shell
     
-    inv tag delete <tag> [--member <members_list>]
+    glide tag delete <tag> [--member <members_list>]
 
 Parameters:
 
