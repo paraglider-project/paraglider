@@ -3,10 +3,10 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="prev" title="Feature Status" href="feature-status.html" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" />
 
     <!-- Generated with Sphinx 7.2.6 and Furo 2024.01.29 -->
-        <title>Roadmap - Paraglider documentation</title>
+        <title>Known Issues - Paraglider documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=135e06be" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
@@ -136,7 +136,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -172,9 +172,9 @@
 <li class="toctree-l1"><a class="reference internal" href="../examples/multicloud.html">Multicloud Example</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Project Status</span></p>
-<ul class="current">
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="feature-status.html">Feature Status</a></li>
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roadmap.html">Roadmap</a></li>
 </ul>
 
 </div>
@@ -203,23 +203,28 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main">
-          <section id="roadmap">
-<span id="id1"></span><h1>Roadmap<a class="headerlink" href="#roadmap" title="Link to this heading">#</a></h1>
-<p>This pages lists some of the features that are planned for the future of Paraglider.</p>
-<ul class="simple">
-<li><p>Get the IBM plugin caught up with the other plugins in feature completeness.</p></li>
-<li><p>Support aynchronous requests to the Paraglider controller.</p></li>
-<li><p>Add plugins for other clouds.</p></li>
-<li><p>Add support for additional resource types (e.g. private endpoints, etc.)</p></li>
-<li><p>Integrate with k8s networking plugins.</p></li>
-<li><p>Add support for network functions such as load balancers, firewalls, etc.</p></li>
-</ul>
+          <section id="known-issues">
+<span id="id1"></span><h1>Known Issues<a class="headerlink" href="#known-issues" title="Link to this heading">#</a></h1>
+<section id="gopls-linting-issue-in-testing-files-on-package-declaration-line">
+<h2><code class="docutils literal notranslate"><span class="pre">gopls</span></code> Linting Issue in Testing Files on Package Declaration Line<a class="headerlink" href="#gopls-linting-issue-in-testing-files-on-package-declaration-line" title="Link to this heading">#</a></h2>
+<p>You may see the following error from <code class="docutils literal notranslate"><span class="pre">gopls</span></code> in the <code class="docutils literal notranslate"><span class="pre">*_test.go</span></code> files.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">This file is within module &quot;.&quot;, which is not included in your workspace.</span>
+<span class="go">To fix this problem, you can add a go.work file that uses this directory.</span>
+<span class="go">See the documentation for more information on setting up your workspace:</span>
+<span class="go">https://github.com/golang/tools/blob/master/gopls/doc/workspace.md.</span>
+</pre></div>
+</div>
+<p>This is due to a known issue within <code class="docutils literal notranslate"><span class="pre">gopls</span></code> (<a class="reference external" href="https://github.com/golang/go/issues/29202">https://github.com/golang/go/issues/29202</a>). You can work around this in VS Code by specifying the following in your <code class="docutils literal notranslate"><span class="pre">settings.json</span></code>.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">&quot;go.buildTags&quot;: &quot;unit,integration&quot;</span>
+</pre></div>
+</div>
+</section>
 </section>
 
         </article>
@@ -228,17 +233,7 @@
         
         <div class="related-pages">
           
-          <a class="prev-page" href="feature-status.html">
-              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
-              <div class="page-info">
-                <div class="context">
-                  <span>Previous</span>
-                </div>
-                
-                <div class="title">Feature Status</div>
-                
-              </div>
-            </a>
+          
         </div>
         <div class="bottom-of-page">
           <div class="left-details">
@@ -256,8 +251,27 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Known Issues</a><ul>
+<li><a class="reference internal" href="#gopls-linting-issue-in-testing-files-on-package-declaration-line"><code class="docutils literal notranslate"><span class="pre">gopls</span></code> Linting Issue in Testing Files on Package Declaration Line</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>
