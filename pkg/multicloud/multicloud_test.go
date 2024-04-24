@@ -39,6 +39,7 @@ func TestMulticloud(t *testing.T) {
 	azurePluginPort := 7991
 	azureSubscriptionId := azure_plugin.GetAzureSubscriptionId()
 	azureResourceGroupName := azure_plugin.SetupAzureTesting(azureSubscriptionId, "multicloud")
+	azureDeploymentId := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName)
 	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
 
 	// GCP config
@@ -98,10 +99,15 @@ func TestMulticloud(t *testing.T) {
 	azureVm1Location := "westus"
 	azureVm1Parameters := azure_plugin.GetTestVmParameters(azureVm1Location)
 	azureVm1Description, err := json.Marshal(azureVm1Parameters)
-	azureVm1ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + "invisinets-vm-test-1"
+	azureVm1Name := "invisinets-vm-test-1"
+	azureVm1ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + azureVm1Name
 	azureCreateResourceResp1, err := azureServer.CreateResource(
 		ctx,
-		&invisinetspb.ResourceDescription{Id: azureVm1ResourceId, Description: azureVm1Description, Namespace: "default"},
+		&invisinetspb.ResourceDescription{
+			Deployment:  &invisinetspb.InvisinetsDeployment{Id: azureDeploymentId, Namespace: "default"},
+			Name:        azureVm1Name,
+			Description: azureVm1Description,
+		},
 	)
 	require.NoError(t, err)
 	require.NoError(t, err)
@@ -116,7 +122,11 @@ func TestMulticloud(t *testing.T) {
 	gcpVmDescription, err := json.Marshal(gcpVmParameters)
 	gcpCreateResourceResp, err := gcpServer.CreateResource(
 		ctx,
-		&invisinetspb.ResourceDescription{Description: gcpVmDescription, Namespace: "other"},
+		&invisinetspb.ResourceDescription{
+			Deployment:  &invisinetspb.InvisinetsDeployment{Id: "projects/" + gcpProjectId, Namespace: "other"},
+			Name:        gcpVmName,
+			Description: gcpVmDescription,
+		},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, gcpCreateResourceResp)
@@ -220,10 +230,15 @@ func TestMulticloud(t *testing.T) {
 	azureVm2Location := "eastus"
 	azureVm2Parameters := azure_plugin.GetTestVmParameters(azureVm2Location)
 	azureVm2Description, err := json.Marshal(azureVm2Parameters)
-	azureVm2ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + "invisinets-vm-test-2"
+	azureVm2Name := "invisinets-vm-test-2"
+	azureVm2ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + azureVm2Name
 	azureCreateResourceResp2, err := azureServer.CreateResource(
 		ctx,
-		&invisinetspb.ResourceDescription{Id: azureVm2ResourceId, Description: azureVm2Description, Namespace: "default"},
+		&invisinetspb.ResourceDescription{
+			Deployment:  &invisinetspb.InvisinetsDeployment{Id: azureDeploymentId, Namespace: "default"},
+			Name:        azureVm2Name,
+			Description: azureVm2Description,
+		},
 	)
 	require.NoError(t, err)
 	require.NoError(t, err)
