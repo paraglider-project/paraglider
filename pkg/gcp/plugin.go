@@ -680,21 +680,27 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 }
 
 func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient, clustersClient *container.ClusterManagerClient) (*invisinetspb.CreateResourceResponse, error) {
+	project := parseGCPURL(resourceDescription.Deployment.Id)["projects"]
+
 	// Read and validate user-provided description
 	resourceInfo, err := IsValidResource(ctx, resourceDescription)
 	if err != nil {
 		return nil, fmt.Errorf("unsupported resource description: %w", err)
 	}
-	project, zone := resourceInfo.Project, resourceInfo.Zone
-	region := zone[:strings.LastIndex(zone, "-")]
+
+	// Set project and instance name
+	resourceInfo.Project = project
+	resourceInfo.Name = resourceDescription.Name
+
+	region := resourceInfo.Zone[:strings.LastIndex(resourceInfo.Zone, "-")]
 	resourceInfo.Region = region
-	resourceInfo.Namespace = resourceDescription.Namespace
+	resourceInfo.Namespace = resourceDescription.Deployment.Namespace
 
 	subnetExists := false
-	subnetName := getSubnetworkName(resourceDescription.Namespace, region)
+	subnetName := getSubnetworkName(resourceDescription.Deployment.Namespace, region)
 
 	// Check if Invisinets specific VPC already exists
-	nsVpcName := getVpcName(resourceDescription.Namespace)
+	nsVpcName := getVpcName(resourceDescription.Deployment.Namespace)
 	getNetworkReq := &computepb.GetNetworkRequest{
 		Network: nsVpcName,
 		Project: project,
@@ -732,8 +738,8 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 					Description:       proto.String("Invisinets deny all traffic"),
 					DestinationRanges: []string{"0.0.0.0/0"},
 					Direction:         proto.String(computepb.Firewall_EGRESS.String()),
-					Name:              proto.String(getDenyAllIngressFirewallName(resourceDescription.Namespace)),
-					Network:           proto.String(GetVpcUri(project, resourceDescription.Namespace)),
+					Name:              proto.String(getDenyAllIngressFirewallName(resourceDescription.Deployment.Namespace)),
+					Network:           proto.String(GetVpcUri(project, resourceDescription.Deployment.Namespace)),
 					Priority:          proto.Int32(65534),
 				},
 			}
@@ -790,7 +796,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 			SubnetworkResource: &computepb.Subnetwork{
 				Name:        proto.String(subnetName),
 				Description: proto.String("Invisinets subnetwork for " + region),
-				Network:     proto.String(GetVpcUri(project, resourceDescription.Namespace)),
+				Network:     proto.String(GetVpcUri(project, resourceDescription.Deployment.Namespace)),
 				IpCidrRange: proto.String(addressSpaces[0]),
 			},
 		}

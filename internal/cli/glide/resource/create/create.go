@@ -73,7 +73,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	resource := &invisinetspb.ResourceDescriptionString{Id: e.uri, Description: string(e.description)}
+	resource := &invisinetspb.ResourceDescriptionString{Description: string(e.description)}
 
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	resourceInfo, err := c.CreateResource(e.cliSettings.ActiveNamespace, args[0], args[1], resource)
