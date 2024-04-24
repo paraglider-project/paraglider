@@ -63,7 +63,7 @@ func TestCreateResource(t *testing.T) {
 	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
-	resource, err := client.CreateResource(fake.Namespace, fake.CloudName, "resourceName", &invisinetspb.ResourceDescriptionString{Id: "uri"})
+	resource, err := client.CreateResource(fake.Namespace, fake.CloudName, "resourceName", &invisinetspb.ResourceDescriptionString{})
 
 	assert.Nil(t, err)
 	assert.Equal(t, "resourceName", resource["name"])
