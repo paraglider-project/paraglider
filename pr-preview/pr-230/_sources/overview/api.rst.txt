@@ -480,3 +480,51 @@ Deletes an entire tag (and all its child associations).
 Parameters:
 
 * ``tag``: tag to delete
+
+Service Operations
+------------------
+
+Operations to interact with Invisinets services.
+
+All Services
+^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    invd startup <path_to_config>
+            
+
+Orchestrator
+^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    invd orch <path_to_config>
+
+Azure
+^^^^^
+
+.. code-block:: shell
+
+    invd az <port> <central_controller_address>
+
+The ``central_controller_address`` should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is "localhost:8081".
+
+GCP
+^^^
+
+
+.. code-block:: shell
+
+    invd gcp <port> <central_controller_address>
+
+The ``central_controller_address`` should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is "localhost:8081".
+
+Tag Service
+^^^^^^^^^^^
+
+.. code-block:: shell
+
+    invd tagserv <redis_port> <server_port> <clear_keys>
+
+``clear_keys`` is a bool ("true" or "false") which determines whether the database state should be cleared on startup or not.

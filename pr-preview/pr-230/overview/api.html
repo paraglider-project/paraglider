@@ -10,6 +10,7 @@
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=135e06be" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=36a5483c" />
     
     
@@ -164,6 +165,7 @@
 <p class="caption" role="heading"><span class="caption-text">Developers</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../developers/contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developers/plugin-interface.html">Plugin Interface</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul>
@@ -646,6 +648,43 @@ POST<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</
 </ul>
 </section>
 </section>
+<section id="service-operations">
+<h2>Service Operations<a class="headerlink" href="#service-operations" title="Link to this heading">#</a></h2>
+<p>Operations to interact with Invisinets services.</p>
+<section id="all-services">
+<h3>All Services<a class="headerlink" href="#all-services" title="Link to this heading">#</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>startup<span class="w"> </span>&lt;path_to_config&gt;
+</pre></div>
+</div>
+</section>
+<section id="orchestrator">
+<h3>Orchestrator<a class="headerlink" href="#orchestrator" title="Link to this heading">#</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>orch<span class="w"> </span>&lt;path_to_config&gt;
+</pre></div>
+</div>
+</section>
+<section id="azure">
+<h3>Azure<a class="headerlink" href="#azure" title="Link to this heading">#</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>az<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">central_controller_address</span></code> should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is “localhost:8081”.</p>
+</section>
+<section id="gcp">
+<h3>GCP<a class="headerlink" href="#gcp" title="Link to this heading">#</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>gcp<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">central_controller_address</span></code> should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is “localhost:8081”.</p>
+</section>
+<section id="tag-service">
+<h3>Tag Service<a class="headerlink" href="#tag-service" title="Link to this heading">#</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>tagserv<span class="w"> </span>&lt;redis_port&gt;<span class="w"> </span>&lt;server_port&gt;<span class="w"> </span>&lt;clear_keys&gt;
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">clear_keys</span></code> is a bool (“true” or “false”) which determines whether the database state should be cleared on startup or not.</p>
+</section>
+</section>
 </section>
 
         </article>
@@ -725,6 +764,14 @@ POST<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</
 <li><a class="reference internal" href="#id5">Delete</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#service-operations">Service Operations</a><ul>
+<li><a class="reference internal" href="#all-services">All Services</a></li>
+<li><a class="reference internal" href="#orchestrator">Orchestrator</a></li>
+<li><a class="reference internal" href="#azure">Azure</a></li>
+<li><a class="reference internal" href="#gcp">GCP</a></li>
+<li><a class="reference internal" href="#tag-service">Tag Service</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -741,6 +788,7 @@ POST<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=32e29ea5"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
-    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/copybutton.js?v=a56c686a"></script>
+    <script src="../_static/design-tabs.js?v=36754332"></script>
     </body>
 </html>
