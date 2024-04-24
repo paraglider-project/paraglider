@@ -9,6 +9,8 @@
         <title>Quickstart - Paraglider documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=135e06be" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=36a5483c" />
     
     
@@ -209,105 +211,292 @@
         <article role="main">
           <section id="quickstart">
 <span id="id1"></span><h1>Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading">#</a></h1>
-<p>The controller consists of a orchestrator that sends requests to per-cloud plugins/controllers and a tag service. These services can be started individually or all at once on the localhost.</p>
-<section id="build-install">
-<h2>Build / Install<a class="headerlink" href="#build-install" title="Link to this heading">#</a></h2>
-<p>Run the following command to build and install the CLI locally.</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>build<span class="w"> </span>install
+<p>This guide will walk you through an example of how to use Invisinets to ping two VMs within a single cloud.</p>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/invisinets/invisinets.git
+<span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>invisinets
+<span class="gp">$ </span>make<span class="w"> </span>build<span class="w"> </span>install
 </pre></div>
 </div>
 </section>
-<section id="cli">
-<h2>CLI<a class="headerlink" href="#cli" title="Link to this heading">#</a></h2>
-<p>All of the services can be started using the <code class="docutils literal notranslate"><span class="pre">invd</span></code> CLI. For additional help, look at the help docs in the CLI.</p>
+<section id="cloud-authentication">
+<h2>Cloud Authentication<a class="headerlink" href="#cloud-authentication" title="Link to this heading">#</a></h2>
+<p>Invisinets currently supports Azure and GCP. To use Invisinets with a cloud provider, you must have an account with that provider and have the necessary credentials set up.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-0">
+Azure</label><div class="sd-tab-content docutils">
+<ol class="arabic">
+<li><p><a class="reference external" href="https://learn.microsoft.com/en-us/cli/azure/install-azure-cli">Install the Azure CLI</a>.</p></li>
+<li><p>Authenticate to your Azure account.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>az<span class="w"> </span>login
+</pre></div>
+</div>
+</li>
+<li><p>Retrieve the subscription ID and resource group name you would like to use.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>az<span class="w"> </span>group<span class="w"> </span>list
+</pre></div>
+</div>
+<p>Take note of the <code class="docutils literal notranslate"><span class="pre">id</span></code> field for the subscription ID and resource group name (referred to as <code class="docutils literal notranslate"><span class="pre">${AZURE_SUBSCRIPTION_ID}</span></code> and <code class="docutils literal notranslate"><span class="pre">${AZURE_RESOURCE_GROUP_NAME}</span></code> throughout this document).</p>
+</li>
+</ol>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-1">
+GCP</label><div class="sd-tab-content docutils">
+<ol class="arabic">
+<li><p><a class="reference external" href="https://cloud.google.com/sdk/docs/install">Install the Google Cloud CLI</a>.</p></li>
+<li><p>Set up your application default credentials.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>gcloud<span class="w"> </span>auth<span class="w"> </span>application-default<span class="w"> </span>login
+<span class="gp">$ </span>gcloud<span class="w"> </span>auth<span class="w"> </span>login
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For using Invisinets, you only need to setup application default credentials (i.e., first command). However, throughout this example, we will be using some <code class="docutils literal notranslate"><span class="pre">gcloud</span></code> commands that require authentication.</p>
+</div>
+</li>
+<li><p>Retrieve the project ID you would like to use.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>gcloud<span class="w"> </span>projects<span class="w"> </span>list
+</pre></div>
+</div>
+<p>Take note of the <code class="docutils literal notranslate"><span class="pre">GCP_PROJECT_ID</span></code> column for the project ID (referred to as <code class="docutils literal notranslate"><span class="pre">${GCP_PROJECT_ID}</span></code> throughout this document).</p>
+</li>
+</ol>
+</div>
+</div>
 </section>
 <section id="configuration">
 <h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h2>
-<p>The orchestrator takes a configuration file in the following format.</p>
+<p>Copy paste the following configuration into a new file called <code class="docutils literal notranslate"><span class="pre">invisinets_config.yaml</span></code>. Make sure to substitute the necessary parameters for your cloud provider.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
+</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-2">
+Azure</label><div class="sd-tab-content docutils">
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">server</span><span class="p">:</span>
-<span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
-<span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
-<span class="nt">rpcPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8081</span>
+<span class="w">  </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
+<span class="w">  </span><span class="nt">rpcPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8081</span>
 
 <span class="nt">cloudPlugins</span><span class="p">:</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;gcp&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;azure&quot;</span>
 <span class="w">    </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
-<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
-<span class="w">    </span><span class="nt">invDeployment</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;projects/&lt;project_name&gt;&quot;</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;azure&quot;</span>
-<span class="w">    </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
-<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1001</span>
-<span class="w">    </span><span class="nt">invDeployment</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/subscriptions/&lt;sub_id&gt;/resourceGroups/&lt;resource_group_name&gt;&quot;</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8082</span>
 
 <span class="nt">tagService</span><span class="p">:</span>
-<span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
-<span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6000</span>
+<span class="w">  </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8083</span>
+
+<span class="nt">namespaces</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">default</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;azure&quot;</span>
+<span class="w">      </span><span class="nt">deployment</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}&quot;</span>
 </pre></div>
 </div>
-<p>The <code class="docutils literal notranslate"><span class="pre">cloudPlugins`</span></code> list may contain one or multiple cloud plugins. Though all listed should be reachable (otherwise, requests to the orchestrator may only result in errors). The <code class="docutils literal notranslate"><span class="pre">server</span></code> section is used to describe where the orchestrator will bind on the local machine to serve the HTTP server for users (<code class="docutils literal notranslate"><span class="pre">port</span></code>) and the RPC server for the cloud plugins (<code class="docutils literal notranslate"><span class="pre">rpcPort</span></code>). All other hosts/ports are where the other services are expected to be and may or may not be locally hosted.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">invDeployment</span></code> parameter in the cloud plugin specification includes the minimum URI necessary to find the Invisinets resources for that cloud. In GCP, this is project ID while in Azure this is the resource group URI.</p>
-<p>If no tags are used, the <code class="docutils literal notranslate"><span class="pre">tagService</span></code> does not have to be running for requests to complete.</p>
-</section>
-<section id="startup-all-services">
-<h2>Startup All Services<a class="headerlink" href="#startup-all-services" title="Link to this heading">#</a></h2>
-<section id="using-the-cli-run">
-<h3>Using the CLI, run:<a class="headerlink" href="#using-the-cli-run" title="Link to this heading">#</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>startup<span class="w"> </span>&lt;path_to_config&gt;
+</div>
+<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
+</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-3">
+GCP</label><div class="sd-tab-content docutils">
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">server</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
+<span class="w">  </span><span class="nt">rpcPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8081</span>
+
+<span class="nt">cloudPlugins</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;gcp&quot;</span>
+<span class="w">    </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8082</span>
+
+<span class="nt">tagService</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8083</span>
+
+<span class="nt">namespaces</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">default</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;gcp&quot;</span>
+<span class="w">      </span><span class="nt">deployment</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;projects/${GCP_PROJECT_ID}&quot;</span>
 </pre></div>
 </div>
-</section>
-<section id="orchestrator">
-<h3>Orchestrator<a class="headerlink" href="#orchestrator" title="Link to this heading">#</a></h3>
-<p>Using the CLI, run:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>orch<span class="w"> </span>&lt;path_to_config&gt;
-</pre></div>
 </div>
-</section>
-</section>
-<section id="cloud-plugins">
-<h2>Cloud Plugins<a class="headerlink" href="#cloud-plugins" title="Link to this heading">#</a></h2>
-<section id="azure">
-<h3>Azure<a class="headerlink" href="#azure" title="Link to this heading">#</a></h3>
-<p>Using the CLI, run:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>az<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;orchestrator_address&gt;
-</pre></div>
 </div>
-<p>The <code class="docutils literal notranslate"><span class="pre">orchestrator_address</span></code> should be the full host:port address where the orchestrator is hosted for RPC traffic. In the example config above, this is “localhost:8081”.</p>
-</section>
-<section id="gcp">
-<h3>GCP<a class="headerlink" href="#gcp" title="Link to this heading">#</a></h3>
-<p>Using the CLI, run:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>gcp<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;orchestrator_address&gt;
-</pre></div>
-</div>
-<p>The <code class="docutils literal notranslate"><span class="pre">orchestrator_address</span></code> should be the full host:port address where the orchestrator is hosted for RPC traffic. In the example config above, this is “localhost:8081”.</p>
-</section>
-</section>
-<section id="tag-service">
-<h2>Tag Service<a class="headerlink" href="#tag-service" title="Link to this heading">#</a></h2>
-<p>Using the CLI, run:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>tagserv<span class="w"> </span>&lt;redis_port&gt;<span class="w"> </span>&lt;server_port&gt;<span class="w"> </span>&lt;clear_keys&gt;
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">clear_keys</span></code> is a bool (“true” or “false”) which determines whether the database state should be cleared on startup or not.</p>
-</section>
-<section id="cloud-resources">
-<h2>Cloud Resources<a class="headerlink" href="#cloud-resources" title="Link to this heading">#</a></h2>
-<p>In order for the cloud plugins to correctly use their SDKs, ensure that these steps have been completed.</p>
-<section id="id2">
-<h3>Azure<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
+<p>Here is a breakdown of the configuration file:</p>
 <ol class="arabic simple">
-<li><p><a class="reference external" href="https://learn.microsoft.com/en-us/cli/azure/install-azure-cli">Install azure cli</a>. If you’re using the dev container, this will already be installed for you.</p></li>
-<li><p><a class="reference external" href="https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli">Authenticate to your account with azure login</a>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">server</span></code> defines the orchestrator’s host and ports. The orchestrator has two ports: <code class="docutils literal notranslate"><span class="pre">port</span></code> for an HTTP server for users and <code class="docutils literal notranslate"><span class="pre">rpcPort</span></code> for an RPC server for cloud plugins.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloudPlugins</span></code> lists the cloud plugins that Invisinets will use. In this example, we only specify one cloud but you can specify multiple clouds.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tagService</span></code> defines the host and port for the tag service.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">namespaces</span></code> lists the namespaces that Invisinets will reference. Each namespace consists of a list of clouds that specifies the cloud name and deployment URI.</p></li>
 </ol>
 </section>
-<section id="google-cloud">
-<h3>Google Cloud<a class="headerlink" href="#google-cloud" title="Link to this heading">#</a></h3>
-<ol class="arabic simple">
-<li><p><a class="reference external" href="https://cloud.google.com/sdk/docs/install">Install the gcloud CLI</a>. If you’re using the dev container, this will already be installed for you.</p></li>
-<li><p><a class="reference external" href="https://cloud.google.com/docs/authentication/provide-credentials-adc">Set up your application default credentials</a>.</p></li>
-</ol>
+<section id="startup-services">
+<h2>Startup Services<a class="headerlink" href="#startup-services" title="Link to this heading">#</a></h2>
+<p>This command will start up all services specified in the configuration. In this case, that would be the orchestrator and the cloud plugin.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>invd<span class="w"> </span>startup<span class="w"> </span>invisinets_config.yaml
+</pre></div>
+</div>
 </section>
+<section id="create-vms">
+<h2>Create VMs<a class="headerlink" href="#create-vms" title="Link to this heading">#</a></h2>
+<p>To create VMs in clouds, Invisinets requires a JSON file that describes the VM. This is the same as what you would provide in the body of the REST API request to the cloud.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-4" name="sd-tab-set-2" type="radio">
+</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-4">
+Azure</label><div class="sd-tab-content docutils">
+<ol class="arabic">
+<li><p>Copy the following into a file called <code class="docutils literal notranslate"><span class="pre">azure_vm.json</span></code>. Make sure to fill in the <code class="docutils literal notranslate"><span class="pre">adminUsername</span></code> and <code class="docutils literal notranslate"><span class="pre">adminPassword</span></code> fields!</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;location&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eastus&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;hardwareProfile&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;vmSize&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Standard_B1s&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;osProfile&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;computerName&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sample-compute&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;adminUsername&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;your-username&gt;&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;adminPassword&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;your-password&gt;&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;storageProfile&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;imageReference&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;offer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0001-com-ubuntu-minimal-jammy&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;publisher&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;canonical&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;sku&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;minimal-22_04-lts-gen2&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latest&quot;</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><p>Create two VMs called <code class="docutils literal notranslate"><span class="pre">vm-1</span></code> and <code class="docutils literal notranslate"><span class="pre">vm-2</span></code>.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>azure<span class="w"> </span>vm-1<span class="w"> </span>azure_vm.json
+<span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>azure<span class="w"> </span>vm-2<span class="w"> </span>azure_vm.json
+</pre></div>
+</div>
+</li>
+</ol>
+</div>
+<input id="sd-tab-item-5" name="sd-tab-set-2" type="radio">
+</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-5">
+GCP</label><div class="sd-tab-content docutils">
+<ol class="arabic">
+<li><p>Copy the following into a file called <code class="docutils literal notranslate"><span class="pre">gcp_vm.json</span></code>.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;instance_resource&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;disks&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span>
+<span class="w">            </span><span class="nt">&quot;auto_delete&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;boot&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;initialize_params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;disk_size_gb&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;source_image&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;projects/debian-cloud/global/images/family/debian-10&quot;</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PERSISTENT&quot;</span>
+<span class="w">        </span><span class="p">}],</span>
+<span class="w">        </span><span class="nt">&quot;machine_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zones/us-west1-a/machineTypes/f1-micro&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;zone&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;us-west1-a&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><p>Create two VMs called <code class="docutils literal notranslate"><span class="pre">vm-1</span></code> and <code class="docutils literal notranslate"><span class="pre">vm-2</span></code>.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>gcp<span class="w"> </span>vm-1<span class="w"> </span>gcp_vm.json
+<span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>gcp<span class="w"> </span>vm-2<span class="w"> </span>gcp_vm.json
+</pre></div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</section>
+<section id="ping-vms">
+<h2>Ping VMs<a class="headerlink" href="#ping-vms" title="Link to this heading">#</a></h2>
+<p>Now that your VMs are created, you can try pinging between the two VMs. Since Invisinets denies all traffic by default, the ping should fail.</p>
+<p>Since Invisinets creates VMs without public IPs, you will need to use cloud specific connectivity checks instead of SSH-ing into the VMs which may require some setup.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-6" name="sd-tab-set-3" type="radio">
+</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-6">
+Azure</label><div class="sd-tab-content docutils">
+<ol class="arabic">
+<li><p>Configure Azure Network Watcher.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>az<span class="w"> </span>network<span class="w"> </span>watcher<span class="w"> </span>configure<span class="w"> </span>-g<span class="w"> </span><span class="si">${</span><span class="nv">AZURE_RESOURCE_GROUP_NAME</span><span class="si">}</span><span class="w"> </span>-l<span class="w"> </span>eastus<span class="w"> </span>--enabled<span class="w"> </span><span class="nb">true</span>
+</pre></div>
+</div>
+</li>
+<li><p>Install the Network Watcher Agent extension on both VMs.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>az<span class="w"> </span>vm<span class="w"> </span>extension<span class="w"> </span><span class="nb">set</span><span class="w"> </span>-g<span class="w"> </span><span class="si">${</span><span class="nv">AZURE_RESOURCE_GROUP_NAME</span><span class="si">}</span><span class="w"> </span>--vm-name<span class="w"> </span>vm-1<span class="w"> </span>--name<span class="w"> </span>NetworkWatcherAgentLinux<span class="w"> </span>--publisher<span class="w"> </span>Microsoft.Azure.NetworkWatcher<span class="w"> </span>--version<span class="w"> </span><span class="m">1</span>.4
+<span class="gp">$ </span>az<span class="w"> </span>vm<span class="w"> </span>extension<span class="w"> </span><span class="nb">set</span><span class="w"> </span>-g<span class="w"> </span><span class="si">${</span><span class="nv">AZURE_RESOURCE_GROUP_NAME</span><span class="si">}</span><span class="w"> </span>--vm-name<span class="w"> </span>vm-2<span class="w"> </span>--name<span class="w"> </span>NetworkWatcherAgentLinux<span class="w"> </span>--publisher<span class="w"> </span>Microsoft.Azure.NetworkWatcher<span class="w"> </span>--version<span class="w"> </span><span class="m">1</span>.4
+</pre></div>
+</div>
+</li>
+<li><p>Check connectivity between vm-1 and vm-2.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>az<span class="w"> </span>network<span class="w"> </span>watcher<span class="w"> </span>test-connectivity<span class="w"> </span>-g<span class="w"> </span><span class="si">${</span><span class="nv">AZURE_RESOURCE_GROUP_NAME</span><span class="si">}</span><span class="w"> </span>--source-resource<span class="w"> </span>vm-1<span class="w"> </span>--dest-resource<span class="w"> </span>vm-2<span class="w"> </span>--protocol<span class="w"> </span>Icmp
+</pre></div>
+</div>
+<p>You should see the <code class="docutils literal notranslate"><span class="pre">connectionStatus</span></code> be <code class="docutils literal notranslate"><span class="pre">Unreachable</span></code>. If you look at the <code class="docutils literal notranslate"><span class="pre">issues</span></code> fields closely, you’ll notice that the issue is due to network security rules called invisinets-deny-all-outbound (for source) and invisinets-deny-all-inbound (for destination).</p>
+</li>
+</ol>
+</div>
+<input id="sd-tab-item-7" name="sd-tab-set-3" type="radio">
+</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-7">
+GCP</label><div class="sd-tab-content docutils">
+<ol class="arabic">
+<li><p>Run connectivity test between vm-1 and vm-2.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>gcloud<span class="w"> </span>network-management<span class="w"> </span>connectivity-tests<span class="w"> </span>create<span class="w"> </span>vm-1-to-vm-2<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--source-instance<span class="o">=</span>projects/<span class="si">${</span><span class="nv">GCP_PROJECT_ID</span><span class="si">}</span>/zones/us-west1-a/instances/vm-1<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--destination-instance<span class="o">=</span>projects/<span class="si">${</span><span class="nv">GCP_PROJECT_ID</span><span class="si">}</span>/zones/us-west1-a/instances/vm-2<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--project<span class="o">=</span><span class="si">${</span><span class="nv">GCP_PROJECT_ID</span><span class="si">}</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--protocol<span class="o">=</span>ICMP
+<span class="gp">$ </span>gcloud<span class="w"> </span>network-management<span class="w"> </span>connectivity-tests<span class="w"> </span>describe<span class="w"> </span>vm-1-to-vm-2<span class="w"> </span>--project<span class="o">=</span><span class="si">${</span><span class="nv">GCP_PROJECT_ID</span><span class="si">}</span>
+</pre></div>
+</div>
+<p>You should see the <code class="docutils literal notranslate"><span class="pre">result</span></code> field be <code class="docutils literal notranslate"><span class="pre">UNREACHABLE</span></code>. If you look at the <code class="docutils literal notranslate"><span class="pre">steps</span></code> fields closely, you’ll notice that the invisinets-default-deny-all-egress rule is blocking the traffic.</p>
+</li>
+</ol>
+</div>
+</div>
+</section>
+<section id="add-permit-list-rules">
+<h2>Add Permit List Rules<a class="headerlink" href="#add-permit-list-rules" title="Link to this heading">#</a></h2>
+<p>To get the VMs to talk to each other, you will need to add permit list rules to both VMs.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-8" name="sd-tab-set-4" type="radio">
+</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-8">
+Azure</label><div class="sd-tab-content docutils">
+<ol class="arabic">
+<li><p>Add permit list rules to both VMs.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-1<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-2
+<span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-2<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-1
+</pre></div>
+</div>
+</li>
+<li><p>Check connectivity again between vm-1 and vm-2.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>az<span class="w"> </span>network<span class="w"> </span>watcher<span class="w"> </span>test-connectivity<span class="w"> </span>-g<span class="w"> </span><span class="si">${</span><span class="nv">AZURE_RESOURCE_GROUP_NAME</span><span class="si">}</span><span class="w"> </span>--source-resource<span class="w"> </span>vm-1<span class="w"> </span>--dest-resource<span class="w"> </span>vm-2<span class="w"> </span>--protocol<span class="w"> </span>Icmp
+</pre></div>
+</div>
+<p>You should see the <code class="docutils literal notranslate"><span class="pre">connectionStatus</span></code> be <code class="docutils literal notranslate"><span class="pre">Reachable</span></code>.</p>
+</li>
+</ol>
+</div>
+<input id="sd-tab-item-9" name="sd-tab-set-4" type="radio">
+</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-9">
+GCP</label><div class="sd-tab-content docutils">
+<ol class="arabic">
+<li><p>Add permit list rules to both VMs.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm-1<span class="w"> </span>--ping<span class="w"> </span>default.gcp.vm-2
+<span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm-2<span class="w"> </span>--ping<span class="w"> </span>default.gcp.vm-1
+</pre></div>
+</div>
+</li>
+<li><p>Check connectivity again between vm-1 and vm-2.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>gcloud<span class="w"> </span>network-management<span class="w"> </span>connectivity-tests<span class="w"> </span>rerun<span class="w"> </span>vm-1-to-vm-2<span class="w"> </span>--project<span class="o">=</span><span class="si">${</span><span class="nv">GCP_PROJECT_ID</span><span class="si">}</span>
+</pre></div>
+</div>
+<p>You should see the <code class="docutils literal notranslate"><span class="pre">result</span></code> field be <code class="docutils literal notranslate"><span class="pre">REACHABLE</span></code>.</p>
+</li>
+</ol>
+</div>
+</div>
 </section>
 </section>
 
@@ -366,25 +555,13 @@
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Quickstart</a><ul>
-<li><a class="reference internal" href="#build-install">Build / Install</a></li>
-<li><a class="reference internal" href="#cli">CLI</a></li>
+<li><a class="reference internal" href="#installation">Installation</a></li>
+<li><a class="reference internal" href="#cloud-authentication">Cloud Authentication</a></li>
 <li><a class="reference internal" href="#configuration">Configuration</a></li>
-<li><a class="reference internal" href="#startup-all-services">Startup All Services</a><ul>
-<li><a class="reference internal" href="#using-the-cli-run">Using the CLI, run:</a></li>
-<li><a class="reference internal" href="#orchestrator">Orchestrator</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#cloud-plugins">Cloud Plugins</a><ul>
-<li><a class="reference internal" href="#azure">Azure</a></li>
-<li><a class="reference internal" href="#gcp">GCP</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#tag-service">Tag Service</a></li>
-<li><a class="reference internal" href="#cloud-resources">Cloud Resources</a><ul>
-<li><a class="reference internal" href="#id2">Azure</a></li>
-<li><a class="reference internal" href="#google-cloud">Google Cloud</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#startup-services">Startup Services</a></li>
+<li><a class="reference internal" href="#create-vms">Create VMs</a></li>
+<li><a class="reference internal" href="#ping-vms">Ping VMs</a></li>
+<li><a class="reference internal" href="#add-permit-list-rules">Add Permit List Rules</a></li>
 </ul>
 </li>
 </ul>
@@ -400,5 +577,8 @@
     <script src="../_static/doctools.js?v=888ff710"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=32e29ea5"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=a56c686a"></script>
+    <script src="../_static/design-tabs.js?v=36754332"></script>
     </body>
 </html>
