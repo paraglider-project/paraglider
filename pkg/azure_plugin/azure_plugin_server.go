@@ -215,11 +215,9 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 				}
 			} else {
 				// Create VPC network peering (in both directions) for different namespaces
-				if peeringCloudInfo.Namespace != req.Namespace {
-					err = s.createNamespacePeering(ctx, azureHandler, resourceIdInfo, *resourceVnet.Location, req.Namespace, peeringCloudInfo, rule.Targets[i])
-					if err != nil {
-						return nil, fmt.Errorf("unable to create namespace peering: %w", err)
-					}
+				err = s.createPeering(ctx, azureHandler, resourceIdInfo, *resourceVnet.Location, req.Namespace, peeringCloudInfo, rule.Targets[i])
+				if err != nil {
+					return nil, fmt.Errorf("unable to create namespace peering: %w", err)
 				}
 			}
 		}
@@ -520,7 +518,7 @@ func (s *azurePluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, re
 }
 
 // Peer with another namespace within Azure
-func (s *azurePluginServer) createNamespacePeering(ctx context.Context, azureHandler AzureSDKHandler, resourceIDInfo ResourceIDInfo, resourceVnetLocation string, namespace string, peeringCloudInfo *utils.PeeringCloudInfo, permitListRuleTarget string) error {
+func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler AzureSDKHandler, resourceIDInfo ResourceIDInfo, resourceVnetLocation string, namespace string, peeringCloudInfo *utils.PeeringCloudInfo, permitListRuleTarget string) error {
 	peeringCloudResourceIDInfo, err := getResourceIDInfo(peeringCloudInfo.Deployment)
 	if err != nil {
 		return fmt.Errorf("unable to get resource ID info for peering Cloud: %w", err)

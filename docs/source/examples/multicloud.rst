@@ -49,11 +49,15 @@ Steps:
     
         inv rule add gcp vm-c --ssh 35.235.240.0/20
 
-4. Set the permit list on VM C to allow pings from VM A. This will set up the multicloud infrastructure (this takes some time).
+4. Set the permit list on VM C to allow pings from VM A.
 
     .. code-block:: console
 
         inv rule add gcp vm-c --ping default.azure.vm-a
+
+    .. note:
+    
+        This will set up the multicloud infrastructure (a VPN tunnel between the two clouds). Provisioning the gateways necessary for this can take ~20 minutes, but it is a one-time cost. All multicloud connections in this deployment will be able to use this gateway afterwards.
 
 
 Phase 1: Multi-Region connectivity
@@ -75,6 +79,8 @@ Steps:
 
 3. Log into VM A and try to ping VM B. The ping should fail.
 
+    * You can log into the VM using the serial console in-browser tool from Azure to avoid having to change the permit list.
+
 4. Set the permit list on VM B to allow pings from VM A.
 
     .. code-block:: console
@@ -88,7 +94,7 @@ Phase 2: Multicloud connectivity
 
 Steps:
 
-1. Log into VM C and try to ping VM A. The ping should fail.
+1. Picking up where we left off with the multicloud connection, log into VM C and try to ping VM A. The ping should fail.
 
 2. Set the permit list on VM A to allow pings from VM C.
 
@@ -98,10 +104,16 @@ Steps:
 
 3. Try to ping VM A from VM C. The ping should succeed.
 
-4. Remove the permit list rules allowing pings from VM C's permit list.
+4. Get the permit list of VM A.
+    
+    .. code-block:: console
+    
+        inv rule get azure vm-a
+
+4. Remove a permit list rule allowing pings from VM A's permit list.
 
     .. code-block:: console
 
-        inv rule delete azure vm-a --ping default.gcp.vm-c
+        inv rule delete azure vm-a --rules allow-ping-inbound-default.gcp.vm-c
 
 5. Try to ping VM A from VM C. The ping should fail.
