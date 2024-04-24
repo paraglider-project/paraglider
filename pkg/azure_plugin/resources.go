@@ -216,7 +216,7 @@ func (r *azureResourceHandlerVM) readAndProvisionResource(ctx context.Context, r
 	if err != nil {
 		return "", err
 	}
-	ip, err := r.createWithNetwork(ctx, vm, subnet, resourceInfo, sdkHandler, make([]string, 0))
+	ip, err := r.createWithNetwork(ctx, vm, subnet, resource.Name, sdkHandler, make([]string, 0))
 	if err != nil {
 		return "", err
 	}
@@ -230,7 +230,7 @@ func (r *azureResourceHandlerVM) getNetworkRequirements() (bool, int) {
 
 // Creates a virtual machine with the given subnet
 // Returns the private IP address of the virtual machine
-func (r *azureResourceHandlerVM) createWithNetwork(ctx context.Context, vm *armcompute.VirtualMachine, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+func (r *azureResourceHandlerVM) createWithNetwork(ctx context.Context, vm *armcompute.VirtualMachine, subnet *armnetwork.Subnet, resourceName string, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	nic, err := sdkHandler.CreateNetworkInterface(ctx, *subnet.ID, *vm.Location, getInvisinetsResourceName("nic"))
 	if err != nil {
 		utils.Log.Printf("An error occured while creating network interface:%+v", err)
@@ -245,7 +245,7 @@ func (r *azureResourceHandlerVM) createWithNetwork(ctx context.Context, vm *armc
 		},
 	}
 
-	vm, err = sdkHandler.CreateVirtualMachine(ctx, *vm, resourceInfo.ResourceName)
+	vm, err = sdkHandler.CreateVirtualMachine(ctx, *vm, resourceName)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating the virtual machine:%+v", err)
 		return "", err
@@ -309,7 +309,7 @@ func (r *azureResourceHandlerAKS) readAndProvisionResource(ctx context.Context, 
 	if err != nil {
 		return "", err
 	}
-	ip, err := r.createWithNetwork(ctx, aks, subnet, resourceInfo, sdkHandler, additionalAddressSpaces)
+	ip, err := r.createWithNetwork(ctx, aks, subnet, resource.Name, sdkHandler, additionalAddressSpaces)
 	if err != nil {
 		return "", err
 	}
@@ -355,7 +355,7 @@ func (r *azureResourceHandlerAKS) getNetworkInfo(resource *armresources.GenericR
 
 // Creates an AKS cluster with the given subnet
 // Returns the address prefix of the subnet
-func (r *azureResourceHandlerAKS) createWithNetwork(ctx context.Context, resource *armcontainerservice.ManagedCluster, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+func (r *azureResourceHandlerAKS) createWithNetwork(ctx context.Context, resource *armcontainerservice.ManagedCluster, subnet *armnetwork.Subnet, resourceName string, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	// Set network parameters
 	for _, profile := range resource.Properties.AgentPoolProfiles {
 		profile.VnetSubnetID = subnet.ID
@@ -368,7 +368,7 @@ func (r *azureResourceHandlerAKS) createWithNetwork(ctx context.Context, resourc
 	resource.Properties.NetworkProfile.DNSServiceIP = to.Ptr(getDnsServiceCidr(additionalAddressSpaces[0]))
 
 	// Create the AKS cluster
-	_, err := sdkHandler.CreateAKSCluster(ctx, *resource, resourceInfo.ResourceName)
+	_, err := sdkHandler.CreateAKSCluster(ctx, *resource, resourceName)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating the AKS cluster:%+v", err)
 		return "", err
@@ -376,7 +376,7 @@ func (r *azureResourceHandlerAKS) createWithNetwork(ctx context.Context, resourc
 
 	// Associate the subnet with an NSG for the cluster
 	allowedAddrs := map[string]string{"localsubnet": *subnet.Properties.AddressPrefix} // TODO @smcclure20: change with support for kubenet (include pod cidr)
-	nsg, err := sdkHandler.CreateSecurityGroup(ctx, resourceInfo.ResourceName, *resource.Location, allowedAddrs)
+	nsg, err := sdkHandler.CreateSecurityGroup(ctx, resourceName, *resource.Location, allowedAddrs)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating the network security group:%+v", err)
 		return "", err

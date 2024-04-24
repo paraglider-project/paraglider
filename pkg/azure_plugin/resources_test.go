@@ -407,8 +407,7 @@ func TestAzureVMCreateWithNetwork(t *testing.T) {
 	vmHandler := &azureResourceHandlerVM{}
 
 	subnet := getFakeSubnet()
-	resourceInfo := &ResourceIDInfo{ResourceName: fakeVmName}
-	ip, err := vmHandler.createWithNetwork(context.Background(), vm, &subnet, resourceInfo, mockAzureHandler, []string{})
+	ip, err := vmHandler.createWithNetwork(context.Background(), vm, &subnet, fakeVmName, mockAzureHandler, []string{})
 
 	require.NoError(t, err)
 	assert.Equal(t, ip, *getFakeInterface().Properties.IPConfigurations[0].Properties.PrivateIPAddress)
@@ -448,8 +447,7 @@ func TestAzureAKSCreateWithNetwork(t *testing.T) {
 	aksHandler := &azureResourceHandlerAKS{}
 
 	subnet := getFakeSubnet()
-	resourceInfo := &ResourceIDInfo{ResourceName: fakeClusterName}
-	ip, err := aksHandler.createWithNetwork(context.Background(), cluster, &subnet, resourceInfo, mockAzureHandler, []string{"1.1.1.1/1", "2.2.2.2/2"})
+	ip, err := aksHandler.createWithNetwork(context.Background(), cluster, &subnet, fakeClusterName, mockAzureHandler, []string{"1.1.1.1/1", "2.2.2.2/2"})
 
 	require.NoError(t, err)
 	assert.Equal(t, ip, *getFakeSubnet().Properties.AddressPrefix)
