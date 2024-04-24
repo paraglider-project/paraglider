@@ -320,7 +320,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		}
 		// Create subnet
 		if !subnetExists {
-			resourceSubnet, err = azureHandler.AddSubnetToInvisinetsVnet(ctx, resourceDesc.Namespace, vnetName, getSubnetName(resourceDescInfo.ResourceName), s.orchestratorServerAddr)
+			resourceSubnet, err = azureHandler.AddSubnetToInvisinetsVnet(ctx, resourceDesc.Deployment.Namespace, vnetName, getSubnetName(resourceDescInfo.ResourceName), s.orchestratorServerAddr)
 			if err != nil {
 				utils.Log.Printf("An error occured while creating subnet:%+v", err)
 				return nil, err

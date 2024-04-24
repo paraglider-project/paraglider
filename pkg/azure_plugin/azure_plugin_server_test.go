@@ -70,10 +70,12 @@ func setupAzurePluginServer() (*azurePluginServer, *MockAzureSDKHandler, context
 
 func getValidVMDescription() (armcompute.VirtualMachine, []byte, error) {
 	validVm := &armcompute.VirtualMachine{
-		ID:         to.Ptr("vm-id"),
-		Name:       to.Ptr("vm-name"),
-		Location:   to.Ptr(testLocation),
-		Properties: &armcompute.VirtualMachineProperties{},
+		ID:       to.Ptr("vm-id"),
+		Name:     to.Ptr("vm-name"),
+		Location: to.Ptr(testLocation),
+		Properties: &armcompute.VirtualMachineProperties{
+			HardwareProfile: &armcompute.HardwareProfile{VMSize: to.Ptr(armcompute.VirtualMachineSizeTypesStandardB1S)},
+		},
 	}
 
 	validDescripton, err := json.Marshal(validVm)
@@ -82,8 +84,6 @@ func getValidVMDescription() (armcompute.VirtualMachine, []byte, error) {
 
 func getValidClusterDescription() (armcontainerservice.ManagedCluster, []byte, error) {
 	validCluster := &armcontainerservice.ManagedCluster{
-		ID:       to.Ptr("cluster-id"),
-		Name:     to.Ptr("cluster-name"),
 		Location: to.Ptr(testLocation),
 		Properties: &armcontainerservice.ManagedClusterProperties{
 			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
@@ -146,7 +146,7 @@ func TestCreateResource(t *testing.T) {
 
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
 			Deployment:  &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: namespace},
-			Name:        vmName,
+			Name:        fakeVmName,
 			Description: desc,
 		})
 
@@ -252,9 +252,9 @@ func TestCreateResource(t *testing.T) {
 		mockAzureHandler.On("CreateOrUpdateVnetPeeringRemoteGateway", ctx, vnetName, vpnGwVnetName, (*armnetwork.VirtualNetworkPeering)(nil), (*armnetwork.VirtualNetworkPeering)(nil)).Return(nil)
 
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
+			Deployment:  &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: namespace},
 			Description: desc,
-			Id:          getFakeClusterUri(),
-			Namespace:   namespace,
+			Name:        getFakeClusterName(),
 		})
 
 		require.NoError(t, err)
@@ -735,7 +735,7 @@ func TestGetResourceIDInfo(t *testing.T) {
 		{
 			name:         "ValidResourceIDWithVM",
 			resourceID:   getFakeVmUri(),
-			expectedInfo: ResourceIDInfo{SubscriptionID: "sub123", ResourceGroupName: "rg123", ResourceName: "vm123"},
+			expectedInfo: ResourceIDInfo{SubscriptionID: "sub123", ResourceGroupName: "rg123", ResourceName: fakeVmName},
 			expectError:  false,
 		},
 		{
@@ -752,7 +752,7 @@ func TestGetResourceIDInfo(t *testing.T) {
 		},
 		{
 			name:         "InvalidSegment",
-			resourceID:   "/subscriptions/sub123/invalidSegment/rg123/providers/Microsoft.Compute/virtualMachines/vm123",
+			resourceID:   "/subscriptions/sub123/invalidSegment/rg123/providers/Microsoft.Compute/virtualMachines/" + fakeVmName,
 			expectedInfo: ResourceIDInfo{},
 			expectError:  true,
 		},
@@ -912,11 +912,11 @@ func TestCreateVpnConnections(t *testing.T) {
 /* --- Helper Functions --- */
 
 func getFakeVmUri() string {
-	return "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/vm123"
+	return "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/" + fakeVmName
 }
 
-func getFakeClusterUri() string {
-	return "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.ContainerService/managedClusters/cluster123"
+func getFakeClusterName() string {
+	return "cluster123"
 }
 
 func getFakeNewPermitListRules() ([]*invisinetspb.PermitListRule, error) {

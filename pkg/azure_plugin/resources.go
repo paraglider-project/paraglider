@@ -52,11 +52,6 @@ type resourceInfo struct {
 	NumAdditionalAddressSpaces int
 }
 
-func getNameFromUri(uri string) string {
-	split := strings.Split(uri, "/")
-	return split[len(split)-1]
-}
-
 func getDnsServiceCidr(serviceCidr string) string {
 	// Get the first three octets of the service CIDR
 	split := strings.Split(serviceCidr, ".")
@@ -72,6 +67,17 @@ func getResourceHandler(resourceID string) (AzureResourceHandler, error) {
 	} else {
 		return nil, fmt.Errorf("resource type %s is not supported", resourceID)
 	}
+}
+
+func getResourceHandlerFromDescription(resourceDesc []byte) (AzureResourceHandler, error) {
+	vm := &armcompute.VirtualMachine{}
+	aks := &armcontainerservice.ManagedCluster{}
+	if err := json.Unmarshal(resourceDesc, vm); err == nil && vm.Properties.HardwareProfile != nil {
+		return &azureResourceHandlerVM{}, nil
+	} else if err := json.Unmarshal(resourceDesc, aks); err == nil && len(aks.Properties.AgentPoolProfiles) > 0 {
+		return &azureResourceHandlerAKS{}, nil
+	}
+	return nil, fmt.Errorf("resource description contains unsupported resource type")
 }
 
 // Gets the resource and returns relevant networking state. Also checks that the resource is in the correct namespace.
@@ -123,7 +129,7 @@ func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, reso
 // Gets basic resource information from the description
 // Returns the resource name, ID, location, and whether the resource will require its own subnet in a struct
 func GetResourceInfoFromResourceDesc(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
-	handler, err := getResourceHandler(resource.Id)
+	handler, err := getResourceHandlerFromDescription(resource.Description)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +138,7 @@ func GetResourceInfoFromResourceDesc(ctx context.Context, resource *invisinetspb
 
 // Reads the resource description and provisions the resource with the given subnet
 func ReadAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
-	handler, err := getResourceHandler(resource.Id)
+	handler, err := getResourceHandlerFromDescription(resource.Description)
 	if err != nil {
 		return "", err
 	}
@@ -200,7 +206,8 @@ func (r *azureResourceHandlerVM) getResourceInfoFromDescription(ctx context.Cont
 		return nil, err
 	}
 	requiresSubnet, extraPrefixes := r.getNetworkRequirements()
-	return &resourceInfo{ResourceName: getNameFromUri(resource.Id), ResourceID: resource.Id, Location: *vm.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
+	resourceId := fmt.Sprintf("%s/providers/%s/%s", resource.Deployment.Id, virtualMachineTypeName, resource.Name)
+	return &resourceInfo{ResourceName: resource.Name, ResourceID: resourceId, Location: *vm.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
 }
 
 // Reads the resource description and provisions the resource with the given subnet
@@ -291,7 +298,8 @@ func (r *azureResourceHandlerAKS) getResourceInfoFromDescription(ctx context.Con
 		return nil, err
 	}
 	requiresSubnet, extraPrefixes := r.getNetworkRequirements()
-	return &resourceInfo{ResourceName: *aks.Name, ResourceID: resource.Id, Location: *aks.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
+	resourceId := fmt.Sprintf("%s/providers/%s/%s", resource.Deployment.Id, managedClusterTypeName, resource.Name)
+	return &resourceInfo{ResourceName: resource.Name, ResourceID: resourceId, Location: *aks.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
 
 }
 
