@@ -52,6 +52,14 @@ type resourceInfo struct {
 	NumAdditionalAddressSpaces int
 }
 
+func getVmUri(subscriptionId string, resourceGroupName string, vmName string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", subscriptionId, resourceGroupName, virtualMachineTypeName, vmName)
+}
+
+func getClusterUri(subscriptionId string, resourceGroupName string, clusterName string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", subscriptionId, resourceGroupName, managedClusterTypeName, clusterName)
+}
+
 func getDnsServiceCidr(serviceCidr string) string {
 	// Get the first three octets of the service CIDR
 	split := strings.Split(serviceCidr, ".")
@@ -206,8 +214,11 @@ func (r *azureResourceHandlerVM) getResourceInfoFromDescription(ctx context.Cont
 		return nil, err
 	}
 	requiresSubnet, extraPrefixes := r.getNetworkRequirements()
-	resourceId := fmt.Sprintf("%s/providers/%s/%s", resource.Deployment.Id, virtualMachineTypeName, resource.Name)
-	return &resourceInfo{ResourceName: resource.Name, ResourceID: resourceId, Location: *vm.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
+	resourceDeploymentIdInfo, err := getResourceIDInfo(resource.Deployment.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &resourceInfo{ResourceName: resource.Name, ResourceID: getVmUri(resourceDeploymentIdInfo.SubscriptionID, resourceDeploymentIdInfo.ResourceGroupName, resource.Name), Location: *vm.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
 }
 
 // Reads the resource description and provisions the resource with the given subnet
@@ -298,9 +309,11 @@ func (r *azureResourceHandlerAKS) getResourceInfoFromDescription(ctx context.Con
 		return nil, err
 	}
 	requiresSubnet, extraPrefixes := r.getNetworkRequirements()
-	resourceId := fmt.Sprintf("%s/providers/%s/%s", resource.Deployment.Id, managedClusterTypeName, resource.Name)
-	return &resourceInfo{ResourceName: resource.Name, ResourceID: resourceId, Location: *aks.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
-
+	resourceDeploymentIdInfo, err := getResourceIDInfo(resource.Deployment.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &resourceInfo{ResourceName: resource.Name, ResourceID: getClusterUri(resourceDeploymentIdInfo.SubscriptionID, resourceDeploymentIdInfo.ResourceGroupName, resource.Name), Location: *aks.Location, RequiresSubnet: requiresSubnet, NumAdditionalAddressSpaces: extraPrefixes}, nil
 }
 
 // Reads the resource description and provisions the resource with the given subnet
