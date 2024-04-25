@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
-	azure_plugin "github.com/NetSys/invisinets/pkg/azure_plugin"
+	azure "github.com/NetSys/invisinets/pkg/azure"
 	gcp "github.com/NetSys/invisinets/pkg/gcp"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	orchestrator "github.com/NetSys/invisinets/pkg/orchestrator"
@@ -37,10 +37,10 @@ import (
 func TestMulticloud(t *testing.T) {
 	// Azure config
 	azurePluginPort := 7991
-	azureSubscriptionId := azure_plugin.GetAzureSubscriptionId()
-	azureResourceGroupName := azure_plugin.SetupAzureTesting(azureSubscriptionId, "multicloud")
+	azureSubscriptionId := azure.GetAzureSubscriptionId()
+	azureResourceGroupName := azure.SetupAzureTesting(azureSubscriptionId, "multicloud")
 	azureDeploymentId := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName)
-	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
+	defer azure.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
 
 	// GCP config
 	gcpPluginPort := 7992
@@ -86,7 +86,7 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Setup orchestrator server")
 
 	// Setup Azure
-	azureServer := azure_plugin.Setup(azurePluginPort, orchestratorServerAddr)
+	azureServer := azure.Setup(azurePluginPort, orchestratorServerAddr)
 	fmt.Println("Setup Azure server")
 
 	// Setup GCP
@@ -97,7 +97,7 @@ func TestMulticloud(t *testing.T) {
 
 	// Create Azure VM 1
 	azureVm1Location := "westus"
-	azureVm1Parameters := azure_plugin.GetTestVmParameters(azureVm1Location)
+	azureVm1Parameters := azure.GetTestVmParameters(azureVm1Location)
 	azureVm1Description, err := json.Marshal(azureVm1Parameters)
 	azureVm1Name := "invisinets-vm-test-1"
 	azureVm1ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + azureVm1Name
@@ -134,7 +134,7 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Created GCP VM")
 
 	// Create GCP permit list for Azure VM 1
-	azureVm1IpAddress, err := azure_plugin.GetVmIpAddress(azureVm1ResourceId)
+	azureVm1IpAddress, err := azure.GetVmIpAddress(azureVm1ResourceId)
 	require.NoError(t, err)
 	gcpVmPermitList1Req := &invisinetspb.AddPermitListRulesRequest{
 		Resource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProjectId, gcpVmZone, gcpVmName),
@@ -222,13 +222,13 @@ func TestMulticloud(t *testing.T) {
 	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-1", gcpConnectivityTest1GcpVmEndpoint, gcpConnectivityTest1AzureVmEndpoint)
 
 	// Run Azure connectivity check (ping from Azure VM to GCP VM)
-	azureConnectivityCheck1, err := azure_plugin.RunPingConnectivityCheck(azureVm1ResourceId, gcpVmIpAddress)
+	azureConnectivityCheck1, err := azure.RunPingConnectivityCheck(azureVm1ResourceId, gcpVmIpAddress)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck1)
 
 	// Create Azure VM 2
 	azureVm2Location := "eastus"
-	azureVm2Parameters := azure_plugin.GetTestVmParameters(azureVm2Location)
+	azureVm2Parameters := azure.GetTestVmParameters(azureVm2Location)
 	azureVm2Description, err := json.Marshal(azureVm2Parameters)
 	azureVm2Name := "invisinets-vm-test-2"
 	azureVm2ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + azureVm2Name
@@ -247,7 +247,7 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Created Azure VM")
 
 	// Create GCP permit list for Azure VM 2
-	azureVm2IpAddress, err := azure_plugin.GetVmIpAddress(azureVm2ResourceId)
+	azureVm2IpAddress, err := azure.GetVmIpAddress(azureVm2ResourceId)
 	require.NoError(t, err)
 	gcpVmPermitList2Req := &invisinetspb.AddPermitListRulesRequest{
 		Resource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProjectId, gcpVmZone, gcpVmName),
@@ -333,7 +333,7 @@ func TestMulticloud(t *testing.T) {
 	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-2", gcpConnectivityTest2GcpVmEndpoint, gcpConnectivityTest2AzureVmEndpoint)
 
 	// Run Azure connectivity check (ping from Azure VM to GCP VM)
-	azureConnectivityCheck2, err := azure_plugin.RunPingConnectivityCheck(azureVm2ResourceId, gcpVmIpAddress)
+	azureConnectivityCheck2, err := azure.RunPingConnectivityCheck(azureVm2ResourceId, gcpVmIpAddress)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck2)
 }

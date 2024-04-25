@@ -14,37 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package azure_plugin
+package azure
 
 import (
 	"context"
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	utils "github.com/NetSys/invisinets/pkg/utils"
-	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 )
 
 const maxPriority = 4096
-
-const (
-	invisinetsPrefix = "invisinets"
-)
-
-type ResourceIDInfo struct {
-	SubscriptionID    string
-	ResourceGroupName string
-	ResourceName      string
-}
 
 type azurePluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
@@ -141,7 +129,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 	var existingRulePriorities map[string]int32 = make(map[string]int32)
 	var reservedPrioritiesInbound map[int32]bool = make(map[int32]bool)
 	var reservedPrioritiesOutbound map[int32]bool = make(map[int32]bool)
-	err = s.setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, existingRulePriorities, netInfo.NSG)
+	err = setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, existingRulePriorities, netInfo.NSG)
 	if err != nil {
 		utils.Log.Printf("An error occured during setup: %+v", err)
 		return nil, err
@@ -512,158 +500,6 @@ func (s *azurePluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, re
 	return resp, nil
 }
 
-// Peer with another virtual network
-func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler AzureSDKHandler, resourceIDInfo ResourceIDInfo, resourceVnetLocation string, namespace string, peeringCloudInfo *utils.PeeringCloudInfo, permitListRuleTarget string) error {
-	peeringCloudResourceIDInfo, err := getResourceIDInfo(peeringCloudInfo.Deployment)
-	if err != nil {
-		return fmt.Errorf("unable to get resource ID info for peering Cloud: %w", err)
-	}
-	peeringCloudAzureHandler, err := s.setupAzureHandler(peeringCloudResourceIDInfo)
-	if err != nil {
-		return err
-	}
-	invisinetsVnetsMap, err := peeringCloudAzureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(peeringCloudInfo.Namespace))
-	if err != nil {
-		return fmt.Errorf("unable to create vnets address spaces for peering cloud: %w", err)
-	}
-	// Find the vnet that contains the target
-	contained := false
-	for peeringVnetLocation, peeringVnetAddressSpaces := range invisinetsVnetsMap {
-		contained, err = utils.IsPermitListRuleTagInAddressSpace(permitListRuleTarget, peeringVnetAddressSpaces)
-		if err != nil {
-			return fmt.Errorf("unable to check if tag is in vnet address space")
-		}
-		if contained {
-			// Create peering
-			currentVnetName := getVnetName(resourceVnetLocation, namespace)
-			peeringVnetName := getVnetName(peeringVnetLocation, peeringCloudInfo.Namespace)
-			err = azureHandler.CreateVnetPeeringOneWay(ctx, currentVnetName, peeringVnetName, peeringCloudResourceIDInfo.SubscriptionID, peeringCloudResourceIDInfo.ResourceGroupName)
-			if err != nil {
-				return fmt.Errorf("unable to create vnet peering: %w", err)
-			}
-			err = peeringCloudAzureHandler.CreateVnetPeeringOneWay(ctx, peeringVnetName, currentVnetName, resourceIDInfo.SubscriptionID, resourceIDInfo.ResourceGroupName)
-			if err != nil {
-				return fmt.Errorf("unable to create vnet peering: %w", err)
-			}
-			break
-		}
-	}
-	if !contained {
-		return fmt.Errorf("unable to find vnet belonging to permit list rule target")
-	}
-	return nil
-}
-
-// Extract the Vnet name from the subnet ID
-func getVnetFromSubnetId(subnetId string) string {
-	parts := strings.Split(subnetId, "/")
-	return parts[8] // TODO @smcclure20: do this in a less brittle way
-}
-
-// setupMaps fills the reservedPrioritiesInbound and reservedPrioritiesOutbound maps with the priorities of the existing rules in the NSG
-// This is done to avoid priorities conflicts when creating new rules
-// Existing rules map is filled to ensure that rules that just need their contents updated do not get recreated with new priorities
-func (s *azurePluginServer) setupMaps(reservedPrioritiesInbound map[int32]bool, reservedPrioritiesOutbound map[int32]bool, existingRulePriorities map[string]int32, nsg *armnetwork.SecurityGroup) error {
-	for _, rule := range nsg.Properties.SecurityRules {
-		if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
-			reservedPrioritiesInbound[*rule.Properties.Priority] = true
-		} else if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionOutbound {
-			reservedPrioritiesOutbound[*rule.Properties.Priority] = true
-		}
-
-		// skip rules that are not created by Invisinets, because some rules are added by default and have
-		// different fields such as port ranges which is not supported by Invisinets at the moment
-		if !strings.HasPrefix(*rule.Name, invisinetsPrefix) {
-			continue
-		}
-		existingRulePriorities[*rule.Name] = *rule.Properties.Priority
-	}
-	return nil
-}
-
-// getPriority returns the next available priority that is not used by other rules
-func getPriority(reservedPriorities map[int32]bool, start int32, end int32) int32 {
-	var i int32
-	for i = start; i < end; i++ {
-		if !reservedPriorities[i] {
-			reservedPriorities[i] = true
-			break
-		}
-	}
-	return i
-}
-
-// getInvisinetsResourceName returns a name for the Invisinets resource
-func getInvisinetsResourceName(resourceType string) string {
-	// TODO @nnomier: change based on invisinets naming convention
-	return invisinetsPrefix + "-" + resourceType + "-" + uuid.New().String()
-}
-
-// getNSGRuleName returns a name for the Invisinets rule
-func getNSGRuleName(ruleName string) string {
-	return invisinetsPrefix + "-" + ruleName
-}
-
-func getRuleNameFromNSGRuleName(ruleName string) string {
-	return strings.TrimPrefix(ruleName, invisinetsPrefix+"-")
-}
-
-// getResourceIDInfo parses the resourceID to extract subscriptionID and resourceGroupName (and VM name if needed)
-// and returns a ResourceIDInfo object filled with the extracted values
-// a valid resourceID should be in the format of '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/...'
-func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
-	parts := strings.Split(resourceID, "/")
-	if len(parts) < 5 {
-		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected at least 5 parts in the format of '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/...', got %d", len(parts))
-	}
-
-	if parts[0] != "" || parts[1] != "subscriptions" || parts[3] != "resourceGroups" {
-		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/...', got '%s'", resourceID)
-	}
-
-	info := ResourceIDInfo{
-		SubscriptionID:    parts[2],
-		ResourceGroupName: parts[4],
-	}
-
-	info.ResourceName = parts[len(parts)-1]
-	return info, nil
-}
-
-func getSubnetName(resourceName string) string {
-	return resourceName + "-subnet"
-}
-
-func getInvisinetsNamespacePrefix(namespace string) string {
-	return invisinetsPrefix + "-" + namespace
-}
-
-// getVnetName returns the name of the invisinets vnet in the given location
-// since an invisients vnet is unique per location
-func getVnetName(location string, namespace string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-" + location + "-vnet"
-}
-
-func getVpnGatewayVnetName(namespace string) string {
-	return getVpnGatewayName(namespace) + "-vnet"
-}
-
-func getVpnGatewayName(namespace string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-vpn-gw"
-}
-
-func getVPNGatewayIPAddressName(namespace string, idx int) string {
-	return getVpnGatewayName(namespace) + "-ip-" + strconv.Itoa(idx)
-}
-
-func getLocalNetworkGatewayName(namespace string, cloud string, idx int) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-" + cloud + "-local-gw-" + strconv.Itoa(idx)
-}
-
-func getVirtualNetworkGatewayConnectionName(namespace string, cloud string, idx int) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-" + cloud + "-conn-" + strconv.Itoa(idx)
-}
-
 func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinetspb.CreateVpnGatewayRequest) (*invisinetspb.CreateVpnGatewayResponse, error) {
 	resourceId := req.Deployment.Id
 	namespace := req.Deployment.Namespace
@@ -916,6 +752,48 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 	}
 
 	return &invisinetspb.BasicResponse{Success: true}, nil
+}
+
+// Peer with another virtual network
+func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler AzureSDKHandler, resourceIDInfo ResourceIDInfo, resourceVnetLocation string, namespace string, peeringCloudInfo *utils.PeeringCloudInfo, permitListRuleTarget string) error {
+	peeringCloudResourceIDInfo, err := getResourceIDInfo(peeringCloudInfo.Deployment)
+	if err != nil {
+		return fmt.Errorf("unable to get resource ID info for peering Cloud: %w", err)
+	}
+	peeringCloudAzureHandler, err := s.setupAzureHandler(peeringCloudResourceIDInfo)
+	if err != nil {
+		return err
+	}
+	invisinetsVnetsMap, err := peeringCloudAzureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(peeringCloudInfo.Namespace))
+	if err != nil {
+		return fmt.Errorf("unable to create vnets address spaces for peering cloud: %w", err)
+	}
+	// Find the vnet that contains the target
+	contained := false
+	for peeringVnetLocation, peeringVnetAddressSpaces := range invisinetsVnetsMap {
+		contained, err = utils.IsPermitListRuleTagInAddressSpace(permitListRuleTarget, peeringVnetAddressSpaces)
+		if err != nil {
+			return fmt.Errorf("unable to check if tag is in vnet address space")
+		}
+		if contained {
+			// Create peering
+			currentVnetName := getVnetName(resourceVnetLocation, namespace)
+			peeringVnetName := getVnetName(peeringVnetLocation, peeringCloudInfo.Namespace)
+			err = azureHandler.CreateVnetPeeringOneWay(ctx, currentVnetName, peeringVnetName, peeringCloudResourceIDInfo.SubscriptionID, peeringCloudResourceIDInfo.ResourceGroupName)
+			if err != nil {
+				return fmt.Errorf("unable to create vnet peering: %w", err)
+			}
+			err = peeringCloudAzureHandler.CreateVnetPeeringOneWay(ctx, peeringVnetName, currentVnetName, resourceIDInfo.SubscriptionID, resourceIDInfo.ResourceGroupName)
+			if err != nil {
+				return fmt.Errorf("unable to create vnet peering: %w", err)
+			}
+			break
+		}
+	}
+	if !contained {
+		return fmt.Errorf("unable to find vnet belonging to permit list rule target")
+	}
+	return nil
 }
 
 func Setup(port int, orchestratorServerAddr string) *azurePluginServer {

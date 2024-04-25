@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	az "github.com/NetSys/invisinets/pkg/azure_plugin"
+	az "github.com/NetSys/invisinets/pkg/azure"
 	gcp "github.com/NetSys/invisinets/pkg/gcp"
 	kvservice "github.com/NetSys/invisinets/pkg/kvstore"
 	orchestrator "github.com/NetSys/invisinets/pkg/orchestrator"

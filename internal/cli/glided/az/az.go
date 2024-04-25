@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	az "github.com/NetSys/invisinets/pkg/azure_plugin"
+	az "github.com/NetSys/invisinets/pkg/azure"
 )
 
 func NewCommand() *cobra.Command {
