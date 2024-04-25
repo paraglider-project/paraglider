@@ -3,57 +3,68 @@
 Tag Example
 ===========
 
+Goals
+------
+* Create a tag for an IP address
+* Add a parent tag for the IP tag
+* Reference the parent tag in a resource's permit list
+* Add a new tag to the parent tag
+* See that the resource's permit list has been updated accordingly
+
+Steps
+------
+
 1. Create a tag for an IP address with name `iptag`
 
    .. code-block:: console
 
-        inv tag set iptag --ip 1.1.1.1
+        $ inv tag set iptag --ip 1.1.1.1
 
 2. Assign `iptag` to a parent tag named `parenttag`
 
    .. code-block:: console
 
-        inv tag set parenttag --children iptag
+        $ inv tag set parenttag --children iptag
 
 
 3. Resolve the parent tag down to list of names
 
    .. code-block:: console
     
-        inv tag get parenttag --resolve
+        $ inv tag get parenttag --resolve
 
 4. Create a resource name `vm1`
 
    .. code-block:: console
     
-        inv resource create gcp vm1 <path_to_config>
+        $ inv resource create gcp vm1 <path_to_config>
 
 4. Add a rule referencing the parent tag to a resource
 
    .. code-block:: console
     
-        inv rule add gcp vm1 --ping parenttag
+        $ inv rule add gcp vm1 --ping parenttag
 
 5. Create a tag, `iptag2`
 
    .. code-block:: console
     
-        inv tag set iptag2 --ip 2.2.2.2
+        $ inv tag set iptag2 --ip 2.2.2.2
 
 6. Add `iptag2` to `parenttag`
 
    .. code-block:: console
     
-         inv tag set parenttag --children iptag2
+         $ inv tag set parenttag --children iptag2
 
 7. Get the permit list of the resource we added to
 
    .. code-block:: console
     
-        inv rule get gcp vm1
+        $ inv rule get gcp vm1
 
 8. Resolve the parent tag
 
    .. code-block:: console
     
-        inv tag get parenttag --resolve
+        $ inv tag get parenttag --resolve

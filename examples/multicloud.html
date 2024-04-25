@@ -213,7 +213,7 @@
           <section id="multicloud-example">
 <span id="multicloudexample"></span><h1>Multicloud Example<a class="headerlink" href="#multicloud-example" title="Link to this heading">#</a></h1>
 <section id="goals">
-<h2>Goals:<a class="headerlink" href="#goals" title="Link to this heading">#</a></h2>
+<h2>Goals<a class="headerlink" href="#goals" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p>Create two VMs in Azure in different regions and connect them together</p></li>
 <li><p>Create a third VM in GCP and connect to one of the Azure VMs</p></li>
@@ -232,22 +232,115 @@
    A &lt;---&gt; C
         </div></section>
 <section id="setup">
-<h2>Setup:<a class="headerlink" href="#setup" title="Link to this heading">#</a></h2>
+<h2>Setup<a class="headerlink" href="#setup" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p>Run <code class="docutils literal notranslate"><span class="pre">invd</span> <span class="pre">startup</span> <span class="pre">&lt;path_to_config&gt;</span></code> to start all the microservices</p></li>
+<li><p>For this example, we assume that you have set up the necessary credentials for Azure and GCP and that you have configured your Paraglider controller with a <code class="docutils literal notranslate"><span class="pre">default</span></code> namespace for both clouds. For more on how to do this, see the quickstart.</p></li>
+<li><dl class="simple">
+<dt>Run <code class="docutils literal notranslate"><span class="pre">invd</span> <span class="pre">startup</span> <span class="pre">&lt;path_to_config&gt;</span></code> to start all the microservices</dt><dd><ul>
+<li><p>This example uses a templated controller config from the repo. You can find it at the <code class="docutils literal notranslate"><span class="pre">tools/examples/controller-configs/az-gcp-config.yml</span></code> directory.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>This example uses the following templated configuration files in the repo. You can find them in the <code class="docutils literal notranslate"><span class="pre">tools/examples/</span></code>.</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">vm-configs/azure-vm-westus.json</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">vm-configs/azure-vm-eastus.json</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">vm-configs/gcp-vm.json</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</li>
 </ul>
 </section>
 <section id="phase-0-multicloud-prep">
 <h2>Phase 0: Multicloud Prep<a class="headerlink" href="#phase-0-multicloud-prep" title="Link to this heading">#</a></h2>
-<p>Steps:</p>
+<section id="steps">
+<h3>Steps<a class="headerlink" href="#steps" title="Link to this heading">#</a></h3>
 <ol class="arabic">
 <li><p>Create VM A in Azure</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">inv resource create azure vm-a azure-vm-westus.json</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>azure<span class="w"> </span>vm-a<span class="w"> </span>&lt;path/to/azure-vm-westus.json&gt;
 </pre></div>
 </div>
 </li>
-<li><p>Create VM C in GCP</p></li>
+<li><p>Create VM C in GCP</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>gcp<span class="w"> </span>vm-c<span class="w"> </span>&lt;path/to/gcp-vm.json&gt;
+</pre></div>
+</div>
+</li>
+<li><p>Log into VM C and try to ping VM A. Add the following rule to allow the in-browser SSH tool from GCP. The ping should fail.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm-c<span class="w"> </span>--ssh<span class="w"> </span><span class="m">35</span>.235.240.0/20
+</pre></div>
+</div>
+</li>
+<li><p>Set the permit list on VM C to allow pings from VM A.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm-c<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-a
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This will set up the multicloud infrastructure (a VPN tunnel between the two clouds). Provisioning the gateways necessary for this can take ~20 minutes, but it is a one-time cost. All multicloud connections in this deployment will be able to use this gateway afterwards.</p>
+</div>
+</li>
 </ol>
+</section>
+</section>
+<section id="phase-1-multi-region-connectivity">
+<h2>Phase 1: Multi-Region connectivity<a class="headerlink" href="#phase-1-multi-region-connectivity" title="Link to this heading">#</a></h2>
+<section id="id1">
+<h3>Steps<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
+<ol class="arabic">
+<li><p>Create VM B in Azure</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>azure<span class="w"> </span>vm-b<span class="w"> </span>&lt;path/to/azure-vm-eastus.json&gt;
+</pre></div>
+</div>
+</li>
+<li><p>Set the permit list on VM ato allow pings to VM B.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-a<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-b
+</pre></div>
+</div>
+</li>
+<li><p>Log into VM A and try to ping VM B. The ping should fail.</p>
+<ul class="simple">
+<li><p>You can log into the VM using the serial console in-browser tool from Azure to avoid having to change the permit list.</p></li>
+</ul>
+</li>
+<li><p>Set the permit list on VM B to allow pings from VM A.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-b<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-a
+</pre></div>
+</div>
+</li>
+<li><p>Log into VM A and try to ping VM B. The ping should succeed.</p></li>
+</ol>
+</section>
+</section>
+<section id="phase-2-multicloud-connectivity">
+<h2>Phase 2: Multicloud connectivity<a class="headerlink" href="#phase-2-multicloud-connectivity" title="Link to this heading">#</a></h2>
+<section id="id2">
+<h3>Steps<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
+<ol class="arabic">
+<li><p>Picking up where we left off with the multicloud connection, log into VM C and try to ping VM A. The ping should fail.</p></li>
+<li><p>Set the permit list on VM A to allow pings from VM C.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-a<span class="w"> </span>--ping<span class="w"> </span>default.gcp.vm-c
+</pre></div>
+</div>
+</li>
+<li><p>Try to ping VM A from VM C. The ping should succeed.</p></li>
+<li><p>Get the permit list of VM A.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>get<span class="w"> </span>azure<span class="w"> </span>vm-a
+</pre></div>
+</div>
+</li>
+</ol>
+<ol class="arabic" start="4">
+<li><p>Remove a permit list rule allowing pings from VM A’s permit list.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>delete<span class="w"> </span>azure<span class="w"> </span>vm-a<span class="w"> </span>--rules<span class="w"> </span>allow-ping-inbound-default.gcp.vm-c
+</pre></div>
+</div>
+</li>
+<li><p>Try to ping VM A from VM C. The ping should fail.</p></li>
+</ol>
+</section>
 </section>
 </section>
 
@@ -306,9 +399,20 @@
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Multicloud Example</a><ul>
-<li><a class="reference internal" href="#goals">Goals:</a></li>
-<li><a class="reference internal" href="#setup">Setup:</a></li>
-<li><a class="reference internal" href="#phase-0-multicloud-prep">Phase 0: Multicloud Prep</a></li>
+<li><a class="reference internal" href="#goals">Goals</a></li>
+<li><a class="reference internal" href="#setup">Setup</a></li>
+<li><a class="reference internal" href="#phase-0-multicloud-prep">Phase 0: Multicloud Prep</a><ul>
+<li><a class="reference internal" href="#steps">Steps</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#phase-1-multi-region-connectivity">Phase 1: Multi-Region connectivity</a><ul>
+<li><a class="reference internal" href="#id1">Steps</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#phase-2-multicloud-connectivity">Phase 2: Multicloud connectivity</a><ul>
+<li><a class="reference internal" href="#id2">Steps</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
