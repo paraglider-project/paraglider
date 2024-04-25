@@ -3,140 +3,401 @@
 Quickstart
 ==========
 
-The controller consists of a orchestrator that sends requests to per-cloud plugins/controllers and a tag service. These services can be started individually or all at once on the localhost.
+This guide will walk you through an example of how to use Invisinets to ping two VMs within a single cloud.
 
-Build / Install
----------------
-Run the following command to build and install the CLI locally.
+Installation
+------------
 
-.. code-block:: shell
+.. code-block:: console
 
-    make build install
+    $ git clone https://github.com/invisinets/invisinets.git
+    $ cd invisinets
+    $ make build install
 
-CLI
----
-All of the services can be started using the ``invd`` CLI. For additional help, look at the help docs in the CLI.
+Cloud Authentication
+--------------------
+
+Invisinets currently supports Azure and GCP. To use Invisinets with a cloud provider, you must have an account with that provider and have the necessary credentials set up.
+
+.. tab-set::
+
+    .. tab-item:: Azure
+        :sync: azure
+
+        #. `Install the Azure CLI <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>`_.
+        #. Authenticate to your Azure account.
+
+           .. code-block:: console
+
+                $ az login
+
+        #. Retrieve the subscription ID and resource group name you would like to use.
+
+           .. code-block:: console
+
+                $ az group list
+            
+           Take note of the ``id`` field for the subscription ID and resource group name (referred to as ``${AZURE_SUBSCRIPTION_ID}`` and ``${AZURE_RESOURCE_GROUP_NAME}`` throughout this document).
+
+    .. tab-item:: GCP
+        :sync: gcp
+
+        #. `Install the Google Cloud CLI <https://cloud.google.com/sdk/docs/install>`_.
+        #. Set up your application default credentials.
+        
+           .. code-block:: console
+
+                $ gcloud auth application-default login
+                $ gcloud auth login
+
+           .. note::
+
+                For using Invisinets, you only need to setup application default credentials (i.e., first command). However, throughout this example, we will be using some ``gcloud`` commands that require authentication.
+
+        #. Retrieve the project ID you would like to use.
+
+           .. code-block:: console
+
+                $ gcloud projects list
+
+           Take note of the ``GCP_PROJECT_ID`` column for the project ID (referred to as ``${GCP_PROJECT_ID}`` throughout this document).
+
+    .. tab-item:: IBM
+        :sync: ibm
+
+        #. `Install the IBM Cloud CLI <https://cloud.ibm.com/docs/cli?topic=cli-getting-started>`_.
+        #. Set up your application default credentials.
+        
+           .. code-block:: console
+
+                $ ibmcloud login --sso
+
+        #. Retrieve the resource group ID you would like to use.
+
+           .. code-block:: console
+
+                $ ibmcloud resource groups
+
+           Take note of the ``ID`` column for the resource ID (referred to as ``${IBM_RESOURCE_GROUP_ID}`` throughout this document).
+        
+        #. Create a new API key.
+
+            .. code-block:: console
+
+                $ mkdir -p ~/.ibm
+                $ ibmcloud iam api-key-create invkey | grep "API Key" | { echo -n "iam_api_key: " & grep -o '[^ ]\+$'; } > ~/.ibm/credentials.yaml
+
+            .. note::
+
+                An existing API key could also be used by the IBM plugin. Copy the API Key to ``~/.ibm/credentials.yaml``.
+
+                .. code-block:: yaml
+                    iam_api_key: ${API_KEY}
+
 
 Configuration
 -------------
-The orchestrator takes a configuration file in the following format.
 
-.. code-block:: yaml
+Copy paste the following configuration into a new file called ``invisinets_config.yaml``. Make sure to substitute the necessary parameters for your cloud provider.
 
-    server: 
-    host: "localhost"
-    port: 8080
-    rpcPort: 8081
+.. tab-set::
+    
+    .. tab-item:: Azure
+        :sync: azure
 
-    cloudPlugins:
-    - name: "gcp"
-        host: "localhost"
-        port: 1000
-        invDeployment: "projects/<project_name>"
-    - name: "azure"
-        host: "localhost"
-        port: 1001
-        invDeployment: "/subscriptions/<sub_id>/resourceGroups/<resource_group_name>"
-    - name: "ibm"
-        host: "localhost"
-        port: 1002
-        invDeployment: "/resourcegroup/<resource_group_id>
-    tagService:
-    host: "localhost"
-    port: 6000
+        .. code-block:: yaml
+
+            server:
+              host: "localhost"
+              port: 8080
+              rpcPort: 8081
+
+            cloudPlugins:
+              - name: "azure"
+                host: "localhost"
+                port: 8082
+
+            tagService:
+              host: "localhost"
+              port: 8083
+
+            namespaces:
+              default:
+                - name: "azure"
+                  deployment: "/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
 
 
-The ``cloudPlugins``` list may contain one or multiple cloud plugins. Though all listed should be reachable (otherwise, requests to the orchestrator may only result in errors). The ``server`` section is used to describe where the orchestrator will bind on the local machine to serve the HTTP server for users (``port``) and the RPC server for the cloud plugins (``rpcPort``). All other hosts/ports are where the other services are expected to be and may or may not be locally hosted. 
+    .. tab-item:: GCP
+        :sync: gcp
 
-The ``invDeployment`` parameter in the cloud plugin specification includes the minimum URI necessary to find the Invisinets resources for that cloud. In GCP, this is project ID while in Azure this is the resource group URI.
+        .. code-block:: yaml
 
-If no tags are used, the ``tagService`` does not have to be running for requests to complete.
+            server: 
+              host: "localhost"
+              port: 8080
+              rpcPort: 8081
 
-Startup All Services
---------------------
+            cloudPlugins:
+              - name: "gcp"
+                host: "localhost"
+                port: 8082
 
-Using the CLI, run:
-^^^^^^^^^^^^^^^^^^^
+            tagService:
+              host: "localhost"
+              port: 8083
 
-.. code-block:: shell
+            namespaces:
+              default:
+                - name: "gcp"
+                  deployment: "projects/${GCP_PROJECT_ID}"
 
-    invd startup <path_to_config>
+    .. tab-item:: IBM
+        :sync: ibm
 
-Orchestrator
-^^^^^^^^^^^^
+        .. code-block:: yaml
 
-Using the CLI, run:
+            server: 
+              host: "localhost"
+              port: 8080
+              rpcPort: 8081
 
-.. code-block:: shell
+            cloudPlugins:
+              - name: "ibm"
+                host: "localhost"
+                port: 8083
 
-    invd orch <path_to_config>
+            tagService:
+              host: "localhost"
+              port: 8083
 
-Cloud Plugins
--------------
+            namespaces:
+              default:
+                - name: "ibm"
+                  deployment: "resourcegroup/${IBM_RESOURCE_GROUP_ID}"
 
-Azure
-^^^^^
+Here is a breakdown of the configuration file:
 
-Using the CLI, run:
+#. ``server`` defines the orchestrator's host and ports. The orchestrator has two ports: ``port`` for an HTTP server for users and ``rpcPort`` for an RPC server for cloud plugins.
+#. ``cloudPlugins`` lists the cloud plugins that Invisinets will use. In this example, we only specify one cloud but you can specify multiple clouds.
+#. ``tagService`` defines the host and port for the tag service.
+#. ``namespaces`` lists the namespaces that Invisinets will reference. Each namespace consists of a list of clouds that specifies the cloud name and deployment URI.
 
-.. code-block:: shell
+Startup Services
+----------------
 
-    invd az <port> <orchestrator_address>
+This command will start up all services specified in the configuration. In this case, that would be the orchestrator and the cloud plugin.
 
-The ``orchestrator_address`` should be the full host:port address where the orchestrator is hosted for RPC traffic. In the example config above, this is "localhost:8081".
+.. code-block:: console
 
-GCP
-^^^
+    $ invd startup invisinets_config.yaml
 
-Using the CLI, run:
+Create VMs
+----------
 
-.. code-block:: shell
+To create VMs in clouds, Invisinets requires a JSON file that describes the VM. This is the same as what you would provide in the body of the REST API request to the cloud.
 
-    invd gcp <port> <orchestrator_address>
+.. tab-set::
 
-The ``orchestrator_address`` should be the full host:port address where the orchestrator is hosted for RPC traffic. In the example config above, this is "localhost:8081".
+    .. tab-item:: Azure
+        :sync: azure
 
-IBM
-^^^
+        #. Copy the following into a file called ``azure_vm.json``. Make sure to fill in the ``adminUsername`` and ``adminPassword`` fields!
 
-Using the CLI, run:
+           .. code-block:: json
 
-.. code-block:: shell
+                {
+                    "location": "eastus",
+                    "properties": {
+                        "hardwareProfile": {
+                            "vmSize": "Standard_B1s"
+                        },
+                        "osProfile": {
+                            "computerName": "sample-compute",
+                            "adminUsername": "<your-username>",
+                            "adminPassword": "<your-password>"
+                        },
+                        "storageProfile": {
+                            "imageReference": {
+                                "offer": "0001-com-ubuntu-minimal-jammy",
+                                "publisher": "canonical",
+                                "sku": "minimal-22_04-lts-gen2",
+                                "version": "latest"
+                            }
+                        }
+                    }
+                }
 
-    invd ibm <port> <orchestrator_address>
+        #. Create two VMs called ``vm-1`` and ``vm-2``.
 
-The ``orchestrator_address`` should be the full host:port address where the orchestrator is hosted for RPC traffic. In the example config above, this is "localhost:8081".
+           .. code-block:: console
+            
+                $ inv resource create azure vm-1 azure_vm.json
+                $ inv resource create azure vm-2 azure_vm.json
 
-Tag Service
------------
+    .. tab-item:: GCP
+        :sync: gcp
 
-Using the CLI, run:
+        #. Copy the following into a file called ``gcp_vm.json``.
 
-.. code-block:: shell
+           .. code-block:: json
 
-    invd tagserv <redis_port> <server_port> <clear_keys>
+                { 
+                    "instance_resource": { 
+                        "disks": [{
+                            "auto_delete": true,
+                            "boot": true,
+                            "initialize_params": {
+                                "disk_size_gb": 10,
+                                    "source_image": "projects/debian-cloud/global/images/family/debian-10"
+                                },
+                            "type": "PERSISTENT"
+                        }],
+                        "machine_type": "zones/us-west1-a/machineTypes/f1-micro",
+                    },
+                    "zone": "us-west1-a"
+                }
 
-``clear_keys`` is a bool ("true" or "false") which determines whether the database state should be cleared on startup or not.
+        #. Create two VMs called ``vm-1`` and ``vm-2``.
 
-Cloud Resources
----------------
+           .. code-block:: console
 
-In order for the cloud plugins to correctly use their SDKs, ensure that these steps have been completed.
+                $ inv resource create gcp vm-1 gcp_vm.json
+                $ inv resource create gcp vm-2 gcp_vm.json
 
-Azure
-^^^^^
+    .. tab-item:: IBM
+        :sync: ibm
 
-1. `Install azure cli <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>`_. If you're using the dev container, this will already be installed for you.
-2. `Authenticate to your account with azure login <https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli>`_.
+        #. Copy the following into a file called ``ibm_vm.json``.
 
-Google Cloud
-^^^^^^^^^^^^
+           .. code-block:: json
 
-1. `Install the gcloud CLI <https://cloud.google.com/sdk/docs/install>`_. If you're using the dev container, this will already be installed for you.
-2. `Set up your application default credentials <https://cloud.google.com/docs/authentication/provide-credentials-adc>`_.
+                {
+                    "InstancePrototype": {
+                        "profile": {
+                            "name": "bx2-2x8"
+                        },
+                        "image": {
+                            "id": "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb"
+                        },
+                        "zone": {
+                            "name": "us-east-1"
+                        },
+                    }
+                }
 
-IBM Cloud 
-^^^^^^^^^
+        #. Create two VMs called ``vm-1`` and ``vm-2``.
 
-1. `Install the ibmcloud CLI <https://cloud.google.com/sdk/docs/install>`_. If you're using the dev container, this will already be installed for you.
-2. `Set up your identity access key <https://github.com/paraglider-project/paraglider/blob/main/pkg/ibm_plugin/README.md>`_.
+           .. code-block:: console
+
+                $ inv resource create ibm vm-1 ibm_vm.json
+                $ inv resource create ibm vm-2 ibm_vm.json
+Ping VMs
+--------
+
+Now that your VMs are created, you can try pinging between the two VMs. Since Invisinets denies all traffic by default, the ping should fail.
+
+Since Invisinets creates VMs without public IPs, you will need to use cloud specific connectivity checks instead of SSH-ing into the VMs which may require some setup.
+
+.. tab-set::
+
+    .. tab-item:: Azure
+        :sync: azure
+
+        #. Configure Azure Network Watcher.
+        
+           .. code-block:: console
+
+                $ az network watcher configure -g ${AZURE_RESOURCE_GROUP_NAME} -l eastus --enabled true
+        
+        #. Install the Network Watcher Agent extension on both VMs.
+
+           .. code-block:: console
+
+                $ az vm extension set -g ${AZURE_RESOURCE_GROUP_NAME} --vm-name vm-1 --name NetworkWatcherAgentLinux --publisher Microsoft.Azure.NetworkWatcher --version 1.4
+                $ az vm extension set -g ${AZURE_RESOURCE_GROUP_NAME} --vm-name vm-2 --name NetworkWatcherAgentLinux --publisher Microsoft.Azure.NetworkWatcher --version 1.4
+        
+        #. Check connectivity between vm-1 and vm-2.
+
+           .. code-block:: console
+    
+                $ az network watcher test-connectivity -g ${AZURE_RESOURCE_GROUP_NAME} --source-resource vm-1 --dest-resource vm-2 --protocol Icmp
+
+           You should see the ``connectionStatus`` be ``Unreachable``. If you look at the ``issues`` fields closely, you'll notice that the issue is due to network security rules called invisinets-deny-all-outbound (for source) and invisinets-deny-all-inbound (for destination).
+
+    .. tab-item:: GCP
+        :sync: gcp
+
+        #. Run connectivity test between vm-1 and vm-2.
+
+           .. code-block:: console
+
+                $ gcloud network-management connectivity-tests create vm-1-to-vm-2 \
+                    --source-instance=projects/${GCP_PROJECT_ID}/zones/us-west1-a/instances/vm-1 \
+                    --destination-instance=projects/${GCP_PROJECT_ID}/zones/us-west1-a/instances/vm-2 \
+                    --project=${GCP_PROJECT_ID} \
+                    --protocol=ICMP
+                $ gcloud network-management connectivity-tests describe vm-1-to-vm-2 --project=${GCP_PROJECT_ID}
+
+           You should see the ``result`` field be ``UNREACHABLE``. If you look at the ``steps`` fields closely, you'll notice that the invisinets-default-deny-all-egress rule is blocking the traffic.
+
+    .. tab-item:: IBM
+        :sync: ibm
+
+        #. TBD
+
+Add Permit List Rules
+---------------------
+
+To get the VMs to talk to each other, you will need to add permit list rules to both VMs.
+
+.. tab-set::
+
+    .. tab-item:: Azure
+        :sync: azure
+
+        #. Add permit list rules to both VMs.
+
+           .. code-block:: console
+
+                $ inv rule add azure vm-1 --ping default.azure.vm-2
+                $ inv rule add azure vm-2 --ping default.azure.vm-1
+    
+        #. Check connectivity again between vm-1 and vm-2.
+
+           .. code-block:: console
+    
+                $ az network watcher test-connectivity -g ${AZURE_RESOURCE_GROUP_NAME} --source-resource vm-1 --dest-resource vm-2 --protocol Icmp
+            
+           You should see the ``connectionStatus`` be ``Reachable``.
+
+    .. tab-item:: GCP
+        :sync: gcp
+
+        #. Add permit list rules to both VMs.
+
+           .. code-block:: console
+
+                $ inv rule add gcp vm-1 --ping default.gcp.vm-2
+                $ inv rule add gcp vm-2 --ping default.gcp.vm-1
+
+        #. Check connectivity again between vm-1 and vm-2.
+
+           .. code-block:: console
+
+                $ gcloud network-management connectivity-tests rerun vm-1-to-vm-2 --project=${GCP_PROJECT_ID}
+
+           You should see the ``result`` field be ``REACHABLE``.
+
+    .. tab-item:: IBM
+        :sync: ibm
+
+        #. Add permit list rules to both VMs.
+
+           .. code-block:: console
+
+                $ inv rule add ibm vm-1 --ping default.ibm.vm-2
+                $ inv rule add ibm vm-2 --ping default.ibm.vm-1
+
+        #. Check connectivity again between vm-1 and vm-2.
+
+           TBD

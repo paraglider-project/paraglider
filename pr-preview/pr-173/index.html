@@ -9,6 +9,8 @@
         <title>Paraglider documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=135e06be" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=36a5483c" />
     
     
@@ -163,6 +165,12 @@
 <p class="caption" role="heading"><span class="caption-text">Developers</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="developers/contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developers/plugin-interface.html">Plugin Interface</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="examples/tags.html">Tag Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples/multicloud.html">Multicloud Example</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Project Status</span></p>
 <ul>
@@ -204,11 +212,12 @@
         <article role="main">
           <section id="welcome-to-paraglider">
 <h1>Welcome to Paraglider!<a class="headerlink" href="#welcome-to-paraglider" title="Link to this heading">#</a></h1>
-<a class="only-dark reference internal image-reference" href="_images/paraglider-logo-dark-transparent.png"><img alt="Paraglider Logo" class="only-dark" src="_images/paraglider-logo-dark-transparent.png" style="width: 300px;" /></a>
-<a class="only-light reference internal image-reference" href="_images/paraglider-logo-light-transparent.png"><img alt="Paraglider Logo" class="only-light" src="_images/paraglider-logo-light-transparent.png" style="width: 300px;" /></a>
+<a class="only-dark reference internal image-reference" href="_images/paraglider-color-darkmode.png"><img alt="Paraglider Logo" class="only-dark" src="_images/paraglider-color-darkmode.png" style="width: 300px;" /></a>
+<a class="only-light reference internal image-reference" href="_images/paraglider-color-lightmode.png"><img alt="Paraglider Logo" class="only-light" src="_images/paraglider-color-lightmode.png" style="width: 300px;" /></a>
 <p>Paraglider is a cross-cloud control plane for configuring cloud networks.</p>
 <p>The Paraglider project aims to evolve cloud networking by simplifying the creation and management of single and multi-cloud networking. The project reduces the need for detailed networking knowledge from developers and administrators, and hides the complexity of low-level components like virtual networks, access control, load balancers, and inter-cloud connections. Invisinets provides high-level constructs for modeling connectivity and security as well as key network functions. Additionally, it provides mechanisms for semantically meaningful names and groups rather than limiting to IP-based constructs. The Invisinets configuration, in the form of connectivity requirements between networked resources (VMs, containers, PaaS resources, etc.), is then translated to cloud-specific configurations via plugins tailored for each platform.</p>
-<p>Paraglider began as a research project at UC Berkeley in the NetSys Lab. It is now run by an cross-industry working group consisting of members from Microsoft, Google, IBM, and UC Berkeley. It is now a Linux Foundation open-source project.</p>
+<p>Paraglider began as a research project at UC Berkeley in the NetSys Lab. The work was originally published in <a class="reference external" href="https://dl.acm.org/doi/pdf/10.1145/3458336.3465303">HotOS</a> and <a class="reference external" href="https://www.usenix.org/system/files/nsdi23-mcclure.pdf">NSDI</a>. Since publication, the design goals for the implementation have shifted to support private address spaces, but still match the simplified interface proposed in the papers.</p>
+<p>The project is now run by an cross-industry working group consisting of members from Microsoft, Google, IBM, and UC Berkeley. It is now a Linux Foundation open-source project.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>This project is under active development.</p>
@@ -225,6 +234,14 @@
 <p class="caption" role="heading"><span class="caption-text">Developers</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="developers/contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developers/plugin-interface.html">Plugin Interface</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="examples/tags.html">Tag Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples/multicloud.html">Multicloud Example</a></li>
 </ul>
 </div>
 <div class="toctree-wrapper compound">
@@ -255,8 +272,7 @@
         <div class="bottom-of-page">
           <div class="left-details">
             <div class="copyright">
-                Copyright &#169; Paraglider a Series of LF Projects, LLC 
-For web site terms of use, trademark policy and other project policies please see https://lfprojects.org/.
+                Copyright &#169; Paraglider a Series of LF Projects, LLC. For web site terms of use, trademark policy and other project policies please see https://lfprojects.org/.
             </div>
             Made with 
             <a href="https://github.com/pradyunsg/furo">Furo</a>
@@ -297,5 +313,8 @@ For web site terms of use, trademark policy and other project policies please se
     <script src="_static/doctools.js?v=888ff710"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/scripts/furo.js?v=32e29ea5"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=a56c686a"></script>
+    <script src="_static/design-tabs.js?v=36754332"></script>
     </body>
 </html>
