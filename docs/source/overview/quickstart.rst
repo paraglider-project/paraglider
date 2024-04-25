@@ -82,17 +82,17 @@ Invisinets currently supports Azure, GCP and IBM. To use Invisinets with a cloud
         
         #. Create a new API key.
 
-            .. code-block:: console
+           .. code-block:: console
 
                 $ mkdir -p ~/.ibm
                 $ ibmcloud iam api-key-create invkey | grep "API Key" | { echo -n "iam_api_key: " & grep -o '[^ ]\+$'; } > ~/.ibm/credentials.yaml
 
-            .. note::
+           .. note::
 
                 An existing API key could also be used by the IBM plugin. Copy the API Key to ``~/.ibm/credentials.yaml``.
 
                 .. code-block:: yaml
-
+                
                     iam_api_key: ${API_KEY}
 
 
