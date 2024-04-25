@@ -17,7 +17,7 @@ Installation
 Cloud Authentication
 --------------------
 
-Invisinets currently supports Azure and GCP. To use Invisinets with a cloud provider, you must have an account with that provider and have the necessary credentials set up.
+Invisinets currently supports Azure, GCP and IBM. To use Invisinets with a cloud provider, you must have an account with that provider and have the necessary credentials set up.
 
 .. tab-set::
 
@@ -165,7 +165,7 @@ Copy paste the following configuration into a new file called ``invisinets_confi
             cloudPlugins:
               - name: "ibm"
                 host: "localhost"
-                port: 8083
+                port: 8082
 
             tagService:
               host: "localhost"
