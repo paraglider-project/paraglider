@@ -136,7 +136,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -206,7 +206,7 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
@@ -214,55 +214,68 @@
         <article role="main">
           <section id="tag-example">
 <span id="tagexample"></span><h1>Tag Example<a class="headerlink" href="#tag-example" title="Link to this heading">#</a></h1>
+<section id="goals">
+<h2>Goals<a class="headerlink" href="#goals" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Create a tag for an IP address</p></li>
+<li><p>Add a parent tag for the IP tag</p></li>
+<li><p>Reference the parent tag in a resource’s permit list</p></li>
+<li><p>Add a new tag to the parent tag</p></li>
+<li><p>See that the resource’s permit list has been updated accordingly</p></li>
+</ul>
+</section>
+<section id="steps">
+<h2>Steps<a class="headerlink" href="#steps" title="Link to this heading">#</a></h2>
 <ol class="arabic">
 <li><p>Create a tag for an IP address with name <cite>iptag</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">glide tag set iptag --ip 1.1.1.1</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>iptag<span class="w"> </span>--ip<span class="w"> </span><span class="m">1</span>.1.1.1
 </pre></div>
 </div>
 </li>
 <li><p>Assign <cite>iptag</cite> to a parent tag named <cite>parenttag</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">glide tag set parenttag --children iptag</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parenttag<span class="w"> </span>--children<span class="w"> </span>iptag
 </pre></div>
 </div>
 </li>
 <li><p>Resolve the parent tag down to list of names</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">glide tag get parenttag --resolve</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>parenttag<span class="w"> </span>--resolve
 </pre></div>
 </div>
 </li>
 <li><p>Create a resource name <cite>vm1</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">glide resource create gcp vm1 &lt;path_to_config&gt;</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>gcp<span class="w"> </span>vm1<span class="w"> </span>&lt;path_to_config&gt;
 </pre></div>
 </div>
 </li>
 </ol>
 <ol class="arabic" start="4">
 <li><p>Add a rule referencing the parent tag to a resource</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">glide rule add gcp vm1 --ping parenttag</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm1<span class="w"> </span>--ping<span class="w"> </span>parenttag
 </pre></div>
 </div>
 </li>
 <li><p>Create a tag, <cite>iptag2</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">glide tag set iptag2 --ip 2.2.2.2</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>iptag2<span class="w"> </span>--ip<span class="w"> </span><span class="m">2</span>.2.2.2
 </pre></div>
 </div>
 </li>
 <li><p>Add <cite>iptag2</cite> to <cite>parenttag</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">glide tag set parenttag --children iptag2</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parenttag<span class="w"> </span>--children<span class="w"> </span>iptag2
 </pre></div>
 </div>
 </li>
 <li><p>Get the permit list of the resource we added to</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">glide rule get gcp vm1</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>get<span class="w"> </span>gcp<span class="w"> </span>vm1
 </pre></div>
 </div>
 </li>
 <li><p>Resolve the parent tag</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">glide tag get parenttag --resolve</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>parenttag<span class="w"> </span>--resolve
 </pre></div>
 </div>
 </li>
 </ol>
+</section>
 </section>
 
         </article>
@@ -307,8 +320,28 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Tag Example</a><ul>
+<li><a class="reference internal" href="#goals">Goals</a></li>
+<li><a class="reference internal" href="#steps">Steps</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>
