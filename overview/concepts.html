@@ -3,10 +3,10 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="API" href="api.html" /><link rel="prev" title="Quickstart" href="quickstart.html" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="How It Works" href="howitworks.html" /><link rel="prev" title="Quickstart" href="quickstart.html" />
 
     <!-- Generated with Sphinx 7.2.6 and Furo 2024.01.29 -->
-        <title>Design - Paraglider documentation</title>
+        <title>Concepts - Paraglider documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=135e06be" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
@@ -159,7 +159,8 @@
   <p class="caption" role="heading"><span class="caption-text">Overview</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Design</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howitworks.html">How It Works</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developers</span></p>
@@ -176,6 +177,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../project/feature-status.html">Feature Status</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../project/roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/known-issues.html">Known Issues</a></li>
 </ul>
 
 </div>
@@ -210,59 +212,26 @@
           </label>
         </div>
         <article role="main">
-          <section id="design">
-<span id="id1"></span><h1>Design<a class="headerlink" href="#design" title="Link to this heading">#</a></h1>
-<section id="what-is-invisinets">
-<h2>What is Invisinets?<a class="headerlink" href="#what-is-invisinets" title="Link to this heading">#</a></h2>
-<p>Invisinets is a control plane for cloud networking resources designed to simplify the tenant networking experience. The Invisinets Controller exposes the Invisinets API to tenants and uses public cloud APIs to manage the tenant’s cloud network.</p>
+          <section id="concepts">
+<span id="id1"></span><h1>Concepts<a class="headerlink" href="#concepts" title="Link to this heading">#</a></h1>
+<section id="what-is-paraglider">
+<h2>What is Paraglider?<a class="headerlink" href="#what-is-paraglider" title="Link to this heading">#</a></h2>
+<p>Paraglider is a control plane for cloud networking resources designed to simplify the tenant networking experience.
+The Paraglider Controller exposes the Paraglider API to tenants and uses public cloud APIs to manage the tenant’s cloud network.</p>
 <section id="conceptual-overview">
 <h3>Conceptual Overview<a class="headerlink" href="#conceptual-overview" title="Link to this heading">#</a></h3>
-<p>Invisinets takes an “endpoint-centric” view of networking: all non-networking resources should simply define their high-level networking intents and the rest should be deployed automatically – making the network <em>invisible</em>.</p>
+<p>Paraglider takes an “endpoint-centric” view of networking: all non-networking resources should simply define their high-level networking intents and the rest should be deployed automatically – making the network <em>invisible</em>.</p>
 <p>Core Concepts</p>
 <ul class="simple">
 <li><p><strong>Endpoint</strong>: Any resource in a cloud network (eg, a VM)</p></li>
 <li><p><strong>Permit List</strong>: A list associated with an endpoint which defines the allowed traffic for that endpoint</p></li>
 <li><p><strong>Tags</strong>: Strings associated with an endpoint or group of endpoint which can be referred to in permit lists and commands</p></li>
-<li><p><strong>Namespaces</strong>: An Invisinets deployment controlled by an Invisinets controller separated (both in infrastructure and in control plane) from other namespaces under the same controller</p></li>
+<li><p><strong>Namespaces</strong>: An Paraglider deployment controlled by an Paraglider controller separated (both in infrastructure and in control plane) from other namespaces under the same controller</p></li>
 </ul>
 </section>
 <section id="use">
 <h3>Use<a class="headerlink" href="#use" title="Link to this heading">#</a></h3>
-<p>To use Invisinets, a tenant would run the Invisinets Controller and use the Invisinets API to create cloud deployments. This task largely consists of creating endpoints and modifying their permit lists to enable connectivity between them.</p>
-</section>
-</section>
-<section id="how-invisinets-works">
-<h2>How Invisinets Works<a class="headerlink" href="#how-invisinets-works" title="Link to this heading">#</a></h2>
-<p>The Invisinets Controller uses public cloud APIs to deploy networking resources (eg, VPCs, subnets, security rules, VPN gateways) as necessary to match the high-level intents specified via the Invisinets API. [MORE?]</p>
-<section id="controller-design">
-<h3>Controller Design<a class="headerlink" href="#controller-design" title="Link to this heading">#</a></h3>
-<div class="mermaid">
-            graph TB
-UR[/User Request/] --&gt; CC[Central Controller]
-
-subgraph &quot; &quot;
-    CC[Orchestrator]
-    CC --&gt; AP[Azure Plugin]
-    CC --&gt; GP[GCP Plugin]
-    CC --&gt; IP[IBM Plugin]
-end
-
-subgraph &quot; &quot;
-    CC --&gt; TS[Tag Service]
-    TS[Tag Service] --&gt; DS[(Tag Store)]
-end
-
-AP --&gt; AC[Azure Cloud]
-GP --&gt; GC[GCP Cloud]
-IP --&gt; IC[IBM Cloud]
-        </div><p><strong>Overview</strong></p>
-<p>The Invisinets Controller consists of several microservices: a Central Controller, a Tag Service, and potentially multiple Cloud Plugins. Each service is described below.</p>
-<p><strong>Central Controller</strong></p>
-<p>The Central Controller accepts user requests and sends requests to the other microservices to complete these tasks. It is the central point of coordination for multi-service tasks.</p>
-<p><strong>Tag Service</strong></p>
-<p>The Tag Service is a light-weight service on top of a key-value store which stores data about the mappings between tags and the resources that reference them (“subscribers”). Subscribers must be tracked in order to push updates to permit lists when tag membership changes.</p>
-<p><strong>Cloud Plugins</strong></p>
-<p>Cloud Plugins implement the Invisinets Cloud Plugin Interface for their respective cloud. For more about the Invisinets Cloud Plugin Interface, see [link to implementation doc]</p>
+<p>To use Paraglider, a tenant would run the Paraglider Controller and use the Paraglider API to create cloud deployments. This task largely consists of creating endpoints and modifying their permit lists to enable connectivity between them.</p>
 </section>
 </section>
 </section>
@@ -272,12 +241,12 @@ IP --&gt; IC[IBM Cloud]
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="api.html">
+          <a class="next-page" href="howitworks.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">API</div>
+                <div class="title">How It Works</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -321,14 +290,10 @@ IP --&gt; IC[IBM Cloud]
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#">Design</a><ul>
-<li><a class="reference internal" href="#what-is-invisinets">What is Invisinets?</a><ul>
+<li><a class="reference internal" href="#">Concepts</a><ul>
+<li><a class="reference internal" href="#what-is-paraglider">What is Paraglider?</a><ul>
 <li><a class="reference internal" href="#conceptual-overview">Conceptual Overview</a></li>
 <li><a class="reference internal" href="#use">Use</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#how-invisinets-works">How Invisinets Works</a><ul>
-<li><a class="reference internal" href="#controller-design">Controller Design</a></li>
 </ul>
 </li>
 </ul>
@@ -349,7 +314,5 @@ IP --&gt; IC[IBM Cloud]
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=a56c686a"></script>
     <script src="../_static/design-tabs.js?v=36754332"></script>
-    <script src="https://unpkg.com/mermaid@10.2.0/dist/mermaid.min.js"></script>
-    <script>mermaid.initialize({startOnLoad:true});</script>
     </body>
 </html>

@@ -159,7 +159,8 @@
   <p class="caption" role="heading"><span class="caption-text">Overview</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../overview/quickstart.html">Quickstart</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../overview/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/concepts.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/howitworks.html">How It Works</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../overview/api.html">API</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developers</span></p>
@@ -176,6 +177,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../project/feature-status.html">Feature Status</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../project/roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/known-issues.html">Known Issues</a></li>
 </ul>
 
 </div>
@@ -211,7 +213,7 @@
         </div>
         <article role="main">
           <section id="plugin-interface">
-<span id="contributing"></span><h1>Plugin Interface<a class="headerlink" href="#plugin-interface" title="Link to this heading">#</a></h1>
+<span id="id1"></span><h1>Plugin Interface<a class="headerlink" href="#plugin-interface" title="Link to this heading">#</a></h1>
 <p>This page describes the interface that the cloud plugins must implement to be compatible with the orchestrator.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -286,26 +288,26 @@ An example of a resource description for an Azure VM is as follows:</p>
 </section>
 <section id="rpc-getpermitlist-getpermitlistrequest-returns-getpermitlistresponse">
 <h2><strong>rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}</strong><a class="headerlink" href="#rpc-getpermitlist-getpermitlistrequest-returns-getpermitlistresponse" title="Link to this heading">#</a></h2>
-<section id="id1">
-<h3>Tenant-Level Description:<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
+<section id="id2">
+<h3>Tenant-Level Description:<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
 <p>Get the permit list associated with the resource.</p>
 </section>
-<section id="id2">
-<h3>Implementation-Level Description:<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
+<section id="id3">
+<h3>Implementation-Level Description:<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
 <p>Gets the underlying security rules for the resource and returns them as permit list objects.</p>
 </section>
-<section id="id3">
-<h3>Input Details:<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
+<section id="id4">
+<h3>Input Details:<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">resource</span></code> contains the URI from which to get the associated permit list.</p>
 </section>
-<section id="id4">
-<h3>Resources to Create:<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
+<section id="id5">
+<h3>Resources to Create:<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>None</p></li>
 </ul>
 </section>
-<section id="id5">
-<h3>High-Level Logic:<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
+<section id="id6">
+<h3>High-Level Logic:<a class="headerlink" href="#id6" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><dl class="simple">
 <dt>Check if the resource is a valid Paraglider resource</dt><dd><ul>
@@ -321,16 +323,16 @@ An example of a resource description for an Azure VM is as follows:</p>
 </section>
 <section id="rpc-addpermitlistrules-addpermitlistrulesrequest-returns-addpermitlistrulesresponse">
 <h2><strong>rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}</strong><a class="headerlink" href="#rpc-addpermitlistrules-addpermitlistrulesrequest-returns-addpermitlistrulesresponse" title="Link to this heading">#</a></h2>
-<section id="id6">
-<h3>Tenant-Level Description:<a class="headerlink" href="#id6" title="Link to this heading">#</a></h3>
+<section id="id7">
+<h3>Tenant-Level Description:<a class="headerlink" href="#id7" title="Link to this heading">#</a></h3>
 <p>Add provided rules to a given resource.</p>
 </section>
-<section id="id7">
-<h3>Implementation-Level Description:<a class="headerlink" href="#id7" title="Link to this heading">#</a></h3>
+<section id="id8">
+<h3>Implementation-Level Description:<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
 <p>Add the provided rules to the underlying security rules for the resource and setup any necessary infrastructure for the connections.</p>
 </section>
-<section id="id8">
-<h3>Input Details:<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
+<section id="id9">
+<h3>Input Details:<a class="headerlink" href="#id9" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code> is the namespace of the resource</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">resource</span></code> is the URI of the resource to which the rules should be added</p></li>
@@ -352,14 +354,14 @@ An example of a resource description for an Azure VM is as follows:</p>
 </li>
 </ul>
 </section>
-<section id="id9">
-<h3>Resources to Create:<a class="headerlink" href="#id9" title="Link to this heading">#</a></h3>
+<section id="id10">
+<h3>Resources to Create:<a class="headerlink" href="#id10" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Per-endpoint access control list rules (implementation varies by cloud [NSG in Azure, Firewall Rules in GCP])</p></li>
 </ul>
 </section>
-<section id="id10">
-<h3>High-Level Logic:<a class="headerlink" href="#id10" title="Link to this heading">#</a></h3>
+<section id="id11">
+<h3>High-Level Logic:<a class="headerlink" href="#id11" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Check if the resource/rules are valid</p></li>
 <li><dl class="simple">
@@ -390,16 +392,16 @@ An example of a resource description for an Azure VM is as follows:</p>
 </section>
 <section id="rpc-deletepermitlistrules-deletepermitlistrulesrequest-returns-deletepermitlistrulesresponse">
 <h2>rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}<a class="headerlink" href="#rpc-deletepermitlistrules-deletepermitlistrulesrequest-returns-deletepermitlistrulesresponse" title="Link to this heading">#</a></h2>
-<section id="id11">
-<h3>Tenant-Level Description:<a class="headerlink" href="#id11" title="Link to this heading">#</a></h3>
+<section id="id12">
+<h3>Tenant-Level Description:<a class="headerlink" href="#id12" title="Link to this heading">#</a></h3>
 <p>Delete provided rules from the given resource.</p>
 </section>
-<section id="id12">
-<h3>Implementation-Level Description:<a class="headerlink" href="#id12" title="Link to this heading">#</a></h3>
+<section id="id13">
+<h3>Implementation-Level Description:<a class="headerlink" href="#id13" title="Link to this heading">#</a></h3>
 <p>Delete the provided rules from the underlying security rules for the resource.</p>
 </section>
-<section id="id13">
-<h3>Input Details:<a class="headerlink" href="#id13" title="Link to this heading">#</a></h3>
+<section id="id14">
+<h3>Input Details:<a class="headerlink" href="#id14" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code> is the namespace of the resource</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">resource</span></code> is the URI of the resource to which the rules should be added</p></li>
@@ -410,8 +412,8 @@ An example of a resource description for an Azure VM is as follows:</p>
 <h3>Resources to Delete:<a class="headerlink" href="#resources-to-delete" title="Link to this heading">#</a></h3>
 <p>Per-endpoint access control list rules (implementation varies by cloud [NSG in Azure, Firewall Rules in GCP])</p>
 </section>
-<section id="id14">
-<h3>High-Level Logic:<a class="headerlink" href="#id14" title="Link to this heading">#</a></h3>
+<section id="id15">
+<h3>High-Level Logic:<a class="headerlink" href="#id15" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Delete the rules from the resource (if they exist)</p></li>
 </ul>
@@ -419,26 +421,26 @@ An example of a resource description for an Azure VM is as follows:</p>
 </section>
 <section id="rpc-getusedaddressspaces-getusedaddressspacesrequest-returns-getusedaddressspacesresponse">
 <h2><strong>rpc GetUsedAddressSpaces(GetUsedAddressSpacesRequest) returns (GetUsedAddressSpacesResponse) {}</strong><a class="headerlink" href="#rpc-getusedaddressspaces-getusedaddressspacesrequest-returns-getusedaddressspacesresponse" title="Link to this heading">#</a></h2>
-<section id="id15">
-<h3>Tenant-Level Description:<a class="headerlink" href="#id15" title="Link to this heading">#</a></h3>
+<section id="id16">
+<h3>Tenant-Level Description:<a class="headerlink" href="#id16" title="Link to this heading">#</a></h3>
 <p>This RPC should not be exposed directly to tenants.</p>
 </section>
-<section id="id16">
-<h3>Implementation-Level Description:<a class="headerlink" href="#id16" title="Link to this heading">#</a></h3>
+<section id="id17">
+<h3>Implementation-Level Description:<a class="headerlink" href="#id17" title="Link to this heading">#</a></h3>
 <p>Find all the address spaces currently used by the Paraglider deployment in a given cloud.</p>
 </section>
-<section id="id17">
-<h3>Input Details:<a class="headerlink" href="#id17" title="Link to this heading">#</a></h3>
+<section id="id18">
+<h3>Input Details:<a class="headerlink" href="#id18" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">deployments</span></code> is the list of Paraglider deployments in which to search for the address spaces.</p>
 </section>
-<section id="id18">
-<h3>Resources to Create:<a class="headerlink" href="#id18" title="Link to this heading">#</a></h3>
+<section id="id19">
+<h3>Resources to Create:<a class="headerlink" href="#id19" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>None</p></li>
 </ul>
 </section>
-<section id="id19">
-<h3>High-Level Logic:<a class="headerlink" href="#id19" title="Link to this heading">#</a></h3>
+<section id="id20">
+<h3>High-Level Logic:<a class="headerlink" href="#id20" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Get address spaces of all vnets/subnets/vpcs created by Paraglider so far in the given deployments</p></li>
 <li><p>Return</p></li>
@@ -447,30 +449,30 @@ An example of a resource description for an Azure VM is as follows:</p>
 </section>
 <section id="rpc-createvpngateway-createvpngatewayrequest-returns-createvpngatewayresponse">
 <h2>rpc CreateVpnGateway(CreateVpnGatewayRequest) returns (CreateVpnGatewayResponse) {}<a class="headerlink" href="#rpc-createvpngateway-createvpngatewayrequest-returns-createvpngatewayresponse" title="Link to this heading">#</a></h2>
-<section id="id20">
-<h3>Tenant-Level Description:<a class="headerlink" href="#id20" title="Link to this heading">#</a></h3>
+<section id="id21">
+<h3>Tenant-Level Description:<a class="headerlink" href="#id21" title="Link to this heading">#</a></h3>
 <p>This RPC should not be exposed directly to tenants.</p>
 </section>
-<section id="id21">
-<h3>Implementation-Level Description:<a class="headerlink" href="#id21" title="Link to this heading">#</a></h3>
+<section id="id22">
+<h3>Implementation-Level Description:<a class="headerlink" href="#id22" title="Link to this heading">#</a></h3>
 <p>Creates a VPN gateway in a given cloud.</p>
 </section>
-<section id="id22">
-<h3>Input Details:<a class="headerlink" href="#id22" title="Link to this heading">#</a></h3>
+<section id="id23">
+<h3>Input Details:<a class="headerlink" href="#id23" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">deployment</span></code> is the of deployments in which to create the gateway.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code> is the remote cloud to connect to.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">bgp_peering_ip_addresses</span></code> are the IP addresses to use for the BGP peering with the remote cloud.</p></li>
 </ul>
 </section>
-<section id="id23">
-<h3>Resources to Create:<a class="headerlink" href="#id23" title="Link to this heading">#</a></h3>
+<section id="id24">
+<h3>Resources to Create:<a class="headerlink" href="#id24" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>VPN gateway</p></li>
 </ul>
 </section>
-<section id="id24">
-<h3>High-Level Logic:<a class="headerlink" href="#id24" title="Link to this heading">#</a></h3>
+<section id="id25">
+<h3>High-Level Logic:<a class="headerlink" href="#id25" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Create VPN gateway along with (manually) setting up public IP addresses for the gateway tunnels</p></li>
 </ul>
@@ -554,43 +556,43 @@ An example of a resource description for an Azure VM is as follows:</p>
 </ul>
 </li>
 <li><a class="reference internal" href="#rpc-getpermitlist-getpermitlistrequest-returns-getpermitlistresponse"><strong>rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}</strong></a><ul>
-<li><a class="reference internal" href="#id1">Tenant-Level Description:</a></li>
-<li><a class="reference internal" href="#id2">Implementation-Level Description:</a></li>
-<li><a class="reference internal" href="#id3">Input Details:</a></li>
-<li><a class="reference internal" href="#id4">Resources to Create:</a></li>
-<li><a class="reference internal" href="#id5">High-Level Logic:</a></li>
+<li><a class="reference internal" href="#id2">Tenant-Level Description:</a></li>
+<li><a class="reference internal" href="#id3">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#id4">Input Details:</a></li>
+<li><a class="reference internal" href="#id5">Resources to Create:</a></li>
+<li><a class="reference internal" href="#id6">High-Level Logic:</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#rpc-addpermitlistrules-addpermitlistrulesrequest-returns-addpermitlistrulesresponse"><strong>rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}</strong></a><ul>
-<li><a class="reference internal" href="#id6">Tenant-Level Description:</a></li>
-<li><a class="reference internal" href="#id7">Implementation-Level Description:</a></li>
-<li><a class="reference internal" href="#id8">Input Details:</a></li>
-<li><a class="reference internal" href="#id9">Resources to Create:</a></li>
-<li><a class="reference internal" href="#id10">High-Level Logic:</a></li>
+<li><a class="reference internal" href="#id7">Tenant-Level Description:</a></li>
+<li><a class="reference internal" href="#id8">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#id9">Input Details:</a></li>
+<li><a class="reference internal" href="#id10">Resources to Create:</a></li>
+<li><a class="reference internal" href="#id11">High-Level Logic:</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#rpc-deletepermitlistrules-deletepermitlistrulesrequest-returns-deletepermitlistrulesresponse">rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}</a><ul>
-<li><a class="reference internal" href="#id11">Tenant-Level Description:</a></li>
-<li><a class="reference internal" href="#id12">Implementation-Level Description:</a></li>
-<li><a class="reference internal" href="#id13">Input Details:</a></li>
+<li><a class="reference internal" href="#id12">Tenant-Level Description:</a></li>
+<li><a class="reference internal" href="#id13">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#id14">Input Details:</a></li>
 <li><a class="reference internal" href="#resources-to-delete">Resources to Delete:</a></li>
-<li><a class="reference internal" href="#id14">High-Level Logic:</a></li>
+<li><a class="reference internal" href="#id15">High-Level Logic:</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#rpc-getusedaddressspaces-getusedaddressspacesrequest-returns-getusedaddressspacesresponse"><strong>rpc GetUsedAddressSpaces(GetUsedAddressSpacesRequest) returns (GetUsedAddressSpacesResponse) {}</strong></a><ul>
-<li><a class="reference internal" href="#id15">Tenant-Level Description:</a></li>
-<li><a class="reference internal" href="#id16">Implementation-Level Description:</a></li>
-<li><a class="reference internal" href="#id17">Input Details:</a></li>
-<li><a class="reference internal" href="#id18">Resources to Create:</a></li>
-<li><a class="reference internal" href="#id19">High-Level Logic:</a></li>
+<li><a class="reference internal" href="#id16">Tenant-Level Description:</a></li>
+<li><a class="reference internal" href="#id17">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#id18">Input Details:</a></li>
+<li><a class="reference internal" href="#id19">Resources to Create:</a></li>
+<li><a class="reference internal" href="#id20">High-Level Logic:</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#rpc-createvpngateway-createvpngatewayrequest-returns-createvpngatewayresponse">rpc CreateVpnGateway(CreateVpnGatewayRequest) returns (CreateVpnGatewayResponse) {}</a><ul>
-<li><a class="reference internal" href="#id20">Tenant-Level Description:</a></li>
-<li><a class="reference internal" href="#id21">Implementation-Level Description:</a></li>
-<li><a class="reference internal" href="#id22">Input Details:</a></li>
-<li><a class="reference internal" href="#id23">Resources to Create:</a></li>
-<li><a class="reference internal" href="#id24">High-Level Logic:</a></li>
+<li><a class="reference internal" href="#id21">Tenant-Level Description:</a></li>
+<li><a class="reference internal" href="#id22">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#id23">Input Details:</a></li>
+<li><a class="reference internal" href="#id24">Resources to Create:</a></li>
+<li><a class="reference internal" href="#id25">High-Level Logic:</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#rpc-getusedasns-getusedasnsrequest-returns-getusedasnsresponse">rpc GetUsedAsns(GetUsedAsnsRequest) returns (GetUsedAsnsResponse) {}</a></li>

@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Design" href="design.html" /><link rel="prev" title="Welcome to Paraglider!" href="../index.html" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Concepts" href="concepts.html" /><link rel="prev" title="Welcome to Paraglider!" href="../index.html" />
 
     <!-- Generated with Sphinx 7.2.6 and Furo 2024.01.29 -->
         <title>Quickstart - Paraglider documentation</title>
@@ -159,7 +159,8 @@
   <p class="caption" role="heading"><span class="caption-text">Overview</span></p>
 <ul class="current">
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Quickstart</a></li>
-<li class="toctree-l1"><a class="reference internal" href="design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howitworks.html">How It Works</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developers</span></p>
@@ -176,6 +177,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../project/feature-status.html">Feature Status</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../project/roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/known-issues.html">Known Issues</a></li>
 </ul>
 
 </div>
@@ -332,7 +334,7 @@ GCP</label><div class="sd-tab-content docutils">
 <section id="startup-services">
 <h2>Startup Services<a class="headerlink" href="#startup-services" title="Link to this heading">#</a></h2>
 <p>This command will start up all services specified in the configuration. In this case, that would be the orchestrator and the cloud plugin.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>invd<span class="w"> </span>startup<span class="w"> </span>invisinets_config.yaml
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glided<span class="w"> </span>startup<span class="w"> </span>invisinets_config.yaml
 </pre></div>
 </div>
 </section>
@@ -370,8 +372,8 @@ Azure</label><div class="sd-tab-content docutils">
 </div>
 </li>
 <li><p>Create two VMs called <code class="docutils literal notranslate"><span class="pre">vm-1</span></code> and <code class="docutils literal notranslate"><span class="pre">vm-2</span></code>.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>azure<span class="w"> </span>vm-1<span class="w"> </span>azure_vm.json
-<span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>azure<span class="w"> </span>vm-2<span class="w"> </span>azure_vm.json
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>azure<span class="w"> </span>vm-1<span class="w"> </span>azure_vm.json
+<span class="gp">$ </span>glide<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>azure<span class="w"> </span>vm-2<span class="w"> </span>azure_vm.json
 </pre></div>
 </div>
 </li>
@@ -401,8 +403,8 @@ GCP</label><div class="sd-tab-content docutils">
 </div>
 </li>
 <li><p>Create two VMs called <code class="docutils literal notranslate"><span class="pre">vm-1</span></code> and <code class="docutils literal notranslate"><span class="pre">vm-2</span></code>.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>gcp<span class="w"> </span>vm-1<span class="w"> </span>gcp_vm.json
-<span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>gcp<span class="w"> </span>vm-2<span class="w"> </span>gcp_vm.json
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>gcp<span class="w"> </span>vm-1<span class="w"> </span>gcp_vm.json
+<span class="gp">$ </span>glide<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>gcp<span class="w"> </span>vm-2<span class="w"> </span>gcp_vm.json
 </pre></div>
 </div>
 </li>
@@ -466,8 +468,8 @@ GCP</label><div class="sd-tab-content docutils">
 Azure</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Add permit list rules to both VMs.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-1<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-2
-<span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-2<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-1
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-1<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-2
+<span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-2<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-1
 </pre></div>
 </div>
 </li>
@@ -484,8 +486,8 @@ Azure</label><div class="sd-tab-content docutils">
 GCP</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Add permit list rules to both VMs.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm-1<span class="w"> </span>--ping<span class="w"> </span>default.gcp.vm-2
-<span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm-2<span class="w"> </span>--ping<span class="w"> </span>default.gcp.vm-1
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm-1<span class="w"> </span>--ping<span class="w"> </span>default.gcp.vm-2
+<span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm-2<span class="w"> </span>--ping<span class="w"> </span>default.gcp.vm-1
 </pre></div>
 </div>
 </li>
@@ -506,12 +508,12 @@ GCP</label><div class="sd-tab-content docutils">
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="design.html">
+          <a class="next-page" href="concepts.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">Design</div>
+                <div class="title">Concepts</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>

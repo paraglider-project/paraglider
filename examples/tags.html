@@ -159,7 +159,8 @@
   <p class="caption" role="heading"><span class="caption-text">Overview</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../overview/quickstart.html">Quickstart</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../overview/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/concepts.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/howitworks.html">How It Works</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../overview/api.html">API</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developers</span></p>
@@ -176,6 +177,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../project/feature-status.html">Feature Status</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../project/roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/known-issues.html">Known Issues</a></li>
 </ul>
 
 </div>
@@ -226,49 +228,49 @@
 <h2>Steps<a class="headerlink" href="#steps" title="Link to this heading">#</a></h2>
 <ol class="arabic">
 <li><p>Create a tag for an IP address with name <cite>iptag</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>iptag<span class="w"> </span>--ip<span class="w"> </span><span class="m">1</span>.1.1.1
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>iptag<span class="w"> </span>--ip<span class="w"> </span><span class="m">1</span>.1.1.1
 </pre></div>
 </div>
 </li>
 <li><p>Assign <cite>iptag</cite> to a parent tag named <cite>parenttag</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parenttag<span class="w"> </span>--children<span class="w"> </span>iptag
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parenttag<span class="w"> </span>--children<span class="w"> </span>iptag
 </pre></div>
 </div>
 </li>
 <li><p>Resolve the parent tag down to list of names</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>parenttag<span class="w"> </span>--resolve
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>parenttag<span class="w"> </span>--resolve
 </pre></div>
 </div>
 </li>
 <li><p>Create a resource name <cite>vm1</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>gcp<span class="w"> </span>vm1<span class="w"> </span>&lt;path_to_config&gt;
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>gcp<span class="w"> </span>vm1<span class="w"> </span>&lt;path_to_config&gt;
 </pre></div>
 </div>
 </li>
 </ol>
 <ol class="arabic" start="4">
 <li><p>Add a rule referencing the parent tag to a resource</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm1<span class="w"> </span>--ping<span class="w"> </span>parenttag
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm1<span class="w"> </span>--ping<span class="w"> </span>parenttag
 </pre></div>
 </div>
 </li>
 <li><p>Create a tag, <cite>iptag2</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>iptag2<span class="w"> </span>--ip<span class="w"> </span><span class="m">2</span>.2.2.2
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>iptag2<span class="w"> </span>--ip<span class="w"> </span><span class="m">2</span>.2.2.2
 </pre></div>
 </div>
 </li>
 <li><p>Add <cite>iptag2</cite> to <cite>parenttag</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parenttag<span class="w"> </span>--children<span class="w"> </span>iptag2
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parenttag<span class="w"> </span>--children<span class="w"> </span>iptag2
 </pre></div>
 </div>
 </li>
 <li><p>Get the permit list of the resource we added to</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>get<span class="w"> </span>gcp<span class="w"> </span>vm1
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>get<span class="w"> </span>gcp<span class="w"> </span>vm1
 </pre></div>
 </div>
 </li>
 <li><p>Resolve the parent tag</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>parenttag<span class="w"> </span>--resolve
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>parenttag<span class="w"> </span>--resolve
 </pre></div>
 </div>
 </li>

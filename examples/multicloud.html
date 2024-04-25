@@ -159,7 +159,8 @@
   <p class="caption" role="heading"><span class="caption-text">Overview</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../overview/quickstart.html">Quickstart</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../overview/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/concepts.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/howitworks.html">How It Works</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../overview/api.html">API</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developers</span></p>
@@ -176,6 +177,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../project/feature-status.html">Feature Status</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../project/roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/known-issues.html">Known Issues</a></li>
 </ul>
 
 </div>
@@ -236,7 +238,7 @@
 <ul class="simple">
 <li><p>For this example, we assume that you have set up the necessary credentials for Azure and GCP and that you have configured your Paraglider controller with a <code class="docutils literal notranslate"><span class="pre">default</span></code> namespace for both clouds. For more on how to do this, see the quickstart.</p></li>
 <li><dl class="simple">
-<dt>Run <code class="docutils literal notranslate"><span class="pre">invd</span> <span class="pre">startup</span> <span class="pre">&lt;path_to_config&gt;</span></code> to start all the microservices</dt><dd><ul>
+<dt>Run <code class="docutils literal notranslate"><span class="pre">glided</span> <span class="pre">startup</span> <span class="pre">&lt;path_to_config&gt;</span></code> to start all the microservices</dt><dd><ul>
 <li><p>This example uses a templated controller config from the repo. You can find it at the <code class="docutils literal notranslate"><span class="pre">tools/examples/controller-configs/az-gcp-config.yml</span></code> directory.</p></li>
 </ul>
 </dd>
@@ -259,7 +261,7 @@
 <h3>Steps<a class="headerlink" href="#steps" title="Link to this heading">#</a></h3>
 <ol class="arabic">
 <li><p>Create VM A in Azure</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>azure<span class="w"> </span>vm-a<span class="w"> </span>&lt;path/to/azure-vm-westus.json&gt;
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>azure<span class="w"> </span>vm-a<span class="w"> </span>&lt;path/to/azure-vm-westus.json&gt;
 </pre></div>
 </div>
 </li>
