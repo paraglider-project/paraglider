@@ -214,11 +214,11 @@
 <span id="id1"></span><h1>API<a class="headerlink" href="#api" title="Link to this heading">#</a></h1>
 <section id="namespace-operations">
 <h2>Namespace Operations<a class="headerlink" href="#namespace-operations" title="Link to this heading">#</a></h2>
-<p>Interact with the namespaces on the Invisinets Controller. The active namespace is a client-side CLI construct. All REST requests to the controller will be scoped on a namespace.</p>
+<p>Interact with the namespaces on the Paraglider Controller. The active namespace is a client-side CLI construct. All REST requests to the controller will be scoped on a namespace.</p>
 <section id="set">
 <h3>Set<a class="headerlink" href="#set" title="Link to this heading">#</a></h3>
 <p><strong>CLI:</strong></p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>namespace<span class="w"> </span><span class="nb">set</span><span class="w"> </span>&lt;namespace&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>namespace<span class="w"> </span><span class="nb">set</span><span class="w"> </span>&lt;namespace&gt;
 </pre></div>
 </div>
 <p>Parameters:</p>
@@ -230,7 +230,7 @@
 <h3>Get<a class="headerlink" href="#get" title="Link to this heading">#</a></h3>
 <p>Gets the current active namespace in the CLI (Note: this is only a CLI feature).</p>
 <p><strong>CLI:</strong></p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>namespace<span class="w"> </span>get
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>namespace<span class="w"> </span>get
 </pre></div>
 </div>
 </section>
@@ -238,7 +238,7 @@
 <h3>List<a class="headerlink" href="#list" title="Link to this heading">#</a></h3>
 <p>Lists all namespaces configured on the controller.</p>
 <p><strong>CLI:</strong></p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>namespace<span class="w"> </span>list
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>namespace<span class="w"> </span>list
 </pre></div>
 </div>
 <p><strong>HTTP:</strong></p>
@@ -253,7 +253,7 @@
 <h3>Create<a class="headerlink" href="#create" title="Link to this heading">#</a></h3>
 <p>Creates a resource according to the description provided in the specified cloud. Some clouds may require a URI before resource creation and others may leave this field blank. Note that a tag is automatically created for the resource with the name <code class="docutils literal notranslate"><span class="pre">&lt;namespace&gt;.&lt;cloud&gt;.&lt;vm_name&gt;</span></code> (where <code class="docutils literal notranslate"><span class="pre">vm_name</span></code> is pulled from the name field in the resource description).</p>
 <p><strong>CLI:</strong></p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;<span class="w"> </span>&lt;path_to_json&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;<span class="w"> </span>&lt;path_to_json&gt;
 </pre></div>
 </div>
 <p>Parameters:</p>
@@ -359,7 +359,7 @@
 <h3>Get<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
 <p>Gets the rules associated with a resource.</p>
 <p><strong>CLI:</strong></p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>rule<span class="w"> </span>get<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>rule<span class="w"> </span>get<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;
 </pre></div>
 </div>
 <p>Parameters:</p>
@@ -382,7 +382,7 @@
 <h3>Add<a class="headerlink" href="#add" title="Link to this heading">#</a></h3>
 <p>Adds one or many rules to the permit list associated with a resource.</p>
 <p><strong>CLI:</strong></p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;<span class="w"> </span><span class="o">[</span>--ssh<span class="w"> </span>&lt;tag&gt;<span class="w"> </span>--ping<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="p">|</span><span class="w"> </span>--ruleFile<span class="w"> </span>&lt;path_to_file&gt;<span class="o">]</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;<span class="w"> </span><span class="o">[</span>--ssh<span class="w"> </span>&lt;tag&gt;<span class="w"> </span>--ping<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="p">|</span><span class="w"> </span>--ruleFile<span class="w"> </span>&lt;path_to_file&gt;<span class="o">]</span>
 </pre></div>
 </div>
 <p>Parameters:</p>
@@ -496,7 +496,7 @@
 <h3>Delete<a class="headerlink" href="#delete" title="Link to this heading">#</a></h3>
 <p>Deletes one or many rules from the permit list associated with the specified resource.</p>
 <p><strong>CLI:</strong></p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>rule<span class="w"> </span>delete<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;<span class="w"> </span>--rules<span class="w"> </span>&lt;rule_names&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>rule<span class="w"> </span>delete<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;<span class="w"> </span>--rules<span class="w"> </span>&lt;rule_names&gt;
 </pre></div>
 </div>
 <p>Parameters:</p>
@@ -550,7 +550,7 @@
 <h3>Get<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
 <p>Gets the children tags associated with a tag or resolves the tag down to last-level entries (IPs).</p>
 <p><strong>CLI:</strong></p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--resolve<span class="o">]</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--resolve<span class="o">]</span>
 </pre></div>
 </div>
 <p>Parameters:</p>
@@ -572,7 +572,7 @@ POST<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</
 <h3>Set<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
 <p>Adds children tags to a parent tag or creates a last-level tag that associates a names with an URI and/or IP.</p>
 <p><strong>CLI:</strong></p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--children<span class="w"> </span>&lt;child_tag_list&gt;<span class="o">]</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="o">[</span>--uri<span class="w"> </span>&lt;uri&gt;<span class="o">]</span><span class="w"> </span><span class="o">[</span>--ip<span class="w"> </span>&lt;ip&gt;<span class="o">]</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--children<span class="w"> </span>&lt;child_tag_list&gt;<span class="o">]</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="o">[</span>--uri<span class="w"> </span>&lt;uri&gt;<span class="o">]</span><span class="w"> </span><span class="o">[</span>--ip<span class="w"> </span>&lt;ip&gt;<span class="o">]</span>
 </pre></div>
 </div>
 <p>Parameters:</p>
@@ -622,7 +622,7 @@ POST<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</
 <h3>Delete<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
 <p>Deletes a tag or the association of members tags to that tag.</p>
 <p><strong>CLI:</strong></p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>inv<span class="w"> </span>tag<span class="w"> </span>delete<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--member<span class="w"> </span>&lt;members_list&gt;<span class="o">]</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>tag<span class="w"> </span>delete<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--member<span class="w"> </span>&lt;members_list&gt;<span class="o">]</span>
 </pre></div>
 </div>
 <p>Parameters:</p>
@@ -650,36 +650,36 @@ POST<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</
 </section>
 <section id="service-operations">
 <h2>Service Operations<a class="headerlink" href="#service-operations" title="Link to this heading">#</a></h2>
-<p>Operations to interact with Invisinets services.</p>
+<p>Operations to interact with Paraglider services.</p>
 <section id="all-services">
 <h3>All Services<a class="headerlink" href="#all-services" title="Link to this heading">#</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>startup<span class="w"> </span>&lt;path_to_config&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>startup<span class="w"> </span>&lt;path_to_config&gt;
 </pre></div>
 </div>
 </section>
 <section id="orchestrator">
 <h3>Orchestrator<a class="headerlink" href="#orchestrator" title="Link to this heading">#</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>orch<span class="w"> </span>&lt;path_to_config&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>orch<span class="w"> </span>&lt;path_to_config&gt;
 </pre></div>
 </div>
 </section>
 <section id="azure">
 <h3>Azure<a class="headerlink" href="#azure" title="Link to this heading">#</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>az<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>az<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">central_controller_address</span></code> should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is “localhost:8081”.</p>
 </section>
 <section id="gcp">
 <h3>GCP<a class="headerlink" href="#gcp" title="Link to this heading">#</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>gcp<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>gcp<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">central_controller_address</span></code> should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is “localhost:8081”.</p>
 </section>
 <section id="tag-service">
 <h3>Tag Service<a class="headerlink" href="#tag-service" title="Link to this heading">#</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>invd<span class="w"> </span>tagserv<span class="w"> </span>&lt;redis_port&gt;<span class="w"> </span>&lt;server_port&gt;<span class="w"> </span>&lt;clear_keys&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>tagserv<span class="w"> </span>&lt;redis_port&gt;<span class="w"> </span>&lt;server_port&gt;<span class="w"> </span>&lt;clear_keys&gt;
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">clear_keys</span></code> is a bool (“true” or “false”) which determines whether the database state should be cleared on startup or not.</p>
