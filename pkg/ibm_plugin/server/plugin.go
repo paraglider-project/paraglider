@@ -81,7 +81,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	var vpcID string
 	var subnetID string
 	resFields := vpcv1.CreateInstanceOptions{}
-	utils.Log.Printf("Creating resource :%s\n", resourceDesc.Id)
+	utils.Log.Printf("Creating resource %s in deployment %s\n", resourceDesc.Name, resourceDesc.Deployment.Id)
 	// TODO : Support unmarshalling to other struct types of InstancePrototype interface
 	resFields.InstancePrototype = &vpcv1.InstancePrototypeInstanceByImage{
 		Image:         &vpcv1.ImageIdentityByID{},
@@ -106,7 +106,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	}
 
 	resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Name = proto.String(resourceDesc.Name)
-	resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).ResourceGroup.(*vpcv1.ResourceGroupIdentityByID).ID = rInfo.ResourceGroup
+	resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).ResourceGroup.(*vpcv1.ResourceGroupIdentityByID).ID = &rInfo.ResourceGroup
 
 	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 	if err != nil {
@@ -177,7 +177,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		return nil, err
 	}
 
-	return &invisinetspb.CreateResourceResponse{Name: *vm.Name, Uri: createInstanceID(resGroup, zone, *vm.ID), Ip: reservedIP}, nil
+	return &invisinetspb.CreateResourceResponse{Name: *vm.Name, Uri: createInstanceID(rInfo.ResourceGroup, zone, *vm.ID), Ip: reservedIP}, nil
 }
 
 // GetUsedAddressSpaces returns a list of address spaces used by either user's or invisinets' subnets,

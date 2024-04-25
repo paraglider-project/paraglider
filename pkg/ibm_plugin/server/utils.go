@@ -42,7 +42,7 @@ func getResourceIDInfo(deploymentID string) (ResourceIDInfo, error) {
 	parts := strings.Split(deploymentID, "/")
 
 	if parts[0] != "" || parts[1] != "resourcegroup" {
-		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}', got '%s'", resourceID)
+		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}', got '%s'", deploymentID)
 	}
 
 	info := ResourceIDInfo{
@@ -51,7 +51,7 @@ func getResourceIDInfo(deploymentID string) (ResourceIDInfo, error) {
 
 	if len(parts) >= 4 {
 		if parts[3] != "zone" {
-			return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}/zone/{zone}', got '%s'", resourceID)
+			return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}/zone/{zone}', got '%s'", deploymentID)
 		}
 		info.Zone = parts[4]
 	}
@@ -59,7 +59,7 @@ func getResourceIDInfo(deploymentID string) (ResourceIDInfo, error) {
 	if len(parts) >= 5 {
 		// In future, validate multiple resource type
 		if parts[5] != instanceResourceType {
-			return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}/zone/{zone}/instance/{instance_id}', got '%s'", resourceID)
+			return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}/zone/{zone}/instance/{instance_id}', got '%s'", deploymentID)
 		}
 		info.ResourceID = parts[6]
 	}
