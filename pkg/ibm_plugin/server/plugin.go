@@ -94,6 +94,9 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
 	}
+	if resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Zone.(*vpcv1.ZoneIdentityByName).Name == nil {
+		return nil, fmt.Errorf("unspecified zone definition in resource description")
+	}
 	zone := *resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Zone.(*vpcv1.ZoneIdentityByName).Name
 	region, err := ibmCommon.ZoneToRegion(zone)
 	if err != nil {
