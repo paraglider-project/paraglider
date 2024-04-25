@@ -1,5 +1,5 @@
 {
-    "parent": "projects/invisinets/locations/us-central1-c",
+    "parent": "projects/<your-project>/locations/us-central1-c",
     "cluster": {
         "name": "test-cluster-5",
         "master_auth": {

@@ -12,6 +12,6 @@
         "machine_type": "zones/us-west1-a/machineTypes/f1-micro",
         "name": "vm-c"
     },
-    "project": "invisinets",
+    "project": "<your-project>",
     "zone": "us-west1-a"
 }
