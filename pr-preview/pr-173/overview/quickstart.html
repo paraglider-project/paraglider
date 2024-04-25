@@ -283,16 +283,13 @@ IBM</label><div class="sd-tab-content docutils">
 <p>Take note of the <code class="docutils literal notranslate"><span class="pre">ID</span></code> column for the resource ID (referred to as <code class="docutils literal notranslate"><span class="pre">${IBM_RESOURCE_GROUP_ID}</span></code> throughout this document).</p>
 </li>
 <li><p>Create a new API key.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">    $ </span>mkdir<span class="w"> </span>-p<span class="w"> </span>~/.ibm
-<span class="gp">    $ </span>ibmcloud<span class="w"> </span>iam<span class="w"> </span>api-key-create<span class="w"> </span>invkey<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;API Key&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="o">{</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;iam_api_key: &quot;</span><span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>grep<span class="w"> </span>-o<span class="w"> </span><span class="s1">&#39;[^ ]\+$&#39;</span><span class="p">;</span><span class="w"> </span><span class="o">}</span><span class="w"> </span>&gt;<span class="w"> </span>~/.ibm/credentials.yaml
-
-<span class="go">.. note::</span>
-
-<span class="go">    An existing API key could also be used by the IBM plugin. Copy the API Key to ``~/.ibm/credentials.yaml``.</span>
-
-<span class="go">    .. code-block:: yaml</span>
-<span class="go">        iam_api_key: ${API_KEY}</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>mkdir<span class="w"> </span>-p<span class="w"> </span>~/.ibm
+<span class="gp">$ </span>ibmcloud<span class="w"> </span>iam<span class="w"> </span>api-key-create<span class="w"> </span>invkey<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;API Key&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="o">{</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;iam_api_key: &quot;</span><span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>grep<span class="w"> </span>-o<span class="w"> </span><span class="s1">&#39;[^ ]\+$&#39;</span><span class="p">;</span><span class="w"> </span><span class="o">}</span><span class="w"> </span>&gt;<span class="w"> </span>~/.ibm/credentials.yaml
 </pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>An existing API key could also be used by the IBM plugin. Copy the API Key to <code class="docutils literal notranslate"><span class="pre">~/.ibm/credentials.yaml</span></code>.</p>
 </div>
 </li>
 </ol>
