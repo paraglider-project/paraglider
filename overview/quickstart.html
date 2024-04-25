@@ -225,7 +225,7 @@
 </section>
 <section id="cloud-authentication">
 <h2>Cloud Authentication<a class="headerlink" href="#cloud-authentication" title="Link to this heading">#</a></h2>
-<p>Invisinets currently supports Azure and GCP. To use Invisinets with a cloud provider, you must have an account with that provider and have the necessary credentials set up.</p>
+<p>Invisinets currently supports Azure, GCP and IBM. To use Invisinets with a cloud provider, you must have an account with that provider and have the necessary credentials set up.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
 </input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-0">
@@ -268,14 +268,45 @@ GCP</label><div class="sd-tab-content docutils">
 </li>
 </ol>
 </div>
+<input id="sd-tab-item-2" name="sd-tab-set-0" type="radio">
+</input><label class="sd-tab-label" data-sync-id="ibm" for="sd-tab-item-2">
+IBM</label><div class="sd-tab-content docutils">
+<ol class="arabic">
+<li><p><a class="reference external" href="https://cloud.ibm.com/docs/cli?topic=cli-getting-started">Install the IBM Cloud CLI</a>.</p></li>
+<li><p>Set up your application default credentials.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>ibmcloud<span class="w"> </span>login<span class="w"> </span>--sso
+</pre></div>
+</div>
+</li>
+<li><p>Retrieve the resource group ID you would like to use.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>ibmcloud<span class="w"> </span>resource<span class="w"> </span>groups
+</pre></div>
+</div>
+<p>Take note of the <code class="docutils literal notranslate"><span class="pre">ID</span></code> column for the resource ID (referred to as <code class="docutils literal notranslate"><span class="pre">${IBM_RESOURCE_GROUP_ID}</span></code> throughout this document).</p>
+</li>
+<li><p>Create a new API key.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>mkdir<span class="w"> </span>-p<span class="w"> </span>~/.ibm
+<span class="gp">$ </span>ibmcloud<span class="w"> </span>iam<span class="w"> </span>api-key-create<span class="w"> </span>invkey<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;API Key&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="o">{</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;iam_api_key: &quot;</span><span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>grep<span class="w"> </span>-o<span class="w"> </span><span class="s1">&#39;[^ ]\+$&#39;</span><span class="p">;</span><span class="w"> </span><span class="o">}</span><span class="w"> </span>&gt;<span class="w"> </span>~/.ibm/credentials.yaml
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>An existing API key could also be used by the IBM plugin. Copy the API Key to <code class="docutils literal notranslate"><span class="pre">~/.ibm/credentials.yaml</span></code>.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">iam_api_key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${API_KEY}</span>
+</pre></div>
+</div>
+</div>
+</li>
+</ol>
+</div>
 </div>
 </section>
 <section id="configuration">
 <h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h2>
 <p>Copy paste the following configuration into a new file called <code class="docutils literal notranslate"><span class="pre">invisinets_config.yaml</span></code>. Make sure to substitute the necessary parameters for your cloud provider.</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
-</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-2">
+<input checked="checked" id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
+</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-3">
 Azure</label><div class="sd-tab-content docutils">
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">server</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
@@ -298,8 +329,8 @@ Azure</label><div class="sd-tab-content docutils">
 </pre></div>
 </div>
 </div>
-<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
-</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-3">
+<input id="sd-tab-item-4" name="sd-tab-set-1" type="radio">
+</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-4">
 GCP</label><div class="sd-tab-content docutils">
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">server</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
@@ -319,6 +350,30 @@ GCP</label><div class="sd-tab-content docutils">
 <span class="w">  </span><span class="nt">default</span><span class="p">:</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;gcp&quot;</span>
 <span class="w">      </span><span class="nt">deployment</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;projects/${GCP_PROJECT_ID}&quot;</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-5" name="sd-tab-set-1" type="radio">
+</input><label class="sd-tab-label" data-sync-id="ibm" for="sd-tab-item-5">
+IBM</label><div class="sd-tab-content docutils">
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">server</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
+<span class="w">  </span><span class="nt">rpcPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8081</span>
+
+<span class="nt">cloudPlugins</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ibm&quot;</span>
+<span class="w">    </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8082</span>
+
+<span class="nt">tagService</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8083</span>
+
+<span class="nt">namespaces</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">default</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ibm&quot;</span>
+<span class="w">      </span><span class="nt">deployment</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;resourcegroup/${IBM_RESOURCE_GROUP_ID}&quot;</span>
 </pre></div>
 </div>
 </div>
@@ -342,8 +397,8 @@ GCP</label><div class="sd-tab-content docutils">
 <h2>Create VMs<a class="headerlink" href="#create-vms" title="Link to this heading">#</a></h2>
 <p>To create VMs in clouds, Invisinets requires a JSON file that describes the VM. This is the same as what you would provide in the body of the REST API request to the cloud.</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-4" name="sd-tab-set-2" type="radio">
-</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-4">
+<input checked="checked" id="sd-tab-item-6" name="sd-tab-set-2" type="radio">
+</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-6">
 Azure</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Copy the following into a file called <code class="docutils literal notranslate"><span class="pre">azure_vm.json</span></code>. Make sure to fill in the <code class="docutils literal notranslate"><span class="pre">adminUsername</span></code> and <code class="docutils literal notranslate"><span class="pre">adminPassword</span></code> fields!</p>
@@ -379,8 +434,8 @@ Azure</label><div class="sd-tab-content docutils">
 </li>
 </ol>
 </div>
-<input id="sd-tab-item-5" name="sd-tab-set-2" type="radio">
-</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-5">
+<input id="sd-tab-item-7" name="sd-tab-set-2" type="radio">
+</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-7">
 GCP</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Copy the following into a file called <code class="docutils literal notranslate"><span class="pre">gcp_vm.json</span></code>.</p>
@@ -410,6 +465,35 @@ GCP</label><div class="sd-tab-content docutils">
 </li>
 </ol>
 </div>
+<input id="sd-tab-item-8" name="sd-tab-set-2" type="radio">
+</input><label class="sd-tab-label" data-sync-id="ibm" for="sd-tab-item-8">
+IBM</label><div class="sd-tab-content docutils">
+<ol class="arabic">
+<li><p>Copy the following into a file called <code class="docutils literal notranslate"><span class="pre">ibm_vm.json</span></code>.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;InstancePrototype&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;profile&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bx2-2x8&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;image&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;zone&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;us-east-1&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><p>Create two VMs called <code class="docutils literal notranslate"><span class="pre">vm-1</span></code> and <code class="docutils literal notranslate"><span class="pre">vm-2</span></code>.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>ibm<span class="w"> </span>vm-1<span class="w"> </span>ibm_vm.json
+<span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>ibm<span class="w"> </span>vm-2<span class="w"> </span>ibm_vm.json
+</pre></div>
+</div>
+</li>
+</ol>
+</div>
 </div>
 </section>
 <section id="ping-vms">
@@ -417,8 +501,8 @@ GCP</label><div class="sd-tab-content docutils">
 <p>Now that your VMs are created, you can try pinging between the two VMs. Since Invisinets denies all traffic by default, the ping should fail.</p>
 <p>Since Invisinets creates VMs without public IPs, you will need to use cloud specific connectivity checks instead of SSH-ing into the VMs which may require some setup.</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-6" name="sd-tab-set-3" type="radio">
-</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-6">
+<input checked="checked" id="sd-tab-item-9" name="sd-tab-set-3" type="radio">
+</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-9">
 Azure</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Configure Azure Network Watcher.</p>
@@ -440,8 +524,8 @@ Azure</label><div class="sd-tab-content docutils">
 </li>
 </ol>
 </div>
-<input id="sd-tab-item-7" name="sd-tab-set-3" type="radio">
-</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-7">
+<input id="sd-tab-item-10" name="sd-tab-set-3" type="radio">
+</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-10">
 GCP</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Run connectivity test between vm-1 and vm-2.</p>
@@ -457,14 +541,21 @@ GCP</label><div class="sd-tab-content docutils">
 </li>
 </ol>
 </div>
+<input id="sd-tab-item-11" name="sd-tab-set-3" type="radio">
+</input><label class="sd-tab-label" data-sync-id="ibm" for="sd-tab-item-11">
+IBM</label><div class="sd-tab-content docutils">
+<ol class="arabic simple">
+<li><p>TBD</p></li>
+</ol>
+</div>
 </div>
 </section>
 <section id="add-permit-list-rules">
 <h2>Add Permit List Rules<a class="headerlink" href="#add-permit-list-rules" title="Link to this heading">#</a></h2>
 <p>To get the VMs to talk to each other, you will need to add permit list rules to both VMs.</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-8" name="sd-tab-set-4" type="radio">
-</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-8">
+<input checked="checked" id="sd-tab-item-12" name="sd-tab-set-4" type="radio">
+</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-12">
 Azure</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Add permit list rules to both VMs.</p>
@@ -481,8 +572,8 @@ Azure</label><div class="sd-tab-content docutils">
 </li>
 </ol>
 </div>
-<input id="sd-tab-item-9" name="sd-tab-set-4" type="radio">
-</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-9">
+<input id="sd-tab-item-13" name="sd-tab-set-4" type="radio">
+</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-13">
 GCP</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Add permit list rules to both VMs.</p>
@@ -496,6 +587,21 @@ GCP</label><div class="sd-tab-content docutils">
 </pre></div>
 </div>
 <p>You should see the <code class="docutils literal notranslate"><span class="pre">result</span></code> field be <code class="docutils literal notranslate"><span class="pre">REACHABLE</span></code>.</p>
+</li>
+</ol>
+</div>
+<input id="sd-tab-item-14" name="sd-tab-set-4" type="radio">
+</input><label class="sd-tab-label" data-sync-id="ibm" for="sd-tab-item-14">
+IBM</label><div class="sd-tab-content docutils">
+<ol class="arabic">
+<li><p>Add permit list rules to both VMs.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>ibm<span class="w"> </span>vm-1<span class="w"> </span>--ping<span class="w"> </span>default.ibm.vm-2
+<span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>ibm<span class="w"> </span>vm-2<span class="w"> </span>--ping<span class="w"> </span>default.ibm.vm-1
+</pre></div>
+</div>
+</li>
+<li><p>Check connectivity again between vm-1 and vm-2.</p>
+<p>TBD</p>
 </li>
 </ol>
 </div>
