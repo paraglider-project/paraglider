@@ -167,22 +167,6 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		utils.Log.Printf("An error occured while getting resource vnet:%+v", err)
 		return nil, err
 	}
-	resourceSubnetID := netInfo.SubnetID
-
-	// Get subnet address space
-	var subnetAddressPrefix string
-	for _, subnet := range resourceVnet.Properties.Subnets {
-		if *subnet.ID == resourceSubnetID {
-			if subnet.Properties.AddressPrefix != nil {
-				// Check to avoid nil pointer dereference
-				subnetAddressPrefix = *subnet.Properties.AddressPrefix
-			}
-			break
-		}
-	}
-	if subnetAddressPrefix == "" {
-		return nil, fmt.Errorf("unable to get subnet address prefix")
-	}
 
 	if err != nil {
 		utils.Log.Printf("An error occured while getting invisinets vnets address spaces:%+v", err)
@@ -214,11 +198,20 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 					return nil, fmt.Errorf("unable to connect clouds : %w", err)
 				}
 			} else {
-				// Create VPC network peering (in both directions) for different namespaces
-				if peeringCloudInfo.Namespace != req.Namespace {
-					err = s.createNamespacePeering(ctx, azureHandler, resourceIdInfo, *resourceVnet.Location, req.Namespace, peeringCloudInfo, rule.Targets[i])
+				localVnetAddressSpaces := []string{}
+				for _, addressSpace := range resourceVnet.Properties.AddressSpace.AddressPrefixes {
+					localVnetAddressSpaces = append(localVnetAddressSpaces, *addressSpace)
+				}
+
+				isLocal, err := utils.IsPermitListRuleTagInAddressSpace(rule.Targets[i], localVnetAddressSpaces)
+				if err != nil {
+					return nil, fmt.Errorf("unable to determine if tag is in local vnet address space: %w", err)
+				}
+				if !isLocal {
+					// Create VPC network peering (remote is in a different region or namespace)
+					err = s.createPeering(ctx, azureHandler, resourceIdInfo, *resourceVnet.Location, req.Namespace, peeringCloudInfo, rule.Targets[i])
 					if err != nil {
-						return nil, fmt.Errorf("unable to create namespace peering: %w", err)
+						return nil, fmt.Errorf("unable to create vnet peering: %w", err)
 					}
 				}
 			}
@@ -519,8 +512,8 @@ func (s *azurePluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, re
 	return resp, nil
 }
 
-// Peer with another namespace within Azure
-func (s *azurePluginServer) createNamespacePeering(ctx context.Context, azureHandler AzureSDKHandler, resourceIDInfo ResourceIDInfo, resourceVnetLocation string, namespace string, peeringCloudInfo *utils.PeeringCloudInfo, permitListRuleTarget string) error {
+// Peer with another virtual network
+func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler AzureSDKHandler, resourceIDInfo ResourceIDInfo, resourceVnetLocation string, namespace string, peeringCloudInfo *utils.PeeringCloudInfo, permitListRuleTarget string) error {
 	peeringCloudResourceIDInfo, err := getResourceIDInfo(peeringCloudInfo.Deployment)
 	if err != nil {
 		return fmt.Errorf("unable to get resource ID info for peering Cloud: %w", err)

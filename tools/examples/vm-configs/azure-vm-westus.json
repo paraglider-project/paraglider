@@ -1,12 +1,12 @@
 {
-    "location": "eastus",
+    "location": "westus",
     "properties": {
         "hardwareProfile": {
             "vmSize": "Standard_B1s"
         },
         "osProfile": {
-            "adminPassword": "",
-            "adminUsername": "",
+            "adminPassword": "<your-password>",
+            "adminUsername": "<your-username>",
             "computerName": "sample-compute"
         },
         "storageProfile": {

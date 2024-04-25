@@ -94,13 +94,13 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	}
 	if e.pingTag != "" {
 		// Add the rules to allow ping
-		rules = append(rules, &invisinetspb.PermitListRule{Name: "allow-ping-inbound", Tags: []string{e.pingTag}, Protocol: 1, Direction: 0, DstPort: -1, SrcPort: -1})
-		rules = append(rules, &invisinetspb.PermitListRule{Name: "allow-ping-outbound", Tags: []string{e.pingTag}, Protocol: 1, Direction: 1, DstPort: -1, SrcPort: -1})
+		rules = append(rules, &invisinetspb.PermitListRule{Name: "allow-ping-inbound-" + e.pingTag, Tags: []string{e.pingTag}, Protocol: 1, Direction: 0, DstPort: -1, SrcPort: -1})
+		rules = append(rules, &invisinetspb.PermitListRule{Name: "allow-ping-outbound-" + e.pingTag, Tags: []string{e.pingTag}, Protocol: 1, Direction: 1, DstPort: -1, SrcPort: -1})
 	}
 	if e.sshTag != "" {
 		// Add the rule to allow SSH
-		rules = append(rules, &invisinetspb.PermitListRule{Name: "allow-ssh-inbound", Tags: []string{e.sshTag}, Protocol: 6, Direction: 0, DstPort: 22, SrcPort: -1})
-		rules = append(rules, &invisinetspb.PermitListRule{Name: "allow-ssh-outbound", Tags: []string{e.sshTag}, Protocol: 6, Direction: 1, DstPort: -1, SrcPort: 22})
+		rules = append(rules, &invisinetspb.PermitListRule{Name: "allow-ssh-inbound-" + e.sshTag, Tags: []string{e.sshTag}, Protocol: 6, Direction: 0, DstPort: 22, SrcPort: -1})
+		rules = append(rules, &invisinetspb.PermitListRule{Name: "allow-ssh-outbound-" + e.sshTag, Tags: []string{e.sshTag}, Protocol: 6, Direction: 1, DstPort: -1, SrcPort: 22})
 	}
 
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
