@@ -25,6 +25,8 @@ import (
 
 	az "github.com/NetSys/invisinets/pkg/azure_plugin"
 	gcp "github.com/NetSys/invisinets/pkg/gcp"
+	ibm "github.com/NetSys/invisinets/pkg/ibm_plugin/server"
+
 	kvservice "github.com/NetSys/invisinets/pkg/kvstore"
 	orchestrator "github.com/NetSys/invisinets/pkg/orchestrator"
 	"github.com/NetSys/invisinets/pkg/orchestrator/config"
@@ -50,6 +52,7 @@ type executor struct {
 	kvPort           int
 	azPort           int
 	gcpPort          int
+	ibmPort          int
 	orchestratorAddr string
 	clearKeys        bool
 }
@@ -94,6 +97,11 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
+		} else if cloud.Name == "ibm" {
+			e.ibmPort, err = strconv.Atoi(cloud.Port)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -120,6 +128,10 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 
 	go func() {
 		az.Setup(e.azPort, e.orchestratorAddr)
+	}()
+
+	go func() {
+		ibm.Setup(e.ibmPort, e.orchestratorAddr)
 	}()
 
 	orchestrator.SetupWithFile(args[0], false)
