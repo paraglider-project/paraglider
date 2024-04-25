@@ -24,7 +24,7 @@ Goals:
 
 Setup:
 ------
-* Run ``invd startup <path_to_config>`` to start all the microservices
+* Run ``glided startup <path_to_config>`` to start all the microservices
 
 Phase 0: Multicloud Prep
 ------------------------
@@ -35,6 +35,6 @@ Steps:
 
    .. code-block:: console
    
-        inv resource create azure vm-a azure-vm-westus.json
+        glide resource create azure vm-a azure-vm-westus.json
 
 2. Create VM C in GCP
