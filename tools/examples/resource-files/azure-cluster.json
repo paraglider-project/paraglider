@@ -1,0 +1,131 @@
+{
+        "location": "eastus",
+        "name": "test-cluster2",
+        "type": "Microsoft.ContainerService/ManagedClusters",
+        "properties": {
+            "apiServerAccessProfile": {
+                "enablePrivateCluster": true
+            },
+            "kubernetesVersion": "1.27.7",
+            "currentKubernetesVersion": "1.27.7",
+            "dnsPrefix": "test-cluster2-dns",
+            "agentPoolProfiles": [
+                {
+                    "name": "agentpool",
+                    "count": 2,
+                    "vmSize": "Standard_D8ds_v5",
+                    "osDiskSizeGB": 128,
+                    "osDiskType": "Ephemeral",
+                    "kubeletDiskType": "OS",
+                    "maxPods": 110,
+                    "type": "VirtualMachineScaleSets",
+                    "availabilityZones": [
+                        "1",
+                        "2",
+                        "3"
+                    ],
+                    "maxCount": 5,
+                    "minCount": 2,
+                    "enableAutoScaling": true,
+                    "orchestratorVersion": "1.27.7",
+                    "currentOrchestratorVersion": "1.27.7",
+                    "enableNodePublicIP": false,
+                    "nodeTaints": [
+                        "CriticalAddonsOnly=true:NoSchedule"
+                    ],
+                    "mode": "System",
+                    "osType": "Linux",
+                    "osSKU": "Ubuntu",
+                    "nodeImageVersion": "AKSUbuntu-2204gen2containerd-202401.17.1",
+                    "enableFIPS": false
+                },
+                {
+                    "name": "userpool",
+                    "count": 2,
+                    "vmSize": "Standard_D8ds_v5",
+                    "osDiskSizeGB": 128,
+                    "osDiskType": "Ephemeral",
+                    "kubeletDiskType": "OS",
+                    "maxPods": 110,
+                    "type": "VirtualMachineScaleSets",
+                    "availabilityZones": [
+                        "1",
+                        "2",
+                        "3"
+                    ],
+                    "maxCount": 100,
+                    "minCount": 2,
+                    "enableAutoScaling": true,
+                    "orchestratorVersion": "1.27.7",
+                    "currentOrchestratorVersion": "1.27.7",
+                    "enableNodePublicIP": false,
+                    "mode": "User",
+                    "osType": "Linux",
+                    "osSKU": "Ubuntu",
+                    "nodeImageVersion": "AKSUbuntu-2204gen2containerd-202401.17.1",
+                    "enableFIPS": false
+                }
+            ],
+            "enableRBAC": true,
+            "supportPlan": "KubernetesOfficial",
+            "servicePrincipalProfile": {
+                "clientId": "8e126cb1-420a-49ae-8e63-0b0af0b032d9",
+                "secret": "ogH8Q~0i6HCOFEE4DXgHYqlafjvDMR4eZp4e3de3"
+            },
+            "networkProfile": {
+                "networkPlugin": "azure",
+                "networkPolicy": "calico",
+                "networkDataplane": "azure",
+                "loadBalancerSku": "Standard",
+                "outboundType": "loadBalancer",
+                "ipFamilies": [
+                    "IPv4"
+                ]
+            },
+            "maxAgentPools": 100,
+            "autoScalerProfile": {
+                "balance-similar-node-groups": "false",
+                "expander": "random",
+                "max-empty-bulk-delete": "10",
+                "max-graceful-termination-sec": "600",
+                "max-node-provision-time": "15m",
+                "max-total-unready-percentage": "45",
+                "new-pod-scale-up-delay": "0s",
+                "ok-total-unready-count": "3",
+                "scale-down-delay-after-add": "10m",
+                "scale-down-delay-after-delete": "10s",
+                "scale-down-delay-after-failure": "3m",
+                "scale-down-unneeded-time": "10m",
+                "scale-down-unready-time": "20m",
+                "scale-down-utilization-threshold": "0.5",
+                "scan-interval": "10s",
+                "skip-nodes-with-local-storage": "false",
+                "skip-nodes-with-system-pods": "true"
+            },
+            "autoUpgradeProfile": {
+                "upgradeChannel": "patch",
+                "nodeOSUpgradeChannel": "NodeImage"
+            },
+            "disableLocalAccounts": false,
+            "securityProfile": {},
+            "storageProfile": {
+                "diskCSIDriver": {
+                    "enabled": true
+                },
+                "fileCSIDriver": {
+                    "enabled": true
+                },
+                "snapshotController": {
+                    "enabled": true
+                }
+            },
+            "oidcIssuerProfile": {
+                "enabled": false
+            },
+            "workloadAutoScalerProfile": {}
+        },
+        "sku": {
+            "name": "Base",
+            "tier": "Standard"
+        }
+}

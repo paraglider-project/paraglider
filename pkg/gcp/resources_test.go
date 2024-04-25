@@ -32,7 +32,6 @@ import (
 
 func getFakeInstanceResourceDescription() (*invisinetspb.ResourceDescription, *computepb.InsertInstanceRequest, error) {
 	instanceRequest := &computepb.InsertInstanceRequest{
-		Project:          fakeProject,
 		Zone:             fakeZone,
 		InstanceResource: getFakeInstance(false),
 	}
@@ -47,10 +46,9 @@ func getFakeInstanceResourceDescription() (*invisinetspb.ResourceDescription, *c
 
 func getFakeClusterResourceDescription() (*invisinetspb.ResourceDescription, *containerpb.CreateClusterRequest, error) {
 	clusterRequest := &containerpb.CreateClusterRequest{
-		ProjectId: fakeProject,
-		Zone:      fakeZone,
-		Parent:    fmt.Sprintf("projects/%s/locations/%s", fakeProject, fakeZone),
-		Cluster:   getFakeCluster(false),
+		Zone:    fakeZone,
+		Parent:  fmt.Sprintf("projects/%s/locations/%s", fakeProject, fakeZone),
+		Cluster: getFakeCluster(false),
 	}
 	jsonReq, err := json.Marshal(clusterRequest)
 	if err != nil {
@@ -148,7 +146,6 @@ func TestIsValidResource(t *testing.T) {
 	resourceInfo, err := IsValidResource(context.Background(), resource)
 
 	require.NoError(t, err)
-	assert.Equal(t, fakeProject, resourceInfo.Project)
 	assert.Equal(t, fakeZone, resourceInfo.Zone)
 
 	// Test for cluster
@@ -158,9 +155,7 @@ func TestIsValidResource(t *testing.T) {
 	resourceInfo, err = IsValidResource(context.Background(), resource)
 
 	require.NoError(t, err)
-	assert.Equal(t, fakeProject, resourceInfo.Project)
 	assert.Equal(t, fakeZone, resourceInfo.Zone)
-	assert.Equal(t, resourceInfo.Name, getFakeCluster(false).Name)
 }
 
 func TestReadAndProvisionResource(t *testing.T) {
@@ -227,9 +222,7 @@ func TestInstanceGetResourceInfo(t *testing.T) {
 	resourceInfo, err := instanceHandler.getResourceInfo(context.Background(), resource)
 
 	require.NoError(t, err)
-	assert.Equal(t, instanceRequest.Project, resourceInfo.Project)
 	assert.Equal(t, instanceRequest.Zone, resourceInfo.Zone)
-	assert.Equal(t, *instanceRequest.InstanceResource.Name, resourceInfo.Name)
 }
 
 func TestInstanceGetNetworkInfo(t *testing.T) {
@@ -309,14 +302,15 @@ func TestClusterReadAndProvisionResource(t *testing.T) {
 
 func TestGKEGetResourceInfo(t *testing.T) {
 	clusterHandler := &gcpGKE{}
-	resource, clusterRequest, err := getFakeClusterResourceDescription()
+	resource, _, err := getFakeClusterResourceDescription()
 	require.NoError(t, err)
 
 	clusterHandler.client = nil
 	resourceInfo, err := clusterHandler.getResourceInfo(context.Background(), resource)
 
 	require.NoError(t, err)
-	assert.Equal(t, clusterRequest.Cluster.Name, resourceInfo.Name)
+	assert.Equal(t, fakeZone, resourceInfo.Zone)
+	assert.Equal(t, clusterTypeName, resourceInfo.ResourceType)
 }
 
 func TestGKEGetNetworkInfo(t *testing.T) {
@@ -352,9 +346,8 @@ func TestGKECreateWithNetwork(t *testing.T) {
 	subnet := "subnet-1"
 	clusterRequest := &containerpb.CreateClusterRequest{
 		Cluster: getFakeCluster(false),
-		Parent:  "projects/project-1/locations/zone-1",
 	}
-	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeInstanceName, ResourceType: instanceTypeName}
+	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: instanceTypeName}
 	serverState := fakeServerState{}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
@@ -366,6 +359,6 @@ func TestGKECreateWithNetwork(t *testing.T) {
 	uri, ip, err := clusterHandler.createWithNetwork(ctx, clusterRequest, subnet, rInfo, fwClient, additionalAddressSpaces)
 
 	require.NoError(t, err)
-	assert.Equal(t, getClusterUri(fakeProject, fakeZone, clusterRequest.Cluster.Name), uri)
+	assert.Equal(t, getClusterUri(fakeProject, fakeZone, fakeClusterName), uri)
 	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
 }

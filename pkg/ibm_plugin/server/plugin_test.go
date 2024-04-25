@@ -63,18 +63,17 @@ const (
 	fakeProfile   = "bx2-2x8"
 	invTag        = "inv"
 
-	fakeInstanceID = "/resourcegroup/" + fakeID + "/zone/" + fakeZone + "/instance/" + fakeID
-	fakeNamespace  = "inv-namespace"
-	wrongNamespace = "wrong-inv-namespace"
+	fakeDeploymentID = "/resourcegroup/" + fakeID
+	fakeInstanceID   = "/resourcegroup/" + fakeID + "/zone/" + fakeZone + "/instance/" + fakeID
+	fakeNamespace    = "inv-namespace"
+	wrongNamespace   = "wrong-inv-namespace"
 )
 
 var (
 	fakeInstancePrototype = vpcv1.InstancePrototypeInstanceByImage{
-		Image:         &vpcv1.ImageIdentityByID{ID: core.StringPtr(fakeImage)},
-		Zone:          &vpcv1.ZoneIdentityByName{Name: core.StringPtr(fakeZone)},
-		Name:          core.StringPtr(fakeInstance),
-		Profile:       &vpcv1.InstanceProfileIdentityByName{Name: core.StringPtr(fakeProfile)},
-		ResourceGroup: &vpcv1.ResourceGroupIdentityByID{ID: core.StringPtr(fakeID)},
+		Image:   &vpcv1.ImageIdentityByID{ID: core.StringPtr(fakeImage)},
+		Zone:    &vpcv1.ZoneIdentityByName{Name: core.StringPtr(fakeZone)},
+		Profile: &vpcv1.InstanceProfileIdentityByName{Name: core.StringPtr(fakeProfile)},
 	}
 
 	fakePermitList1 = []*invisinetspb.PermitListRule{
@@ -485,7 +484,11 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: fakeInstanceID, Description: description, Namespace: fakeNamespace}
+	resource := &invisinetspb.ResourceDescription{
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+		Name:        fakeInstance,
+		Description: description,
+	}
 	resp, err := s.CreateResource(ctx, resource)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -515,7 +518,11 @@ func TestCreateResourceExistingVPCSubnet(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: fakeInstanceID, Description: description, Namespace: fakeNamespace}
+	resource := &invisinetspb.ResourceDescription{
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+		Name:        fakeInstance,
+		Description: description,
+	}
 	resp, err := s.CreateResource(ctx, resource)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -542,7 +549,11 @@ func TestCreateResourceExistingVPCMissingSubnet(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: fakeInstanceID, Description: description, Namespace: fakeNamespace}
+	resource := &invisinetspb.ResourceDescription{
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+		Name:        fakeInstance,
+		Description: description,
+	}
 	resp, err := s.CreateResource(ctx, resource)
 	require.NoError(t, err)
 	require.NotNil(t, resp)

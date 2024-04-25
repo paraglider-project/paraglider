@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Paraglider'
-copyright = 'Paraglider a Series of LF Projects, LLC \nFor web site terms of use, trademark policy and other project policies please see https://lfprojects.org/.'
+copyright = 'Paraglider a Series of LF Projects, LLC. For web site terms of use, trademark policy and other project policies please see https://lfprojects.org/.'
 author = 'Paraglider Authors'
 
 # -- General configuration ---------------------------------------------------
@@ -15,12 +15,14 @@ author = 'Paraglider Authors'
 
 extensions = [
     'sphinxcontrib.mermaid',
+    'sphinx_copybutton',
+    'sphinx_design',
 ]
 
 templates_path = ['_templates']
 exclude_patterns = []
 
-
+copybutton_prompt_text = "$ "
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

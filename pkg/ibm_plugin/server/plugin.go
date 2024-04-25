@@ -25,6 +25,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	ibmCommon "github.com/NetSys/invisinets/pkg/ibm_plugin"
@@ -94,28 +95,34 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
 	}
 	zone := *resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Zone.(*vpcv1.ZoneIdentityByName).Name
-	resGroup := *resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).ResourceGroup.(*vpcv1.ResourceGroupIdentityByID).ID
-
 	region, err := ibmCommon.ZoneToRegion(zone)
 	if err != nil {
 		return nil, err
 	}
 
-	cloudClient, err := s.setupCloudClient(resGroup, region)
+	rInfo, err := getResourceIDInfo(resourceDesc.Deployment.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Name = proto.String(resourceDesc.Name)
+	resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).ResourceGroup.(*vpcv1.ResourceGroupIdentityByID).ID = rInfo.ResourceGroup
+
+	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 	if err != nil {
 		return nil, err
 	}
 
 	// get VPCs in the request's namespace
-	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{resourceDesc.Namespace},
+	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{resourceDesc.Deployment.Namespace},
 		sdk.ResourceQuery{Region: region})
 	if err != nil {
 		return nil, err
 	}
 	if len(vpcsData) == 0 {
 		// No VPC found in the requested namespace and region. Create one.
-		utils.Log.Printf("No VPCs found in the region, will be creating.\n")
-		vpc, err := cloudClient.CreateVPC([]string{resourceDesc.Namespace})
+		utils.Log.Printf("No VPCs found in the region, will be creating.")
+		vpc, err := cloudClient.CreateVPC([]string{resourceDesc.Deployment.Namespace})
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +134,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	}
 
 	// get subnets of VPC
-	requiredTags := []string{vpcID, resourceDesc.Namespace}
+	requiredTags := []string{vpcID, resourceDesc.Deployment.Namespace}
 	subnetsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SUBNET, requiredTags,
 		sdk.ResourceQuery{Zone: zone})
 	if err != nil {
@@ -236,7 +243,7 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *invisinetspb.G
 	// verify specified instance match the specified namespace
 	if isInNamespace, err := cloudClient.IsInstanceInNamespace(
 		rInfo.ResourceID, req.Namespace, region); !isInNamespace || err != nil {
-		return nil, fmt.Errorf("specified instance: %v doesn't exist in namespace: %v.",
+		return nil, fmt.Errorf("specified instance: %v doesn't exist in namespace: %v",
 			rInfo.ResourceID, req.Namespace)
 	}
 	utils.Log.Printf("Getting permit lists for instance: %s\n", rInfo.ResourceID)

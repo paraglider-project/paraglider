@@ -109,7 +109,16 @@ func (s *tagServiceServer) _setLeafTag(c context.Context, mapping *tagservicepb.
 		return fmt.Errorf("Cannot set tag %s as a leaf tag because it already exists.", mapping.TagName)
 	}
 
-	err = s.client.HSet(c, mapping.TagName, map[string]string{"uri": *mapping.Uri, "ip": *mapping.Ip}).Err()
+	uri := ""
+	if mapping.Uri != nil {
+		uri = *mapping.Uri
+	}
+	ip := ""
+	if mapping.Ip != nil {
+		ip = *mapping.Ip
+	}
+
+	err = s.client.HSet(c, mapping.TagName, map[string]string{"uri": uri, "ip": ip}).Err()
 	if err != nil {
 		return err
 	}

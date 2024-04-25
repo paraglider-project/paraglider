@@ -38,8 +38,8 @@ func getClientMapKey(resGroup, region string) string {
 
 // returns ResourceIDInfo out of an agreed upon formatted string:
 // "/resourcegroup/{ResourceGroupName}/zone/{zone}/resourcetype/{ResourceID}"
-func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
-	parts := strings.Split(resourceID, "/")
+func getResourceIDInfo(deploymentID string) (ResourceIDInfo, error) {
+	parts := strings.Split(deploymentID, "/")
 
 	if parts[0] != "" || parts[1] != "resourcegroup" {
 		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}', got '%s'", resourceID)
