@@ -132,7 +132,7 @@ This command will start up all services specified in the configuration. In this 
 
 .. code-block:: console
 
-    $ invd startup invisinets_config.yaml
+    $ glided startup invisinets_config.yaml
 
 Create VMs
 ----------
@@ -174,8 +174,8 @@ To create VMs in clouds, Invisinets requires a JSON file that describes the VM. 
 
            .. code-block:: console
             
-                $ inv resource create azure vm-1 azure_vm.json
-                $ inv resource create azure vm-2 azure_vm.json
+                $ glide resource create azure vm-1 azure_vm.json
+                $ glide resource create azure vm-2 azure_vm.json
 
     .. tab-item:: GCP
         :sync: gcp
@@ -204,8 +204,8 @@ To create VMs in clouds, Invisinets requires a JSON file that describes the VM. 
 
            .. code-block:: console
 
-                $ inv resource create gcp vm-1 gcp_vm.json
-                $ inv resource create gcp vm-2 gcp_vm.json
+                $ glide resource create gcp vm-1 gcp_vm.json
+                $ glide resource create gcp vm-2 gcp_vm.json
 
 Ping VMs
 --------
@@ -270,8 +270,8 @@ To get the VMs to talk to each other, you will need to add permit list rules to 
 
            .. code-block:: console
 
-                $ inv rule add azure vm-1 --ping default.azure.vm-2
-                $ inv rule add azure vm-2 --ping default.azure.vm-1
+                $ glide rule add azure vm-1 --ping default.azure.vm-2
+                $ glide rule add azure vm-2 --ping default.azure.vm-1
     
         #. Check connectivity again between vm-1 and vm-2.
 
@@ -288,8 +288,8 @@ To get the VMs to talk to each other, you will need to add permit list rules to 
 
            .. code-block:: console
 
-                $ inv rule add gcp vm-1 --ping default.gcp.vm-2
-                $ inv rule add gcp vm-2 --ping default.gcp.vm-1
+                $ glide rule add gcp vm-1 --ping default.gcp.vm-2
+                $ glide rule add gcp vm-2 --ping default.gcp.vm-1
 
         #. Check connectivity again between vm-1 and vm-2.
 
