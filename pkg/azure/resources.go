@@ -89,14 +89,14 @@ func getResourceHandlerFromDescription(resourceDesc []byte) (AzureResourceHandle
 }
 
 // Gets the resource and returns relevant networking state. Also checks that the resource is in the correct namespace.
-func GetAndCheckResourceState(c context.Context, handler AzureSDKHandler, resourceID string, namespace string) (*resourceNetworkInfo, error) {
+func GetAndCheckResourceState(ctx context.Context, handler AzureSDKHandler, resourceID string, namespace string) (*resourceNetworkInfo, error) {
 	// Check the namespace
 	if namespace == "" {
 		return nil, fmt.Errorf("namespace cannot be empty")
 	}
 
 	// Get the resource
-	netInfo, err := GetNetworkInfoFromResource(c, handler, resourceID)
+	netInfo, err := GetNetworkInfoFromResource(ctx, handler, resourceID)
 	if err != nil {
 		return nil, err
 	}
@@ -112,9 +112,9 @@ func GetAndCheckResourceState(c context.Context, handler AzureSDKHandler, resour
 }
 
 // Gets the resource and returns relevant networking state
-func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, resourceID string) (*resourceNetworkInfo, error) {
+func GetNetworkInfoFromResource(ctx context.Context, handler AzureSDKHandler, resourceID string) (*resourceNetworkInfo, error) {
 	// get a generic resource
-	resource, err := handler.GetResource(c, resourceID)
+	resource, err := handler.GetResource(ctx, resourceID)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting resource %s: %+v", resourceID, err)
 		return nil, err
@@ -126,7 +126,7 @@ func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, reso
 		utils.Log.Printf("An error occured while getting the resource handler for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
-	networkInfo, err := resourceHandler.getNetworkInfo(resource, handler)
+	networkInfo, err := resourceHandler.getNetworkInfo(ctx, resource, handler)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting network info for resource %s: %+v", resourceID, err)
 		return nil, err
@@ -156,7 +156,7 @@ func ReadAndProvisionResource(ctx context.Context, resource *invisinetspb.Resour
 // Interface that must be implemented for a resource to be supported
 type AzureResourceHandler interface {
 	// Gets the network information for the resource
-	getNetworkInfo(resource *armresources.GenericResource, sdkHandler AzureSDKHandler) (*resourceNetworkInfo, error)
+	getNetworkInfo(ctx context.Context, resource *armresources.GenericResource, sdkHandler AzureSDKHandler) (*resourceNetworkInfo, error)
 	// Gets the resource information from the description
 	getResourceInfoFromDescription(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error)
 	// Reads the resource description and provisions the resource with the given subnet
@@ -169,7 +169,7 @@ type azureResourceHandlerVM struct {
 }
 
 // Gets the network information for a virtual machine
-func (r *azureResourceHandlerVM) getNetworkInfo(resource *armresources.GenericResource, sdkHandler AzureSDKHandler) (*resourceNetworkInfo, error) {
+func (r *azureResourceHandlerVM) getNetworkInfo(ctx context.Context, resource *armresources.GenericResource, sdkHandler AzureSDKHandler) (*resourceNetworkInfo, error) {
 	properties, ok := resource.Properties.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("failed to read resource.Properties")
@@ -182,7 +182,7 @@ func (r *azureResourceHandlerVM) getNetworkInfo(resource *armresources.GenericRe
 	if err != nil {
 		return nil, err
 	}
-	nic, err := sdkHandler.GetNetworkInterface(context.Background(), nicName)
+	nic, err := sdkHandler.GetNetworkInterface(ctx, nicName)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network interface:%+v", err)
 		return nil, err
@@ -192,7 +192,7 @@ func (r *azureResourceHandlerVM) getNetworkInfo(resource *armresources.GenericRe
 	if err != nil {
 		return nil, err
 	}
-	nsg, err := sdkHandler.GetSecurityGroup(context.Background(), nsgName)
+	nsg, err := sdkHandler.GetSecurityGroup(ctx, nsgName)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network security group:%+v", err)
 		return nil, err
@@ -335,7 +335,7 @@ func (r *azureResourceHandlerAKS) getNetworkRequirements() (bool, int) {
 }
 
 // Gets the network information for an AKS cluster
-func (r *azureResourceHandlerAKS) getNetworkInfo(resource *armresources.GenericResource, sdkHandler AzureSDKHandler) (*resourceNetworkInfo, error) {
+func (r *azureResourceHandlerAKS) getNetworkInfo(ctx context.Context, resource *armresources.GenericResource, sdkHandler AzureSDKHandler) (*resourceNetworkInfo, error) {
 	properties, ok := resource.Properties.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("failed to read resource.Properties")
