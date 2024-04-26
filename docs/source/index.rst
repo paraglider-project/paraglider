@@ -4,12 +4,12 @@ Welcome to Paraglider!
 .. image:: ./_static/paraglider-color-darkmode.png
     :width: 300
     :alt: Paraglider Logo
-    :class: only-dark
+    :class: no-scaled-link, only-dark
 
 .. image:: ./_static/paraglider-color-lightmode.png
    :width: 300
    :alt: Paraglider Logo
-   :class: only-light
+   :class: no-scaled-link, only-light
 
 
 Paraglider is a cross-cloud control plane for configuring cloud networks. 
