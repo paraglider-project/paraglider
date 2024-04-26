@@ -228,7 +228,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 		// LocalNetworkGateways
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/localNetworkGateways/"+validLocalNetworkGatewayName):
 			if r.Method == "GET" {
-				sendResponse(w, fakeServerState.localGateway)
+				sendResponse(w, fakeServerState.vpnGw)
 				return
 			}
 			if r.Method == "PUT" {
@@ -290,13 +290,14 @@ type fakeServerState struct {
 	gateway       *armnetwork.VirtualNetworkGateway
 	publicIP      *armnetwork.PublicIPAddress
 	subnet        *armnetwork.Subnet
-	localGateway  *armnetwork.LocalNetworkGateway
+	vpnGw         *armnetwork.LocalNetworkGateway
 	vpnConnection *armnetwork.VirtualNetworkGatewayConnection
+	vnetPeering   *armnetwork.VirtualNetworkPeering
 	cluster       *armcontainerservice.ManagedCluster
 }
 
 // Sets up fake http server and fake GCP compute clients
-func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context) {
+func SetupFakeAzureServer(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context) {
 	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
 
 	freePort, err := GetFreePort()

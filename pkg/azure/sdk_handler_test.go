@@ -48,7 +48,7 @@ func TestGetVNetsAddressSpaces(t *testing.T) {
 			},
 		},
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Create a new context for the tests
@@ -70,7 +70,7 @@ func TestCreateSecurityRule(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Subtest 1: Create security rule - Success Test
@@ -99,7 +99,7 @@ func TestDeleteSecurityRule(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Subtest 1: Delete security rule - Success Test
@@ -126,7 +126,7 @@ func TestGetSecurityGroup(t *testing.T) {
 			Name: to.Ptr(validSecurityGroupName),
 		},
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Subtest 1: Get security group - Success Test
@@ -155,7 +155,7 @@ func TestCreateSecurityGroup(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	t.Run("CreateSecurityGroup: Success", func(t *testing.T) {
@@ -188,7 +188,7 @@ func TestAssociateNSGWithSubnet(t *testing.T) {
 			Name: to.Ptr(validSubnetName),
 		},
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Create a new context for the tests
@@ -216,7 +216,7 @@ func TestGetSubnetById(t *testing.T) {
 			Name: to.Ptr(validSubnetName),
 		},
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Create a new context for the tests
@@ -246,7 +246,7 @@ func TestGetNetworkInterface(t *testing.T) {
 			Name: to.Ptr(validNicName),
 		},
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Create a new context for the tests
@@ -280,7 +280,7 @@ func TestGetResource(t *testing.T) {
 			Name: to.Ptr(vmResourceName),
 		},
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Create a new context for the tests
@@ -311,7 +311,7 @@ func TestCreateAKSCluster(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Create a new context for the tests
@@ -342,7 +342,7 @@ func TestCreateVirtualMachine(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Create a new context for the tests
@@ -376,7 +376,7 @@ func TestGetInvisinetsVnet(t *testing.T) {
 			Name: invisinetsPrefix + validVnetName,
 		},
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Create a new context for the tests
@@ -414,7 +414,7 @@ func TestAddSubnetToInvisinetsVnet(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Create a new context for the tests
@@ -446,7 +446,7 @@ func TestCreateNetworkInterface(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Create a new context for the tests
@@ -477,7 +477,7 @@ func TestCreateInvisinetsVirtualNetwork(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Create a new context for the tests
@@ -511,7 +511,7 @@ func TestGetVnet(t *testing.T) {
 			Name: to.Ptr(validVnetName),
 		},
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Create a new context for the tests
@@ -542,7 +542,7 @@ func TestCreateVnetPeering(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	// Create a new context for the tests
@@ -703,7 +703,7 @@ func TestCreateOrUpdateVirtualNetworkGateway(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 	ctx := context.Background()
 
@@ -728,7 +728,7 @@ func TestGetVirtualNetworkGateway(t *testing.T) {
 			Name: to.Ptr(validVirtualNetworkGatewayName),
 		},
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 
 	ctx := context.Background()
@@ -751,7 +751,7 @@ func TestCreatePublicIPAddress(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 	ctx := context.Background()
 
@@ -773,7 +773,7 @@ func TestCreateSubnet(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 	ctx := context.Background()
 
@@ -795,7 +795,7 @@ func TestCreateLocalNetworkGateway(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 	ctx := context.Background()
 
@@ -820,7 +820,7 @@ func TestGetLocalNetworkGateway(t *testing.T) {
 			Name: to.Ptr(validLocalNetworkGatewayName),
 		},
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 	ctx := context.Background()
 
@@ -842,7 +842,7 @@ func TestCreateVirtualNetworkGatewayConnection(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 	ctx := context.Background()
 
@@ -867,7 +867,7 @@ func TestGetVirtualNetworkGatewayConnection(t *testing.T) {
 			Name: to.Ptr(validVirtualNetworkGatewayConnectionName),
 		},
 	}
-	fakeServer, _ := setup(t, fakeServerState)
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 	ctx := context.Background()
 
