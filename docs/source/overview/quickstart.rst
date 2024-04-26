@@ -85,7 +85,7 @@ Paraglider currently supports Azure, GCP and IBM. To use Paraglider with a cloud
            .. code-block:: console
 
                 $ mkdir -p ~/.ibm
-                $ ibmcloud iam api-key-create glid_apikey | grep "API Key" | { echo -n "iam_api_key: " & grep -o '[^ ]\+$'; } > ~/.ibm/credentials.yaml
+                $ ibmcloud iam api-key-create glide_apikey | grep "API Key" | { echo -n "iam_api_key: " & grep -o '[^ ]\+$'; } > ~/.ibm/credentials.yaml
 
            .. note::
 
