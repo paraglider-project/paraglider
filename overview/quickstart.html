@@ -214,18 +214,18 @@
         <article role="main">
           <section id="quickstart">
 <span id="id1"></span><h1>Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading">#</a></h1>
-<p>This guide will walk you through an example of how to use Invisinets to ping two VMs within a single cloud.</p>
+<p>This guide will walk you through an example of how to use Paraglider to ping two VMs within a single cloud.</p>
 <section id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h2>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/invisinets/invisinets.git
-<span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>invisinets
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/paraglider-project/paraglider
+<span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>paraglider
 <span class="gp">$ </span>make<span class="w"> </span>build<span class="w"> </span>install
 </pre></div>
 </div>
 </section>
 <section id="cloud-authentication">
 <h2>Cloud Authentication<a class="headerlink" href="#cloud-authentication" title="Link to this heading">#</a></h2>
-<p>Invisinets currently supports Azure, GCP and IBM. To use Invisinets with a cloud provider, you must have an account with that provider and have the necessary credentials set up.</p>
+<p>Paraglider currently supports Azure, GCP and IBM. To use Paraglider with a cloud provider, you must have an account with that provider and have the necessary credentials set up.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
 </input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-0">
@@ -257,7 +257,7 @@ GCP</label><div class="sd-tab-content docutils">
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>For using Invisinets, you only need to setup application default credentials (i.e., first command). However, throughout this example, we will be using some <code class="docutils literal notranslate"><span class="pre">gcloud</span></code> commands that require authentication.</p>
+<p>For using Paraglider, you only need to setup application default credentials (i.e., first command). However, throughout this example, we will be using some <code class="docutils literal notranslate"><span class="pre">gcloud</span></code> commands that require authentication.</p>
 </div>
 </li>
 <li><p>Retrieve the project ID you would like to use.</p>
@@ -286,7 +286,7 @@ IBM</label><div class="sd-tab-content docutils">
 </li>
 <li><p>Create a new API key.</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>mkdir<span class="w"> </span>-p<span class="w"> </span>~/.ibm
-<span class="gp">$ </span>ibmcloud<span class="w"> </span>iam<span class="w"> </span>api-key-create<span class="w"> </span>invkey<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;API Key&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="o">{</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;iam_api_key: &quot;</span><span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>grep<span class="w"> </span>-o<span class="w"> </span><span class="s1">&#39;[^ ]\+$&#39;</span><span class="p">;</span><span class="w"> </span><span class="o">}</span><span class="w"> </span>&gt;<span class="w"> </span>~/.ibm/credentials.yaml
+<span class="gp">$ </span>ibmcloud<span class="w"> </span>iam<span class="w"> </span>api-key-create<span class="w"> </span>glide_apikey<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;API Key&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="o">{</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;iam_api_key: &quot;</span><span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>grep<span class="w"> </span>-o<span class="w"> </span><span class="s1">&#39;[^ ]\+$&#39;</span><span class="p">;</span><span class="w"> </span><span class="o">}</span><span class="w"> </span>&gt;<span class="w"> </span>~/.ibm/credentials.yaml
 </pre></div>
 </div>
 <div class="admonition note">
@@ -303,7 +303,7 @@ IBM</label><div class="sd-tab-content docutils">
 </section>
 <section id="configuration">
 <h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h2>
-<p>Copy paste the following configuration into a new file called <code class="docutils literal notranslate"><span class="pre">invisinets_config.yaml</span></code>. Make sure to substitute the necessary parameters for your cloud provider.</p>
+<p>Copy paste the following configuration into a new file called <code class="docutils literal notranslate"><span class="pre">paraglider_config.yaml</span></code>. Make sure to substitute the necessary parameters for your cloud provider.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
 </input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-3">
@@ -381,21 +381,21 @@ IBM</label><div class="sd-tab-content docutils">
 <p>Here is a breakdown of the configuration file:</p>
 <ol class="arabic simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">server</span></code> defines the orchestrator’s host and ports. The orchestrator has two ports: <code class="docutils literal notranslate"><span class="pre">port</span></code> for an HTTP server for users and <code class="docutils literal notranslate"><span class="pre">rpcPort</span></code> for an RPC server for cloud plugins.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cloudPlugins</span></code> lists the cloud plugins that Invisinets will use. In this example, we only specify one cloud but you can specify multiple clouds.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloudPlugins</span></code> lists the cloud plugins that Paraglider will use. In this example, we only specify one cloud but you can specify multiple clouds.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tagService</span></code> defines the host and port for the tag service.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">namespaces</span></code> lists the namespaces that Invisinets will reference. Each namespace consists of a list of clouds that specifies the cloud name and deployment URI.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">namespaces</span></code> lists the namespaces that Paraglider will reference. Each namespace consists of a list of clouds that specifies the cloud name and deployment URI.</p></li>
 </ol>
 </section>
 <section id="startup-services">
 <h2>Startup Services<a class="headerlink" href="#startup-services" title="Link to this heading">#</a></h2>
 <p>This command will start up all services specified in the configuration. In this case, that would be the orchestrator and the cloud plugin.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glided<span class="w"> </span>startup<span class="w"> </span>invisinets_config.yaml
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glided<span class="w"> </span>startup<span class="w"> </span>paraglider_config.yaml
 </pre></div>
 </div>
 </section>
 <section id="create-vms">
 <h2>Create VMs<a class="headerlink" href="#create-vms" title="Link to this heading">#</a></h2>
-<p>To create VMs in clouds, Invisinets requires a JSON file that describes the VM. This is the same as what you would provide in the body of the REST API request to the cloud.</p>
+<p>To create VMs in clouds, Paraglider requires a JSON file that describes the VM. This is the same as what you would provide in the body of the REST API request to the cloud.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-6" name="sd-tab-set-2" type="radio">
 </input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-6">
@@ -487,8 +487,8 @@ IBM</label><div class="sd-tab-content docutils">
 </div>
 </li>
 <li><p>Create two VMs called <code class="docutils literal notranslate"><span class="pre">vm-1</span></code> and <code class="docutils literal notranslate"><span class="pre">vm-2</span></code>.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>ibm<span class="w"> </span>vm-1<span class="w"> </span>ibm_vm.json
-<span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>ibm<span class="w"> </span>vm-2<span class="w"> </span>ibm_vm.json
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>ibm<span class="w"> </span>vm-1<span class="w"> </span>ibm_vm.json
+<span class="gp">$ </span>glide<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>ibm<span class="w"> </span>vm-2<span class="w"> </span>ibm_vm.json
 </pre></div>
 </div>
 </li>
@@ -498,8 +498,8 @@ IBM</label><div class="sd-tab-content docutils">
 </section>
 <section id="ping-vms">
 <h2>Ping VMs<a class="headerlink" href="#ping-vms" title="Link to this heading">#</a></h2>
-<p>Now that your VMs are created, you can try pinging between the two VMs. Since Invisinets denies all traffic by default, the ping should fail.</p>
-<p>Since Invisinets creates VMs without public IPs, you will need to use cloud specific connectivity checks instead of SSH-ing into the VMs which may require some setup.</p>
+<p>Now that your VMs are created, you can try pinging between the two VMs. Since Paraglider denies all traffic by default, the ping should fail.</p>
+<p>Since Paraglider creates VMs without public IPs, you will need to use cloud specific connectivity checks instead of SSH-ing into the VMs which may require some setup.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-9" name="sd-tab-set-3" type="radio">
 </input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-9">
@@ -520,7 +520,7 @@ Azure</label><div class="sd-tab-content docutils">
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>az<span class="w"> </span>network<span class="w"> </span>watcher<span class="w"> </span>test-connectivity<span class="w"> </span>-g<span class="w"> </span><span class="si">${</span><span class="nv">AZURE_RESOURCE_GROUP_NAME</span><span class="si">}</span><span class="w"> </span>--source-resource<span class="w"> </span>vm-1<span class="w"> </span>--dest-resource<span class="w"> </span>vm-2<span class="w"> </span>--protocol<span class="w"> </span>Icmp
 </pre></div>
 </div>
-<p>You should see the <code class="docutils literal notranslate"><span class="pre">connectionStatus</span></code> be <code class="docutils literal notranslate"><span class="pre">Unreachable</span></code>. If you look at the <code class="docutils literal notranslate"><span class="pre">issues</span></code> fields closely, you’ll notice that the issue is due to network security rules called invisinets-deny-all-outbound (for source) and invisinets-deny-all-inbound (for destination).</p>
+<p>You should see the <code class="docutils literal notranslate"><span class="pre">connectionStatus</span></code> be <code class="docutils literal notranslate"><span class="pre">Unreachable</span></code>. If you look at the <code class="docutils literal notranslate"><span class="pre">issues</span></code> fields closely, you’ll notice that the issue is due to network security rules called deny-all-outbound (for source) and deny-all-inbound (for destination).</p>
 </li>
 </ol>
 </div>
@@ -537,7 +537,7 @@ GCP</label><div class="sd-tab-content docutils">
 <span class="gp">$ </span>gcloud<span class="w"> </span>network-management<span class="w"> </span>connectivity-tests<span class="w"> </span>describe<span class="w"> </span>vm-1-to-vm-2<span class="w"> </span>--project<span class="o">=</span><span class="si">${</span><span class="nv">GCP_PROJECT_ID</span><span class="si">}</span>
 </pre></div>
 </div>
-<p>You should see the <code class="docutils literal notranslate"><span class="pre">result</span></code> field be <code class="docutils literal notranslate"><span class="pre">UNREACHABLE</span></code>. If you look at the <code class="docutils literal notranslate"><span class="pre">steps</span></code> fields closely, you’ll notice that the invisinets-default-deny-all-egress rule is blocking the traffic.</p>
+<p>You should see the <code class="docutils literal notranslate"><span class="pre">result</span></code> field be <code class="docutils literal notranslate"><span class="pre">UNREACHABLE</span></code>. If you look at the <code class="docutils literal notranslate"><span class="pre">steps</span></code> fields closely, you’ll notice that the default-deny-all-egress rule is blocking the traffic.</p>
 </li>
 </ol>
 </div>
@@ -595,8 +595,8 @@ GCP</label><div class="sd-tab-content docutils">
 IBM</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Add permit list rules to both VMs.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>ibm<span class="w"> </span>vm-1<span class="w"> </span>--ping<span class="w"> </span>default.ibm.vm-2
-<span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>ibm<span class="w"> </span>vm-2<span class="w"> </span>--ping<span class="w"> </span>default.ibm.vm-1
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>ibm<span class="w"> </span>vm-1<span class="w"> </span>--ping<span class="w"> </span>default.ibm.vm-2
+<span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>ibm<span class="w"> </span>vm-2<span class="w"> </span>--ping<span class="w"> </span>default.ibm.vm-1
 </pre></div>
 </div>
 </li>
