@@ -25,7 +25,6 @@ import (
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
@@ -42,18 +41,12 @@ var fakeAddressList = map[string][]string{testLocation: []string{validAddressSpa
 
 const defaultNamespace = "default"
 
-type dummyTokenCredential struct{}
-
-func (d *dummyTokenCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
-	return azcore.AccessToken{}, nil
-}
-
 type dummyAzureCredentialGetter struct {
 	iAzureCredentialGetter
 }
 
 func (d *dummyAzureCredentialGetter) GetAzureCredentials() (azcore.TokenCredential, error) {
-	return &dummyTokenCredential{}, nil
+	return nil, nil
 }
 
 func setupAzurePluginServer() (*azurePluginServer, context.Context) {
@@ -121,9 +114,10 @@ func TestCreateResource(t *testing.T) {
 			vpnGw: &armnetwork.VirtualNetworkGateway{},
 			vm:    &vm,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
 
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
 			Deployment:  &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: namespace},
@@ -193,6 +187,8 @@ func TestCreateResource(t *testing.T) {
 		}
 
 		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
 			vnet: &armnetwork.VirtualNetwork{
 				Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 					Subnets: []*armnetwork.Subnet{
@@ -207,9 +203,10 @@ func TestCreateResource(t *testing.T) {
 			vpnGw:   &armnetwork.VirtualNetworkGateway{},
 			cluster: &cluster,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
 		_, orchAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 		if err != nil {
 			t.Fatal(err)
@@ -243,12 +240,15 @@ func TestGetPermitList(t *testing.T) {
 	// Successful execution and expected permit list
 	t.Run("TestGetPermitList: Success", func(t *testing.T) {
 		serverState := &fakeServerState{
-			nsg: fakeNsg,
-			nic: fakeNic,
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
 
 		// Call the GetPermitList function
 		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
@@ -264,11 +264,14 @@ func TestGetPermitList(t *testing.T) {
 	// NSG get fails due to GetNetworkInterface call
 	t.Run("TestGetPermitList: Failed while getting NIC", func(t *testing.T) {
 		serverState := &fakeServerState{
-			nsg: fakeNsg,
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
 		// Call the GetPermitList function
 		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
 		response, err := server.GetPermitList(ctx, request)
@@ -282,12 +285,15 @@ func TestGetPermitList(t *testing.T) {
 	t.Run("TestGetPermitList: Fail due to mismatching namespace", func(t *testing.T) {
 		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr("/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/vnet123/subnets/subnet123")
 		serverState := &fakeServerState{
-			nsg: fakeNsg,
-			nic: fakeNic,
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
 
 		// Call the GetPermitList function
 		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
@@ -334,12 +340,15 @@ func TestAddPermitListRules(t *testing.T) {
 	// Successful AddPermitListRules with new rules
 	t.Run("AddPermitListRules: New Rules Success", func(t *testing.T) {
 		serverState := &fakeServerState{
-			nsg: fakeNsg,
-			nic: fakeNic,
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
@@ -351,17 +360,20 @@ func TestAddPermitListRules(t *testing.T) {
 	// Successful AddPermitListRules with existing rules
 	t.Run("AddPermitListRules: Existing Rules Success", func(t *testing.T) {
 		serverState := &fakeServerState{
-			nsg: fakeNsg,
-			nic: fakeNic,
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
 		fakeOldPlRules, err := getFakePermitList()
 		if err != nil {
 			t.Errorf("Error while getting fake permit list: %v", err)
 		}
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakeOldPlRules, Namespace: defaultNamespace, Resource: fakeResource})
@@ -373,11 +385,14 @@ func TestAddPermitListRules(t *testing.T) {
 	// Failed while getting NIC
 	t.Run("AddPermitListRules: Failure while getting NIC", func(t *testing.T) {
 		serverState := &fakeServerState{
-			nsg: fakeNsg,
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
@@ -390,12 +405,15 @@ func TestAddPermitListRules(t *testing.T) {
 	t.Run("AddPermitListRules: Failure when creating nsg rule", func(t *testing.T) {
 		fakeNic.Name = to.Ptr("invalid-nic-name")
 		serverState := &fakeServerState{
-			nsg: fakeNsg,
-			nic: fakeNic,
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
@@ -408,12 +426,15 @@ func TestAddPermitListRules(t *testing.T) {
 	t.Run("AddPermitListRules: Fail due to mismatching namespace", func(t *testing.T) {
 		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr("/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/vnet123/subnets/subnet123")
 		serverState := &fakeServerState{
-			nsg: fakeNsg,
-			nic: fakeNic,
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		// Call the GetPermitList function
@@ -443,12 +464,15 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	// successful
 	t.Run("DeletePermitListRules: Success", func(t *testing.T) {
 		serverState := &fakeServerState{
-			nsg: fakeNsg,
-			nic: fakeNic,
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
 
 		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
@@ -459,11 +483,14 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	// Deletion error while getting resource nic
 	t.Run("DeletePermitListRules: Failure while getting NIC", func(t *testing.T) {
 		serverState := &fakeServerState{
-			nsg: fakeNsg,
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
 
 		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
@@ -475,12 +502,15 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	// Failure while deleting rule
 	t.Run("DeletePermitListRules: Failure while deleting security rule", func(t *testing.T) {
 		serverState := &fakeServerState{
-			nsg: fakeNsg,
-			nic: fakeNic,
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
 
 		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
@@ -492,11 +522,14 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	// Test 6: Failure while getting security group
 	t.Run("DeletePermitListRules: Failure while getting security group", func(t *testing.T) {
 		serverState := &fakeServerState{
-			nic: fakeNic,
+			subId:  subID,
+			rgName: rgName,
+			nic:    fakeNic,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
 
 		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
@@ -509,12 +542,16 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	t.Run("DeletePermitListRules: Fail due to mismatching namespace", func(t *testing.T) {
 		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr("/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/vnet123/subnets/subnet123")
 		serverState := &fakeServerState{
-			nsg: fakeNsg,
-			nic: fakeNic,
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
 		}
-		_, ctx := SetupFakeAzureServer(t, serverState)
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		server, ctx := setupAzurePluginServer()
+		server, _ := setupAzurePluginServer()
+
 		// Call the GetPermitList function
 		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
@@ -526,6 +563,8 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 func TestGetUsedAddressSpaces(t *testing.T) {
 	serverState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
 		vnet: &armnetwork.VirtualNetwork{
 			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 				AddressSpace: &armnetwork.AddressSpace{
@@ -534,9 +573,10 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 			},
 		},
 	}
-	_, ctx := SetupFakeAzureServer(t, serverState)
+	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
-	server, ctx := setupAzurePluginServer()
+	server, _ := setupAzurePluginServer()
 
 	req := &invisinetspb.GetUsedAddressSpacesRequest{
 		Deployments: []*invisinetspb.InvisinetsDeployment{
@@ -559,6 +599,8 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 func TestGetUsedAsns(t *testing.T) {
 	serverState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
 		vpnGw: &armnetwork.VirtualNetworkGateway{
 			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
 				BgpSettings: &armnetwork.BgpSettings{
@@ -567,9 +609,10 @@ func TestGetUsedAsns(t *testing.T) {
 			},
 		},
 	}
-	_, ctx := SetupFakeAzureServer(t, serverState)
+	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
-	server, ctx := setupAzurePluginServer()
+	server, _ := setupAzurePluginServer()
 
 	usedAsnsExpected := []uint32{64512}
 	req := &invisinetspb.GetUsedAsnsRequest{
@@ -585,6 +628,8 @@ func TestGetUsedAsns(t *testing.T) {
 
 func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 	serverState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
 		vpnGw: &armnetwork.VirtualNetworkGateway{
 			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
 				BgpSettings: &armnetwork.BgpSettings{
@@ -596,9 +641,10 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 			},
 		},
 	}
-	_, ctx := SetupFakeAzureServer(t, serverState)
+	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
-	server, ctx := setupAzurePluginServer()
+	server, _ := setupAzurePluginServer()
 
 	usedBgpPeeringIpAddressExpected := []string{"169.254.21.1", "169.254.22.1"}
 	req := &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{
@@ -614,6 +660,8 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 
 func TestCreateVpnGateway(t *testing.T) {
 	serverState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
 		vnet: &armnetwork.VirtualNetwork{
 			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 				Subnets: []*armnetwork.Subnet{
@@ -627,13 +675,14 @@ func TestCreateVpnGateway(t *testing.T) {
 			ID: to.Ptr("subnet-id"),
 		},
 	}
-	_, ctx := SetupFakeAzureServer(t, serverState)
+	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
 	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
 	}
-	server, ctx := setupAzurePluginServer()
+	server, _ := setupAzurePluginServer()
 	server.orchestratorServerAddr = fakeControllerServerAddr
 
 	req := &invisinetspb.CreateVpnGatewayRequest{
@@ -650,11 +699,14 @@ func TestCreateVpnGateway(t *testing.T) {
 
 func TestCreateVpnConnections(t *testing.T) {
 	serverState := &fakeServerState{
-		vpnGw: &armnetwork.VirtualNetworkGateway{},
+		subId:  subID,
+		rgName: rgName,
+		vpnGw:  &armnetwork.VirtualNetworkGateway{},
 	}
-	_, ctx := SetupFakeAzureServer(t, serverState)
+	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
-	server, ctx := setupAzurePluginServer()
+	server, _ := setupAzurePluginServer()
 
 	req := &invisinetspb.CreateVpnConnectionsRequest{
 		Deployment:         &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},

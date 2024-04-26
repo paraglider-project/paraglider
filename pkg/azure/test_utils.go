@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -91,6 +90,8 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			return
 		}
 		urlPrefix := fmt.Sprintf(urlFormat, fakeServerState.subId, fakeServerState.rgName)
+		fmt.Println("UrlPrefix: ", urlPrefix)
+		fmt.Println("SubID: ", fakeServerState.subId)
 		switch {
 		// NSGs
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/networkSecurityGroups/"+validSecurityGroupName):
@@ -308,14 +309,11 @@ type fakeServerState struct {
 func SetupFakeAzureServer(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context) {
 	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
 
-	freePort, err := GetFreePort()
-	if err != nil {
-		t.Fatalf("failed to get free port: %v", err)
-	}
+	ctx = context.Background()
 
 	if entry, ok := cloud.AzurePublic.Services[cloud.ResourceManager]; ok {
 		// Then we modify the copy
-		entry.Endpoint = fmt.Sprintf("http://localhost:%d", freePort)
+		entry.Endpoint = fmt.Sprintf("http://%s", fakeServer.Listener.Addr().String())
 
 		// Then we reassign map entry
 		cloud.AzurePublic.Services[cloud.ResourceManager] = entry
@@ -324,15 +322,6 @@ func SetupFakeAzureServer(t *testing.T, fakeServerState *fakeServerState) (fakeS
 	return
 }
 
-// GetFreePort returns a free port number that the operating system chooses dynamically.
-func GetFreePort() (int, error) {
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return 0, err
-	}
-	defer listener.Close()
-
-	// Retrieve the chosen port number from the listener's network address
-	address := listener.Addr().(*net.TCPAddr)
-	return address.Port, nil
+func Teardown(fakeServer *httptest.Server) {
+	fakeServer.Close()
 }
