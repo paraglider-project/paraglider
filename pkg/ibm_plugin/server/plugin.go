@@ -263,6 +263,22 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *invisinetspb.G
 		return nil, err
 	}
 
+	conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := invisinetspb.NewControllerClient(conn)
+
+	for _, rule := range invisinetsRules {
+		//IBM rule ID is transiently stored in rule name
+		ruleName, err := getRuleValFromStore(ctx, client, rule.Name, req.Namespace)
+		if err != nil {
+			utils.Log.Printf("Failed to get value from KVstore for rule %s: %v.", ruleName, err)
+		}
+		utils.Log.Printf("Got %s rule name for ID : %s", ruleName, rule.Name)
+		rule.Name = ruleName
+	}
 	return &invisinetspb.GetPermitListResponse{Rules: invisinetsRules}, nil
 }
 
@@ -324,6 +340,13 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 	}
 	utils.Log.Printf("Translated permit list to intermediate IBM Rule : %v\n", ibmRulesToAdd)
 
+	conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := invisinetspb.NewControllerClient(conn)
+
 	gwID := "" // global transit gateway ID for vpc-peering.
 	for _, ibmRule := range ibmRulesToAdd {
 
@@ -380,15 +403,25 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 			return nil, err
 		}
 		// avoid adding duplicate rules (when hash values match)
-		if !rulesHashValues[ruleHashValue] {
-			err := cloudClient.AddSecurityGroupRule(ibmRule)
-			if err != nil {
-				utils.Log.Printf("Failed to add security group rule: %v.\n", err)
-				return nil, err
-			}
-			utils.Log.Printf("Attached rule %+v\n", ibmRule)
-		} else {
+		if rulesHashValues[ruleHashValue] {
 			utils.Log.Printf("Rule %+v already exists for security group ID %v.\n", ibmRule, requestSGID)
+			return &invisinetspb.AddPermitListRulesResponse{}, nil
+		}
+
+		ruleID, err := cloudClient.AddSecurityGroupRule(ibmRule)
+		if err != nil {
+			utils.Log.Printf("Failed to add security group rule: %v.\n", err)
+			return nil, err
+		}
+		utils.Log.Printf("Attached rule %s, %+v\n", ruleID, ibmRule)
+
+		err = setRuleValToStore(ctx, client, ibmRule.ID, ruleID, req.Namespace)
+		if err != nil {
+			utils.Log.Printf("Failed to set KV store for rule %s: %v.", ibmRule.ID, err)
+		}
+		err = setRuleValToStore(ctx, client, ruleID, ibmRule.ID, req.Namespace)
+		if err != nil {
+			utils.Log.Printf("Failed to set KV store for rule %s: %v.", ibmRule.ID, err)
 		}
 	}
 
@@ -430,13 +463,36 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 	// assuming up to a single invisinets subnet can exist per zone
 	vmInvisinetsSgID := invisinetsSgsData[0].ID
 
-	// TODO @praveingk Deduct rule IDs from the rule names using orchestrator's KV-store
-	for _, ruleID := range req.RuleNames {
+	conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := invisinetspb.NewControllerClient(conn)
+
+	for _, ruleName := range req.RuleNames {
+		ruleID, err := getRuleValFromStore(ctx, client, ruleName, req.Namespace)
+		if err != nil {
+			utils.Log.Printf("Failed to get value from KVstore for rule %s: %v.", ruleName, err)
+			continue
+		}
+		utils.Log.Printf("Got %s rule ID for name : %s", ruleID, ruleName)
+
 		err = cloudClient.DeleteSecurityGroupRule(vmInvisinetsSgID, ruleID)
 		if err != nil {
 			return nil, err
 		}
 		utils.Log.Printf("Deleted rule %v", ruleID)
+
+		// delete the references form the kv store
+		err = delRuleValFromStore(ctx, client, ruleName, req.Namespace)
+		if err != nil {
+			utils.Log.Printf("Failed to delete %s from kvstore", ruleName)
+		}
+		err = delRuleValFromStore(ctx, client, ruleID, req.Namespace)
+		if err != nil {
+			utils.Log.Printf("Failed to delete %s from kvstore", ruleID)
+		}
 	}
 
 	return &invisinetspb.DeletePermitListRulesResponse{}, nil

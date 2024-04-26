@@ -171,10 +171,19 @@ Copy paste the following configuration into a new file called ``paraglider_confi
               host: "localhost"
               port: 8083
 
+            kvStore:
+              host: "localhost"
+              port: 8084
+
             namespaces:
               default:
                 - name: "ibm"
                   deployment: "resourcegroup/${IBM_RESOURCE_GROUP_ID}"
+
+        .. note::
+
+                IBM plugin leverages KV-store provided by paraglider orchestrator to store permit-list to security group rule IDs.
+
 
 Here is a breakdown of the configuration file:
 

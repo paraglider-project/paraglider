@@ -17,8 +17,12 @@ limitations under the License.
 package ibm
 
 import (
+	"context"
 	"fmt"
 	"strings"
+
+	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
 const (
@@ -69,4 +73,41 @@ func getResourceIDInfo(deploymentID string) (ResourceIDInfo, error) {
 
 func createInstanceID(resGroup, zone, resName string) string {
 	return fmt.Sprintf("/resourcegroup/%s/zone/%s/%s/%s", resGroup, zone, instanceResourceType, resName)
+}
+
+func setRuleValToStore(ctx context.Context, client invisinetspb.ControllerClient, key, value, namespace string) error {
+	setVal := &invisinetspb.SetValueRequest{
+		Key:       key,
+		Value:     value,
+		Cloud:     utils.IBM,
+		Namespace: namespace,
+	}
+	_, err := client.SetValue(ctx, setVal)
+
+	return err
+}
+
+func getRuleValFromStore(ctx context.Context, client invisinetspb.ControllerClient, key, namespace string) (string, error) {
+	getVal := &invisinetspb.GetValueRequest{
+		Key:       key,
+		Cloud:     utils.IBM,
+		Namespace: namespace,
+	}
+	resp, err := client.GetValue(ctx, getVal)
+
+	if err != nil {
+		return "", err
+	}
+	return resp.Value, err
+}
+
+func delRuleValFromStore(ctx context.Context, client invisinetspb.ControllerClient, key, namespace string) error {
+	delVal := &invisinetspb.DeleteValueRequest{
+		Key:       key,
+		Cloud:     utils.IBM,
+		Namespace: namespace,
+	}
+	_, err := client.DeleteValue(ctx, delVal)
+
+	return err
 }
