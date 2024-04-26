@@ -37,6 +37,7 @@ const maxPriority = 4096
 type azurePluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
 	orchestratorServerAddr string
+	azureCredentialGetter  iAzureCredentialGetter
 }
 
 const (
@@ -45,9 +46,9 @@ const (
 	gatewaySubnetAddressPrefix = "192.168.255.0/27"
 )
 
-func setupAzureHandler(resourceIdInfo ResourceIDInfo) (*AzureSDKHandler, error) {
+func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) (*AzureSDKHandler, error) {
 	var azureHandler AzureSDKHandler
-	cred, err := azureHandler.GetAzureCredentials()
+	cred, err := s.azureCredentialGetter.GetAzureCredentials()
 	if err != nil {
 		utils.Log.Printf("An error occured while getting azure credentials:%+v", err)
 		return nil, err
@@ -70,7 +71,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *invisinetspb
 		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
 	}
-	azureHandler, err := setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +110,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
 	}
-	azureHandler, err := setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +232,7 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *invisi
 		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
 	}
-	azureHandler, err := setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +270,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		return nil, err
 	}
 
-	azureHandler, err := setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +416,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *invis
 			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 			return nil, err
 		}
-		azureHandler, err := setupAzureHandler(resourceIdInfo)
+		azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 		if err != nil {
 			return nil, err
 		}
@@ -445,7 +446,7 @@ func (s *azurePluginServer) GetUsedAsns(ctx context.Context, req *invisinetspb.G
 			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 			return nil, err
 		}
-		azureHandler, err := setupAzureHandler(resourceIdInfo)
+		azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 		if err != nil {
 			return nil, err
 		}
@@ -472,7 +473,7 @@ func (s *azurePluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, re
 			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 			return nil, err
 		}
-		azureHandler, err := setupAzureHandler(resourceIdInfo)
+		azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 		if err != nil {
 			return nil, err
 		}
@@ -500,7 +501,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 	if err != nil {
 		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
 	}
-	azureHandler, err := setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, fmt.Errorf("unable to setup azure handler: %w", err)
 	}
@@ -669,7 +670,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 	if err != nil {
 		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
 	}
-	azureHandler, err := setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
 	if err != nil {
 		return nil, fmt.Errorf("unable to setup azure handler: %w", err)
 	}
@@ -753,7 +754,7 @@ func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler Azur
 	if err != nil {
 		return fmt.Errorf("unable to get resource ID info for peering Cloud: %w", err)
 	}
-	peeringCloudAzureHandler, err := setupAzureHandler(peeringCloudResourceIDInfo)
+	peeringCloudAzureHandler, err := s.setupAzureHandler(peeringCloudResourceIDInfo)
 	if err != nil {
 		return err
 	}
@@ -797,6 +798,7 @@ func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 	grpcServer := grpc.NewServer()
 	azureServer := &azurePluginServer{
 		orchestratorServerAddr: orchestratorServerAddr,
+		azureCredentialGetter:  &AzureCredentialGetter{},
 	}
 	invisinetspb.RegisterCloudPluginServer(grpcServer, azureServer)
 	fmt.Println("Starting server on port :", port)

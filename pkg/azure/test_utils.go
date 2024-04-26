@@ -57,7 +57,14 @@ const (
 	invalidVirtualNetworkGatewayConnectionName = "invalid-virtual-network-gateway-connection"
 	validClusterName                           = "valid-cluster-name"
 	invalidClusterName                         = "invalid-cluster-name"
+	validVmName                                = "valid-vm-name"
+	invalidVmName                              = "invalid-vm-name"
 	validResourceName                          = "valid-resource-name"
+	invisinetsDeploymentId                     = "/subscriptions/" + subID + "/resourceGroups/" + rgName
+	uriPrefix                                  = invisinetsDeploymentId + "/providers/"
+	vmURI                                      = uriPrefix + "Microsoft.Compute/virtualMachines/" + vmResourceName
+	aksURI                                     = uriPrefix + "Microsoft.ContainerService/managedClusters/" + validClusterName
+	namespace                                  = "namespace"
 )
 
 func sendResponse(w http.ResponseWriter, resp any) {
@@ -228,7 +235,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 		// LocalNetworkGateways
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/localNetworkGateways/"+validLocalNetworkGatewayName):
 			if r.Method == "GET" {
-				sendResponse(w, fakeServerState.vpnGw)
+				sendResponse(w, fakeServerState.localGw)
 				return
 			}
 			if r.Method == "PUT" {
@@ -290,7 +297,8 @@ type fakeServerState struct {
 	gateway       *armnetwork.VirtualNetworkGateway
 	publicIP      *armnetwork.PublicIPAddress
 	subnet        *armnetwork.Subnet
-	vpnGw         *armnetwork.LocalNetworkGateway
+	vpnGw         *armnetwork.VirtualNetworkGateway
+	localGw       *armnetwork.LocalNetworkGateway
 	vpnConnection *armnetwork.VirtualNetworkGatewayConnection
 	vnetPeering   *armnetwork.VirtualNetworkPeering
 	cluster       *armcontainerservice.ManagedCluster

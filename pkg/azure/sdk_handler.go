@@ -61,6 +61,10 @@ type AzureSDKHandler struct {
 	resourceGroupName                      string
 }
 
+type iAzureCredentialGetter interface {
+	GetAzureCredentials() (azcore.TokenCredential, error)
+}
+
 const (
 	VirtualMachineResourceType = "Microsoft.Compute/virtualMachines"
 	nsgNameSuffix              = "-default-nsg"
@@ -144,9 +148,13 @@ func (h *AzureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
 	return nil
 }
 
+type AzureCredentialGetter struct {
+	iAzureCredentialGetter
+}
+
 // GetAzureCredentials returns an Azure credential.
 // it uses the azidentity.NewDefaultAzureCredential() function to create a new Azure credential.
-func (h *AzureSDKHandler) GetAzureCredentials() (azcore.TokenCredential, error) {
+func (g *AzureCredentialGetter) GetAzureCredentials() (azcore.TokenCredential, error) {
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
 		return nil, err

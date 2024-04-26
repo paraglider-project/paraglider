@@ -24,8 +24,8 @@ func TestGetResourceIDInfo(t *testing.T) {
 	}{
 		{
 			name:         "ValidResourceIDWithVM",
-			resourceID:   "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/vm123",
-			expectedInfo: ResourceIDInfo{SubscriptionID: "sub123", ResourceGroupName: "rg123", ResourceName: fakeVmName},
+			resourceID:   "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/" + validVmName,
+			expectedInfo: ResourceIDInfo{SubscriptionID: "sub123", ResourceGroupName: "rg123", ResourceName: validVmName},
 			expectError:  false,
 		},
 		{
@@ -42,7 +42,7 @@ func TestGetResourceIDInfo(t *testing.T) {
 		},
 		{
 			name:         "InvalidSegment",
-			resourceID:   "/subscriptions/sub123/invalidSegment/rg123/providers/Microsoft.Compute/virtualMachines/" + fakeVmName,
+			resourceID:   "/subscriptions/sub123/invalidSegment/rg123/providers/Microsoft.Compute/virtualMachines/" + validVmName,
 			expectedInfo: ResourceIDInfo{},
 			expectError:  true,
 		},

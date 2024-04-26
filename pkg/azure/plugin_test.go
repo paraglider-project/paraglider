@@ -21,8 +21,6 @@ package azure
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 
@@ -32,7 +30,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 	"github.com/NetSys/invisinets/pkg/orchestrator"
@@ -51,10 +48,19 @@ func (d *dummyTokenCredential) GetToken(ctx context.Context, opts policy.TokenRe
 	return azcore.AccessToken{}, nil
 }
 
+type dummyAzureCredentialGetter struct {
+	iAzureCredentialGetter
+}
+
+func (d *dummyAzureCredentialGetter) GetAzureCredentials() (azcore.TokenCredential, error) {
+	return &dummyTokenCredential{}, nil
+}
+
 func setupAzurePluginServer() (*azurePluginServer, context.Context) {
 	// Create a new instance of the azurePluginServer
 	server := &azurePluginServer{}
 	server.orchestratorServerAddr = "fakecontrollerserveraddr"
+	server.azureCredentialGetter = &dummyAzureCredentialGetter{}
 
 	return server, context.Background()
 }
@@ -93,7 +99,6 @@ func TestCreateResource(t *testing.T) {
 	defaultSubnetName := "default"
 	defaultSubnetID := "default-subnet-id"
 	namespace := "defaultnamespace"
-	vnetName := getVnetName(testLocation, namespace)
 	t.Run("TestCreateResource: Success", func(t *testing.T) {
 		// we need to recreate it for each test as it will be modified to include network interface
 		vm, desc, err := getValidVMDescription()
@@ -112,17 +117,17 @@ func TestCreateResource(t *testing.T) {
 					},
 				},
 			},
-			nic: fakeNic,
+			nic:   getFakeNIC(),
 			vpnGw: &armnetwork.VirtualNetworkGateway{},
-			vm:  vm
+			vm:    &vm,
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
-		server, _, ctx := setupAzurePluginServer()
+		server, ctx := setupAzurePluginServer()
 
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
 			Deployment:  &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: namespace},
-			Name:        fakeVmName,
+			Name:        validVmName,
 			Description: desc,
 		})
 
@@ -131,7 +136,7 @@ func TestCreateResource(t *testing.T) {
 	})
 
 	t.Run("TestCreateResource: Failure, invalid json", func(t *testing.T) {
-		server, _, ctx := setupAzurePluginServer()
+		server, ctx := setupAzurePluginServer()
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
 			Description: []byte("invalid json"),
 		})
@@ -147,7 +152,7 @@ func TestCreateResource(t *testing.T) {
 		if err != nil {
 			t.Errorf("Error while marshalling description: %v", err)
 		}
-		server, _, ctx := setupAzurePluginServer()
+		server, ctx := setupAzurePluginServer()
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
 			Description: desc,
 		})
@@ -170,7 +175,7 @@ func TestCreateResource(t *testing.T) {
 			t.Errorf("Error while marshalling description: %v", err)
 		}
 
-		server, _, ctx := setupAzurePluginServer()
+		server, ctx := setupAzurePluginServer()
 
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
 			Description: desc,
@@ -198,9 +203,9 @@ func TestCreateResource(t *testing.T) {
 					},
 				},
 			},
-			nic: fakeNic,
-			vpnGw: &armnetwork.VirtualNetworkGateway{},
-			cluster: cluster,
+			nic:     getFakeNIC(),
+			vpnGw:   &armnetwork.VirtualNetworkGateway{},
+			cluster: &cluster,
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
@@ -240,7 +245,6 @@ func TestGetPermitList(t *testing.T) {
 		serverState := &fakeServerState{
 			nsg: fakeNsg,
 			nic: fakeNic,
-			vm: getGenericResourceVM(fakeResourceId, &validNicId),
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
@@ -261,7 +265,6 @@ func TestGetPermitList(t *testing.T) {
 	t.Run("TestGetPermitList: Failed while getting NIC", func(t *testing.T) {
 		serverState := &fakeServerState{
 			nsg: fakeNsg,
-			vm: getGenericResourceVM(fakeResourceId, &validNicId),
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
@@ -281,7 +284,6 @@ func TestGetPermitList(t *testing.T) {
 		serverState := &fakeServerState{
 			nsg: fakeNsg,
 			nic: fakeNic,
-			vm: getGenericResourceVM(fakeResourceId, &validNicId),
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
@@ -312,7 +314,6 @@ func TestAddPermitListRules(t *testing.T) {
 	fakeNsgName := "test-nsg-name"
 	fakeNic := getFakeNIC()
 	fakeNsgID := *fakeNic.Properties.NetworkSecurityGroup.ID
-	fakeResourceAddress := *fakeNic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
 	fakeNsg := getFakeNsg(fakeNsgID, fakeNsgName)
 	fakeVnet := getFakeVnet(fakeNic.Location, validAddressSpace)
 	fakeVnet.Properties = &armnetwork.VirtualNetworkPropertiesFormat{
@@ -335,7 +336,6 @@ func TestAddPermitListRules(t *testing.T) {
 		serverState := &fakeServerState{
 			nsg: fakeNsg,
 			nic: fakeNic,
-			vm: getGenericResourceVM(fakeResourceId, &validNicId),
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
@@ -353,7 +353,6 @@ func TestAddPermitListRules(t *testing.T) {
 		serverState := &fakeServerState{
 			nsg: fakeNsg,
 			nic: fakeNic,
-			vm: getGenericResourceVM(fakeResourceId, &validNicId),
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
@@ -375,7 +374,6 @@ func TestAddPermitListRules(t *testing.T) {
 	t.Run("AddPermitListRules: Failure while getting NIC", func(t *testing.T) {
 		serverState := &fakeServerState{
 			nsg: fakeNsg,
-			vm: getGenericResourceVM(fakeResourceId, &validNicId),
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
@@ -394,13 +392,12 @@ func TestAddPermitListRules(t *testing.T) {
 		serverState := &fakeServerState{
 			nsg: fakeNsg,
 			nic: fakeNic,
-			vm: getGenericResourceVM(fakeResourceId, &validNicId),
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
 		server, ctx := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
-		
+
 		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -413,7 +410,6 @@ func TestAddPermitListRules(t *testing.T) {
 		serverState := &fakeServerState{
 			nsg: fakeNsg,
 			nic: fakeNic,
-			vm: getGenericResourceVM(fakeResourceId, &validNicId),
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
@@ -449,12 +445,11 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		serverState := &fakeServerState{
 			nsg: fakeNsg,
 			nic: fakeNic,
-			vm: getGenericResourceVM(fakeResourceId, &validNicId),
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
 		server, ctx := setupAzurePluginServer()
-		
+
 		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
 		require.NoError(t, err)
@@ -465,12 +460,11 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	t.Run("DeletePermitListRules: Failure while getting NIC", func(t *testing.T) {
 		serverState := &fakeServerState{
 			nsg: fakeNsg,
-			vm: getGenericResourceVM(fakeResourceId, &validNicId),
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
 		server, ctx := setupAzurePluginServer()
-		
+
 		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
 		require.Error(t, err)
@@ -483,12 +477,11 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		serverState := &fakeServerState{
 			nsg: fakeNsg,
 			nic: fakeNic,
-			vm: getGenericResourceVM(fakeResourceId, &validNicId),
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
 		server, ctx := setupAzurePluginServer()
-		
+
 		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
 		require.Error(t, err)
@@ -500,7 +493,6 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	t.Run("DeletePermitListRules: Failure while getting security group", func(t *testing.T) {
 		serverState := &fakeServerState{
 			nic: fakeNic,
-			vm: getGenericResourceVM(fakeResourceId, &validNicId),
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
@@ -519,7 +511,6 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		serverState := &fakeServerState{
 			nsg: fakeNsg,
 			nic: fakeNic,
-			vm: getGenericResourceVM(fakeResourceId, &validNicId),
 		}
 		_, ctx := SetupFakeAzureServer(t, serverState)
 
@@ -628,7 +619,7 @@ func TestCreateVpnGateway(t *testing.T) {
 				Subnets: []*armnetwork.Subnet{
 					{
 						Name: to.Ptr(gatewaySubnetName),
-					}
+					},
 				},
 			},
 		},
@@ -644,7 +635,7 @@ func TestCreateVpnGateway(t *testing.T) {
 	}
 	server, ctx := setupAzurePluginServer()
 	server.orchestratorServerAddr = fakeControllerServerAddr
-	
+
 	req := &invisinetspb.CreateVpnGatewayRequest{
 		Deployment:            &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
 		Cloud:                 "fake-cloud",
@@ -654,7 +645,7 @@ func TestCreateVpnGateway(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Equal(t, orchestrator.MIN_PRIVATE_ASN_2BYTE, resp.Asn)
-	require.ElementsMatch(t, []string{fakePublicIpAddress}, resp.GatewayIpAddresses)
+	require.ElementsMatch(t, []string{""}, resp.GatewayIpAddresses)
 }
 
 func TestCreateVpnConnections(t *testing.T) {
@@ -667,7 +658,7 @@ func TestCreateVpnConnections(t *testing.T) {
 
 	req := &invisinetspb.CreateVpnConnectionsRequest{
 		Deployment:         &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
-		Cloud:              fakeCloudName,
+		Cloud:              "cloudname",
 		Asn:                123,
 		GatewayIpAddresses: []string{"1.1.1.1", "2.2.2.2"},
 		BgpIpAddresses:     []string{"3.3.3.3", "4.4.4.4"},
@@ -682,7 +673,7 @@ func TestCreateVpnConnections(t *testing.T) {
 /* --- Helper Functions --- */
 
 func getFakeVmUri() string {
-	return "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/" + fakeVmName
+	return "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/" + validVmName
 }
 
 func getFakeClusterName() string {
@@ -717,7 +708,7 @@ func getFakePermitList() ([]*invisinetspb.PermitListRule, error) {
 	// initialize invisinets rules with the size of nsg rules
 	invisinetsRules := []*invisinetspb.PermitListRule{}
 	// use real implementation to get actual mapping of nsg rules to invisinets rules
-	azureSDKHandler := &azureSDKHandler{}
+	azureSDKHandler := &AzureSDKHandler{}
 	for i := range nsg.Properties.SecurityRules {
 		if strings.HasPrefix(*nsg.Properties.SecurityRules[i].Name, invisinetsPrefix) {
 			rule, err := azureSDKHandler.GetPermitListRuleFromNSGRule(nsg.Properties.SecurityRules[i])
@@ -735,9 +726,9 @@ func getFakePermitList() ([]*invisinetspb.PermitListRule, error) {
 func getFakeNIC() *armnetwork.Interface {
 	fakeNsgName := "test-nsg-name"
 	fakeNsgID := "a/b/" + fakeNsgName
-	fakeResourceAddress := "10.5.0.3"
 	fakeLocation := "test-location"
 	namespace := defaultNamespace
+	fakeResourceAddress := ""
 	fakeSubnetId := "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/" + getVnetName(fakeLocation, namespace) + "/subnets/subnet123"
 	return &armnetwork.Interface{
 		ID:       to.Ptr(validNicId),
