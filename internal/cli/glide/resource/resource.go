@@ -17,7 +17,7 @@ limitations under the License.
 package resource
 
 import (
-	"github.com/NetSys/invisinets/internal/cli/glide/resource/create"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/resource/create"
 	"github.com/spf13/cobra"
 )
 

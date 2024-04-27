@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"

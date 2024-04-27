@@ -23,14 +23,14 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	az "github.com/NetSys/invisinets/pkg/azure"
-	gcp "github.com/NetSys/invisinets/pkg/gcp"
-	ibm "github.com/NetSys/invisinets/pkg/ibm_plugin/server"
+	az "github.com/paraglider-project/paraglider/pkg/azure"
+	gcp "github.com/paraglider-project/paraglider/pkg/gcp"
+	ibm "github.com/paraglider-project/paraglider/pkg/ibm_plugin/server"
 
-	kvservice "github.com/NetSys/invisinets/pkg/kvstore"
-	orchestrator "github.com/NetSys/invisinets/pkg/orchestrator"
-	"github.com/NetSys/invisinets/pkg/orchestrator/config"
-	tagservice "github.com/NetSys/invisinets/pkg/tag_service"
+	kvservice "github.com/paraglider-project/paraglider/pkg/kvstore"
+	orchestrator "github.com/paraglider-project/paraglider/pkg/orchestrator"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator/config"
+	tagservice "github.com/paraglider-project/paraglider/pkg/tag_service"
 )
 
 func NewCommand() *cobra.Command {

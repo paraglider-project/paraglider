@@ -1,6 +1,6 @@
-# Contributing to Invisinets
+# Contributing to Paraglider
 
-Welcome to the repo! We're currently building Invisinets with a small cross-industry team. We'll update this guidance further as we move closer to being a public open source project.
+Welcome to the repo! We're currently building Paraglider with a small cross-industry team. We'll update this guidance further as we move closer to being a public open source project.
 
 ## Creating issues
 
@@ -115,7 +115,7 @@ Dev Containers allow you to run a development environment using VS Code inside a
 - Install [VS Code](https://code.visualstudio.com/)
 - Install the [Dev Container extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
-Now when you open the Invisinets repo, you will be prompted with the option to open in a Dev Container. This will take a few minutes the first time to download and build the container, but will be much faster on subsequent opens.
+Now when you open the Paraglider repo, you will be prompted with the option to open in a Dev Container. This will take a few minutes the first time to download and build the container, but will be much faster on subsequent opens.
 
 ### Additional Tools
 
@@ -127,7 +127,7 @@ The default `go test` output can be hard to read when you have many tests. We re
 
 ## Building the code
 
-Invisinets uses a Makefile to build the repository and automate most common repository tasks.
+Paraglider uses a Makefile to build the repository and automate most common repository tasks.
 
 You can run `make` (no additional arguments) to see the list of targets and their descriptions.
 

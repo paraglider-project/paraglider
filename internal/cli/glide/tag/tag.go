@@ -17,9 +17,9 @@ limitations under the License.
 package tag
 
 import (
-	"github.com/NetSys/invisinets/internal/cli/glide/tag/delete"
-	"github.com/NetSys/invisinets/internal/cli/glide/tag/get"
-	"github.com/NetSys/invisinets/internal/cli/glide/tag/set"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/tag/delete"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/tag/get"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/tag/set"
 	"github.com/spf13/cobra"
 )
 

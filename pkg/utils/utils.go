@@ -23,7 +23,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
 )
 
 var (

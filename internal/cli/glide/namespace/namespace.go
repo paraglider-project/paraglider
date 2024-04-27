@@ -17,9 +17,9 @@ limitations under the License.
 package namespace
 
 import (
-	"github.com/NetSys/invisinets/internal/cli/glide/namespace/get"
-	"github.com/NetSys/invisinets/internal/cli/glide/namespace/list"
-	"github.com/NetSys/invisinets/internal/cli/glide/namespace/set"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/namespace/get"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/namespace/list"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/namespace/set"
 
 	"github.com/spf13/cobra"
 )

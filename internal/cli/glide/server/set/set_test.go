@@ -21,7 +21,7 @@ package set
 import (
 	"testing"
 
-	"github.com/NetSys/invisinets/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
 	"github.com/stretchr/testify/assert"
 )
 

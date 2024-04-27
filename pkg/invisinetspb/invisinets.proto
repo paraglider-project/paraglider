@@ -17,7 +17,7 @@ limitations under the License.
 syntax = "proto3";
 package invisinetspb;
 
-option go_package="github.com/NetSys/invisinets/pkg/invisinetspb";
+option go_package="github.com/paraglider-project/paraglider/pkg/invisinetspb";
 
 service CloudPlugin {
     rpc GetUsedAddressSpaces(GetUsedAddressSpacesRequest) returns (GetUsedAddressSpacesResponse) {}

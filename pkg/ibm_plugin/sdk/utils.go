@@ -24,7 +24,7 @@ import (
 
 	"github.com/google/uuid"
 
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 // TaggedResourceType indicates the type of tagged resource to fetch
@@ -128,4 +128,3 @@ func IsCIDRSubset(cidr1, cidr2 string) (bool, error) {
 	// fewer bits are left for user address space.
 	return netCidr2.Contains(firstIP1) && maskSize1 >= maskSize2, nil
 }
-

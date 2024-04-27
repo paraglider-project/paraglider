@@ -31,7 +31,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v3"
 
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const keyType = "key"

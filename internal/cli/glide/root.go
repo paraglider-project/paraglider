@@ -23,12 +23,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	common "github.com/NetSys/invisinets/internal/cli/common"
-	"github.com/NetSys/invisinets/internal/cli/glide/namespace"
-	"github.com/NetSys/invisinets/internal/cli/glide/resource"
-	"github.com/NetSys/invisinets/internal/cli/glide/rule"
-	"github.com/NetSys/invisinets/internal/cli/glide/server"
-	"github.com/NetSys/invisinets/internal/cli/glide/tag"
+	common "github.com/paraglider-project/paraglider/internal/cli/common"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/namespace"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/resource"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/rule"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/server"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/tag"
 	"github.com/spf13/cobra"
 )
 

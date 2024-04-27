@@ -19,7 +19,7 @@ This README provides guidance on adding new functions to the plugin and outlines
 
 
 ## Getting Started
-- Configure the project following instructions in [CONTRIBUTING.md](https://github.com/NetSys/invisinets/blob/main/CONTRIBUTING.md).
+- Configure the project following instructions in [CONTRIBUTING.md](https://github.com/paraglider-project/paraglider/blob/main/CONTRIBUTING.md).
 ### Local Development and Testing
 
 If you're not working within the dev container, here are the steps to set up your local environment for testing and validation:

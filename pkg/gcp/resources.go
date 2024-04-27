@@ -28,7 +28,7 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
 	"google.golang.org/protobuf/proto"
 )
 

@@ -24,10 +24,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/NetSys/invisinets/pkg/orchestrator"
-	"github.com/NetSys/invisinets/pkg/orchestrator/config"
-	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
+	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator/config"
+	"github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
 )
 
 type InvisinetsControllerClient interface {

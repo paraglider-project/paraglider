@@ -19,7 +19,7 @@ package orchestrator
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/NetSys/invisinets/pkg/orchestrator"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator"
 )
 
 func NewCommand() *cobra.Command {

@@ -30,7 +30,7 @@ import (
 	redismock "github.com/go-redis/redismock/v9"
 	redis "github.com/redis/go-redis/v9"
 
-	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
+	tagservicepb "github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
 )
 
 var (

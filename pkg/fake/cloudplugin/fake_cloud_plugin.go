@@ -22,11 +22,11 @@ import (
 	"log"
 	"net"
 
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
+	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
 	"google.golang.org/grpc"
 
-	fake "github.com/NetSys/invisinets/pkg/fake/tagservice"
+	fake "github.com/paraglider-project/paraglider/pkg/fake/tagservice"
 )
 
 const AddressSpaceAddress = "10.0.0.0/16"

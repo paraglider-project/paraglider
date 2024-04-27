@@ -24,8 +24,8 @@ import (
 	"strconv"
 	"strings"
 
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 

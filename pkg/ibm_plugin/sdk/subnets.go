@@ -21,7 +21,7 @@ import (
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const subnetType = "subnet"
@@ -87,7 +87,8 @@ func (c *CloudClient) GetSubnetsInVPC(vpcID string) ([]ResourceData, error) {
 // GetSubnetsInVpcRegionBound returns all subnets in vpc, user's and invisinets'
 // in the region set by the client.
 // NOTES: before invoking this function Set VPC client to the region the VPC is located in.
-// 		  This function returns more info in contrast to GetSubnetsInVPC.
+//
+//	This function returns more info in contrast to GetSubnetsInVPC.
 func (c *CloudClient) GetSubnetsInVpcRegionBound(vpcID string) ([]vpcv1.Subnet, error) {
 	subnetOptions := &vpcv1.ListSubnetsOptions{VPCID: &vpcID}
 	subnets, resp, err := c.vpcService.ListSubnets(subnetOptions)
@@ -101,26 +102,26 @@ func (c *CloudClient) GetSubnetsInVpcRegionBound(vpcID string) ([]vpcv1.Subnet, 
 // returns true if the specified remote (CIDR/IP) is a subset of the specified VPC's address space.
 // NOTE: address space refers to that of the subnets within the VPC's, not to its address prefixes.
 func (c *CloudClient) IsRemoteInVPC(vpcID string, remote string) (bool, error) {
-		subnets,err:=c.GetSubnetsInVpcRegionBound(vpcID)
+	subnets, err := c.GetSubnetsInVpcRegionBound(vpcID)
+	if err != nil {
+		return false, err
+	}
+	// check whether the remote cidr belongs to one of the VPC's subnets
+	for _, subnet := range subnets {
+		subnetSpace, err := c.GetSubnetCIDR(*subnet.ID)
 		if err != nil {
 			return false, err
 		}
-		// check whether the remote cidr belongs to one of the VPC's subnets
-		for _, subnet := range subnets {
-			subnetSpace, err := c.GetSubnetCIDR(*subnet.ID)
-			if err != nil {
-				return false, err
-			}
-			isSubset, err := IsRemoteInCIDR(remote, subnetSpace)
-			if err != nil {
-				return false, err
-			}
-			if isSubset {
-				return true, nil
-			}
+		isSubset, err := IsRemoteInCIDR(remote, subnetSpace)
+		if err != nil {
+			return false, err
 		}
-		// remote doesn't reside in any of the VPCs' subnets.
-		return false, nil
+		if isSubset {
+			return true, nil
+		}
+	}
+	// remote doesn't reside in any of the VPCs' subnets.
+	return false, nil
 }
 
 // returns true if any of the specified vpc's subnets' address spaces overlap with given cidr

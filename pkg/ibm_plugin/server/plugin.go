@@ -28,10 +28,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
-	ibmCommon "github.com/NetSys/invisinets/pkg/ibm_plugin"
-	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
+	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
+	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 type IBMPluginServer struct {

@@ -31,7 +31,7 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

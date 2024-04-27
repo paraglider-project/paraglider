@@ -17,8 +17,8 @@ limitations under the License.
 package server
 
 import (
-	"github.com/NetSys/invisinets/internal/cli/glide/server/get"
-	"github.com/NetSys/invisinets/internal/cli/glide/server/set"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/server/get"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/server/set"
 	"github.com/spf13/cobra"
 )
 

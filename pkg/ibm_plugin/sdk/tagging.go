@@ -24,7 +24,7 @@ import (
 
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 func (c *CloudClient) attachTag(CRN *string, tags []string) error {

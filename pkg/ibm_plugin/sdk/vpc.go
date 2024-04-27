@@ -21,7 +21,7 @@ import (
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const vpcType = "vpc"

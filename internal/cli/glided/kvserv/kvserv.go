@@ -21,7 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	tagservice "github.com/NetSys/invisinets/pkg/tag_service"
+	tagservice "github.com/paraglider-project/paraglider/pkg/tag_service"
 )
 
 func NewCommand() *cobra.Command {

@@ -23,8 +23,8 @@ import (
 
 	"github.com/IBM/go-sdk-core/core"
 	"github.com/IBM/networking-go-sdk/transitgatewayapisv1"
-	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/google/uuid"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 type TransitConnection struct {

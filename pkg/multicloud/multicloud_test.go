@@ -23,12 +23,12 @@ import (
 	"testing"
 
 	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
-	azure "github.com/NetSys/invisinets/pkg/azure"
-	gcp "github.com/NetSys/invisinets/pkg/gcp"
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	orchestrator "github.com/NetSys/invisinets/pkg/orchestrator"
-	config "github.com/NetSys/invisinets/pkg/orchestrator/config"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	azure "github.com/paraglider-project/paraglider/pkg/azure"
+	gcp "github.com/paraglider-project/paraglider/pkg/gcp"
+	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	orchestrator "github.com/paraglider-project/paraglider/pkg/orchestrator"
+	config "github.com/paraglider-project/paraglider/pkg/orchestrator/config"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

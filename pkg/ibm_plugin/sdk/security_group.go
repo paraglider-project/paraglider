@@ -23,10 +23,10 @@ import (
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
-	ibmCommon "github.com/NetSys/invisinets/pkg/ibm_plugin"
+	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const (

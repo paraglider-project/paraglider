@@ -22,7 +22,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/NetSys/invisinets/pkg/kvstore/storepb"
+	"github.com/paraglider-project/paraglider/pkg/kvstore/storepb"
 	"google.golang.org/grpc"
 )
 

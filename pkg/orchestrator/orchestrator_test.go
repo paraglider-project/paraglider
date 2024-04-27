@@ -32,14 +32,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"google.golang.org/protobuf/proto"
 
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	config "github.com/NetSys/invisinets/pkg/orchestrator/config"
-	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
+	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	config "github.com/paraglider-project/paraglider/pkg/orchestrator/config"
+	tagservicepb "github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
 
-	fakeplugin "github.com/NetSys/invisinets/pkg/fake/cloudplugin"
-	fakekvstore "github.com/NetSys/invisinets/pkg/fake/kvstore"
-	faketagservice "github.com/NetSys/invisinets/pkg/fake/tagservice"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	fakeplugin "github.com/paraglider-project/paraglider/pkg/fake/cloudplugin"
+	fakekvstore "github.com/paraglider-project/paraglider/pkg/fake/kvstore"
+	faketagservice "github.com/paraglider-project/paraglider/pkg/fake/tagservice"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

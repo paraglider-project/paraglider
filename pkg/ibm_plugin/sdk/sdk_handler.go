@@ -24,9 +24,9 @@ import (
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
-	ibmCommon "github.com/NetSys/invisinets/pkg/ibm_plugin"
+	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 // CloudClient is the client used to interact with IBM Cloud SDK

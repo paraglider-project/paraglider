@@ -23,8 +23,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	common "github.com/NetSys/invisinets/internal/cli/common"
-	"github.com/NetSys/invisinets/internal/cli/glide/settings"
+	common "github.com/paraglider-project/paraglider/internal/cli/common"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
 )
 
 func NewCommand() (*cobra.Command, *executor) {

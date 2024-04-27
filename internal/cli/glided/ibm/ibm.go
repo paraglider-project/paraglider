@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	ibm "github.com/NetSys/invisinets/pkg/ibm_plugin/server"
+	ibm "github.com/paraglider-project/paraglider/pkg/ibm_plugin/server"
 )
 
 func NewCommand() *cobra.Command {

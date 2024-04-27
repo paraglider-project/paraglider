@@ -22,12 +22,12 @@ import (
 	"strconv"
 	"testing"
 
-	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/NetSys/invisinets/pkg/orchestrator"
-	"github.com/NetSys/invisinets/pkg/orchestrator/config"
-	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/google/uuid"
+	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
+	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator/config"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

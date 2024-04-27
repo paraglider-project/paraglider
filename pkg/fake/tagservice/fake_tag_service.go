@@ -23,7 +23,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
+	"github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
 	"google.golang.org/grpc"
 )
 

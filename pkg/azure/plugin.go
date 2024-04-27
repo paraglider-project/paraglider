@@ -25,8 +25,8 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"

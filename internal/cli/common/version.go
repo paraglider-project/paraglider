@@ -19,7 +19,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/NetSys/invisinets/internal/version"
+	"github.com/paraglider-project/paraglider/internal/version"
 	"github.com/spf13/cobra"
 )
 

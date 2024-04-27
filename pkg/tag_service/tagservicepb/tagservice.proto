@@ -17,7 +17,7 @@ limitations under the License.
 syntax = "proto3";
 package tagservicepb;
 
-option go_package="github.com/NetSys/invisinets/pkg/tag_service/tagservicepb";
+option go_package="github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb";
 
 service TagService {
     rpc SetTag(TagMapping) returns (BasicResponse) {}

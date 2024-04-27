@@ -25,7 +25,7 @@ import (
 	"os/exec"
 	"strings"
 
-	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
+	tagservicepb "github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
 	redis "github.com/redis/go-redis/v9"
 
 	"google.golang.org/grpc"

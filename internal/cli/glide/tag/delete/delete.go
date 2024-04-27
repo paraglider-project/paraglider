@@ -20,9 +20,9 @@ import (
 	"io"
 	"os"
 
-	common "github.com/NetSys/invisinets/internal/cli/common"
-	"github.com/NetSys/invisinets/internal/cli/glide/settings"
-	"github.com/NetSys/invisinets/pkg/client"
+	common "github.com/paraglider-project/paraglider/internal/cli/common"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/pkg/client"
 	"github.com/spf13/cobra"
 )
 

@@ -21,8 +21,8 @@ package client
 import (
 	"testing"
 
-	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rest"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rest"
+	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
 	"github.com/stretchr/testify/assert"
 )
 

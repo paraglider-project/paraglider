@@ -17,9 +17,9 @@ limitations under the License.
 package rule
 
 import (
-	"github.com/NetSys/invisinets/internal/cli/glide/rule/add"
-	"github.com/NetSys/invisinets/internal/cli/glide/rule/delete"
-	"github.com/NetSys/invisinets/internal/cli/glide/rule/get"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/rule/add"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/rule/delete"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/rule/get"
 
 	"github.com/spf13/cobra"
 )

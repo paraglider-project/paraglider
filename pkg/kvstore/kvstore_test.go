@@ -22,8 +22,8 @@ import (
 	"context"
 	"testing"
 
-	storepb "github.com/NetSys/invisinets/pkg/kvstore/storepb"
 	"github.com/go-redis/redismock/v9"
+	storepb "github.com/paraglider-project/paraglider/pkg/kvstore/storepb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

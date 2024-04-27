@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"net"
 
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/NetSys/invisinets/pkg/orchestrator"
+	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )

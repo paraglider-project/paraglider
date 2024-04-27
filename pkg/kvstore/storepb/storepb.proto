@@ -17,7 +17,7 @@ limitations under the License.
 syntax = "proto3";
 package tagservicepb;
 
-option go_package="github.com/NetSys/invisinets/pkg/kvstore/storepb";
+option go_package="github.com/paraglider-project/paraglider/pkg/kvstore/storepb";
 
 service KVStore {
     rpc Set(SetRequest) returns (SetResponse) {}

@@ -37,11 +37,11 @@ import (
 	insecure "google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/NetSys/invisinets/pkg/kvstore/storepb"
-	config "github.com/NetSys/invisinets/pkg/orchestrator/config"
-	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/kvstore/storepb"
+	config "github.com/paraglider-project/paraglider/pkg/orchestrator/config"
+	tagservicepb "github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const (

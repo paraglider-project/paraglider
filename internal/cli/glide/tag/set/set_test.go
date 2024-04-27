@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/NetSys/invisinets/internal/cli/glide/settings"
-	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rest"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

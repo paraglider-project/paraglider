@@ -25,7 +25,7 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

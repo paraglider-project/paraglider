@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	gcp "github.com/NetSys/invisinets/pkg/gcp"
+	gcp "github.com/paraglider-project/paraglider/pkg/gcp"
 )
 
 func NewCommand() *cobra.Command {
