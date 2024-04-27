@@ -32,8 +32,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"google.golang.org/protobuf/proto"
 
-	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
 	config "github.com/paraglider-project/paraglider/pkg/orchestrator/config"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	tagservicepb "github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
 
 	fakeplugin "github.com/paraglider-project/paraglider/pkg/fake/cloudplugin"
@@ -50,7 +50,7 @@ const exampleCloudName = "example"
 
 var portNum = 10000
 
-var exampleRule = &invisinetspb.PermitListRule{Name: "example-rule", Tags: []string{faketagservice.ValidTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: invisinetspb.Direction_INBOUND}
+var exampleRule = &paragliderpb.PermitListRule{Name: "example-rule", Tags: []string{faketagservice.ValidTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: paragliderpb.Direction_INBOUND}
 
 func getNewPortNumber() int {
 	portNum = portNum + 1
@@ -89,7 +89,7 @@ func TestPermitListGet(t *testing.T) {
 
 	// Well-formed request
 	name := faketagservice.ValidLastLevelTagName
-	expectedResponse := []*invisinetspb.PermitListRule{exampleRule}
+	expectedResponse := []*paragliderpb.PermitListRule{exampleRule}
 
 	url := fmt.Sprintf(GetFormatterString(GetPermitListRulesURL), defaultNamespace, exampleCloudName, name)
 	req, _ := http.NewRequest("GET", url, nil)
@@ -97,7 +97,7 @@ func TestPermitListGet(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	responseData, _ := io.ReadAll(w.Body)
-	var permitList []*invisinetspb.PermitListRule
+	var permitList []*paragliderpb.PermitListRule
 	err := json.Unmarshal(responseData, &permitList)
 	require.Nil(t, err)
 	assert.Equal(t, expectedResponse[0].Tags, permitList[0].Tags)
@@ -129,14 +129,14 @@ func TestPermitListRulesAdd(t *testing.T) {
 	// Well-formed request
 	name := faketagservice.ValidLastLevelTagName
 	tags := []string{faketagservice.ValidTagName}
-	rule := &invisinetspb.PermitListRule{
+	rule := &paragliderpb.PermitListRule{
 		Name:      "rulename",
 		Tags:      tags,
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
-	rulesList := []*invisinetspb.PermitListRule{rule}
+	rulesList := []*paragliderpb.PermitListRule{rule}
 	jsonValue, _ := json.Marshal(rulesList)
 
 	url := fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, name)
@@ -159,14 +159,14 @@ func TestPermitListRulesAdd(t *testing.T) {
 
 	// Invalid tag name (cannot be resolved)
 	tags = []string{"tag"}
-	rule = &invisinetspb.PermitListRule{
+	rule = &paragliderpb.PermitListRule{
 		Name:      "rulename",
 		Tags:      tags,
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
-	rulesList = []*invisinetspb.PermitListRule{rule}
+	rulesList = []*paragliderpb.PermitListRule{rule}
 	jsonValue, _ = json.Marshal(rulesList)
 
 	url = fmt.Sprintf(GetFormatterString(AddPermitListRulesURL), defaultNamespace, exampleCloudName, name)
@@ -212,10 +212,10 @@ func TestPermitListRulePut(t *testing.T) {
 	// Well-formed request
 	name := faketagservice.ValidLastLevelTagName
 	tags := []string{faketagservice.ValidTagName}
-	rule := &invisinetspb.PermitListRule{
+	rule := &paragliderpb.PermitListRule{
 		Name:      "rulename",
 		Tags:      tags,
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
@@ -240,10 +240,10 @@ func TestPermitListRulePut(t *testing.T) {
 
 	// Invalid tag name (cannot be resolved)
 	tags = []string{"tag"}
-	rule = &invisinetspb.PermitListRule{
+	rule = &paragliderpb.PermitListRule{
 		Name:      "rulename",
 		Tags:      tags,
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
@@ -292,10 +292,10 @@ func TestPermitListRulePost(t *testing.T) {
 	// Well-formed request
 	name := faketagservice.ValidLastLevelTagName
 	tags := []string{faketagservice.ValidTagName}
-	rule := &invisinetspb.PermitListRule{
+	rule := &paragliderpb.PermitListRule{
 		Name:      "rulename",
 		Tags:      tags,
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
@@ -321,10 +321,10 @@ func TestPermitListRulePost(t *testing.T) {
 
 	// Invalid tag name (cannot be resolved)
 	tags = []string{"tag"}
-	rule = &invisinetspb.PermitListRule{
+	rule = &paragliderpb.PermitListRule{
 		Name:      "rulename",
 		Tags:      tags,
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
@@ -466,7 +466,7 @@ func TestCreateResourcePost(t *testing.T) {
 	tagServerPort := getNewPortNumber()
 	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
-	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
+	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{
 		{
 			AddressSpaces: []string{"10.1.0.0/24"},
 			Cloud:         exampleCloudName,
@@ -482,7 +482,7 @@ func TestCreateResourcePost(t *testing.T) {
 
 	// Well-formed request
 	name := "resource-name"
-	resource := &invisinetspb.ResourceDescriptionString{
+	resource := &paragliderpb.ResourceDescriptionString{
 		Name:        name,
 		Description: "description",
 	}
@@ -521,7 +521,7 @@ func TestCreateResourcePut(t *testing.T) {
 	tagServerPort := getNewPortNumber()
 	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
 	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
-	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
+	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{
 		{
 			AddressSpaces: []string{"10.0.0.0/16"},
 			Cloud:         exampleCloudName,
@@ -537,7 +537,7 @@ func TestCreateResourcePut(t *testing.T) {
 
 	// Well-formed request
 	name := "resource-name"
-	resource := &invisinetspb.ResourceDescriptionString{
+	resource := &paragliderpb.ResourceDescriptionString{
 		Description: "description",
 	}
 	jsonValue, _ := json.Marshal(resource)
@@ -615,24 +615,24 @@ func TestFindUnusedAddressSpaces(t *testing.T) {
 	orchestratorServer := newOrchestratorServer()
 
 	// No entries in address space map
-	resp, err := orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
+	resp, err := orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
 	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
 
 	// Next entry
-	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
+	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{
 		{
 			AddressSpaces: []string{"10.0.0.0/16"},
 			Cloud:         exampleCloudName,
 			Namespace:     defaultNamespace,
 		},
 	}
-	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
 	assert.Equal(t, resp.AddressSpaces[0], "10.1.0.0/16")
 
 	// Account for all namespaces
-	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
+	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{
 		{
 			AddressSpaces: []string{"10.0.0.0/16"},
 			Cloud:         exampleCloudName,
@@ -644,25 +644,25 @@ func TestFindUnusedAddressSpaces(t *testing.T) {
 			Namespace:     "otherNamespace",
 		},
 	}
-	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
 	assert.Equal(t, resp.AddressSpaces[0], "10.2.0.0/16")
 
 	// Out of addresses
-	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
+	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{
 		{
 			AddressSpaces: []string{"10.255.0.0/16"},
 			Cloud:         exampleCloudName,
 			Namespace:     defaultNamespace,
 		},
 	}
-	_, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
+	_, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
 
 	require.NotNil(t, err)
 
 	// Multiple spaces
-	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{}
-	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Num: proto.Int32(2)})
+	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{}
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Num: proto.Int32(2)})
 	require.Nil(t, err)
 	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
 	assert.Equal(t, resp.AddressSpaces[1], "10.1.0.0/16")
@@ -713,19 +713,19 @@ func TestFindUnusedAsn(t *testing.T) {
 
 	// Typical case
 	orchestratorServer.usedAsns = []uint32{64512}
-	asn, err := orchestratorServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
+	asn, err := orchestratorServer.FindUnusedAsn(ctx, &paragliderpb.FindUnusedAsnRequest{})
 	require.NoError(t, err)
 	require.Equal(t, uint32(64513), asn.Asn)
 
 	// Gap in usedAsns
 	orchestratorServer.usedAsns = []uint32{64512, 64514}
-	asn, err = orchestratorServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
+	asn, err = orchestratorServer.FindUnusedAsn(ctx, &paragliderpb.FindUnusedAsnRequest{})
 	require.NoError(t, err)
 	require.Equal(t, uint32(64513), asn.Asn)
 
 	// No entries in asn map
 	orchestratorServer.usedAsns = []uint32{}
-	asn, err = orchestratorServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
+	asn, err = orchestratorServer.FindUnusedAsn(ctx, &paragliderpb.FindUnusedAsnRequest{})
 	require.NoError(t, err)
 	require.Equal(t, uint32(64512), asn.Asn)
 
@@ -734,7 +734,7 @@ func TestFindUnusedAsn(t *testing.T) {
 	for i := MIN_PRIVATE_ASN_2BYTE; i <= MAX_PRIVATE_ASN_2BYTE; i++ {
 		orchestratorServer.usedAsns[i-MIN_PRIVATE_ASN_2BYTE] = i
 	}
-	asn, err = orchestratorServer.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
+	asn, err = orchestratorServer.FindUnusedAsn(ctx, &paragliderpb.FindUnusedAsnRequest{})
 	require.NoError(t, err)
 	require.Equal(t, uint32(4200000000), asn.Asn)
 }
@@ -1043,24 +1043,24 @@ func TestResolvePermitListRules(t *testing.T) {
 	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	// Permit list rule that contains tags, IPs, and names
-	rule := &invisinetspb.PermitListRule{
+	rule := &paragliderpb.PermitListRule{
 		Name:      "rulename",
 		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Targets:   []string{},
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
-	rulesList := []*invisinetspb.PermitListRule{rule}
-	expectedRule := &invisinetspb.PermitListRule{
+	rulesList := []*paragliderpb.PermitListRule{rule}
+	expectedRule := &paragliderpb.PermitListRule{
 		Name:      "rulename",
 		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Targets:   []string{faketagservice.ResolvedTagIp, faketagservice.ResolvedTagIp, "2.3.4.5"},
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
-	expectedRulesList := []*invisinetspb.PermitListRule{expectedRule}
+	expectedRulesList := []*paragliderpb.PermitListRule{expectedRule}
 	resource := &ResourceInfo{uri: "uri", cloud: exampleCloudName, namespace: defaultNamespace}
 
 	resolvedRules, err := orchestratorServer.resolvePermitListRules(rulesList, resource, false)
@@ -1085,11 +1085,11 @@ func TestGetIPsFromResolvedTag(t *testing.T) {
 
 func TestCheckAndCleanRule(t *testing.T) {
 	// Rule with correct formatting
-	rule := &invisinetspb.PermitListRule{
+	rule := &paragliderpb.PermitListRule{
 		Name:      "rulename",
 		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Targets:   []string{},
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
@@ -1099,11 +1099,11 @@ func TestCheckAndCleanRule(t *testing.T) {
 	assert.Equal(t, rule, cleanRule)
 
 	// Rule with no tags
-	badRule := &invisinetspb.PermitListRule{
+	badRule := &paragliderpb.PermitListRule{
 		Name:      "rulename",
 		Tags:      []string{},
 		Targets:   []string{},
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
@@ -1112,11 +1112,11 @@ func TestCheckAndCleanRule(t *testing.T) {
 	assert.NotNil(t, err)
 
 	// Rule with targets
-	badRule = &invisinetspb.PermitListRule{
+	badRule = &paragliderpb.PermitListRule{
 		Name:      "rulename",
 		Tags:      []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
 		Targets:   []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", "2.3.4.5"},
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
 		Protocol:  1}
@@ -1151,20 +1151,20 @@ func TestCreateSubscriberName(t *testing.T) {
 }
 
 func TestDiffTagReferences(t *testing.T) {
-	beforePermitList := []*invisinetspb.PermitListRule{
-		&invisinetspb.PermitListRule{
+	beforePermitList := []*paragliderpb.PermitListRule{
+		&paragliderpb.PermitListRule{
 			Tags: []string{"tag1", "1.2.3.4"},
 		},
-		&invisinetspb.PermitListRule{
+		&paragliderpb.PermitListRule{
 			Tags: []string{"tag1", "tag2", "tag3"},
 		},
 	}
 
-	afterPermitList := []*invisinetspb.PermitListRule{
-		&invisinetspb.PermitListRule{
+	afterPermitList := []*paragliderpb.PermitListRule{
+		&paragliderpb.PermitListRule{
 			Tags: []string{"tag1", "1.2.3.4"},
 		},
-		&invisinetspb.PermitListRule{
+		&paragliderpb.PermitListRule{
 			Tags: []string{"tag3"},
 		},
 	}
@@ -1185,20 +1185,20 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 
 	resource := ResourceInfo{uri: "uri", cloud: exampleCloudName, namespace: defaultNamespace}
 
-	beforePermitList := []*invisinetspb.PermitListRule{
-		&invisinetspb.PermitListRule{
+	beforePermitList := []*paragliderpb.PermitListRule{
+		&paragliderpb.PermitListRule{
 			Tags: []string{faketagservice.ValidTagName + "1", "1.2.3.4"},
 		},
-		&invisinetspb.PermitListRule{
+		&paragliderpb.PermitListRule{
 			Tags: []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", faketagservice.ValidTagName + "2"},
 		},
 	}
 
-	afterPermitList := []*invisinetspb.PermitListRule{
-		&invisinetspb.PermitListRule{
+	afterPermitList := []*paragliderpb.PermitListRule{
+		&paragliderpb.PermitListRule{
 			Tags: []string{faketagservice.ValidTagName + "1", "1.2.3.4"},
 		},
-		&invisinetspb.PermitListRule{
+		&paragliderpb.PermitListRule{
 			Tags: []string{faketagservice.ValidTagName + "3"},
 		},
 	}
@@ -1208,26 +1208,26 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 }
 
 func TestClearRuleTargets(t *testing.T) {
-	permitList := []*invisinetspb.PermitListRule{
-		&invisinetspb.PermitListRule{
+	permitList := []*paragliderpb.PermitListRule{
+		&paragliderpb.PermitListRule{
 			Targets: []string{"1.2.3.4"},
 		},
-		&invisinetspb.PermitListRule{
+		&paragliderpb.PermitListRule{
 			Targets: []string{"1.2.3.4", "2.3.4.5"},
 		},
-		&invisinetspb.PermitListRule{
+		&paragliderpb.PermitListRule{
 			Tags: []string{"1.2.3.4", "2.3.4.5"},
 		},
 	}
 
-	expectedPermitList := []*invisinetspb.PermitListRule{
-		&invisinetspb.PermitListRule{
+	expectedPermitList := []*paragliderpb.PermitListRule{
+		&paragliderpb.PermitListRule{
 			Targets: []string{},
 		},
-		&invisinetspb.PermitListRule{
+		&paragliderpb.PermitListRule{
 			Targets: []string{},
 		},
-		&invisinetspb.PermitListRule{
+		&paragliderpb.PermitListRule{
 			Targets: []string{},
 			Tags:    []string{"1.2.3.4", "2.3.4.5"},
 		},
@@ -1258,7 +1258,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 	gcp_address_spaces := []string{"10.0.0.0/16", "10.1.0.0/16"}
 	azure_address_spaces := []string{"10.2.0.0/16", "10.3.0.0/16"}
-	orchestratorServer.usedAddressSpaces = []*invisinetspb.AddressSpaceMapping{
+	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{
 		{
 			AddressSpaces: gcp_address_spaces,
 			Cloud:         utils.GCP,
@@ -1275,9 +1275,9 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		"otherNamespace": {{Name: utils.AZURE, Deployment: "deployment2"}},
 	}
 
-	getUsedAddressSpacesResp, err := orchestratorServer.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	getUsedAddressSpacesResp, err := orchestratorServer.GetUsedAddressSpaces(context.Background(), &paragliderpb.Empty{})
 	require.Nil(t, err)
-	assert.ElementsMatch(t, getUsedAddressSpacesResp.AddressSpaceMappings, []*invisinetspb.AddressSpaceMapping{
+	assert.ElementsMatch(t, getUsedAddressSpacesResp.AddressSpaceMappings, []*paragliderpb.AddressSpaceMapping{
 		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP, Namespace: defaultNamespace, Deployment: proto.String("deployment1")},
 		{AddressSpaces: azure_address_spaces, Cloud: utils.AZURE, Namespace: "otherNamespace", Deployment: proto.String("deployment2")},
 	})
@@ -1345,12 +1345,12 @@ func TestGetValue(t *testing.T) {
 	orchestratorServer.localKVStoreService = fmt.Sprintf("localhost:%d", kvStorePort)
 
 	// Well-formed call
-	resp, err := orchestratorServer.GetValue(context.Background(), &invisinetspb.GetValueRequest{Key: fakekvstore.ValidKey, Cloud: exampleCloudName, Namespace: defaultNamespace})
+	resp, err := orchestratorServer.GetValue(context.Background(), &paragliderpb.GetValueRequest{Key: fakekvstore.ValidKey, Cloud: exampleCloudName, Namespace: defaultNamespace})
 	require.Nil(t, err)
 	assert.Equal(t, resp.Value, fakekvstore.ValidValue)
 
 	// Non-existent key
-	resp, err = orchestratorServer.GetValue(context.Background(), &invisinetspb.GetValueRequest{Key: "invalidkey", Cloud: exampleCloudName, Namespace: defaultNamespace})
+	resp, err = orchestratorServer.GetValue(context.Background(), &paragliderpb.GetValueRequest{Key: "invalidkey", Cloud: exampleCloudName, Namespace: defaultNamespace})
 	require.NotNil(t, err)
 	require.Nil(t, resp)
 }
@@ -1362,12 +1362,12 @@ func TestSetValue(t *testing.T) {
 	orchestratorServer.localKVStoreService = fmt.Sprintf("localhost:%d", kvStorePort)
 
 	// Well-formed call
-	resp, err := orchestratorServer.SetValue(context.Background(), &invisinetspb.SetValueRequest{Key: fakekvstore.ValidKey, Value: fakekvstore.ValidValue, Cloud: exampleCloudName, Namespace: defaultNamespace})
+	resp, err := orchestratorServer.SetValue(context.Background(), &paragliderpb.SetValueRequest{Key: fakekvstore.ValidKey, Value: fakekvstore.ValidValue, Cloud: exampleCloudName, Namespace: defaultNamespace})
 	require.Nil(t, err)
 	require.NotNil(t, resp)
 
 	// Bad key (already used, for example)
-	resp, err = orchestratorServer.SetValue(context.Background(), &invisinetspb.SetValueRequest{Key: "invalidkey", Value: fakekvstore.ValidValue, Cloud: exampleCloudName, Namespace: defaultNamespace})
+	resp, err = orchestratorServer.SetValue(context.Background(), &paragliderpb.SetValueRequest{Key: "invalidkey", Value: fakekvstore.ValidValue, Cloud: exampleCloudName, Namespace: defaultNamespace})
 	require.NotNil(t, err)
 	require.Nil(t, resp)
 }
@@ -1379,12 +1379,12 @@ func TestDeleteValue(t *testing.T) {
 	orchestratorServer.localKVStoreService = fmt.Sprintf("localhost:%d", kvStorePort)
 
 	// Well-formed call
-	resp, err := orchestratorServer.DeleteValue(context.Background(), &invisinetspb.DeleteValueRequest{Key: fakekvstore.ValidKey, Cloud: exampleCloudName, Namespace: defaultNamespace})
+	resp, err := orchestratorServer.DeleteValue(context.Background(), &paragliderpb.DeleteValueRequest{Key: fakekvstore.ValidKey, Cloud: exampleCloudName, Namespace: defaultNamespace})
 	require.Nil(t, err)
 	require.NotNil(t, resp)
 
 	// Bad key
-	resp, err = orchestratorServer.DeleteValue(context.Background(), &invisinetspb.DeleteValueRequest{Key: "invalidkey", Cloud: exampleCloudName, Namespace: defaultNamespace})
+	resp, err = orchestratorServer.DeleteValue(context.Background(), &paragliderpb.DeleteValueRequest{Key: "invalidkey", Cloud: exampleCloudName, Namespace: defaultNamespace})
 	require.NotNil(t, err)
 	require.Nil(t, resp)
 }

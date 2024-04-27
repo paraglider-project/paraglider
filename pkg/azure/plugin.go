@@ -25,7 +25,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
-	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -35,7 +35,7 @@ import (
 const maxPriority = 4096
 
 type azurePluginServer struct {
-	invisinetspb.UnimplementedCloudPluginServer
+	paragliderpb.UnimplementedCloudPluginServer
 	orchestratorServerAddr string
 	mockAzureHandler       AzureSDKHandler // Should only be set for for unit tests (TODO @seankimkdy: remove this hack in the future?)
 }
@@ -70,7 +70,7 @@ func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) (Az
 
 // GetPermitList returns the permit list for the given resource by getting the NSG rules
 // associated with the resource and filtering out the Invisinets rules
-func (s *azurePluginServer) GetPermitList(ctx context.Context, req *invisinetspb.GetPermitListRequest) (*invisinetspb.GetPermitListResponse, error) {
+func (s *azurePluginServer) GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest) (*paragliderpb.GetPermitListResponse, error) {
 	resourceId := req.Resource
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
 	if err != nil {
@@ -89,7 +89,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *invisinetspb
 	nsg := netInfo.NSG
 
 	// initialize a list of permit list rules
-	rules := []*invisinetspb.PermitListRule{}
+	rules := []*paragliderpb.PermitListRule{}
 
 	// get the NSG rules
 	for _, rule := range nsg.Properties.SecurityRules {
@@ -103,13 +103,13 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *invisinetspb
 			rules = append(rules, plRule)
 		}
 	}
-	return &invisinetspb.GetPermitListResponse{Rules: rules}, nil
+	return &paragliderpb.GetPermitListResponse{Rules: rules}, nil
 }
 
 // AddPermitListRules does the mapping from Invisinets to Azure by creating/updating NSG for the given resource.
 // It creates an NSG rule for each permit list rule and applies this NSG to the associated resource (VM)'s NIC (if it doesn't exist).
 // It returns a BasicResponse that includes the nsg ID if successful and an error if it fails.
-func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisinetspb.AddPermitListRulesRequest) (*invisinetspb.AddPermitListRulesResponse, error) {
+func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragliderpb.AddPermitListRulesRequest) (*paragliderpb.AddPermitListRulesResponse, error) {
 	resourceID := req.GetResource()
 	resourceIdInfo, err := getResourceIDInfo(resourceID)
 	if err != nil {
@@ -143,8 +143,8 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
 	defer orchestratorConn.Close()
-	orchestratorClient := invisinetspb.NewControllerClient(orchestratorConn)
-	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	orchestratorClient := paragliderpb.NewControllerClient(orchestratorConn)
+	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &paragliderpb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
@@ -175,7 +175,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 			}
 			if peeringCloudInfo.Cloud != utils.AZURE {
 				// Create VPN connections
-				connectCloudsReq := &invisinetspb.ConnectCloudsRequest{
+				connectCloudsReq := &paragliderpb.ConnectCloudsRequest{
 					CloudA:          utils.AZURE,
 					CloudANamespace: req.Namespace,
 					CloudB:          peeringCloudInfo.Cloud,
@@ -209,10 +209,10 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		// if the priority is already used, we need to find the next available priority
 		priority, ok := existingRulePriorities[getNSGRuleName(rule.Name)]
 		if !ok {
-			if rule.Direction == invisinetspb.Direction_INBOUND {
+			if rule.Direction == paragliderpb.Direction_INBOUND {
 				priority = getPriority(reservedPrioritiesInbound, inboundPriority, maxPriority)
 				inboundPriority = priority + 1
-			} else if rule.Direction == invisinetspb.Direction_OUTBOUND {
+			} else if rule.Direction == paragliderpb.Direction_OUTBOUND {
 				priority = getPriority(reservedPrioritiesOutbound, outboundPriority, maxPriority)
 				outboundPriority = priority + 1
 			}
@@ -227,11 +227,11 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *invisin
 		utils.Log.Printf("Successfully created network security rule: %s", *securityRule.ID)
 	}
 
-	return &invisinetspb.AddPermitListRulesResponse{}, nil
+	return &paragliderpb.AddPermitListRulesResponse{}, nil
 }
 
 // DeletePermitListRules does the mapping from Invisinets to Azure by deleting NSG rules for the given resource.
-func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *invisinetspb.DeletePermitListRulesRequest) (*invisinetspb.DeletePermitListRulesResponse, error) {
+func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *paragliderpb.DeletePermitListRulesRequest) (*paragliderpb.DeletePermitListRulesResponse, error) {
 	resourceID := req.GetResource()
 	resourceIdInfo, err := getResourceIDInfo(resourceID)
 	if err != nil {
@@ -257,13 +257,13 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *invisi
 		utils.Log.Printf("Successfully deleted network security rule: %s", rule)
 	}
 
-	return &invisinetspb.DeletePermitListRulesResponse{}, nil
+	return &paragliderpb.DeletePermitListRulesResponse{}, nil
 }
 
 // CreateResource does the mapping from Invisinets to Azure to create an invisinets enabled resource
 // which means the resource should be added to a valid invisinets network, the attachement to an invisinets network
 // is determined by the resource's location.
-func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
+func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *paragliderpb.ResourceDescription) (*paragliderpb.CreateResourceResponse, error) {
 	resourceDescInfo, err := GetResourceInfoFromResourceDesc(ctx, resourceDesc)
 	if err != nil {
 		utils.Log.Printf("Resource description is invalid:%+v", err)
@@ -318,8 +318,8 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 			return nil, err
 		}
 		defer conn.Close()
-		client := invisinetspb.NewControllerClient(conn)
-		response, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Num: proto.Int32(int32(resourceDescInfo.NumAdditionalAddressSpaces))})
+		client := paragliderpb.NewControllerClient(conn)
+		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Num: proto.Int32(int32(resourceDescInfo.NumAdditionalAddressSpaces))})
 		if err != nil {
 			utils.Log.Printf("Failed to find unused address spaces: %v", err)
 			return nil, err
@@ -405,15 +405,15 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *in
 		}
 	}
 
-	return &invisinetspb.CreateResourceResponse{Name: resourceDescInfo.ResourceName, Uri: resourceDescInfo.ResourceID, Ip: ip}, nil
+	return &paragliderpb.CreateResourceResponse{Name: resourceDescInfo.ResourceName, Uri: resourceDescInfo.ResourceID, Ip: ip}, nil
 }
 
 // GetUsedAddressSpaces returns the address spaces used by invisinets which are the address spaces of the invisinets vnets
-func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisinetspb.GetUsedAddressSpacesRequest) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
-	resp := &invisinetspb.GetUsedAddressSpacesResponse{}
-	resp.AddressSpaceMappings = make([]*invisinetspb.AddressSpaceMapping, len(req.Deployments))
+func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
+	resp := &paragliderpb.GetUsedAddressSpacesResponse{}
+	resp.AddressSpaceMappings = make([]*paragliderpb.AddressSpaceMapping, len(req.Deployments))
 	for i, deployment := range req.Deployments {
-		resp.AddressSpaceMappings[i] = &invisinetspb.AddressSpaceMapping{
+		resp.AddressSpaceMappings[i] = &paragliderpb.AddressSpaceMapping{
 			Cloud:     utils.AZURE,
 			Namespace: deployment.Namespace,
 		}
@@ -444,8 +444,8 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *invis
 
 }
 
-func (s *azurePluginServer) GetUsedAsns(ctx context.Context, req *invisinetspb.GetUsedAsnsRequest) (*invisinetspb.GetUsedAsnsResponse, error) {
-	resp := &invisinetspb.GetUsedAsnsResponse{}
+func (s *azurePluginServer) GetUsedAsns(ctx context.Context, req *paragliderpb.GetUsedAsnsRequest) (*paragliderpb.GetUsedAsnsResponse, error) {
+	resp := &paragliderpb.GetUsedAsnsResponse{}
 	for _, deployment := range req.Deployments {
 		resourceIdInfo, err := getResourceIDInfo(deployment.Id)
 		if err != nil {
@@ -471,8 +471,8 @@ func (s *azurePluginServer) GetUsedAsns(ctx context.Context, req *invisinetspb.G
 	return resp, nil
 }
 
-func (s *azurePluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *invisinetspb.GetUsedBgpPeeringIpAddressesRequest) (*invisinetspb.GetUsedBgpPeeringIpAddressesResponse, error) {
-	resp := &invisinetspb.GetUsedBgpPeeringIpAddressesResponse{}
+func (s *azurePluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *paragliderpb.GetUsedBgpPeeringIpAddressesRequest) (*paragliderpb.GetUsedBgpPeeringIpAddressesResponse, error) {
+	resp := &paragliderpb.GetUsedBgpPeeringIpAddressesResponse{}
 	for _, deployment := range req.Deployments {
 		resourceIdInfo, err := getResourceIDInfo(deployment.Id)
 		if err != nil {
@@ -500,7 +500,7 @@ func (s *azurePluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, re
 	return resp, nil
 }
 
-func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinetspb.CreateVpnGatewayRequest) (*invisinetspb.CreateVpnGatewayResponse, error) {
+func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *paragliderpb.CreateVpnGatewayRequest) (*paragliderpb.CreateVpnGatewayResponse, error) {
 	resourceId := req.Deployment.Id
 	namespace := req.Deployment.Namespace
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
@@ -558,8 +558,8 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 				return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 			}
 			defer conn.Close()
-			client := invisinetspb.NewControllerClient(conn)
-			findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
+			client := paragliderpb.NewControllerClient(conn)
+			findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &paragliderpb.FindUnusedAsnRequest{})
 			if err != nil {
 				return nil, fmt.Errorf("unable to find unused address space: %w", err)
 			}
@@ -663,7 +663,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 		}
 	}
 
-	resp := &invisinetspb.CreateVpnGatewayResponse{Asn: asn}
+	resp := &paragliderpb.CreateVpnGatewayResponse{Asn: asn}
 	resp.GatewayIpAddresses = make([]string, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {
 		resp.GatewayIpAddresses[i] = *publicIPAddresses[i].Properties.IPAddress
@@ -671,7 +671,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *invisinet
 	return resp, nil
 }
 
-func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invisinetspb.CreateVpnConnectionsRequest) (*invisinetspb.BasicResponse, error) {
+func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.BasicResponse, error) {
 	resourceIdInfo, err := getResourceIDInfo(req.Deployment.Id)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
@@ -751,7 +751,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *invis
 		}
 	}
 
-	return &invisinetspb.BasicResponse{Success: true}, nil
+	return &paragliderpb.BasicResponse{Success: true}, nil
 }
 
 // Peer with another virtual network
@@ -805,7 +805,7 @@ func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 	azureServer := &azurePluginServer{
 		orchestratorServerAddr: orchestratorServerAddr,
 	}
-	invisinetspb.RegisterCloudPluginServer(grpcServer, azureServer)
+	paragliderpb.RegisterCloudPluginServer(grpcServer, azureServer)
 	fmt.Println("Starting server on port :", port)
 
 	go func() {

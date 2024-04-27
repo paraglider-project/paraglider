@@ -24,7 +24,7 @@ import (
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
 	"github.com/paraglider-project/paraglider/pkg/client"
-	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/spf13/cobra"
 )
 
@@ -73,7 +73,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	resource := &invisinetspb.ResourceDescriptionString{Description: string(e.description)}
+	resource := &paragliderpb.ResourceDescriptionString{Description: string(e.description)}
 
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	resourceInfo, err := c.CreateResource(e.cliSettings.ActiveNamespace, args[0], args[1], resource)

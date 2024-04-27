@@ -23,7 +23,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 )
 
 var (
@@ -116,7 +116,7 @@ type PeeringCloudInfo struct {
 // Notes
 // 1. this method may return duplicate PeeringCloudInfos, so it's the responsibility of the cloud plugin to gracefully handle duplicates
 // 2. peeringCloudInfo[i] will be nil if the target is a public IP address, so make sure to check for that
-func GetPermitListRulePeeringCloudInfo(permitListRule *invisinetspb.PermitListRule, usedAddressSpaceMappings []*invisinetspb.AddressSpaceMapping) ([]*PeeringCloudInfo, error) {
+func GetPermitListRulePeeringCloudInfo(permitListRule *paragliderpb.PermitListRule, usedAddressSpaceMappings []*paragliderpb.AddressSpaceMapping) ([]*PeeringCloudInfo, error) {
 	peeringCloudInfos := make([]*PeeringCloudInfo, len(permitListRule.Targets))
 	for i, target := range permitListRule.Targets {
 		isPrivate, err := isIPAddressPrivate(target)

@@ -31,7 +31,7 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
-	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -73,9 +73,9 @@ var (
 
 // Fake firewalls and permitlists
 var (
-	fakePermitListRule1 = &invisinetspb.PermitListRule{
+	fakePermitListRule1 = &paragliderpb.PermitListRule{
 		Name:      "rule-name1",
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   -1,
 		DstPort:   80,
 		Protocol:  6,
@@ -96,9 +96,9 @@ var (
 		TargetTags:   []string{fakeNetworkTag},
 		Description:  proto.String(getRuleDescription([]string{"tag1", "tag2"})),
 	}
-	fakePermitListRule2 = &invisinetspb.PermitListRule{
+	fakePermitListRule2 = &paragliderpb.PermitListRule{
 		Name:      "rule-name2",
-		Direction: invisinetspb.Direction_OUTBOUND,
+		Direction: paragliderpb.Direction_OUTBOUND,
 		SrcPort:   -1,
 		DstPort:   -1,
 		Protocol:  17,

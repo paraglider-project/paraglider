@@ -24,17 +24,17 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
 	"github.com/paraglider-project/paraglider/pkg/orchestrator"
 	"github.com/paraglider-project/paraglider/pkg/orchestrator/config"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
 )
 
 type InvisinetsControllerClient interface {
-	GetPermitList(namespace string, cloud string, resourceName string) ([]*invisinetspb.PermitListRule, error)
-	AddPermitListRules(namespace string, cloud string, resourceName string, rules []*invisinetspb.PermitListRule) error
+	GetPermitList(namespace string, cloud string, resourceName string) ([]*paragliderpb.PermitListRule, error)
+	AddPermitListRules(namespace string, cloud string, resourceName string, rules []*paragliderpb.PermitListRule) error
 	DeletePermitListRules(namespace string, cloud string, resourceName string, rules []string) error
-	CreateResource(namespace string, cloud string, resourceName string, resource *invisinetspb.ResourceDescriptionString) (map[string]string, error)
+	CreateResource(namespace string, cloud string, resourceName string, resource *paragliderpb.ResourceDescriptionString) (map[string]string, error)
 	GetTag(tag string) (*tagservicepb.TagMapping, error)
 	ResolveTag(tag string) ([]*tagservicepb.TagMapping, error)
 	SetTag(tag string, tagMapping *tagservicepb.TagMapping) error
@@ -89,7 +89,7 @@ func (c *Client) sendRequest(url string, method string, body io.Reader) ([]byte,
 }
 
 // Get a permit list for a resource
-func (c *Client) GetPermitList(namespace string, cloud string, resourceName string) ([]*invisinetspb.PermitListRule, error) {
+func (c *Client) GetPermitList(namespace string, cloud string, resourceName string) ([]*paragliderpb.PermitListRule, error) {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.GetPermitListRulesURL), namespace, cloud, resourceName)
 
 	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
@@ -97,7 +97,7 @@ func (c *Client) GetPermitList(namespace string, cloud string, resourceName stri
 		return nil, err
 	}
 
-	var rules []*invisinetspb.PermitListRule
+	var rules []*paragliderpb.PermitListRule
 	err = json.Unmarshal(respBytes, &rules)
 	if err != nil {
 		return nil, err
@@ -107,7 +107,7 @@ func (c *Client) GetPermitList(namespace string, cloud string, resourceName stri
 }
 
 // Add permit list rules to a resource
-func (c *Client) AddPermitListRules(namespace string, cloud string, resourceName string, rules []*invisinetspb.PermitListRule) error {
+func (c *Client) AddPermitListRules(namespace string, cloud string, resourceName string, rules []*paragliderpb.PermitListRule) error {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.AddPermitListRulesURL), namespace, cloud, resourceName)
 
 	reqBody, err := json.Marshal(rules)
@@ -141,7 +141,7 @@ func (c *Client) DeletePermitListRules(namespace string, cloud string, resourceN
 }
 
 // Create a resource
-func (c *Client) CreateResource(namespace string, cloud string, resourceName string, resource *invisinetspb.ResourceDescriptionString) (map[string]string, error) {
+func (c *Client) CreateResource(namespace string, cloud string, resourceName string, resource *paragliderpb.ResourceDescriptionString) (map[string]string, error) {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.CreateResourcePUTURL), namespace, cloud, resourceName)
 
 	reqBody, err := json.Marshal(resource)

@@ -28,7 +28,7 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
-	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -162,7 +162,7 @@ func GetResourceNetworkInfo(ctx context.Context, instancesClient *compute.Instan
 }
 
 // Determine whether the provided resource description is supported
-func IsValidResource(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
+func IsValidResource(ctx context.Context, resource *paragliderpb.ResourceDescription) (*resourceInfo, error) {
 	handler, err := getResourceHandlerFromDescription(resource.Description)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get resource handler: %w", err)
@@ -175,7 +175,7 @@ func IsValidResource(ctx context.Context, resource *invisinetspb.ResourceDescrip
 }
 
 // Read the resource description and provision the resource
-func ReadAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, instanceClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
+func ReadAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, instanceClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
 	handler, err := getResourceHandlerWithClient(resourceInfo.ResourceType, instanceClient, clusterClient)
 	if err != nil {
 		return "", "", fmt.Errorf("unable to get resource handler: %w", err)
@@ -191,11 +191,11 @@ type supportedGCPResourceClient interface {
 // Interface to implement to support a resource
 type iGCPResourceHandler interface {
 	// Read and provision the resource with the provided subnet
-	readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error)
+	readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error)
 	// Get network information about the resource
 	getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo) (*resourceNetworkInfo, error)
 	// Get information about the reosurce from the resource description
-	getResourceInfo(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error)
+	getResourceInfo(ctx context.Context, resource *paragliderpb.ResourceDescription) (*resourceInfo, error)
 }
 
 // Generic GCP resource handler
@@ -210,7 +210,7 @@ type gcpInstance struct {
 }
 
 // Get the resource information for a GCP instance
-func (r *gcpInstance) getResourceInfo(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
+func (r *gcpInstance) getResourceInfo(ctx context.Context, resource *paragliderpb.ResourceDescription) (*resourceInfo, error) {
 	insertInstanceRequest := &computepb.InsertInstanceRequest{}
 	err := json.Unmarshal(resource.Description, insertInstanceRequest)
 	if err != nil {
@@ -220,7 +220,7 @@ func (r *gcpInstance) getResourceInfo(ctx context.Context, resource *invisinetsp
 }
 
 // Read and provision a GCP instance
-func (r *gcpInstance) readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
+func (r *gcpInstance) readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
 	vm, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
 		return "", "", err
@@ -331,7 +331,7 @@ type gcpGKE struct {
 }
 
 // Read and provision a GCP cluster
-func (r *gcpGKE) readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
+func (r *gcpGKE) readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
 	gke, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
 		return "", "", err
@@ -340,7 +340,7 @@ func (r *gcpGKE) readAndProvisionResource(ctx context.Context, resource *invisin
 }
 
 // Get the resource information for a GCP cluster
-func (r *gcpGKE) getResourceInfo(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
+func (r *gcpGKE) getResourceInfo(ctx context.Context, resource *paragliderpb.ResourceDescription) (*resourceInfo, error) {
 	createClusterRequest := &containerpb.CreateClusterRequest{}
 	err := json.Unmarshal(resource.Description, createClusterRequest)
 	if err != nil {

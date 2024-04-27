@@ -34,8 +34,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
-	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
 	"github.com/paraglider-project/paraglider/pkg/orchestrator"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -144,8 +144,8 @@ func TestCreateResource(t *testing.T) {
 			},
 		}
 
-		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
-			Deployment:  &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: namespace},
+		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
+			Deployment:  &paragliderpb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: namespace},
 			Name:        fakeVmName,
 			Description: desc,
 		})
@@ -156,7 +156,7 @@ func TestCreateResource(t *testing.T) {
 
 	t.Run("TestCreateResource: Failure, invalid json", func(t *testing.T) {
 		server, _, ctx := setupAzurePluginServer()
-		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
+		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
 			Description: []byte("invalid json"),
 		})
 
@@ -172,7 +172,7 @@ func TestCreateResource(t *testing.T) {
 			t.Errorf("Error while marshalling description: %v", err)
 		}
 		server, _, ctx := setupAzurePluginServer()
-		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
+		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
 			Description: desc,
 		})
 
@@ -196,7 +196,7 @@ func TestCreateResource(t *testing.T) {
 
 		server, _, ctx := setupAzurePluginServer()
 
-		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
+		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
 			Description: desc,
 		})
 
@@ -251,8 +251,8 @@ func TestCreateResource(t *testing.T) {
 		mockAzureHandler.On("GetVirtualNetworkPeering", ctx, vnetName, vpnGwVnetName).Return(nil, &azcore.ResponseError{StatusCode: http.StatusNotFound})
 		mockAzureHandler.On("CreateOrUpdateVnetPeeringRemoteGateway", ctx, vnetName, vpnGwVnetName, (*armnetwork.VirtualNetworkPeering)(nil), (*armnetwork.VirtualNetworkPeering)(nil)).Return(nil)
 
-		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
-			Deployment:  &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: namespace},
+		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
+			Deployment:  &paragliderpb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: namespace},
 			Description: desc,
 			Name:        getFakeClusterName(),
 		})
@@ -295,7 +295,7 @@ func TestGetPermitList(t *testing.T) {
 		}
 
 		// Call the GetPermitList function
-		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
+		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
 		resp, err := server.GetPermitList(ctx, request)
 
 		// check the results
@@ -312,7 +312,7 @@ func TestGetPermitList(t *testing.T) {
 		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("error while getting azure credentials"))
 
 		// Call the GetPermitList function
-		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
+		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
 		response, err := server.GetPermitList(ctx, request)
 
 		// check the error
@@ -332,7 +332,7 @@ func TestGetPermitList(t *testing.T) {
 		mockAzureHandler.On("GetNetworkInterface", ctx, validNicName).Return(nil, fmt.Errorf("NIC get error"))
 
 		// Call the GetPermitList function
-		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
+		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
 		response, err := server.GetPermitList(ctx, request)
 
 		// check the error
@@ -349,7 +349,7 @@ func TestGetPermitList(t *testing.T) {
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResourceId, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 		mockAzureHandler.On("GetPermitListRuleFromNSGRule", mock.Anything).Return(nil, fmt.Errorf("error while getting permit list rule"))
 
-		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
+		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
 		response, err := server.GetPermitList(ctx, request)
 
 		// check the error
@@ -369,7 +369,7 @@ func TestGetPermitList(t *testing.T) {
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResourceId, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 
 		// Call the GetPermitList function
-		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
+		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
 		response, err := server.GetPermitList(ctx, request)
 
 		// check the error
@@ -425,7 +425,7 @@ func TestAddPermitListRules(t *testing.T) {
 			}, nil).Times(1)
 		}
 
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
 
 		mockAzureHandler.AssertExpectations(t) // this will fail if any of the calls above are not called or for different times
 		require.NoError(t, err)
@@ -453,7 +453,7 @@ func TestAddPermitListRules(t *testing.T) {
 			}
 		}
 
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakeOldPlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakeOldPlRules, Namespace: defaultNamespace, Resource: fakeResource})
 
 		mockAzureHandler.AssertExpectations(t) // this will fail if any of the calls above are not called or for different times
 		require.NoError(t, err)
@@ -466,7 +466,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockHandlerSetup(mockAzureHandler)
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, nil, fakeNic)
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
 		require.Error(t, err)
 		require.NotNil(t, err)
 		require.Nil(t, resp)
@@ -477,7 +477,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("error while getting azure credentials"))
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
 		require.Error(t, err)
 		require.NotNil(t, err)
 		require.Nil(t, resp)
@@ -493,7 +493,7 @@ func TestAddPermitListRules(t *testing.T) {
 		require.NoError(t, err)
 		mockAzureHandler.On("GetResource", ctx, fakeResource).Return(&vm, nil)
 		mockAzureHandler.On("GetNetworkInterface", ctx, validNicName).Return(nil, fmt.Errorf("NIC get error"))
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
 		require.Error(t, err)
 		require.NotNil(t, err)
 		require.Nil(t, resp)
@@ -514,7 +514,7 @@ func TestAddPermitListRules(t *testing.T) {
 
 		mockAzureHandler.On("CreateSecurityRule", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("error while creating nsg rule"))
 
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
 		require.Error(t, err)
 		require.NotNil(t, err)
 		require.Nil(t, resp)
@@ -533,7 +533,7 @@ func TestAddPermitListRules(t *testing.T) {
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 
 		// Call the GetPermitList function
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
 
 		// check the error
 		require.Error(t, err)
@@ -566,7 +566,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 
 		mockAzureHandler.On("DeleteSecurityRule", ctx, fakeNsgName, mock.Anything).Return(nil)
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -581,7 +581,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		require.NoError(t, err)
 		mockAzureHandler.On("GetResource", ctx, fakeResource).Return(&vm, nil)
 		mockAzureHandler.On("GetNetworkInterface", ctx, validNicName).Return(nil, fmt.Errorf("NIC get error"))
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -592,7 +592,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	t.Run("DeletePermitListRules: Failure while getting azure credentials", func(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("error while getting azure credentials"))
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -606,7 +606,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 
 		mockAzureHandler.On("DeleteSecurityRule", ctx, fakeNsgName, mock.Anything).Return(fmt.Errorf("error while deleting rule"))
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -618,7 +618,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		server, mockAzureHandler, ctx := setupAzurePluginServer()
 		mockHandlerSetup(mockAzureHandler)
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, nil, fakeNic)
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -637,7 +637,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
 
 		// Call the GetPermitList function
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
 
 		// check the error
 		require.Error(t, err)
@@ -649,14 +649,14 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	server, mockAzureHandler, ctx := setupAzurePluginServer()
 	mockHandlerSetup(mockAzureHandler)
 	mockAzureHandler.On("GetVNetsAddressSpaces", ctx, getInvisinetsNamespacePrefix(defaultNamespace)).Return(fakeAddressList, nil)
-	req := &invisinetspb.GetUsedAddressSpacesRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{
+	req := &paragliderpb.GetUsedAddressSpacesRequest{
+		Deployments: []*paragliderpb.InvisinetsDeployment{
 			{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
 		},
 	}
 	resp, err := server.GetUsedAddressSpaces(ctx, req)
 
-	expectedAddressSpaceMappings := []*invisinetspb.AddressSpaceMapping{
+	expectedAddressSpaceMappings := []*paragliderpb.AddressSpaceMapping{
 		{
 			AddressSpaces: []string{validAddressSpace},
 			Cloud:         utils.AZURE,
@@ -677,8 +677,8 @@ func TestGetUsedAsns(t *testing.T) {
 	)
 
 	usedAsnsExpected := []uint32{64512}
-	req := &invisinetspb.GetUsedAsnsRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{
+	req := &paragliderpb.GetUsedAsnsRequest{
+		Deployments: []*paragliderpb.InvisinetsDeployment{
 			{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
 		},
 	}
@@ -706,8 +706,8 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 	)
 
 	usedBgpPeeringIpAddressExpected := []string{"169.254.21.1", "169.254.22.1"}
-	req := &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{
+	req := &paragliderpb.GetUsedBgpPeeringIpAddressesRequest{
+		Deployments: []*paragliderpb.InvisinetsDeployment{
 			{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
 		},
 	}
@@ -853,8 +853,8 @@ func TestCreateVpnGateway(t *testing.T) {
 	mockAzureHandler.On("CreateOrUpdateVnetPeeringRemoteGateway", ctx, vnetName, vpnGwVnetName, mock.Anything, mock.Anything).Return(
 		nil,
 	)
-	req := &invisinetspb.CreateVpnGatewayRequest{
-		Deployment:            &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
+	req := &paragliderpb.CreateVpnGatewayRequest{
+		Deployment:            &paragliderpb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
 		Cloud:                 "fake-cloud",
 		BgpPeeringIpAddresses: []string{"169.254.21.1", "169.254.22.1"},
 	}
@@ -895,8 +895,8 @@ func TestCreateVpnConnections(t *testing.T) {
 		nil,
 	)
 
-	req := &invisinetspb.CreateVpnConnectionsRequest{
-		Deployment:         &invisinetspb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
+	req := &paragliderpb.CreateVpnConnectionsRequest{
+		Deployment:         &paragliderpb.InvisinetsDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
 		Cloud:              fakeCloudName,
 		Asn:                123,
 		GatewayIpAddresses: []string{"1.1.1.1", "2.2.2.2"},
@@ -919,8 +919,8 @@ func getFakeClusterName() string {
 	return "cluster123"
 }
 
-func getFakeNewPermitListRules() ([]*invisinetspb.PermitListRule, error) {
-	return []*invisinetspb.PermitListRule{
+func getFakeNewPermitListRules() ([]*paragliderpb.PermitListRule, error) {
+	return []*paragliderpb.PermitListRule{
 		{
 			Name:      "test-rule-1",
 			Tags:      []string{"tag1", "tag2"},
@@ -928,7 +928,7 @@ func getFakeNewPermitListRules() ([]*invisinetspb.PermitListRule, error) {
 			SrcPort:   8080,
 			DstPort:   8080,
 			Protocol:  1,
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 		},
 		{
 			Name:      "test-rule-2",
@@ -937,15 +937,15 @@ func getFakeNewPermitListRules() ([]*invisinetspb.PermitListRule, error) {
 			SrcPort:   8080,
 			DstPort:   8080,
 			Protocol:  1,
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 		},
 	}, nil
 }
 
-func getFakePermitList() ([]*invisinetspb.PermitListRule, error) {
+func getFakePermitList() ([]*paragliderpb.PermitListRule, error) {
 	nsg := getFakeNsg("test", "test")
 	// initialize invisinets rules with the size of nsg rules
-	invisinetsRules := []*invisinetspb.PermitListRule{}
+	invisinetsRules := []*paragliderpb.PermitListRule{}
 	// use real implementation to get actual mapping of nsg rules to invisinets rules
 	azureSDKHandler := &azureSDKHandler{}
 	for i := range nsg.Properties.SecurityRules {

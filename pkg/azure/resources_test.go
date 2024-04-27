@@ -28,7 +28,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -170,27 +170,27 @@ func getFakeAKSGenericResource() armresources.GenericResource {
 	}
 }
 
-func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*invisinetspb.ResourceDescription, error) {
+func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*paragliderpb.ResourceDescription, error) {
 	desc, err := json.Marshal(vm)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
-	return &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: invisinetsDeploymentId, Namespace: namespace},
+	return &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.InvisinetsDeployment{Id: invisinetsDeploymentId, Namespace: namespace},
 		Name:        fakeVmName,
 		Description: desc,
 	}, nil
 }
 
-func getFakeClusterResourceDescription(cluster *armcontainerservice.ManagedCluster) (*invisinetspb.ResourceDescription, error) {
+func getFakeClusterResourceDescription(cluster *armcontainerservice.ManagedCluster) (*paragliderpb.ResourceDescription, error) {
 	desc, err := json.Marshal(cluster)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
-	return &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: invisinetsDeploymentId, Namespace: namespace},
+	return &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.InvisinetsDeployment{Id: invisinetsDeploymentId, Namespace: namespace},
 		Name:        fakeClusterName,
 		Description: desc,
 	}, nil

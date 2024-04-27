@@ -36,7 +36,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
-	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -285,7 +285,7 @@ func TestCreateSecurityRule(t *testing.T) {
 
 	// Subtest 1: Create security rule - Success Test
 	t.Run("CreateSecurityRule: Success", func(t *testing.T) {
-		resp, err := azureSDKHandlerTest.CreateSecurityRule(context.Background(), &invisinetspb.PermitListRule{},
+		resp, err := azureSDKHandlerTest.CreateSecurityRule(context.Background(), &paragliderpb.PermitListRule{},
 			validSecurityGroupName, validSecurityRuleName, "10.1.0.5", 200)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -295,7 +295,7 @@ func TestCreateSecurityRule(t *testing.T) {
 
 	// Subtest 2: Create security rule - Failure Test
 	t.Run("CreateSecurityRule: Failure", func(t *testing.T) {
-		resp, err := azureSDKHandlerTest.CreateSecurityRule(context.Background(), &invisinetspb.PermitListRule{},
+		resp, err := azureSDKHandlerTest.CreateSecurityRule(context.Background(), &paragliderpb.PermitListRule{},
 			validSecurityGroupName, "invalid-security-rule-name", "10.10.1.0", 200)
 
 		require.Error(t, err)
@@ -691,10 +691,10 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		result, err := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(inboundRule)
 
 		// Expected permit list rule
-		expectedRule := &invisinetspb.PermitListRule{
+		expectedRule := &paragliderpb.PermitListRule{
 			Name:      "invisinets-rulename",
 			Targets:   []string{"10.5.1.0", "10.6.1.0"},
-			Direction: invisinetspb.Direction_INBOUND,
+			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   100,
 			DstPort:   8080,
 			Protocol:  6,
@@ -724,10 +724,10 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		result, err := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(outboundRule)
 
 		// Expected permit list rule
-		expectedRule := &invisinetspb.PermitListRule{
+		expectedRule := &paragliderpb.PermitListRule{
 			Name:      "invisinets-rulename",
 			Targets:   []string{"10.3.1.0", "10.2.1.0"},
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   200,
 			DstPort:   8080,
 			Protocol:  17,
@@ -758,10 +758,10 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		result, err := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(anyPortRule)
 
 		// Expected permit list rule
-		expectedRule := &invisinetspb.PermitListRule{
+		expectedRule := &paragliderpb.PermitListRule{
 			Name:      "invisinets-rulename",
 			Targets:   []string{"10.3.1.0", "10.2.1.0"},
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  17,
@@ -793,10 +793,10 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		result, err := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(anyPortRule)
 
 		// Expected permit list rule
-		expectedRule := &invisinetspb.PermitListRule{
+		expectedRule := &paragliderpb.PermitListRule{
 			Name:      "invisinets-rulename",
 			Targets:   []string{"10.3.1.0", "10.2.1.0"},
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   1,
 			DstPort:   1,
 			Protocol:  17,
@@ -941,8 +941,8 @@ func TestGetVirtualNetworkGatewayConnection(t *testing.T) {
 
 func TestGetIPs(t *testing.T) {
 	// Test case 1: Inbound rule
-	inboundRule := &invisinetspb.PermitListRule{
-		Direction: invisinetspb.Direction_INBOUND,
+	inboundRule := &paragliderpb.PermitListRule{
+		Direction: paragliderpb.Direction_INBOUND,
 		Targets:   []string{"10.0.0.1", "192.168.0.1"},
 	}
 
@@ -955,8 +955,8 @@ func TestGetIPs(t *testing.T) {
 	require.Equal(t, expectedInboundDestIP, inboundDestIP)
 
 	// Test case 2: Outbound rule
-	outboundRule := &invisinetspb.PermitListRule{
-		Direction: invisinetspb.Direction_OUTBOUND,
+	outboundRule := &paragliderpb.PermitListRule{
+		Direction: paragliderpb.Direction_OUTBOUND,
 		Targets:   []string{"172.16.0.1", "192.168.1.1"},
 	}
 

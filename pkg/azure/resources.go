@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -136,7 +136,7 @@ func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, reso
 
 // Gets basic resource information from the description
 // Returns the resource name, ID, location, and whether the resource will require its own subnet in a struct
-func GetResourceInfoFromResourceDesc(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
+func GetResourceInfoFromResourceDesc(ctx context.Context, resource *paragliderpb.ResourceDescription) (*resourceInfo, error) {
 	handler, err := getResourceHandlerFromDescription(resource.Description)
 	if err != nil {
 		return nil, err
@@ -145,7 +145,7 @@ func GetResourceInfoFromResourceDesc(ctx context.Context, resource *invisinetspb
 }
 
 // Reads the resource description and provisions the resource with the given subnet
-func ReadAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+func ReadAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	handler, err := getResourceHandlerFromDescription(resource.Description)
 	if err != nil {
 		return "", err
@@ -158,9 +158,9 @@ type AzureResourceHandler interface {
 	// Gets the network information for the resource
 	getNetworkInfo(resource *armresources.GenericResource, sdkHandler AzureSDKHandler) (*resourceNetworkInfo, error)
 	// Gets the resource information from the description
-	getResourceInfoFromDescription(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error)
+	getResourceInfoFromDescription(ctx context.Context, resource *paragliderpb.ResourceDescription) (*resourceInfo, error)
 	// Reads the resource description and provisions the resource with the given subnet
-	readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error)
+	readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error)
 }
 
 // VM implementation of the AzureResourceHandler interface
@@ -208,7 +208,7 @@ func (r *azureResourceHandlerVM) getNetworkInfo(resource *armresources.GenericRe
 }
 
 // Gets the resource information from the description
-func (r *azureResourceHandlerVM) getResourceInfoFromDescription(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
+func (r *azureResourceHandlerVM) getResourceInfoFromDescription(ctx context.Context, resource *paragliderpb.ResourceDescription) (*resourceInfo, error) {
 	vm, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
 		return nil, err
@@ -222,7 +222,7 @@ func (r *azureResourceHandlerVM) getResourceInfoFromDescription(ctx context.Cont
 }
 
 // Reads the resource description and provisions the resource with the given subnet
-func (r *azureResourceHandlerVM) readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+func (r *azureResourceHandlerVM) readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	vm, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
 		return "", err
@@ -303,7 +303,7 @@ type azureResourceHandlerAKS struct {
 }
 
 // Gets the network information for an AKS cluster
-func (r *azureResourceHandlerAKS) getResourceInfoFromDescription(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
+func (r *azureResourceHandlerAKS) getResourceInfoFromDescription(ctx context.Context, resource *paragliderpb.ResourceDescription) (*resourceInfo, error) {
 	aks, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
 		return nil, err
@@ -317,7 +317,7 @@ func (r *azureResourceHandlerAKS) getResourceInfoFromDescription(ctx context.Con
 }
 
 // Reads the resource description and provisions the resource with the given subnet
-func (r *azureResourceHandlerAKS) readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+func (r *azureResourceHandlerAKS) readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	aks, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
 		return "", err

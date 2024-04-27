@@ -40,7 +40,7 @@ For local testing purposes, consider adding a `main` function within the `plugin
        }
 
        // Call the function you want to test
-       resp, err := s.AddPermitListRules(c, &invisinetspb.PermitList{
+       resp, err := s.AddPermitListRules(c, &paragliderpb.PermitList{
            // Define the input parameters here
        })
 
@@ -70,7 +70,7 @@ Follow these steps to ensure consistent structure and seamless integration.
 1. Open `plugin.go`:
    - Add a new function following the same structure as specified in InvisiNets APIs. For example:
      ```go
-     func (s *azurePluginServer) GetPermitList(ctx context.Context, input *invisinetspb.GetPermitListRequest) (*invisinetspb.GetPermitListResponse, error) {
+     func (s *azurePluginServer) GetPermitList(ctx context.Context, input *paragliderpb.GetPermitListRequest) (*paragliderpb.GetPermitListResponse, error) {
          // Implementation here
      }
      ```

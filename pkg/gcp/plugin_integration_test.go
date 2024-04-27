@@ -30,22 +30,22 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	networkmanagementpb "cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
-	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
 	"github.com/paraglider-project/paraglider/pkg/orchestrator"
 	"github.com/paraglider-project/paraglider/pkg/orchestrator/config"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func createInstance(ctx context.Context, server *GCPPluginServer, project string, namespace string, zone string, name string) (*invisinetspb.CreateResourceResponse, error) {
+func createInstance(ctx context.Context, server *GCPPluginServer, project string, namespace string, zone string, name string) (*paragliderpb.CreateResourceResponse, error) {
 	insertInstanceReq := GetTestVmParameters(project, zone, name)
 	insertInstanceReqBytes, err := json.Marshal(insertInstanceReq)
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal insert instance request: %w", err)
 	}
-	resourceDescription := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: "projects/" + project, Namespace: namespace},
+	resourceDescription := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.InvisinetsDeployment{Id: "projects/" + project, Namespace: namespace},
 		Name:        name,
 		Description: insertInstanceReqBytes,
 	}
@@ -73,8 +73,8 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription1 := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: "projects/" + projectId, Namespace: namespace},
+	resourceDescription1 := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.InvisinetsDeployment{Id: "projects/" + projectId, Namespace: namespace},
 		Name:        vm1Name,
 		Description: insertInstanceReq1Bytes,
 	}
@@ -94,8 +94,8 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription2 := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: "projects/" + projectId, Namespace: namespace},
+	resourceDescription2 := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.InvisinetsDeployment{Id: "projects/" + projectId, Namespace: namespace},
 		Name:        vm2Name,
 		Description: insertInstanceReq2Bytes,
 	}
@@ -151,10 +151,10 @@ func TestIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	vmUris := []string{vm1Uri, vm2Uri}
-	rules1 := []*invisinetspb.PermitListRule{
+	rules1 := []*paragliderpb.PermitListRule{
 		{
 			Name:      "test-rule1",
-			Direction: invisinetspb.Direction_INBOUND,
+			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  1,
@@ -162,17 +162,17 @@ func TestIntegration(t *testing.T) {
 		},
 		{
 			Name:      "test-rule2",
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  1,
 			Targets:   []string{vm2Ip},
 		},
 	}
-	rules2 := []*invisinetspb.PermitListRule{
+	rules2 := []*paragliderpb.PermitListRule{
 		{
 			Name:      "test-rule3",
-			Direction: invisinetspb.Direction_INBOUND,
+			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  1,
@@ -180,21 +180,21 @@ func TestIntegration(t *testing.T) {
 		},
 		{
 			Name:      "test-rule4",
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  1,
 			Targets:   []string{vm1Ip},
 		},
 	}
-	ruleLists := [][]*invisinetspb.PermitListRule{rules1, rules2}
+	ruleLists := [][]*paragliderpb.PermitListRule{rules1, rules2}
 	for i, vmUri := range vmUris {
 		rules := ruleLists[i]
-		addPermitListRulesResp, err := s.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: rules, Namespace: namespace, Resource: vmUri})
+		addPermitListRulesResp, err := s.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: rules, Namespace: namespace, Resource: vmUri})
 		require.NoError(t, err)
 		require.NotNil(t, addPermitListRulesResp)
 
-		getPermitListAfterAddResp, err := s.GetPermitList(ctx, &invisinetspb.GetPermitListRequest{Resource: vmUri, Namespace: namespace})
+		getPermitListAfterAddResp, err := s.GetPermitList(ctx, &paragliderpb.GetPermitListRequest{Resource: vmUri, Namespace: namespace})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterAddResp)
 
@@ -221,11 +221,11 @@ func TestIntegration(t *testing.T) {
 	// Delete permit lists
 	for i, vmId := range vmUris {
 		ruleNames := []string{ruleLists[i][0].Name, ruleLists[i][1].Name}
-		deletePermitListRulesResp, err := s.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: ruleNames, Namespace: "default", Resource: vmId})
+		deletePermitListRulesResp, err := s.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: ruleNames, Namespace: "default", Resource: vmId})
 		require.NoError(t, err)
 		require.NotNil(t, deletePermitListRulesResp)
 
-		getPermitListAfterDeleteResp, err := s.GetPermitList(ctx, &invisinetspb.GetPermitListRequest{Resource: vmId, Namespace: namespace})
+		getPermitListAfterDeleteResp, err := s.GetPermitList(ctx, &paragliderpb.GetPermitListRequest{Resource: vmId, Namespace: namespace})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterDeleteResp)
 		assert.Empty(t, getPermitListAfterDeleteResp.Rules)
@@ -304,10 +304,10 @@ func TestCrossNamespace(t *testing.T) {
 	vm2Ip, err := GetInstanceIpAddress(project2Id, vm2Zone, vm2Name)
 	require.NoError(t, err)
 	vmUris := []string{vm1Uri, vm2Uri}
-	vm1Rules := []*invisinetspb.PermitListRule{
+	vm1Rules := []*paragliderpb.PermitListRule{
 		{
 			Name:      "vm2-ping-ingress",
-			Direction: invisinetspb.Direction_INBOUND,
+			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  1,
@@ -315,17 +315,17 @@ func TestCrossNamespace(t *testing.T) {
 		},
 		{
 			Name:      "vm2-ping-egress",
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  1,
 			Targets:   []string{vm2Ip},
 		},
 	}
-	vm2Rules := []*invisinetspb.PermitListRule{
+	vm2Rules := []*paragliderpb.PermitListRule{
 		{
 			Name:      "vm1-ping-ingress",
-			Direction: invisinetspb.Direction_INBOUND,
+			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  1,
@@ -333,17 +333,17 @@ func TestCrossNamespace(t *testing.T) {
 		},
 		{
 			Name:      "vm1-ping-egress",
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  1,
 			Targets:   []string{vm1Ip},
 		},
 	}
-	vmRules := [][]*invisinetspb.PermitListRule{vm1Rules, vm2Rules}
+	vmRules := [][]*paragliderpb.PermitListRule{vm1Rules, vm2Rules}
 	namespaces := []string{project1Namespace, project2Namespace}
 	for i, vmUri := range vmUris {
-		addPermitListRulesReq := &invisinetspb.AddPermitListRulesRequest{Rules: vmRules[i], Namespace: namespaces[i], Resource: vmUri}
+		addPermitListRulesReq := &paragliderpb.AddPermitListRulesRequest{Rules: vmRules[i], Namespace: namespaces[i], Resource: vmUri}
 		addPermitListRulesResp, err := gcpServer.AddPermitListRules(ctx, addPermitListRulesReq)
 		require.NoError(t, err)
 		require.NotNil(t, addPermitListRulesResp)

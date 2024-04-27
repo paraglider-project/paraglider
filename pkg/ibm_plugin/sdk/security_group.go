@@ -25,7 +25,7 @@ import (
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 
-	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
@@ -55,15 +55,15 @@ type SecurityGroupRule struct {
 }
 
 // mapping invisinets traffic directions to booleans
-var invisinetsToIBMDirection = map[invisinetspb.Direction]bool{
-	invisinetspb.Direction_OUTBOUND: true,
-	invisinetspb.Direction_INBOUND:  false,
+var invisinetsToIBMDirection = map[paragliderpb.Direction]bool{
+	paragliderpb.Direction_OUTBOUND: true,
+	paragliderpb.Direction_INBOUND:  false,
 }
 
 // mapping booleans invisinets traffic directions
-var ibmToInvisinetsDirection = map[bool]invisinetspb.Direction{
-	true:  invisinetspb.Direction_OUTBOUND,
-	false: invisinetspb.Direction_INBOUND,
+var ibmToInvisinetsDirection = map[bool]paragliderpb.Direction{
+	true:  paragliderpb.Direction_OUTBOUND,
+	false: paragliderpb.Direction_INBOUND,
 }
 
 // mapping integers determined by the IANA standard to IBM protocols
@@ -462,8 +462,8 @@ func (c *CloudClient) GetRulesIDs(rules []SecurityGroupRule, sgID string) ([]str
 
 // returns rules in invisinets format from IBM cloud format
 // TODO @cohen-j-omer: handle permitList tags if required.
-func IBMToInvisinetsRules(rules []SecurityGroupRule) ([]*invisinetspb.PermitListRule, error) {
-	var invisinetsRules []*invisinetspb.PermitListRule
+func IBMToInvisinetsRules(rules []SecurityGroupRule) ([]*paragliderpb.PermitListRule, error) {
+	var invisinetsRules []*paragliderpb.PermitListRule
 
 	for _, rule := range rules {
 		if rule.PortMin != rule.PortMax {
@@ -474,7 +474,7 @@ func IBMToInvisinetsRules(rules []SecurityGroupRule) ([]*invisinetspb.PermitList
 		// i.e. they automatically also permit the reverse traffic.
 		srcPort, dstPort := rule.PortMin, rule.PortMin
 
-		permitListRule := &invisinetspb.PermitListRule{
+		permitListRule := &paragliderpb.PermitListRule{
 			Targets:   []string{rule.Remote},
 			Name:      rule.ID,
 			Direction: ibmToInvisinetsDirection[rule.Egress],
@@ -490,7 +490,7 @@ func IBMToInvisinetsRules(rules []SecurityGroupRule) ([]*invisinetspb.PermitList
 
 // returns rules in IBM cloud format to invisinets format
 // NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code
-func InvisinetsToIBMRules(securityGroupID string, rules []*invisinetspb.PermitListRule) (
+func InvisinetsToIBMRules(securityGroupID string, rules []*paragliderpb.PermitListRule) (
 	[]SecurityGroupRule, error) {
 	var sgRules []SecurityGroupRule
 	for _, rule := range rules {

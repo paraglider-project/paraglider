@@ -15,9 +15,9 @@ limitations under the License.
 */
 
 syntax = "proto3";
-package invisinetspb;
+package paragliderpb;
 
-option go_package="github.com/paraglider-project/paraglider/pkg/invisinetspb";
+option go_package="github.com/paraglider-project/paraglider/pkg/paragliderpb";
 
 service CloudPlugin {
     rpc GetUsedAddressSpaces(GetUsedAddressSpacesRequest) returns (GetUsedAddressSpacesResponse) {}
@@ -56,7 +56,7 @@ message CreateResourceResponse {
 }
 
 // Provides the necessary URI/ID to find the Invisinets networks (eg, subscription + resource group in Azure or project in GCP)
-message InvisinetsDeployment {
+message ParagliderDeployment {
     string id = 1;
     string namespace = 2;
 }
@@ -78,7 +78,7 @@ message ResourceID {
 }
 
 message ResourceDescription {
-    InvisinetsDeployment deployment = 1;
+    ParagliderDeployment deployment = 1;
     string name = 2;
     bytes description = 3;
 }
@@ -153,7 +153,7 @@ message ConnectCloudsRequest {
 // TODO @seankmkdy: should all methods have a {method name}Request and {method name}Response message buffers
 
 message CreateVpnGatewayRequest {
-    InvisinetsDeployment deployment = 1;
+    ParagliderDeployment deployment = 1;
     string cloud = 2;
     repeated string bgp_peering_ip_addresses = 3;
 }
@@ -164,7 +164,7 @@ message CreateVpnGatewayResponse {
 }
 
 message CreateVpnConnectionsRequest {
-    InvisinetsDeployment deployment = 1;
+    ParagliderDeployment deployment = 1;
     string cloud = 2;
     uint32 asn = 3;
     repeated string gateway_ip_addresses = 4;
@@ -173,7 +173,7 @@ message CreateVpnConnectionsRequest {
 }
 
 message GetUsedAddressSpacesRequest{
-    repeated InvisinetsDeployment deployments = 1;
+    repeated ParagliderDeployment deployments = 1;
 }
 
 message GetUsedAddressSpacesResponse{
@@ -182,7 +182,7 @@ message GetUsedAddressSpacesResponse{
 }
 
 message GetUsedAsnsRequest {
-    repeated InvisinetsDeployment deployments = 1;
+    repeated ParagliderDeployment deployments = 1;
 }
 
 message GetUsedAsnsResponse {
@@ -190,7 +190,7 @@ message GetUsedAsnsResponse {
 }
 
 message GetUsedBgpPeeringIpAddressesRequest {
-    repeated InvisinetsDeployment deployments = 1;
+    repeated ParagliderDeployment deployments = 1;
 }
 
 message GetUsedBgpPeeringIpAddressesResponse {

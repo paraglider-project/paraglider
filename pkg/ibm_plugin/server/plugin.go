@@ -30,12 +30,12 @@ import (
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
-	"github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 type IBMPluginServer struct {
-	invisinetspb.UnimplementedCloudPluginServer
+	paragliderpb.UnimplementedCloudPluginServer
 	cloudClient            map[string]*sdk.CloudClient
 	orchestratorServerAddr string
 }
@@ -77,7 +77,7 @@ func (s *IBMPluginServer) getAllClientsForVPCs(cloudClient *sdk.CloudClient, res
 
 // CreateResource creates the specified resource.
 // Currently only supports instance creation.
-func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
+func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragliderpb.ResourceDescription) (*paragliderpb.CreateResourceResponse, error) {
 	var vpcID string
 	var subnetID string
 	resFields := vpcv1.CreateInstanceOptions{}
@@ -153,8 +153,8 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 			return nil, err
 		}
 		defer conn.Close()
-		client := invisinetspb.NewControllerClient(conn)
-		resp, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
+		client := paragliderpb.NewControllerClient(conn)
+		resp, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
 		if err != nil {
 			return nil, err
 		}
@@ -180,16 +180,16 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		return nil, err
 	}
 
-	return &invisinetspb.CreateResourceResponse{Name: *vm.Name, Uri: createInstanceID(rInfo.ResourceGroup, zone, *vm.ID), Ip: reservedIP}, nil
+	return &paragliderpb.CreateResourceResponse{Name: *vm.Name, Uri: createInstanceID(rInfo.ResourceGroup, zone, *vm.ID), Ip: reservedIP}, nil
 }
 
 // GetUsedAddressSpaces returns a list of address spaces used by either user's or invisinets' subnets,
 // for each invisinets vpc.
-func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisinetspb.GetUsedAddressSpacesRequest) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
-	resp := &invisinetspb.GetUsedAddressSpacesResponse{}
-	resp.AddressSpaceMappings = make([]*invisinetspb.AddressSpaceMapping, len(req.Deployments))
+func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
+	resp := &paragliderpb.GetUsedAddressSpacesResponse{}
+	resp.AddressSpaceMappings = make([]*paragliderpb.AddressSpaceMapping, len(req.Deployments))
 	for i, deployment := range req.Deployments {
-		resp.AddressSpaceMappings[i] = &invisinetspb.AddressSpaceMapping{
+		resp.AddressSpaceMappings[i] = &paragliderpb.AddressSpaceMapping{
 			Cloud:     utils.IBM,
 			Namespace: deployment.Namespace,
 		}
@@ -228,7 +228,7 @@ func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisin
 }
 
 // GetPermitList returns security rules of security groups associated with the specified instance.
-func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *invisinetspb.GetPermitListRequest) (*invisinetspb.GetPermitListResponse, error) {
+func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest) (*paragliderpb.GetPermitListResponse, error) {
 	rInfo, err := getResourceIDInfo(req.Resource)
 	if err != nil {
 		return nil, err
@@ -263,11 +263,11 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *invisinetspb.G
 		return nil, err
 	}
 
-	return &invisinetspb.GetPermitListResponse{Rules: invisinetsRules}, nil
+	return &paragliderpb.GetPermitListResponse{Rules: invisinetsRules}, nil
 }
 
 // AddPermitListRules attaches security group rules to the specified instance in PermitList.AssociatedResource.
-func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *invisinetspb.AddPermitListRulesRequest) (*invisinetspb.AddPermitListRulesResponse, error) {
+func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paragliderpb.AddPermitListRulesRequest) (*paragliderpb.AddPermitListRulesResponse, error) {
 
 	utils.Log.Printf("Adding PermitListRules %v, %v. namespace :%s \n ", req.Resource, req.Rules, req.Namespace)
 	rInfo, err := getResourceIDInfo(req.Resource)
@@ -392,11 +392,11 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 		}
 	}
 
-	return &invisinetspb.AddPermitListRulesResponse{}, nil
+	return &paragliderpb.AddPermitListRulesResponse{}, nil
 }
 
 // DeletePermitListRules deletes security group rules matching the attributes of the rules contained in the relevant Security group
-func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *invisinetspb.DeletePermitListRulesRequest) (*invisinetspb.DeletePermitListRulesResponse, error) {
+func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragliderpb.DeletePermitListRulesRequest) (*paragliderpb.DeletePermitListRulesResponse, error) {
 	rInfo, err := getResourceIDInfo(req.Resource)
 	if err != nil {
 		return nil, err
@@ -439,7 +439,7 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 		utils.Log.Printf("Deleted rule %v", ruleID)
 	}
 
-	return &invisinetspb.DeletePermitListRulesResponse{}, nil
+	return &paragliderpb.DeletePermitListRulesResponse{}, nil
 }
 
 // Setup starts up the plugin server and stores the orchestrator server address.
@@ -454,7 +454,7 @@ func Setup(port int, orchestratorServerAddr string) *IBMPluginServer {
 		cloudClient:            make(map[string]*sdk.CloudClient),
 		orchestratorServerAddr: orchestratorServerAddr,
 	}
-	invisinetspb.RegisterCloudPluginServer(grpcServer, ibmServer)
+	paragliderpb.RegisterCloudPluginServer(grpcServer, ibmServer)
 	utils.Log.Printf("\nStarting IBM plugin server on: %v:%v\n", pluginServerAddress, port)
 
 	go func() {

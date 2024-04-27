@@ -31,7 +31,7 @@ import (
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	container "cloud.google.com/go/container/apiv1"
-	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/grpc"
@@ -40,7 +40,7 @@ import (
 )
 
 type GCPPluginServer struct {
-	invisinetspb.UnimplementedCloudPluginServer
+	paragliderpb.UnimplementedCloudPluginServer
 	orchestratorServerAddr string
 }
 
@@ -63,14 +63,14 @@ var vpnRegion = "us-west1" // Must be var as this is changed during unit tests
 
 // Maps between of GCP and Invisinets traffic direction terminologies
 var (
-	firewallDirectionMapGCPToInvisinets = map[string]invisinetspb.Direction{
-		"INGRESS": invisinetspb.Direction_INBOUND,
-		"EGRESS":  invisinetspb.Direction_OUTBOUND,
+	firewallDirectionMapGCPToInvisinets = map[string]paragliderpb.Direction{
+		"INGRESS": paragliderpb.Direction_INBOUND,
+		"EGRESS":  paragliderpb.Direction_OUTBOUND,
 	}
 
-	firewallDirectionMapInvisinetsToGCP = map[invisinetspb.Direction]string{
-		invisinetspb.Direction_INBOUND:  "INGRESS",
-		invisinetspb.Direction_OUTBOUND: "EGRESS",
+	firewallDirectionMapInvisinetsToGCP = map[paragliderpb.Direction]string{
+		paragliderpb.Direction_INBOUND:  "INGRESS",
+		paragliderpb.Direction_OUTBOUND: "EGRESS",
 	}
 )
 
@@ -91,7 +91,7 @@ func isInvisinetsPermitListRule(namespace string, firewall *computepb.Firewall) 
 }
 
 // Converts a GCP firewall rule to an Invisinets permit list rule
-func firewallRuleToInvisinetsRule(namespace string, fw *computepb.Firewall) (*invisinetspb.PermitListRule, error) {
+func firewallRuleToInvisinetsRule(namespace string, fw *computepb.Firewall) (*paragliderpb.PermitListRule, error) {
 	if len(fw.Allowed) != 1 {
 		return nil, fmt.Errorf("firewall rule has more than one allowed protocol")
 	}
@@ -103,7 +103,7 @@ func firewallRuleToInvisinetsRule(namespace string, fw *computepb.Firewall) (*in
 	direction := firewallDirectionMapGCPToInvisinets[*fw.Direction]
 
 	var targets []string
-	if direction == invisinetspb.Direction_INBOUND {
+	if direction == paragliderpb.Direction_INBOUND {
 		targets = append(fw.SourceRanges, fw.SourceTags...)
 	} else {
 		targets = fw.DestinationRanges
@@ -124,7 +124,7 @@ func firewallRuleToInvisinetsRule(namespace string, fw *computepb.Firewall) (*in
 		tags = parseDescriptionTags(*fw.Description)
 	}
 
-	rule := &invisinetspb.PermitListRule{
+	rule := &paragliderpb.PermitListRule{
 		Name:      parseFirewallName(namespace, *fw.Name),
 		Direction: firewallDirectionMapGCPToInvisinets[*fw.Direction],
 		SrcPort:   -1,
@@ -137,7 +137,7 @@ func firewallRuleToInvisinetsRule(namespace string, fw *computepb.Firewall) (*in
 }
 
 // Converts an Invisinets permit list rule to a GCP firewall rule
-func invisinetsRuleToFirewallRule(namespace string, project string, firewallName string, networkTag string, rule *invisinetspb.PermitListRule) (*computepb.Firewall, error) {
+func invisinetsRuleToFirewallRule(namespace string, project string, firewallName string, networkTag string, rule *paragliderpb.PermitListRule) (*computepb.Firewall, error) {
 	firewall := &computepb.Firewall{
 		Allowed: []*computepb.Allowed{
 			{
@@ -155,7 +155,7 @@ func invisinetsRuleToFirewallRule(namespace string, project string, firewallName
 		// differentiate between empty and 0 for an int field. Ports of 0 are valid for protocols like TCP/UDP.
 		firewall.Allowed[0].Ports = []string{strconv.Itoa(int(rule.DstPort))}
 	}
-	if rule.Direction == invisinetspb.Direction_INBOUND {
+	if rule.Direction == paragliderpb.Direction_INBOUND {
 		// TODO @seankimkdy: use SourceTags as well once we start supporting tags
 		firewall.SourceRanges = rule.Targets
 	} else {
@@ -165,7 +165,7 @@ func invisinetsRuleToFirewallRule(namespace string, project string, firewallName
 }
 
 // Determine if a firewall rule and permit list rule are equivalent
-func isFirewallEqPermitListRule(namespace string, firewall *computepb.Firewall, rule *invisinetspb.PermitListRule) (bool, error) {
+func isFirewallEqPermitListRule(namespace string, firewall *computepb.Firewall, rule *paragliderpb.PermitListRule) (bool, error) {
 	invisinetsVersion, err := firewallRuleToInvisinetsRule(namespace, firewall)
 	if err != nil {
 		return false, fmt.Errorf("could not convert firewall rule to permit list rule: %w", err)
@@ -364,7 +364,7 @@ func parseDescriptionTags(description string) []string {
 	return tags
 }
 
-func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.GetPermitListRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, clustersClient *container.ClusterManagerClient) (*invisinetspb.GetPermitListResponse, error) {
+func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, clustersClient *container.ClusterManagerClient) (*paragliderpb.GetPermitListResponse, error) {
 	resourceInfo, err := parseResourceUri(req.Resource)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource URI: %w", err)
@@ -382,7 +382,7 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.
 		return nil, fmt.Errorf("unable to get firewalls: %w", err)
 	}
 
-	permitListRules := []*invisinetspb.PermitListRule{}
+	permitListRules := []*paragliderpb.PermitListRule{}
 
 	for _, firewall := range firewalls {
 		// Exclude default deny all egress from being included since it applies to every VM
@@ -395,10 +395,10 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *invisinetspb.
 		}
 	}
 
-	return &invisinetspb.GetPermitListResponse{Rules: permitListRules}, nil
+	return &paragliderpb.GetPermitListResponse{Rules: permitListRules}, nil
 }
 
-func (s *GCPPluginServer) GetPermitList(ctx context.Context, req *invisinetspb.GetPermitListRequest) (*invisinetspb.GetPermitListResponse, error) {
+func (s *GCPPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest) (*paragliderpb.GetPermitListResponse, error) {
 	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewFirewallsRESTClient: %w", err)
@@ -463,7 +463,7 @@ func peerVpcNetwork(ctx context.Context, networksClient *compute.NetworksClient,
 	return nil
 }
 
-func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisinetspb.AddPermitListRulesRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, subnetworksClient *compute.SubnetworksClient, networksClient *compute.NetworksClient, clustersClient *container.ClusterManagerClient) (*invisinetspb.AddPermitListRulesResponse, error) {
+func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paragliderpb.AddPermitListRulesRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, subnetworksClient *compute.SubnetworksClient, networksClient *compute.NetworksClient, clustersClient *container.ClusterManagerClient) (*paragliderpb.AddPermitListRulesResponse, error) {
 	resourceInfo, err := parseResourceUri(req.Resource)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource URI: %w", err)
@@ -495,8 +495,8 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
 	defer orchestratorConn.Close()
-	orchestratorClient := invisinetspb.NewControllerClient(orchestratorConn)
-	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &invisinetspb.Empty{})
+	orchestratorClient := paragliderpb.NewControllerClient(orchestratorConn)
+	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &paragliderpb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
@@ -533,7 +533,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 			}
 			if peeringCloudInfo.Cloud != utils.GCP {
 				// Create VPN connections
-				connectCloudsReq := &invisinetspb.ConnectCloudsRequest{
+				connectCloudsReq := &paragliderpb.ConnectCloudsRequest{
 					CloudA:          utils.GCP,
 					CloudANamespace: req.Namespace,
 					CloudB:          peeringCloudInfo.Cloud,
@@ -592,10 +592,10 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *invisine
 		}
 	}
 
-	return &invisinetspb.AddPermitListRulesResponse{}, nil
+	return &paragliderpb.AddPermitListRulesResponse{}, nil
 }
 
-func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, req *invisinetspb.AddPermitListRulesRequest) (*invisinetspb.AddPermitListRulesResponse, error) {
+func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, req *paragliderpb.AddPermitListRulesRequest) (*paragliderpb.AddPermitListRulesResponse, error) {
 	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewFirewallsRESTClient: %w", err)
@@ -627,7 +627,7 @@ func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 	return s._AddPermitListRules(ctx, req, firewallsClient, instancesClient, subnetworksClient, networksClient, clustersClient)
 }
 
-func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *invisinetspb.DeletePermitListRulesRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, clustersClient *container.ClusterManagerClient) (*invisinetspb.DeletePermitListRulesResponse, error) {
+func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *paragliderpb.DeletePermitListRulesRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, clustersClient *container.ClusterManagerClient) (*paragliderpb.DeletePermitListRulesResponse, error) {
 	resourceInfo, err := parseResourceUri(req.Resource)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource URI: %w", err)
@@ -654,10 +654,10 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *invis
 		}
 	}
 
-	return &invisinetspb.DeletePermitListRulesResponse{}, nil
+	return &paragliderpb.DeletePermitListRulesResponse{}, nil
 }
 
-func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, req *invisinetspb.DeletePermitListRulesRequest) (*invisinetspb.DeletePermitListRulesResponse, error) {
+func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, req *paragliderpb.DeletePermitListRulesRequest) (*paragliderpb.DeletePermitListRulesResponse, error) {
 	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewFirewallsRESTClient: %w", err)
@@ -679,7 +679,7 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 	return s._DeletePermitListRules(ctx, req, firewallsClient, instancesClient, clustersClient)
 }
 
-func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient, clustersClient *container.ClusterManagerClient) (*invisinetspb.CreateResourceResponse, error) {
+func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *paragliderpb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient, clustersClient *container.ClusterManagerClient) (*paragliderpb.CreateResourceResponse, error) {
 	project := parseGCPURL(resourceDescription.Deployment.Id)["projects"]
 
 	// Read and validate user-provided description
@@ -773,13 +773,13 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 			return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 		}
 		defer conn.Close()
-		client := invisinetspb.NewControllerClient(conn)
+		client := paragliderpb.NewControllerClient(conn)
 
 		if !subnetExists {
 			numAddressSpacesNeeded += 1
 		}
 
-		response, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{Num: &numAddressSpacesNeeded})
+		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Num: &numAddressSpacesNeeded})
 
 		if err != nil {
 			return nil, fmt.Errorf("unable to find unused address space: %w", err)
@@ -816,10 +816,10 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	if err != nil {
 		return nil, fmt.Errorf("unable to read and provision resource: %w", err)
 	}
-	return &invisinetspb.CreateResourceResponse{Name: resourceInfo.Name, Uri: uri, Ip: ip}, nil
+	return &paragliderpb.CreateResourceResponse{Name: resourceInfo.Name, Uri: uri, Ip: ip}, nil
 }
 
-func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescription *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
+func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescription *paragliderpb.ResourceDescription) (*paragliderpb.CreateResourceResponse, error) {
 	instancesClient, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
@@ -849,11 +849,11 @@ func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescriptio
 	return s._CreateResource(ctx, resourceDescription, instancesClient, networksClient, subnetworksClient, firewallsClient, clustersClient)
 }
 
-func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *invisinetspb.GetUsedAddressSpacesRequest, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
-	resp := &invisinetspb.GetUsedAddressSpacesResponse{}
-	resp.AddressSpaceMappings = make([]*invisinetspb.AddressSpaceMapping, len(req.Deployments))
+func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
+	resp := &paragliderpb.GetUsedAddressSpacesResponse{}
+	resp.AddressSpaceMappings = make([]*paragliderpb.AddressSpaceMapping, len(req.Deployments))
 	for i, deployment := range req.Deployments {
-		resp.AddressSpaceMappings[i] = &invisinetspb.AddressSpaceMapping{
+		resp.AddressSpaceMappings[i] = &paragliderpb.AddressSpaceMapping{
 			Cloud:     utils.GCP,
 			Namespace: deployment.Namespace,
 		}
@@ -895,7 +895,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *invisi
 	return resp, nil
 }
 
-func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisinetspb.GetUsedAddressSpacesRequest) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
+func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
 	networksClient, err := compute.NewNetworksRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewNetworksRESTClient: %w", err)
@@ -911,8 +911,8 @@ func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisin
 	return s._GetUsedAddressSpaces(ctx, req, networksClient, subnetworksClient)
 }
 
-func (s *GCPPluginServer) _GetUsedAsns(ctx context.Context, req *invisinetspb.GetUsedAsnsRequest, routersClient *compute.RoutersClient) (*invisinetspb.GetUsedAsnsResponse, error) {
-	resp := &invisinetspb.GetUsedAsnsResponse{}
+func (s *GCPPluginServer) _GetUsedAsns(ctx context.Context, req *paragliderpb.GetUsedAsnsRequest, routersClient *compute.RoutersClient) (*paragliderpb.GetUsedAsnsResponse, error) {
+	resp := &paragliderpb.GetUsedAsnsResponse{}
 	for _, deployment := range req.Deployments {
 		project := parseGCPURL(deployment.Id)["projects"]
 
@@ -934,7 +934,7 @@ func (s *GCPPluginServer) _GetUsedAsns(ctx context.Context, req *invisinetspb.Ge
 	return resp, nil
 }
 
-func (s *GCPPluginServer) GetUsedAsns(ctx context.Context, req *invisinetspb.GetUsedAsnsRequest) (*invisinetspb.GetUsedAsnsResponse, error) {
+func (s *GCPPluginServer) GetUsedAsns(ctx context.Context, req *paragliderpb.GetUsedAsnsRequest) (*paragliderpb.GetUsedAsnsResponse, error) {
 	routersClient, err := compute.NewRoutersRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewRoutersRESTClient: %w", err)
@@ -942,8 +942,8 @@ func (s *GCPPluginServer) GetUsedAsns(ctx context.Context, req *invisinetspb.Get
 	return s._GetUsedAsns(ctx, req, routersClient)
 }
 
-func (s *GCPPluginServer) _GetUsedBgpPeeringIpAddresses(ctx context.Context, req *invisinetspb.GetUsedBgpPeeringIpAddressesRequest, routersClient *compute.RoutersClient) (*invisinetspb.GetUsedBgpPeeringIpAddressesResponse, error) {
-	resp := &invisinetspb.GetUsedBgpPeeringIpAddressesResponse{}
+func (s *GCPPluginServer) _GetUsedBgpPeeringIpAddresses(ctx context.Context, req *paragliderpb.GetUsedBgpPeeringIpAddressesRequest, routersClient *compute.RoutersClient) (*paragliderpb.GetUsedBgpPeeringIpAddressesResponse, error) {
+	resp := &paragliderpb.GetUsedBgpPeeringIpAddressesResponse{}
 	for _, deployment := range req.Deployments {
 		project := parseGCPURL(deployment.Id)["projects"]
 
@@ -967,7 +967,7 @@ func (s *GCPPluginServer) _GetUsedBgpPeeringIpAddresses(ctx context.Context, req
 	return resp, nil
 }
 
-func (s *GCPPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *invisinetspb.GetUsedBgpPeeringIpAddressesRequest) (*invisinetspb.GetUsedBgpPeeringIpAddressesResponse, error) {
+func (s *GCPPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *paragliderpb.GetUsedBgpPeeringIpAddressesRequest) (*paragliderpb.GetUsedBgpPeeringIpAddressesResponse, error) {
 	routersClient, err := compute.NewRoutersRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewRoutersRESTClient: %w", err)
@@ -975,7 +975,7 @@ func (s *GCPPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req 
 	return s._GetUsedBgpPeeringIpAddresses(ctx, req, routersClient)
 }
 
-func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinetspb.CreateVpnGatewayRequest, vpnGatewaysClient *compute.VpnGatewaysClient, routersClient *compute.RoutersClient) (*invisinetspb.CreateVpnGatewayResponse, error) {
+func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paragliderpb.CreateVpnGatewayRequest, vpnGatewaysClient *compute.VpnGatewaysClient, routersClient *compute.RoutersClient) (*paragliderpb.CreateVpnGatewayResponse, error) {
 	project := parseGCPURL(req.Deployment.Id)["projects"]
 
 	// Create VPN gateway
@@ -1005,8 +1005,8 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
 	defer conn.Close()
-	client := invisinetspb.NewControllerClient(conn)
-	findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &invisinetspb.FindUnusedAsnRequest{})
+	client := paragliderpb.NewControllerClient(conn)
+	findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &paragliderpb.FindUnusedAsnRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to find unused address space: %w", err)
 	}
@@ -1088,7 +1088,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 	if err != nil {
 		return nil, fmt.Errorf("unable to get vpn gateway: %w", err)
 	}
-	resp := &invisinetspb.CreateVpnGatewayResponse{Asn: asn}
+	resp := &paragliderpb.CreateVpnGatewayResponse{Asn: asn}
 	resp.GatewayIpAddresses = make([]string, vpnNumConnections)
 	for i := 0; i < vpnNumConnections; i++ {
 		resp.GatewayIpAddresses[i] = *vpnGateway.VpnInterfaces[i].IpAddress
@@ -1097,7 +1097,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *invisinets
 	return resp, nil
 }
 
-func (s *GCPPluginServer) CreateVpnGateway(ctx context.Context, req *invisinetspb.CreateVpnGatewayRequest) (*invisinetspb.CreateVpnGatewayResponse, error) {
+func (s *GCPPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderpb.CreateVpnGatewayRequest) (*paragliderpb.CreateVpnGatewayResponse, error) {
 	vpnGatewaysClient, err := compute.NewVpnGatewaysRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewVpnGatewaysRESTClient: %w", err)
@@ -1111,7 +1111,7 @@ func (s *GCPPluginServer) CreateVpnGateway(ctx context.Context, req *invisinetsp
 	return s._CreateVpnGateway(ctx, req, vpnGatewaysClient, routersClient)
 }
 
-func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *invisinetspb.CreateVpnConnectionsRequest, externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient, vpnTunnelsClient *compute.VpnTunnelsClient, routersClient *compute.RoutersClient) (*invisinetspb.BasicResponse, error) {
+func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest, externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient, vpnTunnelsClient *compute.VpnTunnelsClient, routersClient *compute.RoutersClient) (*paragliderpb.BasicResponse, error) {
 	project := parseGCPURL(req.Deployment.Id)["projects"]
 	vpnNumConnections := utils.GetNumVpnConnections(req.Cloud, utils.GCP)
 
@@ -1212,10 +1212,10 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *invisi
 		return nil, fmt.Errorf("unable to wait on setting up bgp sessions operation: %w", err)
 	}
 
-	return &invisinetspb.BasicResponse{Success: true}, nil
+	return &paragliderpb.BasicResponse{Success: true}, nil
 }
 
-func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, req *invisinetspb.CreateVpnConnectionsRequest) (*invisinetspb.BasicResponse, error) {
+func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.BasicResponse, error) {
 	externalVpnGatewaysClient, err := compute.NewExternalVpnGatewaysRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewExternalVpnGatewaysClient: %w", err)
@@ -1242,7 +1242,7 @@ func Setup(port int, orchestratorServerAddr string) *GCPPluginServer {
 	grpcServer := grpc.NewServer()
 	gcpServer := &GCPPluginServer{}
 	gcpServer.orchestratorServerAddr = orchestratorServerAddr
-	invisinetspb.RegisterCloudPluginServer(grpcServer, gcpServer)
+	paragliderpb.RegisterCloudPluginServer(grpcServer, gcpServer)
 	fmt.Println("Starting server on port :", port)
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {

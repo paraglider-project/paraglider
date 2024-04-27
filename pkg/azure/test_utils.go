@@ -24,7 +24,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	invisinetspb "github.com/paraglider-project/paraglider/pkg/invisinetspb"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -72,7 +72,7 @@ func (m *MockAzureSDKHandler) GetResource(ctx context.Context, resourceID string
 	return resource.(*armresources.GenericResource), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
+func (m *MockAzureSDKHandler) CreateSecurityRule(ctx context.Context, rule *paragliderpb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
 	args := m.Called(ctx, rule, nsgName, ruleName, resourceIpAddress, priority)
 	srule := args.Get(0)
 	// this check is done to handle panic: interface conversion: interface {} is nil, not *armnetwork.SecurityGroup
@@ -88,13 +88,13 @@ func (m *MockAzureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName st
 	return args.Error(0)
 }
 
-func (m *MockAzureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error) {
+func (m *MockAzureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*paragliderpb.PermitListRule, error) {
 	args := m.Called(rule)
 	pl := args.Get(0)
 	if pl == nil {
 		return nil, args.Error(1)
 	}
-	return pl.(*invisinetspb.PermitListRule), args.Error(1)
+	return pl.(*paragliderpb.PermitListRule), args.Error(1)
 }
 
 func (m *MockAzureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error) {
