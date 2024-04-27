@@ -211,7 +211,7 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 				return
 			}
 			return
-		// Invididual Rule Delete
+		// Individual Rule Delete
 		case urlMatches(path, orchestrator.PermitListRulePUTURL) && (r.Method == http.MethodDelete):
 			w.WriteHeader(http.StatusOK)
 			return

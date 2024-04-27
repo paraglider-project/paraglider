@@ -916,15 +916,15 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 
 // Gets all deployments (in Paraglider) format for a given cloud
 func (s *ControllerServer) getParagliderDeployments(cloud string) []*paragliderpb.ParagliderDeployment {
-	invDeployments := []*paragliderpb.ParagliderDeployment{}
+	pgDeployments := []*paragliderpb.ParagliderDeployment{}
 	for namespace, cloudDeployments := range s.config.Namespaces {
 		for _, cloudDeployment := range cloudDeployments {
 			if cloudDeployment.Name == cloud {
-				invDeployments = append(invDeployments, &paragliderpb.ParagliderDeployment{Id: cloudDeployment.Deployment, Namespace: namespace})
+				pgDeployments = append(pgDeployments, &paragliderpb.ParagliderDeployment{Id: cloudDeployment.Deployment, Namespace: namespace})
 			}
 		}
 	}
-	return invDeployments
+	return pgDeployments
 }
 
 // Create resource in specified cloud region

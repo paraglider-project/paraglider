@@ -12,7 +12,7 @@ To create a new API key, run the following command:
 
 ```
 mkdir -p ~/.ibm
-ibmcloud iam api-key-create invkey | grep "API Key" | { echo -n "iam_api_key: " & grep -o '[^ ]\+$'; } > ~/.ibm/credentials.yaml
+ibmcloud iam api-key-create pgkey | grep "API Key" | { echo -n "iam_api_key: " & grep -o '[^ ]\+$'; } > ~/.ibm/credentials.yaml
 ```
 
 ### Instance Keys

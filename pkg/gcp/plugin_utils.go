@@ -40,7 +40,7 @@ import (
 func generateProjectId(testName string) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	const projectIdMaxLength = 30
-	prefix := "inv-" + testName
+	prefix := "pg-" + testName
 	var suffix string
 	if os.Getenv("GH_RUN_ID") != "" {
 		// Use run ID as part of the project ID since run number can reset after a workflow changes, meaning it could result in duplicate project IDs which GCP doesn't allow (even after deletion).

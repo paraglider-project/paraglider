@@ -432,13 +432,13 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *parag
 			utils.Log.Printf("An error occured while getting address spaces:%+v", err)
 			return nil, err
 		}
-		invisinetAddressList := []string{}
+		paragliderAddressList := []string{}
 		for _, addresses := range addressSpaces {
 			if addresses != nil {
-				invisinetAddressList = append(invisinetAddressList, addresses...)
+				paragliderAddressList = append(paragliderAddressList, addresses...)
 			}
 		}
-		resp.AddressSpaceMappings[i].AddressSpaces = invisinetAddressList
+		resp.AddressSpaceMappings[i].AddressSpaces = paragliderAddressList
 	}
 	return resp, nil
 

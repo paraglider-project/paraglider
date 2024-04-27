@@ -56,17 +56,17 @@ const (
 	fakeCRN2      = "crn:" + fakeID2
 	fakeSubnet    = "paraglider-fake-subnet"
 	fakeSG        = "paraglider-fake-sg"
-	fakeGW        = "invisnets-fake-gw"
+	fakeGW        = "paraglider-fake-gw"
 	fakeIP        = "10.0.0.2"
 	fakeSubnet1   = "10.0.0.0/16"
 	fakeSubnet2   = "20.1.1.0/28"
 	fakeProfile   = "bx2-2x8"
-	invTag        = "inv"
+	paragliderTag = "paraglider"
 
 	fakeDeploymentID = "/resourcegroup/" + fakeID
 	fakeInstanceID   = "/resourcegroup/" + fakeID + "/zone/" + fakeZone + "/instance/" + fakeID
-	fakeNamespace    = "inv-namespace"
-	wrongNamespace   = "wrong-inv-namespace"
+	fakeNamespace    = "paraglider-namespace"
+	wrongNamespace   = "wrong-pg-namespace"
 )
 
 var (

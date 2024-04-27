@@ -299,7 +299,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	// get security group of VM
 	paragliderSgsData, err := cloudClient.GetParagliderTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
 	if err != nil {
-		utils.Log.Printf("Failed to get invi tagged resources %v: %v.\n", vmID, err)
+		utils.Log.Printf("Failed to get paraglider tagged resources %v: %v.\n", vmID, err)
 		return nil, err
 	}
 	if len(paragliderSgsData) == 0 {

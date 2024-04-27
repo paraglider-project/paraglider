@@ -86,7 +86,7 @@ func getParagliderNamespacePrefix(namespace string) string {
 }
 
 // getVnetName returns the name of the paraglider vnet in the given location
-// since an invisients vnet is unique per location
+// since a paraglider vnet is unique per location
 func getVnetName(location string, namespace string) string {
 	return getParagliderNamespacePrefix(namespace) + "-" + location + "-vnet"
 }

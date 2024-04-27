@@ -43,10 +43,10 @@ const (
 	publicSSHKey    = ".ibm/keys/paraglider-key.pub"
 	privateSSHKey   = ".ibm/keys/paraglider-key"
 
-	// InvResourcePrefix is used to prefix a resource's name
-	InvResourcePrefix = "paraglider"
-	// InvTag is the default tag attached to all inv resources
-	InvTag = "inv"
+	// ParagliderResourcePrefix is used to prefix a resource's name
+	ParagliderResourcePrefix = "paraglider"
+	// ParagliderTag is the default tag attached to all paraglider resources
+	ParagliderTag = "pg"
 )
 
 // ResourceQuery represents attributes a user can filter tagged resources by.
@@ -81,12 +81,12 @@ func CRN2ID(crn string) string {
 
 // GenerateResourceName returns unique paraglider resource name
 func GenerateResourceName(name string) string {
-	return fmt.Sprintf("%v-%v-%v", InvResourcePrefix, name, uuid.New().String()[:8])
+	return fmt.Sprintf("%v-%v-%v", ParagliderResourcePrefix, name, uuid.New().String()[:8])
 }
 
 // IsParagliderResource returns if a given resource (e.g. permit list) belongs to paraglider
 func IsParagliderResource(name string) bool {
-	return strings.HasPrefix(name, InvResourcePrefix)
+	return strings.HasPrefix(name, ParagliderResourcePrefix)
 }
 
 // DoCIDROverlap returns false if cidr blocks don't share a single ip,

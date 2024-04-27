@@ -53,7 +53,7 @@ func createResourceGroupsClient(subscriptionId string) *armresources.ResourceGro
 }
 
 func SetupAzureTesting(subscriptionId string, testName string) string {
-	resourceGroupName := "inv-" + testName
+	resourceGroupName := "paraglider-" + testName
 	if os.Getenv("GH_RUN_NUMBER") != "" {
 		resourceGroupName += "-" + os.Getenv("GH_RUN_NUMBER")
 	}

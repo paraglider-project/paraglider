@@ -28,7 +28,7 @@ import (
 )
 
 func (c *CloudClient) attachTag(CRN *string, tags []string) error {
-	tags = append(tags, InvTag) // add universal tag for paraglider' resources
+	tags = append(tags, ParagliderTag) // add universal tag for paraglider' resources
 	userTypeTag := globaltaggingv1.AttachTagOptionsTagTypeUserConst
 	resourceModel := &globaltaggingv1.Resource{
 		ResourceID:   CRN,
@@ -65,7 +65,7 @@ func (c *CloudClient) GetParagliderTaggedResources(resourceType TaggedResourceTy
 	var tagsStr string
 	var queryStr string
 	// append the paraglider tag to narrow the search scope to paraglider resources only.
-	tags = append(tags, InvTag)
+	tags = append(tags, ParagliderTag)
 	for _, tag := range tags {
 		tagsStr += fmt.Sprintf("tags:%v AND ", tag)
 	}
