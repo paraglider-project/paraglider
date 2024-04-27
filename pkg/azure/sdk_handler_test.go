@@ -273,7 +273,7 @@ func TestGetResource(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 		vm: &armcompute.VirtualMachine{
-			Name: to.Ptr(vmResourceName),
+			Name: to.Ptr(validVmName),
 		},
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
@@ -283,7 +283,7 @@ func TestGetResource(t *testing.T) {
 	// Test case: Success
 	t.Run("GetResource: Success", func(t *testing.T) {
 		// Call the function to test
-		resource, err := handler.GetResource(ctx, vmResourceID)
+		resource, err := handler.GetResource(ctx, vmURI)
 
 		require.NoError(t, err)
 		require.NotNil(t, resource)
@@ -341,7 +341,7 @@ func TestCreateVirtualMachine(t *testing.T) {
 	// Test case: Success
 	t.Run("CreateVirtualMachine: Success", func(t *testing.T) {
 		// Call the function to test
-		vm, err := handler.CreateVirtualMachine(ctx, armcompute.VirtualMachine{}, vmResourceName)
+		vm, err := handler.CreateVirtualMachine(ctx, armcompute.VirtualMachine{}, validVmName)
 
 		require.NoError(t, err)
 		require.NotNil(t, vm)
@@ -350,7 +350,7 @@ func TestCreateVirtualMachine(t *testing.T) {
 	// Test case: Failure
 	t.Run("CreateVirtualMachine: Failure", func(t *testing.T) {
 		// Call the function to test
-		vm, err := handler.CreateVirtualMachine(ctx, armcompute.VirtualMachine{}, invalidVmResourceName)
+		vm, err := handler.CreateVirtualMachine(ctx, armcompute.VirtualMachine{}, invalidVmName)
 
 		require.Error(t, err)
 		require.Nil(t, vm)

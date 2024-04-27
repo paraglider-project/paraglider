@@ -11,23 +11,23 @@ import (
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
 )
 
 const (
-	urlFormat                                  = "/subscriptions/%s/resourceGroups/%s/providers/"
+	urlFormat                                  = "/subscriptions/%s/resourceGroups/%s/providers"
 	testLocation                               = "eastus"
 	subID                                      = "subid-test"
 	rgName                                     = "rg-test"
-	vmResourceID                               = "vm-resource-id"
-	vmResourceName                             = "vm-resource-name"
-	invalidVmResourceID                        = "invalid-vm-resource-id"
-	invalidVmResourceName                      = "invalid-vm-resource-name"
+	deploymentId                               = "/subscriptions/" + subID + "/resourceGroups/" + rgName
 	invalidResourceID                          = "invalid-resource-id"
-	validNicId                                 = "nic/id/nic-name-test"
 	validNicName                               = "nic-name-test"
+	validNicId                                 = uriPrefix + "Microsoft.Network/networkInterfaces/" + validNicName
 	invalidNicId                               = "invalid-nic-id"
 	invalidNicName                             = "invalid-nic-name"
 	invalidResourceType                        = "invalid-type"
@@ -44,9 +44,10 @@ const (
 	invalidVirtualNetworkGatewayName           = "invalid-virtual-network-gateway"
 	validPublicIpAddressName                   = "valid-public-ip-address-name"
 	invalidPublicIpAddressName                 = "invalid-public-ip-address-name"
+	validPublicIpAddressId                     = uriPrefix + "Microsoft.Network/publicIPAddresses/" + validPublicIpAddressName
 	validSubnetName                            = "valid-subnet-name"
 	invalidSubnetName                          = "invalid-subnet-name"
-	validSubnetId                              = "valid-subnet-id"
+	validSubnetId                              = uriPrefix + "Microsoft.Network/virtualNetworks/" + validVnetName + "/subnets/" + validSubnetName
 	invalidSubnetId                            = "invalid-subnet-id"
 	validSubnetURI                             = "/s/s/r/r/p/p/v/" + validVnetName + "/s/" + validSubnetName
 	invalidSubnetURI                           = "/s/s/r/r/p/p/v/" + invalidVnetName + "/s/" + invalidSubnetName
@@ -61,7 +62,7 @@ const (
 	validResourceName                          = "valid-resource-name"
 	invisinetsDeploymentId                     = "/subscriptions/" + subID + "/resourceGroups/" + rgName
 	uriPrefix                                  = invisinetsDeploymentId + "/providers/"
-	vmURI                                      = uriPrefix + "Microsoft.Compute/virtualMachines/" + vmResourceName
+	vmURI                                      = uriPrefix + "Microsoft.Compute/virtualMachines/" + validVmName
 	aksURI                                     = uriPrefix + "Microsoft.ContainerService/managedClusters/" + validClusterName
 	namespace                                  = "namespace"
 )
@@ -90,12 +91,10 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			return
 		}
 		urlPrefix := fmt.Sprintf(urlFormat, fakeServerState.subId, fakeServerState.rgName)
-		fmt.Println("UrlPrefix: ", urlPrefix)
-		fmt.Println("SubID: ", fakeServerState.subId)
 		switch {
 		// NSGs
-		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/networkSecurityGroups/"+validSecurityGroupName):
-			if strings.HasSuffix(path, "/securityRules") {
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/networkSecurityGroups/"):
+			if strings.Contains(path, "/securityRules") {
 				if r.Method == "PUT" {
 					rule := &armnetwork.SecurityRule{}
 					err = json.Unmarshal(body, rule)
@@ -103,6 +102,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 						http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
 						return
 					}
+					rule.ID = to.Ptr("rule-id") // Add ID since would be set server-side
 					sendResponse(w, rule)
 					return
 				} else if r.Method == "DELETE" {
@@ -111,6 +111,10 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				}
 			} else {
 				if r.Method == "GET" {
+					if fakeServerState.nsg == nil {
+						http.Error(w, "nsg not found", http.StatusNotFound)
+						return
+					}
 					sendResponse(w, fakeServerState.nsg)
 					return
 				}
@@ -121,13 +125,17 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 						http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
 						return
 					}
-					sendResponse(w, nsg)
+					sendResponse(w, fakeServerState.nsg) // Return server state NSG so that it can have server-side fields in it
 					return
 				}
 			}
 		// VMs
-		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Compute/virtualMachines/"+vmResourceName):
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Compute/virtualMachines/"):
 			if r.Method == "GET" {
+				if fakeServerState.vm == nil {
+					http.Error(w, "vm not found", http.StatusNotFound)
+					return
+				}
 				sendResponse(w, fakeServerState.vm)
 				return
 			}
@@ -138,11 +146,16 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
 					return
 				}
-				sendResponse(w, vm)
+				sendResponse(w, fakeServerState.vm) // Return server state VM so that it can have server-side fields in it
+				return
 			}
 		// NICs
-		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/networkInterfaces/"+validNicName):
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/networkInterfaces/"):
 			if r.Method == "GET" {
+				if fakeServerState.nic == nil {
+					http.Error(w, "nic not found", http.StatusNotFound)
+					return
+				}
 				sendResponse(w, fakeServerState.nic)
 				return
 			}
@@ -156,9 +169,17 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponse(w, nic)
 				return
 			}
-		// VNets
-		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/virtualNetworks/"+validVnetName):
+		// Virtual Networks (and their sub-resources)
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/virtualNetworks"):
 			if strings.Contains(path, "/virtualNetworkPeerings/") { // VirtualNetworkPeerings
+				if r.Method == "GET" {
+					if fakeServerState.vnetPeering == nil {
+						http.Error(w, "vnet peering not found", http.StatusNotFound)
+						return
+					}
+					sendResponse(w, fakeServerState.vnetPeering)
+					return
+				}
 				if r.Method == "PUT" {
 					peering := &armnetwork.VirtualNetworkPeering{}
 					err = json.Unmarshal(body, peering)
@@ -169,8 +190,41 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					sendResponse(w, peering)
 					return
 				}
-			} else {
+			} else if strings.Contains(path, "/subnets/") { // Subnets
 				if r.Method == "GET" {
+					if fakeServerState.subnet == nil {
+						http.Error(w, "subnet not found", http.StatusNotFound)
+						return
+					}
+					sendResponse(w, fakeServerState.subnet)
+					return
+				}
+				if r.Method == "PUT" {
+					subnet := &armnetwork.Subnet{}
+					err = json.Unmarshal(body, subnet)
+					if err != nil {
+						http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
+						return
+					}
+					sendResponse(w, fakeServerState.subnet) // Return server state subnet so that it can have server-side fields in it
+					return
+				}
+			} else {
+				if r.Method == "GET" && strings.HasSuffix(path, "/virtualNetworks") {
+					if fakeServerState.vnet == nil {
+						http.Error(w, "vnet not found", http.StatusNotFound)
+						return
+					}
+					response := &armnetwork.VirtualNetworksClientListResponse{}
+					response.Value = []*armnetwork.VirtualNetwork{fakeServerState.vnet}
+					sendResponse(w, response)
+					return
+				}
+				if r.Method == "GET" {
+					if fakeServerState.vnet == nil {
+						http.Error(w, "vnet not found", http.StatusNotFound)
+						return
+					}
 					sendResponse(w, fakeServerState.vnet)
 					return
 				}
@@ -181,14 +235,18 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 						http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
 						return
 					}
-					sendResponse(w, vnet)
+					sendResponse(w, fakeServerState.vnet) // Return server state vnet so that it can have server-side fields in it
 					return
 				}
 			}
 		// VirtualNetworkGateways
-		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/virtualNetworkGateways/"+validVirtualNetworkGatewayName):
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/virtualNetworkGateways/"):
 			if r.Method == "GET" {
-				sendResponse(w, fakeServerState.gateway)
+				if fakeServerState.vpnGw == nil {
+					http.Error(w, "gateway not found", http.StatusNotFound)
+					return
+				}
+				sendResponse(w, fakeServerState.vpnGw)
 				return
 			}
 			if r.Method == "PUT" {
@@ -198,12 +256,16 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
 					return
 				}
-				sendResponse(w, gateway)
+				sendResponse(w, fakeServerState.vpnGw) // Return server state gateway so that it can have server-side fields in it
 				return
 			}
 		// PublicIPAddresses
-		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/publicIPAddresses/"+validPublicIpAddressName):
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/publicIPAddresses/"):
 			if r.Method == "GET" {
+				if fakeServerState.publicIP == nil {
+					http.Error(w, "public IP not found", http.StatusNotFound)
+					return
+				}
 				sendResponse(w, fakeServerState.publicIP)
 				return
 			}
@@ -214,28 +276,16 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
 					return
 				}
-				sendResponse(w, publicIP)
-				return
-			}
-		// Subnets
-		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/virtualNetworks/") && strings.HasSuffix(path, "/subnets"+validSubnetName):
-			if r.Method == "GET" {
-				sendResponse(w, fakeServerState.subnet)
-				return
-			}
-			if r.Method == "PUT" {
-				subnet := &armnetwork.Subnet{}
-				err = json.Unmarshal(body, subnet)
-				if err != nil {
-					http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
-					return
-				}
-				sendResponse(w, subnet)
+				sendResponse(w, fakeServerState.publicIP) // Return server state public IP so that it can have server-side fields in it
 				return
 			}
 		// LocalNetworkGateways
-		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/localNetworkGateways/"+validLocalNetworkGatewayName):
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/localNetworkGateways/"):
 			if r.Method == "GET" {
+				if fakeServerState.localGw == nil {
+					http.Error(w, "local gateway not found", http.StatusNotFound)
+					return
+				}
 				sendResponse(w, fakeServerState.localGw)
 				return
 			}
@@ -250,8 +300,12 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				return
 			}
 		// VirtualNetworkGatewayConnections
-		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/connections/"+validVirtualNetworkGatewayConnectionName):
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/connections/"):
 			if r.Method == "GET" {
+				if fakeServerState.vpnConnection == nil {
+					http.Error(w, "vpn connection not found", http.StatusNotFound)
+					return
+				}
 				sendResponse(w, fakeServerState.vpnConnection)
 				return
 			}
@@ -266,8 +320,12 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				return
 			}
 		// ManagedClusters
-		case strings.HasPrefix(path, urlPrefix+"/Microsoft.ContainerService/managedClusters/"+validClusterName):
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.ContainerService/managedClusters/"):
 			if r.Method == "GET" {
+				if fakeServerState.cluster == nil {
+					http.Error(w, "cluster not found", http.StatusNotFound)
+					return
+				}
 				sendResponse(w, fakeServerState.cluster)
 				return
 			}
@@ -278,11 +336,12 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
 					return
 				}
-				sendResponse(w, cluster)
+				sendResponse(w, fakeServerState.cluster) // Return server state cluster so that it can have server-side fields in it
 				return
 			}
 		}
 		fmt.Printf("unsupported request: %s %s\n", r.Method, path)
+		fmt.Printf("httppath: %s", urlPrefix)
 		http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
 	})
 }
@@ -295,7 +354,6 @@ type fakeServerState struct {
 	vm            *armcompute.VirtualMachine
 	nic           *armnetwork.Interface
 	vnet          *armnetwork.VirtualNetwork
-	gateway       *armnetwork.VirtualNetworkGateway
 	publicIP      *armnetwork.PublicIPAddress
 	subnet        *armnetwork.Subnet
 	vpnGw         *armnetwork.VirtualNetworkGateway
@@ -324,4 +382,161 @@ func SetupFakeAzureServer(t *testing.T, fakeServerState *fakeServerState) (fakeS
 
 func Teardown(fakeServer *httptest.Server) {
 	fakeServer.Close()
+}
+
+func getFakeInterface() armnetwork.Interface {
+	name := "nic-name"
+	id := "nic-id/" + name
+	ipConfigName := "ip-config"
+	address := "address"
+	subnet := getFakeSubnet()
+	nsg := getFakeNSG()
+	return armnetwork.Interface{
+		Name: &name,
+		ID:   &id,
+		Properties: &armnetwork.InterfacePropertiesFormat{
+			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
+				{
+					Name: &ipConfigName,
+					Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+						PrivateIPAddress: &address,
+						Subnet:           &subnet,
+					},
+				},
+			},
+			NetworkSecurityGroup: &nsg,
+		},
+	}
+}
+
+func getFakeNSG() armnetwork.SecurityGroup {
+	name := "nsg-name"
+	id := fmt.Sprintf("%smicrosoft.Network/vnet/%s/securityGroups/%s", uriPrefix, getInvisinetsNamespacePrefix(namespace), name)
+	return armnetwork.SecurityGroup{
+		ID:   &id,
+		Name: &name,
+	}
+}
+
+func getFakeSubnet() armnetwork.Subnet {
+	id := fmt.Sprintf("%smicrosoft.Network/vnet/%s/subnets/subnet-id", uriPrefix, getInvisinetsNamespacePrefix(namespace))
+	address := "address"
+	return armnetwork.Subnet{
+		ID: &id,
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: &address,
+			NetworkSecurityGroup: &armnetwork.SecurityGroup{
+				ID:   getFakeNSG().ID,
+				Name: getFakeNSG().Name,
+			},
+		},
+	}
+}
+
+func getFakeVirtualMachine(networkInfo bool) armcompute.VirtualMachine {
+	location := "location"
+	vm := armcompute.VirtualMachine{
+		Location: &location,
+		ID:       to.Ptr(vmURI),
+		Properties: &armcompute.VirtualMachineProperties{
+			HardwareProfile: &armcompute.HardwareProfile{VMSize: to.Ptr(armcompute.VirtualMachineSizeTypesStandardB1S)},
+		},
+	}
+	if networkInfo {
+		vm.Properties.NetworkProfile = &armcompute.NetworkProfile{
+			NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
+				{ID: getFakeInterface().ID},
+			},
+		}
+	}
+	return vm
+}
+
+func getFakeCluster(networkInfo bool) armcontainerservice.ManagedCluster {
+	location := "location"
+	cluster := armcontainerservice.ManagedCluster{
+		Location: &location,
+		ID:       to.Ptr(aksURI),
+		Properties: &armcontainerservice.ManagedClusterProperties{
+			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
+				{Name: to.Ptr("agent-pool-name")},
+			},
+		},
+	}
+	if networkInfo {
+		cluster.Properties.AgentPoolProfiles = []*armcontainerservice.ManagedClusterAgentPoolProfile{
+			{
+				VnetSubnetID: getFakeSubnet().ID,
+			},
+		}
+		cluster.Properties.NetworkProfile = &armcontainerservice.NetworkProfile{
+			ServiceCidr: to.Ptr("2.2.2.2/2"),
+		}
+	}
+	return cluster
+}
+
+func getFakeVMGenericResource() armresources.GenericResource {
+	vm := getFakeVirtualMachine(false)
+	return armresources.GenericResource{
+		ID:       vm.ID,
+		Location: vm.Location,
+		Type:     to.Ptr("Microsoft.Compute/virtualMachines"),
+		Properties: map[string]interface{}{
+			"networkProfile": map[string]interface{}{
+				"networkInterfaces": []interface{}{
+					map[string]interface{}{"id": *getFakeInterface().ID},
+				},
+			},
+		},
+	}
+}
+
+func getFakeAKSGenericResource() armresources.GenericResource {
+	cluster := getFakeCluster(false)
+	return armresources.GenericResource{
+		ID:       cluster.ID,
+		Location: cluster.Location,
+		Type:     to.Ptr("Microsoft.ContainerService/managedClusters"),
+		Properties: map[string]interface{}{
+			"agentPoolProfiles": []interface{}{
+				map[string]interface{}{"vnetSubnetID": *getFakeSubnet().ID},
+			},
+		},
+	}
+}
+
+func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*invisinetspb.ResourceDescription, error) {
+	desc, err := json.Marshal(vm)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	return &invisinetspb.ResourceDescription{
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: invisinetsDeploymentId, Namespace: namespace},
+		Name:        validVmName,
+		Description: desc,
+	}, nil
+}
+
+func getFakeClusterResourceDescription(cluster *armcontainerservice.ManagedCluster) (*invisinetspb.ResourceDescription, error) {
+	desc, err := json.Marshal(cluster)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	return &invisinetspb.ResourceDescription{
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: invisinetsDeploymentId, Namespace: namespace},
+		Name:        validClusterName,
+		Description: desc,
+	}, nil
+}
+
+func getFakeResourceInfo(name string) ResourceIDInfo {
+	rgName := "rg-name"
+	return ResourceIDInfo{
+		ResourceName:      name,
+		ResourceGroupName: rgName,
+		SubscriptionID:    "00000000-0000-0000-0000-000000000000",
+	}
 }
