@@ -70,19 +70,10 @@ func TestCreateResource(t *testing.T) {
 		serverState := &fakeServerState{
 			subId:  subID,
 			rgName: rgName,
-			vnet: &armnetwork.VirtualNetwork{
-				Properties: &armnetwork.VirtualNetworkPropertiesFormat{
-					Subnets: []*armnetwork.Subnet{
-						{
-							Name: to.Ptr(validSubnetName),
-							ID:   to.Ptr(validSubnetId),
-						},
-					},
-				},
-			},
-			nic:   getFakeNIC(),
-			vpnGw: &armnetwork.VirtualNetworkGateway{},
-			vm:    &vm,
+			vnet:   getFakeVirtualNetwork(),
+			nic:    getFakeNIC(),
+			vpnGw:  &armnetwork.VirtualNetworkGateway{},
+			vm:     &vm,
 		}
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
@@ -153,26 +144,12 @@ func TestCreateResource(t *testing.T) {
 		}
 
 		serverState := &fakeServerState{
-			subId:  subID,
-			rgName: rgName,
-			vnet: &armnetwork.VirtualNetwork{
-				Properties: &armnetwork.VirtualNetworkPropertiesFormat{
-					Subnets: []*armnetwork.Subnet{
-						{
-							Name: to.Ptr(validSubnetName),
-							ID:   to.Ptr(validSubnetId),
-						},
-					},
-					AddressSpace: &armnetwork.AddressSpace{AddressPrefixes: []*string{to.Ptr(validAddressSpace)}},
-				},
-			},
-			subnet: &armnetwork.Subnet{ // TODO now: get fake subnet?
-				Name:       to.Ptr(validSubnetName),
-				ID:         to.Ptr(validSubnetId),
-				Properties: &armnetwork.SubnetPropertiesFormat{AddressPrefix: to.Ptr(validAddressSpace)},
-			},
+			subId:   subID,
+			rgName:  rgName,
+			vnet:    getFakeVirtualNetwork(),
+			subnet:  getFakeSubnet(),
 			nic:     getFakeNIC(),
-			nsg:     getFakeNsg(validSecurityGroupID, validSecurityGroupName),
+			nsg:     getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName),
 			vpnGw:   &armnetwork.VirtualNetworkGateway{},
 			cluster: &cluster,
 		}
@@ -201,7 +178,7 @@ func TestGetPermitList(t *testing.T) {
 	fakeNsgName := "test-nsg-name"
 	fakeNic := getFakeNIC()
 	fakeNsgID := *fakeNic.Properties.NetworkSecurityGroup.ID
-	fakeNsg := getFakeNsg(fakeNsgID, fakeNsgName)
+	fakeNsg := getFakeNsgWithRules(fakeNsgID, fakeNsgName)
 
 	// Set up a  resource
 	fakeResourceId := vmURI
@@ -213,7 +190,7 @@ func TestGetPermitList(t *testing.T) {
 			rgName: rgName,
 			nsg:    fakeNsg,
 			nic:    fakeNic,
-			vm:     to.Ptr(getFakeVirtualMachine(true)), // todo now: consistent way of doing this
+			vm:     to.Ptr(getFakeVirtualMachine(true)),
 		}
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
@@ -253,7 +230,6 @@ func TestGetPermitList(t *testing.T) {
 
 	// Fail due to resource being in different namespace
 	t.Run("TestGetPermitList: Fail due to mismatching namespace", func(t *testing.T) {
-		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr(validSubnetId)
 		serverState := &fakeServerState{
 			subId:  subID,
 			rgName: rgName,
@@ -290,8 +266,8 @@ func TestAddPermitListRules(t *testing.T) {
 	fakeNsgName := "test-nsg-name"
 	fakeNic := getFakeNIC()
 	fakeNsgID := *fakeNic.Properties.NetworkSecurityGroup.ID
-	fakeNsg := getFakeNsg(fakeNsgID, fakeNsgName)
-	fakeVnet := getFakeVnet(fakeNic.Location, validAddressSpace)
+	fakeNsg := getFakeNsgWithRules(fakeNsgID, fakeNsgName)
+	fakeVnet := getFakeVnetInLocation(fakeNic.Location, validAddressSpace)
 	fakeVnet.Properties = &armnetwork.VirtualNetworkPropertiesFormat{
 		AddressSpace: &armnetwork.AddressSpace{
 			AddressPrefixes: []*string{to.Ptr("10.0.0.0/16")},
@@ -315,7 +291,7 @@ func TestAddPermitListRules(t *testing.T) {
 			nsg:    fakeNsg,
 			nic:    fakeNic,
 			vnet:   fakeVnet,
-			vm:     to.Ptr(getFakeVirtualMachine(true)), // todo now: consistent way of doing this
+			vm:     to.Ptr(getFakeVirtualMachine(true)),
 		}
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
@@ -337,7 +313,7 @@ func TestAddPermitListRules(t *testing.T) {
 			nsg:    fakeNsg,
 			nic:    fakeNic,
 			vnet:   fakeVnet,
-			vm:     to.Ptr(getFakeVirtualMachine(true)), // todo now: consistent way of doing this
+			vm:     to.Ptr(getFakeVirtualMachine(true)),
 		}
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
@@ -432,7 +408,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	fakeNsgName := "test-nsg-name"
 	fakeNic := getFakeNIC()
 	fakeNsgID := *fakeNic.Properties.NetworkSecurityGroup.ID
-	fakeNsg := getFakeNsg(fakeNsgID, fakeNsgName)
+	fakeNsg := getFakeNsgWithRules(fakeNsgID, fakeNsgName)
 	fakeResource := vmURI
 
 	// successful
@@ -442,7 +418,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 			rgName: rgName,
 			nsg:    fakeNsg,
 			nic:    fakeNic,
-			vm:     to.Ptr(getFakeVirtualMachine(true)), // todo now: consistent way of doing this
+			vm:     to.Ptr(getFakeVirtualMachine(true)),
 		}
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
@@ -461,7 +437,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 			subId:  subID,
 			rgName: rgName,
 			nsg:    fakeNsg,
-			vm:     to.Ptr(getFakeVirtualMachine(true)), // todo now: consistent way of doing this
+			vm:     to.Ptr(getFakeVirtualMachine(true)),
 		}
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
@@ -753,7 +729,7 @@ func getFakeNewPermitListRules() ([]*invisinetspb.PermitListRule, error) {
 }
 
 func getFakePermitList() ([]*invisinetspb.PermitListRule, error) {
-	nsg := getFakeNsg("test", "test")
+	nsg := getFakeNsgWithRules("test", "test")
 	// initialize invisinets rules with the size of nsg rules
 	invisinetsRules := []*invisinetspb.PermitListRule{}
 	// use real implementation to get actual mapping of nsg rules to invisinets rules
@@ -800,7 +776,7 @@ func getFakeNIC() *armnetwork.Interface {
 	}
 }
 
-func getFakeNsg(nsgID string, nsgName string) *armnetwork.SecurityGroup { // TODO now: remove these
+func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup {
 	return &armnetwork.SecurityGroup{
 		ID:   to.Ptr(nsgID),
 		Name: to.Ptr(nsgName),
@@ -864,7 +840,7 @@ func getFakeNsg(nsgID string, nsgName string) *armnetwork.SecurityGroup { // TOD
 	}
 }
 
-func getFakeVnet(location *string, addressSpace string) *armnetwork.VirtualNetwork {
+func getFakeVnetInLocation(location *string, addressSpace string) *armnetwork.VirtualNetwork {
 	return &armnetwork.VirtualNetwork{
 		Location: location,
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{

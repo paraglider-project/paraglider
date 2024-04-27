@@ -116,9 +116,7 @@ func TestGetSecurityGroup(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		nsg: &armnetwork.SecurityGroup{
-			Name: to.Ptr(validSecurityGroupName),
-		},
+		nsg:    getFakeNSG(),
 	}
 	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
@@ -149,7 +147,7 @@ func TestCreateSecurityGroup(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		nsg:    to.Ptr(getFakeNSG()),
+		nsg:    getFakeNSG(),
 	}
 	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
@@ -182,7 +180,7 @@ func TestAssociateNSGWithSubnet(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		subnet: to.Ptr(getFakeSubnet()),
+		subnet: getFakeSubnet(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
@@ -197,7 +195,7 @@ func TestAssociateNSGWithSubnet(t *testing.T) {
 
 	t.Run("AssociateNSGWithSubnet: Failure - subnet does not exist", func(t *testing.T) {
 		fakeServerState.subnet = nil
-		err := handler.AssociateNSGWithSubnet(ctx, invalidSubnetURI, validSecurityGroupID)
+		err := handler.AssociateNSGWithSubnet(ctx, validSubnetURI, validSecurityGroupID)
 
 		require.Error(t, err)
 	})
@@ -208,7 +206,7 @@ func TestGetSubnetById(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		subnet: to.Ptr(getFakeSubnet()),
+		subnet: getFakeSubnet(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
@@ -224,7 +222,7 @@ func TestGetSubnetById(t *testing.T) {
 
 	t.Run("GetSubnetById: Failure", func(t *testing.T) {
 		fakeServerState.subnet = nil
-		subnet, err := handler.GetSubnetByID(ctx, invalidSubnetURI)
+		subnet, err := handler.GetSubnetByID(ctx, validSubnetURI)
 
 		require.Error(t, err)
 		require.Nil(t, subnet)
@@ -284,7 +282,7 @@ func TestGetResource(t *testing.T) {
 	// Test case: Failure
 	t.Run("GetResource: Failure", func(t *testing.T) {
 		fakeServerState.vm = nil
-		resource, err := handler.GetResource(ctx, invalidResourceID)
+		resource, err := handler.GetResource(ctx, vmURI)
 
 		require.Error(t, err)
 		require.Nil(t, resource)
@@ -360,7 +358,7 @@ func TestGetInvisinetsVnet(t *testing.T) {
 	// Test case: Success, vnet doesn't exist, create new one
 	t.Run("GetInvisinetsVnet: Success, create new vnet", func(t *testing.T) {
 		fakeServerState.vnet = nil
-		vnet, err := handler.GetInvisinetsVnet(ctx, notFoundVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
+		vnet, err := handler.GetInvisinetsVnet(ctx, validVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
@@ -465,7 +463,7 @@ func TestGetVnet(t *testing.T) {
 	// Test case: Failure
 	t.Run("GetVnet: Failure", func(t *testing.T) {
 		fakeServerState.vnet = nil
-		vnet, err := handler.GetVNet(ctx, invalidVnetName)
+		vnet, err := handler.GetVNet(ctx, validVnetName)
 
 		require.Error(t, err)
 		require.Nil(t, vnet)
@@ -678,7 +676,7 @@ func TestGetVirtualNetworkGateway(t *testing.T) {
 	})
 	t.Run("Failure", func(t *testing.T) {
 		fakeServerState.vpnGw = nil
-		virtualNetworkGateway, err := handler.GetVirtualNetworkGateway(ctx, invalidVirtualNetworkGatewayName)
+		virtualNetworkGateway, err := handler.GetVirtualNetworkGateway(ctx, validVirtualNetworkGatewayName)
 		require.Error(t, err)
 		require.Nil(t, virtualNetworkGateway)
 	})
@@ -710,7 +708,7 @@ func TestCreateSubnet(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		subnet: to.Ptr(getFakeSubnet()),
+		subnet: getFakeSubnet(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
@@ -814,7 +812,7 @@ func TestGetVirtualNetworkGatewayConnection(t *testing.T) {
 	})
 	t.Run("Failure", func(t *testing.T) {
 		fakeServerState.vpnConnection = nil
-		virtualNetworkGatewayConnection, err := handler.GetVirtualNetworkGatewayConnection(ctx, invalidVirtualNetworkGatewayConnectionName)
+		virtualNetworkGatewayConnection, err := handler.GetVirtualNetworkGatewayConnection(ctx, validVirtualNetworkGatewayConnectionName)
 		require.Error(t, err)
 		require.Nil(t, virtualNetworkGatewayConnection)
 	})

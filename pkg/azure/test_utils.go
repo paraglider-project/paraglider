@@ -33,10 +33,11 @@ const (
 	invalidResourceType                        = "invalid-type"
 	validSecurityRuleName                      = "valid-security-rule-name"
 	invalidSecurityRuleName                    = "invalid-security-rule-name"
-	validSecurityGroupID                       = "valid-security-group-id"
+	validSecurityGroupID                       = uriPrefix + "Microsoft.Network/networkSecurityGroups/" + validSecurityGroupName
 	validSecurityGroupName                     = validNicName + nsgNameSuffix
 	invalidSecurityGroupName                   = "invalid-security-group-name"
-	validVnetName                              = "invisinets-valid-vnet-name"
+	validVnetName                              = invisinetsPrefix + "-" + namespace + "-valid-vnet-name"
+	validVnetId                                = uriPrefix + "Microsoft.Network/virtualNetworks/" + validVnetName
 	notFoundVnetName                           = "invisinets-not-found-vnet-name"
 	invalidVnetName                            = "invalid-vnet-name"
 	validAddressSpace                          = "10.0.0.0/16"
@@ -386,48 +387,40 @@ func Teardown(fakeServer *httptest.Server) {
 	fakeServer.Close()
 }
 
-func getFakeInterface() armnetwork.Interface {
-	name := "nic-name"
-	id := "nic-id/" + name
-	ipConfigName := "ip-config"
-	address := "address"
+func getFakeInterface() *armnetwork.Interface {
 	subnet := getFakeSubnet()
 	nsg := getFakeNSG()
-	return armnetwork.Interface{
-		Name: &name,
-		ID:   &id,
+	return &armnetwork.Interface{
+		Name: to.Ptr(validNicName),
+		ID:   to.Ptr(validNicId),
 		Properties: &armnetwork.InterfacePropertiesFormat{
 			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
 				{
-					Name: &ipConfigName,
+					Name: to.Ptr("ip-config-name"),
 					Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
-						PrivateIPAddress: &address,
-						Subnet:           &subnet,
+						PrivateIPAddress: to.Ptr("1.1.1.1"),
+						Subnet:           subnet,
 					},
 				},
 			},
-			NetworkSecurityGroup: &nsg,
+			NetworkSecurityGroup: nsg,
 		},
 	}
 }
 
-func getFakeNSG() armnetwork.SecurityGroup {
-	name := "nsg-name"
-	id := fmt.Sprintf("%smicrosoft.Network/vnet/%s/securityGroups/%s", uriPrefix, getInvisinetsNamespacePrefix(namespace), name)
-	return armnetwork.SecurityGroup{
-		ID:   &id,
-		Name: &name,
+func getFakeNSG() *armnetwork.SecurityGroup {
+	return &armnetwork.SecurityGroup{
+		ID:   to.Ptr(validSecurityGroupID),
+		Name: to.Ptr(validSecurityGroupName),
 	}
 }
 
-func getFakeSubnet() armnetwork.Subnet {
-	id := fmt.Sprintf("%smicrosoft.Network/vnet/%s/subnets/subnet-id", uriPrefix, getInvisinetsNamespacePrefix(namespace))
-	address := "address"
-	return armnetwork.Subnet{
+func getFakeSubnet() *armnetwork.Subnet {
+	return &armnetwork.Subnet{
 		Name: to.Ptr(validSubnetName),
-		ID:   &id,
+		ID:   to.Ptr(validSubnetId),
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: &address,
+			AddressPrefix: to.Ptr(validAddressSpace),
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
 				ID:   getFakeNSG().ID,
 				Name: getFakeNSG().Name,
@@ -437,10 +430,9 @@ func getFakeSubnet() armnetwork.Subnet {
 }
 
 func getFakeVirtualNetwork() *armnetwork.VirtualNetwork {
-	id := fmt.Sprintf("%smicrosoft.Network/virtualNetworks/%s", uriPrefix, validVnetName)
 	return &armnetwork.VirtualNetwork{
 		Name:     to.Ptr(validVnetName),
-		ID:       &id,
+		ID:       to.Ptr(validVnetId),
 		Location: to.Ptr(testLocation),
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 			AddressSpace: &armnetwork.AddressSpace{
@@ -457,10 +449,9 @@ func getFakeVirtualNetwork() *armnetwork.VirtualNetwork {
 }
 
 func getFakeVirtualMachine(networkInfo bool) armcompute.VirtualMachine {
-	location := "location"
 	vm := armcompute.VirtualMachine{
 		Name:     to.Ptr(validVmName),
-		Location: &location,
+		Location: to.Ptr(testLocation),
 		ID:       to.Ptr(vmURI),
 		Properties: &armcompute.VirtualMachineProperties{
 			HardwareProfile: &armcompute.HardwareProfile{VMSize: to.Ptr(armcompute.VirtualMachineSizeTypesStandardB1S)},
@@ -477,10 +468,9 @@ func getFakeVirtualMachine(networkInfo bool) armcompute.VirtualMachine {
 }
 
 func getFakeCluster(networkInfo bool) armcontainerservice.ManagedCluster {
-	location := "location" // TODO now: use the constant we have for this
 	cluster := armcontainerservice.ManagedCluster{
 		Name:     to.Ptr(validClusterName),
-		Location: &location,
+		Location: to.Ptr(testLocation),
 		ID:       to.Ptr(aksURI),
 		Properties: &armcontainerservice.ManagedClusterProperties{
 			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
