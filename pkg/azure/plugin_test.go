@@ -800,7 +800,7 @@ func getFakeNIC() *armnetwork.Interface {
 	}
 }
 
-func getFakeNsg(nsgID string, nsgName string) *armnetwork.SecurityGroup {
+func getFakeNsg(nsgID string, nsgName string) *armnetwork.SecurityGroup { // TODO now: remove these
 	return &armnetwork.SecurityGroup{
 		ID:   to.Ptr(nsgID),
 		Name: to.Ptr(nsgName),

@@ -28,18 +28,23 @@ import (
 
 func TestGetAndCheckResourceState(t *testing.T) {
 	serverState := &fakeServerState{
+		subId:   subID,
+		rgName:  rgName,
 		nsg:     to.Ptr(getFakeNSG()),
 		nic:     to.Ptr(getFakeInterface()),
 		subnet:  to.Ptr(getFakeSubnet()),
 		vm:      to.Ptr(getFakeVirtualMachine(true)),
 		cluster: to.Ptr(getFakeCluster(true)),
 	}
-	SetupFakeAzureServer(t, serverState)
+	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	// Bad resource ID
-	_, err := GetAndCheckResourceState(context.Background(), handler, "badResourceID", namespace)
+	_, err = GetAndCheckResourceState(context.Background(), handler, "badResourceID", namespace)
 	require.Error(t, err)
 
 	// Test for VM correct namespace
@@ -68,18 +73,23 @@ func TestGetAndCheckResourceState(t *testing.T) {
 
 func TestGetNetworkInfoFromResource(t *testing.T) {
 	serverState := &fakeServerState{
+		subId:   subID,
+		rgName:  rgName,
 		nsg:     to.Ptr(getFakeNSG()),
 		nic:     to.Ptr(getFakeInterface()),
 		subnet:  to.Ptr(getFakeSubnet()),
 		vm:      to.Ptr(getFakeVirtualMachine(true)),
 		cluster: to.Ptr(getFakeCluster(true)),
 	}
-	SetupFakeAzureServer(t, serverState)
+	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	// Bad resource ID
-	_, err := GetNetworkInfoFromResource(context.Background(), handler, "badResourceID")
+	_, err = GetNetworkInfoFromResource(context.Background(), handler, "badResourceID")
 	require.Error(t, err)
 
 	// Test for VM
@@ -103,15 +113,20 @@ func TestGetNetworkInfoFromResource(t *testing.T) {
 
 func TestReadAndProvisionResource(t *testing.T) {
 	serverState := &fakeServerState{
+		subId:   subID,
+		rgName:  rgName,
 		nsg:     to.Ptr(getFakeNSG()),
 		nic:     to.Ptr(getFakeInterface()),
 		subnet:  to.Ptr(getFakeSubnet()),
 		vm:      to.Ptr(getFakeVirtualMachine(true)),
 		cluster: to.Ptr(getFakeCluster(true)),
 	}
-	SetupFakeAzureServer(t, serverState)
+	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	vm := getFakeVirtualMachine(false)
 	cluster := getFakeCluster(false)
@@ -176,10 +191,18 @@ func TestAzureResourceHandlerVMGetResourceInfoFromDescription(t *testing.T) {
 }
 
 func TestAzureResourceHandlerVMReadAndProvisionResource(t *testing.T) {
-	serverState := &fakeServerState{}
-	SetupFakeAzureServer(t, serverState)
+	serverState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vm:     to.Ptr(getFakeVirtualMachine(true)),
+		nic:    to.Ptr(getFakeInterface()),
+	}
+	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	vm := getFakeVirtualMachine(false)
 
@@ -197,11 +220,18 @@ func TestAzureResourceHandlerVMReadAndProvisionResource(t *testing.T) {
 
 func TestAzureVMGetNetworkInfo(t *testing.T) {
 	serverState := &fakeServerState{
-		vm: to.Ptr(getFakeVirtualMachine(true)),
+		subId:  subID,
+		rgName: rgName,
+		vm:     to.Ptr(getFakeVirtualMachine(true)),
+		nic:    to.Ptr(getFakeInterface()),
+		nsg:    to.Ptr(getFakeNSG()),
 	}
-	SetupFakeAzureServer(t, serverState)
+	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	vmHandler := &azureResourceHandlerVM{}
 	resource := getFakeVMGenericResource()
@@ -227,10 +257,18 @@ func TestAzureVMFromResourceDecription(t *testing.T) {
 }
 
 func TestAzureVMCreateWithNetwork(t *testing.T) {
-	serverState := &fakeServerState{}
-	SetupFakeAzureServer(t, serverState)
+	serverState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vm:     to.Ptr(getFakeVirtualMachine(true)),
+		nic:    to.Ptr(getFakeInterface()),
+	}
+	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	vmHandler := &azureResourceHandlerVM{}
 
@@ -244,11 +282,18 @@ func TestAzureVMCreateWithNetwork(t *testing.T) {
 
 func TestAzureAKSGetNetworkInfo(t *testing.T) {
 	serverState := &fakeServerState{
+		subId:   subID,
+		rgName:  rgName,
 		cluster: to.Ptr(getFakeCluster(true)),
+		subnet:  to.Ptr(getFakeSubnet()),
+		nsg:     to.Ptr(getFakeNSG()),
 	}
-	SetupFakeAzureServer(t, serverState)
+	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	aksHandler := &azureResourceHandlerAKS{}
 	resource := getFakeAKSGenericResource()
@@ -274,10 +319,19 @@ func TestAzureAKSFromResourceDecription(t *testing.T) {
 }
 
 func TestAzureAKSCreateWithNetwork(t *testing.T) {
-	serverState := &fakeServerState{}
-	SetupFakeAzureServer(t, serverState)
+	serverState := &fakeServerState{
+		subId:   subID,
+		rgName:  rgName,
+		cluster: to.Ptr(getFakeCluster(true)),
+		subnet:  to.Ptr(getFakeSubnet()),
+		nsg:     to.Ptr(getFakeNSG()),
+	}
+	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	aksHandler := &azureResourceHandlerAKS{}
 
@@ -302,10 +356,20 @@ func TestAzureResourceHandlerAKSGetResourceInfoFromDescription(t *testing.T) {
 }
 
 func TestAzureResourceHandlerAKSReadAndProvisionResource(t *testing.T) {
-	serverState := &fakeServerState{}
-	SetupFakeAzureServer(t, serverState)
+	serverState := &fakeServerState{
+		subId:   subID,
+		rgName:  rgName,
+		cluster: to.Ptr(getFakeCluster(true)),
+		subnet:  to.Ptr(getFakeSubnet()),
+		nsg:     to.Ptr(getFakeNSG()),
+	}
+	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
+
 	cluster := getFakeCluster(false)
 
 	aksHandler := &azureResourceHandlerAKS{}

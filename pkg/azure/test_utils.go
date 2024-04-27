@@ -422,7 +422,8 @@ func getFakeSubnet() armnetwork.Subnet {
 	id := fmt.Sprintf("%smicrosoft.Network/vnet/%s/subnets/subnet-id", uriPrefix, getInvisinetsNamespacePrefix(namespace))
 	address := "address"
 	return armnetwork.Subnet{
-		ID: &id,
+		Name: to.Ptr(validSubnetName),
+		ID:   &id,
 		Properties: &armnetwork.SubnetPropertiesFormat{
 			AddressPrefix: &address,
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
@@ -436,6 +437,7 @@ func getFakeSubnet() armnetwork.Subnet {
 func getFakeVirtualMachine(networkInfo bool) armcompute.VirtualMachine {
 	location := "location"
 	vm := armcompute.VirtualMachine{
+		Name:     to.Ptr(validVmName),
 		Location: &location,
 		ID:       to.Ptr(vmURI),
 		Properties: &armcompute.VirtualMachineProperties{
@@ -453,8 +455,9 @@ func getFakeVirtualMachine(networkInfo bool) armcompute.VirtualMachine {
 }
 
 func getFakeCluster(networkInfo bool) armcontainerservice.ManagedCluster {
-	location := "location"
+	location := "location" // TODO now: use the constant we have for this
 	cluster := armcontainerservice.ManagedCluster{
+		Name:     to.Ptr(validClusterName),
 		Location: &location,
 		ID:       to.Ptr(aksURI),
 		Properties: &armcontainerservice.ManagedClusterProperties{
