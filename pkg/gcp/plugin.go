@@ -85,12 +85,12 @@ var gcpProtocolNumberMap = map[string]int{
 	"ipip": 94,
 }
 
-// Checks if GCP firewall rule is an Paraglider permit list rule
+// Checks if GCP firewall rule is a Paraglider permit list rule
 func isParagliderPermitListRule(namespace string, firewall *computepb.Firewall) bool {
 	return strings.HasSuffix(*firewall.Network, getVpcName(namespace)) && strings.HasPrefix(*firewall.Name, getFirewallNamePrefix(namespace))
 }
 
-// Converts a GCP firewall rule to an Paraglider permit list rule
+// Converts a GCP firewall rule to a Paraglider permit list rule
 func firewallRuleToParagliderRule(namespace string, fw *computepb.Firewall) (*paragliderpb.PermitListRule, error) {
 	if len(fw.Allowed) != 1 {
 		return nil, fmt.Errorf("firewall rule has more than one allowed protocol")
@@ -136,7 +136,7 @@ func firewallRuleToParagliderRule(namespace string, fw *computepb.Firewall) (*pa
 	return rule, nil
 }
 
-// Converts an Paraglider permit list rule to a GCP firewall rule
+// Converts a Paraglider permit list rule to a GCP firewall rule
 func paragliderRuleToFirewallRule(namespace string, project string, firewallName string, networkTag string, rule *paragliderpb.PermitListRule) (*computepb.Firewall, error) {
 	firewall := &computepb.Firewall{
 		Allowed: []*computepb.Allowed{
@@ -218,7 +218,7 @@ func getFirewallNamePrefix(namespace string) string {
 	return getParagliderNamespacePrefix(namespace) + "-fw"
 }
 
-// Gets a GCP firewall rule name for an Paraglider permit list rule
+// Gets a GCP firewall rule name for a Paraglider permit list rule
 // If two Paraglider permit list rules are equal, then they will have the same GCP firewall rule name.
 func getFirewallName(namespace string, ruleName string, resourceId string) string {
 	return fmt.Sprintf("%s-%s-%s", getFirewallNamePrefix(namespace), resourceId, ruleName)

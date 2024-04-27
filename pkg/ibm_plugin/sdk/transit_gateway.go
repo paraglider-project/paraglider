@@ -197,7 +197,7 @@ func (c *CloudClient) GetOrCreateTransitGateway(region string) (string, error) {
 		return "", err
 	}
 	if len(TransitGatewayRes) == 1 {
-		// an paraglider deployment has a single Transit gateway
+		// a paraglider deployment has a single Transit gateway
 		utils.Log.Printf("Found an existing transit gateway %+v", TransitGatewayRes[0])
 		return TransitGatewayRes[0].ID, nil
 	} else if len(TransitGatewayRes) == 0 {

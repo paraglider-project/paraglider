@@ -67,7 +67,7 @@ Resources to Create:
 
 High-Level Logic:
 ^^^^^^^^^^^^^^^^^^
-* Check if there exists an Paraglider virtual network in the region of the new resource
+* Check if there exists a Paraglider virtual network in the region of the new resource
 * If there is not, create one
 
 .. note:

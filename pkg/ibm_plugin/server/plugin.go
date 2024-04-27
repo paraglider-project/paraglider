@@ -344,7 +344,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 				break
 			}
 		}
-		// if the remote resides inside an paraglider VPC that isn't the request VM's VPC, connect them
+		// if the remote resides inside a paraglider VPC that isn't the request VM's VPC, connect them
 		if remoteVPC != "" && remoteVPC != *requestVPCData.ID {
 			utils.Log.Printf("The following rule's remote is targeting a different IBM VPC\nRule: %+v\nVPC:%+v", ibmRule, remoteVPC)
 			// fetch or create transit gateway

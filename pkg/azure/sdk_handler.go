@@ -491,7 +491,7 @@ func (h *azureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) 
 	return &nsgResp.SecurityGroup, nil
 }
 
-// GetParagliderVnet returns a valid paraglider vnet, an paraglider vnet is a vnet with a default subnet with the same
+// GetParagliderVnet returns a valid paraglider vnet, a paraglider vnet is a vnet with a default subnet with the same
 // address space as the vnet and there is only one vnet per location
 func (h *azureSDKHandler) GetParagliderVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
 	// Get the virtual network
@@ -523,7 +523,7 @@ func (h *azureSDKHandler) GetParagliderVnet(ctx context.Context, vnetName string
 	return &res.VirtualNetwork, nil
 }
 
-// AddSubnetToParagliderVnet adds a subnet to an paraglider vnet
+// AddSubnetToParagliderVnet adds a subnet to a paraglider vnet
 func (h *azureSDKHandler) AddSubnetToParagliderVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error) {
 	// Get a new address space
 	conn, err := grpc.Dial(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))

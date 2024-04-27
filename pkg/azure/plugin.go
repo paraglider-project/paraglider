@@ -260,8 +260,8 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *paragl
 	return &paragliderpb.DeletePermitListRulesResponse{}, nil
 }
 
-// CreateResource does the mapping from Paraglider to Azure to create an paraglider enabled resource
-// which means the resource should be added to a valid paraglider network, the attachement to an paraglider network
+// CreateResource does the mapping from Paraglider to Azure to create a paraglider enabled resource
+// which means the resource should be added to a valid paraglider network, the attachement to a paraglider network
 // is determined by the resource's location.
 func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *paragliderpb.ResourceDescription) (*paragliderpb.CreateResourceResponse, error) {
 	resourceDescInfo, err := GetResourceInfoFromResourceDesc(ctx, resourceDesc)

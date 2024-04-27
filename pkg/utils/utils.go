@@ -53,7 +53,7 @@ func init() {
 	Log = log.New(file, "", log.LstdFlags|log.Lshortfile)
 }
 
-// Checks if an Paraglider permit list rule tag (either an address or address space) is contained within an address space.
+// Checks if a Paraglider permit list rule tag (either an address or address space) is contained within an address space.
 func IsPermitListRuleTagInAddressSpace(permitListRuleTag string, addressSpaces []string) (bool, error) {
 	for _, addressSpace := range addressSpaces {
 		prefix, err := netip.ParsePrefix(addressSpace)
