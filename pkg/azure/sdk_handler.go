@@ -61,7 +61,7 @@ type AzureSDKHandler struct {
 	resourceGroupName                      string
 }
 
-type iAzureCredentialGetter interface {
+type IAzureCredentialGetter interface {
 	GetAzureCredentials() (azcore.TokenCredential, error)
 }
 
@@ -149,7 +149,7 @@ func (h *AzureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
 }
 
 type AzureCredentialGetter struct {
-	iAzureCredentialGetter
+	IAzureCredentialGetter
 }
 
 // GetAzureCredentials returns an Azure credential.

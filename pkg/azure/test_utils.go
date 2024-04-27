@@ -1,3 +1,19 @@
+/*
+Copyright 2023 The Invisinets Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package azure
 
 import (
@@ -20,52 +36,33 @@ import (
 )
 
 const (
-	urlFormat                                  = "/subscriptions/%s/resourceGroups/%s/providers"
-	testLocation                               = "eastus"
-	subID                                      = "subid-test"
-	rgName                                     = "rg-test"
-	deploymentId                               = "/subscriptions/" + subID + "/resourceGroups/" + rgName
-	invalidResourceID                          = "invalid-resource-id"
-	validNicName                               = "nic-name-test"
-	validNicId                                 = uriPrefix + "Microsoft.Network/networkInterfaces/" + validNicName
-	invalidNicId                               = "invalid-nic-id"
-	invalidNicName                             = "invalid-nic-name"
-	invalidResourceType                        = "invalid-type"
-	validSecurityRuleName                      = "valid-security-rule-name"
-	invalidSecurityRuleName                    = "invalid-security-rule-name"
-	validSecurityGroupID                       = uriPrefix + "Microsoft.Network/networkSecurityGroups/" + validSecurityGroupName
-	validSecurityGroupName                     = validNicName + nsgNameSuffix
-	invalidSecurityGroupName                   = "invalid-security-group-name"
-	validVnetName                              = invisinetsPrefix + "-" + namespace + "-valid-vnet-name"
-	validVnetId                                = uriPrefix + "Microsoft.Network/virtualNetworks/" + validVnetName
-	notFoundVnetName                           = "invisinets-not-found-vnet-name"
-	invalidVnetName                            = "invalid-vnet-name"
-	validAddressSpace                          = "10.0.0.0/16"
-	validVirtualNetworkGatewayName             = "valid-virtual-network-gateway"
-	invalidVirtualNetworkGatewayName           = "invalid-virtual-network-gateway"
-	validPublicIpAddressName                   = "valid-public-ip-address-name"
-	invalidPublicIpAddressName                 = "invalid-public-ip-address-name"
-	validPublicIpAddressId                     = uriPrefix + "Microsoft.Network/publicIPAddresses/" + validPublicIpAddressName
-	validSubnetName                            = "valid-subnet-name"
-	invalidSubnetName                          = "invalid-subnet-name"
-	validSubnetId                              = uriPrefix + "Microsoft.Network/virtualNetworks/" + validVnetName + "/subnets/" + validSubnetName
-	invalidSubnetId                            = "invalid-subnet-id"
-	validSubnetURI                             = "/s/s/r/r/p/p/v/" + validVnetName + "/s/" + validSubnetName
-	invalidSubnetURI                           = "/s/s/r/r/p/p/v/" + invalidVnetName + "/s/" + invalidSubnetName
-	validLocalNetworkGatewayName               = "valid-local-network-gateway"
-	invalidLocalNetworkGatewayName             = "invalid-local-network-gateway"
-	validVirtualNetworkGatewayConnectionName   = "valid-virtual-network-gateway-connection"
-	invalidVirtualNetworkGatewayConnectionName = "invalid-virtual-network-gateway-connection"
-	validClusterName                           = "valid-cluster-name"
-	invalidClusterName                         = "invalid-cluster-name"
-	validVmName                                = "valid-vm-name"
-	invalidVmName                              = "invalid-vm-name"
-	validResourceName                          = "valid-resource-name"
-	invisinetsDeploymentId                     = "/subscriptions/" + subID + "/resourceGroups/" + rgName
-	uriPrefix                                  = invisinetsDeploymentId + "/providers/"
-	vmURI                                      = uriPrefix + "Microsoft.Compute/virtualMachines/" + validVmName
-	aksURI                                     = uriPrefix + "Microsoft.ContainerService/managedClusters/" + validClusterName
-	namespace                                  = "namespace"
+	urlFormat                                = "/subscriptions/%s/resourceGroups/%s/providers"
+	testLocation                             = "eastus"
+	subID                                    = "subid-test"
+	rgName                                   = "rg-test"
+	deploymentId                             = "/subscriptions/" + subID + "/resourceGroups/" + rgName
+	namespace                                = "namespace"
+	uriPrefix                                = deploymentId + "/providers/"
+	validNicName                             = "nic-name-test"
+	validNicId                               = uriPrefix + "Microsoft.Network/networkInterfaces/" + validNicName
+	validSecurityRuleName                    = "valid-security-rule-name"
+	validSecurityGroupID                     = uriPrefix + "Microsoft.Network/networkSecurityGroups/" + validSecurityGroupName
+	validSecurityGroupName                   = validNicName + nsgNameSuffix
+	validVnetName                            = invisinetsPrefix + "-" + namespace + "-valid-vnet-name"
+	validVnetId                              = uriPrefix + "Microsoft.Network/virtualNetworks/" + validVnetName
+	validAddressSpace                        = "10.0.0.0/16"
+	validVirtualNetworkGatewayName           = "valid-virtual-network-gateway"
+	validPublicIpAddressName                 = "valid-public-ip-address-name"
+	validPublicIpAddressId                   = uriPrefix + "Microsoft.Network/publicIPAddresses/" + validPublicIpAddressName
+	validSubnetName                          = "valid-subnet-name"
+	validSubnetId                            = uriPrefix + "Microsoft.Network/virtualNetworks/" + validVnetName + "/subnets/" + validSubnetName
+	validLocalNetworkGatewayName             = "valid-local-network-gateway"
+	validVirtualNetworkGatewayConnectionName = "valid-virtual-network-gateway-connection"
+	validClusterName                         = "valid-cluster-name"
+	validVmName                              = "valid-vm-name"
+	validResourceName                        = "valid-resource-name"
+	vmURI                                    = uriPrefix + "Microsoft.Compute/virtualMachines/" + validVmName
+	aksURI                                   = uriPrefix + "Microsoft.ContainerService/managedClusters/" + validClusterName
 )
 
 func sendResponse(w http.ResponseWriter, resp any) {
@@ -528,7 +525,7 @@ func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*invisinetspb.
 		return nil, err
 	}
 	return &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: invisinetsDeploymentId, Namespace: namespace},
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
 		Name:        validVmName,
 		Description: desc,
 	}, nil
@@ -541,7 +538,7 @@ func getFakeClusterResourceDescription(cluster *armcontainerservice.ManagedClust
 		return nil, err
 	}
 	return &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: invisinetsDeploymentId, Namespace: namespace},
+		Deployment:  &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
 		Name:        validClusterName,
 		Description: desc,
 	}, nil

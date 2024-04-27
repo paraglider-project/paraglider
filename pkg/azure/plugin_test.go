@@ -36,12 +36,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var fakeAddressList = map[string][]string{testLocation: []string{validAddressSpace}}
-
-const defaultNamespace = "default"
-
 type dummyAzureCredentialGetter struct {
-	iAzureCredentialGetter
+	IAzureCredentialGetter
 }
 
 func (d *dummyAzureCredentialGetter) GetAzureCredentials() (azcore.TokenCredential, error) {
@@ -198,7 +194,7 @@ func TestGetPermitList(t *testing.T) {
 		server, _ := setupAzurePluginServer()
 
 		// Call the GetPermitList function
-		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
+		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
 		resp, err := server.GetPermitList(ctx, request)
 
 		// check the results
@@ -220,7 +216,7 @@ func TestGetPermitList(t *testing.T) {
 
 		server, _ := setupAzurePluginServer()
 		// Call the GetPermitList function
-		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
+		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
 		response, err := server.GetPermitList(ctx, request)
 
 		// check the error
@@ -242,7 +238,7 @@ func TestGetPermitList(t *testing.T) {
 		server, _ := setupAzurePluginServer()
 
 		// Call the GetPermitList function
-		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
+		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
 		response, err := server.GetPermitList(ctx, request)
 
 		// check the error
@@ -299,7 +295,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server, _ := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -326,7 +322,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server, _ := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakeOldPlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakeOldPlRules, Namespace: namespace, Resource: fakeResource})
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -345,7 +341,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server, _ := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
 		require.Error(t, err)
 		require.NotNil(t, err)
 		require.Nil(t, resp)
@@ -366,7 +362,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server, _ := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
 		require.Error(t, err)
 		require.NotNil(t, err)
 		require.Nil(t, resp)
@@ -388,7 +384,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		// Call the GetPermitList function
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
 
 		// check the error
 		require.Error(t, err)
@@ -425,7 +421,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 		server, _ := setupAzurePluginServer()
 
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -444,7 +440,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 		server, _ := setupAzurePluginServer()
 
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -464,7 +460,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 		server, _ := setupAzurePluginServer()
 
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -483,7 +479,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 		server, _ := setupAzurePluginServer()
 
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -505,7 +501,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		server, _ := setupAzurePluginServer()
 
 		// Call the GetPermitList function
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		// check the error
 		require.Error(t, err)
@@ -518,7 +514,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 		vnet: &armnetwork.VirtualNetwork{
-			Name:     to.Ptr(getInvisinetsNamespacePrefix(defaultNamespace) + validVnetName),
+			Name:     to.Ptr(getInvisinetsNamespacePrefix(namespace) + validVnetName),
 			Location: to.Ptr(testLocation),
 			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 				AddressSpace: &armnetwork.AddressSpace{
@@ -534,7 +530,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 	req := &invisinetspb.GetUsedAddressSpacesRequest{
 		Deployments: []*invisinetspb.InvisinetsDeployment{
-			{Id: deploymentId, Namespace: defaultNamespace},
+			{Id: deploymentId, Namespace: namespace},
 		},
 	}
 	resp, err := server.GetUsedAddressSpaces(ctx, req)
@@ -543,7 +539,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		{
 			AddressSpaces: []string{validAddressSpace},
 			Cloud:         utils.AZURE,
-			Namespace:     defaultNamespace,
+			Namespace:     namespace,
 		},
 	}
 	require.NoError(t, err)
@@ -556,7 +552,7 @@ func TestGetUsedAsns(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 		vpnGw: &armnetwork.VirtualNetworkGateway{
-			Name: to.Ptr(getVpnGatewayName(defaultNamespace)),
+			Name: to.Ptr(getVpnGatewayName(namespace)),
 			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
 				BgpSettings: &armnetwork.BgpSettings{
 					Asn: to.Ptr(int64(64512)),
@@ -572,7 +568,7 @@ func TestGetUsedAsns(t *testing.T) {
 	usedAsnsExpected := []uint32{64512}
 	req := &invisinetspb.GetUsedAsnsRequest{
 		Deployments: []*invisinetspb.InvisinetsDeployment{
-			{Id: deploymentId, Namespace: defaultNamespace},
+			{Id: deploymentId, Namespace: namespace},
 		},
 	}
 	resp, err := server.GetUsedAsns(ctx, req)
@@ -586,7 +582,7 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 		vpnGw: &armnetwork.VirtualNetworkGateway{
-			Name: to.Ptr(getVpnGatewayName(defaultNamespace)),
+			Name: to.Ptr(getVpnGatewayName(namespace)),
 			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
 				BgpSettings: &armnetwork.BgpSettings{
 					BgpPeeringAddresses: []*armnetwork.IPConfigurationBgpPeeringAddress{
@@ -605,7 +601,7 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 	usedBgpPeeringIpAddressExpected := []string{"169.254.21.1", "169.254.22.1"}
 	req := &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{
 		Deployments: []*invisinetspb.InvisinetsDeployment{
-			{Id: deploymentId, Namespace: defaultNamespace},
+			{Id: deploymentId, Namespace: namespace},
 		},
 	}
 	resp, err := server.GetUsedBgpPeeringIpAddresses(ctx, req)
@@ -631,7 +627,7 @@ func TestCreateVpnGateway(t *testing.T) {
 			ID: to.Ptr("subnet-id"),
 		},
 		vpnGw: &armnetwork.VirtualNetworkGateway{
-			Name: to.Ptr(getVpnGatewayName(defaultNamespace)),
+			Name: to.Ptr(getVpnGatewayName(namespace)),
 			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
 				IPConfigurations: []*armnetwork.VirtualNetworkGatewayIPConfiguration{
 					{
@@ -667,7 +663,7 @@ func TestCreateVpnGateway(t *testing.T) {
 	server.orchestratorServerAddr = fakeControllerServerAddr
 
 	req := &invisinetspb.CreateVpnGatewayRequest{
-		Deployment:            &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: defaultNamespace},
+		Deployment:            &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
 		Cloud:                 "fake-cloud",
 		BgpPeeringIpAddresses: []string{"169.254.21.1", "169.254.22.1"},
 	}
@@ -690,7 +686,7 @@ func TestCreateVpnConnections(t *testing.T) {
 	server, _ := setupAzurePluginServer()
 
 	req := &invisinetspb.CreateVpnConnectionsRequest{
-		Deployment:         &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: defaultNamespace},
+		Deployment:         &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
 		Cloud:              "cloudname",
 		Asn:                123,
 		GatewayIpAddresses: []string{"1.1.1.1", "2.2.2.2"},
@@ -752,7 +748,7 @@ func getFakeNIC() *armnetwork.Interface {
 	fakeNsgName := "test-nsg-name"
 	fakeNsgID := "a/b/" + fakeNsgName
 	fakeLocation := "test-location"
-	namespace := defaultNamespace
+	namespace := namespace
 	fakeResourceAddress := ""
 	fakeSubnetId := "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/" + getVnetName(fakeLocation, namespace) + "/subnets/subnet123"
 	return &armnetwork.Interface{

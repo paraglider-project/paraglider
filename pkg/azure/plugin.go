@@ -37,7 +37,7 @@ const maxPriority = 4096
 type azurePluginServer struct {
 	invisinetspb.UnimplementedCloudPluginServer
 	orchestratorServerAddr string
-	azureCredentialGetter  iAzureCredentialGetter
+	azureCredentialGetter  IAzureCredentialGetter
 }
 
 const (
