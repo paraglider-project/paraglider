@@ -102,7 +102,9 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 						http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
 						return
 					}
-					rule.ID = to.Ptr("rule-id") // Add ID since would be set server-side
+					if rule.ID == nil {
+						rule.ID = to.Ptr("rule-id") // Add ID since would be set server-side
+					}
 					sendResponse(w, rule)
 					return
 				} else if r.Method == "DELETE" {
@@ -429,6 +431,26 @@ func getFakeSubnet() armnetwork.Subnet {
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
 				ID:   getFakeNSG().ID,
 				Name: getFakeNSG().Name,
+			},
+		},
+	}
+}
+
+func getFakeVirtualNetwork() *armnetwork.VirtualNetwork {
+	id := fmt.Sprintf("%smicrosoft.Network/virtualNetworks/%s", uriPrefix, validVnetName)
+	return &armnetwork.VirtualNetwork{
+		Name:     to.Ptr(validVnetName),
+		ID:       &id,
+		Location: to.Ptr(testLocation),
+		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+			AddressSpace: &armnetwork.AddressSpace{
+				AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+			},
+			Subnets: []*armnetwork.Subnet{
+				{
+					Name: to.Ptr(validSubnetName),
+					ID:   to.Ptr(validSubnetId),
+				},
 			},
 		},
 	}

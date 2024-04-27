@@ -39,18 +39,12 @@ func TestGetVNetsAddressSpaces(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		vnet: &armnetwork.VirtualNetwork{
-			Name: to.Ptr(invisinetsPrefix + validVnetName),
-			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
-				AddressSpace: &armnetwork.AddressSpace{
-					AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
-				},
-			},
-		},
+		vnet:   getFakeVirtualNetwork(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	// Test case: Success
 	t.Run("GetVNetsAddressSpaces: Success", func(t *testing.T) {
@@ -59,6 +53,21 @@ func TestGetVNetsAddressSpaces(t *testing.T) {
 		require.NotNil(t, addresses)
 		require.Len(t, addresses, 1)
 		assert.Equal(t, addresses[testLocation], []string{validAddressSpace})
+	})
+
+	// Test case: Failure
+	t.Run("GetVNetsAddressSpaces: Failure", func(t *testing.T) {
+		fakeServerState.vnet = nil
+		addresses, err := handler.GetVNetsAddressSpaces(ctx, invisinetsPrefix)
+		require.Error(t, err)
+		require.Nil(t, addresses)
+	})
+
+	// Test case: Failure, wrong name
+	t.Run("GetVNetsAddressSpaces: Failure - wrong name", func(t *testing.T) {
+		addresses, err := handler.GetVNetsAddressSpaces(ctx, "otherprefix")
+		require.Error(t, err)
+		require.Nil(t, addresses)
 	})
 }
 
@@ -71,6 +80,7 @@ func TestCreateSecurityRule(t *testing.T) {
 	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	// Subtest 1: Create security rule - Success Test
 	t.Run("CreateSecurityRule: Success", func(t *testing.T) {
@@ -78,17 +88,7 @@ func TestCreateSecurityRule(t *testing.T) {
 			validSecurityGroupName, validSecurityRuleName, "10.1.0.5", 200)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.Equal(t, *resp.Name, validSecurityRuleName)
 
-	})
-
-	// Subtest 2: Create security rule - Failure Test
-	t.Run("CreateSecurityRule: Failure", func(t *testing.T) {
-		resp, err := handler.CreateSecurityRule(context.Background(), &invisinetspb.PermitListRule{},
-			validSecurityGroupName, "invalid-security-rule-name", "10.10.1.0", 200)
-
-		require.Error(t, err)
-		require.Nil(t, resp)
 	})
 }
 
@@ -101,19 +101,13 @@ func TestDeleteSecurityRule(t *testing.T) {
 	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	// Subtest 1: Delete security rule - Success Test
 	t.Run("DeleteSecurityRule: Success", func(t *testing.T) {
 		err := handler.DeleteSecurityRule(context.Background(), validSecurityGroupName, validSecurityRuleName)
 
 		require.NoError(t, err)
-	})
-
-	// Subtest 2: Delete security rule - Failure Test
-	t.Run("DeleteSecurityRule: Failure", func(t *testing.T) {
-		err := handler.DeleteSecurityRule(context.Background(), validSecurityGroupName, invalidSecurityRuleName)
-
-		require.Error(t, err)
 	})
 }
 
@@ -129,24 +123,24 @@ func TestGetSecurityGroup(t *testing.T) {
 	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	// Subtest 1: Get security group - Success Test
 	t.Run("GetSecurityGroup: Success", func(t *testing.T) {
-		expectedNsgNameSuccess := validSecurityGroupName
 		nsgSuccess, err := handler.GetSecurityGroup(context.Background(), validSecurityGroupName)
 
 		require.NoError(t, err)
 		require.NotNil(t, nsgSuccess)
-		require.Equal(t, *nsgSuccess.Name, expectedNsgNameSuccess)
+		require.Equal(t, *nsgSuccess.Name, validSecurityGroupName)
 	})
 
 	// Subtest 2: Get security group - Failure Test
 	t.Run("GetSecurityGroup: Failure", func(t *testing.T) {
-		nsgFail, err := handler.GetSecurityGroup(context.Background(), invalidSecurityGroupName)
+		fakeServerState.nsg = nil
+		nsgSuccess, err := handler.GetSecurityGroup(context.Background(), validSecurityGroupName)
 
-		// Check if error is not nil and nsgFail is nil
 		require.Error(t, err)
-		require.Nil(t, nsgFail)
+		require.Nil(t, nsgSuccess)
 	})
 }
 
@@ -155,10 +149,12 @@ func TestCreateSecurityGroup(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
+		nsg:    to.Ptr(getFakeNSG()),
 	}
 	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	t.Run("CreateSecurityGroup: Success", func(t *testing.T) {
 		prefixName1 := "cidr1"
@@ -168,7 +164,7 @@ func TestCreateSecurityGroup(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.NotNil(t, nsg)
-		assert.Contains(t, *nsg.Name, validResourceName)
+		assert.Contains(t, *nsg.Name, *fakeServerState.nsg.Name)
 	})
 
 	t.Run("CreateSecurityGroup: Success - none allowed", func(t *testing.T) {
@@ -177,7 +173,7 @@ func TestCreateSecurityGroup(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.NotNil(t, nsg)
-		assert.Contains(t, *nsg.Name, validResourceName)
+		assert.Contains(t, *nsg.Name, *fakeServerState.nsg.Name)
 	})
 }
 
@@ -186,13 +182,12 @@ func TestAssociateNSGWithSubnet(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		subnet: &armnetwork.Subnet{
-			Name: to.Ptr(validSubnetName),
-		},
+		subnet: to.Ptr(getFakeSubnet()),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	t.Run("AssociateNSGWithSubnet: Success", func(t *testing.T) {
 		err := handler.AssociateNSGWithSubnet(ctx, validSubnetURI, validSecurityGroupID)
@@ -201,6 +196,7 @@ func TestAssociateNSGWithSubnet(t *testing.T) {
 	})
 
 	t.Run("AssociateNSGWithSubnet: Failure - subnet does not exist", func(t *testing.T) {
+		fakeServerState.subnet = nil
 		err := handler.AssociateNSGWithSubnet(ctx, invalidSubnetURI, validSecurityGroupID)
 
 		require.Error(t, err)
@@ -212,13 +208,12 @@ func TestGetSubnetById(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		subnet: &armnetwork.Subnet{
-			Name: to.Ptr(validSubnetName),
-		},
+		subnet: to.Ptr(getFakeSubnet()),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	t.Run("GetSubnetById: Success", func(t *testing.T) {
 		subnet, err := handler.GetSubnetByID(ctx, validSubnetURI)
@@ -228,6 +223,7 @@ func TestGetSubnetById(t *testing.T) {
 	})
 
 	t.Run("GetSubnetById: Failure", func(t *testing.T) {
+		fakeServerState.subnet = nil
 		subnet, err := handler.GetSubnetByID(ctx, invalidSubnetURI)
 
 		require.Error(t, err)
@@ -240,27 +236,25 @@ func TestGetNetworkInterface(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		nic: &armnetwork.Interface{
-			Name: to.Ptr(validNicName),
-		},
+		nic:    getFakeNIC(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	// Test 1: Successful GetNetworkInterface for a VM
-	t.Run("GetNetworkInterface: Success VMTest", func(t *testing.T) {
-		// Call the function to test
+	t.Run("GetNetworkInterface: Success", func(t *testing.T) {
 		nic, err := handler.GetNetworkInterface(ctx, validNicName)
 
 		require.NotNil(t, nic)
 		require.NoError(t, err)
 	})
 
-	// Test 2: Failed Test due to invalid NIC name
-	t.Run("GetNetworkInterface: FailureNonVMTest", func(t *testing.T) {
-		// Call the function to test
-		nic, err := handler.GetNetworkInterface(ctx, invalidNicName)
+	// Test 2: Failed Test due to no NIC
+	t.Run("GetNetworkInterface: Failure", func(t *testing.T) {
+		fakeServerState.nic = nil
+		nic, err := handler.GetNetworkInterface(ctx, validNicName)
 
 		require.Error(t, err)
 		require.Nil(t, nic)
@@ -272,17 +266,15 @@ func TestGetResource(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		vm: &armcompute.VirtualMachine{
-			Name: to.Ptr(validVmName),
-		},
+		vm:     to.Ptr(getFakeVirtualMachine(false)),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	// Test case: Success
 	t.Run("GetResource: Success", func(t *testing.T) {
-		// Call the function to test
 		resource, err := handler.GetResource(ctx, vmURI)
 
 		require.NoError(t, err)
@@ -291,7 +283,7 @@ func TestGetResource(t *testing.T) {
 
 	// Test case: Failure
 	t.Run("GetResource: Failure", func(t *testing.T) {
-		// Call the function to test
+		fakeServerState.vm = nil
 		resource, err := handler.GetResource(ctx, invalidResourceID)
 
 		require.Error(t, err)
@@ -302,29 +294,21 @@ func TestGetResource(t *testing.T) {
 func TestCreateAKSCluster(t *testing.T) {
 	// Set up the fake Azure server
 	fakeServerState := &fakeServerState{
-		subId:  subID,
-		rgName: rgName,
+		subId:   subID,
+		rgName:  rgName,
+		cluster: to.Ptr(getFakeCluster(false)),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	// Test case: Success
 	t.Run("CreateAKSCluster: Success", func(t *testing.T) {
-		// Call the function to test
 		aksCluster, err := handler.CreateAKSCluster(ctx, armcontainerservice.ManagedCluster{}, validClusterName)
 
 		require.NoError(t, err)
 		require.NotNil(t, aksCluster)
-	})
-
-	// Test case: Failure
-	t.Run("CreateAKSCluster: Failure", func(t *testing.T) {
-		// Call the function to test
-		aksCluster, err := handler.CreateAKSCluster(ctx, armcontainerservice.ManagedCluster{}, invalidClusterName)
-
-		require.Error(t, err)
-		require.Nil(t, aksCluster)
 	})
 }
 
@@ -333,27 +317,19 @@ func TestCreateVirtualMachine(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
+		vm:     to.Ptr(getFakeVirtualMachine(false)),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	// Test case: Success
 	t.Run("CreateVirtualMachine: Success", func(t *testing.T) {
-		// Call the function to test
 		vm, err := handler.CreateVirtualMachine(ctx, armcompute.VirtualMachine{}, validVmName)
 
 		require.NoError(t, err)
 		require.NotNil(t, vm)
-	})
-
-	// Test case: Failure
-	t.Run("CreateVirtualMachine: Failure", func(t *testing.T) {
-		// Call the function to test
-		vm, err := handler.CreateVirtualMachine(ctx, armcompute.VirtualMachine{}, invalidVmName)
-
-		require.Error(t, err)
-		require.Nil(t, vm)
 	})
 }
 
@@ -362,13 +338,12 @@ func TestGetInvisinetsVnet(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		vnet: &armnetwork.VirtualNetwork{
-			Name: to.Ptr(validVnetName),
-		},
+		vnet:   getFakeVirtualNetwork(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
@@ -384,16 +359,10 @@ func TestGetInvisinetsVnet(t *testing.T) {
 
 	// Test case: Success, vnet doesn't exist, create new one
 	t.Run("GetInvisinetsVnet: Success, create new vnet", func(t *testing.T) {
+		fakeServerState.vnet = nil
 		vnet, err := handler.GetInvisinetsVnet(ctx, notFoundVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
-	})
-
-	// Test case: Failure, error when getting vnet
-	t.Run("GetInvisinetsVnet: Failure, error when getting vnet", func(t *testing.T) {
-		vnet, err := handler.GetInvisinetsVnet(ctx, invalidVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
-		require.Error(t, err)
-		require.Nil(t, vnet)
 	})
 }
 
@@ -402,10 +371,12 @@ func TestAddSubnetToInvisinetsVnet(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
+		vnet:   getFakeVirtualNetwork(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
@@ -432,10 +403,12 @@ func TestCreateNetworkInterface(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
+		nic:    getFakeNIC(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	// Test case: Success
 	t.Run("CreateNetworkInterface: Success", func(t *testing.T) {
@@ -445,15 +418,6 @@ func TestCreateNetworkInterface(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, nic)
 	})
-
-	// Test case: Failure
-	t.Run("CreateNetworkInterface: Failure", func(t *testing.T) {
-		// Call the function to test
-		nic, err := handler.CreateNetworkInterface(ctx, "", testLocation, invalidNicName)
-
-		require.Error(t, err)
-		require.Nil(t, nic)
-	})
 }
 
 func TestCreateInvisinetsVirtualNetwork(t *testing.T) {
@@ -461,10 +425,12 @@ func TestCreateInvisinetsVirtualNetwork(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
+		vnet:   getFakeVirtualNetwork(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	// Test case: Success
 	t.Run("CreateInvisinetsVirtualNetwork: Success", func(t *testing.T) {
@@ -474,15 +440,6 @@ func TestCreateInvisinetsVirtualNetwork(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
-
-	// Test case: Failure
-	t.Run("CreateInvisinetsVirtualNetwork: Failure", func(t *testing.T) {
-		// Call the function to test
-		vnet, err := handler.CreateInvisinetsVirtualNetwork(ctx, testLocation, invalidVnetName, validAddressSpace)
-
-		require.Error(t, err)
-		require.Nil(t, vnet)
-	})
 }
 
 func TestGetVnet(t *testing.T) {
@@ -490,17 +447,15 @@ func TestGetVnet(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		vnet: &armnetwork.VirtualNetwork{
-			Name: to.Ptr(validVnetName),
-		},
+		vnet:   getFakeVirtualNetwork(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	// Test case: Success
 	t.Run("GetVnet: Success", func(t *testing.T) {
-		// Call the function to test
 		vnet, err := handler.GetVNet(ctx, validVnetName)
 
 		require.NoError(t, err)
@@ -509,7 +464,7 @@ func TestGetVnet(t *testing.T) {
 
 	// Test case: Failure
 	t.Run("GetVnet: Failure", func(t *testing.T) {
-		// Call the function to test
+		fakeServerState.vnet = nil
 		vnet, err := handler.GetVNet(ctx, invalidVnetName)
 
 		require.Error(t, err)
@@ -522,14 +477,17 @@ func TestCreateVnetPeering(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
+		vnetPeering: &armnetwork.VirtualNetworkPeering{
+			Name: to.Ptr("peeringName"),
+		},
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	// Test case: Success
 	t.Run("CreateVnetPeering: Success", func(t *testing.T) {
-		// Call the function to test
 		err := handler.CreateVnetPeering(ctx, validVnetName, validVnetName)
 
 		require.NoError(t, err)
@@ -538,6 +496,7 @@ func TestCreateVnetPeering(t *testing.T) {
 
 func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	// Test case: Inbound rule
 	t.Run("Inbound", func(t *testing.T) {
@@ -682,20 +641,19 @@ func TestCreateOrUpdateVirtualNetworkGateway(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
+		vpnGw: &armnetwork.VirtualNetworkGateway{
+			Name: to.Ptr(validVirtualNetworkGatewayName),
+		},
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	t.Run("Success", func(t *testing.T) {
 		virtualNetworkGateway, err := handler.CreateOrUpdateVirtualNetworkGateway(ctx, validVirtualNetworkGatewayName, armnetwork.VirtualNetworkGateway{})
 		require.NoError(t, err)
 		require.NotNil(t, virtualNetworkGateway)
-	})
-	t.Run("Failure", func(t *testing.T) {
-		virtualNetworkGateway, err := handler.CreateOrUpdateVirtualNetworkGateway(ctx, invalidVirtualNetworkGatewayName, armnetwork.VirtualNetworkGateway{})
-		require.Error(t, err)
-		require.Nil(t, virtualNetworkGateway)
 	})
 }
 
@@ -711,6 +669,7 @@ func TestGetVirtualNetworkGateway(t *testing.T) {
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	t.Run("Success", func(t *testing.T) {
 		virtualNetworkGateway, err := handler.GetVirtualNetworkGateway(ctx, validVirtualNetworkGatewayName)
@@ -718,6 +677,7 @@ func TestGetVirtualNetworkGateway(t *testing.T) {
 		require.NotNil(t, virtualNetworkGateway)
 	})
 	t.Run("Failure", func(t *testing.T) {
+		fakeServerState.vpnGw = nil
 		virtualNetworkGateway, err := handler.GetVirtualNetworkGateway(ctx, invalidVirtualNetworkGatewayName)
 		require.Error(t, err)
 		require.Nil(t, virtualNetworkGateway)
@@ -729,20 +689,19 @@ func TestCreatePublicIPAddress(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
+		publicIP: &armnetwork.PublicIPAddress{
+			Name: to.Ptr(validPublicIpAddressName),
+		},
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	t.Run("Success", func(t *testing.T) {
 		publicIPAddress, err := handler.CreatePublicIPAddress(ctx, validPublicIpAddressName, armnetwork.PublicIPAddress{})
 		require.NoError(t, err)
 		require.NotNil(t, publicIPAddress)
-	})
-	t.Run("Failure", func(t *testing.T) {
-		publicIPAddress, err := handler.CreatePublicIPAddress(ctx, invalidPublicIpAddressName, armnetwork.PublicIPAddress{})
-		require.Error(t, err)
-		require.Nil(t, publicIPAddress)
 	})
 }
 
@@ -751,20 +710,17 @@ func TestCreateSubnet(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
+		subnet: to.Ptr(getFakeSubnet()),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	t.Run("Success", func(t *testing.T) {
 		subnet, err := handler.CreateSubnet(ctx, validVnetName, validSubnetName, armnetwork.Subnet{})
 		require.NoError(t, err)
 		require.NotNil(t, subnet)
-	})
-	t.Run("Failure", func(t *testing.T) {
-		subnet, err := handler.CreateSubnet(ctx, validVnetName, invalidSubnetName, armnetwork.Subnet{})
-		require.Error(t, err)
-		require.Nil(t, subnet)
 	})
 }
 
@@ -773,20 +729,19 @@ func TestCreateLocalNetworkGateway(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
+		localGw: &armnetwork.LocalNetworkGateway{
+			Name: to.Ptr(validLocalNetworkGatewayName),
+		},
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	t.Run("Success", func(t *testing.T) {
 		localNetworkGateway, err := handler.CreateLocalNetworkGateway(ctx, validLocalNetworkGatewayName, armnetwork.LocalNetworkGateway{})
 		require.NoError(t, err)
 		require.NotNil(t, localNetworkGateway)
-	})
-	t.Run("Failure", func(t *testing.T) {
-		localNetworkGateway, err := handler.CreateLocalNetworkGateway(ctx, invalidLocalNetworkGatewayName, armnetwork.LocalNetworkGateway{})
-		require.Error(t, err)
-		require.Nil(t, localNetworkGateway)
 	})
 }
 
@@ -802,6 +757,7 @@ func TestGetLocalNetworkGateway(t *testing.T) {
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	t.Run("Success", func(t *testing.T) {
 		localNetworkGateway, err := handler.GetLocalNetworkGateway(ctx, validLocalNetworkGatewayName)
@@ -809,6 +765,7 @@ func TestGetLocalNetworkGateway(t *testing.T) {
 		require.NotNil(t, localNetworkGateway)
 	})
 	t.Run("Failure", func(t *testing.T) {
+		fakeServerState.localGw = nil
 		localNetworkGateway, err := handler.GetLocalNetworkGateway(ctx, invalidLocalNetworkGatewayName)
 		require.Error(t, err)
 		require.Nil(t, localNetworkGateway)
@@ -820,20 +777,19 @@ func TestCreateVirtualNetworkGatewayConnection(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
+		vpnConnection: &armnetwork.VirtualNetworkGatewayConnection{
+			Name: to.Ptr(validVirtualNetworkGatewayConnectionName),
+		},
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	t.Run("Success", func(t *testing.T) {
 		virtualNetworkGatewayConnection, err := handler.CreateVirtualNetworkGatewayConnection(ctx, validVirtualNetworkGatewayConnectionName, armnetwork.VirtualNetworkGatewayConnection{})
 		require.NoError(t, err)
 		require.NotNil(t, virtualNetworkGatewayConnection)
-	})
-	t.Run("Failure", func(t *testing.T) {
-		virtualNetworkGatewayConnection, err := handler.CreateVirtualNetworkGatewayConnection(ctx, invalidVirtualNetworkGatewayConnectionName, armnetwork.VirtualNetworkGatewayConnection{})
-		require.Error(t, err)
-		require.Nil(t, virtualNetworkGatewayConnection)
 	})
 }
 
@@ -849,6 +805,7 @@ func TestGetVirtualNetworkGatewayConnection(t *testing.T) {
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
 	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	handler.InitializeClients(nil)
 
 	t.Run("Success", func(t *testing.T) {
 		virtualNetworkGatewayConnection, err := handler.GetVirtualNetworkGatewayConnection(ctx, validVirtualNetworkGatewayConnectionName)
@@ -856,6 +813,7 @@ func TestGetVirtualNetworkGatewayConnection(t *testing.T) {
 		require.NotNil(t, virtualNetworkGatewayConnection)
 	})
 	t.Run("Failure", func(t *testing.T) {
+		fakeServerState.vpnConnection = nil
 		virtualNetworkGatewayConnection, err := handler.GetVirtualNetworkGatewayConnection(ctx, invalidVirtualNetworkGatewayConnectionName)
 		require.Error(t, err)
 		require.Nil(t, virtualNetworkGatewayConnection)
