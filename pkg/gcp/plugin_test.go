@@ -107,7 +107,7 @@ func TestAddPermitListRules(t *testing.T) {
 	}
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
-			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")),
+			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")),
 			Network:    proto.String(GetVpcUri(fakeProject, fakeNamespace)),
 		},
 	}
@@ -220,7 +220,7 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 	}
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
-			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")),
+			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")),
 			Network:    proto.String(GetVpcUri(fakeProject, fakeNamespace)),
 		},
 	}
@@ -310,7 +310,7 @@ func TestCreateResource(t *testing.T) {
 		instance: getFakeInstance(true), // Include instance in server state since CreateResource will fetch after creating to add the tag
 		network: &computepb.Network{
 			Name:        proto.String(getVpcName(fakeNamespace)),
-			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")},
 		},
 	}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
@@ -330,7 +330,7 @@ func TestCreateResource(t *testing.T) {
 		t.Fatal(err)
 	}
 	resource := &paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		Name:        fakeInstanceName,
 		Description: description,
 	}
@@ -345,7 +345,7 @@ func TestCreateResourceCluster(t *testing.T) {
 		cluster: getFakeCluster(true), // Include cluster in server state since CreateResource will fetch after creating to add the tag
 		network: &computepb.Network{
 			Name:        proto.String(getVpcName(fakeNamespace)),
-			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")},
 		},
 	}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
@@ -364,7 +364,7 @@ func TestCreateResourceCluster(t *testing.T) {
 		t.Fatal(err)
 	}
 	resource := &paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		Name:        fakeClusterName,
 		Description: description,
 	}
@@ -393,7 +393,7 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 		t.Fatal(err)
 	}
 	resource := &paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		Name:        fakeInstanceName,
 		Description: description,
 	}
@@ -426,7 +426,7 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 		t.Fatal(err)
 	}
 	resource := &paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		Name:        fakeInstanceName,
 		Description: description,
 	}
@@ -441,7 +441,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		network: &computepb.Network{
 			Name: proto.String(getVpcName(fakeNamespace)),
 			Subnetworks: []string{
-				"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-fake1/subnetworks/invisinets-us-fake1-subnet",
+				"https://www.googleapis.com/compute/v1/projects/paraglider-playground/regions/us-fake1/subnetworks/paraglider-us-fake1-subnet",
 			},
 		},
 		subnetwork: &computepb.Subnetwork{
@@ -461,7 +461,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		},
 	}
 	req := &paragliderpb.GetUsedAddressSpacesRequest{
-		Deployments: []*paragliderpb.InvisinetsDeployment{
+		Deployments: []*paragliderpb.ParagliderDeployment{
 			{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		},
 	}
@@ -487,7 +487,7 @@ func TestGetUsedAsns(t *testing.T) {
 
 	usedAsnsExpected := []uint32{64512}
 	req := &paragliderpb.GetUsedAsnsRequest{
-		Deployments: []*paragliderpb.InvisinetsDeployment{
+		Deployments: []*paragliderpb.ParagliderDeployment{
 			{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		},
 	}
@@ -514,7 +514,7 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 
 	usedBgpPeeringIpAddressExpected := []string{"169.254.21.1", "169.254.22.1"}
 	req := &paragliderpb.GetUsedBgpPeeringIpAddressesRequest{
-		Deployments: []*paragliderpb.InvisinetsDeployment{
+		Deployments: []*paragliderpb.ParagliderDeployment{
 			{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		},
 	}
@@ -544,7 +544,7 @@ func TestCreateVpnGateway(t *testing.T) {
 	vpnRegion = fakeRegion
 
 	req := &paragliderpb.CreateVpnGatewayRequest{
-		Deployment:            &paragliderpb.InvisinetsDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
+		Deployment:            &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
 		Cloud:                 "fakecloud",
 		BgpPeeringIpAddresses: []string{"169.254.21.1", "169.254.22.1"},
 	}
@@ -564,7 +564,7 @@ func TestCreateVpnConnections(t *testing.T) {
 	vpnRegion = fakeRegion
 
 	req := &paragliderpb.CreateVpnConnectionsRequest{
-		Deployment:         &paragliderpb.InvisinetsDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
+		Deployment:         &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
 		Cloud:              "fakecloud",
 		Asn:                65555,
 		GatewayIpAddresses: []string{"1.1.1.1"},

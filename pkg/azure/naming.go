@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	invisinetsPrefix = "invisinets"
+	paragliderPrefix = "paraglider"
 )
 
 type ResourceIDInfo struct {
@@ -62,33 +62,33 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	return info, nil
 }
 
-// getInvisinetsResourceName returns a name for the Invisinets resource
-func getInvisinetsResourceName(resourceType string) string {
-	// TODO @nnomier: change based on invisinets naming convention
-	return invisinetsPrefix + "-" + resourceType + "-" + uuid.New().String()
+// getParagliderResourceName returns a name for the Paraglider resource
+func getParagliderResourceName(resourceType string) string {
+	// TODO @nnomier: change based on paraglider naming convention
+	return paragliderPrefix + "-" + resourceType + "-" + uuid.New().String()
 }
 
-// getNSGRuleName returns a name for the Invisinets rule
+// getNSGRuleName returns a name for the Paraglider rule
 func getNSGRuleName(ruleName string) string {
-	return invisinetsPrefix + "-" + ruleName
+	return paragliderPrefix + "-" + ruleName
 }
 
 func getRuleNameFromNSGRuleName(ruleName string) string {
-	return strings.TrimPrefix(ruleName, invisinetsPrefix+"-")
+	return strings.TrimPrefix(ruleName, paragliderPrefix+"-")
 }
 
 func getSubnetName(resourceName string) string {
 	return resourceName + "-subnet"
 }
 
-func getInvisinetsNamespacePrefix(namespace string) string {
-	return invisinetsPrefix + "-" + namespace
+func getParagliderNamespacePrefix(namespace string) string {
+	return paragliderPrefix + "-" + namespace
 }
 
-// getVnetName returns the name of the invisinets vnet in the given location
+// getVnetName returns the name of the paraglider vnet in the given location
 // since an invisients vnet is unique per location
 func getVnetName(location string, namespace string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-" + location + "-vnet"
+	return getParagliderNamespacePrefix(namespace) + "-" + location + "-vnet"
 }
 
 func getVpnGatewayVnetName(namespace string) string {
@@ -96,7 +96,7 @@ func getVpnGatewayVnetName(namespace string) string {
 }
 
 func getVpnGatewayName(namespace string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-vpn-gw"
+	return getParagliderNamespacePrefix(namespace) + "-vpn-gw"
 }
 
 func getVPNGatewayIPAddressName(namespace string, idx int) string {
@@ -104,9 +104,9 @@ func getVPNGatewayIPAddressName(namespace string, idx int) string {
 }
 
 func getLocalNetworkGatewayName(namespace string, cloud string, idx int) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-" + cloud + "-local-gw-" + strconv.Itoa(idx)
+	return getParagliderNamespacePrefix(namespace) + "-" + cloud + "-local-gw-" + strconv.Itoa(idx)
 }
 
 func getVirtualNetworkGatewayConnectionName(namespace string, cloud string, idx int) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-" + cloud + "-conn-" + strconv.Itoa(idx)
+	return getParagliderNamespacePrefix(namespace) + "-" + cloud + "-conn-" + strconv.Itoa(idx)
 }

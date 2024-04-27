@@ -74,17 +74,17 @@ func (c *CloudClient) CreateSubnet(
 	return subnet, nil
 }
 
-// GetSubnetsInVPC returns all invisinets subnets in the specified VPC.
+// GetSubnetsInVPC returns all paraglider subnets in the specified VPC.
 // NOTE: unlike GetSubnetsInVpcRegionBound isn't reliant on the vpcService's region.
 func (c *CloudClient) GetSubnetsInVPC(vpcID string) ([]ResourceData, error) {
-	subnets, err := c.GetInvisinetsTaggedResources(SUBNET, []string{vpcID}, ResourceQuery{})
+	subnets, err := c.GetParagliderTaggedResources(SUBNET, []string{vpcID}, ResourceQuery{})
 	if err != nil {
 		return nil, err
 	}
 	return subnets, nil
 }
 
-// GetSubnetsInVpcRegionBound returns all subnets in vpc, user's and invisinets'
+// GetSubnetsInVpcRegionBound returns all subnets in vpc, user's and paraglider'
 // in the region set by the client.
 // NOTES: before invoking this function Set VPC client to the region the VPC is located in.
 //

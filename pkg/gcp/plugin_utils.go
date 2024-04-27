@@ -69,7 +69,7 @@ func SetupGcpTesting(testName string) string {
 		projectId = generateProjectId(testName)
 		if os.Getenv("GH_RUN_NUMBER") != "" {
 			// Use run number in project display name since it's more human readable
-			projectDisplayName = fmt.Sprintf("invisinets-gh-%s-%s", os.Getenv("GH_RUN_NUMBER"), testName)
+			projectDisplayName = fmt.Sprintf("paraglider-gh-%s-%s", os.Getenv("GH_RUN_NUMBER"), testName)
 		} else {
 			projectDisplayName = projectId
 		}

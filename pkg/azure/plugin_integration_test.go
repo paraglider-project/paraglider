@@ -39,7 +39,7 @@ func createVM(ctx context.Context, server *azurePluginServer, subscriptionId str
 		return nil, fmt.Errorf("unable to marshal VM parameters")
 	}
 	resourceDescription := &paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: namespace},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: namespace},
 		Name:        name,
 		Description: parametersBytes,
 	}
@@ -72,7 +72,7 @@ func TestBasicPermitListOps(t *testing.T) {
 	vmName := vmNamePrefix + "-" + uuid.NewString()
 	vmID := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + vmName
 	createResourceResp, err := s.CreateResource(ctx, &paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: "default"},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: "default"},
 		Name:        vmName,
 		Description: descriptionJson,
 	})
@@ -164,7 +164,7 @@ func TestCrossNamespaces(t *testing.T) {
 	ctx := context.Background()
 
 	// Create vm1 in rg1
-	vm1Name := "vm-invisinets-test1"
+	vm1Name := "vm-paraglider-test1"
 	vm1Location := "westus"
 	createVM1Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroup1Name, resourceGroup1Namespace, vm1Location, vm1Name)
 	require.NoError(t, err)
@@ -172,7 +172,7 @@ func TestCrossNamespaces(t *testing.T) {
 	assert.Equal(t, createVM1Resp.Name, vm1Name)
 
 	// Create vm2 in rg2
-	vm2Name := "vm-invisinets-test2"
+	vm2Name := "vm-paraglider-test2"
 	vm2Location := "westus"
 	createVM2Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroup2Name, resourceGroup2Namespace, vm2Location, vm2Name)
 	require.NoError(t, err)

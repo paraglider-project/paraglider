@@ -61,8 +61,8 @@ const (
 	validSecurityGroupID                       = "valid-security-group-id"
 	validSecurityGroupName                     = validNicName + nsgNameSuffix
 	invalidSecurityGroupName                   = "invalid-security-group-name"
-	validVnetName                              = "invisinets-valid-vnet-name"
-	notFoundVnetName                           = "invisinets-not-found-vnet-name"
+	validVnetName                              = "paraglider-valid-vnet-name"
+	notFoundVnetName                           = "paraglider-not-found-vnet-name"
 	invalidVnetName                            = "invalid-vnet-name"
 	validAddressSpace                          = "10.0.0.0/16"
 	validVirtualNetworkGatewayName             = "valid-virtual-network-gateway"
@@ -271,7 +271,7 @@ func TestGetVNetsAddressSpaces(t *testing.T) {
 
 	// Test case: Success
 	t.Run("GetVNetsAddressSpaces: Success", func(t *testing.T) {
-		addresses, err := azureSDKHandlerTest.GetVNetsAddressSpaces(ctx, invisinetsPrefix)
+		addresses, err := azureSDKHandlerTest.GetVNetsAddressSpaces(ctx, paragliderPrefix)
 		require.NoError(t, err)
 		require.NotNil(t, addresses)
 		require.Len(t, addresses, 1)
@@ -517,7 +517,7 @@ func TestCreateVirtualMachine(t *testing.T) {
 	})
 }
 
-func TestGetInvisinetsVnet(t *testing.T) {
+func TestGetParagliderVnet(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
 	once.Do(setup)
 
@@ -529,28 +529,28 @@ func TestGetInvisinetsVnet(t *testing.T) {
 	}
 
 	// Test case: Success, vnet already existed
-	t.Run("GetInvisinetsVnet: Success, vnet exists", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, validVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
+	t.Run("GetParagliderVnet: Success, vnet exists", func(t *testing.T) {
+		vnet, err := azureSDKHandlerTest.GetParagliderVnet(ctx, validVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
 
 	// Test case: Success, vnet doesn't exist, create new one
-	t.Run("GetInvisinetsVnet: Success, create new vnet", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, notFoundVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
+	t.Run("GetParagliderVnet: Success, create new vnet", func(t *testing.T) {
+		vnet, err := azureSDKHandlerTest.GetParagliderVnet(ctx, notFoundVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
 
 	// Test case: Failure, error when getting vnet
-	t.Run("GetInvisinetsVnet: Failure, error when getting vnet", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetInvisinetsVnet(ctx, invalidVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
+	t.Run("GetParagliderVnet: Failure, error when getting vnet", func(t *testing.T) {
+		vnet, err := azureSDKHandlerTest.GetParagliderVnet(ctx, invalidVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.Error(t, err)
 		require.Nil(t, vnet)
 	})
 }
 
-func TestAddSubnetToInvisinetsVnet(t *testing.T) {
+func TestAddSubnetToParagliderVnet(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
 	once.Do(setup)
 
@@ -563,15 +563,15 @@ func TestAddSubnetToInvisinetsVnet(t *testing.T) {
 	}
 
 	// Test case: Success, subnet added
-	t.Run("AddSubnetInvisinetsVnet: Success", func(t *testing.T) {
-		subnet, err := azureSDKHandlerTest.AddSubnetToInvisinetsVnet(ctx, "namespace", validVnetName, validSubnetName, fakeOrchestratorServerAddr)
+	t.Run("AddSubnetParagliderVnet: Success", func(t *testing.T) {
+		subnet, err := azureSDKHandlerTest.AddSubnetToParagliderVnet(ctx, "namespace", validVnetName, validSubnetName, fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, subnet)
 	})
 
 	// Test case: Failure, error when getting new address space
-	t.Run("AddSubnetInvisinetsVnet: Failure, error when getting address spaces", func(t *testing.T) {
-		subnet, err := azureSDKHandlerTest.AddSubnetToInvisinetsVnet(ctx, "namespace", validVnetName, validSubnetName, "bad address")
+	t.Run("AddSubnetParagliderVnet: Failure, error when getting address spaces", func(t *testing.T) {
+		subnet, err := azureSDKHandlerTest.AddSubnetToParagliderVnet(ctx, "namespace", validVnetName, validSubnetName, "bad address")
 		require.Error(t, err)
 		require.Nil(t, subnet)
 	})
@@ -603,7 +603,7 @@ func TestCreateNetworkInterface(t *testing.T) {
 	})
 }
 
-func TestCreateInvisinetsVirtualNetwork(t *testing.T) {
+func TestCreateParagliderVirtualNetwork(t *testing.T) {
 	// Initialize and set up the test scenario with the appropriate responses
 	once.Do(setup)
 
@@ -611,18 +611,18 @@ func TestCreateInvisinetsVirtualNetwork(t *testing.T) {
 	ctx := context.Background()
 
 	// Test case: Success
-	t.Run("CreateInvisinetsVirtualNetwork: Success", func(t *testing.T) {
+	t.Run("CreateParagliderVirtualNetwork: Success", func(t *testing.T) {
 		// Call the function to test
-		vnet, err := azureSDKHandlerTest.CreateInvisinetsVirtualNetwork(ctx, testLocation, validVnetName, validAddressSpace)
+		vnet, err := azureSDKHandlerTest.CreateParagliderVirtualNetwork(ctx, testLocation, validVnetName, validAddressSpace)
 
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
 
 	// Test case: Failure
-	t.Run("CreateInvisinetsVirtualNetwork: Failure", func(t *testing.T) {
+	t.Run("CreateParagliderVirtualNetwork: Failure", func(t *testing.T) {
 		// Call the function to test
-		vnet, err := azureSDKHandlerTest.CreateInvisinetsVirtualNetwork(ctx, testLocation, invalidVnetName, validAddressSpace)
+		vnet, err := azureSDKHandlerTest.CreateParagliderVirtualNetwork(ctx, testLocation, invalidVnetName, validAddressSpace)
 
 		require.Error(t, err)
 		require.Nil(t, vnet)
@@ -677,7 +677,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 	t.Run("Inbound", func(t *testing.T) {
 		inboundRule := &armnetwork.SecurityRule{
 			ID:   to.Ptr("security/rule/id"),
-			Name: to.Ptr("invisinets-rulename"),
+			Name: to.Ptr("paraglider-rulename"),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Direction:             to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 				SourcePortRange:       to.Ptr("100"),
@@ -692,7 +692,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 
 		// Expected permit list rule
 		expectedRule := &paragliderpb.PermitListRule{
-			Name:      "invisinets-rulename",
+			Name:      "paraglider-rulename",
 			Targets:   []string{"10.5.1.0", "10.6.1.0"},
 			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   100,
@@ -710,7 +710,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 	t.Run("Outbound", func(t *testing.T) {
 		outboundRule := &armnetwork.SecurityRule{
 			ID:   to.Ptr("security/rule/id"),
-			Name: to.Ptr("invisinets-rulename"),
+			Name: to.Ptr("paraglider-rulename"),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 				SourcePortRange:            to.Ptr("200"),
@@ -725,7 +725,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 
 		// Expected permit list rule
 		expectedRule := &paragliderpb.PermitListRule{
-			Name:      "invisinets-rulename",
+			Name:      "paraglider-rulename",
 			Targets:   []string{"10.3.1.0", "10.2.1.0"},
 			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   200,
@@ -744,7 +744,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 	t.Run("Success:AnyPort", func(t *testing.T) {
 		anyPortRule := &armnetwork.SecurityRule{
 			ID:   to.Ptr("security/rule/id"),
-			Name: to.Ptr("invisinets-rulename"),
+			Name: to.Ptr("paraglider-rulename"),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 				SourcePortRange:            to.Ptr("*"),
@@ -759,7 +759,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 
 		// Expected permit list rule
 		expectedRule := &paragliderpb.PermitListRule{
-			Name:      "invisinets-rulename",
+			Name:      "paraglider-rulename",
 			Targets:   []string{"10.3.1.0", "10.2.1.0"},
 			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
@@ -778,7 +778,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 	t.Run("Success:TagsIncluded", func(t *testing.T) {
 		anyPortRule := &armnetwork.SecurityRule{
 			ID:   to.Ptr("security/rule/id"),
-			Name: to.Ptr("invisinets-rulename"),
+			Name: to.Ptr("paraglider-rulename"),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 				SourcePortRange:            to.Ptr("1"),
@@ -794,7 +794,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 
 		// Expected permit list rule
 		expectedRule := &paragliderpb.PermitListRule{
-			Name:      "invisinets-rulename",
+			Name:      "paraglider-rulename",
 			Targets:   []string{"10.3.1.0", "10.2.1.0"},
 			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   1,

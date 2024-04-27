@@ -40,20 +40,20 @@ import (
 
 // Fake project and resource
 const (
-	fakeProject      = "invisinets-fake"
+	fakeProject      = "paraglider-fake"
 	fakeRegion       = "us-fake1"
 	fakeZone         = fakeRegion + "-a"
-	fakeInstanceName = "vm-invisinets-fake"
-	fakeClusterName  = "cluster-invisinets-fake"
+	fakeInstanceName = "vm-paraglider-fake"
+	fakeClusterName  = "cluster-paraglider-fake"
 	fakeClusterId    = "12345678910"
 	fakeInstanceId   = uint64(1234)
 	fakeResourceId   = "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
 	fakeNamespace    = "default"
-	fakeSubnetName   = "subnet-invisinets-fake"
+	fakeSubnetName   = "subnet-paraglider-fake"
 	fakeSubnetId     = "projects/" + fakeProject + "/regions/" + fakeRegion + "/subnetworks/" + fakeSubnetName
 
 	// Missing resources not registered in fake server
-	fakeMissingInstance   = "vm-invisinets-missing"
+	fakeMissingInstance   = "vm-paraglider-missing"
 	fakeMissingResourceId = "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeMissingInstance
 
 	// Overarching dummy operation name

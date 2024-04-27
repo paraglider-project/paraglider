@@ -7,7 +7,7 @@ This README provides guidance on adding new functions to the plugin and outlines
 - [Getting Started](#getting-started)
   - [Local Development and Testing](#local-development-and-testing)
 - [Package Structure](#package-structure)
-- [Adding a New Invisinets API Function to the Plugin](#adding-a-new-invisinets-api-function-to-the-plugin)
+- [Adding a New Paraglider API Function to the Plugin](#adding-a-new-paraglider-api-function-to-the-plugin)
 - [Testing](#testing)
   - [Unit Tests](#unit-tests)
     - [`plugin.go`](#plugingo)
@@ -57,18 +57,18 @@ For local testing purposes, consider adding a `main` function within the `plugin
 ## Package Structure
 The `azure` contains essential components and functionalities related to Azure integration. Within the `azure` package, you will find the following key files:
 
-- `plugin.go`: Serving as the primary entry point for the project, this file implements the core InvisiNets API functions. It acts as the interface between the external API requests and the underlying logic within the `azure` package.
+- `plugin.go`: Serving as the primary entry point for the project, this file implements the core Paraglider API functions. It acts as the interface between the external API requests and the underlying logic within the `azure` package.
 - `sdk_handler.go`: This file encapsulates the communication with Azure Resource Manager (ARM) for managing Azure resources. It consolidates the actual server requests made to Azure, providing a streamlined approach for resource management. 
 - `integration_test.go`: This file contains integration tests specifically focused on Azure functionality. It validates the plugin funcitonality and the server integration with azure services.
 - `plugin_test.go`: Dedicated to unit tests, this file ensures the reliability and correctness of the server implementation within the `azure` package. 
 - `sdk_handler_test.go`: Focused solely on unit tests, this file tests the `sdk_handler` functionalities. It verifies that the  the responses are handled appropriately by redirecting ARM requests to a fake server.
 
-## Adding a New Invisinets API fucntion to the Plugin
+## Adding a New Paraglider API fucntion to the Plugin
 
 Follow these steps to ensure consistent structure and seamless integration.
 
 1. Open `plugin.go`:
-   - Add a new function following the same structure as specified in InvisiNets APIs. For example:
+   - Add a new function following the same structure as specified in Paraglider APIs. For example:
      ```go
      func (s *azurePluginServer) GetPermitList(ctx context.Context, input *paragliderpb.GetPermitListRequest) (*paragliderpb.GetPermitListResponse, error) {
          // Implementation here
@@ -90,7 +90,7 @@ Follow these steps to ensure consistent structure and seamless integration.
      ```
 
 3. Handling ARM Requests:
-   - If your new API needs to make ARM requests, check if the required functionality is already implemented in `sdk_handler.go`. If not, add a new function in the handler that wraps the Azure request. Call this new function from the `plugin` file. Any helper functionalities relevant only to Invisinets and the server can remain in `plugin`.
+   - If your new API needs to make ARM requests, check if the required functionality is already implemented in `sdk_handler.go`. If not, add a new function in the handler that wraps the Azure request. Call this new function from the `plugin` file. Any helper functionalities relevant only to Paraglider and the server can remain in `plugin`.
 
 4. Interface and Mock Implementation:
    - If you add a function in the handler, add its definition to the `AzureSDKHandler` interface in `sdk_handler.go`.

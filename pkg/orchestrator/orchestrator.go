@@ -547,7 +547,7 @@ func (s *ControllerServer) getAddressSpaces(cloud string) ([]*paragliderpb.Addre
 
 	// Send the RPC to get the address spaces
 	client := paragliderpb.NewCloudPluginClient(conn)
-	req := &paragliderpb.GetUsedAddressSpacesRequest{Deployments: s.getInvisinetsDeployments(cloud)}
+	req := &paragliderpb.GetUsedAddressSpacesRequest{Deployments: s.getParagliderDeployments(cloud)}
 	resp, err := client.GetUsedAddressSpaces(context.Background(), req)
 
 	return resp.AddressSpaceMappings, err
@@ -637,7 +637,7 @@ func (s *ControllerServer) getUsedAsns(cloud string) (*paragliderpb.GetUsedAsnsR
 
 	// Send the RPC to get the ASNs
 	client := paragliderpb.NewCloudPluginClient(conn)
-	req := &paragliderpb.GetUsedAsnsRequest{Deployments: s.getInvisinetsDeployments(cloud)}
+	req := &paragliderpb.GetUsedAsnsRequest{Deployments: s.getParagliderDeployments(cloud)}
 	resp, err := client.GetUsedAsns(context.Background(), req)
 
 	return resp, err
@@ -709,7 +709,7 @@ func (s *ControllerServer) getUsedBgpPeeringIpAddresses(cloud string) (*paraglid
 
 	// Send the RPC to get the BGP peering IP addresses
 	client := paragliderpb.NewCloudPluginClient(conn)
-	req := &paragliderpb.GetUsedBgpPeeringIpAddressesRequest{Deployments: s.getInvisinetsDeployments(cloud)}
+	req := &paragliderpb.GetUsedBgpPeeringIpAddressesRequest{Deployments: s.getParagliderDeployments(cloud)}
 	resp, err := client.GetUsedBgpPeeringIpAddresses(context.Background(), req)
 
 	return resp, err
@@ -800,7 +800,7 @@ func generateSharedKey() (string, error) {
 	return base64.StdEncoding.EncodeToString(key), nil
 }
 
-// Gets the Invisinets deployment field of a cloud
+// Gets the Paraglider deployment field of a cloud
 // TODO @seankimkdy: make this more efficient by using maps to maintain clouds in config?
 func (s *ControllerServer) getCloudDeployment(cloud, namespace string) string {
 	for ns, deployments := range s.config.Namespaces {
@@ -859,9 +859,9 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 			cloudBBgpPeeringIpAddresses[i] = bgpPeeringIpAddresses[i*2+1]
 		}
 
-		cloudAInvisinetsDeployment := &paragliderpb.InvisinetsDeployment{Id: s.getCloudDeployment(req.CloudA, req.CloudANamespace), Namespace: req.CloudANamespace}
+		cloudAParagliderDeployment := &paragliderpb.ParagliderDeployment{Id: s.getCloudDeployment(req.CloudA, req.CloudANamespace), Namespace: req.CloudANamespace}
 		cloudACreateVpnGatewayReq := &paragliderpb.CreateVpnGatewayRequest{
-			Deployment:            cloudAInvisinetsDeployment,
+			Deployment:            cloudAParagliderDeployment,
 			Cloud:                 req.CloudB,
 			BgpPeeringIpAddresses: cloudABgpPeeringIpAddresses,
 		}
@@ -869,9 +869,9 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 		if err != nil {
 			return nil, fmt.Errorf("unable to create vpn gateway in cloud %s: %w", req.CloudA, err)
 		}
-		cloudBInvisinetsDeployment := &paragliderpb.InvisinetsDeployment{Id: s.getCloudDeployment(req.CloudB, req.CloudBNamespace), Namespace: req.CloudBNamespace}
+		cloudBParagliderDeployment := &paragliderpb.ParagliderDeployment{Id: s.getCloudDeployment(req.CloudB, req.CloudBNamespace), Namespace: req.CloudBNamespace}
 		cloudBCreateVpnGatewayReq := &paragliderpb.CreateVpnGatewayRequest{
-			Deployment:            cloudBInvisinetsDeployment,
+			Deployment:            cloudBParagliderDeployment,
 			Cloud:                 req.CloudA,
 			BgpPeeringIpAddresses: cloudBBgpPeeringIpAddresses,
 		}
@@ -886,7 +886,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 		}
 
 		cloudACreateVpnConnectionsReq := &paragliderpb.CreateVpnConnectionsRequest{
-			Deployment:         cloudAInvisinetsDeployment,
+			Deployment:         cloudAParagliderDeployment,
 			Cloud:              req.CloudB,
 			Asn:                cloudBCreateVpnGatewayResp.Asn,
 			GatewayIpAddresses: cloudBCreateVpnGatewayResp.GatewayIpAddresses,
@@ -898,7 +898,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 			return nil, fmt.Errorf("unable to create vpn connections in cloud %s: %w", req.CloudA, err)
 		}
 		cloudBCreateVpnConnectionsReq := &paragliderpb.CreateVpnConnectionsRequest{
-			Deployment:         cloudBInvisinetsDeployment,
+			Deployment:         cloudBParagliderDeployment,
 			Cloud:              req.CloudA,
 			Asn:                cloudACreateVpnGatewayResp.Asn,
 			GatewayIpAddresses: cloudACreateVpnGatewayResp.GatewayIpAddresses,
@@ -914,13 +914,13 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 	return nil, fmt.Errorf("clouds %s and %s are not supported for multi-cloud connecting", req.CloudA, req.CloudB)
 }
 
-// Gets all deployments (in Invisinets) format for a given cloud
-func (s *ControllerServer) getInvisinetsDeployments(cloud string) []*paragliderpb.InvisinetsDeployment {
-	invDeployments := []*paragliderpb.InvisinetsDeployment{}
+// Gets all deployments (in Paraglider) format for a given cloud
+func (s *ControllerServer) getParagliderDeployments(cloud string) []*paragliderpb.ParagliderDeployment {
+	invDeployments := []*paragliderpb.ParagliderDeployment{}
 	for namespace, cloudDeployments := range s.config.Namespaces {
 		for _, cloudDeployment := range cloudDeployments {
 			if cloudDeployment.Name == cloud {
-				invDeployments = append(invDeployments, &paragliderpb.InvisinetsDeployment{Id: cloudDeployment.Deployment, Namespace: namespace})
+				invDeployments = append(invDeployments, &paragliderpb.ParagliderDeployment{Id: cloudDeployment.Deployment, Namespace: namespace})
 			}
 		}
 	}
@@ -957,7 +957,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 
 	// Send RPC to create the resource
 	resource := paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: s.getCloudDeployment(resourceInfo.cloud, resourceInfo.namespace), Namespace: resourceInfo.namespace},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: s.getCloudDeployment(resourceInfo.cloud, resourceInfo.namespace), Namespace: resourceInfo.namespace},
 		Name:        resourceInfo.name,
 		Description: []byte(resourceWithString.Description),
 	}

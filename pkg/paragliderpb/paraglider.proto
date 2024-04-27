@@ -55,7 +55,7 @@ message CreateResourceResponse {
     string ip = 3;
 }
 
-// Provides the necessary URI/ID to find the Invisinets networks (eg, subscription + resource group in Azure or project in GCP)
+// Provides the necessary URI/ID to find the Paraglider networks (eg, subscription + resource group in Azure or project in GCP)
 message ParagliderDeployment {
     string id = 1;
     string namespace = 2;

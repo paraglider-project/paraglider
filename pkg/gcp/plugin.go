@@ -46,8 +46,8 @@ type GCPPluginServer struct {
 
 // GCP naming conventions
 const (
-	invisinetsPrefix              = "invisinets"
-	firewallRuleDescriptionPrefix = "invisinets rule" // GCP firewall rule prefix for description
+	paragliderPrefix              = "paraglider"
+	firewallRuleDescriptionPrefix = "paraglider rule" // GCP firewall rule prefix for description
 )
 
 const (
@@ -61,14 +61,14 @@ const (
 // TODO @seankimkdy: replace these in the future to be not hardcoded
 var vpnRegion = "us-west1" // Must be var as this is changed during unit tests
 
-// Maps between of GCP and Invisinets traffic direction terminologies
+// Maps between of GCP and Paraglider traffic direction terminologies
 var (
-	firewallDirectionMapGCPToInvisinets = map[string]paragliderpb.Direction{
+	firewallDirectionMapGCPToParaglider = map[string]paragliderpb.Direction{
 		"INGRESS": paragliderpb.Direction_INBOUND,
 		"EGRESS":  paragliderpb.Direction_OUTBOUND,
 	}
 
-	firewallDirectionMapInvisinetsToGCP = map[paragliderpb.Direction]string{
+	firewallDirectionMapParagliderToGCP = map[paragliderpb.Direction]string{
 		paragliderpb.Direction_INBOUND:  "INGRESS",
 		paragliderpb.Direction_OUTBOUND: "EGRESS",
 	}
@@ -85,13 +85,13 @@ var gcpProtocolNumberMap = map[string]int{
 	"ipip": 94,
 }
 
-// Checks if GCP firewall rule is an Invisinets permit list rule
-func isInvisinetsPermitListRule(namespace string, firewall *computepb.Firewall) bool {
+// Checks if GCP firewall rule is an Paraglider permit list rule
+func isParagliderPermitListRule(namespace string, firewall *computepb.Firewall) bool {
 	return strings.HasSuffix(*firewall.Network, getVpcName(namespace)) && strings.HasPrefix(*firewall.Name, getFirewallNamePrefix(namespace))
 }
 
-// Converts a GCP firewall rule to an Invisinets permit list rule
-func firewallRuleToInvisinetsRule(namespace string, fw *computepb.Firewall) (*paragliderpb.PermitListRule, error) {
+// Converts a GCP firewall rule to an Paraglider permit list rule
+func firewallRuleToParagliderRule(namespace string, fw *computepb.Firewall) (*paragliderpb.PermitListRule, error) {
 	if len(fw.Allowed) != 1 {
 		return nil, fmt.Errorf("firewall rule has more than one allowed protocol")
 	}
@@ -100,7 +100,7 @@ func firewallRuleToInvisinetsRule(namespace string, fw *computepb.Firewall) (*pa
 		return nil, fmt.Errorf("could not get protocol number: %w", err)
 	}
 
-	direction := firewallDirectionMapGCPToInvisinets[*fw.Direction]
+	direction := firewallDirectionMapGCPToParaglider[*fw.Direction]
 
 	var targets []string
 	if direction == paragliderpb.Direction_INBOUND {
@@ -126,7 +126,7 @@ func firewallRuleToInvisinetsRule(namespace string, fw *computepb.Firewall) (*pa
 
 	rule := &paragliderpb.PermitListRule{
 		Name:      parseFirewallName(namespace, *fw.Name),
-		Direction: firewallDirectionMapGCPToInvisinets[*fw.Direction],
+		Direction: firewallDirectionMapGCPToParaglider[*fw.Direction],
 		SrcPort:   -1,
 		DstPort:   int32(dstPort),
 		Protocol:  int32(protocolNumber),
@@ -136,8 +136,8 @@ func firewallRuleToInvisinetsRule(namespace string, fw *computepb.Firewall) (*pa
 	return rule, nil
 }
 
-// Converts an Invisinets permit list rule to a GCP firewall rule
-func invisinetsRuleToFirewallRule(namespace string, project string, firewallName string, networkTag string, rule *paragliderpb.PermitListRule) (*computepb.Firewall, error) {
+// Converts an Paraglider permit list rule to a GCP firewall rule
+func paragliderRuleToFirewallRule(namespace string, project string, firewallName string, networkTag string, rule *paragliderpb.PermitListRule) (*computepb.Firewall, error) {
 	firewall := &computepb.Firewall{
 		Allowed: []*computepb.Allowed{
 			{
@@ -145,7 +145,7 @@ func invisinetsRuleToFirewallRule(namespace string, project string, firewallName
 			},
 		},
 		Description: proto.String(getRuleDescription(rule.Tags)),
-		Direction:   proto.String(firewallDirectionMapInvisinetsToGCP[rule.Direction]),
+		Direction:   proto.String(firewallDirectionMapParagliderToGCP[rule.Direction]),
 		Name:        proto.String(firewallName),
 		Network:     proto.String(GetVpcUri(project, namespace)),
 		TargetTags:  []string{networkTag},
@@ -166,13 +166,13 @@ func invisinetsRuleToFirewallRule(namespace string, project string, firewallName
 
 // Determine if a firewall rule and permit list rule are equivalent
 func isFirewallEqPermitListRule(namespace string, firewall *computepb.Firewall, rule *paragliderpb.PermitListRule) (bool, error) {
-	invisinetsVersion, err := firewallRuleToInvisinetsRule(namespace, firewall)
+	paragliderVersion, err := firewallRuleToParagliderRule(namespace, firewall)
 	if err != nil {
 		return false, fmt.Errorf("could not convert firewall rule to permit list rule: %w", err)
 	}
 
 	targetMap := map[string]bool{}
-	for _, target := range invisinetsVersion.Targets {
+	for _, target := range paragliderVersion.Targets {
 		targetMap[target] = true
 	}
 
@@ -182,11 +182,11 @@ func isFirewallEqPermitListRule(namespace string, firewall *computepb.Firewall, 
 		}
 	}
 
-	return invisinetsVersion.Name == rule.Name &&
-		invisinetsVersion.Direction == rule.Direction &&
-		invisinetsVersion.Protocol == rule.Protocol &&
-		invisinetsVersion.DstPort == rule.DstPort &&
-		invisinetsVersion.SrcPort == rule.SrcPort, nil
+	return paragliderVersion.Name == rule.Name &&
+		paragliderVersion.Direction == rule.Direction &&
+		paragliderVersion.Protocol == rule.Protocol &&
+		paragliderVersion.DstPort == rule.DstPort &&
+		paragliderVersion.SrcPort == rule.SrcPort, nil
 }
 
 // Gets protocol number from GCP specificiation (either a name like "tcp" or an int-string like "6")
@@ -210,16 +210,16 @@ func hash(values ...string) string {
 
 /* --- RESOURCE NAME --- */
 
-func getInvisinetsNamespacePrefix(namespace string) string {
-	return invisinetsPrefix + "-" + namespace
+func getParagliderNamespacePrefix(namespace string) string {
+	return paragliderPrefix + "-" + namespace
 }
 
 func getFirewallNamePrefix(namespace string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-fw"
+	return getParagliderNamespacePrefix(namespace) + "-fw"
 }
 
-// Gets a GCP firewall rule name for an Invisinets permit list rule
-// If two Invisinets permit list rules are equal, then they will have the same GCP firewall rule name.
+// Gets a GCP firewall rule name for an Paraglider permit list rule
+// If two Paraglider permit list rules are equal, then they will have the same GCP firewall rule name.
 func getFirewallName(namespace string, ruleName string, resourceId string) string {
 	return fmt.Sprintf("%s-%s-%s", getFirewallNamePrefix(namespace), resourceId, ruleName)
 }
@@ -233,35 +233,35 @@ func parseFirewallName(namespace string, firewallName string) string {
 
 // Gets a GCP VPC name
 func getVpcName(namespace string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-vpc"
+	return getParagliderNamespacePrefix(namespace) + "-vpc"
 }
 
 // Returns name of firewall for denying all egress traffic
 func getDenyAllIngressFirewallName(namespace string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-deny-all-egress"
+	return getParagliderNamespacePrefix(namespace) + "-deny-all-egress"
 }
 
-// Gets a GCP subnetwork name for Invisinets based on region
+// Gets a GCP subnetwork name for Paraglider based on region
 func getSubnetworkName(namespace string, region string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-" + region + "-subnet"
+	return getParagliderNamespacePrefix(namespace) + "-" + region + "-subnet"
 }
 
 func getVpnGwName(namespace string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-vpn-gw"
+	return getParagliderNamespacePrefix(namespace) + "-vpn-gw"
 }
 
 func getRouterName(namespace string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-router"
+	return getParagliderNamespacePrefix(namespace) + "-router"
 }
 
 // Returns a peer gateway name when connecting to another cloud
 func getPeerGwName(namespace string, cloud string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-" + cloud + "-peer-gw"
+	return getParagliderNamespacePrefix(namespace) + "-" + cloud + "-peer-gw"
 }
 
 // Returns a VPN tunnel name when connecting to another cloud
 func getVpnTunnelName(namespace string, cloud string, tunnelIdx int) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-" + cloud + "-tunnel-" + strconv.Itoa(tunnelIdx)
+	return getParagliderNamespacePrefix(namespace) + "-" + cloud + "-tunnel-" + strconv.Itoa(tunnelIdx)
 }
 
 // Returns a VPN tunnel interface name when connecting to another cloud
@@ -276,7 +276,7 @@ func getBgpPeerName(cloud string, peerIdx int) string {
 
 // Returns a VPC network peering name
 func getNetworkPeeringName(namespace string, peerNamespace string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-" + peerNamespace + "-peering"
+	return getParagliderNamespacePrefix(namespace) + "-" + peerNamespace + "-peering"
 }
 
 func getSubnetworkURL(project string, region string, name string) string {
@@ -386,8 +386,8 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *paragliderpb.
 
 	for _, firewall := range firewalls {
 		// Exclude default deny all egress from being included since it applies to every VM
-		if isInvisinetsPermitListRule(req.Namespace, firewall) && *firewall.Name != getDenyAllIngressFirewallName(req.Namespace) {
-			rule, err := firewallRuleToInvisinetsRule(req.Namespace, firewall)
+		if isParagliderPermitListRule(req.Namespace, firewall) && *firewall.Name != getDenyAllIngressFirewallName(req.Namespace) {
+			rule, err := firewallRuleToParagliderRule(req.Namespace, firewall)
 			if err != nil {
 				return nil, fmt.Errorf("could not convert firewall rule to permit list rule: %w", err)
 			}
@@ -559,7 +559,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 			}
 		}
 
-		firewall, err := invisinetsRuleToFirewallRule(req.Namespace, resourceInfo.Project, firewallName, networkTag, permitListRule)
+		firewall, err := paragliderRuleToFirewallRule(req.Namespace, resourceInfo.Project, firewallName, networkTag, permitListRule)
 		if err != nil {
 			return nil, fmt.Errorf("unable to convert permit list rule to firewall rule: %w", err)
 		}
@@ -699,7 +699,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	subnetExists := false
 	subnetName := getSubnetworkName(resourceDescription.Deployment.Namespace, region)
 
-	// Check if Invisinets specific VPC already exists
+	// Check if Paraglider specific VPC already exists
 	nsVpcName := getVpcName(resourceDescription.Deployment.Namespace)
 	getNetworkReq := &computepb.GetNetworkRequest{
 		Network: nsVpcName,
@@ -712,7 +712,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 				Project: project,
 				NetworkResource: &computepb.Network{
 					Name:                  proto.String(nsVpcName),
-					Description:           proto.String("VPC for Invisinets"),
+					Description:           proto.String("VPC for Paraglider"),
 					AutoCreateSubnetworks: proto.Bool(false),
 					RoutingConfig: &computepb.NetworkRoutingConfig{
 						RoutingMode: proto.String(computepb.NetworkRoutingConfig_GLOBAL.String()),
@@ -735,7 +735,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 							IPProtocol: proto.String("all"),
 						},
 					},
-					Description:       proto.String("Invisinets deny all traffic"),
+					Description:       proto.String("Paraglider deny all traffic"),
 					DestinationRanges: []string{"0.0.0.0/0"},
 					Direction:         proto.String(computepb.Firewall_EGRESS.String()),
 					Name:              proto.String(getDenyAllIngressFirewallName(resourceDescription.Deployment.Namespace)),
@@ -751,7 +751,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 			}
 		} else {
-			return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
+			return nil, fmt.Errorf("failed to get paraglider vpc network: %w", err)
 		}
 	} else {
 		// Check if there is a subnet in the region that resource will be placed in
@@ -795,7 +795,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 			Region:  region,
 			SubnetworkResource: &computepb.Subnetwork{
 				Name:        proto.String(subnetName),
-				Description: proto.String("Invisinets subnetwork for " + region),
+				Description: proto.String("Paraglider subnetwork for " + region),
 				Network:     proto.String(GetVpcUri(project, resourceDescription.Deployment.Namespace)),
 				IpCidrRange: proto.String(addressSpaces[0]),
 			},
@@ -870,7 +870,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *paragl
 			if isErrorNotFound(err) {
 				continue
 			} else {
-				return nil, fmt.Errorf("failed to get invisinets vpc network: %w", err)
+				return nil, fmt.Errorf("failed to get paraglider vpc network: %w", err)
 			}
 		}
 		resp.AddressSpaceMappings[i].AddressSpaces = []string{}
@@ -883,7 +883,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *paragl
 			}
 			getSubnetworkResp, err := subnetworksClient.Get(ctx, getSubnetworkRequest)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get invisinets subnetwork: %w", err)
+				return nil, fmt.Errorf("failed to get paraglider subnetwork: %w", err)
 			}
 
 			resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, *getSubnetworkResp.IpCidrRange)
@@ -984,7 +984,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 		Region:  vpnRegion,
 		VpnGatewayResource: &computepb.VpnGateway{
 			Name:        proto.String(getVpnGwName(req.Deployment.Namespace)),
-			Description: proto.String("Invisinets VPN gateway for multicloud connections"),
+			Description: proto.String("Paraglider VPN gateway for multicloud connections"),
 			Network:     proto.String(GetVpcUri(project, req.Deployment.Namespace)),
 		},
 	}
@@ -1018,7 +1018,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 		Region:  vpnRegion,
 		RouterResource: &computepb.Router{
 			Name:        proto.String(getRouterName(req.Deployment.Namespace)),
-			Description: proto.String("Invisinets router for multicloud connections"),
+			Description: proto.String("Paraglider router for multicloud connections"),
 			Network:     proto.String(GetVpcUri(project, req.Deployment.Namespace)),
 			Bgp: &computepb.RouterBgp{
 				Asn: proto.Uint32(asn),
@@ -1120,7 +1120,7 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *paragl
 		Project: project,
 		ExternalVpnGatewayResource: &computepb.ExternalVpnGateway{
 			Name:           proto.String(getPeerGwName(req.Deployment.Namespace, req.Cloud)),
-			Description:    proto.String("Invisinets peer gateway to " + req.Cloud),
+			Description:    proto.String("Paraglider peer gateway to " + req.Cloud),
 			RedundancyType: proto.String(computepb.ExternalVpnGateway_TWO_IPS_REDUNDANCY.String()),
 		},
 	}
@@ -1149,7 +1149,7 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *paragl
 			Region:  vpnRegion,
 			VpnTunnelResource: &computepb.VpnTunnel{
 				Name:                         proto.String(getVpnTunnelName(req.Deployment.Namespace, req.Cloud, i)),
-				Description:                  proto.String(fmt.Sprintf("Invisinets VPN tunnel to %s (interface %d)", req.Cloud, i)),
+				Description:                  proto.String(fmt.Sprintf("Paraglider VPN tunnel to %s (interface %d)", req.Cloud, i)),
 				PeerExternalGateway:          proto.String(getPeerGwUri(project, getPeerGwName(req.Deployment.Namespace, req.Cloud))),
 				PeerExternalGatewayInterface: proto.Int32(int32(i)),
 				IkeVersion:                   proto.Int32(ikeVersion),

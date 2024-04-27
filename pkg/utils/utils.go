@@ -46,14 +46,14 @@ var privateAddressSpaces = []netip.Prefix{
 }
 
 func init() {
-	file, err := os.Create("invisinets.log")
+	file, err := os.Create("paraglider.log")
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
 	Log = log.New(file, "", log.LstdFlags|log.Lshortfile)
 }
 
-// Checks if an Invisinets permit list rule tag (either an address or address space) is contained within an address space.
+// Checks if an Paraglider permit list rule tag (either an address or address space) is contained within an address space.
 func IsPermitListRuleTagInAddressSpace(permitListRuleTag string, addressSpaces []string) (bool, error) {
 	for _, addressSpace := range addressSpaces {
 		prefix, err := netip.ParsePrefix(addressSpace)

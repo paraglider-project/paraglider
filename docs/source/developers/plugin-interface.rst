@@ -19,7 +19,7 @@ Creates the provided resource as a Paraglider-enabled resource.The tenant should
 
 Implementation-Level Description:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Creates the provided resource in the designated Invisinets virtual network so that it can be easily connected to other Invisinets resources.
+Creates the provided resource in the designated Paraglider virtual network so that it can be easily connected to other Paraglider resources.
 
 Input Details:
 ^^^^^^^^^^^^^^^^

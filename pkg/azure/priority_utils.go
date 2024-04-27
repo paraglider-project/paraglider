@@ -33,9 +33,9 @@ func setupMaps(reservedPrioritiesInbound map[int32]bool, reservedPrioritiesOutbo
 			reservedPrioritiesOutbound[*rule.Properties.Priority] = true
 		}
 
-		// skip rules that are not created by Invisinets, because some rules are added by default and have
-		// different fields such as port ranges which is not supported by Invisinets at the moment
-		if !strings.HasPrefix(*rule.Name, invisinetsPrefix) {
+		// skip rules that are not created by Paraglider, because some rules are added by default and have
+		// different fields such as port ranges which is not supported by Paraglider at the moment
+		if !strings.HasPrefix(*rule.Name, paragliderPrefix) {
 			continue
 		}
 		existingRulePriorities[*rule.Name] = *rule.Properties.Priority

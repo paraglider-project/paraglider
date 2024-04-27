@@ -69,7 +69,7 @@ func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) (Az
 }
 
 // GetPermitList returns the permit list for the given resource by getting the NSG rules
-// associated with the resource and filtering out the Invisinets rules
+// associated with the resource and filtering out the Paraglider rules
 func (s *azurePluginServer) GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest) (*paragliderpb.GetPermitListResponse, error) {
 	resourceId := req.Resource
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
@@ -93,10 +93,10 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *paragliderpb
 
 	// get the NSG rules
 	for _, rule := range nsg.Properties.SecurityRules {
-		if !strings.HasPrefix(*rule.Name, denyAllNsgRulePrefix) && strings.HasPrefix(*rule.Name, invisinetsPrefix) {
+		if !strings.HasPrefix(*rule.Name, denyAllNsgRulePrefix) && strings.HasPrefix(*rule.Name, paragliderPrefix) {
 			plRule, err := azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
-				utils.Log.Printf("An error occured while getting Invisinets rule from NSG rule: %+v", err)
+				utils.Log.Printf("An error occured while getting Paraglider rule from NSG rule: %+v", err)
 				return nil, err
 			}
 			plRule.Name = getRuleNameFromNSGRuleName(plRule.Name)
@@ -106,7 +106,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *paragliderpb
 	return &paragliderpb.GetPermitListResponse{Rules: rules}, nil
 }
 
-// AddPermitListRules does the mapping from Invisinets to Azure by creating/updating NSG for the given resource.
+// AddPermitListRules does the mapping from Paraglider to Azure by creating/updating NSG for the given resource.
 // It creates an NSG rule for each permit list rule and applies this NSG to the associated resource (VM)'s NIC (if it doesn't exist).
 // It returns a BasicResponse that includes the nsg ID if successful and an error if it fails.
 func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragliderpb.AddPermitListRulesRequest) (*paragliderpb.AddPermitListRulesResponse, error) {
@@ -157,7 +157,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 	}
 
 	if err != nil {
-		utils.Log.Printf("An error occured while getting invisinets vnets address spaces:%+v", err)
+		utils.Log.Printf("An error occured while getting paraglider vnets address spaces:%+v", err)
 		return nil, err
 	}
 
@@ -230,7 +230,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 	return &paragliderpb.AddPermitListRulesResponse{}, nil
 }
 
-// DeletePermitListRules does the mapping from Invisinets to Azure by deleting NSG rules for the given resource.
+// DeletePermitListRules does the mapping from Paraglider to Azure by deleting NSG rules for the given resource.
 func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *paragliderpb.DeletePermitListRulesRequest) (*paragliderpb.DeletePermitListRulesResponse, error) {
 	resourceID := req.GetResource()
 	resourceIdInfo, err := getResourceIDInfo(resourceID)
@@ -260,8 +260,8 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *paragl
 	return &paragliderpb.DeletePermitListRulesResponse{}, nil
 }
 
-// CreateResource does the mapping from Invisinets to Azure to create an invisinets enabled resource
-// which means the resource should be added to a valid invisinets network, the attachement to an invisinets network
+// CreateResource does the mapping from Paraglider to Azure to create an paraglider enabled resource
+// which means the resource should be added to a valid paraglider network, the attachement to an paraglider network
 // is determined by the resource's location.
 func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *paragliderpb.ResourceDescription) (*paragliderpb.CreateResourceResponse, error) {
 	resourceDescInfo, err := GetResourceInfoFromResourceDesc(ctx, resourceDesc)
@@ -282,17 +282,17 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 	}
 
 	vnetName := getVnetName(resourceDescInfo.Location, resourceDesc.Deployment.Namespace)
-	invisinetsVnet, err := azureHandler.GetInvisinetsVnet(ctx, vnetName, resourceDescInfo.Location, resourceDesc.Deployment.Namespace, s.orchestratorServerAddr)
+	paragliderVnet, err := azureHandler.GetParagliderVnet(ctx, vnetName, resourceDescInfo.Location, resourceDesc.Deployment.Namespace, s.orchestratorServerAddr)
 	if err != nil {
-		utils.Log.Printf("An error occured while getting invisinets vnet:%+v", err)
+		utils.Log.Printf("An error occured while getting paraglider vnet:%+v", err)
 		return nil, err
 	}
 
-	resourceSubnet := invisinetsVnet.Properties.Subnets[0]
+	resourceSubnet := paragliderVnet.Properties.Subnets[0]
 	if resourceDescInfo.RequiresSubnet {
 		// Check if subnet already exists (could happen if resource provisioning failed after this step)
 		subnetExists := false
-		for _, subnet := range invisinetsVnet.Properties.Subnets {
+		for _, subnet := range paragliderVnet.Properties.Subnets {
 			if *subnet.Name == getSubnetName(resourceDescInfo.ResourceName) {
 				resourceSubnet = subnet
 				subnetExists = true
@@ -301,7 +301,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 		}
 		// Create subnet
 		if !subnetExists {
-			resourceSubnet, err = azureHandler.AddSubnetToInvisinetsVnet(ctx, resourceDesc.Deployment.Namespace, vnetName, getSubnetName(resourceDescInfo.ResourceName), s.orchestratorServerAddr)
+			resourceSubnet, err = azureHandler.AddSubnetToParagliderVnet(ctx, resourceDesc.Deployment.Namespace, vnetName, getSubnetName(resourceDescInfo.ResourceName), s.orchestratorServerAddr)
 			if err != nil {
 				utils.Log.Printf("An error occured while creating subnet:%+v", err)
 				return nil, err
@@ -408,7 +408,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 	return &paragliderpb.CreateResourceResponse{Name: resourceDescInfo.ResourceName, Uri: resourceDescInfo.ResourceID, Ip: ip}, nil
 }
 
-// GetUsedAddressSpaces returns the address spaces used by invisinets which are the address spaces of the invisinets vnets
+// GetUsedAddressSpaces returns the address spaces used by paraglider which are the address spaces of the paraglider vnets
 func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
 	resp := &paragliderpb.GetUsedAddressSpacesResponse{}
 	resp.AddressSpaceMappings = make([]*paragliderpb.AddressSpaceMapping, len(req.Deployments))
@@ -427,7 +427,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *parag
 			return nil, err
 		}
 
-		addressSpaces, err := azureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(deployment.Namespace))
+		addressSpaces, err := azureHandler.GetVNetsAddressSpaces(ctx, getParagliderNamespacePrefix(deployment.Namespace))
 		if err != nil {
 			utils.Log.Printf("An error occured while getting address spaces:%+v", err)
 			return nil, err
@@ -764,13 +764,13 @@ func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler Azur
 	if err != nil {
 		return err
 	}
-	invisinetsVnetsMap, err := peeringCloudAzureHandler.GetVNetsAddressSpaces(ctx, getInvisinetsNamespacePrefix(peeringCloudInfo.Namespace))
+	paragliderVnetsMap, err := peeringCloudAzureHandler.GetVNetsAddressSpaces(ctx, getParagliderNamespacePrefix(peeringCloudInfo.Namespace))
 	if err != nil {
 		return fmt.Errorf("unable to create vnets address spaces for peering cloud: %w", err)
 	}
 	// Find the vnet that contains the target
 	contained := false
-	for peeringVnetLocation, peeringVnetAddressSpaces := range invisinetsVnetsMap {
+	for peeringVnetLocation, peeringVnetAddressSpaces := range paragliderVnetsMap {
 		contained, err = utils.IsPermitListRuleTagInAddressSpace(permitListRuleTarget, peeringVnetAddressSpaces)
 		if err != nil {
 			return fmt.Errorf("unable to check if tag is in vnet address space")

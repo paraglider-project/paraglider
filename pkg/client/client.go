@@ -30,7 +30,7 @@ import (
 	"github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
 )
 
-type InvisinetsControllerClient interface {
+type ParagliderControllerClient interface {
 	GetPermitList(namespace string, cloud string, resourceName string) ([]*paragliderpb.PermitListRule, error)
 	AddPermitListRules(namespace string, cloud string, resourceName string, rules []*paragliderpb.PermitListRule) error
 	DeletePermitListRules(namespace string, cloud string, resourceName string, rules []string) error
@@ -44,7 +44,7 @@ type InvisinetsControllerClient interface {
 }
 
 type Client struct {
-	InvisinetsControllerClient
+	ParagliderControllerClient
 	ControllerAddress string
 }
 

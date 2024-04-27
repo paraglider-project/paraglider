@@ -45,9 +45,9 @@ type AzureSDKHandler interface {
 	GetResource(ctx context.Context, resourceID string) (*armresources.GenericResource, error)
 	CreateSecurityRule(ctx context.Context, rule *paragliderpb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error)
 	DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error
-	GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error)
-	AddSubnetToInvisinetsVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error)
-	CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error)
+	GetParagliderVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error)
+	AddSubnetToParagliderVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error)
+	CreateParagliderVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error)
 	CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error)
 	GetVirtualNetwork(ctx context.Context, name string) (*armnetwork.VirtualNetwork, error)
 	CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error)
@@ -108,13 +108,13 @@ const (
 	nsgNameSuffix              = "-default-nsg"
 	azureSecurityRuleAsterisk  = "*"
 	permitListPortAny          = -1
-	denyAllNsgRulePrefix       = "invisinets-deny-all"
-	nsgRuleDescriptionPrefix   = "invisinets rule"
+	denyAllNsgRulePrefix       = "paraglider-deny-all"
+	nsgRuleDescriptionPrefix   = "paraglider rule"
 	virtualNetworkResourceID   = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s"
 )
 
-// mapping from IANA protocol numbers (what invisinets uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
-var invisinetsToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
+// mapping from IANA protocol numbers (what paraglider uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
+var paragliderToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
 	-1: armnetwork.SecurityRuleProtocolAsterisk,
 	1:  armnetwork.SecurityRuleProtocolIcmp,
 	6:  armnetwork.SecurityRuleProtocolTCP,
@@ -124,7 +124,7 @@ var invisinetsToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
 }
 
 // mapping from Azure SecurityRuleProtocol to IANA protocol numbers
-var azureToInvisinetsProtocol = map[armnetwork.SecurityRuleProtocol]int32{
+var azureToParagliderProtocol = map[armnetwork.SecurityRuleProtocol]int32{
 	armnetwork.SecurityRuleProtocolAsterisk: -1,
 	armnetwork.SecurityRuleProtocolIcmp:     1,
 	armnetwork.SecurityRuleProtocolTCP:      6,
@@ -133,14 +133,14 @@ var azureToInvisinetsProtocol = map[armnetwork.SecurityRuleProtocol]int32{
 	armnetwork.SecurityRuleProtocolAh:       51,
 }
 
-// mapping from invisinets direction to Azure SecurityRuleDirection
-var invisinetsToAzureDirection = map[paragliderpb.Direction]armnetwork.SecurityRuleDirection{
+// mapping from paraglider direction to Azure SecurityRuleDirection
+var paragliderToAzureDirection = map[paragliderpb.Direction]armnetwork.SecurityRuleDirection{
 	paragliderpb.Direction_INBOUND:  armnetwork.SecurityRuleDirectionInbound,
 	paragliderpb.Direction_OUTBOUND: armnetwork.SecurityRuleDirectionOutbound,
 }
 
-// mapping from Azure SecurityRuleDirection to invisinets direction
-var azureToInvisinetsDirection = map[armnetwork.SecurityRuleDirection]paragliderpb.Direction{
+// mapping from Azure SecurityRuleDirection to paraglider direction
+var azureToParagliderDirection = map[armnetwork.SecurityRuleDirection]paragliderpb.Direction{
 	armnetwork.SecurityRuleDirectionInbound:  paragliderpb.Direction_INBOUND,
 	armnetwork.SecurityRuleDirectionOutbound: paragliderpb.Direction_OUTBOUND,
 }
@@ -249,9 +249,9 @@ func (h *azureSDKHandler) CreateSecurityRule(ctx context.Context, rule *paraglid
 				Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
 				DestinationAddressPrefixes: destIP,
 				DestinationPortRange:       to.Ptr(dstPort),
-				Direction:                  to.Ptr(invisinetsToAzureDirection[rule.Direction]),
+				Direction:                  to.Ptr(paragliderToAzureDirection[rule.Direction]),
 				Priority:                   to.Ptr(priority),
-				Protocol:                   to.Ptr(invisinetsToAzureprotocol[rule.Protocol]),
+				Protocol:                   to.Ptr(paragliderToAzureprotocol[rule.Protocol]),
 				SourceAddressPrefixes:      sourceIP,
 				SourcePortRange:            to.Ptr(srcPort),
 				Description:                to.Ptr(getRuleDescription(rule.Tags)),
@@ -472,10 +472,10 @@ func (h *azureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 	permitListRule := &paragliderpb.PermitListRule{
 		Name:      *rule.Name,
 		Targets:   getTargets(rule),
-		Direction: azureToInvisinetsDirection[*rule.Properties.Direction],
+		Direction: azureToParagliderDirection[*rule.Properties.Direction],
 		SrcPort:   int32(srcPort),
 		DstPort:   int32(dstPort),
-		Protocol:  azureToInvisinetsProtocol[*rule.Properties.Protocol],
+		Protocol:  azureToParagliderProtocol[*rule.Properties.Protocol],
 		Tags:      parseDescriptionTags(rule.Properties.Description),
 	}
 	return permitListRule, nil
@@ -491,9 +491,9 @@ func (h *azureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) 
 	return &nsgResp.SecurityGroup, nil
 }
 
-// GetInvisinetsVnet returns a valid invisinets vnet, an invisinets vnet is a vnet with a default subnet with the same
+// GetParagliderVnet returns a valid paraglider vnet, an paraglider vnet is a vnet with a default subnet with the same
 // address space as the vnet and there is only one vnet per location
-func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
+func (h *azureSDKHandler) GetParagliderVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
 	// Get the virtual network
 	res, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, &armnetwork.VirtualNetworksClientGetOptions{Expand: nil})
 	if err != nil {
@@ -512,7 +512,7 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 			if err != nil {
 				return nil, err
 			}
-			vnet, err := h.CreateInvisinetsVirtualNetwork(ctx, location, vnetName, response.AddressSpaces[0])
+			vnet, err := h.CreateParagliderVirtualNetwork(ctx, location, vnetName, response.AddressSpaces[0])
 			return vnet, err
 		} else {
 			// Return the error if it's not ResourceNotFound
@@ -523,8 +523,8 @@ func (h *azureSDKHandler) GetInvisinetsVnet(ctx context.Context, vnetName string
 	return &res.VirtualNetwork, nil
 }
 
-// AddSubnetToInvisinetsVnet adds a subnet to an invisinets vnet
-func (h *azureSDKHandler) AddSubnetToInvisinetsVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error) {
+// AddSubnetToParagliderVnet adds a subnet to an paraglider vnet
+func (h *azureSDKHandler) AddSubnetToParagliderVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error) {
 	// Get a new address space
 	conn, err := grpc.Dial(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -560,10 +560,10 @@ func (h *azureSDKHandler) AddSubnetToInvisinetsVnet(ctx context.Context, namespa
 	return subnet, err
 }
 
-// CreateInvisinetsVirtualNetwork creates a new invisinets virtual network with a default subnet with the same address
+// CreateParagliderVirtualNetwork creates a new paraglider virtual network with a default subnet with the same address
 // space as the vnet
-func (h *azureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
-	// TODO @seankimkdy: delete and consolidate calls to this method with CreateInvisinetsVirtualNetwork
+func (h *azureSDKHandler) CreateParagliderVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
+	// TODO @seankimkdy: delete and consolidate calls to this method with CreateParagliderVirtualNetwork
 	parameters := armnetwork.VirtualNetwork{
 		Location: to.Ptr(location),
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
@@ -653,7 +653,7 @@ func (h *azureSDKHandler) CreateSecurityGroup(ctx context.Context, resourceName 
 	i := 1
 	for name, cidr := range allowedCIDRs {
 		nsgParameters.Properties.SecurityRules = append(nsgParameters.Properties.SecurityRules, &armnetwork.SecurityRule{
-			Name: to.Ptr("invisinets-allow-inbound-" + name),
+			Name: to.Ptr("paraglider-allow-inbound-" + name),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
 				SourceAddressPrefix:      to.Ptr(cidr),
@@ -666,7 +666,7 @@ func (h *azureSDKHandler) CreateSecurityGroup(ctx context.Context, resourceName 
 			},
 		})
 		nsgParameters.Properties.SecurityRules = append(nsgParameters.Properties.SecurityRules, &armnetwork.SecurityRule{
-			Name: to.Ptr("invisinets-allow-outbound-" + name),
+			Name: to.Ptr("paraglider-allow-outbound-" + name),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
 				SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
@@ -915,7 +915,7 @@ func getIPs(rule *paragliderpb.PermitListRule, resourceIP string) ([]*string, []
 	return sourceIP, destIP
 }
 
-// getTarget returns the invisinets targets for a given nsg rule
+// getTarget returns the paraglider targets for a given nsg rule
 func getTargets(rule *armnetwork.SecurityRule) []string {
 	var targets []string
 	if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {

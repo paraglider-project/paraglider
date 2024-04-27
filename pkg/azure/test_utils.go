@@ -106,7 +106,7 @@ func (m *MockAzureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName stri
 	return nsg.(*armnetwork.SecurityGroup), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, location string, name string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
+func (m *MockAzureSDKHandler) CreateParagliderVirtualNetwork(ctx context.Context, location string, name string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
 	args := m.Called(ctx, location, name, addressSpace)
 	vnet := args.Get(0)
 	if vnet == nil {
@@ -115,7 +115,7 @@ func (m *MockAzureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context
 	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) AddSubnetToInvisinetsVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error) {
+func (m *MockAzureSDKHandler) AddSubnetToParagliderVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error) {
 	args := m.Called(ctx, namespace, vnetName, subnetName, orchestratorAddr)
 	subnet := args.Get(0)
 	if subnet == nil {
@@ -173,7 +173,7 @@ func (m *MockAzureSDKHandler) CreateVirtualMachine(ctx context.Context, paramete
 	return vm.(*armcompute.VirtualMachine), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) GetInvisinetsVnet(ctx context.Context, prefix string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
+func (m *MockAzureSDKHandler) GetParagliderVnet(ctx context.Context, prefix string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
 	args := m.Called(ctx, prefix, location, namespace, orchestratorAddr)
 	vnet := args.Get(0)
 	if vnet == nil {

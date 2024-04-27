@@ -99,12 +99,12 @@ func TestMulticloud(t *testing.T) {
 	azureVm1Location := "westus"
 	azureVm1Parameters := azure.GetTestVmParameters(azureVm1Location)
 	azureVm1Description, err := json.Marshal(azureVm1Parameters)
-	azureVm1Name := "invisinets-vm-test-1"
+	azureVm1Name := "paraglider-vm-test-1"
 	azureVm1ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + azureVm1Name
 	azureCreateResourceResp1, err := azureServer.CreateResource(
 		ctx,
 		&paragliderpb.ResourceDescription{
-			Deployment:  &paragliderpb.InvisinetsDeployment{Id: azureDeploymentId, Namespace: "default"},
+			Deployment:  &paragliderpb.ParagliderDeployment{Id: azureDeploymentId, Namespace: "default"},
 			Name:        azureVm1Name,
 			Description: azureVm1Description,
 		},
@@ -117,13 +117,13 @@ func TestMulticloud(t *testing.T) {
 
 	// Create GCP VM
 	gcpVmZone := "us-west1-a"
-	gcpVmName := utils.GetGitHubRunPrefix() + "vm-invisinets-test"
+	gcpVmName := utils.GetGitHubRunPrefix() + "vm-paraglider-test"
 	gcpVmParameters := gcp.GetTestVmParameters(gcpProjectId, gcpVmZone, gcpVmName)
 	gcpVmDescription, err := json.Marshal(gcpVmParameters)
 	gcpCreateResourceResp, err := gcpServer.CreateResource(
 		ctx,
 		&paragliderpb.ResourceDescription{
-			Deployment:  &paragliderpb.InvisinetsDeployment{Id: "projects/" + gcpProjectId, Namespace: "other"},
+			Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + gcpProjectId, Namespace: "other"},
 			Name:        gcpVmName,
 			Description: gcpVmDescription,
 		},
@@ -230,12 +230,12 @@ func TestMulticloud(t *testing.T) {
 	azureVm2Location := "eastus"
 	azureVm2Parameters := azure.GetTestVmParameters(azureVm2Location)
 	azureVm2Description, err := json.Marshal(azureVm2Parameters)
-	azureVm2Name := "invisinets-vm-test-2"
+	azureVm2Name := "paraglider-vm-test-2"
 	azureVm2ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + azureVm2Name
 	azureCreateResourceResp2, err := azureServer.CreateResource(
 		ctx,
 		&paragliderpb.ResourceDescription{
-			Deployment:  &paragliderpb.InvisinetsDeployment{Id: azureDeploymentId, Namespace: "default"},
+			Deployment:  &paragliderpb.ParagliderDeployment{Id: azureDeploymentId, Namespace: "default"},
 			Name:        azureVm2Name,
 			Description: azureVm2Description,
 		},

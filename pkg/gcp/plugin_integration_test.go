@@ -45,7 +45,7 @@ func createInstance(ctx context.Context, server *GCPPluginServer, project string
 		return nil, fmt.Errorf("unable to marshal insert instance request: %w", err)
 	}
 	resourceDescription := &paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: "projects/" + project, Namespace: namespace},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + project, Namespace: namespace},
 		Name:        name,
 		Description: insertInstanceReqBytes,
 	}
@@ -66,7 +66,7 @@ func TestIntegration(t *testing.T) {
 	ctx := context.Background()
 
 	// Create VM in a clean state (i.e. no VPC or subnet)
-	vm1Name := "vm-invisinets-test-1"
+	vm1Name := "vm-paraglider-test-1"
 	vm1Zone := "us-west1-a"
 	insertInstanceReq1 := GetTestVmParameters(projectId, vm1Zone, vm1Name)
 	insertInstanceReq1Bytes, err := json.Marshal(insertInstanceReq1)
@@ -74,7 +74,7 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	resourceDescription1 := &paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: "projects/" + projectId, Namespace: namespace},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + projectId, Namespace: namespace},
 		Name:        vm1Name,
 		Description: insertInstanceReq1Bytes,
 	}
@@ -87,7 +87,7 @@ func TestIntegration(t *testing.T) {
 	assert.Equal(t, createResource1Resp.Name, vm1Name)
 
 	// Create VM in different region (i.e. requires new subnet to be created)
-	vm2Name := "vm-invisinets-test-2"
+	vm2Name := "vm-paraglider-test-2"
 	vm2Zone := "us-east1-b"
 	insertInstanceReq2 := GetTestVmParameters(projectId, vm2Zone, vm2Name)
 	insertInstanceReq2Bytes, err := json.Marshal(insertInstanceReq2)
@@ -95,7 +95,7 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	resourceDescription2 := &paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: "projects/" + projectId, Namespace: namespace},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + projectId, Namespace: namespace},
 		Name:        vm2Name,
 		Description: insertInstanceReq2Bytes,
 	}
@@ -281,7 +281,7 @@ func TestCrossNamespace(t *testing.T) {
 	ctx := context.Background()
 
 	// Create vm1 in project1
-	vm1Name := "vm-invisinets-test1"
+	vm1Name := "vm-paraglider-test1"
 	vm1Zone := "us-west1-a"
 	createVm1Resp, err := createInstance(ctx, gcpServer, project1Id, project1Namespace, vm1Zone, vm1Name)
 	require.NoError(t, err)
@@ -289,7 +289,7 @@ func TestCrossNamespace(t *testing.T) {
 	assert.Equal(t, createVm1Resp.Name, vm1Name)
 
 	// Create vm2 in project2
-	vm2Name := "vm-invisinets-test-2"
+	vm2Name := "vm-paraglider-test-2"
 	vm2Zone := "us-west1-a"
 	createVm2Resp, err := createInstance(ctx, gcpServer, project2Id, project2Namespace, vm2Zone, vm2Name)
 	require.NoError(t, err)

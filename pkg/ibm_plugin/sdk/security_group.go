@@ -54,20 +54,20 @@ type SecurityGroupRule struct {
 	Egress     bool   // The rule affects to outbound traffic (true) or inbound (false)
 }
 
-// mapping invisinets traffic directions to booleans
-var invisinetsToIBMDirection = map[paragliderpb.Direction]bool{
+// mapping paraglider traffic directions to booleans
+var paragliderToIBMDirection = map[paragliderpb.Direction]bool{
 	paragliderpb.Direction_OUTBOUND: true,
 	paragliderpb.Direction_INBOUND:  false,
 }
 
-// mapping booleans invisinets traffic directions
-var ibmToInvisinetsDirection = map[bool]paragliderpb.Direction{
+// mapping booleans paraglider traffic directions
+var ibmToParagliderDirection = map[bool]paragliderpb.Direction{
 	true:  paragliderpb.Direction_OUTBOUND,
 	false: paragliderpb.Direction_INBOUND,
 }
 
 // mapping integers determined by the IANA standard to IBM protocols
-var invisinetsToIBMprotocol = map[int32]string{
+var paragliderToIBMprotocol = map[int32]string{
 	-1: "all",
 	1:  "icmp",
 	6:  "tcp",
@@ -75,7 +75,7 @@ var invisinetsToIBMprotocol = map[int32]string{
 }
 
 // mapping IBM protocols to integers determined by the IANA standard
-var ibmToInvisinetsProtocol = map[string]int32{
+var ibmToParagliderProtocol = map[string]int32{
 	"all":  -1,
 	"icmp": 1,
 	"tcp":  6,
@@ -460,10 +460,10 @@ func (c *CloudClient) GetRulesIDs(rules []SecurityGroupRule, sgID string) ([]str
 	return rulesIDs, nil
 }
 
-// returns rules in invisinets format from IBM cloud format
+// returns rules in paraglider format from IBM cloud format
 // TODO @cohen-j-omer: handle permitList tags if required.
-func IBMToInvisinetsRules(rules []SecurityGroupRule) ([]*paragliderpb.PermitListRule, error) {
-	var invisinetsRules []*paragliderpb.PermitListRule
+func IBMToParagliderRules(rules []SecurityGroupRule) ([]*paragliderpb.PermitListRule, error) {
+	var paragliderRules []*paragliderpb.PermitListRule
 
 	for _, rule := range rules {
 		if rule.PortMin != rule.PortMax {
@@ -477,20 +477,20 @@ func IBMToInvisinetsRules(rules []SecurityGroupRule) ([]*paragliderpb.PermitList
 		permitListRule := &paragliderpb.PermitListRule{
 			Targets:   []string{rule.Remote},
 			Name:      rule.ID,
-			Direction: ibmToInvisinetsDirection[rule.Egress],
+			Direction: ibmToParagliderDirection[rule.Egress],
 			SrcPort:   int32(srcPort),
 			DstPort:   int32(dstPort),
-			Protocol:  ibmToInvisinetsProtocol[rule.Protocol],
+			Protocol:  ibmToParagliderProtocol[rule.Protocol],
 		}
-		invisinetsRules = append(invisinetsRules, permitListRule)
+		paragliderRules = append(paragliderRules, permitListRule)
 
 	}
-	return invisinetsRules, nil
+	return paragliderRules, nil
 }
 
-// returns rules in IBM cloud format to invisinets format
+// returns rules in IBM cloud format to paraglider format
 // NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code
-func InvisinetsToIBMRules(securityGroupID string, rules []*paragliderpb.PermitListRule) (
+func ParagliderToIBMRules(securityGroupID string, rules []*paragliderpb.PermitListRule) (
 	[]SecurityGroupRule, error) {
 	var sgRules []SecurityGroupRule
 	for _, rule := range rules {
@@ -506,12 +506,12 @@ func InvisinetsToIBMRules(securityGroupID string, rules []*paragliderpb.PermitLi
 			sgRule := SecurityGroupRule{
 				ID:         rule.Name,
 				SgID:       securityGroupID,
-				Protocol:   invisinetsToIBMprotocol[rule.Protocol],
+				Protocol:   paragliderToIBMprotocol[rule.Protocol],
 				Remote:     remote,
 				RemoteType: remoteType,
 				PortMin:    int64(rule.SrcPort),
 				PortMax:    int64(rule.SrcPort),
-				Egress:     invisinetsToIBMDirection[rule.Direction],
+				Egress:     paragliderToIBMDirection[rule.Direction],
 				// explicitly setting value to -1. other icmp values have meaning.
 				IcmpType: -1,
 				IcmpCode: -1,

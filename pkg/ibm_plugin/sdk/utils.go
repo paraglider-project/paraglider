@@ -40,11 +40,11 @@ const (
 	GATEWAY TaggedResourceType = "gateway"
 
 	credentialsPath = ".ibm/credentials.yaml"
-	publicSSHKey    = ".ibm/keys/invisinets-key.pub"
-	privateSSHKey   = ".ibm/keys/invisinets-key"
+	publicSSHKey    = ".ibm/keys/paraglider-key.pub"
+	privateSSHKey   = ".ibm/keys/paraglider-key"
 
 	// InvResourcePrefix is used to prefix a resource's name
-	InvResourcePrefix = "invisinets"
+	InvResourcePrefix = "paraglider"
 	// InvTag is the default tag attached to all inv resources
 	InvTag = "inv"
 )
@@ -79,13 +79,13 @@ func CRN2ID(crn string) string {
 	return crn[index+1:]
 }
 
-// GenerateResourceName returns unique invisinets resource name
+// GenerateResourceName returns unique paraglider resource name
 func GenerateResourceName(name string) string {
 	return fmt.Sprintf("%v-%v-%v", InvResourcePrefix, name, uuid.New().String()[:8])
 }
 
-// IsInvisinetsResource returns if a given resource (e.g. permit list) belongs to invisinets
-func IsInvisinetsResource(name string) bool {
+// IsParagliderResource returns if a given resource (e.g. permit list) belongs to paraglider
+func IsParagliderResource(name string) bool {
 	return strings.HasPrefix(name, InvResourcePrefix)
 }
 

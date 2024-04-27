@@ -44,7 +44,7 @@ func (c *CloudClient) CreateTransitGW(region string) (*transitgatewayapisv1.Tran
 		Location:      &region, // location is mandatory even on global transmit GW.
 		Global:        core.BoolPtr(true),
 		ResourceGroup: (*transitgatewayapisv1.ResourceGroupIdentity)(c.resourceGroup),
-		Name:          core.StringPtr("Invisinets-transit-gw-" + uuid.New().String()[:8])}
+		Name:          core.StringPtr("Paraglider-transit-gw-" + uuid.New().String()[:8])}
 	transitGateway, _, err := c.transitGW.CreateTransitGateway(createTransitGatewayOptions)
 	if err != nil {
 		return nil, err
@@ -192,12 +192,12 @@ func (c *CloudClient) ConnectVPC(gatewayID string, vpcCRN string) error {
 // NOTE: the region argument isn't relevant for the lookup process.
 func (c *CloudClient) GetOrCreateTransitGateway(region string) (string, error) {
 	// if exists, fetch the transit gateway
-	TransitGatewayRes, err := c.GetInvisinetsTaggedResources(GATEWAY, []string{}, ResourceQuery{})
+	TransitGatewayRes, err := c.GetParagliderTaggedResources(GATEWAY, []string{}, ResourceQuery{})
 	if err != nil {
 		return "", err
 	}
 	if len(TransitGatewayRes) == 1 {
-		// an invisinets deployment has a single Transit gateway
+		// an paraglider deployment has a single Transit gateway
 		utils.Log.Printf("Found an existing transit gateway %+v", TransitGatewayRes[0])
 		return TransitGatewayRes[0].ID, nil
 	} else if len(TransitGatewayRes) == 0 {

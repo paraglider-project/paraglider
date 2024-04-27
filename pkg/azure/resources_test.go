@@ -40,8 +40,8 @@ const (
 	resourceGroupName      string = "rg"
 	fakeVmName             string = "vm"
 	fakeClusterName        string = "cluster"
-	invisinetsDeploymentId string = "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName
-	uriPrefix              string = invisinetsDeploymentId + "/providers/"
+	paragliderDeploymentId string = "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName
+	uriPrefix              string = paragliderDeploymentId + "/providers/"
 	vmURI                  string = uriPrefix + "Microsoft.Compute/virtualMachines/" + fakeVmName
 	aksURI                 string = uriPrefix + "Microsoft.ContainerService/managedClusters/" + fakeClusterName
 	badResourceID          string = "badResourceID"
@@ -75,7 +75,7 @@ func getFakeInterface() armnetwork.Interface {
 
 func getFakeNSG() armnetwork.SecurityGroup {
 	name := "nsg-name"
-	id := fmt.Sprintf("%smicrosoft.Network/vnet/%s/securityGroups/%s", uriPrefix, getInvisinetsNamespacePrefix(namespace), name)
+	id := fmt.Sprintf("%smicrosoft.Network/vnet/%s/securityGroups/%s", uriPrefix, getParagliderNamespacePrefix(namespace), name)
 	return armnetwork.SecurityGroup{
 		ID:   &id,
 		Name: &name,
@@ -83,7 +83,7 @@ func getFakeNSG() armnetwork.SecurityGroup {
 }
 
 func getFakeSubnet() armnetwork.Subnet {
-	id := fmt.Sprintf("%smicrosoft.Network/vnet/%s/subnets/subnet-id", uriPrefix, getInvisinetsNamespacePrefix(namespace))
+	id := fmt.Sprintf("%smicrosoft.Network/vnet/%s/subnets/subnet-id", uriPrefix, getParagliderNamespacePrefix(namespace))
 	address := "address"
 	return armnetwork.Subnet{
 		ID: &id,
@@ -177,7 +177,7 @@ func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*paragliderpb.
 		return nil, err
 	}
 	return &paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: invisinetsDeploymentId, Namespace: namespace},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: paragliderDeploymentId, Namespace: namespace},
 		Name:        fakeVmName,
 		Description: desc,
 	}, nil
@@ -190,7 +190,7 @@ func getFakeClusterResourceDescription(cluster *armcontainerservice.ManagedClust
 		return nil, err
 	}
 	return &paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: invisinetsDeploymentId, Namespace: namespace},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: paragliderDeploymentId, Namespace: namespace},
 		Name:        fakeClusterName,
 		Description: desc,
 	}, nil

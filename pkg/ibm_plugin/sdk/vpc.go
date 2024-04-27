@@ -26,7 +26,7 @@ import (
 
 const vpcType = "vpc"
 
-// CreateVPC creates an Invisinets VPC for a region resources are tagged.
+// CreateVPC creates an Paraglider VPC for a region resources are tagged.
 func (c *CloudClient) CreateVPC(tags []string) (*vpcv1.VPC, error) {
 	var prefixManagement string
 

@@ -103,7 +103,7 @@ func GetAndCheckResourceState(c context.Context, handler AzureSDKHandler, resour
 
 	// Check its namespace
 	vnet := getVnetFromSubnetId(netInfo.SubnetID)
-	if !strings.HasPrefix(vnet, getInvisinetsNamespacePrefix(namespace)) {
+	if !strings.HasPrefix(vnet, getParagliderNamespacePrefix(namespace)) {
 		return nil, fmt.Errorf("resource %s is not in the namespace %s (subnet ID: %s)", resourceID, namespace, netInfo.SubnetID)
 	}
 
@@ -242,7 +242,7 @@ func (r *azureResourceHandlerVM) getNetworkRequirements() (bool, int) {
 // Creates a virtual machine with the given subnet
 // Returns the private IP address of the virtual machine
 func (r *azureResourceHandlerVM) createWithNetwork(ctx context.Context, vm *armcompute.VirtualMachine, subnet *armnetwork.Subnet, resourceName string, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
-	nic, err := sdkHandler.CreateNetworkInterface(ctx, *subnet.ID, *vm.Location, getInvisinetsResourceName("nic"))
+	nic, err := sdkHandler.CreateNetworkInterface(ctx, *subnet.ID, *vm.Location, getParagliderResourceName("nic"))
 	if err != nil {
 		utils.Log.Printf("An error occured while creating network interface:%+v", err)
 		return "", err

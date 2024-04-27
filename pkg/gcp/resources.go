@@ -61,7 +61,7 @@ func resourceIsInNamespace(network string, namespace string) bool {
 
 // Gets a GCP network tag for a GCP instance
 func getNetworkTag(namespace string, resourceType string, resourceId string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-" + resourceType + "-" + resourceId
+	return getParagliderNamespacePrefix(namespace) + "-" + resourceType + "-" + resourceId
 }
 
 func convertInstanceIdToString(instanceId uint64) string {
@@ -73,7 +73,7 @@ func shortenClusterId(clusterId string) string {
 }
 
 func getClusterNodeTag(namespace string, clusterName string, clusterId string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-gke-" + clusterName + "-" + shortenClusterId(clusterId) + "-node"
+	return getParagliderNamespacePrefix(namespace) + "-gke-" + clusterName + "-" + shortenClusterId(clusterId) + "-node"
 }
 
 // Get the firewall rules associated with a resource following the naming convention
@@ -258,7 +258,7 @@ func (r *gcpInstance) createWithNetwork(ctx context.Context, instance *computepb
 	instance.Project = resourceInfo.Project
 	instance.InstanceResource.Name = proto.String(resourceInfo.Name)
 
-	// Configure network settings to Invisinets VPC and corresponding subnet
+	// Configure network settings to Paraglider VPC and corresponding subnet
 	instance.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
 			Network:    proto.String(GetVpcUri(resourceInfo.Project, resourceInfo.Namespace)),
@@ -275,7 +275,7 @@ func (r *gcpInstance) createWithNetwork(ctx context.Context, instance *computepb
 		return "", "", fmt.Errorf("unable to wait for the operation: %w", err)
 	}
 
-	// Add network tag which will be used by GCP firewall rules corresponding to Invisinets permit list rules
+	// Add network tag which will be used by GCP firewall rules corresponding to Paraglider permit list rules
 	// The instance is fetched again as the Id which is used to create the tag is only available after instance creation
 	instanceName := *instance.InstanceResource.Name
 	getInstanceReq := &computepb.GetInstanceRequest{
@@ -375,7 +375,7 @@ func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.Cre
 	cluster.Parent = fmt.Sprintf("projects/%s/locations/%s", resourceInfo.Project, resourceInfo.Zone)
 	cluster.Cluster.Name = resourceInfo.Name
 
-	// Configure network settings to Invisinets VPC and corresponding subnet
+	// Configure network settings to Paraglider VPC and corresponding subnet
 	cluster.Cluster.Network = getVpcName(resourceInfo.Namespace)
 	cluster.Cluster.Subnetwork = getSubnetworkURL(resourceInfo.Project, resourceInfo.Region, subnetName)
 	controlPlaneCidr := strings.Split(additionalAddrSpaces[0], "/")[0] + "/28" // TODO @smcclure20: Update this once FindUnusedAddressSpaces can give dynamically sized prefixes
@@ -393,7 +393,7 @@ func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.Cre
 		return "", "", fmt.Errorf("unable to insert cluster: %w", err)
 	}
 
-	// Add network tag which will be used by GCP firewall rules corresponding to Invisinets permit list rules
+	// Add network tag which will be used by GCP firewall rules corresponding to Paraglider permit list rules
 	// The cluster is fetched again as the Id which is used to create the tag is only available after instance creation
 	getClusterRequest := &containerpb.GetClusterRequest{
 		Name: fmt.Sprintf(clusterNameFormat, resourceInfo.Project, resourceInfo.Zone, cluster.Cluster.Name),
@@ -414,9 +414,9 @@ func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.Cre
 						IPProtocol: proto.String("all"),
 					},
 				},
-				Description: proto.String("Invisinets allow cluster egress traffic"),
+				Description: proto.String("Paraglider allow cluster egress traffic"),
 				Direction:   proto.String(direction),
-				Name:        proto.String("invisinets-allow-control-plane-" + strings.ToLower(direction) + "-" + resourceInfo.Name),
+				Name:        proto.String("paraglider-allow-control-plane-" + strings.ToLower(direction) + "-" + resourceInfo.Name),
 				Network:     proto.String(GetVpcUri(resourceInfo.Project, resourceInfo.Namespace)),
 				Priority:    proto.Int32(65500),
 				TargetTags:  []string{getClusterNodeTag(resourceInfo.Namespace, getClusterResp.Name, getClusterResp.Id)},

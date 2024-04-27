@@ -26,7 +26,7 @@ import (
 func NewVersionCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "Display the version of the Invisinets CLI",
+		Short: "Display the version of the Paraglider CLI",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Fprintln(cmd.OutOrStderr(), version.VersionString(version.NewVersionInfo()))

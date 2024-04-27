@@ -45,17 +45,17 @@ const (
 	fakeRegion    = "us-east"  // Primary region used for tests
 	fakeConRegion = "us-south" // Region used to test VPC connectivity across regions
 	fakeZone      = fakeRegion + "-a"
-	fakeInstance  = "vm-invisinets-fake"
+	fakeInstance  = "vm-paraglider-fake"
 	fakeImage     = "fake-image"
-	fakeVPC       = "invisinets-fake-vpc"
+	fakeVPC       = "paraglider-fake-vpc"
 	fakeID        = "12345"
 	fakeID2       = "123452"
 	fakeRuleName1 = "fake-rule1"
 	fakeRuleName2 = "fake-rule2"
 	fakeCRN       = "crn:" + fakeID
 	fakeCRN2      = "crn:" + fakeID2
-	fakeSubnet    = "invisinets-fake-subnet"
-	fakeSG        = "invisinets-fake-sg"
+	fakeSubnet    = "paraglider-fake-subnet"
+	fakeSG        = "paraglider-fake-sg"
 	fakeGW        = "invisnets-fake-gw"
 	fakeIP        = "10.0.0.2"
 	fakeSubnet1   = "10.0.0.0/16"
@@ -485,7 +485,7 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
 	}
@@ -519,7 +519,7 @@ func TestCreateResourceExistingVPCSubnet(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
 	}
@@ -550,7 +550,7 @@ func TestCreateResourceExistingVPCMissingSubnet(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &paragliderpb.ResourceDescription{
-		Deployment:  &paragliderpb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
 	}
@@ -576,7 +576,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		}}
 
 	deployment := &paragliderpb.GetUsedAddressSpacesRequest{
-		Deployments: []*paragliderpb.InvisinetsDeployment{
+		Deployments: []*paragliderpb.ParagliderDeployment{
 			{Id: fakeInstanceID, Namespace: fakeNamespace},
 		},
 	}
@@ -606,7 +606,7 @@ func TestGetUsedAddressSpacesMultipleVPC(t *testing.T) {
 		}}
 
 	deployment := &paragliderpb.GetUsedAddressSpacesRequest{
-		Deployments: []*paragliderpb.InvisinetsDeployment{
+		Deployments: []*paragliderpb.ParagliderDeployment{
 			{Id: fakeInstanceID, Namespace: fakeNamespace},
 		},
 	}
