@@ -23,6 +23,7 @@ import (
 	common "github.com/NetSys/invisinets/internal/cli/common"
 	"github.com/NetSys/invisinets/internal/cli/glided/az"
 	"github.com/NetSys/invisinets/internal/cli/glided/gcp"
+	"github.com/NetSys/invisinets/internal/cli/glided/ibm"
 	"github.com/NetSys/invisinets/internal/cli/glided/kvserv"
 	"github.com/NetSys/invisinets/internal/cli/glided/orchestrator"
 	"github.com/NetSys/invisinets/internal/cli/glided/startup"
@@ -39,6 +40,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(az.NewCommand())
 	rootCmd.AddCommand(gcp.NewCommand())
+	rootCmd.AddCommand(ibm.NewCommand())
 	rootCmd.AddCommand(orchestrator.NewCommand())
 	rootCmd.AddCommand(tagserv.NewCommand())
 	rootCmd.AddCommand(kvserv.NewCommand())

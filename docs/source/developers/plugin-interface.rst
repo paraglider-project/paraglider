@@ -1,4 +1,4 @@
-.. _contributing:
+.. _plugin_interface:
 
 Plugin Interface
 ==================

@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
@@ -90,7 +89,6 @@ func TestCreateSecurityRule(t *testing.T) {
 			validSecurityGroupName, validSecurityRuleName, "10.1.0.5", 200)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-
 	})
 }
 
@@ -195,14 +193,12 @@ func TestAssociateNSGWithSubnet(t *testing.T) {
 
 	t.Run("AssociateNSGWithSubnet: Success", func(t *testing.T) {
 		err := handler.AssociateNSGWithSubnet(ctx, validSubnetId, validSecurityGroupID)
-
 		require.NoError(t, err)
 	})
 
 	t.Run("AssociateNSGWithSubnet: Failure - subnet does not exist", func(t *testing.T) {
 		fakeServerState.subnet = nil
 		err := handler.AssociateNSGWithSubnet(ctx, validSubnetId, validSecurityGroupID)
-
 		require.Error(t, err)
 	})
 }

@@ -59,6 +59,7 @@ func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) (*A
 		utils.Log.Printf("An error occured while initializing azure clients: %+v", err)
 		return nil, err
 	}
+
 	return &azureHandler, nil
 }
 

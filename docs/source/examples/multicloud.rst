@@ -25,7 +25,7 @@ Goals
 Setup
 ------
 * For this example, we assume that you have set up the necessary credentials for Azure and GCP and that you have configured your Paraglider controller with a ``default`` namespace for both clouds. For more on how to do this, see the quickstart.
-* Run ``invd startup <path_to_config>`` to start all the microservices
+* Run ``glided startup <path_to_config>`` to start all the microservices
     * This example uses a templated controller config from the repo. You can find it at the ``tools/examples/controller-configs/az-gcp-config.yml`` directory.
 
 
@@ -44,7 +44,7 @@ Steps
 
    .. code-block:: console
 
-        $ inv resource create azure vm-a <path/to/azure-vm-westus.json>
+        $ glide resource create azure vm-a <path/to/azure-vm-westus.json>
 
 2. Create VM C in GCP
 
