@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const (
@@ -75,8 +75,8 @@ func createInstanceID(resGroup, zone, resName string) string {
 	return fmt.Sprintf("/resourcegroup/%s/zone/%s/%s/%s", resGroup, zone, instanceResourceType, resName)
 }
 
-func setRuleValToStore(ctx context.Context, client invisinetspb.ControllerClient, key, value, namespace string) error {
-	setVal := &invisinetspb.SetValueRequest{
+func setRuleValToStore(ctx context.Context, client paragliderpb.ControllerClient, key, value, namespace string) error {
+	setVal := &paragliderpb.SetValueRequest{
 		Key:       key,
 		Value:     value,
 		Cloud:     utils.IBM,
@@ -87,8 +87,8 @@ func setRuleValToStore(ctx context.Context, client invisinetspb.ControllerClient
 	return err
 }
 
-func getRuleValFromStore(ctx context.Context, client invisinetspb.ControllerClient, key, namespace string) (string, error) {
-	getVal := &invisinetspb.GetValueRequest{
+func getRuleValFromStore(ctx context.Context, client paragliderpb.ControllerClient, key, namespace string) (string, error) {
+	getVal := &paragliderpb.GetValueRequest{
 		Key:       key,
 		Cloud:     utils.IBM,
 		Namespace: namespace,
@@ -101,8 +101,8 @@ func getRuleValFromStore(ctx context.Context, client invisinetspb.ControllerClie
 	return resp.Value, err
 }
 
-func delRuleValFromStore(ctx context.Context, client invisinetspb.ControllerClient, key, namespace string) error {
-	delVal := &invisinetspb.DeleteValueRequest{
+func delRuleValFromStore(ctx context.Context, client paragliderpb.ControllerClient, key, namespace string) error {
+	delVal := &paragliderpb.DeleteValueRequest{
 		Key:       key,
 		Cloud:     utils.IBM,
 		Namespace: namespace,
