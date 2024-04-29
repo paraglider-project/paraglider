@@ -62,7 +62,6 @@ func TestCreateResource(t *testing.T) {
 		if err != nil {
 			t.Errorf("Error while creating valid resource description: %v", err)
 		}
-
 		serverState := &fakeServerState{
 			subId:  subID,
 			rgName: rgName,
@@ -100,6 +99,7 @@ func TestCreateResource(t *testing.T) {
 			t.Errorf("Error while marshalling description: %v", err)
 		}
 		server, ctx := setupAzurePluginServer()
+
 		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
 			Description: desc,
 		})
@@ -153,6 +153,7 @@ func TestCreateResource(t *testing.T) {
 		defer Teardown(fakeServer)
 
 		server, _ := setupAzurePluginServer()
+
 		_, orchAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 		if err != nil {
 			t.Fatal(err)
@@ -342,6 +343,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
+
 		require.Error(t, err)
 		require.NotNil(t, err)
 		require.Nil(t, resp)
@@ -363,6 +365,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
+    
 		require.Error(t, err)
 		require.NotNil(t, err)
 		require.Nil(t, resp)

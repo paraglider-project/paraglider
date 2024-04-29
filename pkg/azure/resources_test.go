@@ -232,7 +232,7 @@ func TestAzureVMGetNetworkInfo(t *testing.T) {
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 	err := handler.InitializeClients(nil)
 	require.NoError(t, err)
-
+  
 	vmHandler := &azureResourceHandlerVM{}
 	resource := getFakeVMGenericResource()
 
