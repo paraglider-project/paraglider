@@ -3,7 +3,7 @@
 Contributing
 ========================================
 
-Welcome to the repo! We're currently building Paraglider with a small cross-industry team. We'll update this guidance further as we move closer to being a public open source project.
+Welcome to the repo! We're currently building Paraglider with a small cross-industry team. We're excited to have you join us in building a new way to connect to cloud resources.
 
 
 Creating issues
