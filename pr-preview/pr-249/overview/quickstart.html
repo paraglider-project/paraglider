@@ -391,6 +391,7 @@ IBM</label><div class="sd-tab-content docutils">
 <li><p><code class="docutils literal notranslate"><span class="pre">server</span></code> defines the orchestrator’s host and ports. The orchestrator has two ports: <code class="docutils literal notranslate"><span class="pre">port</span></code> for an HTTP server for users and <code class="docutils literal notranslate"><span class="pre">rpcPort</span></code> for an RPC server for cloud plugins.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">cloudPlugins</span></code> lists the cloud plugins that Paraglider will use. In this example, we only specify one cloud but you can specify multiple clouds.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tagService</span></code> defines the host and port for the tag service.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kvStore</span></code> defines the host and port for the KV-store service, which can optionally be used by cloud plugins to store states.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">namespaces</span></code> lists the namespaces that Paraglider will reference. Each namespace consists of a list of clouds that specifies the cloud name and deployment URI.</p></li>
 </ol>
 </section>
@@ -552,8 +553,20 @@ GCP</label><div class="sd-tab-content docutils">
 <input id="sd-tab-item-11" name="sd-tab-set-3" type="radio">
 </input><label class="sd-tab-label" data-sync-id="ibm" for="sd-tab-item-11">
 IBM</label><div class="sd-tab-content docutils">
-<ol class="arabic simple">
-<li><p>TBD</p></li>
+<ol class="arabic">
+<li><p>Login to the VM vm-1 using serial console/ssh.</p></li>
+<li><p>Ping the IP address of vm-2.</p>
+<blockquote>
+<div><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>IP address of vm-2 can be obtained using tag command.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>default.ibm.vm-2
+</pre></div>
+</div>
+</div>
+</div></blockquote>
+<p>The ping should not work.</p>
+</li>
 </ol>
 </div>
 </div>
@@ -608,8 +621,19 @@ IBM</label><div class="sd-tab-content docutils">
 </pre></div>
 </div>
 </li>
-<li><p>Check connectivity again between vm-1 and vm-2.</p>
-<p>TBD</p>
+<li><p>Check connectivity again between vm-1 and vm-2.</p></li>
+<li><p>Login to the VM vm-1 using serial console/ssh.</p></li>
+<li><p>Ping the IP address of vm-2.</p>
+<blockquote>
+<div><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>IP address of vm-2 can be obtained using tag command.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>default.ibm.vm-2
+</pre></div>
+</div>
+</div>
+</div></blockquote>
+<p>The ping should now work.</p>
 </li>
 </ol>
 </div>
