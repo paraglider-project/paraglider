@@ -238,7 +238,7 @@
 The project reduces the need for detailed networking knowledge from developers and administrators, and hides the complexity of low-level components like virtual networks, access control, load balancers, and inter-cloud connections.
 Paraglider provides high-level constructs for modeling connectivity and security as well as key network functions. Additionally, it provides mechanisms for semantically meaningful names and groups rather than limiting to IP-based constructs.
 The Paraglider configuration, in the form of connectivity requirements between networked resources (VMs, containers, PaaS resources, etc.), is then translated to cloud-specific configurations via plugins tailored for each platform.</p>
-<p>Paraglider exposes its streamlined interface to cloud tenants through the Paraglider controller.
+<p>Cloud customers interact with the Paraglider APIs exposed by the Paraglider controller.
 The controller is responsible for provisioning and updating the relevant cloud network resources based on the requests from the user.
 The controller includes plugins for each cloud it supports which are responsible for translating the Paraglider configuration to the cloud-specific configuration.
 For more information about the design and architecture, please refer to <a class="reference internal" href="../overview/howitworks.html#howitworks"><span class="std std-ref">How It Works</span></a>.</p>
