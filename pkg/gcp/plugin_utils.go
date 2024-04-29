@@ -19,8 +19,13 @@ package gcp
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
+	"strings"
 	"testing"
 
 	billing "cloud.google.com/go/billing/apiv1"
@@ -34,6 +39,7 @@ import (
 	serviceusage "cloud.google.com/go/serviceusage/apiv1"
 	"cloud.google.com/go/serviceusage/apiv1/serviceusagepb"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -256,4 +262,51 @@ func RunPingConnectivityTest(t *testing.T, project string, name string, srcEndpo
 	}
 
 	require.True(t, reachable)
+}
+
+// GCP naming conventions
+const (
+	paragliderPrefix = "paraglider"
+)
+
+// Hashes values to lowercase hex string for use in naming GCP resources
+func hash(values ...string) string {
+	hash := sha256.Sum256([]byte(strings.Join(values, "")))
+	return strings.ToLower(hex.EncodeToString(hash[:]))
+}
+
+/* --- RESOURCE NAME --- */
+
+func getParagliderNamespacePrefix(namespace string) string {
+	return paragliderPrefix + "-" + namespace
+}
+
+func getRegionFromZone(zone string) string {
+	return zone[:strings.LastIndex(zone, "-")]
+}
+
+// Parses GCP compute URL for desired fields
+func parseGCPURL(url string) map[string]string {
+	path := strings.TrimPrefix(url, computeURLPrefix)
+	path = strings.TrimPrefix(path, containerURLPrefix)
+	parsedURL := map[string]string{}
+	pathComponents := strings.Split(path, "/")
+	for i := 0; i < len(pathComponents)-1; i += 2 {
+		parsedURL[pathComponents[i]] = pathComponents[i+1]
+	}
+	return parsedURL
+}
+
+// Checks if GCP error response is a not found error
+func isErrorNotFound(err error) bool {
+	var e *googleapi.Error
+	ok := errors.As(err, &e)
+	return ok && e.Code == http.StatusNotFound
+}
+
+// Checks if GCP error response is a duplicate error
+func isErrorDuplicate(err error) bool {
+	var e *googleapi.Error
+	ok := errors.As(err, &e)
+	return ok && e.Code == http.StatusConflict
 }

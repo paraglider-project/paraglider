@@ -33,9 +33,12 @@ import (
 )
 
 const (
-	clusterTypeName   = "cluster"
-	instanceTypeName  = "instance"
-	clusterNameFormat = "projects/%s/locations/%s/clusters/%s"
+	clusterTypeName    = "cluster"
+	instanceTypeName   = "instance"
+	clusterNameFormat  = "projects/%s/locations/%s/clusters/%s"
+	computeURLPrefix   = "https://www.googleapis.com/compute/v1/"
+	containerURLPrefix = "https://container.googleapis.com/v1beta1/"
+	networkInterface   = "nic0"
 )
 
 type resourceInfo struct {
@@ -482,4 +485,12 @@ func (r *gcpGKE) fromResourceDecription(resourceDesc []byte) (*containerpb.Creat
 		return nil, fmt.Errorf("network settings (subnets and address spaces) should not be specified")
 	}
 	return createClusterRequest, nil
+}
+
+func getInstanceUri(project, zone, instance string) string {
+	return fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instance)
+}
+
+func getClusterUri(project, zone, cluster string) string {
+	return fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, zone, cluster)
 }
