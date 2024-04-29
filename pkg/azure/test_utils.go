@@ -341,8 +341,6 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		}
 		fmt.Printf("unsupported request: %s %s\n", r.Method, path)
-		fmt.Printf("httppath: %s", urlPrefix)
-		http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
 	})
 }
 
