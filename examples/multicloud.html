@@ -266,17 +266,17 @@
 </div>
 </li>
 <li><p>Create VM C in GCP</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>gcp<span class="w"> </span>vm-c<span class="w"> </span>&lt;path/to/gcp-vm.json&gt;
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>gcp<span class="w"> </span>vm-c<span class="w"> </span>&lt;path/to/gcp-vm.json&gt;
 </pre></div>
 </div>
 </li>
 <li><p>Log into VM C and try to ping VM A. Add the following rule to allow the in-browser SSH tool from GCP. The ping should fail.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm-c<span class="w"> </span>--ssh<span class="w"> </span><span class="m">35</span>.235.240.0/20
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm-c<span class="w"> </span>--ssh<span class="w"> </span><span class="m">35</span>.235.240.0/20
 </pre></div>
 </div>
 </li>
 <li><p>Set the permit list on VM C to allow pings from VM A.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm-c<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-a
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm-c<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-a
 </pre></div>
 </div>
 <div class="admonition note">
@@ -293,12 +293,12 @@
 <h3>Steps<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
 <ol class="arabic">
 <li><p>Create VM B in Azure</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>azure<span class="w"> </span>vm-b<span class="w"> </span>&lt;path/to/azure-vm-eastus.json&gt;
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>azure<span class="w"> </span>vm-b<span class="w"> </span>&lt;path/to/azure-vm-eastus.json&gt;
 </pre></div>
 </div>
 </li>
 <li><p>Set the permit list on VM ato allow pings to VM B.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-a<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-b
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-a<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-b
 </pre></div>
 </div>
 </li>
@@ -308,7 +308,7 @@
 </ul>
 </li>
 <li><p>Set the permit list on VM B to allow pings from VM A.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-b<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-a
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-b<span class="w"> </span>--ping<span class="w"> </span>default.azure.vm-a
 </pre></div>
 </div>
 </li>
@@ -323,20 +323,20 @@
 <ol class="arabic">
 <li><p>Picking up where we left off with the multicloud connection, log into VM C and try to ping VM A. The ping should fail.</p></li>
 <li><p>Set the permit list on VM A to allow pings from VM C.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-a<span class="w"> </span>--ping<span class="w"> </span>default.gcp.vm-c
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>azure<span class="w"> </span>vm-a<span class="w"> </span>--ping<span class="w"> </span>default.gcp.vm-c
 </pre></div>
 </div>
 </li>
 <li><p>Try to ping VM A from VM C. The ping should succeed.</p></li>
 <li><p>Get the permit list of VM A.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>get<span class="w"> </span>azure<span class="w"> </span>vm-a
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>get<span class="w"> </span>azure<span class="w"> </span>vm-a
 </pre></div>
 </div>
 </li>
 </ol>
 <ol class="arabic" start="4">
 <li><p>Remove a permit list rule allowing pings from VM A’s permit list.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inv<span class="w"> </span>rule<span class="w"> </span>delete<span class="w"> </span>azure<span class="w"> </span>vm-a<span class="w"> </span>--rules<span class="w"> </span>allow-ping-inbound-default.gcp.vm-c
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>delete<span class="w"> </span>azure<span class="w"> </span>vm-a<span class="w"> </span>--rules<span class="w"> </span>allow-ping-inbound-default.gcp.vm-c
 </pre></div>
 </div>
 </li>
