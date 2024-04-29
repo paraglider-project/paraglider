@@ -31,7 +31,7 @@ For more information about the design and architecture, please refer to :ref:`ho
 
 Guidelines
 ------------------
-We welcome small pull request contributions from anyone (docs improvements, bug fixes, minor features.) as long as they follow a few guidelines:
+We always welcome minor contributions like documentation improvements, typo corrections, bug fixes, and minor features in the form of pull requests. 
 
 * For very minor changes like correcting a typo feel free to send a pull request. Otherwise ...
 * Please start by `choosing an existing issue <https://github.com/paraglider-project/paraglider/issues>`_, or `opening an issue to work on <https://github.com/paraglider-project/paraglider/issues/new>`_.
