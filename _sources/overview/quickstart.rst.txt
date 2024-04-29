@@ -171,16 +171,26 @@ Copy paste the following configuration into a new file called ``paraglider_confi
               host: "localhost"
               port: 8083
 
+            kvStore:
+              host: "localhost"
+              port: 8084
+
             namespaces:
               default:
                 - name: "ibm"
                   deployment: "resourcegroup/${IBM_RESOURCE_GROUP_ID}"
+
+        .. note::
+
+                IBM plugin leverages KV-store provided by paraglider orchestrator to store permit-list to security group rule IDs.
+
 
 Here is a breakdown of the configuration file:
 
 #. ``server`` defines the orchestrator's host and ports. The orchestrator has two ports: ``port`` for an HTTP server for users and ``rpcPort`` for an RPC server for cloud plugins.
 #. ``cloudPlugins`` lists the cloud plugins that Paraglider will use. In this example, we only specify one cloud but you can specify multiple clouds.
 #. ``tagService`` defines the host and port for the tag service.
+#. ``kvStore`` defines the host and port for the KV-store service, which can optionally be used by cloud plugins to store states.
 #. ``namespaces`` lists the namespaces that Paraglider will reference. Each namespace consists of a list of clouds that specifies the cloud name and deployment URI.
 
 Startup Services
@@ -344,7 +354,17 @@ Since Paraglider creates VMs without public IPs, you will need to use cloud spec
     .. tab-item:: IBM
         :sync: ibm
 
-        #. TBD
+        #. Login to the VM vm-1 using serial console/ssh.
+        #. Ping the IP address of vm-2.
+        
+            .. note::
+                IP address of vm-2 can be obtained using tag command.
+
+                .. code-block:: console
+
+                    $ glide tag get default.ibm.vm-2
+            
+           The ping should not work.
 
 Add Permit List Rules
 ---------------------
@@ -401,4 +421,14 @@ To get the VMs to talk to each other, you will need to add permit list rules to 
 
         #. Check connectivity again between vm-1 and vm-2.
 
-           TBD
+        #. Login to the VM vm-1 using serial console/ssh.
+        #. Ping the IP address of vm-2.
+        
+            .. note::
+                IP address of vm-2 can be obtained using tag command.
+
+                .. code-block:: console
+
+                    $ glide tag get default.ibm.vm-2
+            
+           The ping should now work.
