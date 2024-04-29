@@ -11,6 +11,28 @@ Goals
 * Add a new tag to the parent tag
 * See that the resource's permit list has been updated accordingly
 
+Installation
+------------
+
+.. code-block:: console
+
+    $ git clone https://github.com/paraglider-project/paraglider
+    $ cd paraglider
+    $ make build install
+
+Controller Setup
+----------------
+
+.. code-block:: console
+
+    $ glided startup <path_to_config>
+
+You can find example configuration files in the ``tools/examples/controller-configs`` directory.
+
+.. note::
+
+    Be sure to replace the template values for the GCP project in the template.
+
 Steps
 ------
 
@@ -38,6 +60,10 @@ Steps
    .. code-block:: console
     
         $ glide resource create gcp vm1 <path_to_config>
+
+   .. note::
+
+      You can find example configuration files in the ``tools/examples/vm-configs`` directory.
 
 4. Add a rule referencing the parent tag to a resource
 

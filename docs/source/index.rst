@@ -43,6 +43,7 @@ The project is now run by an cross-industry working group consisting of members 
    :maxdepth: 1
    :caption: Examples
 
+   examples/controller-setup.rst
    examples/tags.rst
    examples/multicloud.rst
    
