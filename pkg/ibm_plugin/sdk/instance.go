@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 // CreateInstance creates a VM in the specified subnet and zone.
@@ -102,13 +102,13 @@ func (c *CloudClient) GetInstanceSecurityGroupID(id string) (string, error) {
 	}
 	for _, nic := range nics.NetworkInterfaces {
 		for _, sg := range nic.SecurityGroups {
-			if IsInvisinetsResource(*sg.Name) {
-				// A VM is only ever associated with a single invisinets SG
+			if IsParagliderResource(*sg.Name) {
+				// A VM is only ever associated with a single paraglider SG
 				return *sg.ID, nil
 			}
 		}
 	}
-	return "", fmt.Errorf("no invisinets SG is associated with the specified instance")
+	return "", fmt.Errorf("no paraglider SG is associated with the specified instance")
 }
 
 // NOTE: Currently not in use, as public ips are not provisioned.
@@ -204,7 +204,7 @@ func (c *CloudClient) IsInstanceInNamespace(InstanceName, namespace, region stri
 	}
 
 	// look for a VM with the specified CRN in the specified namespace.
-	taggedVMData, err := c.GetInvisinetsTaggedResources(VM, []string{namespace},
+	taggedVMData, err := c.GetParagliderTaggedResources(VM, []string{namespace},
 		resourceQuery)
 	if err != nil {
 		return false, err

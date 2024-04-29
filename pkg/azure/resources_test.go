@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -232,7 +232,7 @@ func TestAzureVMGetNetworkInfo(t *testing.T) {
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 	err := handler.InitializeClients(nil)
 	require.NoError(t, err)
-  
+
 	vmHandler := &azureResourceHandlerVM{}
 	resource := getFakeVMGenericResource()
 

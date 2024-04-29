@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 )
 
 const (
@@ -48,7 +48,7 @@ const (
 	validSecurityRuleName                    = "valid-security-rule-name"
 	validSecurityGroupID                     = uriPrefix + "Microsoft.Network/networkSecurityGroups/" + validSecurityGroupName
 	validSecurityGroupName                   = validNicName + nsgNameSuffix
-	validVnetName                            = invisinetsPrefix + "-" + namespace + "-valid-vnet-name"
+	validVnetName                            = paragliderPrefix + "-" + namespace + "-valid-vnet-name"
 	validVnetId                              = uriPrefix + "Microsoft.Network/virtualNetworks/" + validVnetName
 	validAddressSpace                        = "10.0.0.0/16"
 	validVirtualNetworkGatewayName           = "valid-virtual-network-gateway"
@@ -516,27 +516,27 @@ func getFakeAKSGenericResource() armresources.GenericResource {
 	}
 }
 
-func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*invisinetspb.ResourceDescription, error) {
+func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*paragliderpb.ResourceDescription, error) {
 	desc, err := json.Marshal(vm)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
-	return &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
+	return &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: deploymentId, Namespace: namespace},
 		Name:        validVmName,
 		Description: desc,
 	}, nil
 }
 
-func getFakeClusterResourceDescription(cluster *armcontainerservice.ManagedCluster) (*invisinetspb.ResourceDescription, error) {
+func getFakeClusterResourceDescription(cluster *armcontainerservice.ManagedCluster) (*paragliderpb.ResourceDescription, error) {
 	desc, err := json.Marshal(cluster)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
-	return &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
+	return &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: deploymentId, Namespace: namespace},
 		Name:        validClusterName,
 		Description: desc,
 	}, nil

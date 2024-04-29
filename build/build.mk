@@ -1,4 +1,4 @@
-BASE_PACKAGE_NAME := github.com/NetSys/invisinets
+BASE_PACKAGE_NAME := github.com/paraglider-project/paraglider
 OUT_DIR := ./dist
 
 GOOS ?= $(shell go env GOOS)

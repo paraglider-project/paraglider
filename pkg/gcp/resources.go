@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -61,7 +61,7 @@ func resourceIsInNamespace(network string, namespace string) bool {
 
 // Gets a GCP network tag for a GCP instance
 func getNetworkTag(namespace string, resourceType string, resourceId string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-" + resourceType + "-" + resourceId
+	return getParagliderNamespacePrefix(namespace) + "-" + resourceType + "-" + resourceId
 }
 
 func convertInstanceIdToString(instanceId uint64) string {
@@ -73,7 +73,7 @@ func shortenClusterId(clusterId string) string {
 }
 
 func getClusterNodeTag(namespace string, clusterName string, clusterId string) string {
-	return getInvisinetsNamespacePrefix(namespace) + "-gke-" + clusterName + "-" + shortenClusterId(clusterId) + "-node"
+	return getParagliderNamespacePrefix(namespace) + "-gke-" + clusterName + "-" + shortenClusterId(clusterId) + "-node"
 }
 
 // Get the firewall rules associated with a resource following the naming convention
@@ -162,7 +162,7 @@ func GetResourceNetworkInfo(ctx context.Context, instancesClient *compute.Instan
 }
 
 // Determine whether the provided resource description is supported
-func IsValidResource(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
+func IsValidResource(ctx context.Context, resource *paragliderpb.ResourceDescription) (*resourceInfo, error) {
 	handler, err := getResourceHandlerFromDescription(resource.Description)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get resource handler: %w", err)
@@ -175,7 +175,7 @@ func IsValidResource(ctx context.Context, resource *invisinetspb.ResourceDescrip
 }
 
 // Read the resource description and provision the resource
-func ReadAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, instanceClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
+func ReadAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, instanceClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
 	handler, err := getResourceHandlerWithClient(resourceInfo.ResourceType, instanceClient, clusterClient)
 	if err != nil {
 		return "", "", fmt.Errorf("unable to get resource handler: %w", err)
@@ -191,11 +191,11 @@ type supportedGCPResourceClient interface {
 // Interface to implement to support a resource
 type iGCPResourceHandler interface {
 	// Read and provision the resource with the provided subnet
-	readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error)
+	readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error)
 	// Get network information about the resource
 	getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo) (*resourceNetworkInfo, error)
 	// Get information about the reosurce from the resource description
-	getResourceInfo(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error)
+	getResourceInfo(ctx context.Context, resource *paragliderpb.ResourceDescription) (*resourceInfo, error)
 }
 
 // Generic GCP resource handler
@@ -210,7 +210,7 @@ type gcpInstance struct {
 }
 
 // Get the resource information for a GCP instance
-func (r *gcpInstance) getResourceInfo(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
+func (r *gcpInstance) getResourceInfo(ctx context.Context, resource *paragliderpb.ResourceDescription) (*resourceInfo, error) {
 	insertInstanceRequest := &computepb.InsertInstanceRequest{}
 	err := json.Unmarshal(resource.Description, insertInstanceRequest)
 	if err != nil {
@@ -220,7 +220,7 @@ func (r *gcpInstance) getResourceInfo(ctx context.Context, resource *invisinetsp
 }
 
 // Read and provision a GCP instance
-func (r *gcpInstance) readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
+func (r *gcpInstance) readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
 	vm, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
 		return "", "", err
@@ -258,7 +258,7 @@ func (r *gcpInstance) createWithNetwork(ctx context.Context, instance *computepb
 	instance.Project = resourceInfo.Project
 	instance.InstanceResource.Name = proto.String(resourceInfo.Name)
 
-	// Configure network settings to Invisinets VPC and corresponding subnet
+	// Configure network settings to Paraglider VPC and corresponding subnet
 	instance.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
 			Network:    proto.String(GetVpcUri(resourceInfo.Project, resourceInfo.Namespace)),
@@ -275,7 +275,7 @@ func (r *gcpInstance) createWithNetwork(ctx context.Context, instance *computepb
 		return "", "", fmt.Errorf("unable to wait for the operation: %w", err)
 	}
 
-	// Add network tag which will be used by GCP firewall rules corresponding to Invisinets permit list rules
+	// Add network tag which will be used by GCP firewall rules corresponding to Paraglider permit list rules
 	// The instance is fetched again as the Id which is used to create the tag is only available after instance creation
 	instanceName := *instance.InstanceResource.Name
 	getInstanceReq := &computepb.GetInstanceRequest{
@@ -331,7 +331,7 @@ type gcpGKE struct {
 }
 
 // Read and provision a GCP cluster
-func (r *gcpGKE) readAndProvisionResource(ctx context.Context, resource *invisinetspb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
+func (r *gcpGKE) readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
 	gke, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
 		return "", "", err
@@ -340,7 +340,7 @@ func (r *gcpGKE) readAndProvisionResource(ctx context.Context, resource *invisin
 }
 
 // Get the resource information for a GCP cluster
-func (r *gcpGKE) getResourceInfo(ctx context.Context, resource *invisinetspb.ResourceDescription) (*resourceInfo, error) {
+func (r *gcpGKE) getResourceInfo(ctx context.Context, resource *paragliderpb.ResourceDescription) (*resourceInfo, error) {
 	createClusterRequest := &containerpb.CreateClusterRequest{}
 	err := json.Unmarshal(resource.Description, createClusterRequest)
 	if err != nil {
@@ -375,7 +375,7 @@ func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.Cre
 	cluster.Parent = fmt.Sprintf("projects/%s/locations/%s", resourceInfo.Project, resourceInfo.Zone)
 	cluster.Cluster.Name = resourceInfo.Name
 
-	// Configure network settings to Invisinets VPC and corresponding subnet
+	// Configure network settings to Paraglider VPC and corresponding subnet
 	cluster.Cluster.Network = getVpcName(resourceInfo.Namespace)
 	cluster.Cluster.Subnetwork = getSubnetworkURL(resourceInfo.Project, resourceInfo.Region, subnetName)
 	controlPlaneCidr := strings.Split(additionalAddrSpaces[0], "/")[0] + "/28" // TODO @smcclure20: Update this once FindUnusedAddressSpaces can give dynamically sized prefixes
@@ -393,7 +393,7 @@ func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.Cre
 		return "", "", fmt.Errorf("unable to insert cluster: %w", err)
 	}
 
-	// Add network tag which will be used by GCP firewall rules corresponding to Invisinets permit list rules
+	// Add network tag which will be used by GCP firewall rules corresponding to Paraglider permit list rules
 	// The cluster is fetched again as the Id which is used to create the tag is only available after instance creation
 	getClusterRequest := &containerpb.GetClusterRequest{
 		Name: fmt.Sprintf(clusterNameFormat, resourceInfo.Project, resourceInfo.Zone, cluster.Cluster.Name),
@@ -414,9 +414,9 @@ func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.Cre
 						IPProtocol: proto.String("all"),
 					},
 				},
-				Description: proto.String("Invisinets allow cluster egress traffic"),
+				Description: proto.String("Paraglider allow cluster egress traffic"),
 				Direction:   proto.String(direction),
-				Name:        proto.String("invisinets-allow-control-plane-" + strings.ToLower(direction) + "-" + resourceInfo.Name),
+				Name:        proto.String("paraglider-allow-control-plane-" + strings.ToLower(direction) + "-" + resourceInfo.Name),
 				Network:     proto.String(GetVpcUri(resourceInfo.Project, resourceInfo.Namespace)),
 				Priority:    proto.Int32(65500),
 				TargetTags:  []string{getClusterNodeTag(resourceInfo.Namespace, getClusterResp.Name, getClusterResp.Id)},

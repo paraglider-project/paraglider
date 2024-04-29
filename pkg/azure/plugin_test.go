@@ -1,7 +1,7 @@
 //go:build unit
 
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,10 +28,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
-	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/NetSys/invisinets/pkg/orchestrator"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -83,7 +83,7 @@ func TestCreateResource(t *testing.T) {
 
 	t.Run("TestCreateResource: Failure, invalid json", func(t *testing.T) {
 		server, ctx := setupAzurePluginServer()
-		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
+		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
 			Description: []byte("invalid json"),
 		})
 
@@ -100,7 +100,7 @@ func TestCreateResource(t *testing.T) {
 		}
 		server, ctx := setupAzurePluginServer()
 
-		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
+		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
 			Description: desc,
 		})
 
@@ -124,7 +124,7 @@ func TestCreateResource(t *testing.T) {
 
 		server, ctx := setupAzurePluginServer()
 
-		response, err := server.CreateResource(ctx, &invisinetspb.ResourceDescription{
+		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
 			Description: desc,
 		})
 
@@ -195,7 +195,7 @@ func TestGetPermitList(t *testing.T) {
 		server, _ := setupAzurePluginServer()
 
 		// Call the GetPermitList function
-		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
+		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
 		resp, err := server.GetPermitList(ctx, request)
 
 		// check the results
@@ -217,7 +217,7 @@ func TestGetPermitList(t *testing.T) {
 
 		server, _ := setupAzurePluginServer()
 		// Call the GetPermitList function
-		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
+		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
 		response, err := server.GetPermitList(ctx, request)
 
 		// check the error
@@ -239,7 +239,7 @@ func TestGetPermitList(t *testing.T) {
 		server, _ := setupAzurePluginServer()
 
 		// Call the GetPermitList function
-		request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
+		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
 		response, err := server.GetPermitList(ctx, request)
 
 		// check the error
@@ -296,7 +296,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server, _ := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -323,7 +323,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server, _ := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakeOldPlRules, Namespace: namespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakeOldPlRules, Namespace: namespace, Resource: fakeResource})
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -342,7 +342,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server, _ := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
 
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -364,8 +364,8 @@ func TestAddPermitListRules(t *testing.T) {
 		server, _ := setupAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
-    
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
+
 		require.Error(t, err)
 		require.NotNil(t, err)
 		require.Nil(t, resp)
@@ -387,7 +387,7 @@ func TestAddPermitListRules(t *testing.T) {
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		// Call the GetPermitList function
-		resp, err := server.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
 
 		// check the error
 		require.Error(t, err)
@@ -424,7 +424,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 		server, _ := setupAzurePluginServer()
 
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -443,7 +443,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 		server, _ := setupAzurePluginServer()
 
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -463,7 +463,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 		server, _ := setupAzurePluginServer()
 
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -482,7 +482,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 		server, _ := setupAzurePluginServer()
 
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -504,7 +504,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		server, _ := setupAzurePluginServer()
 
 		// Call the GetPermitList function
-		resp, err := server.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		// check the error
 		require.Error(t, err)
@@ -531,14 +531,14 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 	server, _ := setupAzurePluginServer()
 
-	req := &invisinetspb.GetUsedAddressSpacesRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{
+	req := &paragliderpb.GetUsedAddressSpacesRequest{
+		Deployments: []*paragliderpb.InvisinetsDeployment{
 			{Id: deploymentId, Namespace: namespace},
 		},
 	}
 	resp, err := server.GetUsedAddressSpaces(ctx, req)
 
-	expectedAddressSpaceMappings := []*invisinetspb.AddressSpaceMapping{
+	expectedAddressSpaceMappings := []*paragliderpb.AddressSpaceMapping{
 		{
 			AddressSpaces: []string{validAddressSpace},
 			Cloud:         utils.AZURE,
@@ -569,8 +569,8 @@ func TestGetUsedAsns(t *testing.T) {
 	server, _ := setupAzurePluginServer()
 
 	usedAsnsExpected := []uint32{64512}
-	req := &invisinetspb.GetUsedAsnsRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{
+	req := &paragliderpb.GetUsedAsnsRequest{
+		Deployments: []*paragliderpb.InvisinetsDeployment{
 			{Id: deploymentId, Namespace: namespace},
 		},
 	}
@@ -602,8 +602,8 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 	server, _ := setupAzurePluginServer()
 
 	usedBgpPeeringIpAddressExpected := []string{"169.254.21.1", "169.254.22.1"}
-	req := &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{
+	req := &paragliderpb.GetUsedBgpPeeringIpAddressesRequest{
+		Deployments: []*paragliderpb.InvisinetsDeployment{
 			{Id: deploymentId, Namespace: namespace},
 		},
 	}
@@ -665,8 +665,8 @@ func TestCreateVpnGateway(t *testing.T) {
 	server, _ := setupAzurePluginServer()
 	server.orchestratorServerAddr = fakeControllerServerAddr
 
-	req := &invisinetspb.CreateVpnGatewayRequest{
-		Deployment:            &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
+	req := &paragliderpb.CreateVpnGatewayRequest{
+		Deployment:            &paragliderpb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
 		Cloud:                 "fake-cloud",
 		BgpPeeringIpAddresses: []string{"169.254.21.1", "169.254.22.1"},
 	}
@@ -688,8 +688,8 @@ func TestCreateVpnConnections(t *testing.T) {
 
 	server, _ := setupAzurePluginServer()
 
-	req := &invisinetspb.CreateVpnConnectionsRequest{
-		Deployment:         &invisinetspb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
+	req := &paragliderpb.CreateVpnConnectionsRequest{
+		Deployment:         &paragliderpb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
 		Cloud:              "cloudname",
 		Asn:                123,
 		GatewayIpAddresses: []string{"1.1.1.1", "2.2.2.2"},
@@ -704,8 +704,8 @@ func TestCreateVpnConnections(t *testing.T) {
 
 /* --- Helper Functions --- */
 
-func getFakeNewPermitListRules() ([]*invisinetspb.PermitListRule, error) {
-	return []*invisinetspb.PermitListRule{
+func getFakeNewPermitListRules() ([]*paragliderpb.PermitListRule, error) {
+	return []*paragliderpb.PermitListRule{
 		{
 			Name:      "test-rule-1",
 			Tags:      []string{"tag1", "tag2"},
@@ -713,7 +713,7 @@ func getFakeNewPermitListRules() ([]*invisinetspb.PermitListRule, error) {
 			SrcPort:   8080,
 			DstPort:   8080,
 			Protocol:  1,
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 		},
 		{
 			Name:      "test-rule-2",
@@ -722,29 +722,29 @@ func getFakeNewPermitListRules() ([]*invisinetspb.PermitListRule, error) {
 			SrcPort:   8080,
 			DstPort:   8080,
 			Protocol:  1,
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 		},
 	}, nil
 }
 
-func getFakePermitList() ([]*invisinetspb.PermitListRule, error) {
+func getFakePermitList() ([]*paragliderpb.PermitListRule, error) {
 	nsg := getFakeNsgWithRules("test", "test")
-	// initialize invisinets rules with the size of nsg rules
-	invisinetsRules := []*invisinetspb.PermitListRule{}
-	// use real implementation to get actual mapping of nsg rules to invisinets rules
+	// initialize paraglider rules with the size of nsg rules
+	paragliderRules := []*paragliderpb.PermitListRule{}
+	// use real implementation to get actual mapping of nsg rules to paraglider rules
 	azureSDKHandler := &AzureSDKHandler{}
 	for i := range nsg.Properties.SecurityRules {
-		if strings.HasPrefix(*nsg.Properties.SecurityRules[i].Name, invisinetsPrefix) {
+		if strings.HasPrefix(*nsg.Properties.SecurityRules[i].Name, paragliderPrefix) {
 			rule, err := azureSDKHandler.GetPermitListRuleFromNSGRule(nsg.Properties.SecurityRules[i])
 			if err != nil {
 				return nil, err
 			}
 			rule.Name = getRuleNameFromNSGRuleName(*nsg.Properties.SecurityRules[i].Name)
-			invisinetsRules = append(invisinetsRules, rule)
+			paragliderRules = append(paragliderRules, rule)
 		}
 	}
 
-	return invisinetsRules, nil
+	return paragliderRules, nil
 }
 
 func getFakeNIC() *armnetwork.Interface {
@@ -783,7 +783,7 @@ func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup
 			SecurityRules: []*armnetwork.SecurityRule{
 				{
 					ID:   to.Ptr("test-rule-id-1"),
-					Name: to.Ptr("invisinets-Rule-1"),
+					Name: to.Ptr("paraglider-Rule-1"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
 						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
@@ -797,7 +797,7 @@ func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup
 				},
 				{
 					ID:   to.Ptr("test-rule-id-2"),
-					Name: to.Ptr("invisinets-Rule-2"),
+					Name: to.Ptr("paraglider-Rule-2"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
 						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
@@ -810,7 +810,7 @@ func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup
 				},
 				{
 					ID:   to.Ptr("test-rule-id-3"),
-					Name: to.Ptr("not-invisinets-Rule-1"),
+					Name: to.Ptr("not-paraglider-Rule-1"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
 						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
@@ -823,7 +823,7 @@ func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup
 				},
 				{
 					ID:   to.Ptr("test-rule-id-4"),
-					Name: to.Ptr("not-invisinets-Rule-2"),
+					Name: to.Ptr("not-paraglider-Rule-2"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
 						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},

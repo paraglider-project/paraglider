@@ -1,7 +1,7 @@
 //go:build unit
 
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import (
 	"context"
 	"testing"
 
-	storepb "github.com/NetSys/invisinets/pkg/kvstore/storepb"
 	"github.com/go-redis/redismock/v9"
+	storepb "github.com/paraglider-project/paraglider/pkg/kvstore/storepb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

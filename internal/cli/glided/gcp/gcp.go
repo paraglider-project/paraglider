@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	gcp "github.com/NetSys/invisinets/pkg/gcp"
+	gcp "github.com/paraglider-project/paraglider/pkg/gcp"
 )
 
 func NewCommand() *cobra.Command {

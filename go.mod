@@ -1,4 +1,4 @@
-module github.com/NetSys/invisinets
+module github.com/paraglider-project/paraglider
 
 go 1.21
 
