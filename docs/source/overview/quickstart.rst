@@ -292,6 +292,7 @@ To create VMs in clouds, Paraglider requires a JSON file that describes the VM. 
 
                 $ glide resource create ibm vm-1 ibm_vm.json
                 $ glide resource create ibm vm-2 ibm_vm.json
+
 Ping VMs
 --------
 

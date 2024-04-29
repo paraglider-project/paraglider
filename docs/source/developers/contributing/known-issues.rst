@@ -1,10 +1,10 @@
-.. _known-issues:
+.. _knownissues:
 
 Known Issues
-==============
+-------------
 
 ``gopls`` Linting Issue in Testing Files on Package Declaration Line
-------------------------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 You may see the following error from ``gopls`` in the ``*_test.go`` files.
 
 .. code-block:: console
