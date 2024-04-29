@@ -1,7 +1,7 @@
 //go:build integration
 
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -22,24 +22,24 @@ import (
 	"strconv"
 	"testing"
 
-	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/NetSys/invisinets/pkg/orchestrator"
-	"github.com/NetSys/invisinets/pkg/orchestrator/config"
-	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/google/uuid"
+	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator/config"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func createVM(ctx context.Context, server *azurePluginServer, subscriptionId string, resourceGroupName string, namespace string, location string, name string) (*invisinetspb.CreateResourceResponse, error) {
+func createVM(ctx context.Context, server *azurePluginServer, subscriptionId string, resourceGroupName string, namespace string, location string, name string) (*paragliderpb.CreateResourceResponse, error) {
 	parameters := GetTestVmParameters(location)
 	parametersBytes, err := json.Marshal(parameters)
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal VM parameters")
 	}
-	resourceDescription := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: namespace},
+	resourceDescription := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: namespace},
 		Name:        name,
 		Description: parametersBytes,
 	}
@@ -71,8 +71,8 @@ func TestBasicPermitListOps(t *testing.T) {
 	require.NoError(t, err)
 	vmName := vmNamePrefix + "-" + uuid.NewString()
 	vmID := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + vmName
-	createResourceResp, err := s.CreateResource(ctx, &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: "default"},
+	createResourceResp, err := s.CreateResource(ctx, &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: "default"},
 		Name:        vmName,
 		Description: descriptionJson,
 	})
@@ -80,38 +80,38 @@ func TestBasicPermitListOps(t *testing.T) {
 	require.NotNil(t, createResourceResp)
 	assert.Equal(t, createResourceResp.Uri, vmID)
 
-	rules := []*invisinetspb.PermitListRule{
+	rules := []*paragliderpb.PermitListRule{
 		{
 			Name:      "test-rule1",
 			Targets:   []string{"47.235.107.235"},
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   80,
 			DstPort:   80,
 			Protocol:  6,
 		},
 	}
-	addPermitListResp, err := s.AddPermitListRules(ctx, &invisinetspb.AddPermitListRulesRequest{Rules: rules, Namespace: "default", Resource: vmID})
+	addPermitListResp, err := s.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: rules, Namespace: "default", Resource: vmID})
 	require.NoError(t, err)
 	require.NotNil(t, addPermitListResp)
 
 	// Assert the NSG created is equivalent to the pl rules by using the get permit list api
-	getPermitListResp, err := s.GetPermitList(ctx, &invisinetspb.GetPermitListRequest{Resource: vmID, Namespace: "default"})
+	getPermitListResp, err := s.GetPermitList(ctx, &paragliderpb.GetPermitListRequest{Resource: vmID, Namespace: "default"})
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListResp)
 
 	assert.ElementsMatch(t, getPermitListResp.Rules, rules)
 
 	// Delete permit list rule
-	deletePermitListResp, err := s.DeletePermitListRules(ctx, &invisinetspb.DeletePermitListRulesRequest{RuleNames: []string{rules[0].Name}, Namespace: "default", Resource: vmID})
+	deletePermitListResp, err := s.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: []string{rules[0].Name}, Namespace: "default", Resource: vmID})
 	require.NoError(t, err)
 	require.NotNil(t, deletePermitListResp)
 
 	// Assert the rule is deleted by using the get permit list api
-	getPermitListResp, err = s.GetPermitList(ctx, &invisinetspb.GetPermitListRequest{Resource: vmID, Namespace: "default"})
+	getPermitListResp, err = s.GetPermitList(ctx, &paragliderpb.GetPermitListRequest{Resource: vmID, Namespace: "default"})
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListResp)
 
-	assert.ElementsMatch(t, getPermitListResp.Rules, []*invisinetspb.PermitListRule{})
+	assert.ElementsMatch(t, getPermitListResp.Rules, []*paragliderpb.PermitListRule{})
 }
 
 func TestCrossNamespaces(t *testing.T) {
@@ -164,7 +164,7 @@ func TestCrossNamespaces(t *testing.T) {
 	ctx := context.Background()
 
 	// Create vm1 in rg1
-	vm1Name := "vm-invisinets-test1"
+	vm1Name := "vm-paraglider-test1"
 	vm1Location := "westus"
 	createVM1Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroup1Name, resourceGroup1Namespace, vm1Location, vm1Name)
 	require.NoError(t, err)
@@ -172,7 +172,7 @@ func TestCrossNamespaces(t *testing.T) {
 	assert.Equal(t, createVM1Resp.Name, vm1Name)
 
 	// Create vm2 in rg2
-	vm2Name := "vm-invisinets-test2"
+	vm2Name := "vm-paraglider-test2"
 	vm2Location := "westus"
 	createVM2Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroup2Name, resourceGroup2Namespace, vm2Location, vm2Name)
 	require.NoError(t, err)
@@ -187,10 +187,10 @@ func TestCrossNamespaces(t *testing.T) {
 	require.NoError(t, err)
 	vm2Ip, err := GetVmIpAddress(vm2ResourceId)
 	require.NoError(t, err)
-	vm1Rules := []*invisinetspb.PermitListRule{
+	vm1Rules := []*paragliderpb.PermitListRule{
 		{
 			Name:      "vm2-ping-ingress",
-			Direction: invisinetspb.Direction_INBOUND,
+			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  1,
@@ -198,17 +198,17 @@ func TestCrossNamespaces(t *testing.T) {
 		},
 		{
 			Name:      "vm2-ping-egress",
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  1,
 			Targets:   []string{vm2Ip},
 		},
 	}
-	vm2Rules := []*invisinetspb.PermitListRule{
+	vm2Rules := []*paragliderpb.PermitListRule{
 		{
 			Name:      "vm1-ping-ingress",
-			Direction: invisinetspb.Direction_INBOUND,
+			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  1,
@@ -216,17 +216,17 @@ func TestCrossNamespaces(t *testing.T) {
 		},
 		{
 			Name:      "vm1-ping-egress",
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  1,
 			Targets:   []string{vm1Ip},
 		},
 	}
-	vmRules := [][]*invisinetspb.PermitListRule{vm1Rules, vm2Rules}
+	vmRules := [][]*paragliderpb.PermitListRule{vm1Rules, vm2Rules}
 	namespaces := []string{resourceGroup1Namespace, resourceGroup2Namespace}
 	for i, vmResourceId := range vmResourceIds {
-		addPermitListRulesReq := &invisinetspb.AddPermitListRulesRequest{Rules: vmRules[i], Namespace: namespaces[i], Resource: vmResourceId}
+		addPermitListRulesReq := &paragliderpb.AddPermitListRulesRequest{Rules: vmRules[i], Namespace: namespaces[i], Resource: vmResourceId}
 		addPermitListRulesResp, err := azureServer.AddPermitListRules(ctx, addPermitListRulesReq)
 		require.NoError(t, err)
 		require.NotNil(t, addPermitListRulesResp)

@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,14 +28,14 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
-	ibmCommon "github.com/NetSys/invisinets/pkg/ibm_plugin"
-	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
+	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 type IBMPluginServer struct {
-	invisinetspb.UnimplementedCloudPluginServer
+	paragliderpb.UnimplementedCloudPluginServer
 	cloudClient            map[string]*sdk.CloudClient
 	orchestratorServerAddr string
 }
@@ -56,10 +56,10 @@ func (s *IBMPluginServer) setupCloudClient(resourceGroupID, region string) (*sdk
 	return client, nil
 }
 
-// getAllClientsForVPCs returns the invisinets VPC IDs and the corresponding clients that are present in all the regions
+// getAllClientsForVPCs returns the paraglider VPC IDs and the corresponding clients that are present in all the regions
 func (s *IBMPluginServer) getAllClientsForVPCs(cloudClient *sdk.CloudClient, resourceGroupName string, resolveID bool) (map[string]*sdk.CloudClient, error) {
 	cloudClients := make(map[string]*sdk.CloudClient)
-	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{}, sdk.ResourceQuery{})
+	vpcsData, err := cloudClient.GetParagliderTaggedResources(sdk.VPC, []string{}, sdk.ResourceQuery{})
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (s *IBMPluginServer) getAllClientsForVPCs(cloudClient *sdk.CloudClient, res
 
 // CreateResource creates the specified resource.
 // Currently only supports instance creation.
-func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisinetspb.ResourceDescription) (*invisinetspb.CreateResourceResponse, error) {
+func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragliderpb.ResourceDescription) (*paragliderpb.CreateResourceResponse, error) {
 	var vpcID string
 	var subnetID string
 	resFields := vpcv1.CreateInstanceOptions{}
@@ -117,7 +117,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 	}
 
 	// get VPCs in the request's namespace
-	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.VPC, []string{resourceDesc.Deployment.Namespace},
+	vpcsData, err := cloudClient.GetParagliderTaggedResources(sdk.VPC, []string{resourceDesc.Deployment.Namespace},
 		sdk.ResourceQuery{Region: region})
 	if err != nil {
 		return nil, err
@@ -138,7 +138,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 
 	// get subnets of VPC
 	requiredTags := []string{vpcID, resourceDesc.Deployment.Namespace}
-	subnetsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SUBNET, requiredTags,
+	subnetsData, err := cloudClient.GetParagliderTaggedResources(sdk.SUBNET, requiredTags,
 		sdk.ResourceQuery{Zone: zone})
 	if err != nil {
 		return nil, err
@@ -153,8 +153,8 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 			return nil, err
 		}
 		defer conn.Close()
-		client := invisinetspb.NewControllerClient(conn)
-		resp, err := client.FindUnusedAddressSpaces(context.Background(), &invisinetspb.FindUnusedAddressSpacesRequest{})
+		client := paragliderpb.NewControllerClient(conn)
+		resp, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
 		if err != nil {
 			return nil, err
 		}
@@ -165,7 +165,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		}
 		subnetID = *subnet.ID
 	} else {
-		// Pick the existent subnet in the zone (given premise: one invisinets subnet per zone and namespace).
+		// Pick the existent subnet in the zone (given premise: one paraglider subnet per zone and namespace).
 		subnetID = subnetsData[0].ID
 	}
 
@@ -180,16 +180,16 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *invisi
 		return nil, err
 	}
 
-	return &invisinetspb.CreateResourceResponse{Name: *vm.Name, Uri: createInstanceID(rInfo.ResourceGroup, zone, *vm.ID), Ip: reservedIP}, nil
+	return &paragliderpb.CreateResourceResponse{Name: *vm.Name, Uri: createInstanceID(rInfo.ResourceGroup, zone, *vm.ID), Ip: reservedIP}, nil
 }
 
-// GetUsedAddressSpaces returns a list of address spaces used by either user's or invisinets' subnets,
-// for each invisinets vpc.
-func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisinetspb.GetUsedAddressSpacesRequest) (*invisinetspb.GetUsedAddressSpacesResponse, error) {
-	resp := &invisinetspb.GetUsedAddressSpacesResponse{}
-	resp.AddressSpaceMappings = make([]*invisinetspb.AddressSpaceMapping, len(req.Deployments))
+// GetUsedAddressSpaces returns a list of address spaces used by either user's or paraglider' subnets,
+// for each paraglider vpc.
+func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
+	resp := &paragliderpb.GetUsedAddressSpacesResponse{}
+	resp.AddressSpaceMappings = make([]*paragliderpb.AddressSpaceMapping, len(req.Deployments))
 	for i, deployment := range req.Deployments {
-		resp.AddressSpaceMappings[i] = &invisinetspb.AddressSpaceMapping{
+		resp.AddressSpaceMappings[i] = &paragliderpb.AddressSpaceMapping{
 			Cloud:     utils.IBM,
 			Namespace: deployment.Namespace,
 		}
@@ -210,7 +210,7 @@ func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisin
 		// get all VPCs and corresponding clients to collect all address spaces
 		clients, err := s.getAllClientsForVPCs(cloudClient, rInfo.ResourceGroup, true)
 		if err != nil {
-			utils.Log.Print("Failed to get invisinets tagged VPCs\n")
+			utils.Log.Print("Failed to get paraglider tagged VPCs\n")
 			return nil, err
 		}
 		for vpcID, client := range clients {
@@ -228,7 +228,7 @@ func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *invisin
 }
 
 // GetPermitList returns security rules of security groups associated with the specified instance.
-func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *invisinetspb.GetPermitListRequest) (*invisinetspb.GetPermitListResponse, error) {
+func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest) (*paragliderpb.GetPermitListResponse, error) {
 	rInfo, err := getResourceIDInfo(req.Resource)
 	if err != nil {
 		return nil, err
@@ -258,16 +258,16 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *invisinetspb.G
 	if err != nil {
 		return nil, err
 	}
-	invisinetsRules, err := sdk.IBMToInvisinetsRules(sgRules)
+	paragliderRules, err := sdk.IBMToParagliderRules(sgRules)
 	if err != nil {
 		return nil, err
 	}
 
-	return &invisinetspb.GetPermitListResponse{Rules: invisinetsRules}, nil
+	return &paragliderpb.GetPermitListResponse{Rules: paragliderRules}, nil
 }
 
 // AddPermitListRules attaches security group rules to the specified instance in PermitList.AssociatedResource.
-func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *invisinetspb.AddPermitListRulesRequest) (*invisinetspb.AddPermitListRulesResponse, error) {
+func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paragliderpb.AddPermitListRulesRequest) (*paragliderpb.AddPermitListRulesResponse, error) {
 
 	utils.Log.Printf("Adding PermitListRules %v, %v. namespace :%s \n ", req.Resource, req.Rules, req.Namespace)
 	rInfo, err := getResourceIDInfo(req.Resource)
@@ -297,17 +297,17 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 	vmID := rInfo.ResourceID
 
 	// get security group of VM
-	invisinetsSgsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
+	paragliderSgsData, err := cloudClient.GetParagliderTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
 	if err != nil {
-		utils.Log.Printf("Failed to get invi tagged resources %v: %v.\n", vmID, err)
+		utils.Log.Printf("Failed to get paraglider tagged resources %v: %v.\n", vmID, err)
 		return nil, err
 	}
-	if len(invisinetsSgsData) == 0 {
+	if len(paragliderSgsData) == 0 {
 		utils.Log.Printf("No security groups were found for VM %v\n", vmID)
 		return nil, fmt.Errorf("no security groups were found for VM %v", vmID)
 	}
-	// up to a single invisinets security group can exist per VM (queried resource by tag=vmID)
-	requestSGID := invisinetsSgsData[0].ID
+	// up to a single paraglider security group can exist per VM (queried resource by tag=vmID)
+	requestSGID := paragliderSgsData[0].ID
 
 	// get VPC of the VM specified in the request
 	requestVPCData, err := cloudClient.VMToVPCObject(vmID)
@@ -316,8 +316,8 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 		return nil, err
 	}
 	utils.Log.Printf("Adding rule to SG ID : %s\n", requestSGID)
-	// translate invisinets rules to IBM rules to compare hash values with current rules.
-	ibmRulesToAdd, err := sdk.InvisinetsToIBMRules(requestSGID, req.Rules)
+	// translate paraglider rules to IBM rules to compare hash values with current rules.
+	ibmRulesToAdd, err := sdk.ParagliderToIBMRules(requestSGID, req.Rules)
 	if err != nil {
 		utils.Log.Printf("Failed to convert to ibm rules : %v.", err)
 		return nil, err
@@ -344,7 +344,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 				break
 			}
 		}
-		// if the remote resides inside an invisinets VPC that isn't the request VM's VPC, connect them
+		// if the remote resides inside a paraglider VPC that isn't the request VM's VPC, connect them
 		if remoteVPC != "" && remoteVPC != *requestVPCData.ID {
 			utils.Log.Printf("The following rule's remote is targeting a different IBM VPC\nRule: %+v\nVPC:%+v", ibmRule, remoteVPC)
 			// fetch or create transit gateway
@@ -392,11 +392,11 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 		}
 	}
 
-	return &invisinetspb.AddPermitListRulesResponse{}, nil
+	return &paragliderpb.AddPermitListRulesResponse{}, nil
 }
 
 // DeletePermitListRules deletes security group rules matching the attributes of the rules contained in the relevant Security group
-func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *invisinetspb.DeletePermitListRulesRequest) (*invisinetspb.DeletePermitListRulesResponse, error) {
+func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragliderpb.DeletePermitListRulesRequest) (*paragliderpb.DeletePermitListRulesResponse, error) {
 	rInfo, err := getResourceIDInfo(req.Resource)
 	if err != nil {
 		return nil, err
@@ -420,26 +420,26 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 
 	vmID := rInfo.ResourceID
 
-	invisinetsSgsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
+	paragliderSgsData, err := cloudClient.GetParagliderTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
 	if err != nil {
 		return nil, err
 	}
-	if len(invisinetsSgsData) == 0 {
+	if len(paragliderSgsData) == 0 {
 		return nil, fmt.Errorf("no security groups were found for VM %v", rInfo.ResourceID)
 	}
-	// assuming up to a single invisinets subnet can exist per zone
-	vmInvisinetsSgID := invisinetsSgsData[0].ID
+	// assuming up to a single paraglider subnet can exist per zone
+	vmParagliderSgID := paragliderSgsData[0].ID
 
 	// TODO @praveingk Deduct rule IDs from the rule names using orchestrator's KV-store
 	for _, ruleID := range req.RuleNames {
-		err = cloudClient.DeleteSecurityGroupRule(vmInvisinetsSgID, ruleID)
+		err = cloudClient.DeleteSecurityGroupRule(vmParagliderSgID, ruleID)
 		if err != nil {
 			return nil, err
 		}
 		utils.Log.Printf("Deleted rule %v", ruleID)
 	}
 
-	return &invisinetspb.DeletePermitListRulesResponse{}, nil
+	return &paragliderpb.DeletePermitListRulesResponse{}, nil
 }
 
 // Setup starts up the plugin server and stores the orchestrator server address.
@@ -454,7 +454,7 @@ func Setup(port int, orchestratorServerAddr string) *IBMPluginServer {
 		cloudClient:            make(map[string]*sdk.CloudClient),
 		orchestratorServerAddr: orchestratorServerAddr,
 	}
-	invisinetspb.RegisterCloudPluginServer(grpcServer, ibmServer)
+	paragliderpb.RegisterCloudPluginServer(grpcServer, ibmServer)
 	utils.Log.Printf("\nStarting IBM plugin server on: %v:%v\n", pluginServerAddress, port)
 
 	go func() {

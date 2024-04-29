@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ import (
 	"io"
 	"os"
 
-	common "github.com/NetSys/invisinets/internal/cli/common"
-	"github.com/NetSys/invisinets/internal/cli/glide/settings"
-	"github.com/NetSys/invisinets/pkg/client"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	common "github.com/paraglider-project/paraglider/internal/cli/common"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/pkg/client"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/spf13/cobra"
 )
 
@@ -74,7 +74,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	rules := []*invisinetspb.PermitListRule{}
+	rules := []*paragliderpb.PermitListRule{}
 	if e.ruleFile != "" {
 		// Read the rules from the file
 		ruleFile, err := os.Open(e.ruleFile)
@@ -94,13 +94,13 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	}
 	if e.pingTag != "" {
 		// Add the rules to allow ping
-		rules = append(rules, &invisinetspb.PermitListRule{Name: "allow-ping-inbound-" + e.pingTag, Tags: []string{e.pingTag}, Protocol: 1, Direction: 0, DstPort: -1, SrcPort: -1})
-		rules = append(rules, &invisinetspb.PermitListRule{Name: "allow-ping-outbound-" + e.pingTag, Tags: []string{e.pingTag}, Protocol: 1, Direction: 1, DstPort: -1, SrcPort: -1})
+		rules = append(rules, &paragliderpb.PermitListRule{Name: "allow-ping-inbound-" + e.pingTag, Tags: []string{e.pingTag}, Protocol: 1, Direction: 0, DstPort: -1, SrcPort: -1})
+		rules = append(rules, &paragliderpb.PermitListRule{Name: "allow-ping-outbound-" + e.pingTag, Tags: []string{e.pingTag}, Protocol: 1, Direction: 1, DstPort: -1, SrcPort: -1})
 	}
 	if e.sshTag != "" {
 		// Add the rule to allow SSH
-		rules = append(rules, &invisinetspb.PermitListRule{Name: "allow-ssh-inbound-" + e.sshTag, Tags: []string{e.sshTag}, Protocol: 6, Direction: 0, DstPort: 22, SrcPort: -1})
-		rules = append(rules, &invisinetspb.PermitListRule{Name: "allow-ssh-outbound-" + e.sshTag, Tags: []string{e.sshTag}, Protocol: 6, Direction: 1, DstPort: -1, SrcPort: 22})
+		rules = append(rules, &paragliderpb.PermitListRule{Name: "allow-ssh-inbound-" + e.sshTag, Tags: []string{e.sshTag}, Protocol: 6, Direction: 0, DstPort: 22, SrcPort: -1})
+		rules = append(rules, &paragliderpb.PermitListRule{Name: "allow-ssh-outbound-" + e.sshTag, Tags: []string{e.sshTag}, Protocol: 6, Direction: 1, DstPort: -1, SrcPort: 22})
 	}
 
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}

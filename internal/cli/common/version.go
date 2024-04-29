@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,14 +19,14 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/NetSys/invisinets/internal/version"
+	"github.com/paraglider-project/paraglider/internal/version"
 	"github.com/spf13/cobra"
 )
 
 func NewVersionCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "Display the version of the Invisinets CLI",
+		Short: "Display the version of the Paraglider CLI",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Fprintln(cmd.OutOrStderr(), version.VersionString(version.NewVersionInfo()))

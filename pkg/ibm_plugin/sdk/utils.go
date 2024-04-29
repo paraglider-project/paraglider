@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 
 	"github.com/google/uuid"
 
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 // TaggedResourceType indicates the type of tagged resource to fetch
@@ -40,13 +40,13 @@ const (
 	GATEWAY TaggedResourceType = "gateway"
 
 	credentialsPath = ".ibm/credentials.yaml"
-	publicSSHKey    = ".ibm/keys/invisinets-key.pub"
-	privateSSHKey   = ".ibm/keys/invisinets-key"
+	publicSSHKey    = ".ibm/keys/paraglider-key.pub"
+	privateSSHKey   = ".ibm/keys/paraglider-key"
 
-	// InvResourcePrefix is used to prefix a resource's name
-	InvResourcePrefix = "invisinets"
-	// InvTag is the default tag attached to all inv resources
-	InvTag = "inv"
+	// ParagliderResourcePrefix is used to prefix a resource's name
+	ParagliderResourcePrefix = "paraglider"
+	// ParagliderTag is the default tag attached to all paraglider resources
+	ParagliderTag = "pg"
 )
 
 // ResourceQuery represents attributes a user can filter tagged resources by.
@@ -79,14 +79,14 @@ func CRN2ID(crn string) string {
 	return crn[index+1:]
 }
 
-// GenerateResourceName returns unique invisinets resource name
+// GenerateResourceName returns unique paraglider resource name
 func GenerateResourceName(name string) string {
-	return fmt.Sprintf("%v-%v-%v", InvResourcePrefix, name, uuid.New().String()[:8])
+	return fmt.Sprintf("%v-%v-%v", ParagliderResourcePrefix, name, uuid.New().String()[:8])
 }
 
-// IsInvisinetsResource returns if a given resource (e.g. permit list) belongs to invisinets
-func IsInvisinetsResource(name string) bool {
-	return strings.HasPrefix(name, InvResourcePrefix)
+// IsParagliderResource returns if a given resource (e.g. permit list) belongs to paraglider
+func IsParagliderResource(name string) bool {
+	return strings.HasPrefix(name, ParagliderResourcePrefix)
 }
 
 // DoCIDROverlap returns false if cidr blocks don't share a single ip,
@@ -128,4 +128,3 @@ func IsCIDRSubset(cidr1, cidr2 string) (bool, error) {
 	// fewer bits are left for user address space.
 	return netCidr2.Contains(firstIP1) && maskSize1 >= maskSize2, nil
 }
-

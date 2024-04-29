@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -40,8 +40,8 @@ const (
 	resourceGroupName      string = "rg"
 	fakeVmName             string = "vm"
 	fakeClusterName        string = "cluster"
-	invisinetsDeploymentId string = "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName
-	uriPrefix              string = invisinetsDeploymentId + "/providers/"
+	paragliderDeploymentId string = "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName
+	uriPrefix              string = paragliderDeploymentId + "/providers/"
 	vmURI                  string = uriPrefix + "Microsoft.Compute/virtualMachines/" + fakeVmName
 	aksURI                 string = uriPrefix + "Microsoft.ContainerService/managedClusters/" + fakeClusterName
 	badResourceID          string = "badResourceID"
@@ -75,7 +75,7 @@ func getFakeInterface() armnetwork.Interface {
 
 func getFakeNSG() armnetwork.SecurityGroup {
 	name := "nsg-name"
-	id := fmt.Sprintf("%smicrosoft.Network/vnet/%s/securityGroups/%s", uriPrefix, getInvisinetsNamespacePrefix(namespace), name)
+	id := fmt.Sprintf("%smicrosoft.Network/vnet/%s/securityGroups/%s", uriPrefix, getParagliderNamespacePrefix(namespace), name)
 	return armnetwork.SecurityGroup{
 		ID:   &id,
 		Name: &name,
@@ -83,7 +83,7 @@ func getFakeNSG() armnetwork.SecurityGroup {
 }
 
 func getFakeSubnet() armnetwork.Subnet {
-	id := fmt.Sprintf("%smicrosoft.Network/vnet/%s/subnets/subnet-id", uriPrefix, getInvisinetsNamespacePrefix(namespace))
+	id := fmt.Sprintf("%smicrosoft.Network/vnet/%s/subnets/subnet-id", uriPrefix, getParagliderNamespacePrefix(namespace))
 	address := "address"
 	return armnetwork.Subnet{
 		ID: &id,
@@ -170,27 +170,27 @@ func getFakeAKSGenericResource() armresources.GenericResource {
 	}
 }
 
-func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*invisinetspb.ResourceDescription, error) {
+func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*paragliderpb.ResourceDescription, error) {
 	desc, err := json.Marshal(vm)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
-	return &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: invisinetsDeploymentId, Namespace: namespace},
+	return &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: paragliderDeploymentId, Namespace: namespace},
 		Name:        fakeVmName,
 		Description: desc,
 	}, nil
 }
 
-func getFakeClusterResourceDescription(cluster *armcontainerservice.ManagedCluster) (*invisinetspb.ResourceDescription, error) {
+func getFakeClusterResourceDescription(cluster *armcontainerservice.ManagedCluster) (*paragliderpb.ResourceDescription, error) {
 	desc, err := json.Marshal(cluster)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
-	return &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: invisinetsDeploymentId, Namespace: namespace},
+	return &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: paragliderDeploymentId, Namespace: namespace},
 		Name:        fakeClusterName,
 		Description: desc,
 	}, nil

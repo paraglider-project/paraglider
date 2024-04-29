@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,12 +23,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	common "github.com/NetSys/invisinets/internal/cli/common"
-	"github.com/NetSys/invisinets/internal/cli/glide/namespace"
-	"github.com/NetSys/invisinets/internal/cli/glide/resource"
-	"github.com/NetSys/invisinets/internal/cli/glide/rule"
-	"github.com/NetSys/invisinets/internal/cli/glide/server"
-	"github.com/NetSys/invisinets/internal/cli/glide/tag"
+	common "github.com/paraglider-project/paraglider/internal/cli/common"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/namespace"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/resource"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/rule"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/server"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/tag"
 	"github.com/spf13/cobra"
 )
 

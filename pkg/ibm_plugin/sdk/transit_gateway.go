@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ import (
 
 	"github.com/IBM/go-sdk-core/core"
 	"github.com/IBM/networking-go-sdk/transitgatewayapisv1"
-	utils "github.com/NetSys/invisinets/pkg/utils"
 	"github.com/google/uuid"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 type TransitConnection struct {
@@ -44,7 +44,7 @@ func (c *CloudClient) CreateTransitGW(region string) (*transitgatewayapisv1.Tran
 		Location:      &region, // location is mandatory even on global transmit GW.
 		Global:        core.BoolPtr(true),
 		ResourceGroup: (*transitgatewayapisv1.ResourceGroupIdentity)(c.resourceGroup),
-		Name:          core.StringPtr("Invisinets-transit-gw-" + uuid.New().String()[:8])}
+		Name:          core.StringPtr("Paraglider-transit-gw-" + uuid.New().String()[:8])}
 	transitGateway, _, err := c.transitGW.CreateTransitGateway(createTransitGatewayOptions)
 	if err != nil {
 		return nil, err
@@ -192,12 +192,12 @@ func (c *CloudClient) ConnectVPC(gatewayID string, vpcCRN string) error {
 // NOTE: the region argument isn't relevant for the lookup process.
 func (c *CloudClient) GetOrCreateTransitGateway(region string) (string, error) {
 	// if exists, fetch the transit gateway
-	TransitGatewayRes, err := c.GetInvisinetsTaggedResources(GATEWAY, []string{}, ResourceQuery{})
+	TransitGatewayRes, err := c.GetParagliderTaggedResources(GATEWAY, []string{}, ResourceQuery{})
 	if err != nil {
 		return "", err
 	}
 	if len(TransitGatewayRes) == 1 {
-		// an invisinets deployment has a single Transit gateway
+		// a paraglider deployment has a single Transit gateway
 		utils.Log.Printf("Found an existing transit gateway %+v", TransitGatewayRes[0])
 		return TransitGatewayRes[0].ID, nil
 	} else if len(TransitGatewayRes) == 0 {

@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -72,7 +72,7 @@ func (m *MockAzureSDKHandler) GetResource(ctx context.Context, resourceID string
 	return resource.(*armresources.GenericResource), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) CreateSecurityRule(ctx context.Context, rule *invisinetspb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
+func (m *MockAzureSDKHandler) CreateSecurityRule(ctx context.Context, rule *paragliderpb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
 	args := m.Called(ctx, rule, nsgName, ruleName, resourceIpAddress, priority)
 	srule := args.Get(0)
 	// this check is done to handle panic: interface conversion: interface {} is nil, not *armnetwork.SecurityGroup
@@ -88,13 +88,13 @@ func (m *MockAzureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName st
 	return args.Error(0)
 }
 
-func (m *MockAzureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*invisinetspb.PermitListRule, error) {
+func (m *MockAzureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*paragliderpb.PermitListRule, error) {
 	args := m.Called(rule)
 	pl := args.Get(0)
 	if pl == nil {
 		return nil, args.Error(1)
 	}
-	return pl.(*invisinetspb.PermitListRule), args.Error(1)
+	return pl.(*paragliderpb.PermitListRule), args.Error(1)
 }
 
 func (m *MockAzureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error) {
@@ -106,7 +106,7 @@ func (m *MockAzureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName stri
 	return nsg.(*armnetwork.SecurityGroup), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context, location string, name string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
+func (m *MockAzureSDKHandler) CreateParagliderVirtualNetwork(ctx context.Context, location string, name string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
 	args := m.Called(ctx, location, name, addressSpace)
 	vnet := args.Get(0)
 	if vnet == nil {
@@ -115,7 +115,7 @@ func (m *MockAzureSDKHandler) CreateInvisinetsVirtualNetwork(ctx context.Context
 	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) AddSubnetToInvisinetsVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error) {
+func (m *MockAzureSDKHandler) AddSubnetToParagliderVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error) {
 	args := m.Called(ctx, namespace, vnetName, subnetName, orchestratorAddr)
 	subnet := args.Get(0)
 	if subnet == nil {
@@ -173,7 +173,7 @@ func (m *MockAzureSDKHandler) CreateVirtualMachine(ctx context.Context, paramete
 	return vm.(*armcompute.VirtualMachine), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) GetInvisinetsVnet(ctx context.Context, prefix string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
+func (m *MockAzureSDKHandler) GetParagliderVnet(ctx context.Context, prefix string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
 	args := m.Called(ctx, prefix, location, namespace, orchestratorAddr)
 	vnet := args.Get(0)
 	if vnet == nil {

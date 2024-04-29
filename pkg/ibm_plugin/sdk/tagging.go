@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,11 +24,11 @@ import (
 
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 func (c *CloudClient) attachTag(CRN *string, tags []string) error {
-	tags = append(tags, InvTag) // add universal tag for invisinets' resources
+	tags = append(tags, ParagliderTag) // add universal tag for paraglider' resources
 	userTypeTag := globaltaggingv1.AttachTagOptionsTagTypeUserConst
 	resourceModel := &globaltaggingv1.Resource{
 		ResourceID:   CRN,
@@ -56,16 +56,16 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 	return fmt.Errorf("Failed to tag resource with response:\n %+v", latestResponse)
 }
 
-// GetInvisinetsTaggedResources returns slice of IDs of tagged resources
+// GetParagliderTaggedResources returns slice of IDs of tagged resources
 // Arg resourceType: type of VPC resource, e.g. subnet, security group, instance.
 // Arg tags: labels set by dev, e.g. {<vpcID>,<deploymentID>}
 // Args customQueryMap: map of attributes to filter by, e.g. {"region":"<regionName>"}
-func (c *CloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceType, tags []string, customQuery ResourceQuery) ([]ResourceData, error) {
+func (c *CloudClient) GetParagliderTaggedResources(resourceType TaggedResourceType, tags []string, customQuery ResourceQuery) ([]ResourceData, error) {
 	// parse tags
 	var tagsStr string
 	var queryStr string
-	// append the invisinets tag to narrow the search scope to invisinets resources only.
-	tags = append(tags, InvTag)
+	// append the paraglider tag to narrow the search scope to paraglider resources only.
+	tags = append(tags, ParagliderTag)
 	for _, tag := range tags {
 		tagsStr += fmt.Sprintf("tags:%v AND ", tag)
 	}
@@ -85,7 +85,7 @@ func (c *CloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceTy
 		queryStr += fmt.Sprintf("%v:\"%v\" ", "crn", customQuery.CRN)
 	}
 
-	resourceList, err := c.getInvisinetsResourceByTags(string(resourceType), tagsStr, queryStr)
+	resourceList, err := c.getParagliderResourceByTags(string(resourceType), tagsStr, queryStr)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (c *CloudClient) GetInvisinetsTaggedResources(resourceType TaggedResourceTy
 }
 
 // returns IDs of resources filtered by tags and query
-func (c *CloudClient) getInvisinetsResourceByTags(resourceType string, tags string, customQueryStr string) ([]ResourceData, error) {
+func (c *CloudClient) getParagliderResourceByTags(resourceType string, tags string, customQueryStr string) ([]ResourceData, error) {
 	var taggedResources []ResourceData
 
 	query := fmt.Sprintf("type:%v AND %v ", resourceType, tags)

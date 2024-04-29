@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ func createResourceGroupsClient(subscriptionId string) *armresources.ResourceGro
 }
 
 func SetupAzureTesting(subscriptionId string, testName string) string {
-	resourceGroupName := "inv-" + testName
+	resourceGroupName := "paraglider-" + testName
 	if os.Getenv("GH_RUN_NUMBER") != "" {
 		resourceGroupName += "-" + os.Getenv("GH_RUN_NUMBER")
 	}

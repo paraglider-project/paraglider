@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ limitations under the License.
 package tag
 
 import (
-	"github.com/NetSys/invisinets/internal/cli/glide/tag/delete"
-	"github.com/NetSys/invisinets/internal/cli/glide/tag/get"
-	"github.com/NetSys/invisinets/internal/cli/glide/tag/set"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/tag/delete"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/tag/get"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/tag/set"
 	"github.com/spf13/cobra"
 )
 

@@ -1,7 +1,7 @@
 //go:build unit
 
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,38 +35,38 @@ import (
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/stretchr/testify/require"
 
-	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
-	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
+	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const (
 	fakeRegion    = "us-east"  // Primary region used for tests
 	fakeConRegion = "us-south" // Region used to test VPC connectivity across regions
 	fakeZone      = fakeRegion + "-a"
-	fakeInstance  = "vm-invisinets-fake"
+	fakeInstance  = "vm-paraglider-fake"
 	fakeImage     = "fake-image"
-	fakeVPC       = "invisinets-fake-vpc"
+	fakeVPC       = "paraglider-fake-vpc"
 	fakeID        = "12345"
 	fakeID2       = "123452"
 	fakeRuleName1 = "fake-rule1"
 	fakeRuleName2 = "fake-rule2"
 	fakeCRN       = "crn:" + fakeID
 	fakeCRN2      = "crn:" + fakeID2
-	fakeSubnet    = "invisinets-fake-subnet"
-	fakeSG        = "invisinets-fake-sg"
-	fakeGW        = "invisnets-fake-gw"
+	fakeSubnet    = "paraglider-fake-subnet"
+	fakeSG        = "paraglider-fake-sg"
+	fakeGW        = "paraglider-fake-gw"
 	fakeIP        = "10.0.0.2"
 	fakeSubnet1   = "10.0.0.0/16"
 	fakeSubnet2   = "20.1.1.0/28"
 	fakeProfile   = "bx2-2x8"
-	invTag        = "inv"
+	paragliderTag = "paraglider"
 
 	fakeDeploymentID = "/resourcegroup/" + fakeID
 	fakeInstanceID   = "/resourcegroup/" + fakeID + "/zone/" + fakeZone + "/instance/" + fakeID
-	fakeNamespace    = "inv-namespace"
-	wrongNamespace   = "wrong-inv-namespace"
+	fakeNamespace    = "paraglider-namespace"
+	wrongNamespace   = "wrong-pg-namespace"
 )
 
 var (
@@ -76,10 +76,10 @@ var (
 		Profile: &vpcv1.InstanceProfileIdentityByName{Name: core.StringPtr(fakeProfile)},
 	}
 
-	fakePermitList1 = []*invisinetspb.PermitListRule{
+	fakePermitList1 = []*paragliderpb.PermitListRule{
 		{
 			Name:      fakeRuleName1,
-			Direction: invisinetspb.Direction_INBOUND,
+			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   443,
 			DstPort:   443,
 			Protocol:  6,
@@ -87,17 +87,17 @@ var (
 		},
 		{
 			Name:      fakeRuleName2,
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  -1,
 			Targets:   []string{"10.0.64.1"},
 		},
 	}
-	fakePermitList2 = []*invisinetspb.PermitListRule{
+	fakePermitList2 = []*paragliderpb.PermitListRule{
 		{
 			Name:      fakeRuleName1,
-			Direction: invisinetspb.Direction_INBOUND,
+			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   443,
 			DstPort:   443,
 			Protocol:  6,
@@ -484,8 +484,8 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+	resource := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
 	}
@@ -518,8 +518,8 @@ func TestCreateResourceExistingVPCSubnet(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+	resource := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
 	}
@@ -549,8 +549,8 @@ func TestCreateResourceExistingVPCMissingSubnet(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+	resource := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
 	}
@@ -575,8 +575,8 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	deployment := &invisinetspb.GetUsedAddressSpacesRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{
+	deployment := &paragliderpb.GetUsedAddressSpacesRequest{
+		Deployments: []*paragliderpb.ParagliderDeployment{
 			{Id: fakeInstanceID, Namespace: fakeNamespace},
 		},
 	}
@@ -605,8 +605,8 @@ func TestGetUsedAddressSpacesMultipleVPC(t *testing.T) {
 			getClientMapKey(fakeID, fakeConRegion): fakeClient,
 		}}
 
-	deployment := &invisinetspb.GetUsedAddressSpacesRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{
+	deployment := &paragliderpb.GetUsedAddressSpacesRequest{
+		Deployments: []*paragliderpb.ParagliderDeployment{
 			{Id: fakeInstanceID, Namespace: fakeNamespace},
 		},
 	}
@@ -635,7 +635,7 @@ func TestAddPermitListRules(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
@@ -665,7 +665,7 @@ func TestAddPermitListRulesExisting(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
@@ -687,7 +687,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
@@ -715,7 +715,7 @@ func TestAddPermitListRulesMissingSecurityGroup(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
@@ -745,7 +745,7 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: wrongNamespace,
 		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
@@ -776,7 +776,7 @@ func TestAddPermitListRulesTransitGateway(t *testing.T) {
 
 	// fakePermitList2 is added to the permit list which will trigger creation of a link
 	// between VPCs across regions, and hence requiriing deployment of a transit gateway.
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
 		Rules:     fakePermitList2,
@@ -800,7 +800,7 @@ func TestDeletePermitListRules(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
+	deleteRulesRequest := &paragliderpb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
 		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
@@ -822,7 +822,7 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 		}}
 
 	// Currently the plugin takes rule ID since names are not supported by IBM Cloud SDK
-	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
+	deleteRulesRequest := &paragliderpb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
 		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
@@ -846,7 +846,7 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
+	deleteRulesRequest := &paragliderpb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
 		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
@@ -869,7 +869,7 @@ func TestGetPermitList(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	getRulesRequest := &invisinetspb.GetPermitListRequest{
+	getRulesRequest := &paragliderpb.GetPermitListRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
 	}
@@ -895,7 +895,7 @@ func TestGetPermitListEmpty(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	getRulesRequest := &invisinetspb.GetPermitListRequest{
+	getRulesRequest := &paragliderpb.GetPermitListRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
 	}
@@ -915,7 +915,7 @@ func TestGetPermitListMissingInstance(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	getRulesRequest := &invisinetspb.GetPermitListRequest{
+	getRulesRequest := &paragliderpb.GetPermitListRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
 	}
@@ -938,7 +938,7 @@ func TestGetPermitListWrongNamespace(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	getRulesRequest := &invisinetspb.GetPermitListRequest{
+	getRulesRequest := &paragliderpb.GetPermitListRequest{
 		Namespace: wrongNamespace,
 		Resource:  fakeInstanceID,
 	}
