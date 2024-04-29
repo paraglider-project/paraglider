@@ -517,7 +517,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 		vnet: &armnetwork.VirtualNetwork{
-			Name:     to.Ptr(getInvisinetsNamespacePrefix(namespace) + validVnetName),
+			Name:     to.Ptr(getParagliderNamespacePrefix(namespace) + validVnetName),
 			Location: to.Ptr(testLocation),
 			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 				AddressSpace: &armnetwork.AddressSpace{
@@ -532,7 +532,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	server, _ := setupAzurePluginServer()
 
 	req := &paragliderpb.GetUsedAddressSpacesRequest{
-		Deployments: []*paragliderpb.InvisinetsDeployment{
+		Deployments: []*paragliderpb.ParagliderDeployment{
 			{Id: deploymentId, Namespace: namespace},
 		},
 	}
@@ -570,7 +570,7 @@ func TestGetUsedAsns(t *testing.T) {
 
 	usedAsnsExpected := []uint32{64512}
 	req := &paragliderpb.GetUsedAsnsRequest{
-		Deployments: []*paragliderpb.InvisinetsDeployment{
+		Deployments: []*paragliderpb.ParagliderDeployment{
 			{Id: deploymentId, Namespace: namespace},
 		},
 	}
@@ -603,7 +603,7 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 
 	usedBgpPeeringIpAddressExpected := []string{"169.254.21.1", "169.254.22.1"}
 	req := &paragliderpb.GetUsedBgpPeeringIpAddressesRequest{
-		Deployments: []*paragliderpb.InvisinetsDeployment{
+		Deployments: []*paragliderpb.ParagliderDeployment{
 			{Id: deploymentId, Namespace: namespace},
 		},
 	}
@@ -666,7 +666,7 @@ func TestCreateVpnGateway(t *testing.T) {
 	server.orchestratorServerAddr = fakeControllerServerAddr
 
 	req := &paragliderpb.CreateVpnGatewayRequest{
-		Deployment:            &paragliderpb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
+		Deployment:            &paragliderpb.ParagliderDeployment{Id: deploymentId, Namespace: namespace},
 		Cloud:                 "fake-cloud",
 		BgpPeeringIpAddresses: []string{"169.254.21.1", "169.254.22.1"},
 	}
@@ -689,7 +689,7 @@ func TestCreateVpnConnections(t *testing.T) {
 	server, _ := setupAzurePluginServer()
 
 	req := &paragliderpb.CreateVpnConnectionsRequest{
-		Deployment:         &paragliderpb.InvisinetsDeployment{Id: deploymentId, Namespace: namespace},
+		Deployment:         &paragliderpb.ParagliderDeployment{Id: deploymentId, Namespace: namespace},
 		Cloud:              "cloudname",
 		Asn:                123,
 		GatewayIpAddresses: []string{"1.1.1.1", "2.2.2.2"},
