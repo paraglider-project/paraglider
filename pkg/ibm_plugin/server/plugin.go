@@ -413,15 +413,48 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *invisinet
 			utils.Log.Printf("Failed to add security group rule: %v.\n", err)
 			return nil, err
 		}
-		utils.Log.Printf("Attached rule %s, %+v\n", ruleID, ibmRule)
+		utils.Log.Printf("Attached rule %s(%s), %+v\n", ruleID, ibmRule.ID, ibmRule)
 
+		// Check if there exists a rule with the permitlist name
+		oldRuleID, err := getRuleValFromStore(ctx, client, ibmRule.ID, req.Namespace)
+		if err != nil {
+			// In case of failure to get/set KV from store, ensure the existing ruled is deleted
+			// to ensure, there are no zombie rules
+			utils.Log.Printf("Failed to retrieve from KV store for rule %s: %v.", ibmRule.ID, err)
+			err = cloudClient.DeleteSecurityGroupRule(requestSGID, ruleID)
+			if err != nil {
+				return nil, err
+			}
+			return nil, fmt.Errorf("failed to get from kv store %v", err)
+		}
+
+		if oldRuleID != "" {
+			// Existing rule found with the same permitlist name
+			err = cloudClient.DeleteSecurityGroupRule(requestSGID, oldRuleID)
+			if err != nil {
+				return nil, err
+			}
+			utils.Log.Printf("Cleaning up old rule %s with same permitlist name %s", oldRuleID, ibmRule.ID)
+		}
+		// The intermediate representation ibmRule.ID stores the permitlist name
 		err = setRuleValToStore(ctx, client, ibmRule.ID, ruleID, req.Namespace)
 		if err != nil {
 			utils.Log.Printf("Failed to set KV store for rule %s: %v.", ibmRule.ID, err)
+			err = cloudClient.DeleteSecurityGroupRule(requestSGID, ruleID)
+			if err != nil {
+				return nil, err
+			}
+			return nil, fmt.Errorf("failed to set kv store: %v", err)
 		}
+		// Store the reverse representation to be used to retrieve permitlist name for getpermitlist requests
 		err = setRuleValToStore(ctx, client, ruleID, ibmRule.ID, req.Namespace)
 		if err != nil {
 			utils.Log.Printf("Failed to set KV store for rule %s: %v.", ibmRule.ID, err)
+			err = cloudClient.DeleteSecurityGroupRule(requestSGID, ruleID)
+			if err != nil {
+				return nil, err
+			}
+			return nil, fmt.Errorf("failed to set kv store: %v", err)
 		}
 	}
 
@@ -473,7 +506,10 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *invisi
 	for _, ruleName := range req.RuleNames {
 		ruleID, err := getRuleValFromStore(ctx, client, ruleName, req.Namespace)
 		if err != nil {
-			utils.Log.Printf("Failed to get value from KVstore for rule %s: %v.", ruleName, err)
+			return nil, fmt.Errorf("failed to get from kv store %v", err)
+		}
+		if ruleID == "" {
+			utils.Log.Printf("Rule %s not found in KVstore.", ruleName)
 			continue
 		}
 		utils.Log.Printf("Got %s rule ID for name : %s", ruleID, ruleName)

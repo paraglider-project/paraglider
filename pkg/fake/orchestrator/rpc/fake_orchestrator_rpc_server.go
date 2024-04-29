@@ -22,6 +22,7 @@ import (
 	"net"
 
 	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/kvstore"
 	"github.com/NetSys/invisinets/pkg/orchestrator"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -33,6 +34,7 @@ type FakeOrchestratorRPCServer struct {
 	invisinetspb.UnimplementedControllerServer
 	Cloud   string
 	Counter int
+	kvStore map[string]string
 }
 
 func (f *FakeOrchestratorRPCServer) FindUnusedAddressSpaces(ctx context.Context, req *invisinetspb.FindUnusedAddressSpacesRequest) (*invisinetspb.FindUnusedAddressSpacesResponse, error) {
@@ -70,8 +72,57 @@ func (f *FakeOrchestratorRPCServer) GetUsedAddressSpaces(ctx context.Context, _ 
 	return resp, nil
 }
 
+func (f *FakeOrchestratorRPCServer) SetValue(ctx context.Context, in *invisinetspb.SetValueRequest) (*invisinetspb.SetValueResponse, error) {
+	fullKey := kvstore.GetFullKey(in.Key, in.Cloud, in.Namespace)
+	f.kvStore[fullKey] = in.Value
+
+	return &invisinetspb.SetValueResponse{}, nil
+}
+
+func (f *FakeOrchestratorRPCServer) GetValue(ctx context.Context, in *invisinetspb.GetValueRequest) (*invisinetspb.GetValueResponse, error) {
+	fullKey := kvstore.GetFullKey(in.Key, in.Cloud, in.Namespace)
+	if val, ok := f.kvStore[fullKey]; ok {
+		return &invisinetspb.GetValueResponse{Value: val}, nil
+	}
+
+	return &invisinetspb.GetValueResponse{}, nil
+}
+
+func (f *FakeOrchestratorRPCServer) DeleteValue(ctx context.Context, in *invisinetspb.DeleteValueRequest) (*invisinetspb.DeleteValueResponse, error) {
+	fullKey := kvstore.GetFullKey(in.Key, in.Cloud, in.Namespace)
+	delete(f.kvStore, fullKey)
+
+	return &invisinetspb.DeleteValueResponse{}, nil
+}
+
 func SetupFakeOrchestratorRPCServer(cloud string) (*FakeOrchestratorRPCServer, string, error) {
-	fakeControllerServer := &FakeOrchestratorRPCServer{Counter: 0, Cloud: cloud}
+	fakeControllerServer := &FakeOrchestratorRPCServer{
+		Counter: 0,
+		Cloud:   cloud,
+		kvStore: make(map[string]string),
+	}
+	l, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		return nil, "", err
+	}
+	gsrv := grpc.NewServer()
+	invisinetspb.RegisterControllerServer(gsrv, fakeControllerServer)
+	fakeControllerServerAddr := l.Addr().String()
+	go func() {
+		if err := gsrv.Serve(l); err != nil {
+			panic(err)
+		}
+	}()
+
+	return fakeControllerServer, fakeControllerServerAddr, nil
+}
+
+func SetupFakeOrchestratorRPCServerWithStore(cloud string, kvStore map[string]string) (*FakeOrchestratorRPCServer, string, error) {
+	fakeControllerServer := &FakeOrchestratorRPCServer{
+		Counter: 0,
+		Cloud:   cloud,
+		kvStore: kvStore,
+	}
 	l, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return nil, "", err

@@ -38,6 +38,7 @@ import (
 	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/kvstore"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
@@ -113,6 +114,7 @@ type fakeIBMServerState struct {
 	Instance      *vpcv1.Instance
 	SecurityGroup *vpcv1.SecurityGroup
 	subnetVPC     map[string]string // VPC to Subnet CIDR mapping
+	rules         int
 }
 
 func sendFakeResponse(w http.ResponseWriter, response interface{}) {
@@ -179,7 +181,7 @@ func createFakeSecurityGroup(addRules bool) *vpcv1.SecurityGroup {
 	if addRules {
 		sgRules := []vpcv1.SecurityGroupRuleIntf{
 			&vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolTcpudp{
-				ID:        core.StringPtr(fakeRuleName1),
+				ID:        core.StringPtr(fakeID),
 				Direction: core.StringPtr("inbound"),
 				Protocol:  core.StringPtr("tcp"),
 				PortMin:   core.Int64Ptr(443),
@@ -187,7 +189,7 @@ func createFakeSecurityGroup(addRules bool) *vpcv1.SecurityGroup {
 				Remote:    &vpcv1.SecurityGroupRuleRemoteCIDR{CIDRBlock: core.StringPtr("10.0.0.0/18")},
 			},
 			&vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAll{
-				ID:        core.StringPtr(fakeRuleName2),
+				ID:        core.StringPtr(fakeID2),
 				Direction: core.StringPtr("outbound"),
 				Protocol:  core.StringPtr("all"),
 				Remote:    &vpcv1.SecurityGroupRuleRemoteIP{Address: core.StringPtr("10.0.64.1")},
@@ -379,6 +381,11 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 					ID:       core.StringPtr(fakeID),
 					Protocol: core.StringPtr(vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAllProtocolAllConst),
 				}
+				if fakeIBMServerState.rules != 0 {
+					// Return another rule ID for the second rule added
+					sg.ID = core.StringPtr(fakeID2)
+				}
+				fakeIBMServerState.rules++
 				sendFakeResponse(w, sg)
 				return
 			}
@@ -656,7 +663,10 @@ func TestAddPermitListRules(t *testing.T) {
 }
 
 func TestAddPermitListRulesExisting(t *testing.T) {
-	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	store := map[string]string{
+		kvstore.GetFullKey(fakePermitList1[0].Name, utils.IBM, fakeNamespace): fakeID2,
+	}
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServerWithStore(utils.IBM, store)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -827,10 +837,15 @@ func TestAddPermitListRulesTransitGateway(t *testing.T) {
 }
 
 func TestDeletePermitListRules(t *testing.T) {
-	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	store := map[string]string{
+		kvstore.GetFullKey(fakePermitList1[0].Name, utils.IBM, fakeNamespace): fakeID,
+		kvstore.GetFullKey(fakePermitList1[1].Name, utils.IBM, fakeNamespace): fakeID2,
+	}
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServerWithStore(utils.IBM, store)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	// fakeIBMServerState with an instance and security group with rules
 	fakeIBMServerState := &fakeIBMServerState{
 		Instance:      createFakeInstance(),
@@ -914,7 +929,11 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 	require.NotNil(t, resp)
 }
 func TestGetPermitList(t *testing.T) {
-	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	store := map[string]string{
+		kvstore.GetFullKey(fakeID, utils.IBM, fakeNamespace):  fakePermitList1[0].Name,
+		kvstore.GetFullKey(fakeID2, utils.IBM, fakeNamespace): fakePermitList1[1].Name,
+	}
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServerWithStore(utils.IBM, store)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -942,14 +961,7 @@ func TestGetPermitList(t *testing.T) {
 	fmt.Printf("Retu %v\n", resp.Rules)
 	fmt.Printf("Need %v\n", fakePermitList1)
 
-	// For now, we are not comparing rule name as a workaround, since getting rule name from the kv store, doesnt work with tests
-	for i, rule := range resp.Rules {
-		require.Equal(t, rule.Direction, fakePermitList1[i].Direction)
-		require.Equal(t, rule.SrcPort, fakePermitList1[i].SrcPort)
-		require.Equal(t, rule.DstPort, fakePermitList1[i].DstPort)
-		require.Equal(t, rule.Protocol, fakePermitList1[i].Protocol)
-		require.Equal(t, rule.Targets, fakePermitList1[i].Targets)
-	}
+	require.ElementsMatch(t, resp.Rules, fakePermitList1)
 }
 
 func TestGetPermitListEmpty(t *testing.T) {

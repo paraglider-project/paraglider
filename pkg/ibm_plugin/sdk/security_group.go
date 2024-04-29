@@ -221,10 +221,13 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolTCPUDP(
 		SgID:       sgID,
 		Remote:     remote,
 		RemoteType: remoteType,
-		PortMin:    *ibmRuleTCPUDP.PortMin,
-		PortMax:    *ibmRuleTCPUDP.PortMax,
 		Egress:     isEgress,
 	}
+	if ibmRuleTCPUDP.PortMin != nil && ibmRuleTCPUDP.PortMax != nil {
+		rule.PortMin = *ibmRuleTCPUDP.PortMin
+		rule.PortMax = *ibmRuleTCPUDP.PortMax
+	}
+
 	return &rule, nil
 }
 
@@ -465,8 +468,12 @@ func (c *CloudClient) GetRulesIDs(rules []SecurityGroupRule, sgID string) ([]str
 
 func (c *CloudClient) getIBMRuleID(ibmRule vpcv1.SecurityGroupRuleIntf) string {
 	switch rule := ibmRule.(type) {
+	case *vpcv1.SecurityGroupRule:
+		return *rule.ID
 	case *vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAll:
+		return *rule.ID
 	case *vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolIcmp:
+		return *rule.ID
 	case *vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolTcpudp:
 		return *rule.ID
 	}
