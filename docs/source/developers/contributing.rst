@@ -3,12 +3,12 @@
 Contributing
 ========================================
 
-Welcome to the repo! We're currently building Paraglider with a small cross-industry team. We'll update this guidance further as we move closer to being a public open source project.
-
+Welcome to the Paraglider! We're currently building Paraglider with a small cross-industry team. We'll update this guidance further as we move closer to being a public open source project.
+We suggest looking through our `issues <https://github.com/paraglider-project/paraglider/issues>`_ for some ideas for initial contributions and getting familiar with the code.
 
 Creating issues
 --------------------
-Please create issues for needed work and bugs in this repo.
+Please create issues for needed work and bugs in the `repo<https://github.com/paraglider-project/paraglider>`_.
 
 
 Sending pull requests
@@ -40,7 +40,7 @@ This is the list of core dependencies to install for the most common tasks. In g
 - `Git <https://git-scm.com>`_
 - `Go <https://golang.org/>`_
 - `golangci-lint <https://golangci-lint.run>`_
-- `protoc <https://grpc.io/docs/protoc-installation>` _
+- `protoc <https://grpc.io/docs/protoc-installation>`_
 - make
 
   * Linux: Install the `build-essential` package:

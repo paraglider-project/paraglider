@@ -11,6 +11,7 @@ Welcome to Paraglider!
    :alt: Paraglider Logo
    :class: no-scaled-link, only-light
 
+|
 
 Paraglider is a cross-cloud control plane for configuring cloud networks. 
 
@@ -18,7 +19,7 @@ The Paraglider project aims to evolve cloud networking by simplifying the creati
 
 Paraglider began as a research project at UC Berkeley in the NetSys Lab. The work was originally published in `HotOS <https://dl.acm.org/doi/pdf/10.1145/3458336.3465303>`_ and `NSDI <https://www.usenix.org/system/files/nsdi23-mcclure.pdf>`_. Since publication, the design goals for the implementation have shifted to support private address spaces, but still match the simplified interface proposed in the papers. 
 
-The project is now run by an cross-industry working group consisting of members from Microsoft, Google, IBM, and UC Berkeley. It is now a Linux Foundation open-source project.
+The project is now run by an cross-industry working group consisting of members from Microsoft, Google, IBM, and UC Berkeley. It is a Linux Foundation open-source project.
 
 .. note::
    This project is under active development.
@@ -27,10 +28,10 @@ The project is now run by an cross-industry working group consisting of members 
    :maxdepth: 1
    :caption: Overview
 
-   overview/quickstart.rst
    overview/concepts.rst
    overview/howitworks.rst
    overview/api.rst
+   overview/quickstart.rst
    
 .. toctree::
    :maxdepth: 1

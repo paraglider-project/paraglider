@@ -9,6 +9,6 @@ This pages lists some of the features that are planned for the future of Paragli
 * Support brownfield deployment.
 * Support aynchronous requests to the Paraglider controller.
 * Add plugins for other clouds.
-* Add support for additional resource types (e.g. private endpoints, etc.)
+* Add support for additional resource types (e.g. private endpoints, etc.).
 * Integrate with k8s networking plugins. 
 * Add support for network functions such as load balancers, firewalls, etc.
