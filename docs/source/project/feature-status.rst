@@ -19,8 +19,6 @@ GCP
 
 IBM
 ~~~
-* Permit list rule naming is not currently supported.
-    * Therefore, some permit list rule operations may not work as expected.
-    * This is a known issue and will be fixed soon.
+* Supports instances for all paraglider operations.
 * Support for multicloud connections to Azure and GCP is in progress.
 * There is no support for managed k8s clusters yet.
