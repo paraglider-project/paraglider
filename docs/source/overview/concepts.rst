@@ -19,7 +19,7 @@ Core Concepts
 * **Endpoint**: Any resource in a cloud network (eg, a VM)
 * **Permit List**: A list associated with an endpoint which defines the allowed traffic for that endpoint
 * **Tags**: Strings associated with an endpoint or group of endpoint which can be referred to in permit lists and commands
-* **Namespaces**: An Paraglider deployment controlled by an Paraglider controller separated (both in infrastructure and in control plane) from other namespaces under the same controller
+* **Namespaces**: A Paraglider deployment controlled by a Paraglider controller separated (both in infrastructure and in control plane) from other namespaces under the same controller
 
 Use
 ^^^

@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	"log"
 	"net"
 
-	storepb "github.com/NetSys/invisinets/pkg/kvstore/storepb"
+	storepb "github.com/paraglider-project/paraglider/pkg/kvstore/storepb"
 	redis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 )

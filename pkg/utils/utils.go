@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 )
 
 var (
@@ -46,14 +46,14 @@ var privateAddressSpaces = []netip.Prefix{
 }
 
 func init() {
-	file, err := os.Create("invisinets.log")
+	file, err := os.Create("paraglider.log")
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
 	Log = log.New(file, "", log.LstdFlags|log.Lshortfile)
 }
 
-// Checks if an Invisinets permit list rule tag (either an address or address space) is contained within an address space.
+// Checks if a Paraglider permit list rule tag (either an address or address space) is contained within an address space.
 func IsPermitListRuleTagInAddressSpace(permitListRuleTag string, addressSpaces []string) (bool, error) {
 	for _, addressSpace := range addressSpaces {
 		prefix, err := netip.ParsePrefix(addressSpace)
@@ -116,7 +116,7 @@ type PeeringCloudInfo struct {
 // Notes
 // 1. this method may return duplicate PeeringCloudInfos, so it's the responsibility of the cloud plugin to gracefully handle duplicates
 // 2. peeringCloudInfo[i] will be nil if the target is a public IP address, so make sure to check for that
-func GetPermitListRulePeeringCloudInfo(permitListRule *invisinetspb.PermitListRule, usedAddressSpaceMappings []*invisinetspb.AddressSpaceMapping) ([]*PeeringCloudInfo, error) {
+func GetPermitListRulePeeringCloudInfo(permitListRule *paragliderpb.PermitListRule, usedAddressSpaceMappings []*paragliderpb.AddressSpaceMapping) ([]*PeeringCloudInfo, error) {
 	peeringCloudInfos := make([]*PeeringCloudInfo, len(permitListRule.Targets))
 	for i, target := range permitListRule.Targets {
 		isPrivate, err := isIPAddressPrivate(target)

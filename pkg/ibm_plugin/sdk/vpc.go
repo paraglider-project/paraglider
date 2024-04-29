@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,12 +21,12 @@ import (
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const vpcType = "vpc"
 
-// CreateVPC creates an Invisinets VPC for a region resources are tagged.
+// CreateVPC creates a Paraglider VPC for a region resources are tagged.
 func (c *CloudClient) CreateVPC(tags []string) (*vpcv1.VPC, error) {
 	var prefixManagement string
 
