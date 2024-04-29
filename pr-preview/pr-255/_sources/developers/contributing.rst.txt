@@ -1,0 +1,79 @@
+.. _contributing:
+
+Contributing
+========================================
+
+Welcome to the Paraglider! We're currently building Paraglider with a small cross-industry team. 
+
+This page gives an overview of how to contribute to the project. Please read over this document for some important basics. For specific topics, refer to the table of contents.
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Contents:
+
+   contributing/prerequisites.rst
+   contributing/building.rst
+   contributing/contributing-issues.rst
+   contributing/writing-go.rst
+   contributing/known-issues.rst
+
+Overview
+----------
+The Paraglider project aims to evolve cloud networking by simplifying the creation and management of single and multi-cloud networking. 
+The project reduces the need for detailed networking knowledge from developers and administrators, and hides the complexity of low-level components like virtual networks, access control, load balancers, and inter-cloud connections. 
+Paraglider provides high-level constructs for modeling connectivity and security as well as key network functions. Additionally, it provides mechanisms for semantically meaningful names and groups rather than limiting to IP-based constructs. 
+The Paraglider configuration, in the form of connectivity requirements between networked resources (VMs, containers, PaaS resources, etc.), is then translated to cloud-specific configurations via plugins tailored for each platform.
+
+Paraglider exposes its streamlined interface to cloud tenants through the Paraglider controller. 
+The controller is responsible for provisioning and updating the relevant cloud network resources based on the requests from the user. 
+The controller includes plugins for each cloud it supports which are responsible for translating the Paraglider configuration to the cloud-specific configuration.
+For more information about the design and architecture, please refer to :ref:`howitworks`.
+
+Guidelines
+------------------
+We welcome small pull request contributions from anyone (docs improvements, bug fixes, minor features.) as long as they follow a few guidelines:
+
+* For very minor changes like correcting a typo feel free to send a pull request. Otherwise ...
+* Please start by `choosing an existing issue <https://github.com/paraglider-project/paraglider/issues>`_, or `opening an issue to work on <https://github.com/paraglider-project/paraglider/issues/new>`_.
+* The maintainers will respond to your issue, please work with the maintainers to ensure that what you're doing is in scope for the project before writing any code.
+* If you have any doubt whether a contribution would be valuable, feel free to ask.
+
+Developer Certificate of Origin
+---------------------------------
+The Paraglider project follows the `Developer Certificate of Origin <https://developercertificate.org/>`_. This is a lightweight way for contributors to certify that they wrote or otherwise have the right to submit the code they are contributing to the project.
+
+Contributors sign-off that they adhere to these requirements by adding a Signed-off-by line to commit messages.
+
+This is my commit message
+
+Signed-off-by: Random J Developer <random@developer.example.org>
+Git even has a -s command line option to append this automatically to your commit message:
+
+.code:: console
+    $ git commit -s -m 'This is my commit message'
+
+Visual Studio Code has a setting, git.alwaysSignOff to automatically add a Signed-off-by line to commit messages. Search for "sign-off" in VS Code settings to find it and enable it.
+
+
+Creating issues
+--------------------
+Please create issues for needed work and bugs in the `repo <https://github.com/paraglider-project/paraglider/issues>`_.
+
+
+Sending pull requests
+----------------------
+Please send pull requests for all changes, even if they are urgent.
+
+Code of Conduct
+--------------------
+
+This project has adopted the code of conduct defined by the Contributor Covenant to clarify expected behavior in our community.
+For more information, see the `Contributor Covenant Code of Conduct 2.1 <https://www.contributor-covenant.org/version/2/1/code_of_conduct/>`_.
+
+
+Troubleshooting and getting help
+---------------------------------
+* Have a question? - Visit our `Discord server <https://discordapp.com/channels/1116864463832891502/11168644638328915074>`_ to post your question and we'll get back to you ASAP
+* Found an issue? - Refer to :ref:`contributingissues` on filing a bug report
+* Have a proposal? - Refer to :ref:`contributingissues` for instructions on filing a feature request
+
