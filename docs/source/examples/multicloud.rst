@@ -148,6 +148,6 @@ Steps
 
    .. code-block:: console
 
-        $ glide rule delete azure vm-a --rules allow-ping-inbound-default.gcp.vm-c
+        $ glide rule delete azure vm-a --rules ping-in-default-gcp-vm-c
 
 5. Try to ping VM A from VM C. The ping should fail.
