@@ -549,7 +549,9 @@ func (s *ControllerServer) getAddressSpaces(cloud string) ([]*paragliderpb.Addre
 	client := paragliderpb.NewCloudPluginClient(conn)
 	req := &paragliderpb.GetUsedAddressSpacesRequest{Deployments: s.getParagliderDeployments(cloud)}
 	resp, err := client.GetUsedAddressSpaces(context.Background(), req)
-
+	if err != nil {
+		return nil, fmt.Errorf("unable to get used address spaces : %s", err.Error())
+	}
 	return resp.AddressSpaceMappings, err
 }
 

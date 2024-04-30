@@ -140,6 +140,7 @@ High-Level Logic:
     * Create the necessary connection infrastructure to connection across clouds (ex. a VPN gateway)
 * In all cases (including the remote and the resource are in the same virtual network):
     * Update the security rules to allow the traffic 
+    
     .. note:
         This may involve creating a new rule or updating an existing rule. Rule identity is determined by the provided name.
 
@@ -211,7 +212,6 @@ Input Details:
 * ``cloud`` is the remote cloud to connect to.
 * ``bgp_peering_ip_addresses`` are the IP addresses to use for the BGP peering with the remote cloud.
 
-
 Resources to Create:
 ^^^^^^^^^^^^^^^^^^^^^^
 * VPN gateway
@@ -220,17 +220,63 @@ High-Level Logic:
 ^^^^^^^^^^^^^^^^^^^^^^
 * Create VPN gateway along with (manually) setting up public IP addresses for the gateway tunnels
 
-
 rpc GetUsedAsns(GetUsedAsnsRequest) returns (GetUsedAsnsResponse) {}
 -----------------------------------------------------------------------------------
 
-TODO @seankimkdy
+Implementation-Level Description:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Gets all used ASNs in a given cloud.
+
+Input Details:
+^^^^^^^^^^^^^^
+* ``deployments`` is a list of deployments in which to search for the ASNs
+
+Resources to Create:
+^^^^^^^^^^^^^^^^^^^^
+* None
+
+High-Level Logic:
+* Get all ASNs used by Paraglider in the given deployments
 
 rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}
 -----------------------------------------------------------------------------------------------------------------------------
-TODO @seankimkdy
+
+Implementation-Level Description:
+Gets all used BGP peering IP addresses in a given cloud.
+
+Input Details:
+^^^^^^^^^^^^^^
+* ``deployments`` is a list of deployments in which to search for the ASNs
+
+Resources to Create:
+^^^^^^^^^^^^^^^^^^^^
+* None
+
+High-Level Logic:
+^^^^^^^^^^^^^^^^^
+* Get all BGP peering IP addresses used by Paraglider in the given deployments
 
 rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (BasicResponse) {}
 -----------------------------------------------------------------------------------
 
-TODO @seankimkdy
+Implementation-Level Description:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Creates VPN connections between two clouds.
+
+Input Details:
+^^^^^^^^^^^^^^
+* ``deployment`` is the deployment for the current cloud in which to create the VPN connection.
+* ``cloud`` is the remote cloud to connect to.
+* ``asn`` is the ASN to use for the BGP peering with the remote cloud.
+* ``gateway_ip_addresses``: IP addresses of the VPN tunnels in remote cloud.
+* ``bgp_ip_addresses``: are the IP addresses to use for the BGP peering with the remote cloud.
+* ``shared_key``: pre-shared key for IPSec
+
+Resources to Create:
+^^^^^^^^^^^^^^^^^^^^
+* VPN tunnels
+
+High-Level Logic:
+^^^^^^^^^^^^^^^^^
+* Create VPN tunnels on current cloud to connect to the remote cloud
+* Setup BGP peering between the two clouds

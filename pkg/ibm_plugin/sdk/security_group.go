@@ -221,10 +221,13 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolTCPUDP(
 		SgID:       sgID,
 		Remote:     remote,
 		RemoteType: remoteType,
-		PortMin:    *ibmRuleTCPUDP.PortMin,
-		PortMax:    *ibmRuleTCPUDP.PortMax,
 		Egress:     isEgress,
 	}
+	if ibmRuleTCPUDP.PortMin != nil && ibmRuleTCPUDP.PortMax != nil {
+		rule.PortMin = *ibmRuleTCPUDP.PortMin
+		rule.PortMax = *ibmRuleTCPUDP.PortMax
+	}
+
 	return &rule, nil
 }
 
@@ -260,22 +263,25 @@ func (c *CloudClient) translateSecurityGroupRuleRemote(
 
 // AddSecurityGroupRule adds following functions are responsible for assigning SecurityGroupRules
 // to a security group.
-func (c *CloudClient) AddSecurityGroupRule(rule SecurityGroupRule) error {
+func (c *CloudClient) AddSecurityGroupRule(rule SecurityGroupRule) (string, error) {
 	prototype, err := c.translateRuleProtocol(rule)
 	if err != nil {
-		return err
+		return "", err
 	}
 	return c.addSecurityGroupRule(rule.SgID, prototype)
 }
 
-func (c *CloudClient) addSecurityGroupRule(sgID string, prototype vpcv1.SecurityGroupRulePrototypeIntf) error {
+func (c *CloudClient) addSecurityGroupRule(sgID string, prototype vpcv1.SecurityGroupRulePrototypeIntf) (string, error) {
 
 	options := vpcv1.CreateSecurityGroupRuleOptions{
 		SecurityGroupID:            &sgID,
 		SecurityGroupRulePrototype: prototype,
 	}
-	_, _, err := c.vpcService.CreateSecurityGroupRule(&options)
-	return err
+	res, _, err := c.vpcService.CreateSecurityGroupRule(&options)
+	if err != nil {
+		return "", err
+	}
+	return c.getIBMRuleID(res), err
 }
 
 func (c *CloudClient) translateRuleProtocol(rule SecurityGroupRule) (vpcv1.SecurityGroupRulePrototypeIntf, error) {
@@ -458,6 +464,20 @@ func (c *CloudClient) GetRulesIDs(rules []SecurityGroupRule, sgID string) ([]str
 		}
 	}
 	return rulesIDs, nil
+}
+
+func (c *CloudClient) getIBMRuleID(ibmRule vpcv1.SecurityGroupRuleIntf) string {
+	switch rule := ibmRule.(type) {
+	case *vpcv1.SecurityGroupRule:
+		return *rule.ID
+	case *vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAll:
+		return *rule.ID
+	case *vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolIcmp:
+		return *rule.ID
+	case *vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolTcpudp:
+		return *rule.ID
+	}
+	return ""
 }
 
 // returns rules in paraglider format from IBM cloud format

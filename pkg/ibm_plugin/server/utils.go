@@ -17,8 +17,12 @@ limitations under the License.
 package ibm
 
 import (
+	"context"
 	"fmt"
 	"strings"
+
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const (
@@ -69,4 +73,41 @@ func getResourceIDInfo(deploymentID string) (ResourceIDInfo, error) {
 
 func createInstanceID(resGroup, zone, resName string) string {
 	return fmt.Sprintf("/resourcegroup/%s/zone/%s/%s/%s", resGroup, zone, instanceResourceType, resName)
+}
+
+func setRuleValToStore(ctx context.Context, client paragliderpb.ControllerClient, key, value, namespace string) error {
+	setVal := &paragliderpb.SetValueRequest{
+		Key:       key,
+		Value:     value,
+		Cloud:     utils.IBM,
+		Namespace: namespace,
+	}
+	_, err := client.SetValue(ctx, setVal)
+
+	return err
+}
+
+func getRuleValFromStore(ctx context.Context, client paragliderpb.ControllerClient, key, namespace string) (string, error) {
+	getVal := &paragliderpb.GetValueRequest{
+		Key:       key,
+		Cloud:     utils.IBM,
+		Namespace: namespace,
+	}
+	resp, err := client.GetValue(ctx, getVal)
+
+	if err != nil {
+		return "", err
+	}
+	return resp.Value, err
+}
+
+func delRuleValFromStore(ctx context.Context, client paragliderpb.ControllerClient, key, namespace string) error {
+	delVal := &paragliderpb.DeleteValueRequest{
+		Key:       key,
+		Cloud:     utils.IBM,
+		Namespace: namespace,
+	}
+	_, err := client.DeleteValue(ctx, delVal)
+
+	return err
 }

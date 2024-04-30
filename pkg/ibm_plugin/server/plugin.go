@@ -22,12 +22,14 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
+	"github.com/IBM/vpc-go-sdk/vpcv1"
+	redis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/IBM/vpc-go-sdk/vpcv1"
 	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
@@ -39,6 +41,8 @@ type IBMPluginServer struct {
 	cloudClient            map[string]*sdk.CloudClient
 	orchestratorServerAddr string
 }
+
+var defaultRegion = "us-east"
 
 // setupCloudClient fetches the cloud client for a resgroup and region from the map if cached, or creates a new one.
 // This function should be the only way the IBM plugin server to get a client
@@ -200,7 +204,8 @@ func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragli
 		}
 		region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
 		if err != nil {
-			return nil, err
+			// No region specified, use default region
+			region = defaultRegion
 		}
 
 		cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
@@ -263,6 +268,23 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.G
 		return nil, err
 	}
 
+	conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := paragliderpb.NewControllerClient(conn)
+
+	// Get the permitlist names from the rule ID
+	for _, rule := range paragliderRules {
+		//IBM rule ID is transiently stored in rule name during translation
+		ruleName, err := getRuleValFromStore(ctx, client, rule.Name, req.Namespace)
+		if err != nil {
+			utils.Log.Printf("Failed to get value from KVstore for rule %s: %v.", ruleName, err)
+		}
+		utils.Log.Printf("Got %s rule name for ID : %s", ruleName, rule.Name)
+		rule.Name = ruleName
+	}
 	return &paragliderpb.GetPermitListResponse{Rules: paragliderRules}, nil
 }
 
@@ -324,6 +346,13 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	}
 	utils.Log.Printf("Translated permit list to intermediate IBM Rule : %v\n", ibmRulesToAdd)
 
+	conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := paragliderpb.NewControllerClient(conn)
+
 	gwID := "" // global transit gateway ID for vpc-peering.
 	for _, ibmRule := range ibmRulesToAdd {
 
@@ -380,15 +409,58 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 			return nil, err
 		}
 		// avoid adding duplicate rules (when hash values match)
-		if !rulesHashValues[ruleHashValue] {
-			err := cloudClient.AddSecurityGroupRule(ibmRule)
+		if rulesHashValues[ruleHashValue] {
+			utils.Log.Printf("Rule %+v already exists for security group ID %v.\n", ibmRule, requestSGID)
+			return &paragliderpb.AddPermitListRulesResponse{}, nil
+		}
+
+		ruleID, err := cloudClient.AddSecurityGroupRule(ibmRule)
+		if err != nil {
+			utils.Log.Printf("Failed to add security group rule: %v.\n", err)
+			return nil, err
+		}
+		utils.Log.Printf("Attached rule %s(%s), %+v\n", ruleID, ibmRule.ID, ibmRule)
+
+		// Check if there exists a rule with the permitlist name
+		oldRuleID, err := getRuleValFromStore(ctx, client, ibmRule.ID, req.Namespace)
+		if err != nil && !strings.Contains(err.Error(), string(redis.Nil)) {
+			// In case of failure to get/set KV from store, ensure the existing ruled is deleted
+			// to ensure, there are no zombie rules
+			utils.Log.Printf("Failed to retrieve from KV store for rule %s: %v.", ibmRule.ID, err)
+			err = cloudClient.DeleteSecurityGroupRule(requestSGID, ruleID)
 			if err != nil {
-				utils.Log.Printf("Failed to add security group rule: %v.\n", err)
 				return nil, err
 			}
-			utils.Log.Printf("Attached rule %+v\n", ibmRule)
-		} else {
-			utils.Log.Printf("Rule %+v already exists for security group ID %v.\n", ibmRule, requestSGID)
+			return nil, fmt.Errorf("failed to get from kv store %v", err)
+		}
+
+		if oldRuleID != "" {
+			// Existing rule found with the same permitlist name
+			err = cloudClient.DeleteSecurityGroupRule(requestSGID, oldRuleID)
+			if err != nil {
+				return nil, err
+			}
+			utils.Log.Printf("Cleaning up old rule %s with same permitlist name %s", oldRuleID, ibmRule.ID)
+		}
+		// The intermediate representation ibmRule.ID stores the permitlist name
+		err = setRuleValToStore(ctx, client, ibmRule.ID, ruleID, req.Namespace)
+		if err != nil {
+			utils.Log.Printf("Failed to set KV store for rule %s: %v.", ibmRule.ID, err)
+			err = cloudClient.DeleteSecurityGroupRule(requestSGID, ruleID)
+			if err != nil {
+				return nil, err
+			}
+			return nil, fmt.Errorf("failed to set kv store: %v", err)
+		}
+		// Store the reverse representation to be used to retrieve permitlist name for getpermitlist requests
+		err = setRuleValToStore(ctx, client, ruleID, ibmRule.ID, req.Namespace)
+		if err != nil {
+			utils.Log.Printf("Failed to set KV store for rule %s: %v.", ibmRule.ID, err)
+			err = cloudClient.DeleteSecurityGroupRule(requestSGID, ruleID)
+			if err != nil {
+				return nil, err
+			}
+			return nil, fmt.Errorf("failed to set kv store: %v", err)
 		}
 	}
 
@@ -430,13 +502,39 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 	// assuming up to a single paraglider subnet can exist per zone
 	vmParagliderSgID := paragliderSgsData[0].ID
 
-	// TODO @praveingk Deduct rule IDs from the rule names using orchestrator's KV-store
-	for _, ruleID := range req.RuleNames {
+	conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := paragliderpb.NewControllerClient(conn)
+
+	for _, ruleName := range req.RuleNames {
+		ruleID, err := getRuleValFromStore(ctx, client, ruleName, req.Namespace)
+		if err != nil && !strings.Contains(err.Error(), string(redis.Nil)) {
+			return nil, fmt.Errorf("failed to get from kv store %v", err)
+		}
+		if ruleID == "" {
+			utils.Log.Printf("Rule %s not found in KVstore.", ruleName)
+			continue
+		}
+		utils.Log.Printf("Got %s rule ID for name : %s", ruleID, ruleName)
+
 		err = cloudClient.DeleteSecurityGroupRule(vmParagliderSgID, ruleID)
 		if err != nil {
 			return nil, err
 		}
 		utils.Log.Printf("Deleted rule %v", ruleID)
+
+		// delete the references form the kv store
+		err = delRuleValFromStore(ctx, client, ruleName, req.Namespace)
+		if err != nil {
+			utils.Log.Printf("Failed to delete %s from kvstore", ruleName)
+		}
+		err = delRuleValFromStore(ctx, client, ruleID, req.Namespace)
+		if err != nil {
+			utils.Log.Printf("Failed to delete %s from kvstore", ruleID)
+		}
 	}
 
 	return &paragliderpb.DeletePermitListRulesResponse{}, nil
