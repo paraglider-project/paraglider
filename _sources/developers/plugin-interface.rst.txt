@@ -140,6 +140,7 @@ High-Level Logic:
     * Create the necessary connection infrastructure to connection across clouds (ex. a VPN gateway)
 * In all cases (including the remote and the resource are in the same virtual network):
     * Update the security rules to allow the traffic 
+    
     .. note:
         This may involve creating a new rule or updating an existing rule. Rule identity is determined by the provided name.
 
