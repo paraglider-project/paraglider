@@ -42,6 +42,7 @@ Check out the `GitHub repository <https://github.com/paraglider-project/paraglid
    :maxdepth: 1
    :caption: Examples
 
+   examples/controller-setup.rst
    examples/tags.rst
    examples/multicloud.rst
    

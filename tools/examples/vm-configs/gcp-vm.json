@@ -9,9 +9,7 @@
                 },
             "type": "PERSISTENT"
         }],
-        "machine_type": "zones/us-west1-a/machineTypes/f1-micro",
-        "name": "vm-c"
+        "machine_type": "zones/us-west1-a/machineTypes/f1-micro"
     },
-    "project": "<your-project>",
     "zone": "us-west1-a"
 }
