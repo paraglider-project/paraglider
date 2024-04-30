@@ -222,8 +222,10 @@
 <span id="id1"></span><h1>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h1>
 <section id="prerequisites-for-working-with-the-repo">
 <h2>Prerequisites for working with the repo<a class="headerlink" href="#prerequisites-for-working-with-the-repo" title="Link to this heading">#</a></h2>
-<p>This section lists the prerequisites for working with the repository. Most contributors should start with the basic prerequisites. Depending on the task you need to perform, you may need to install more tools.</p>
-<p>We also provide a <a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers">Devcontainer</a> for working with this repository without installing prerequisites. Keep reading for instructions.</p>
+<p>This section lists the prerequisites for working with the repository. Most contributors should start with the basic prerequisites.
+Depending on the task you need to perform, you may need to install more tools.</p>
+<p>We also provide a <a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers">Devcontainer</a> for working with this repository without installing prerequisites.
+Keep reading for instructions.</p>
 <section id="operating-system">
 <h3>Operating system<a class="headerlink" href="#operating-system" title="Link to this heading">#</a></h3>
 <p>We support developing on macOS, Linux and Windows with <a class="reference external" href="https://docs.microsoft.com/windows/wsl/install">WSL</a>.</p>
@@ -268,7 +270,8 @@
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">make build lint</span>
 </pre></div>
 </div>
-<p>Running these steps will run our build and lint steps and verify that the tools are installed correctly. If you get stuck or suspect something is not working in these instructions please raise an issue or ask for help in our <a class="reference external" href="https://discordapp.com/channels/1116864463832891502/11168644638328915074">discord</a>.</p>
+<p>Running these steps will run our build and lint steps and verify that the tools are installed correctly.
+If you get stuck or suspect something is not working in these instructions please raise an issue or ask for help in our <a class="reference external" href="https://discordapp.com/channels/1116864463832891502/11168644638328915074">discord</a>.</p>
 <p><strong>Integration/Multicloud Tests</strong></p>
 <p>Our integration/multicloud tests perform real requests to cloud providers. You can run these with the following commands</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">make integration-test</span>
@@ -298,6 +301,7 @@
 <li><p>Set environment variables <cite>INVISINETS_AZURE_SUBSCRIPTION_ID</cite> with a valid subscription.</p></li>
 </ol>
 <p>If you’d like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable <cite>INVISINETS_TEST_PERSIST</cite> to <cite>1</cite>.</p>
+<p><strong>IBM</strong></p>
 </section>
 </section>
 <section id="editor">
@@ -324,13 +328,15 @@
 <li><p>Install <a class="reference external" href="https://code.visualstudio.com/">VS Code</a></p></li>
 <li><p>Install the <a class="reference external" href="https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers">Dev Container extension</a></p></li>
 </ul>
-<p>Now when you open the Paraglider repo, you will be prompted with the option to open in a Dev Container. This will take a few minutes the first time to download and build the container, but will be much faster on subsequent opens.</p>
+<p>Now when you open the Paraglider repo, you will be prompted with the option to open in a Dev Container.
+This will take a few minutes the first time to download and build the container, but will be much faster on subsequent opens.</p>
 </section>
 <section id="additional-tools">
 <h2>Additional Tools<a class="headerlink" href="#additional-tools" title="Link to this heading">#</a></h2>
 <section id="test-summaries">
 <h3>Test summaries<a class="headerlink" href="#test-summaries" title="Link to this heading">#</a></h3>
-<p>The default <cite>go test</cite> output can be hard to read when you have many tests. We recommend <cite>gotestsum</cite> as a tool to solve this. Our <cite>make test</cite> command will automatically use <cite>gotestsum</cite> if it is available.</p>
+<p>The default <cite>go test</cite> output can be hard to read when you have many tests. We recommend <cite>gotestsum</cite> as a tool to solve this.
+Our <cite>make test</cite> command will automatically use <cite>gotestsum</cite> if it is available.</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://github.com/gotestyourself/gotestsum#install">gotestsum</a></p></li>
 </ul>

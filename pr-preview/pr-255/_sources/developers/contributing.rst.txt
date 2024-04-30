@@ -19,11 +19,7 @@ This page gives an overview of how to contribute to the project. Please read ove
 
 Overview
 ----------
-The Paraglider project aims to evolve cloud networking by simplifying the creation and management of single and multi-cloud networking. 
-The project reduces the need for detailed networking knowledge from developers and administrators, and hides the complexity of low-level components like virtual networks, access control, load balancers, and inter-cloud connections. 
-Paraglider provides high-level constructs for modeling connectivity and security as well as key network functions. Additionally, it provides mechanisms for semantically meaningful names and groups rather than limiting to IP-based constructs. 
-The Paraglider configuration, in the form of connectivity requirements between networked resources (VMs, containers, PaaS resources, etc.), is then translated to cloud-specific configurations via plugins tailored for each platform.
-
+Paraglider provides a streamlined interface for users to manage their cloud network resources.
 Cloud customers interact with the Paraglider APIs exposed by the Paraglider controller. 
 The controller is responsible for provisioning and updating the relevant cloud network resources based on the requests from the user. 
 The controller includes plugins for each cloud it supports which are responsible for translating the Paraglider configuration to the cloud-specific configuration.
@@ -48,6 +44,7 @@ Signed-off-by: Random J Developer <random@developer.example.org>
 Git even has a -s command line option to append this automatically to your commit message:
 
 .code:: console
+
     $ git commit -s -m 'This is my commit message'
 
 Visual Studio Code has a setting, git.alwaysSignOff to automatically add a Signed-off-by line to commit messages. Search for "sign-off" in VS Code settings to find it and enable it.

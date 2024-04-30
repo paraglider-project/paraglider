@@ -234,11 +234,8 @@
 </div>
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
-<p>The Paraglider project aims to evolve cloud networking by simplifying the creation and management of single and multi-cloud networking.
-The project reduces the need for detailed networking knowledge from developers and administrators, and hides the complexity of low-level components like virtual networks, access control, load balancers, and inter-cloud connections.
-Paraglider provides high-level constructs for modeling connectivity and security as well as key network functions. Additionally, it provides mechanisms for semantically meaningful names and groups rather than limiting to IP-based constructs.
-The Paraglider configuration, in the form of connectivity requirements between networked resources (VMs, containers, PaaS resources, etc.), is then translated to cloud-specific configurations via plugins tailored for each platform.</p>
-<p>Cloud customers interact with the Paraglider APIs exposed by the Paraglider controller.
+<p>Paraglider provides a streamlined interface for users to manage their cloud network resources.
+Cloud customers interact with the Paraglider APIs exposed by the Paraglider controller.
 The controller is responsible for provisioning and updating the relevant cloud network resources based on the requests from the user.
 The controller includes plugins for each cloud it supports which are responsible for translating the Paraglider configuration to the cloud-specific configuration.
 For more information about the design and architecture, please refer to <a class="reference internal" href="../overview/howitworks.html#howitworks"><span class="std std-ref">How It Works</span></a>.</p>
@@ -257,10 +254,10 @@ You are also welcome to <a class="reference external" href="https://github.com/p
 <p>This is my commit message</p>
 <p>Signed-off-by: Random J Developer &lt;<a class="reference external" href="mailto:random&#37;&#52;&#48;developer&#46;example&#46;org">random<span>&#64;</span>developer<span>&#46;</span>example<span>&#46;</span>org</a>&gt;
 Git even has a -s command line option to append this automatically to your commit message:</p>
-<dl class="simple">
-<dt>.code:: console</dt><dd><p>$ git commit -s -m ‘This is my commit message’</p>
-</dd>
-</dl>
+<p>.code:: console</p>
+<blockquote>
+<div><p>$ git commit -s -m ‘This is my commit message’</p>
+</div></blockquote>
 <p>Visual Studio Code has a setting, git.alwaysSignOff to automatically add a Signed-off-by line to commit messages. Search for “sign-off” in VS Code settings to find it and enable it.</p>
 </section>
 <section id="creating-issues">
