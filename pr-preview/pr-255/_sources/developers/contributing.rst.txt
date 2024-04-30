@@ -34,7 +34,7 @@ Guidelines
 We always welcome minor contributions like documentation improvements, typo corrections, bug fixes, and minor features in the form of pull requests. 
 
 You are also welcome to `choose an existing issue <https://github.com/paraglider-project/paraglider/issues>`_, or `create an issue to work on <https://github.com/paraglider-project/paraglider/issues/new>`_.
-* The maintainers will respond to your issue, please work with the maintainers to ensure that what you're doing is in scope for the project before writing any code.
+* But please work with the maintainers to ensure that what you're doing is in scope for the project before writing any code.
 * If you have any doubt whether a contribution would be valuable, feel free to ask.
 
 Developer Certificate of Origin
