@@ -113,5 +113,6 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 }
 
 func getSafeRuleName(ruleName string) string {
-	return strings.ReplaceAll(ruleName, "/", "-")
+	ruleName = strings.ReplaceAll(ruleName, "/", "-")
+	return strings.ReplaceAll(ruleName, ".", "-")
 }
