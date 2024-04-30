@@ -511,7 +511,7 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 
 	for _, ruleName := range req.RuleNames {
 		ruleID, err := getRuleValFromStore(ctx, client, ruleName, req.Namespace)
-		if err != nil {
+		if err != nil && !strings.Contains(err.Error(), string(redis.Nil)) {
 			return nil, fmt.Errorf("failed to get from kv store %v", err)
 		}
 		if ruleID == "" {
