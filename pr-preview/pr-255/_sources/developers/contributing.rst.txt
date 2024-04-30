@@ -37,13 +37,15 @@ Developer Certificate of Origin
 The Paraglider project follows the `Developer Certificate of Origin <https://developercertificate.org/>`_. This is a lightweight way for contributors to certify that they wrote or otherwise have the right to submit the code they are contributing to the project.
 
 Contributors sign-off that they adhere to these requirements by adding a Signed-off-by line to commit messages.
+.. code-block:: console
 
-This is my commit message
+    This is my commit message
 
-Signed-off-by: Random J Developer <random@developer.example.org>
+    Signed-off-by: Random J Developer <random@developer.example.org>
+
 Git even has a -s command line option to append this automatically to your commit message:
 
-.code:: console
+.. code-block:: console
 
     $ git commit -s -m 'This is my commit message'
 

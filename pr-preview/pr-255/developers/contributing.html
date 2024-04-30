@@ -250,14 +250,16 @@ You are also welcome to <a class="reference external" href="https://github.com/p
 <section id="developer-certificate-of-origin">
 <h2>Developer Certificate of Origin<a class="headerlink" href="#developer-certificate-of-origin" title="Link to this heading">#</a></h2>
 <p>The Paraglider project follows the <a class="reference external" href="https://developercertificate.org/">Developer Certificate of Origin</a>. This is a lightweight way for contributors to certify that they wrote or otherwise have the right to submit the code they are contributing to the project.</p>
-<p>Contributors sign-off that they adhere to these requirements by adding a Signed-off-by line to commit messages.</p>
-<p>This is my commit message</p>
-<p>Signed-off-by: Random J Developer &lt;<a class="reference external" href="mailto:random&#37;&#52;&#48;developer&#46;example&#46;org">random<span>&#64;</span>developer<span>&#46;</span>example<span>&#46;</span>org</a>&gt;
-Git even has a -s command line option to append this automatically to your commit message:</p>
-<p>.code:: console</p>
+<p>Contributors sign-off that they adhere to these requirements by adding a Signed-off-by line to commit messages.
+.. code-block:: console</p>
 <blockquote>
-<div><p>$ git commit -s -m ‘This is my commit message’</p>
+<div><p>This is my commit message</p>
+<p>Signed-off-by: Random J Developer &lt;<a class="reference external" href="mailto:random&#37;&#52;&#48;developer&#46;example&#46;org">random<span>&#64;</span>developer<span>&#46;</span>example<span>&#46;</span>org</a>&gt;</p>
 </div></blockquote>
+<p>Git even has a -s command line option to append this automatically to your commit message:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>commit<span class="w"> </span>-s<span class="w"> </span>-m<span class="w"> </span><span class="s1">&#39;This is my commit message&#39;</span>
+</pre></div>
+</div>
 <p>Visual Studio Code has a setting, git.alwaysSignOff to automatically add a Signed-off-by line to commit messages. Search for “sign-off” in VS Code settings to find it and enable it.</p>
 </section>
 <section id="creating-issues">
