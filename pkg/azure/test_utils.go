@@ -361,7 +361,7 @@ type fakeServerState struct {
 	cluster       *armcontainerservice.ManagedCluster
 }
 
-// Sets up fake http server and fake GCP compute clients
+// Sets up fake http server
 func SetupFakeAzureServer(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context) {
 	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
 
