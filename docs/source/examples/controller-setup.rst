@@ -20,10 +20,10 @@ The controller is configured using a configuration file. The configuration file 
     cloudPlugins:
         - name: "gcp"
             host: "localhost"
-            port: 10001
+            port: 8082
         - name: "azure"
             host: "localhost"
-            port: 10002
+            port: 8083
 
     namespaces: 
         default:
@@ -36,11 +36,11 @@ The controller is configured using a configuration file. The configuration file 
 
     tagService:
         host: "localhost"
-        port: 6000
+        port: 8084
 
     kvStore:
         host: "localhost"
-        port: 5000
+        port: 8085
 
 This file contains all information needed to spin up each of the microservices. 
 * The `server` field determines where the main controller service should be hosted (for user REST requests and plugin RPCs). This service is the frontend to the controller and orchestrates the other services.
@@ -51,7 +51,7 @@ This file contains all information needed to spin up each of the microservices.
 * The `kvStore` field determines where the key-value store should be hosted.
 
 .. note: 
-    The key-value store service can be omitted if none of the plugins are require it. Currently, only the IBM plugin requires it.
+    The key-value store service can be omitted if none of the plugins require it. Currently, only the IBM plugin requires it.
 
 Running the Controller
 -----------------------

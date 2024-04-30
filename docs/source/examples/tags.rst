@@ -31,7 +31,7 @@ You can find example configuration files in the ``tools/examples/controller-conf
 
 .. note::
 
-    Be sure to replace the template values for the GCP project in the template (you can exclude Azure entirely)
+    This example will create a VM in GCP. You can create the VM in whichever cloud you prefer. Make sure that your chosen cloud provider is configured in the controller configuration file.
 
 Steps
 ------
