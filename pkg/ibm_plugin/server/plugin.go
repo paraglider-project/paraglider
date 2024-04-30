@@ -22,12 +22,14 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
+	"github.com/IBM/vpc-go-sdk/vpcv1"
+	redis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/IBM/vpc-go-sdk/vpcv1"
 	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
@@ -39,6 +41,8 @@ type IBMPluginServer struct {
 	cloudClient            map[string]*sdk.CloudClient
 	orchestratorServerAddr string
 }
+
+var defaultRegion = "us-east"
 
 // setupCloudClient fetches the cloud client for a resgroup and region from the map if cached, or creates a new one.
 // This function should be the only way the IBM plugin server to get a client
@@ -200,7 +204,8 @@ func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragli
 		}
 		region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
 		if err != nil {
-			return nil, err
+			// No region specified, use default region
+			region = defaultRegion
 		}
 
 		cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
@@ -418,7 +423,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 
 		// Check if there exists a rule with the permitlist name
 		oldRuleID, err := getRuleValFromStore(ctx, client, ibmRule.ID, req.Namespace)
-		if err != nil {
+		if err != nil && !strings.Contains(err.Error(), string(redis.Nil)) {
 			// In case of failure to get/set KV from store, ensure the existing ruled is deleted
 			// to ensure, there are no zombie rules
 			utils.Log.Printf("Failed to retrieve from KV store for rule %s: %v.", ibmRule.ID, err)
@@ -506,7 +511,7 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 
 	for _, ruleName := range req.RuleNames {
 		ruleID, err := getRuleValFromStore(ctx, client, ruleName, req.Namespace)
-		if err != nil {
+		if err != nil && !strings.Contains(err.Error(), string(redis.Nil)) {
 			return nil, fmt.Errorf("failed to get from kv store %v", err)
 		}
 		if ruleID == "" {

@@ -587,7 +587,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 	deployment := &paragliderpb.GetUsedAddressSpacesRequest{
 		Deployments: []*paragliderpb.ParagliderDeployment{
-			{Id: fakeInstanceID, Namespace: fakeNamespace},
+			{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		},
 	}
 
