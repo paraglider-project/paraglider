@@ -486,15 +486,78 @@ An example of a resource description for an Azure VM is as follows:</p>
 </section>
 <section id="rpc-getusedasns-getusedasnsrequest-returns-getusedasnsresponse">
 <h2>rpc GetUsedAsns(GetUsedAsnsRequest) returns (GetUsedAsnsResponse) {}<a class="headerlink" href="#rpc-getusedasns-getusedasnsrequest-returns-getusedasnsresponse" title="Link to this heading">#</a></h2>
-<p>TODO &#64;seankimkdy</p>
+<section id="id26">
+<h3>Implementation-Level Description:<a class="headerlink" href="#id26" title="Link to this heading">#</a></h3>
+<p>Gets all used ASNs in a given cloud.</p>
+</section>
+<section id="id27">
+<h3>Input Details:<a class="headerlink" href="#id27" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">deployments</span></code> is a list of deployments in which to search for the ASNs</p></li>
+</ul>
+</section>
+<section id="id28">
+<h3>Resources to Create:<a class="headerlink" href="#id28" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>None</p></li>
+</ul>
+<p>High-Level Logic:
+* Get all ASNs used by Paraglider in the given deployments</p>
+</section>
 </section>
 <section id="rpc-getusedbgppeeringipaddresses-getusedbgppeeringipaddressesrequest-returns-getusedbgppeeringipaddressesresponse">
 <h2>rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}<a class="headerlink" href="#rpc-getusedbgppeeringipaddresses-getusedbgppeeringipaddressesrequest-returns-getusedbgppeeringipaddressesresponse" title="Link to this heading">#</a></h2>
-<p>TODO &#64;seankimkdy</p>
+<p>Implementation-Level Description:
+Gets all used BGP peering IP addresses in a given cloud.</p>
+<section id="id29">
+<h3>Input Details:<a class="headerlink" href="#id29" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">deployments</span></code> is a list of deployments in which to search for the ASNs</p></li>
+</ul>
+</section>
+<section id="id30">
+<h3>Resources to Create:<a class="headerlink" href="#id30" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>None</p></li>
+</ul>
+</section>
+<section id="id31">
+<h3>High-Level Logic:<a class="headerlink" href="#id31" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Get all BGP peering IP addresses used by Paraglider in the given deployments</p></li>
+</ul>
+</section>
 </section>
 <section id="rpc-createvpnconnections-createvpnconnectionsrequest-returns-basicresponse">
 <h2>rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (BasicResponse) {}<a class="headerlink" href="#rpc-createvpnconnections-createvpnconnectionsrequest-returns-basicresponse" title="Link to this heading">#</a></h2>
-<p>TODO &#64;seankimkdy</p>
+<section id="id32">
+<h3>Implementation-Level Description:<a class="headerlink" href="#id32" title="Link to this heading">#</a></h3>
+<p>Creates VPN connections between two clouds.</p>
+</section>
+<section id="id33">
+<h3>Input Details:<a class="headerlink" href="#id33" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">deployment</span></code> is the deployment for the current cloud in which to create the VPN connection.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code> is the remote cloud to connect to.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">asn</span></code> is the ASN to use for the BGP peering with the remote cloud.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gateway_ip_addresses</span></code>: IP addresses of the VPN tunnels in remote cloud.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bgp_ip_addresses</span></code>: are the IP addresses to use for the BGP peering with the remote cloud.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">shared_key</span></code>: pre-shared key for IPSec</p></li>
+</ul>
+</section>
+<section id="id34">
+<h3>Resources to Create:<a class="headerlink" href="#id34" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>VPN tunnels</p></li>
+</ul>
+</section>
+<section id="id35">
+<h3>High-Level Logic:<a class="headerlink" href="#id35" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Create VPN tunnels on current cloud to connect to the remote cloud</p></li>
+<li><p>Setup BGP peering between the two clouds</p></li>
+</ul>
+</section>
 </section>
 </section>
 
@@ -593,9 +656,25 @@ An example of a resource description for an Azure VM is as follows:</p>
 <li><a class="reference internal" href="#id25">High-Level Logic:</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#rpc-getusedasns-getusedasnsrequest-returns-getusedasnsresponse">rpc GetUsedAsns(GetUsedAsnsRequest) returns (GetUsedAsnsResponse) {}</a></li>
-<li><a class="reference internal" href="#rpc-getusedbgppeeringipaddresses-getusedbgppeeringipaddressesrequest-returns-getusedbgppeeringipaddressesresponse">rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}</a></li>
-<li><a class="reference internal" href="#rpc-createvpnconnections-createvpnconnectionsrequest-returns-basicresponse">rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (BasicResponse) {}</a></li>
+<li><a class="reference internal" href="#rpc-getusedasns-getusedasnsrequest-returns-getusedasnsresponse">rpc GetUsedAsns(GetUsedAsnsRequest) returns (GetUsedAsnsResponse) {}</a><ul>
+<li><a class="reference internal" href="#id26">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#id27">Input Details:</a></li>
+<li><a class="reference internal" href="#id28">Resources to Create:</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#rpc-getusedbgppeeringipaddresses-getusedbgppeeringipaddressesrequest-returns-getusedbgppeeringipaddressesresponse">rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}</a><ul>
+<li><a class="reference internal" href="#id29">Input Details:</a></li>
+<li><a class="reference internal" href="#id30">Resources to Create:</a></li>
+<li><a class="reference internal" href="#id31">High-Level Logic:</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#rpc-createvpnconnections-createvpnconnectionsrequest-returns-basicresponse">rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (BasicResponse) {}</a><ul>
+<li><a class="reference internal" href="#id32">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#id33">Input Details:</a></li>
+<li><a class="reference internal" href="#id34">Resources to Create:</a></li>
+<li><a class="reference internal" href="#id35">High-Level Logic:</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
