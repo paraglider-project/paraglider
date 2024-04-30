@@ -271,7 +271,7 @@ func RunPingConnectivityTest(t *testing.T, project string, name string, srcEndpo
 
 // GCP naming conventions
 const (
-	paragliderPrefix = "paraglider"
+	paragliderPrefix = "para"
 )
 
 // Hashes values to lowercase hex string for use in naming GCP resources
