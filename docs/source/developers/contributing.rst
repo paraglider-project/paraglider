@@ -3,6 +3,8 @@
 Contributing
 ========================================
 
+Just testing the DCO bot. Do not merge this PR.
+
 Welcome to the Paraglider! We're currently building Paraglider with a small cross-industry team. 
 
 This page gives an overview of how to contribute to the project. Please read over this document for some important basics. For specific topics, refer to the table of contents.
