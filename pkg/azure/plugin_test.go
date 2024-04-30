@@ -44,7 +44,7 @@ func (d *dummyAzureCredentialGetter) GetAzureCredentials() (azcore.TokenCredenti
 	return nil, nil
 }
 
-func setupAzurePluginServer() (*azurePluginServer, context.Context) {
+func setupTestAzurePluginServer() (*azurePluginServer, context.Context) {
 	// Create a new instance of the azurePluginServer
 	server := &azurePluginServer{}
 	server.orchestratorServerAddr = "fakecontrollerserveraddr"
@@ -73,7 +73,7 @@ func TestCreateResource(t *testing.T) {
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 
 		response, err := server.CreateResource(ctx, desc)
 
@@ -82,7 +82,7 @@ func TestCreateResource(t *testing.T) {
 	})
 
 	t.Run("TestCreateResource: Failure, invalid json", func(t *testing.T) {
-		server, ctx := setupAzurePluginServer()
+		server, ctx := setupTestAzurePluginServer()
 		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
 			Description: []byte("invalid json"),
 		})
@@ -98,7 +98,7 @@ func TestCreateResource(t *testing.T) {
 		if err != nil {
 			t.Errorf("Error while marshalling description: %v", err)
 		}
-		server, ctx := setupAzurePluginServer()
+		server, ctx := setupTestAzurePluginServer()
 
 		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
 			Description: desc,
@@ -122,7 +122,7 @@ func TestCreateResource(t *testing.T) {
 			t.Errorf("Error while marshalling description: %v", err)
 		}
 
-		server, ctx := setupAzurePluginServer()
+		server, ctx := setupTestAzurePluginServer()
 
 		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
 			Description: desc,
@@ -152,7 +152,7 @@ func TestCreateResource(t *testing.T) {
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 
 		_, orchAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 		if err != nil {
@@ -192,7 +192,7 @@ func TestGetPermitList(t *testing.T) {
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 
 		// Call the GetPermitList function
 		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
@@ -215,7 +215,7 @@ func TestGetPermitList(t *testing.T) {
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 		// Call the GetPermitList function
 		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
 		response, err := server.GetPermitList(ctx, request)
@@ -236,7 +236,7 @@ func TestGetPermitList(t *testing.T) {
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 
 		// Call the GetPermitList function
 		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
@@ -293,7 +293,7 @@ func TestAddPermitListRules(t *testing.T) {
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
@@ -320,7 +320,7 @@ func TestAddPermitListRules(t *testing.T) {
 			t.Errorf("Error while getting fake permit list: %v", err)
 		}
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakeOldPlRules, Namespace: namespace, Resource: fakeResource})
@@ -339,7 +339,7 @@ func TestAddPermitListRules(t *testing.T) {
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
@@ -361,7 +361,7 @@ func TestAddPermitListRules(t *testing.T) {
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
@@ -383,7 +383,7 @@ func TestAddPermitListRules(t *testing.T) {
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
 		// Call the GetPermitList function
@@ -422,7 +422,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 
 		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
@@ -441,7 +441,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 
 		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
@@ -461,7 +461,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 
 		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
@@ -480,7 +480,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 
 		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
@@ -501,7 +501,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
 
-		server, _ := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 
 		// Call the GetPermitList function
 		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
@@ -529,7 +529,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 	defer Teardown(fakeServer)
 
-	server, _ := setupAzurePluginServer()
+	server, _ := setupTestAzurePluginServer()
 
 	req := &paragliderpb.GetUsedAddressSpacesRequest{
 		Deployments: []*paragliderpb.ParagliderDeployment{
@@ -566,7 +566,7 @@ func TestGetUsedAsns(t *testing.T) {
 	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 	defer Teardown(fakeServer)
 
-	server, _ := setupAzurePluginServer()
+	server, _ := setupTestAzurePluginServer()
 
 	usedAsnsExpected := []uint32{64512}
 	req := &paragliderpb.GetUsedAsnsRequest{
@@ -599,7 +599,7 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 	defer Teardown(fakeServer)
 
-	server, _ := setupAzurePluginServer()
+	server, _ := setupTestAzurePluginServer()
 
 	usedBgpPeeringIpAddressExpected := []string{"169.254.21.1", "169.254.22.1"}
 	req := &paragliderpb.GetUsedBgpPeeringIpAddressesRequest{
@@ -662,7 +662,7 @@ func TestCreateVpnGateway(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server, _ := setupAzurePluginServer()
+	server, _ := setupTestAzurePluginServer()
 	server.orchestratorServerAddr = fakeControllerServerAddr
 
 	req := &paragliderpb.CreateVpnGatewayRequest{
@@ -686,7 +686,7 @@ func TestCreateVpnConnections(t *testing.T) {
 	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 	defer Teardown(fakeServer)
 
-	server, _ := setupAzurePluginServer()
+	server, _ := setupTestAzurePluginServer()
 
 	req := &paragliderpb.CreateVpnConnectionsRequest{
 		Deployment:         &paragliderpb.ParagliderDeployment{Id: deploymentId, Namespace: namespace},
