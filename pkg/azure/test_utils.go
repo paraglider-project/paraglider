@@ -18,334 +18,535 @@ package azure
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
-	"github.com/stretchr/testify/mock"
 )
 
-/* ---- Mock SDK Handler ---- */
+const (
+	urlFormat                                = "/subscriptions/%s/resourceGroups/%s/providers"
+	testLocation                             = "eastus"
+	subID                                    = "subid-test"
+	rgName                                   = "rg-test"
+	deploymentId                             = "/subscriptions/" + subID + "/resourceGroups/" + rgName
+	namespace                                = "namespace"
+	uriPrefix                                = deploymentId + "/providers/"
+	validNicName                             = "nic-name-test"
+	validNicId                               = uriPrefix + "Microsoft.Network/networkInterfaces/" + validNicName
+	validSecurityRuleName                    = "valid-security-rule-name"
+	validSecurityGroupID                     = uriPrefix + "Microsoft.Network/networkSecurityGroups/" + validSecurityGroupName
+	validSecurityGroupName                   = validNicName + nsgNameSuffix
+	validVnetName                            = paragliderPrefix + "-" + namespace + "-valid-vnet-name"
+	validVnetId                              = uriPrefix + "Microsoft.Network/virtualNetworks/" + validVnetName
+	validAddressSpace                        = "10.0.0.0/16"
+	validVirtualNetworkGatewayName           = "valid-virtual-network-gateway"
+	validPublicIpAddressName                 = "valid-public-ip-address-name"
+	validPublicIpAddressId                   = uriPrefix + "Microsoft.Network/publicIPAddresses/" + validPublicIpAddressName
+	validSubnetName                          = "valid-subnet-name"
+	validSubnetId                            = uriPrefix + "Microsoft.Network/virtualNetworks/" + validVnetName + "/subnets/" + validSubnetName
+	validLocalNetworkGatewayName             = "valid-local-network-gateway"
+	validVirtualNetworkGatewayConnectionName = "valid-virtual-network-gateway-connection"
+	validClusterName                         = "valid-cluster-name"
+	validVmName                              = "valid-vm-name"
+	validResourceName                        = "valid-resource-name"
+	vmURI                                    = uriPrefix + "Microsoft.Compute/virtualMachines/" + validVmName
+	aksURI                                   = uriPrefix + "Microsoft.ContainerService/managedClusters/" + validClusterName
+)
 
-type MockAzureSDKHandler struct {
-	mock.Mock
-}
-
-func SetupMockAzureSDKHandler() *MockAzureSDKHandler {
-	var mockAzureHandler AzureSDKHandler = &MockAzureSDKHandler{}
-	concreteMockAzureHandler := mockAzureHandler.(*MockAzureSDKHandler)
-	return concreteMockAzureHandler
-}
-
-func (m *MockAzureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
-	args := m.Called(cred)
-	return args.Error(0)
-}
-
-func (m *MockAzureSDKHandler) GetAzureCredentials() (azcore.TokenCredential, error) {
-	args := m.Called()
-	cred := args.Get(0)
-	if cred == nil {
-		return nil, args.Error(1)
+func sendResponse(w http.ResponseWriter, resp any) {
+	b, err := json.Marshal(resp)
+	if err != nil {
+		http.Error(w, "unable to marshal request: "+err.Error(), http.StatusBadRequest)
+		return
 	}
-	return args.Get(0).(azcore.TokenCredential), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) GetNetworkInterface(ctx context.Context, nicName string) (*armnetwork.Interface, error) {
-	args := m.Called(ctx, nicName)
-	nic := args.Get(0)
-	if nic == nil {
-		return nil, args.Error(1)
+	_, err = w.Write(b)
+	if err != nil {
+		http.Error(w, "unable to write request: "+err.Error(), http.StatusBadRequest)
 	}
-	return nic.(*armnetwork.Interface), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) GetResource(ctx context.Context, resourceID string) (*armresources.GenericResource, error) {
-	args := m.Called(ctx, resourceID)
-	resource := args.Get(0)
-	if resource == nil {
-		return nil, args.Error(1)
+func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
+	// The handler should be written as minimally as possible to minimize maintenance overhead. Modifying requests (e.g. POST, DELETE)
+	// should generally not do anything other than return the operation response. Instead, initialize the fakeServerState as necessary.
+	// Keep in mind these unit tests should rely as little as possible on the functionality of this fake server.
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
+			return
+		}
+		urlPrefix := fmt.Sprintf(urlFormat, fakeServerState.subId, fakeServerState.rgName)
+		switch {
+		// NSGs
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/networkSecurityGroups/"):
+			if strings.Contains(path, "/securityRules") {
+				if r.Method == "PUT" {
+					rule := &armnetwork.SecurityRule{}
+					err = json.Unmarshal(body, rule)
+					if err != nil {
+						http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
+						return
+					}
+					if rule.ID == nil {
+						rule.ID = to.Ptr("rule-id") // Add ID since would be set server-side
+					}
+					sendResponse(w, rule)
+					return
+				} else if r.Method == "DELETE" {
+					w.WriteHeader(http.StatusOK)
+					return
+				}
+			} else {
+				if r.Method == "GET" {
+					if fakeServerState.nsg == nil {
+						http.Error(w, "nsg not found", http.StatusNotFound)
+						return
+					}
+					sendResponse(w, fakeServerState.nsg)
+					return
+				}
+				if r.Method == "PUT" {
+					nsg := &armnetwork.SecurityGroup{}
+					err = json.Unmarshal(body, nsg)
+					if err != nil {
+						http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
+						return
+					}
+					sendResponse(w, fakeServerState.nsg) // Return server state NSG so that it can have server-side fields in it
+					return
+				}
+			}
+		// VMs
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Compute/virtualMachines/"):
+			if r.Method == "GET" {
+				if fakeServerState.vm == nil {
+					http.Error(w, "vm not found", http.StatusNotFound)
+					return
+				}
+				sendResponse(w, fakeServerState.vm)
+				return
+			}
+			if r.Method == "PUT" {
+				vm := &armcompute.VirtualMachine{}
+				err = json.Unmarshal(body, vm)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
+					return
+				}
+				sendResponse(w, fakeServerState.vm) // Return server state VM so that it can have server-side fields in it
+				return
+			}
+		// NICs
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/networkInterfaces/"):
+			if r.Method == "GET" {
+				if fakeServerState.nic == nil {
+					http.Error(w, "nic not found", http.StatusNotFound)
+					return
+				}
+				sendResponse(w, fakeServerState.nic)
+				return
+			}
+			if r.Method == "PUT" {
+				nic := &armnetwork.Interface{}
+				err = json.Unmarshal(body, nic)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
+					return
+				}
+				sendResponse(w, nic)
+				return
+			}
+		// Virtual Networks (and their sub-resources)
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/virtualNetworks"):
+			if strings.Contains(path, "/virtualNetworkPeerings/") { // VirtualNetworkPeerings
+				if r.Method == "GET" {
+					if fakeServerState.vnetPeering == nil {
+						http.Error(w, "vnet peering not found", http.StatusNotFound)
+						return
+					}
+					sendResponse(w, fakeServerState.vnetPeering)
+					return
+				}
+				if r.Method == "PUT" {
+					peering := &armnetwork.VirtualNetworkPeering{}
+					err = json.Unmarshal(body, peering)
+					if err != nil {
+						http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
+						return
+					}
+					sendResponse(w, peering)
+					return
+				}
+			} else if strings.Contains(path, "/subnets/") { // Subnets
+				if r.Method == "GET" {
+					if fakeServerState.subnet == nil {
+						http.Error(w, "subnet not found", http.StatusNotFound)
+						return
+					}
+					sendResponse(w, fakeServerState.subnet)
+					return
+				}
+				if r.Method == "PUT" {
+					subnet := &armnetwork.Subnet{}
+					err = json.Unmarshal(body, subnet)
+					if err != nil {
+						http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
+						return
+					}
+					sendResponse(w, fakeServerState.subnet) // Return server state subnet so that it can have server-side fields in it
+					return
+				}
+			} else {
+				if r.Method == "GET" && strings.HasSuffix(path, "/virtualNetworks") {
+					if fakeServerState.vnet == nil {
+						http.Error(w, "vnet not found", http.StatusNotFound)
+						return
+					}
+					response := &armnetwork.VirtualNetworksClientListResponse{}
+					response.Value = []*armnetwork.VirtualNetwork{fakeServerState.vnet}
+					sendResponse(w, response)
+					return
+				}
+				if r.Method == "GET" {
+					if fakeServerState.vnet == nil {
+						http.Error(w, "vnet not found", http.StatusNotFound)
+						return
+					}
+					sendResponse(w, fakeServerState.vnet)
+					return
+				}
+				if r.Method == "PUT" {
+					vnet := &armnetwork.VirtualNetwork{}
+					err = json.Unmarshal(body, vnet)
+					if err != nil {
+						http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
+						return
+					}
+					sendResponse(w, fakeServerState.vnet) // Return server state vnet so that it can have server-side fields in it
+					return
+				}
+			}
+		// VirtualNetworkGateways
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/virtualNetworkGateways/"):
+			if r.Method == "GET" {
+				if fakeServerState.vpnGw == nil {
+					http.Error(w, "gateway not found", http.StatusNotFound)
+					return
+				}
+				sendResponse(w, fakeServerState.vpnGw)
+				return
+			}
+			if r.Method == "PUT" {
+				gateway := &armnetwork.VirtualNetworkGateway{}
+				err = json.Unmarshal(body, gateway)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
+					return
+				}
+				sendResponse(w, fakeServerState.vpnGw) // Return server state gateway so that it can have server-side fields in it
+				return
+			}
+		// PublicIPAddresses
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/publicIPAddresses/"):
+			if r.Method == "GET" {
+				if fakeServerState.publicIP == nil {
+					http.Error(w, "public IP not found", http.StatusNotFound)
+					return
+				}
+				sendResponse(w, fakeServerState.publicIP)
+				return
+			}
+			if r.Method == "PUT" {
+				publicIP := &armnetwork.PublicIPAddress{}
+				err = json.Unmarshal(body, publicIP)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
+					return
+				}
+				sendResponse(w, fakeServerState.publicIP) // Return server state public IP so that it can have server-side fields in it
+				return
+			}
+		// LocalNetworkGateways
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/localNetworkGateways/"):
+			if r.Method == "GET" {
+				if fakeServerState.localGw == nil {
+					http.Error(w, "local gateway not found", http.StatusNotFound)
+					return
+				}
+				sendResponse(w, fakeServerState.localGw)
+				return
+			}
+			if r.Method == "PUT" {
+				localGateway := &armnetwork.LocalNetworkGateway{}
+				err = json.Unmarshal(body, localGateway)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
+					return
+				}
+				sendResponse(w, localGateway)
+				return
+			}
+		// VirtualNetworkGatewayConnections
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/connections/"):
+			if r.Method == "GET" {
+				if fakeServerState.vpnConnection == nil {
+					http.Error(w, "vpn connection not found", http.StatusNotFound)
+					return
+				}
+				sendResponse(w, fakeServerState.vpnConnection)
+				return
+			}
+			if r.Method == "PUT" {
+				vpnConnection := &armnetwork.VirtualNetworkGatewayConnection{}
+				err = json.Unmarshal(body, vpnConnection)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
+					return
+				}
+				sendResponse(w, vpnConnection)
+				return
+			}
+		// ManagedClusters
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.ContainerService/managedClusters/"):
+			if r.Method == "GET" {
+				if fakeServerState.cluster == nil {
+					http.Error(w, "cluster not found", http.StatusNotFound)
+					return
+				}
+				sendResponse(w, fakeServerState.cluster)
+				return
+			}
+			if r.Method == "PUT" {
+				cluster := &armcontainerservice.ManagedCluster{}
+				err = json.Unmarshal(body, cluster)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
+					return
+				}
+				sendResponse(w, fakeServerState.cluster) // Return server state cluster so that it can have server-side fields in it
+				return
+			}
+		}
+		fmt.Printf("unsupported request: %s %s\n", r.Method, path)
+	})
+}
+
+// Struct to hold state for fake server
+type fakeServerState struct {
+	subId         string
+	rgName        string
+	nsg           *armnetwork.SecurityGroup
+	vm            *armcompute.VirtualMachine
+	nic           *armnetwork.Interface
+	vnet          *armnetwork.VirtualNetwork
+	publicIP      *armnetwork.PublicIPAddress
+	subnet        *armnetwork.Subnet
+	vpnGw         *armnetwork.VirtualNetworkGateway
+	localGw       *armnetwork.LocalNetworkGateway
+	vpnConnection *armnetwork.VirtualNetworkGatewayConnection
+	vnetPeering   *armnetwork.VirtualNetworkPeering
+	cluster       *armcontainerservice.ManagedCluster
+}
+
+// Sets up fake http server
+func SetupFakeAzureServer(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context) {
+	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
+
+	ctx = context.Background()
+
+	if entry, ok := cloud.AzurePublic.Services[cloud.ResourceManager]; ok {
+		// Then we modify the copy
+		entry.Endpoint = fmt.Sprintf("http://%s", fakeServer.Listener.Addr().String())
+
+		// Then we reassign map entry
+		cloud.AzurePublic.Services[cloud.ResourceManager] = entry
 	}
-	return resource.(*armresources.GenericResource), args.Error(1)
+
+	return
 }
 
-func (m *MockAzureSDKHandler) CreateSecurityRule(ctx context.Context, rule *paragliderpb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
-	args := m.Called(ctx, rule, nsgName, ruleName, resourceIpAddress, priority)
-	srule := args.Get(0)
-	// this check is done to handle panic: interface conversion: interface {} is nil, not *armnetwork.SecurityGroup
-	// when you wnat to mock a nil return value
-	if srule == nil {
-		return nil, args.Error(1)
+func Teardown(fakeServer *httptest.Server) {
+	fakeServer.Close()
+}
+
+func getFakeInterface() *armnetwork.Interface {
+	subnet := getFakeSubnet()
+	nsg := getFakeNSG()
+	return &armnetwork.Interface{
+		Name: to.Ptr(validNicName),
+		ID:   to.Ptr(validNicId),
+		Properties: &armnetwork.InterfacePropertiesFormat{
+			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
+				{
+					Name: to.Ptr("ip-config-name"),
+					Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+						PrivateIPAddress: to.Ptr("1.1.1.1"),
+						Subnet:           subnet,
+					},
+				},
+			},
+			NetworkSecurityGroup: nsg,
+		},
 	}
-	return srule.(*armnetwork.SecurityRule), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string, ruleName string) error {
-	args := m.Called(ctx, nsgName, ruleName)
-	return args.Error(0)
-}
-
-func (m *MockAzureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.SecurityRule) (*paragliderpb.PermitListRule, error) {
-	args := m.Called(rule)
-	pl := args.Get(0)
-	if pl == nil {
-		return nil, args.Error(1)
+func getFakeNSG() *armnetwork.SecurityGroup {
+	return &armnetwork.SecurityGroup{
+		ID:   to.Ptr(validSecurityGroupID),
+		Name: to.Ptr(validSecurityGroupName),
 	}
-	return pl.(*paragliderpb.PermitListRule), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error) {
-	args := m.Called(ctx, nsgName)
-	nsg := args.Get(0)
-	if nsg == nil {
-		return nil, args.Error(1)
+func getFakeSubnet() *armnetwork.Subnet {
+	return &armnetwork.Subnet{
+		Name: to.Ptr(validSubnetName),
+		ID:   to.Ptr(validSubnetId),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: to.Ptr(validAddressSpace),
+			NetworkSecurityGroup: &armnetwork.SecurityGroup{
+				ID:   getFakeNSG().ID,
+				Name: getFakeNSG().Name,
+			},
+		},
 	}
-	return nsg.(*armnetwork.SecurityGroup), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) CreateParagliderVirtualNetwork(ctx context.Context, location string, name string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
-	args := m.Called(ctx, location, name, addressSpace)
-	vnet := args.Get(0)
-	if vnet == nil {
-		return nil, args.Error(1)
+func getFakeVirtualNetwork() *armnetwork.VirtualNetwork {
+	return &armnetwork.VirtualNetwork{
+		Name:     to.Ptr(validVnetName),
+		ID:       to.Ptr(validVnetId),
+		Location: to.Ptr(testLocation),
+		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+			AddressSpace: &armnetwork.AddressSpace{
+				AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+			},
+			Subnets: []*armnetwork.Subnet{
+				{
+					Name: to.Ptr(validSubnetName),
+					ID:   to.Ptr(validSubnetId),
+				},
+			},
+		},
 	}
-	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) AddSubnetToParagliderVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error) {
-	args := m.Called(ctx, namespace, vnetName, subnetName, orchestratorAddr)
-	subnet := args.Get(0)
-	if subnet == nil {
-		return nil, args.Error(1)
+func getFakeVirtualMachine(networkInfo bool) armcompute.VirtualMachine {
+	vm := armcompute.VirtualMachine{
+		Name:     to.Ptr(validVmName),
+		Location: to.Ptr(testLocation),
+		ID:       to.Ptr(vmURI),
+		Properties: &armcompute.VirtualMachineProperties{
+			HardwareProfile: &armcompute.HardwareProfile{VMSize: to.Ptr(armcompute.VirtualMachineSizeTypesStandardB1S)},
+		},
 	}
-	return subnet.(*armnetwork.Subnet), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) CreateSecurityGroup(ctx context.Context, name string, location string, allowedCIDRS map[string]string) (*armnetwork.SecurityGroup, error) {
-	args := m.Called(ctx, location, name)
-	nsg := args.Get(0)
-	if nsg == nil {
-		return nil, args.Error(1)
+	if networkInfo {
+		vm.Properties.NetworkProfile = &armcompute.NetworkProfile{
+			NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
+				{ID: getFakeInterface().ID},
+			},
+		}
 	}
-	return nsg.(*armnetwork.SecurityGroup), args.Error(1)
+	return vm
 }
 
-func (m *MockAzureSDKHandler) AssociateNSGWithSubnet(ctx context.Context, subnetID string, nsgID string) error {
-	return nil
-}
-
-func (m *MockAzureSDKHandler) CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error) {
-	args := m.Called(ctx, name, parameters)
-	vnet := args.Get(0)
-	if vnet == nil {
-		return nil, args.Error(1)
+func getFakeCluster(networkInfo bool) armcontainerservice.ManagedCluster {
+	cluster := armcontainerservice.ManagedCluster{
+		Name:     to.Ptr(validClusterName),
+		Location: to.Ptr(testLocation),
+		ID:       to.Ptr(aksURI),
+		Properties: &armcontainerservice.ManagedClusterProperties{
+			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
+				{Name: to.Ptr("agent-pool-name")},
+			},
+		},
 	}
-	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) GetVirtualNetwork(ctx context.Context, name string) (*armnetwork.VirtualNetwork, error) {
-	args := m.Called(ctx, name)
-	vnet := args.Get(0)
-	if vnet == nil {
-		return nil, args.Error(1)
+	if networkInfo {
+		cluster.Properties.AgentPoolProfiles = []*armcontainerservice.ManagedClusterAgentPoolProfile{
+			{
+				VnetSubnetID: getFakeSubnet().ID,
+			},
+		}
+		cluster.Properties.NetworkProfile = &armcontainerservice.NetworkProfile{
+			ServiceCidr: to.Ptr("2.2.2.2/2"),
+		}
 	}
-	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
+	return cluster
 }
 
-func (m *MockAzureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error) {
-	args := m.Called(ctx, subnetID, location, nicName)
-	nic := args.Get(0)
-	if nic == nil {
-		return nil, args.Error(1)
+func getFakeVMGenericResource() armresources.GenericResource {
+	vm := getFakeVirtualMachine(false)
+	return armresources.GenericResource{
+		ID:       vm.ID,
+		Location: vm.Location,
+		Type:     to.Ptr("Microsoft.Compute/virtualMachines"),
+		Properties: map[string]interface{}{
+			"networkProfile": map[string]interface{}{
+				"networkInterfaces": []interface{}{
+					map[string]interface{}{"id": *getFakeInterface().ID},
+				},
+			},
+		},
 	}
-	return nic.(*armnetwork.Interface), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error) {
-	args := m.Called(ctx, parameters, vmName)
-	vm := args.Get(0)
-	if vm == nil {
-		return nil, args.Error(1)
+func getFakeAKSGenericResource() armresources.GenericResource {
+	cluster := getFakeCluster(false)
+	return armresources.GenericResource{
+		ID:       cluster.ID,
+		Location: cluster.Location,
+		Type:     to.Ptr("Microsoft.ContainerService/managedClusters"),
+		Properties: map[string]interface{}{
+			"agentPoolProfiles": []interface{}{
+				map[string]interface{}{"vnetSubnetID": *getFakeSubnet().ID},
+			},
+		},
 	}
-	return vm.(*armcompute.VirtualMachine), args.Error(1)
 }
 
-func (m *MockAzureSDKHandler) GetParagliderVnet(ctx context.Context, prefix string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
-	args := m.Called(ctx, prefix, location, namespace, orchestratorAddr)
-	vnet := args.Get(0)
-	if vnet == nil {
-		return nil, args.Error(1)
+func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*paragliderpb.ResourceDescription, error) {
+	desc, err := json.Marshal(vm)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
 	}
-	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
+	return &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: deploymentId, Namespace: namespace},
+		Name:        validVmName,
+		Description: desc,
+	}, nil
 }
 
-func (m *MockAzureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string][]string, error) {
-	args := m.Called(ctx, prefix)
-	return args.Get(0).(map[string][]string), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) SetSubIdAndResourceGroup(subid string, resourceGroup string) {
-	m.Called(subid, resourceGroup)
-}
-
-func (m *MockAzureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1 string, vnet2 string) error {
-	args := m.Called(ctx, vnet1, vnet2)
-	return args.Error(0)
-}
-
-func (m *MockAzureSDKHandler) CreateOrUpdateVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string, parameters armnetwork.VirtualNetworkPeering) (*armnetwork.VirtualNetworkPeering, error) {
-	args := m.Called(ctx, virtualNetworkName, virtualNetworkPeeringName, parameters)
-	virtualNetworkPeering := args.Get(0)
-	if virtualNetworkPeering == nil {
-		return nil, args.Error(1)
+func getFakeClusterResourceDescription(cluster *armcontainerservice.ManagedCluster) (*paragliderpb.ResourceDescription, error) {
+	desc, err := json.Marshal(cluster)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
 	}
-	return virtualNetworkPeering.(*armnetwork.VirtualNetworkPeering), args.Error(1)
+	return &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: deploymentId, Namespace: namespace},
+		Name:        validClusterName,
+		Description: desc,
+	}, nil
 }
 
-func (m *MockAzureSDKHandler) CreateVnetPeeringOneWay(ctx context.Context, vnet1Name string, vnet2Name string, vnet2SubscriptionID string, vnet2ResourceGroupName string) error {
-	args := m.Called(ctx, vnet1Name, vnet2Name, vnet2SubscriptionID, vnet2ResourceGroupName)
-	return args.Error(0)
-}
-
-func (m *MockAzureSDKHandler) GetVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string) (*armnetwork.VirtualNetworkPeering, error) {
-	args := m.Called(ctx, virtualNetworkName, virtualNetworkPeeringName)
-	virtualNetworkPeering := args.Get(0)
-	if virtualNetworkPeering == nil {
-		return nil, args.Error(1)
+func getFakeResourceInfo(name string) ResourceIDInfo {
+	rgName := "rg-name"
+	return ResourceIDInfo{
+		ResourceName:      name,
+		ResourceGroupName: rgName,
+		SubscriptionID:    "00000000-0000-0000-0000-000000000000",
 	}
-	return virtualNetworkPeering.(*armnetwork.VirtualNetworkPeering), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) ListVirtualNetworkPeerings(ctx context.Context, virtualNetworkName string) ([]*armnetwork.VirtualNetworkPeering, error) {
-	args := m.Called(ctx, virtualNetworkName)
-	virtualNetworkPeerings := args.Get(0)
-	if virtualNetworkPeerings == nil {
-		return nil, args.Error(1)
-	}
-	return virtualNetworkPeerings.([]*armnetwork.VirtualNetworkPeering), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) CreateOrUpdateVnetPeeringRemoteGateway(ctx context.Context, vnetName string, gatewayVnetName string, vnetToGatewayVnetPeering *armnetwork.VirtualNetworkPeering, gatewayVnetToVnetPeering *armnetwork.VirtualNetworkPeering) error {
-	args := m.Called(ctx, vnetName, gatewayVnetName, vnetToGatewayVnetPeering, gatewayVnetToVnetPeering)
-	return args.Error(0)
-}
-
-func (m *MockAzureSDKHandler) GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error) {
-	args := m.Called(ctx, vnetName)
-	vnet := args.Get(0)
-	if vnet == nil {
-		return nil, args.Error(1)
-	}
-	return vnet.(*armnetwork.VirtualNetwork), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) CreateOrUpdateVirtualNetworkGateway(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGateway) (*armnetwork.VirtualNetworkGateway, error) {
-	args := m.Called(ctx, name, parameters)
-	virtualNetworkGateway := args.Get(0)
-	if virtualNetworkGateway == nil {
-		return nil, args.Error(1)
-	}
-	return virtualNetworkGateway.(*armnetwork.VirtualNetworkGateway), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) GetVirtualNetworkGateway(ctx context.Context, name string) (*armnetwork.VirtualNetworkGateway, error) {
-	args := m.Called(ctx, name)
-	virtualNetworkGateway := args.Get(0)
-	if virtualNetworkGateway == nil {
-		return nil, args.Error(1)
-	}
-	return virtualNetworkGateway.(*armnetwork.VirtualNetworkGateway), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) CreatePublicIPAddress(ctx context.Context, name string, parameters armnetwork.PublicIPAddress) (*armnetwork.PublicIPAddress, error) {
-	args := m.Called(ctx, name, parameters)
-	publicIPAddress := args.Get(0)
-	if publicIPAddress == nil {
-		return nil, args.Error(1)
-	}
-	return publicIPAddress.(*armnetwork.PublicIPAddress), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) GetPublicIPAddress(ctx context.Context, name string) (*armnetwork.PublicIPAddress, error) {
-	args := m.Called(ctx, name)
-	publicIPAddress := args.Get(0)
-	if publicIPAddress == nil {
-		return nil, args.Error(1)
-	}
-	return publicIPAddress.(*armnetwork.PublicIPAddress), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) CreateSubnet(ctx context.Context, virtualNetworkName string, subnetName string, parameters armnetwork.Subnet) (*armnetwork.Subnet, error) {
-	args := m.Called(ctx, virtualNetworkName, subnetName, parameters)
-	subnet := args.Get(0)
-	if subnet == nil {
-		return nil, args.Error(1)
-	}
-	return subnet.(*armnetwork.Subnet), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) GetSubnet(ctx context.Context, virtualNetworkName string, subnetName string) (*armnetwork.Subnet, error) {
-	args := m.Called(ctx, virtualNetworkName, subnetName)
-	subnet := args.Get(0)
-	if subnet == nil {
-		return nil, args.Error(1)
-	}
-	return subnet.(*armnetwork.Subnet), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) GetSubnetByID(ctx context.Context, subnetID string) (*armnetwork.Subnet, error) {
-	args := m.Called(ctx, subnetID)
-	subnet := args.Get(0)
-	if subnet == nil {
-		return nil, args.Error(1)
-	}
-	return subnet.(*armnetwork.Subnet), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) CreateLocalNetworkGateway(ctx context.Context, name string, parameters armnetwork.LocalNetworkGateway) (*armnetwork.LocalNetworkGateway, error) {
-	args := m.Called(ctx, name, parameters)
-	localNetworkGateway := args.Get(0)
-	if localNetworkGateway == nil {
-		return nil, args.Error(1)
-	}
-	return localNetworkGateway.(*armnetwork.LocalNetworkGateway), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) GetLocalNetworkGateway(ctx context.Context, name string) (*armnetwork.LocalNetworkGateway, error) {
-	args := m.Called(ctx, name)
-	localNetworkGateway := args.Get(0)
-	if localNetworkGateway == nil {
-		return nil, args.Error(1)
-	}
-	return localNetworkGateway.(*armnetwork.LocalNetworkGateway), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) CreateVirtualNetworkGatewayConnection(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGatewayConnection) (*armnetwork.VirtualNetworkGatewayConnection, error) {
-	args := m.Called(ctx, name, parameters)
-	virtualNetworkGatewayConnection := args.Get(0)
-	if virtualNetworkGatewayConnection == nil {
-		return nil, args.Error(1)
-	}
-	return virtualNetworkGatewayConnection.(*armnetwork.VirtualNetworkGatewayConnection), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) GetVirtualNetworkGatewayConnection(ctx context.Context, name string) (*armnetwork.VirtualNetworkGatewayConnection, error) {
-	args := m.Called(ctx, name)
-	virtualNetworkGatewayConnection := args.Get(0)
-	if virtualNetworkGatewayConnection == nil {
-		return nil, args.Error(1)
-	}
-	return virtualNetworkGatewayConnection.(*armnetwork.VirtualNetworkGatewayConnection), args.Error(1)
-}
-
-func (m *MockAzureSDKHandler) CreateAKSCluster(ctx context.Context, parameters armcontainerservice.ManagedCluster, clusterName string) (*armcontainerservice.ManagedCluster, error) {
-	args := m.Called(ctx, parameters, clusterName)
-	cluster := args.Get(0)
-	if cluster == nil {
-		return nil, args.Error(1)
-	}
-	return cluster.(*armcontainerservice.ManagedCluster), args.Error(1)
 }

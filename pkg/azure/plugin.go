@@ -37,7 +37,7 @@ const maxPriority = 4096
 type azurePluginServer struct {
 	paragliderpb.UnimplementedCloudPluginServer
 	orchestratorServerAddr string
-	mockAzureHandler       AzureSDKHandler // Should only be set for for unit tests (TODO @seankimkdy: remove this hack in the future?)
+	azureCredentialGetter  IAzureCredentialGetter
 }
 
 const (
@@ -46,15 +46,9 @@ const (
 	gatewaySubnetAddressPrefix = "192.168.255.0/27"
 )
 
-func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) (AzureSDKHandler, error) {
+func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) (*AzureSDKHandler, error) {
 	var azureHandler AzureSDKHandler
-	if s.mockAzureHandler != nil {
-		// Use mock for tests
-		azureHandler = s.mockAzureHandler
-	} else {
-		azureHandler = &azureSDKHandler{}
-	}
-	cred, err := azureHandler.GetAzureCredentials()
+	cred, err := s.azureCredentialGetter.GetAzureCredentials()
 	if err != nil {
 		utils.Log.Printf("An error occured while getting azure credentials:%+v", err)
 		return nil, err
@@ -65,7 +59,8 @@ func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) (Az
 		utils.Log.Printf("An error occured while initializing azure clients: %+v", err)
 		return nil, err
 	}
-	return azureHandler, nil
+
+	return &azureHandler, nil
 }
 
 // GetPermitList returns the permit list for the given resource by getting the NSG rules
@@ -197,7 +192,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 				}
 				if !isLocal {
 					// Create VPC network peering (remote is in a different region or namespace)
-					err = s.createPeering(ctx, azureHandler, resourceIdInfo, *resourceVnet.Location, req.Namespace, peeringCloudInfo, rule.Targets[i])
+					err = s.createPeering(ctx, *azureHandler, resourceIdInfo, *resourceVnet.Location, req.Namespace, peeringCloudInfo, rule.Targets[i])
 					if err != nil {
 						return nil, fmt.Errorf("unable to create vnet peering: %w", err)
 					}
@@ -804,6 +799,7 @@ func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 	grpcServer := grpc.NewServer()
 	azureServer := &azurePluginServer{
 		orchestratorServerAddr: orchestratorServerAddr,
+		azureCredentialGetter:  &AzureCredentialGetter{},
 	}
 	paragliderpb.RegisterCloudPluginServer(grpcServer, azureServer)
 	fmt.Println("Starting server on port :", port)

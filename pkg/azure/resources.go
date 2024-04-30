@@ -89,14 +89,14 @@ func getResourceHandlerFromDescription(resourceDesc []byte) (AzureResourceHandle
 }
 
 // Gets the resource and returns relevant networking state. Also checks that the resource is in the correct namespace.
-func GetAndCheckResourceState(c context.Context, handler AzureSDKHandler, resourceID string, namespace string) (*resourceNetworkInfo, error) {
+func GetAndCheckResourceState(ctx context.Context, handler *AzureSDKHandler, resourceID string, namespace string) (*resourceNetworkInfo, error) {
 	// Check the namespace
 	if namespace == "" {
 		return nil, fmt.Errorf("namespace cannot be empty")
 	}
 
 	// Get the resource
-	netInfo, err := GetNetworkInfoFromResource(c, handler, resourceID)
+	netInfo, err := GetNetworkInfoFromResource(ctx, handler, resourceID)
 	if err != nil {
 		return nil, err
 	}
@@ -112,9 +112,9 @@ func GetAndCheckResourceState(c context.Context, handler AzureSDKHandler, resour
 }
 
 // Gets the resource and returns relevant networking state
-func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, resourceID string) (*resourceNetworkInfo, error) {
+func GetNetworkInfoFromResource(ctx context.Context, handler *AzureSDKHandler, resourceID string) (*resourceNetworkInfo, error) {
 	// get a generic resource
-	resource, err := handler.GetResource(c, resourceID)
+	resource, err := handler.GetResource(ctx, resourceID)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting resource %s: %+v", resourceID, err)
 		return nil, err
@@ -126,7 +126,7 @@ func GetNetworkInfoFromResource(c context.Context, handler AzureSDKHandler, reso
 		utils.Log.Printf("An error occured while getting the resource handler for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
-	networkInfo, err := resourceHandler.getNetworkInfo(resource, handler)
+	networkInfo, err := resourceHandler.getNetworkInfo(ctx, resource, handler)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting network info for resource %s: %+v", resourceID, err)
 		return nil, err
@@ -145,7 +145,7 @@ func GetResourceInfoFromResourceDesc(ctx context.Context, resource *paragliderpb
 }
 
 // Reads the resource description and provisions the resource with the given subnet
-func ReadAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+func ReadAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	handler, err := getResourceHandlerFromDescription(resource.Description)
 	if err != nil {
 		return "", err
@@ -156,11 +156,11 @@ func ReadAndProvisionResource(ctx context.Context, resource *paragliderpb.Resour
 // Interface that must be implemented for a resource to be supported
 type AzureResourceHandler interface {
 	// Gets the network information for the resource
-	getNetworkInfo(resource *armresources.GenericResource, sdkHandler AzureSDKHandler) (*resourceNetworkInfo, error)
+	getNetworkInfo(ctx context.Context, resource *armresources.GenericResource, sdkHandler *AzureSDKHandler) (*resourceNetworkInfo, error)
 	// Gets the resource information from the description
 	getResourceInfoFromDescription(ctx context.Context, resource *paragliderpb.ResourceDescription) (*resourceInfo, error)
 	// Reads the resource description and provisions the resource with the given subnet
-	readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error)
+	readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error)
 }
 
 // VM implementation of the AzureResourceHandler interface
@@ -169,7 +169,7 @@ type azureResourceHandlerVM struct {
 }
 
 // Gets the network information for a virtual machine
-func (r *azureResourceHandlerVM) getNetworkInfo(resource *armresources.GenericResource, sdkHandler AzureSDKHandler) (*resourceNetworkInfo, error) {
+func (r *azureResourceHandlerVM) getNetworkInfo(ctx context.Context, resource *armresources.GenericResource, sdkHandler *AzureSDKHandler) (*resourceNetworkInfo, error) {
 	properties, ok := resource.Properties.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("failed to read resource.Properties")
@@ -182,7 +182,7 @@ func (r *azureResourceHandlerVM) getNetworkInfo(resource *armresources.GenericRe
 	if err != nil {
 		return nil, err
 	}
-	nic, err := sdkHandler.GetNetworkInterface(context.Background(), nicName)
+	nic, err := sdkHandler.GetNetworkInterface(ctx, nicName)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network interface:%+v", err)
 		return nil, err
@@ -192,7 +192,7 @@ func (r *azureResourceHandlerVM) getNetworkInfo(resource *armresources.GenericRe
 	if err != nil {
 		return nil, err
 	}
-	nsg, err := sdkHandler.GetSecurityGroup(context.Background(), nsgName)
+	nsg, err := sdkHandler.GetSecurityGroup(ctx, nsgName)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network security group:%+v", err)
 		return nil, err
@@ -222,7 +222,7 @@ func (r *azureResourceHandlerVM) getResourceInfoFromDescription(ctx context.Cont
 }
 
 // Reads the resource description and provisions the resource with the given subnet
-func (r *azureResourceHandlerVM) readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+func (r *azureResourceHandlerVM) readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	vm, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
 		return "", err
@@ -241,7 +241,7 @@ func (r *azureResourceHandlerVM) getNetworkRequirements() (bool, int) {
 
 // Creates a virtual machine with the given subnet
 // Returns the private IP address of the virtual machine
-func (r *azureResourceHandlerVM) createWithNetwork(ctx context.Context, vm *armcompute.VirtualMachine, subnet *armnetwork.Subnet, resourceName string, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+func (r *azureResourceHandlerVM) createWithNetwork(ctx context.Context, vm *armcompute.VirtualMachine, subnet *armnetwork.Subnet, resourceName string, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	nic, err := sdkHandler.CreateNetworkInterface(ctx, *subnet.ID, *vm.Location, getParagliderResourceName("nic"))
 	if err != nil {
 		utils.Log.Printf("An error occured while creating network interface:%+v", err)
@@ -317,7 +317,7 @@ func (r *azureResourceHandlerAKS) getResourceInfoFromDescription(ctx context.Con
 }
 
 // Reads the resource description and provisions the resource with the given subnet
-func (r *azureResourceHandlerAKS) readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+func (r *azureResourceHandlerAKS) readAndProvisionResource(ctx context.Context, resource *paragliderpb.ResourceDescription, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	aks, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
 		return "", err
@@ -335,7 +335,7 @@ func (r *azureResourceHandlerAKS) getNetworkRequirements() (bool, int) {
 }
 
 // Gets the network information for an AKS cluster
-func (r *azureResourceHandlerAKS) getNetworkInfo(resource *armresources.GenericResource, sdkHandler AzureSDKHandler) (*resourceNetworkInfo, error) {
+func (r *azureResourceHandlerAKS) getNetworkInfo(ctx context.Context, resource *armresources.GenericResource, sdkHandler *AzureSDKHandler) (*resourceNetworkInfo, error) {
 	properties, ok := resource.Properties.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("failed to read resource.Properties")
@@ -368,7 +368,7 @@ func (r *azureResourceHandlerAKS) getNetworkInfo(resource *armresources.GenericR
 
 // Creates an AKS cluster with the given subnet
 // Returns the address prefix of the subnet
-func (r *azureResourceHandlerAKS) createWithNetwork(ctx context.Context, resource *armcontainerservice.ManagedCluster, subnet *armnetwork.Subnet, resourceName string, sdkHandler AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+func (r *azureResourceHandlerAKS) createWithNetwork(ctx context.Context, resource *armcontainerservice.ManagedCluster, subnet *armnetwork.Subnet, resourceName string, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	// Set network parameters
 	for _, profile := range resource.Properties.AgentPoolProfiles {
 		profile.VnetSubnetID = subnet.ID

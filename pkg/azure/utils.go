@@ -112,6 +112,7 @@ func GetTestVmParameters(location string) armcompute.VirtualMachine {
 func InitializeServer(orchestratorAddr string) *azurePluginServer {
 	return &azurePluginServer{
 		orchestratorServerAddr: orchestratorAddr,
+		azureCredentialGetter:  &AzureCredentialGetter{},
 	}
 }
 

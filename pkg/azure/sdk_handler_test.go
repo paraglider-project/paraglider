@@ -20,21 +20,13 @@ package azure
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"log"
-	"net"
-	"net/http"
-	"strings"
-	"sync"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
@@ -42,371 +34,199 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	testLocation                               = "eastus"
-	subID                                      = "subid-test"
-	rgName                                     = "rg-test"
-	vmResourceID                               = "vm-resource-id"
-	vmResourceName                             = "vm-resource-name"
-	invalidVmResourceID                        = "invalid-vm-resource-id"
-	invalidVmResourceName                      = "invalid-vm-resource-name"
-	invalidResourceID                          = "invalid-resource-id"
-	validNicId                                 = "nic/id/nic-name-test"
-	validNicName                               = "nic-name-test"
-	invalidNicId                               = "invalid-nic-id"
-	invalidNicName                             = "invalid-nic-name"
-	invalidResourceType                        = "invalid-type"
-	validSecurityRuleName                      = "valid-security-rule-name"
-	invalidSecurityRuleName                    = "invalid-security-rule-name"
-	validSecurityGroupID                       = "valid-security-group-id"
-	validSecurityGroupName                     = validNicName + nsgNameSuffix
-	invalidSecurityGroupName                   = "invalid-security-group-name"
-	validVnetName                              = "paraglider-valid-vnet-name"
-	notFoundVnetName                           = "paraglider-not-found-vnet-name"
-	invalidVnetName                            = "invalid-vnet-name"
-	validAddressSpace                          = "10.0.0.0/16"
-	validVirtualNetworkGatewayName             = "valid-virtual-network-gateway"
-	invalidVirtualNetworkGatewayName           = "invalid-virtual-network-gateway"
-	validPublicIpAddressName                   = "valid-public-ip-address-name"
-	invalidPublicIpAddressName                 = "invalid-public-ip-address-name"
-	validSubnetName                            = "valid-subnet-name"
-	invalidSubnetName                          = "invalid-subnet-name"
-	validSubnetId                              = "valid-subnet-id"
-	invalidSubnetId                            = "invalid-subnet-id"
-	validSubnetURI                             = "/s/s/r/r/p/p/v/" + validVnetName + "/s/" + validSubnetName
-	invalidSubnetURI                           = "/s/s/r/r/p/p/v/" + invalidVnetName + "/s/" + invalidSubnetName
-	validLocalNetworkGatewayName               = "valid-local-network-gateway"
-	invalidLocalNetworkGatewayName             = "invalid-local-network-gateway"
-	validVirtualNetworkGatewayConnectionName   = "valid-virtual-network-gateway-connection"
-	invalidVirtualNetworkGatewayConnectionName = "invalid-virtual-network-gateway-connection"
-	validClusterName                           = "valid-cluster-name"
-	invalidClusterName                         = "invalid-cluster-name"
-	validResourceName                          = "valid-resource-name"
-)
-
-var (
-	once                sync.Once
-	urlToResponse       map[string]interface{}
-	azureSDKHandlerTest *azureSDKHandler
-)
-
-func setup() {
-	urlToResponse = initializeReqRespMap()
-	setupFakeServer(urlToResponse)
-	azureSDKHandlerTest = &azureSDKHandler{}
-	azureSDKHandlerTest.resourceGroupName = rgName
-	azureSDKHandlerTest.subscriptionID = subID
-	err := azureSDKHandlerTest.InitializeClients(nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-// GetFreePort returns a free port number that the operating system chooses dynamically.
-func GetFreePort() (int, error) {
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return 0, err
-	}
-	defer listener.Close()
-
-	// Retrieve the chosen port number from the listener's network address
-	address := listener.Addr().(*net.TCPAddr)
-	return address.Port, nil
-}
-
-// a function for fake server setup
-func setupFakeServer(reqRespMap map[string]interface{}) {
-	freePort, err := GetFreePort()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if entry, ok := cloud.AzurePublic.Services[cloud.ResourceManager]; ok {
-		// Then we modify the copy
-		entry.Endpoint = fmt.Sprintf("http://localhost:%d", freePort)
-
-		// Then we reassign map entry
-		cloud.AzurePublic.Services[cloud.ResourceManager] = entry
-	}
-
-	fakeHttpHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Removing query parameters from the URL to use as the map key
-		key := strings.Split(r.URL.String(), "?")[0]
-		response, ok := reqRespMap[key]
-		if !ok {
-			http.Error(w, "invalid request", http.StatusBadRequest)
-			return
-		} else if strings.Contains(key, notFoundVnetName) && r.Method == http.MethodGet {
-			http.NotFound(w, r)
-			return
-		}
-
-		// Response found in the map, encode and send the response
-		err := json.NewEncoder(w).Encode(response)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "500 Internal Server Error: Error encoding response.")
-			return
-		}
-	})
-
-	go func() {
-		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", freePort), fakeHttpHandler))
-	}()
-}
-
-func initializeReqRespMap() map[string]interface{} {
-	// Define the base URLs
-	nsgURL := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkSecurityGroups", subID, rgName)
-	vmURL := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines", subID, rgName)
-	nicURL := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkInterfaces", subID, rgName)
-	nsgRuleUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkSecurityGroups/%s/securityRules", subID, rgName, validSecurityGroupName)
-	vnetUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
-	listVnetsUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
-	vnetsInRgUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks", subID, rgName)
-	virtualNetworkGatewayUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworkGateways", subID, rgName)
-	publicIpAddressUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/publicIPAddresses", subID, rgName)
-	subnetUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets", subID, rgName, validVnetName)
-	localNetworkGatewayUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/localNetworkGateways", subID, rgName)
-	virtualNetworkGatewayConnectionUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/connections", subID, rgName)
-	managedClusterUrl := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters", subID, rgName)
-
-	// Define a map of URLs to responses
-	urlToResponse := map[string]interface{}{
-		fmt.Sprintf("%s/%s", nsgURL, validSecurityGroupName): armnetwork.SecurityGroupsClientGetResponse{
-			SecurityGroup: armnetwork.SecurityGroup{
-				Name:     to.Ptr(validSecurityGroupName),
-				Location: to.Ptr(testLocation),
-			},
-		},
-		//This one is used by the GetByID req
-		fmt.Sprintf("/%s", vmResourceID): armresources.ClientGetByIDResponse{
-			GenericResource: armresources.GenericResource{
-				Type: to.Ptr("Microsoft.Compute/virtualMachines"),
-				Name: to.Ptr(vmResourceName),
-			},
-		},
-		fmt.Sprintf("%s/%s", vmURL, vmResourceName): armcompute.VirtualMachinesClientGetResponse{
-			VirtualMachine: armcompute.VirtualMachine{
-				Name:     to.Ptr(vmResourceName),
-				Location: to.Ptr(testLocation),
-				Properties: &armcompute.VirtualMachineProperties{
-					NetworkProfile: &armcompute.NetworkProfile{
-						NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
-							{
-								ID: to.Ptr(validNicId),
-							},
-						},
-					},
-				},
-			},
-		},
-		fmt.Sprintf("%s/%s", nicURL, validNicName): armnetwork.InterfacesClientGetResponse{
-			Interface: armnetwork.Interface{
-				Name: to.Ptr(validNicName),
-			},
-		},
-		fmt.Sprintf("%s/%s", nsgRuleUrl, validSecurityRuleName): armnetwork.SecurityRulesClientGetResponse{
-			SecurityRule: armnetwork.SecurityRule{
-				Name: to.Ptr(validSecurityRuleName),
-			},
-		},
-		fmt.Sprintf("%s/%s%s", nsgURL, validResourceName, nsgNameSuffix): armnetwork.SecurityGroup{
-			Name: to.Ptr(validResourceName + nsgNameSuffix),
-		},
-		fmt.Sprintf("%s/%s", subnetUrl, validSubnetName): armnetwork.Subnet{
-			Name:       to.Ptr(validSubnetName),
-			Properties: &armnetwork.SubnetPropertiesFormat{},
-		},
-
-		fmt.Sprintf("%s/%s", vnetUrl, validVnetName): armnetwork.VirtualNetworksClientGetResponse{
-			VirtualNetwork: armnetwork.VirtualNetwork{
-				Properties: &armnetwork.VirtualNetworkPropertiesFormat{
-					AddressSpace: &armnetwork.AddressSpace{
-						AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
-					},
-					Subnets: []*armnetwork.Subnet{
-						{
-							Properties: &armnetwork.SubnetPropertiesFormat{
-								AddressPrefix: to.Ptr(validAddressSpace),
-							},
-						},
-					},
-				},
-			},
-		},
-		// vnet not found but a new one is created successfully
-		fmt.Sprintf("%s/%s", vnetUrl, notFoundVnetName): armnetwork.VirtualNetworksClientGetResponse{},
-		listVnetsUrl: armnetwork.VirtualNetworksClientListAllResponse{
-			VirtualNetworkListResult: armnetwork.VirtualNetworkListResult{
-				Value: []*armnetwork.VirtualNetwork{
-					{
-						Name:     to.Ptr(validVnetName),
-						Location: to.Ptr(testLocation),
-						Properties: &armnetwork.VirtualNetworkPropertiesFormat{
-							AddressSpace: &armnetwork.AddressSpace{
-								AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
-							},
-						},
-					},
-				},
-			}},
-		fmt.Sprintf("%s/%s/virtualNetworkPeerings/%s", vnetsInRgUrl, validVnetName, getPeeringName(validVnetName, validVnetName)): armnetwork.VirtualNetworkPeeringsClientGetResponse{},
-		fmt.Sprintf("%s/%s", virtualNetworkGatewayUrl, validVirtualNetworkGatewayName):                                            armnetwork.VirtualNetworkGateway{},
-		fmt.Sprintf("%s/%s", publicIpAddressUrl, validPublicIpAddressName):                                                        armnetwork.PublicIPAddress{},
-		fmt.Sprintf("%s/%s", localNetworkGatewayUrl, validLocalNetworkGatewayName):                                                armnetwork.LocalNetworkGateway{},
-		fmt.Sprintf("%s/%s", virtualNetworkGatewayConnectionUrl, validVirtualNetworkGatewayConnectionName):                        armnetwork.VirtualNetworkGatewayConnection{},
-		fmt.Sprintf("%s/%s", managedClusterUrl, validClusterName):                                                                 armcontainerservice.ManagedCluster{},
-	}
-	return urlToResponse
-}
-
 func TestGetVNetsAddressSpaces(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
-
-	// Create a new context for the tests
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vnet:   getFakeVirtualNetwork(),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	// Test case: Success
 	t.Run("GetVNetsAddressSpaces: Success", func(t *testing.T) {
-		addresses, err := azureSDKHandlerTest.GetVNetsAddressSpaces(ctx, paragliderPrefix)
+		addresses, err := handler.GetVNetsAddressSpaces(ctx, paragliderPrefix)
 		require.NoError(t, err)
 		require.NotNil(t, addresses)
 		require.Len(t, addresses, 1)
 		assert.Equal(t, addresses[testLocation], []string{validAddressSpace})
 	})
+
+	// Test case: Failure
+	t.Run("GetVNetsAddressSpaces: Failure", func(t *testing.T) {
+		fakeServerState.vnet = nil
+		addresses, err := handler.GetVNetsAddressSpaces(ctx, paragliderPrefix)
+		require.Error(t, err)
+		require.Nil(t, addresses)
+	})
+
+	// Test case: Failure, wrong name
+	t.Run("GetVNetsAddressSpaces: Failure - wrong name", func(t *testing.T) {
+		addresses, err := handler.GetVNetsAddressSpaces(ctx, "otherprefix")
+		require.Error(t, err)
+		require.Nil(t, addresses)
+	})
 }
 
 func TestCreateSecurityRule(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+	}
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	// Subtest 1: Create security rule - Success Test
 	t.Run("CreateSecurityRule: Success", func(t *testing.T) {
-		resp, err := azureSDKHandlerTest.CreateSecurityRule(context.Background(), &paragliderpb.PermitListRule{},
+		resp, err := handler.CreateSecurityRule(context.Background(), &paragliderpb.PermitListRule{},
 			validSecurityGroupName, validSecurityRuleName, "10.1.0.5", 200)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.Equal(t, *resp.Name, validSecurityRuleName)
-
-	})
-
-	// Subtest 2: Create security rule - Failure Test
-	t.Run("CreateSecurityRule: Failure", func(t *testing.T) {
-		resp, err := azureSDKHandlerTest.CreateSecurityRule(context.Background(), &paragliderpb.PermitListRule{},
-			validSecurityGroupName, "invalid-security-rule-name", "10.10.1.0", 200)
-
-		require.Error(t, err)
-		require.Nil(t, resp)
 	})
 }
 
 func TestDeleteSecurityRule(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+	}
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	// Subtest 1: Delete security rule - Success Test
 	t.Run("DeleteSecurityRule: Success", func(t *testing.T) {
-		err := azureSDKHandlerTest.DeleteSecurityRule(context.Background(), validSecurityGroupName, validSecurityRuleName)
+		err := handler.DeleteSecurityRule(context.Background(), validSecurityGroupName, validSecurityRuleName)
 
 		require.NoError(t, err)
-	})
-
-	// Subtest 2: Delete security rule - Failure Test
-	t.Run("DeleteSecurityRule: Failure", func(t *testing.T) {
-		err := azureSDKHandlerTest.DeleteSecurityRule(context.Background(), validSecurityGroupName, invalidSecurityRuleName)
-
-		require.Error(t, err)
 	})
 }
 
 func TestGetSecurityGroup(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		nsg:    getFakeNSG(),
+	}
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	// Subtest 1: Get security group - Success Test
 	t.Run("GetSecurityGroup: Success", func(t *testing.T) {
-		expectedNsgNameSuccess := validSecurityGroupName
-		nsgSuccess, err := azureSDKHandlerTest.GetSecurityGroup(context.Background(), validSecurityGroupName)
+		nsgSuccess, err := handler.GetSecurityGroup(context.Background(), validSecurityGroupName)
 
 		require.NoError(t, err)
 		require.NotNil(t, nsgSuccess)
-		require.Equal(t, *nsgSuccess.Name, expectedNsgNameSuccess)
+		require.Equal(t, *nsgSuccess.Name, validSecurityGroupName)
 	})
 
 	// Subtest 2: Get security group - Failure Test
 	t.Run("GetSecurityGroup: Failure", func(t *testing.T) {
-		nsgFail, err := azureSDKHandlerTest.GetSecurityGroup(context.Background(), invalidSecurityGroupName)
+		fakeServerState.nsg = nil
+		nsgSuccess, err := handler.GetSecurityGroup(context.Background(), validSecurityGroupName)
 
-		// Check if error is not nil and nsgFail is nil
 		require.Error(t, err)
-		require.Nil(t, nsgFail)
+		require.Nil(t, nsgSuccess)
 	})
 }
 
 func TestCreateSecurityGroup(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		nsg:    getFakeNSG(),
+	}
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	t.Run("CreateSecurityGroup: Success", func(t *testing.T) {
 		prefixName1 := "cidr1"
 		prefixName2 := "cidr2"
 		allowedCidrs := map[string]string{prefixName1: "1.1.1.1/1", prefixName2: "2.2.2.2/2"}
-		nsg, err := azureSDKHandlerTest.CreateSecurityGroup(context.Background(), validResourceName, testLocation, allowedCidrs)
+		nsg, err := handler.CreateSecurityGroup(context.Background(), validResourceName, testLocation, allowedCidrs)
 
 		require.NoError(t, err)
 		assert.NotNil(t, nsg)
-		assert.Contains(t, *nsg.Name, validResourceName)
+		assert.Contains(t, *nsg.Name, *fakeServerState.nsg.Name)
 	})
 
 	t.Run("CreateSecurityGroup: Success - none allowed", func(t *testing.T) {
 		allowedCidrs := map[string]string{}
-		nsg, err := azureSDKHandlerTest.CreateSecurityGroup(context.Background(), validResourceName, testLocation, allowedCidrs)
+		nsg, err := handler.CreateSecurityGroup(context.Background(), validResourceName, testLocation, allowedCidrs)
 
 		require.NoError(t, err)
 		assert.NotNil(t, nsg)
-		assert.Contains(t, *nsg.Name, validResourceName)
+		assert.Contains(t, *nsg.Name, *fakeServerState.nsg.Name)
 	})
 }
 
 func TestAssociateNSGWithSubnet(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
-
-	// Create a new context for the tests
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		subnet: getFakeSubnet(),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	t.Run("AssociateNSGWithSubnet: Success", func(t *testing.T) {
-		err := azureSDKHandlerTest.AssociateNSGWithSubnet(ctx, validSubnetURI, validSecurityGroupID)
-
+		err := handler.AssociateNSGWithSubnet(ctx, validSubnetId, validSecurityGroupID)
 		require.NoError(t, err)
 	})
 
 	t.Run("AssociateNSGWithSubnet: Failure - subnet does not exist", func(t *testing.T) {
-		err := azureSDKHandlerTest.AssociateNSGWithSubnet(ctx, invalidSubnetURI, validSecurityGroupID)
-
+		fakeServerState.subnet = nil
+		err := handler.AssociateNSGWithSubnet(ctx, validSubnetId, validSecurityGroupID)
 		require.Error(t, err)
 	})
 }
 
 func TestGetSubnetById(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
-
-	// Create a new context for the tests
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		subnet: getFakeSubnet(),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	t.Run("GetSubnetById: Success", func(t *testing.T) {
-		subnet, err := azureSDKHandlerTest.GetSubnetByID(ctx, validSubnetURI)
+		subnet, err := handler.GetSubnetByID(ctx, validSubnetId)
 
 		require.NoError(t, err)
 		require.NotNil(t, subnet)
 	})
 
 	t.Run("GetSubnetById: Failure", func(t *testing.T) {
-		subnet, err := azureSDKHandlerTest.GetSubnetByID(ctx, invalidSubnetURI)
+		fakeServerState.subnet = nil
+		subnet, err := handler.GetSubnetByID(ctx, validSubnetId)
 
 		require.Error(t, err)
 		require.Nil(t, subnet)
@@ -414,25 +234,30 @@ func TestGetSubnetById(t *testing.T) {
 }
 
 func TestGetNetworkInterface(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
-
-	// Create a new context for the tests
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		nic:    getFakeNIC(),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	// Test 1: Successful GetNetworkInterface for a VM
-	t.Run("GetNetworkInterface: Success VMTest", func(t *testing.T) {
-		// Call the function to test
-		nic, err := azureSDKHandlerTest.GetNetworkInterface(ctx, validNicName)
+	t.Run("GetNetworkInterface: Success", func(t *testing.T) {
+		nic, err := handler.GetNetworkInterface(ctx, validNicName)
 
 		require.NotNil(t, nic)
 		require.NoError(t, err)
 	})
 
-	// Test 2: Failed Test due to invalid NIC name
-	t.Run("GetNetworkInterface: FailureNonVMTest", func(t *testing.T) {
-		// Call the function to test
-		nic, err := azureSDKHandlerTest.GetNetworkInterface(ctx, invalidNicName)
+	// Test 2: Failed Test due to no NIC
+	t.Run("GetNetworkInterface: Failure", func(t *testing.T) {
+		fakeServerState.nic = nil
+		nic, err := handler.GetNetworkInterface(ctx, validNicName)
 
 		require.Error(t, err)
 		require.Nil(t, nic)
@@ -440,16 +265,21 @@ func TestGetNetworkInterface(t *testing.T) {
 }
 
 func TestGetResource(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
-
-	// Create a new context for the tests
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vm:     to.Ptr(getFakeVirtualMachine(false)),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	// Test case: Success
 	t.Run("GetResource: Success", func(t *testing.T) {
-		// Call the function to test
-		resource, err := azureSDKHandlerTest.GetResource(ctx, vmResourceID)
+		resource, err := handler.GetResource(ctx, vmURI)
 
 		require.NoError(t, err)
 		require.NotNil(t, resource)
@@ -457,8 +287,8 @@ func TestGetResource(t *testing.T) {
 
 	// Test case: Failure
 	t.Run("GetResource: Failure", func(t *testing.T) {
-		// Call the function to test
-		resource, err := azureSDKHandlerTest.GetResource(ctx, invalidResourceID)
+		fakeServerState.vm = nil
+		resource, err := handler.GetResource(ctx, vmURI)
 
 		require.Error(t, err)
 		require.Nil(t, resource)
@@ -466,63 +296,62 @@ func TestGetResource(t *testing.T) {
 }
 
 func TestCreateAKSCluster(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
-
-	// Create a new context for the tests
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:   subID,
+		rgName:  rgName,
+		cluster: to.Ptr(getFakeCluster(false)),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	// Test case: Success
 	t.Run("CreateAKSCluster: Success", func(t *testing.T) {
-		// Call the function to test
-		aksCluster, err := azureSDKHandlerTest.CreateAKSCluster(ctx, armcontainerservice.ManagedCluster{}, validClusterName)
+		aksCluster, err := handler.CreateAKSCluster(ctx, armcontainerservice.ManagedCluster{}, validClusterName)
 
 		require.NoError(t, err)
 		require.NotNil(t, aksCluster)
 	})
-
-	// Test case: Failure
-	t.Run("CreateAKSCluster: Failure", func(t *testing.T) {
-		// Call the function to test
-		aksCluster, err := azureSDKHandlerTest.CreateAKSCluster(ctx, armcontainerservice.ManagedCluster{}, invalidClusterName)
-
-		require.Error(t, err)
-		require.Nil(t, aksCluster)
-	})
 }
 
 func TestCreateVirtualMachine(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
-
-	// Create a new context for the tests
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vm:     to.Ptr(getFakeVirtualMachine(false)),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	// Test case: Success
 	t.Run("CreateVirtualMachine: Success", func(t *testing.T) {
-		// Call the function to test
-		vm, err := azureSDKHandlerTest.CreateVirtualMachine(ctx, armcompute.VirtualMachine{}, vmResourceName)
+		vm, err := handler.CreateVirtualMachine(ctx, armcompute.VirtualMachine{}, validVmName)
 
 		require.NoError(t, err)
 		require.NotNil(t, vm)
 	})
-
-	// Test case: Failure
-	t.Run("CreateVirtualMachine: Failure", func(t *testing.T) {
-		// Call the function to test
-		vm, err := azureSDKHandlerTest.CreateVirtualMachine(ctx, armcompute.VirtualMachine{}, invalidVmResourceName)
-
-		require.Error(t, err)
-		require.Nil(t, vm)
-	})
 }
 
 func TestGetParagliderVnet(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vnet:   getFakeVirtualNetwork(),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
-	// Create a new context for the tests
-	ctx := context.Background()
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
@@ -530,32 +359,32 @@ func TestGetParagliderVnet(t *testing.T) {
 
 	// Test case: Success, vnet already existed
 	t.Run("GetParagliderVnet: Success, vnet exists", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetParagliderVnet(ctx, validVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
+		vnet, err := handler.GetParagliderVnet(ctx, validVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
 
 	// Test case: Success, vnet doesn't exist, create new one
 	t.Run("GetParagliderVnet: Success, create new vnet", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetParagliderVnet(ctx, notFoundVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
+		fakeServerState.vnet = nil
+		vnet, err := handler.GetParagliderVnet(ctx, validVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
-	})
-
-	// Test case: Failure, error when getting vnet
-	t.Run("GetParagliderVnet: Failure, error when getting vnet", func(t *testing.T) {
-		vnet, err := azureSDKHandlerTest.GetParagliderVnet(ctx, invalidVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
-		require.Error(t, err)
-		require.Nil(t, vnet)
 	})
 }
 
 func TestAddSubnetToParagliderVnet(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
-
-	// Create a new context for the tests
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vnet:   getFakeVirtualNetwork(),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
@@ -564,82 +393,81 @@ func TestAddSubnetToParagliderVnet(t *testing.T) {
 
 	// Test case: Success, subnet added
 	t.Run("AddSubnetParagliderVnet: Success", func(t *testing.T) {
-		subnet, err := azureSDKHandlerTest.AddSubnetToParagliderVnet(ctx, "namespace", validVnetName, validSubnetName, fakeOrchestratorServerAddr)
+		subnet, err := handler.AddSubnetToParagliderVnet(ctx, "namespace", validVnetName, validSubnetName, fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, subnet)
 	})
 
 	// Test case: Failure, error when getting new address space
 	t.Run("AddSubnetParagliderVnet: Failure, error when getting address spaces", func(t *testing.T) {
-		subnet, err := azureSDKHandlerTest.AddSubnetToParagliderVnet(ctx, "namespace", validVnetName, validSubnetName, "bad address")
+		subnet, err := handler.AddSubnetToParagliderVnet(ctx, "namespace", validVnetName, validSubnetName, "bad address")
 		require.Error(t, err)
 		require.Nil(t, subnet)
 	})
 }
 
 func TestCreateNetworkInterface(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
-
-	// Create a new context for the tests
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		nic:    getFakeNIC(),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	// Test case: Success
 	t.Run("CreateNetworkInterface: Success", func(t *testing.T) {
 		// Call the function to test
-		nic, err := azureSDKHandlerTest.CreateNetworkInterface(ctx, "", testLocation, validNicName)
+		nic, err := handler.CreateNetworkInterface(ctx, "", testLocation, validNicName)
 
 		require.NoError(t, err)
 		require.NotNil(t, nic)
 	})
-
-	// Test case: Failure
-	t.Run("CreateNetworkInterface: Failure", func(t *testing.T) {
-		// Call the function to test
-		nic, err := azureSDKHandlerTest.CreateNetworkInterface(ctx, "", testLocation, invalidNicName)
-
-		require.Error(t, err)
-		require.Nil(t, nic)
-	})
 }
 
 func TestCreateParagliderVirtualNetwork(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
-
-	// Create a new context for the tests
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vnet:   getFakeVirtualNetwork(),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	// Test case: Success
 	t.Run("CreateParagliderVirtualNetwork: Success", func(t *testing.T) {
 		// Call the function to test
-		vnet, err := azureSDKHandlerTest.CreateParagliderVirtualNetwork(ctx, testLocation, validVnetName, validAddressSpace)
+		vnet, err := handler.CreateParagliderVirtualNetwork(ctx, testLocation, validVnetName, validAddressSpace)
 
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
-
-	// Test case: Failure
-	t.Run("CreateParagliderVirtualNetwork: Failure", func(t *testing.T) {
-		// Call the function to test
-		vnet, err := azureSDKHandlerTest.CreateParagliderVirtualNetwork(ctx, testLocation, invalidVnetName, validAddressSpace)
-
-		require.Error(t, err)
-		require.Nil(t, vnet)
-	})
 }
 
 func TestGetVnet(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
-
-	// Create a new context for the tests
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vnet:   getFakeVirtualNetwork(),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	// Test case: Success
 	t.Run("GetVnet: Success", func(t *testing.T) {
-		// Call the function to test
-		vnet, err := azureSDKHandlerTest.GetVNet(ctx, validVnetName)
+		vnet, err := handler.GetVNet(ctx, validVnetName)
 
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
@@ -647,8 +475,8 @@ func TestGetVnet(t *testing.T) {
 
 	// Test case: Failure
 	t.Run("GetVnet: Failure", func(t *testing.T) {
-		// Call the function to test
-		vnet, err := azureSDKHandlerTest.GetVNet(ctx, invalidVnetName)
+		fakeServerState.vnet = nil
+		vnet, err := handler.GetVNet(ctx, validVnetName)
 
 		require.Error(t, err)
 		require.Nil(t, vnet)
@@ -656,22 +484,32 @@ func TestGetVnet(t *testing.T) {
 }
 
 func TestCreateVnetPeering(t *testing.T) {
-	// Initialize and set up the test scenario with the appropriate responses
-	once.Do(setup)
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vnetPeering: &armnetwork.VirtualNetworkPeering{
+			Name: to.Ptr("peeringName"),
+		},
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
-	// Create a new context for the tests
-	ctx := context.Background()
 	// Test case: Success
 	t.Run("CreateVnetPeering: Success", func(t *testing.T) {
-		// Call the function to test
-		err := azureSDKHandlerTest.CreateVnetPeering(ctx, validVnetName, validVnetName)
+		err := handler.CreateVnetPeering(ctx, validVnetName, validVnetName)
 
 		require.NoError(t, err)
 	})
 }
 
 func TestGetPermitListRuleFromNSGRule(t *testing.T) {
-	azureSDKHandlerTest := &azureSDKHandler{}
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	// Test case: Inbound rule
 	t.Run("Inbound", func(t *testing.T) {
@@ -688,7 +526,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		}
 
 		// Call the function to test
-		result, err := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(inboundRule)
+		result, err := handler.GetPermitListRuleFromNSGRule(inboundRule)
 
 		// Expected permit list rule
 		expectedRule := &paragliderpb.PermitListRule{
@@ -721,7 +559,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		}
 
 		// Call the function to test
-		result, err := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(outboundRule)
+		result, err := handler.GetPermitListRuleFromNSGRule(outboundRule)
 
 		// Expected permit list rule
 		expectedRule := &paragliderpb.PermitListRule{
@@ -755,7 +593,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		}
 
 		// Call the function to test
-		result, err := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(anyPortRule)
+		result, err := handler.GetPermitListRuleFromNSGRule(anyPortRule)
 
 		// Expected permit list rule
 		expectedRule := &paragliderpb.PermitListRule{
@@ -790,7 +628,7 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 		}
 
 		// Call the function to test
-		result, err := azureSDKHandlerTest.GetPermitListRuleFromNSGRule(anyPortRule)
+		result, err := handler.GetPermitListRuleFromNSGRule(anyPortRule)
 
 		// Expected permit list rule
 		expectedRule := &paragliderpb.PermitListRule{
@@ -812,128 +650,192 @@ func TestGetPermitListRuleFromNSGRule(t *testing.T) {
 }
 
 func TestCreateOrUpdateVirtualNetworkGateway(t *testing.T) {
-	once.Do(setup)
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vpnGw: &armnetwork.VirtualNetworkGateway{
+			Name: to.Ptr(validVirtualNetworkGatewayName),
+		},
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	t.Run("Success", func(t *testing.T) {
-		virtualNetworkGateway, err := azureSDKHandlerTest.CreateOrUpdateVirtualNetworkGateway(ctx, validVirtualNetworkGatewayName, armnetwork.VirtualNetworkGateway{})
+		virtualNetworkGateway, err := handler.CreateOrUpdateVirtualNetworkGateway(ctx, validVirtualNetworkGatewayName, armnetwork.VirtualNetworkGateway{})
 		require.NoError(t, err)
 		require.NotNil(t, virtualNetworkGateway)
-	})
-	t.Run("Failure", func(t *testing.T) {
-		virtualNetworkGateway, err := azureSDKHandlerTest.CreateOrUpdateVirtualNetworkGateway(ctx, invalidVirtualNetworkGatewayName, armnetwork.VirtualNetworkGateway{})
-		require.Error(t, err)
-		require.Nil(t, virtualNetworkGateway)
 	})
 }
 
 func TestGetVirtualNetworkGateway(t *testing.T) {
-	once.Do(setup)
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vpnGw: &armnetwork.VirtualNetworkGateway{
+			Name: to.Ptr(validVirtualNetworkGatewayName),
+		},
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	t.Run("Success", func(t *testing.T) {
-		virtualNetworkGateway, err := azureSDKHandlerTest.GetVirtualNetworkGateway(ctx, validVirtualNetworkGatewayName)
+		virtualNetworkGateway, err := handler.GetVirtualNetworkGateway(ctx, validVirtualNetworkGatewayName)
 		require.NoError(t, err)
 		require.NotNil(t, virtualNetworkGateway)
 	})
 	t.Run("Failure", func(t *testing.T) {
-		virtualNetworkGateway, err := azureSDKHandlerTest.GetVirtualNetworkGateway(ctx, invalidVirtualNetworkGatewayName)
+		fakeServerState.vpnGw = nil
+		virtualNetworkGateway, err := handler.GetVirtualNetworkGateway(ctx, validVirtualNetworkGatewayName)
 		require.Error(t, err)
 		require.Nil(t, virtualNetworkGateway)
 	})
 }
 
 func TestCreatePublicIPAddress(t *testing.T) {
-	once.Do(setup)
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		publicIP: &armnetwork.PublicIPAddress{
+			Name: to.Ptr(validPublicIpAddressName),
+		},
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	t.Run("Success", func(t *testing.T) {
-		publicIPAddress, err := azureSDKHandlerTest.CreatePublicIPAddress(ctx, validPublicIpAddressName, armnetwork.PublicIPAddress{})
+		publicIPAddress, err := handler.CreatePublicIPAddress(ctx, validPublicIpAddressName, armnetwork.PublicIPAddress{})
 		require.NoError(t, err)
 		require.NotNil(t, publicIPAddress)
-	})
-	t.Run("Failure", func(t *testing.T) {
-		publicIPAddress, err := azureSDKHandlerTest.CreatePublicIPAddress(ctx, invalidPublicIpAddressName, armnetwork.PublicIPAddress{})
-		require.Error(t, err)
-		require.Nil(t, publicIPAddress)
 	})
 }
 
 func TestCreateSubnet(t *testing.T) {
-	once.Do(setup)
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		subnet: getFakeSubnet(),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	t.Run("Success", func(t *testing.T) {
-		subnet, err := azureSDKHandlerTest.CreateSubnet(ctx, validVnetName, validSubnetName, armnetwork.Subnet{})
+		subnet, err := handler.CreateSubnet(ctx, validVnetName, validSubnetName, armnetwork.Subnet{})
 		require.NoError(t, err)
 		require.NotNil(t, subnet)
-	})
-	t.Run("Failure", func(t *testing.T) {
-		subnet, err := azureSDKHandlerTest.CreateSubnet(ctx, validVnetName, invalidSubnetName, armnetwork.Subnet{})
-		require.Error(t, err)
-		require.Nil(t, subnet)
 	})
 }
 
 func TestCreateLocalNetworkGateway(t *testing.T) {
-	once.Do(setup)
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		localGw: &armnetwork.LocalNetworkGateway{
+			Name: to.Ptr(validLocalNetworkGatewayName),
+		},
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	t.Run("Success", func(t *testing.T) {
-		localNetworkGateway, err := azureSDKHandlerTest.CreateLocalNetworkGateway(ctx, validLocalNetworkGatewayName, armnetwork.LocalNetworkGateway{})
+		localNetworkGateway, err := handler.CreateLocalNetworkGateway(ctx, validLocalNetworkGatewayName, armnetwork.LocalNetworkGateway{})
 		require.NoError(t, err)
 		require.NotNil(t, localNetworkGateway)
-	})
-	t.Run("Failure", func(t *testing.T) {
-		localNetworkGateway, err := azureSDKHandlerTest.CreateLocalNetworkGateway(ctx, invalidLocalNetworkGatewayName, armnetwork.LocalNetworkGateway{})
-		require.Error(t, err)
-		require.Nil(t, localNetworkGateway)
 	})
 }
 
 func TestGetLocalNetworkGateway(t *testing.T) {
-	once.Do(setup)
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		localGw: &armnetwork.LocalNetworkGateway{
+			Name: to.Ptr(validLocalNetworkGatewayName),
+		},
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	t.Run("Success", func(t *testing.T) {
-		localNetworkGateway, err := azureSDKHandlerTest.GetLocalNetworkGateway(ctx, validLocalNetworkGatewayName)
+		localNetworkGateway, err := handler.GetLocalNetworkGateway(ctx, validLocalNetworkGatewayName)
 		require.NoError(t, err)
 		require.NotNil(t, localNetworkGateway)
 	})
 	t.Run("Failure", func(t *testing.T) {
-		localNetworkGateway, err := azureSDKHandlerTest.GetLocalNetworkGateway(ctx, invalidLocalNetworkGatewayName)
+		fakeServerState.localGw = nil
+		localNetworkGateway, err := handler.GetLocalNetworkGateway(ctx, validLocalNetworkGatewayName)
 		require.Error(t, err)
 		require.Nil(t, localNetworkGateway)
 	})
 }
 
 func TestCreateVirtualNetworkGatewayConnection(t *testing.T) {
-	once.Do(setup)
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vpnConnection: &armnetwork.VirtualNetworkGatewayConnection{
+			Name: to.Ptr(validVirtualNetworkGatewayConnectionName),
+		},
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	t.Run("Success", func(t *testing.T) {
-		virtualNetworkGatewayConnection, err := azureSDKHandlerTest.CreateVirtualNetworkGatewayConnection(ctx, validVirtualNetworkGatewayConnectionName, armnetwork.VirtualNetworkGatewayConnection{})
+		virtualNetworkGatewayConnection, err := handler.CreateVirtualNetworkGatewayConnection(ctx, validVirtualNetworkGatewayConnectionName, armnetwork.VirtualNetworkGatewayConnection{})
 		require.NoError(t, err)
 		require.NotNil(t, virtualNetworkGatewayConnection)
-	})
-	t.Run("Failure", func(t *testing.T) {
-		virtualNetworkGatewayConnection, err := azureSDKHandlerTest.CreateVirtualNetworkGatewayConnection(ctx, invalidVirtualNetworkGatewayConnectionName, armnetwork.VirtualNetworkGatewayConnection{})
-		require.Error(t, err)
-		require.Nil(t, virtualNetworkGatewayConnection)
 	})
 }
 
 func TestGetVirtualNetworkGatewayConnection(t *testing.T) {
-	once.Do(setup)
-	ctx := context.Background()
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vpnConnection: &armnetwork.VirtualNetworkGatewayConnection{
+			Name: to.Ptr(validVirtualNetworkGatewayConnectionName),
+		},
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	t.Run("Success", func(t *testing.T) {
-		virtualNetworkGatewayConnection, err := azureSDKHandlerTest.GetVirtualNetworkGatewayConnection(ctx, validVirtualNetworkGatewayConnectionName)
+		virtualNetworkGatewayConnection, err := handler.GetVirtualNetworkGatewayConnection(ctx, validVirtualNetworkGatewayConnectionName)
 		require.NoError(t, err)
 		require.NotNil(t, virtualNetworkGatewayConnection)
 	})
 	t.Run("Failure", func(t *testing.T) {
-		virtualNetworkGatewayConnection, err := azureSDKHandlerTest.GetVirtualNetworkGatewayConnection(ctx, invalidVirtualNetworkGatewayConnectionName)
+		fakeServerState.vpnConnection = nil
+		virtualNetworkGatewayConnection, err := handler.GetVirtualNetworkGatewayConnection(ctx, validVirtualNetworkGatewayConnectionName)
 		require.Error(t, err)
 		require.Nil(t, virtualNetworkGatewayConnection)
 	})

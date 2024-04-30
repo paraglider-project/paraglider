@@ -36,7 +36,8 @@ For local testing purposes, consider adding a `main` function within the `plugin
    func main() {
        c := context.Background()
        s := azurePluginServer{
-           azureHandler: &azureSDKHandler{},
+           	orchestratorServerAddr: orchestratorServerAddr,
+		      azureCredentialGetter:  &AzureCredentialGetter{},
        }
 
        // Call the function you want to test
@@ -53,7 +54,7 @@ For local testing purposes, consider adding a `main` function within the `plugin
 
 2. Run the server:
    ```bash
-   go run .\pkg\azure\plugin_server.go .\pkg\azure\azure_sdk_handler.go
+   go run .\pkg\azure\plugin.go .\pkg\azure\sdk_handler.go
 ## Package Structure
 The `azure` contains essential components and functionalities related to Azure integration. Within the `azure` package, you will find the following key files:
 
@@ -92,10 +93,7 @@ Follow these steps to ensure consistent structure and seamless integration.
 3. Handling ARM Requests:
    - If your new API needs to make ARM requests, check if the required functionality is already implemented in `sdk_handler.go`. If not, add a new function in the handler that wraps the Azure request. Call this new function from the `plugin` file. Any helper functionalities relevant only to Paraglider and the server can remain in `plugin`.
 
-4. Interface and Mock Implementation:
-   - If you add a function in the handler, add its definition to the `AzureSDKHandler` interface in `sdk_handler.go`.
-
-5. Update Testing:
+4. Update Testing:
    - In `plugin_test.go`, provide a mocked implementation of your new handler function for testing purposes. For instance:
      ```go
      func (m *mockAzureSDKHandler) NewHandlerFunction(ctx context.Context, args ...) (*armType, error) {
@@ -111,26 +109,14 @@ When adding new functionality to the `azure` package, it's crucial to ensure tha
 
 ### Unit Tests
 
-#### `plugin.go`:
-As the `plugin.go` file depends on the `sdk_handler.go` file, unit tests here will involve mocking the server requests made by the handler.
+All tests use a fake server as a replacement for actual Azure endpoints. The implementation can be found in `test_utils.go`.
 
-1. Mock Azure Handler:
-   - For each function in `plugin.go` that involves server requests, mock the relevant handler function calls using your mocking framework.
-   - If additional input and output validation is needed, customize the mock function behavior accordingly.
-   - After setting up the mock, use `mockAzureHandler.AssertExpectations(t)` to ensure the expected calls were made with the correct parameters.
+* Fake Server Setup:
+   - If your new function involves making Azure requests, ensure that the fake server in `test_utils.go` is aware of these requests.
+   - If the URL is already present but for a different request method, add your request method.
+   - If your new request requires new state, add it to the `fakeServerState` struct.
 
-#### `sdk_handler.go`:
-This file contains a fake server implementation that routes Azure requests to it.
-
-1. Fake Server Setup:
-   - If your new function involves making Azure requests, ensure that the fake server in `sdk_handler_test.go` is aware of these requests.
-   - In the `initializeReqRespMap` function, add an entry for the new request URL mapping to its corresponding response.
-   - If the URL is already present but for a different request method, check if you need to include it in the `urlToResponse` map.
-
-2. Test Function Setup:
-   - In your unit test function, include `Once.Do(setup)` to initialize the fake server and the response map.
-
-Note: This unit test structure primarily validates request handling and code structure. It doesn't verify actual functionality since server requests are mocked.
+Keep in mind that the fake server should be kept as minimal as possible. Tests should not depend heavily on the logic within it.
 
 ### Integration Testing
 

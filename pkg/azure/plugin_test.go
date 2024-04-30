@@ -21,141 +21,68 @@ package azure
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
 	"github.com/paraglider-project/paraglider/pkg/orchestrator"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-var fakeAddressList = map[string][]string{testLocation: []string{validAddressSpace}}
-
-const defaultNamespace = "default"
-
-type dummyTokenCredential struct{}
-
-func (d *dummyTokenCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
-	return azcore.AccessToken{}, nil
+type dummyAzureCredentialGetter struct {
+	IAzureCredentialGetter
 }
 
-func setupAzurePluginServer() (*azurePluginServer, *MockAzureSDKHandler, context.Context) {
+func (d *dummyAzureCredentialGetter) GetAzureCredentials() (azcore.TokenCredential, error) {
+	return nil, nil
+}
+
+func setupTestAzurePluginServer() (*azurePluginServer, context.Context) {
 	// Create a new instance of the azurePluginServer
 	server := &azurePluginServer{}
-
-	// Create a mock implementation of the AzureSDKHandler interface
-	var mockAzureHandler AzureSDKHandler = &MockAzureSDKHandler{}
-	server.mockAzureHandler = mockAzureHandler
 	server.orchestratorServerAddr = "fakecontrollerserveraddr"
+	server.azureCredentialGetter = &dummyAzureCredentialGetter{}
 
-	// Perform a type requireion to convert the AzureSDKHandler interface value to a *MockAzureSDKHandler concrete value, allowing access to methods and fields specific to the MockAzureSDKHandler type.
-	concreteMockAzureHandler := mockAzureHandler.(*MockAzureSDKHandler)
-
-	// Return &mockAzureHandler to test methods that take in *azureSDKHandler (e.g., getAndCheckResourceNamespace)
-	return server, concreteMockAzureHandler, context.Background()
-}
-
-func getValidVMDescription() (armcompute.VirtualMachine, []byte, error) {
-	validVm := &armcompute.VirtualMachine{
-		ID:       to.Ptr("vm-id"),
-		Name:     to.Ptr("vm-name"),
-		Location: to.Ptr(testLocation),
-		Properties: &armcompute.VirtualMachineProperties{
-			HardwareProfile: &armcompute.HardwareProfile{VMSize: to.Ptr(armcompute.VirtualMachineSizeTypesStandardB1S)},
-		},
-	}
-
-	validDescripton, err := json.Marshal(validVm)
-	return *validVm, validDescripton, err
-}
-
-func getValidClusterDescription() (armcontainerservice.ManagedCluster, []byte, error) {
-	validCluster := &armcontainerservice.ManagedCluster{
-		Location: to.Ptr(testLocation),
-		Properties: &armcontainerservice.ManagedClusterProperties{
-			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
-				{Name: to.Ptr("agent-pool-name")},
-			},
-		},
-	}
-
-	validDescripton, err := json.Marshal(validCluster)
-	return *validCluster, validDescripton, err
+	return server, context.Background()
 }
 
 /* ---- Tests ---- */
 
 func TestCreateResource(t *testing.T) {
-	defaultSubnetName := "default"
-	defaultSubnetID := "default-subnet-id"
-	namespace := "defaultnamespace"
-	vnetName := getVnetName(testLocation, namespace)
 	t.Run("TestCreateResource: Success", func(t *testing.T) {
-		// we need to recreate it for each test as it will be modified to include network interface
-		vm, desc, err := getValidVMDescription()
+		vm := getFakeVirtualMachine(true)
+		desc, err := getFakeVMResourceDescription(to.Ptr(getFakeVirtualMachine(false)))
 		if err != nil {
 			t.Errorf("Error while creating valid resource description: %v", err)
 		}
-
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-
-		// Set up mock behavior for the Azure SDK handler
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
-		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
-		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("GetParagliderVnet", ctx, vnetName, testLocation, namespace, server.orchestratorServerAddr).Return(&armnetwork.VirtualNetwork{
-			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
-				Subnets: []*armnetwork.Subnet{
-					{
-						Name: to.Ptr(defaultSubnetName),
-						ID:   to.Ptr(defaultSubnetID),
-					},
-				},
-			},
-		}, nil)
-		mockAzureHandler.On("CreateNetworkInterface", ctx, defaultSubnetID, testLocation, mock.Anything).Return(&armnetwork.Interface{ID: to.Ptr(validNicId)}, nil)
-		mockAzureHandler.On("CreateVirtualMachine", ctx, vm, mock.Anything).Return(&vm, nil)
-		fakeNic := getFakeNIC()
-		mockAzureHandler.On("GetNetworkInterface", ctx, *fakeNic.Name).Return(fakeNic, nil)
-		vpnGwVnetName := getVpnGatewayVnetName(namespace)
-		mockAzureHandler.On("GetVirtualNetwork", ctx, vpnGwVnetName).Return(&armnetwork.VirtualNetwork{}, nil)
-		mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(namespace)).Return(&armnetwork.VirtualNetworkGateway{}, nil)
-		mockAzureHandler.On("GetVirtualNetworkPeering", ctx, vnetName, vpnGwVnetName).Return(nil, &azcore.ResponseError{StatusCode: http.StatusNotFound})
-		mockAzureHandler.On("CreateOrUpdateVnetPeeringRemoteGateway", ctx, vnetName, vpnGwVnetName, (*armnetwork.VirtualNetworkPeering)(nil), (*armnetwork.VirtualNetworkPeering)(nil)).Return(nil)
-
-		vm.Properties.NetworkProfile = &armcompute.NetworkProfile{
-			NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
-				{
-					ID: to.Ptr(validNicId),
-				},
-			},
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			vnet:   getFakeVirtualNetwork(),
+			nic:    getFakeNIC(),
+			vpnGw:  &armnetwork.VirtualNetworkGateway{},
+			vm:     &vm,
 		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
-			Deployment:  &paragliderpb.ParagliderDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: namespace},
-			Name:        fakeVmName,
-			Description: desc,
-		})
+		server, _ := setupTestAzurePluginServer()
+
+		response, err := server.CreateResource(ctx, desc)
 
 		require.NoError(t, err)
 		require.NotNil(t, response)
 	})
 
 	t.Run("TestCreateResource: Failure, invalid json", func(t *testing.T) {
-		server, _, ctx := setupAzurePluginServer()
+		server, ctx := setupTestAzurePluginServer()
 		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
 			Description: []byte("invalid json"),
 		})
@@ -171,7 +98,8 @@ func TestCreateResource(t *testing.T) {
 		if err != nil {
 			t.Errorf("Error while marshalling description: %v", err)
 		}
-		server, _, ctx := setupAzurePluginServer()
+		server, ctx := setupTestAzurePluginServer()
+
 		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
 			Description: desc,
 		})
@@ -194,7 +122,7 @@ func TestCreateResource(t *testing.T) {
 			t.Errorf("Error while marshalling description: %v", err)
 		}
 
-		server, _, ctx := setupAzurePluginServer()
+		server, ctx := setupTestAzurePluginServer()
 
 		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
 			Description: desc,
@@ -205,57 +133,34 @@ func TestCreateResource(t *testing.T) {
 	})
 
 	t.Run("TestCreateResource: Success Cluster Creation", func(t *testing.T) {
-		// we need to recreate it for each test as it will be modified to include network interface
-		cluster, desc, err := getValidClusterDescription()
+		cluster := getFakeCluster(true)
+		desc, err := getFakeClusterResourceDescription(to.Ptr(getFakeCluster(false)))
 		if err != nil {
 			t.Errorf("Error while creating valid resource description: %v", err)
 		}
 
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
+		serverState := &fakeServerState{
+			subId:   subID,
+			rgName:  rgName,
+			vnet:    getFakeVirtualNetwork(),
+			subnet:  getFakeSubnet(),
+			nic:     getFakeNIC(),
+			nsg:     getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName),
+			vpnGw:   &armnetwork.VirtualNetworkGateway{},
+			cluster: &cluster,
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
+
+		server, _ := setupTestAzurePluginServer()
+
 		_, orchAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 		if err != nil {
 			t.Fatal(err)
 		}
 		server.orchestratorServerAddr = orchAddr
 
-		subnet := getFakeSubnet()
-
-		cluster.Properties.NetworkProfile = &armcontainerservice.NetworkProfile{
-			ServiceCidr:  to.Ptr("10.0.0.0/16"),
-			DNSServiceIP: to.Ptr("10.0.0.10"),
-		}
-		cluster.Properties.AgentPoolProfiles[0].VnetSubnetID = subnet.ID
-
-		// Set up mock behavior for the Azure SDK handler
-		mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
-		mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
-		mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-		mockAzureHandler.On("GetParagliderVnet", ctx, vnetName, testLocation, namespace, server.orchestratorServerAddr).Return(&armnetwork.VirtualNetwork{
-			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
-				Subnets: []*armnetwork.Subnet{
-					{
-						Name:       to.Ptr(defaultSubnetName),
-						ID:         subnet.ID,
-						Properties: &armnetwork.SubnetPropertiesFormat{AddressPrefix: to.Ptr("1.1.1.1/1")},
-					},
-				},
-			},
-		}, nil)
-		mockAzureHandler.On("AddSubnetToParagliderVnet", ctx, namespace, vnetName, mock.Anything, server.orchestratorServerAddr).Return(&subnet, nil)
-		mockAzureHandler.On("CreateAKSCluster", ctx, cluster, mock.Anything).Return(&cluster, nil)
-		mockAzureHandler.On("CreateSecurityGroup", ctx, mock.Anything, mock.Anything).Return(&armnetwork.SecurityGroup{ID: to.Ptr("fake-nsg-id")}, nil)
-		mockAzureHandler.On("AssociateNSGWithSubnet", ctx, mock.Anything, mock.Anything).Return(nil)
-		vpnGwVnetName := getVpnGatewayVnetName(namespace)
-		mockAzureHandler.On("GetVirtualNetwork", ctx, vpnGwVnetName).Return(&armnetwork.VirtualNetwork{}, nil)
-		mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(namespace)).Return(&armnetwork.VirtualNetworkGateway{}, nil)
-		mockAzureHandler.On("GetVirtualNetworkPeering", ctx, vnetName, vpnGwVnetName).Return(nil, &azcore.ResponseError{StatusCode: http.StatusNotFound})
-		mockAzureHandler.On("CreateOrUpdateVnetPeeringRemoteGateway", ctx, vnetName, vpnGwVnetName, (*armnetwork.VirtualNetworkPeering)(nil), (*armnetwork.VirtualNetworkPeering)(nil)).Return(nil)
-
-		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
-			Deployment:  &paragliderpb.ParagliderDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: namespace},
-			Description: desc,
-			Name:        getFakeClusterName(),
-		})
+		response, err := server.CreateResource(ctx, desc)
 
 		require.NoError(t, err)
 		require.NotNil(t, response)
@@ -270,32 +175,27 @@ func TestGetPermitList(t *testing.T) {
 	fakeNsgName := "test-nsg-name"
 	fakeNic := getFakeNIC()
 	fakeNsgID := *fakeNic.Properties.NetworkSecurityGroup.ID
-	fakeNsg := getFakeNsg(fakeNsgID, fakeNsgName)
+	fakeNsg := getFakeNsgWithRules(fakeNsgID, fakeNsgName)
 
 	// Set up a  resource
-	fakeResourceId := getFakeVmUri()
+	fakeResourceId := vmURI
 
-	// Within each subtest, we recreate the setup for the azurePluginServer,
-	// mockAzureHandler, context (ctx) variables.
-	// This ensures that each subtest starts with a clean and isolated state.
-
-	// Test Case 1: Successful execution and expected permit list
+	// Successful execution and expected permit list
 	t.Run("TestGetPermitList: Success", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-
-		// Set up mock behavior for the Azure SDK handler
-		mockHandlerSetup(mockAzureHandler)
-		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResourceId, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
-
-		// make suret that the GetPermitListRuleFromNSGRule is called on all the paraglider rules
-		for i, rule := range fakeNsg.Properties.SecurityRules {
-			if strings.HasPrefix(*rule.Name, paragliderPrefix) {
-				mockAzureHandler.On("GetPermitListRuleFromNSGRule", rule).Return(fakePlRules[i], nil)
-			}
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
+			vm:     to.Ptr(getFakeVirtualMachine(true)),
 		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
+
+		server, _ := setupTestAzurePluginServer()
 
 		// Call the GetPermitList function
-		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
+		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
 		resp, err := server.GetPermitList(ctx, request)
 
 		// check the results
@@ -305,34 +205,19 @@ func TestGetPermitList(t *testing.T) {
 		require.Len(t, resp.Rules, 2)
 	})
 
-	// Test Case 2: GetAzureCredentials fails
-	t.Run("TestGetPermitList: Failure while getting azure credentials", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		// Set up mock behavior for the Azure SDK handler to return an error on GetAzureCredentials call
-		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("error while getting azure credentials"))
-
-		// Call the GetPermitList function
-		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
-		response, err := server.GetPermitList(ctx, request)
-
-		// check the error
-		require.Error(t, err)
-		require.Nil(t, response)
-	})
-
-	// Test Case 3: NSG get fails due to GetNetworkInterface call
+	// NSG get fails due to GetNetworkInterface call
 	t.Run("TestGetPermitList: Failed while getting NIC", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		// Set up mock behavior for the Azure SDK handler to return an error on GetNetworkInterface call
-		mockHandlerSetup(mockAzureHandler)
-		nicId := validNicId
-		vm := getGenericResourceVM(fakeResourceId, &nicId)
-		require.NoError(t, err)
-		mockAzureHandler.On("GetResource", ctx, fakeResourceId).Return(&vm, nil)
-		mockAzureHandler.On("GetNetworkInterface", ctx, validNicName).Return(nil, fmt.Errorf("NIC get error"))
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
+		server, _ := setupTestAzurePluginServer()
 		// Call the GetPermitList function
-		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
+		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
 		response, err := server.GetPermitList(ctx, request)
 
 		// check the error
@@ -340,36 +225,21 @@ func TestGetPermitList(t *testing.T) {
 		require.Nil(t, response)
 	})
 
-	// Test Case 4: Fail due to a failure in getPermitList
-	t.Run("TestGetPermitList: Failed while getting pl rule", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-
-		// Set up mock behavior for the Azure SDK handler
-		mockHandlerSetup(mockAzureHandler)
-		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResourceId, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
-		mockAzureHandler.On("GetPermitListRuleFromNSGRule", mock.Anything).Return(nil, fmt.Errorf("error while getting permit list rule"))
-
-		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
-		response, err := server.GetPermitList(ctx, request)
-
-		// check the error
-		require.Error(t, err)
-		require.Nil(t, response)
-	})
-
-	// Test Case 5: Fail due to resource being in different namespace
+	// Fail due to resource being in different namespace
 	t.Run("TestGetPermitList: Fail due to mismatching namespace", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		// Set up mock behavior for the Azure SDK handler
-		mockHandlerSetup(mockAzureHandler)
-
-		// Set up NIC to be in a subnet not in the current namespace
-		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr("/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/vnet123/subnets/subnet123")
-		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResourceId, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
+		server, _ := setupTestAzurePluginServer()
 
 		// Call the GetPermitList function
-		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: defaultNamespace}
+		request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: namespace}
 		response, err := server.GetPermitList(ctx, request)
 
 		// check the error
@@ -385,7 +255,7 @@ func TestAddPermitListRules(t *testing.T) {
 	}
 	fakeOrchestratorServer.Counter = 1
 
-	fakeResource := getFakeVmUri()
+	fakeResource := vmURI
 	fakePlRules, err := getFakeNewPermitListRules()
 	if err != nil {
 		t.Errorf("Error while getting fake permit list: %v", err)
@@ -393,9 +263,8 @@ func TestAddPermitListRules(t *testing.T) {
 	fakeNsgName := "test-nsg-name"
 	fakeNic := getFakeNIC()
 	fakeNsgID := *fakeNic.Properties.NetworkSecurityGroup.ID
-	fakeResourceAddress := *fakeNic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
-	fakeNsg := getFakeNsg(fakeNsgID, fakeNsgName)
-	fakeVnet := getFakeVnet(fakeNic.Location, validAddressSpace)
+	fakeNsg := getFakeNsgWithRules(fakeNsgID, fakeNsgName)
+	fakeVnet := getFakeVnetInLocation(fakeNic.Location, validAddressSpace)
 	fakeVnet.Properties = &armnetwork.VirtualNetworkPropertiesFormat{
 		AddressSpace: &armnetwork.AddressSpace{
 			AddressPrefixes: []*string{to.Ptr("10.0.0.0/16")},
@@ -413,108 +282,90 @@ func TestAddPermitListRules(t *testing.T) {
 
 	// Successful AddPermitListRules with new rules
 	t.Run("AddPermitListRules: New Rules Success", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.orchestratorServerAddr = fakeOrchestratorServerAddr
-		mockHandlerSetup(mockAzureHandler)
-		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
-		mockAzureHandler.On("GetVNet", ctx, getVnetName(*fakeNic.Location, defaultNamespace)).Return(fakeVnet, nil)
-
-		for i, rule := range fakePlRules {
-			mockAzureHandler.On("CreateSecurityRule", ctx, rule, fakeNsgName, mock.Anything, fakeResourceAddress, int32(103+i)).Return(&armnetwork.SecurityRule{
-				ID: to.Ptr("fake-paraglider-rule"),
-			}, nil).Times(1)
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
+			vnet:   fakeVnet,
+			vm:     to.Ptr(getFakeVirtualMachine(true)),
 		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		server, _ := setupTestAzurePluginServer()
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
-		mockAzureHandler.AssertExpectations(t) // this will fail if any of the calls above are not called or for different times
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
+
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 	})
 
 	// Successful AddPermitListRules with existing rules
 	t.Run("AddPermitListRules: Existing Rules Success", func(t *testing.T) {
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
+			vnet:   fakeVnet,
+			vm:     to.Ptr(getFakeVirtualMachine(true)),
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
+
 		fakeOldPlRules, err := getFakePermitList()
 		if err != nil {
 			t.Errorf("Error while getting fake permit list: %v", err)
 		}
 
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
+		server, _ := setupTestAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
-		mockHandlerSetup(mockAzureHandler)
-		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
-		mockAzureHandler.On("GetVNet", ctx, getVnetName(*fakeNic.Location, defaultNamespace)).Return(fakeVnet, nil)
 
-		for i, rule := range fakeNsg.Properties.SecurityRules {
-			if strings.HasPrefix(*rule.Name, paragliderPrefix) {
-				mockAzureHandler.On("CreateSecurityRule", ctx, fakeOldPlRules[i], fakeNsgName, mock.Anything, fakeResourceAddress, *rule.Properties.Priority).Return(&armnetwork.SecurityRule{
-					ID: to.Ptr("fake-paraglider-rule"),
-				}, nil).Times(1)
-			}
-		}
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakeOldPlRules, Namespace: namespace, Resource: fakeResource})
 
-		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakeOldPlRules, Namespace: defaultNamespace, Resource: fakeResource})
-
-		mockAzureHandler.AssertExpectations(t) // this will fail if any of the calls above are not called or for different times
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 	})
 
-	// Failed AddPermitListRules
-	t.Run("AddPermitListRules: Failure while getting NSG", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.orchestratorServerAddr = fakeOrchestratorServerAddr
-		mockHandlerSetup(mockAzureHandler)
-		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, nil, fakeNic)
-		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
-		require.Error(t, err)
-		require.NotNil(t, err)
-		require.Nil(t, resp)
-	})
-
-	// Failed during GetAzureCredentials
-	t.Run("AddPermitListRules: Failure while getting azure credential", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.orchestratorServerAddr = fakeOrchestratorServerAddr
-		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("error while getting azure credentials"))
-		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
-		require.Error(t, err)
-		require.NotNil(t, err)
-		require.Nil(t, resp)
-	})
-
 	// Failed while getting NIC
 	t.Run("AddPermitListRules: Failure while getting NIC", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
+
+		server, _ := setupTestAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
-		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("error while getting azure credentials"))
-		nicId := validNicId
-		vm := getGenericResourceVM(fakeResource, &nicId)
-		require.NoError(t, err)
-		mockAzureHandler.On("GetResource", ctx, fakeResource).Return(&vm, nil)
-		mockAzureHandler.On("GetNetworkInterface", ctx, validNicName).Return(nil, fmt.Errorf("NIC get error"))
-		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
+
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
+
 		require.Error(t, err)
 		require.NotNil(t, err)
 		require.Nil(t, resp)
 	})
 
-	// Failure while creting the nsg rule in azure
+	// Failure while creating the nsg rule in azure
 	t.Run("AddPermitListRules: Failure when creating nsg rule", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		server.orchestratorServerAddr = fakeOrchestratorServerAddr
-		mockHandlerSetup(mockAzureHandler)
-		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
-		mockGetVnetAndAddressSpaces(mockAzureHandler, ctx, getVnetName(*fakeNic.Location, defaultNamespace), getParagliderNamespacePrefix(defaultNamespace), fakeVnet, fakeAddressList)
-		for i, rule := range fakeNsg.Properties.SecurityRules {
-			if strings.HasPrefix(*rule.Name, paragliderPrefix) {
-				mockAzureHandler.On("GetPermitListRuleFromNSGRule", rule).Return(fakePlRules[i], nil)
-			}
+		fakeNic.Name = to.Ptr("invalid-nic-name")
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
 		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		mockAzureHandler.On("CreateSecurityRule", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("error while creating nsg rule"))
+		server, _ := setupTestAzurePluginServer()
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
-		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
+
 		require.Error(t, err)
 		require.NotNil(t, err)
 		require.Nil(t, resp)
@@ -522,18 +373,21 @@ func TestAddPermitListRules(t *testing.T) {
 
 	// Fail due to resource being in different namespace
 	t.Run("AddPermitListRules: Fail due to mismatching namespace", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
+		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr(validSubnetId)
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
+
+		server, _ := setupTestAzurePluginServer()
 		server.orchestratorServerAddr = fakeOrchestratorServerAddr
 
-		// Set up mock behavior for the Azure SDK handler
-		mockHandlerSetup(mockAzureHandler)
-
-		// Setup fake NIC to belong to subnet not in current namespace
-		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr("/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/vnet123/subnets/subnet123")
-		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
-
 		// Call the GetPermitList function
-		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakePlRules, Namespace: namespace, Resource: fakeResource})
 
 		// check the error
 		require.Error(t, err)
@@ -553,20 +407,24 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	fakeNsgName := "test-nsg-name"
 	fakeNic := getFakeNIC()
 	fakeNsgID := *fakeNic.Properties.NetworkSecurityGroup.ID
-	fakeNsg := getFakeNsg(fakeNsgID, fakeNsgName)
-	fakeResource := getFakeVmUri()
-
-	// The mockAzureHandler is reset for each test case to ensure that the mock is not called
-	// from a previous test case and avoid conflicts between test cases
+	fakeNsg := getFakeNsgWithRules(fakeNsgID, fakeNsgName)
+	fakeResource := vmURI
 
 	// successful
 	t.Run("DeletePermitListRules: Success", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		mockHandlerSetup(mockAzureHandler)
-		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
+			vm:     to.Ptr(getFakeVirtualMachine(true)),
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		mockAzureHandler.On("DeleteSecurityRule", ctx, fakeNsgName, mock.Anything).Return(nil)
-		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		server, _ := setupTestAzurePluginServer()
+
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -574,25 +432,18 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 	// Deletion error while getting resource nic
 	t.Run("DeletePermitListRules: Failure while getting NIC", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		mockHandlerSetup(mockAzureHandler)
-		nicId := validNicId
-		vm := getGenericResourceVM(fakeResource, &nicId)
-		require.NoError(t, err)
-		mockAzureHandler.On("GetResource", ctx, fakeResource).Return(&vm, nil)
-		mockAzureHandler.On("GetNetworkInterface", ctx, validNicName).Return(nil, fmt.Errorf("NIC get error"))
-		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			vm:     to.Ptr(getFakeVirtualMachine(true)),
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		require.Error(t, err)
-		require.NotNil(t, err)
-		require.Nil(t, resp)
-	})
+		server, _ := setupTestAzurePluginServer()
 
-	// Deletion error while getting azure credentials
-	t.Run("DeletePermitListRules: Failure while getting azure credentials", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		mockAzureHandler.On("GetAzureCredentials").Return(nil, fmt.Errorf("error while getting azure credentials"))
-		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -601,12 +452,18 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 	// Failure while deleting rule
 	t.Run("DeletePermitListRules: Failure while deleting security rule", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		mockHandlerSetup(mockAzureHandler)
-		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		mockAzureHandler.On("DeleteSecurityRule", ctx, fakeNsgName, mock.Anything).Return(fmt.Errorf("error while deleting rule"))
-		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		server, _ := setupTestAzurePluginServer()
+
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -615,10 +472,17 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 	// Test 6: Failure while getting security group
 	t.Run("DeletePermitListRules: Failure while getting security group", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
-		mockHandlerSetup(mockAzureHandler)
-		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, nil, fakeNic)
-		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nic:    fakeNic,
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
+
+		server, _ := setupTestAzurePluginServer()
+
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		require.Error(t, err)
 		require.NotNil(t, err)
@@ -627,17 +491,20 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 	// Test Case 7: Fail due to resource being in different namespace
 	t.Run("DeletePermitListRules: Fail due to mismatching namespace", func(t *testing.T) {
-		server, mockAzureHandler, ctx := setupAzurePluginServer()
+		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr(validSubnetId)
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-		// Set up mock behavior for the Azure SDK handler
-		mockHandlerSetup(mockAzureHandler)
-
-		// Setup fake NIC to belong to subnet not in current namespace
-		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr("/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/vnet123/subnets/subnet123")
-		mockGetSecurityGroupSetup(mockAzureHandler, ctx, fakeResource, fakeNsgID, fakeNsgName, fakeNsg, fakeNic)
+		server, _ := setupTestAzurePluginServer()
 
 		// Call the GetPermitList function
-		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: defaultNamespace, Resource: fakeResource})
+		resp, err := server.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: fakeRuleNames, Namespace: namespace, Resource: fakeResource})
 
 		// check the error
 		require.Error(t, err)
@@ -646,12 +513,27 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 }
 
 func TestGetUsedAddressSpaces(t *testing.T) {
-	server, mockAzureHandler, ctx := setupAzurePluginServer()
-	mockHandlerSetup(mockAzureHandler)
-	mockAzureHandler.On("GetVNetsAddressSpaces", ctx, getParagliderNamespacePrefix(defaultNamespace)).Return(fakeAddressList, nil)
+	serverState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vnet: &armnetwork.VirtualNetwork{
+			Name:     to.Ptr(getParagliderNamespacePrefix(namespace) + validVnetName),
+			Location: to.Ptr(testLocation),
+			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+				AddressSpace: &armnetwork.AddressSpace{
+					AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+				},
+			},
+		},
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
+
+	server, _ := setupTestAzurePluginServer()
+
 	req := &paragliderpb.GetUsedAddressSpacesRequest{
 		Deployments: []*paragliderpb.ParagliderDeployment{
-			{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
+			{Id: deploymentId, Namespace: namespace},
 		},
 	}
 	resp, err := server.GetUsedAddressSpaces(ctx, req)
@@ -660,7 +542,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		{
 			AddressSpaces: []string{validAddressSpace},
 			Cloud:         utils.AZURE,
-			Namespace:     defaultNamespace,
+			Namespace:     namespace,
 		},
 	}
 	require.NoError(t, err)
@@ -669,17 +551,27 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 }
 
 func TestGetUsedAsns(t *testing.T) {
-	server, mockAzureHandler, ctx := setupAzurePluginServer()
-	mockHandlerSetup(mockAzureHandler)
-	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
-		&armnetwork.VirtualNetworkGateway{Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{BgpSettings: &armnetwork.BgpSettings{Asn: to.Ptr(int64(64512))}}},
-		nil,
-	)
+	serverState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vpnGw: &armnetwork.VirtualNetworkGateway{
+			Name: to.Ptr(getVpnGatewayName(namespace)),
+			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
+				BgpSettings: &armnetwork.BgpSettings{
+					Asn: to.Ptr(int64(64512)),
+				},
+			},
+		},
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
+
+	server, _ := setupTestAzurePluginServer()
 
 	usedAsnsExpected := []uint32{64512}
 	req := &paragliderpb.GetUsedAsnsRequest{
 		Deployments: []*paragliderpb.ParagliderDeployment{
-			{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
+			{Id: deploymentId, Namespace: namespace},
 		},
 	}
 	resp, err := server.GetUsedAsns(ctx, req)
@@ -689,10 +581,11 @@ func TestGetUsedAsns(t *testing.T) {
 }
 
 func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
-	server, mockAzureHandler, ctx := setupAzurePluginServer()
-	mockHandlerSetup(mockAzureHandler)
-	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
-		&armnetwork.VirtualNetworkGateway{
+	serverState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vpnGw: &armnetwork.VirtualNetworkGateway{
+			Name: to.Ptr(getVpnGatewayName(namespace)),
 			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
 				BgpSettings: &armnetwork.BgpSettings{
 					BgpPeeringAddresses: []*armnetwork.IPConfigurationBgpPeeringAddress{
@@ -702,13 +595,16 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 				},
 			},
 		},
-		nil,
-	)
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
+
+	server, _ := setupTestAzurePluginServer()
 
 	usedBgpPeeringIpAddressExpected := []string{"169.254.21.1", "169.254.22.1"}
 	req := &paragliderpb.GetUsedBgpPeeringIpAddressesRequest{
 		Deployments: []*paragliderpb.ParagliderDeployment{
-			{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
+			{Id: deploymentId, Namespace: namespace},
 		},
 	}
 	resp, err := server.GetUsedBgpPeeringIpAddresses(ctx, req)
@@ -717,144 +613,60 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 	require.ElementsMatch(t, usedBgpPeeringIpAddressExpected, resp.IpAddresses)
 }
 
-func TestGetVnetFromSubnetId(t *testing.T) {
-	subnetId := "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/vnet123/subnets/subnet123"
-	expectedVnet := "vnet123"
-
-	vnet := getVnetFromSubnetId(subnetId)
-	assert.Equal(t, expectedVnet, vnet)
-}
-
-func TestGetResourceIDInfo(t *testing.T) {
-	tests := []struct {
-		name         string
-		resourceID   string
-		expectedInfo ResourceIDInfo
-		expectError  bool
-	}{
-		{
-			name:         "ValidResourceIDWithVM",
-			resourceID:   getFakeVmUri(),
-			expectedInfo: ResourceIDInfo{SubscriptionID: "sub123", ResourceGroupName: "rg123", ResourceName: fakeVmName},
-			expectError:  false,
-		},
-		{
-			name:         "ValidResourceIDWithoutVM",
-			resourceID:   "/subscriptions/sub123/resourceGroups/rg123",
-			expectedInfo: ResourceIDInfo{SubscriptionID: "sub123", ResourceGroupName: "rg123", ResourceName: "rg123"},
-			expectError:  false,
-		},
-		{
-			name:         "InvalidFormatTooFewSegments",
-			resourceID:   "/subscriptions/sub123",
-			expectedInfo: ResourceIDInfo{},
-			expectError:  true,
-		},
-		{
-			name:         "InvalidSegment",
-			resourceID:   "/subscriptions/sub123/invalidSegment/rg123/providers/Microsoft.Compute/virtualMachines/" + fakeVmName,
-			expectedInfo: ResourceIDInfo{},
-			expectError:  true,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			info, err := getResourceIDInfo(test.resourceID)
-
-			if test.expectError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, test.expectedInfo, info)
-			}
-		})
-	}
-}
-
 func TestCreateVpnGateway(t *testing.T) {
+	serverState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vnet: &armnetwork.VirtualNetwork{
+			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+				Subnets: []*armnetwork.Subnet{
+					{
+						Name: to.Ptr(gatewaySubnetName),
+					},
+				},
+			},
+		},
+		subnet: &armnetwork.Subnet{
+			ID: to.Ptr("subnet-id"),
+		},
+		vpnGw: &armnetwork.VirtualNetworkGateway{
+			Name: to.Ptr(getVpnGatewayName(namespace)),
+			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
+				IPConfigurations: []*armnetwork.VirtualNetworkGatewayIPConfiguration{
+					{
+						ID: to.Ptr("ip-config-id"),
+						Properties: &armnetwork.VirtualNetworkGatewayIPConfigurationPropertiesFormat{
+							PublicIPAddress: &armnetwork.SubResource{
+								ID: to.Ptr(validPublicIpAddressId),
+							},
+						},
+					},
+				},
+				BgpSettings: &armnetwork.BgpSettings{
+					Asn: to.Ptr(int64(64512)),
+				},
+			},
+		},
+		publicIP: &armnetwork.PublicIPAddress{
+			Name: to.Ptr(validPublicIpAddressName),
+			ID:   to.Ptr(validPublicIpAddressId),
+			Properties: &armnetwork.PublicIPAddressPropertiesFormat{
+				IPAddress: to.Ptr("1.1.1.1"),
+			},
+		},
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
+
 	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
 	}
-	server, mockAzureHandler, ctx := setupAzurePluginServer()
+	server, _ := setupTestAzurePluginServer()
 	server.orchestratorServerAddr = fakeControllerServerAddr
-	mockHandlerSetup(mockAzureHandler)
 
-	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
-		nil,
-		&azcore.ResponseError{StatusCode: http.StatusNotFound},
-	)
-
-	fakePublicIpAddress := "172.178.88.1"
-	vpnGatewayIPAddressName := getVPNGatewayIPAddressName(defaultNamespace, 0)
-	mockAzureHandler.On("GetPublicIPAddress", ctx, vpnGatewayIPAddressName).Return(
-		nil,
-		&azcore.ResponseError{StatusCode: http.StatusNotFound},
-	)
-	mockAzureHandler.On("CreatePublicIPAddress", ctx, vpnGatewayIPAddressName, mock.Anything).Return(
-		&armnetwork.PublicIPAddress{
-			ID: to.Ptr("public-ip-address-%0"),
-			Properties: &armnetwork.PublicIPAddressPropertiesFormat{
-				IPAddress: to.Ptr(fakePublicIpAddress),
-			},
-		},
-		nil,
-	)
-
-	fakeVnetName := getVnetName(vpnLocation, defaultNamespace)
-	mockAzureHandler.On("GetParagliderVnet", ctx, fakeVnetName, vpnLocation, defaultNamespace, server.orchestratorServerAddr).Return(
-		&armnetwork.VirtualNetwork{
-			Name: to.Ptr(fakeVnetName),
-			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
-				AddressSpace: &armnetwork.AddressSpace{
-					AddressPrefixes: []*string{to.Ptr("10.0.0.0/16")},
-				},
-			},
-		},
-		nil,
-	)
-
-	vpnGwVnetName := getVpnGatewayVnetName(defaultNamespace)
-	mockAzureHandler.On("GetSubnet", ctx, vpnGwVnetName, gatewaySubnetName).Return(
-		&armnetwork.Subnet{ID: to.Ptr("gateway-subnet-id")},
-		nil,
-	)
-
-	mockAzureHandler.On("CreateOrUpdateVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace), mock.Anything).Return(
-		&armnetwork.VirtualNetworkGateway{
-			Properties: &armnetwork.VirtualNetworkGatewayPropertiesFormat{
-				BgpSettings: &armnetwork.BgpSettings{},
-				IPConfigurations: []*armnetwork.VirtualNetworkGatewayIPConfiguration{
-					{ID: to.Ptr("ip-config-1")},
-					{ID: to.Ptr("ip-config-2")},
-				},
-			},
-		},
-		nil,
-	)
-
-	mockAzureHandler.On("CreateOrUpdateVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace), mock.Anything).Return(
-		&armnetwork.VirtualNetworkGateway{},
-		nil,
-	)
-
-	vnetName := "vnet"
-	mockAzureHandler.On("ListVirtualNetworkPeerings", ctx, vpnGwVnetName).Return(
-		[]*armnetwork.VirtualNetworkPeering{
-			{Properties: &armnetwork.VirtualNetworkPeeringPropertiesFormat{RemoteVirtualNetwork: &armnetwork.SubResource{ID: to.Ptr("/subscriptions/123/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/" + vnetName)}}},
-		},
-		nil,
-	)
-	mockAzureHandler.On("GetVirtualNetworkPeering", ctx, vnetName, getPeeringName(vnetName, vpnGwVnetName)).Return(
-		&armnetwork.VirtualNetworkPeering{},
-		nil,
-	)
-	mockAzureHandler.On("CreateOrUpdateVnetPeeringRemoteGateway", ctx, vnetName, vpnGwVnetName, mock.Anything, mock.Anything).Return(
-		nil,
-	)
 	req := &paragliderpb.CreateVpnGatewayRequest{
-		Deployment:            &paragliderpb.ParagliderDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
+		Deployment:            &paragliderpb.ParagliderDeployment{Id: deploymentId, Namespace: namespace},
 		Cloud:                 "fake-cloud",
 		BgpPeeringIpAddresses: []string{"169.254.21.1", "169.254.22.1"},
 	}
@@ -862,42 +674,23 @@ func TestCreateVpnGateway(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Equal(t, orchestrator.MIN_PRIVATE_ASN_2BYTE, resp.Asn)
-	require.ElementsMatch(t, []string{fakePublicIpAddress}, resp.GatewayIpAddresses)
+	require.ElementsMatch(t, []string{*serverState.publicIP.Properties.IPAddress}, resp.GatewayIpAddresses)
 }
 
 func TestCreateVpnConnections(t *testing.T) {
-	server, mockAzureHandler, ctx := setupAzurePluginServer()
-	mockHandlerSetup(mockAzureHandler)
+	serverState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vpnGw:  &armnetwork.VirtualNetworkGateway{},
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
 
-	fakeCloudName := "fake-cloud"
-	localNetworkGatewayName := getLocalNetworkGatewayName(defaultNamespace, fakeCloudName, 0)
-	mockAzureHandler.On("GetLocalNetworkGateway", ctx, localNetworkGatewayName).Return(
-		nil,
-		&azcore.ResponseError{StatusCode: http.StatusNotFound},
-	)
-	mockAzureHandler.On("CreateLocalNetworkGateway", ctx, localNetworkGatewayName, mock.Anything).Return(
-		&armnetwork.LocalNetworkGateway{},
-		nil,
-	)
-
-	mockAzureHandler.On("GetVirtualNetworkGateway", ctx, getVpnGatewayName(defaultNamespace)).Return(
-		&armnetwork.VirtualNetworkGateway{},
-		nil,
-	)
-
-	virtualNetworkGatewayConnectionName := getVirtualNetworkGatewayConnectionName(defaultNamespace, fakeCloudName, 0)
-	mockAzureHandler.On("GetVirtualNetworkGatewayConnection", ctx, virtualNetworkGatewayConnectionName).Return(
-		nil,
-		&azcore.ResponseError{StatusCode: http.StatusNotFound},
-	)
-	mockAzureHandler.On("CreateVirtualNetworkGatewayConnection", ctx, virtualNetworkGatewayConnectionName, mock.Anything).Return(
-		&armnetwork.VirtualNetworkGatewayConnection{},
-		nil,
-	)
+	server, _ := setupTestAzurePluginServer()
 
 	req := &paragliderpb.CreateVpnConnectionsRequest{
-		Deployment:         &paragliderpb.ParagliderDeployment{Id: "/subscriptions/123/resourceGroups/rg", Namespace: defaultNamespace},
-		Cloud:              fakeCloudName,
+		Deployment:         &paragliderpb.ParagliderDeployment{Id: deploymentId, Namespace: namespace},
+		Cloud:              "cloudname",
 		Asn:                123,
 		GatewayIpAddresses: []string{"1.1.1.1", "2.2.2.2"},
 		BgpIpAddresses:     []string{"3.3.3.3", "4.4.4.4"},
@@ -910,14 +703,6 @@ func TestCreateVpnConnections(t *testing.T) {
 }
 
 /* --- Helper Functions --- */
-
-func getFakeVmUri() string {
-	return "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Compute/virtualMachines/" + fakeVmName
-}
-
-func getFakeClusterName() string {
-	return "cluster123"
-}
 
 func getFakeNewPermitListRules() ([]*paragliderpb.PermitListRule, error) {
 	return []*paragliderpb.PermitListRule{
@@ -943,11 +728,11 @@ func getFakeNewPermitListRules() ([]*paragliderpb.PermitListRule, error) {
 }
 
 func getFakePermitList() ([]*paragliderpb.PermitListRule, error) {
-	nsg := getFakeNsg("test", "test")
+	nsg := getFakeNsgWithRules("test", "test")
 	// initialize paraglider rules with the size of nsg rules
 	paragliderRules := []*paragliderpb.PermitListRule{}
 	// use real implementation to get actual mapping of nsg rules to paraglider rules
-	azureSDKHandler := &azureSDKHandler{}
+	azureSDKHandler := &AzureSDKHandler{}
 	for i := range nsg.Properties.SecurityRules {
 		if strings.HasPrefix(*nsg.Properties.SecurityRules[i].Name, paragliderPrefix) {
 			rule, err := azureSDKHandler.GetPermitListRuleFromNSGRule(nsg.Properties.SecurityRules[i])
@@ -965,9 +750,9 @@ func getFakePermitList() ([]*paragliderpb.PermitListRule, error) {
 func getFakeNIC() *armnetwork.Interface {
 	fakeNsgName := "test-nsg-name"
 	fakeNsgID := "a/b/" + fakeNsgName
-	fakeResourceAddress := "10.5.0.3"
 	fakeLocation := "test-location"
-	namespace := defaultNamespace
+	namespace := namespace
+	fakeResourceAddress := ""
 	fakeSubnetId := "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/" + getVnetName(fakeLocation, namespace) + "/subnets/subnet123"
 	return &armnetwork.Interface{
 		ID:       to.Ptr(validNicId),
@@ -990,7 +775,7 @@ func getFakeNIC() *armnetwork.Interface {
 	}
 }
 
-func getFakeNsg(nsgID string, nsgName string) *armnetwork.SecurityGroup {
+func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup {
 	return &armnetwork.SecurityGroup{
 		ID:   to.Ptr(nsgID),
 		Name: to.Ptr(nsgName),
@@ -1054,7 +839,7 @@ func getFakeNsg(nsgID string, nsgName string) *armnetwork.SecurityGroup {
 	}
 }
 
-func getFakeVnet(location *string, addressSpace string) *armnetwork.VirtualNetwork {
+func getFakeVnetInLocation(location *string, addressSpace string) *armnetwork.VirtualNetwork {
 	return &armnetwork.VirtualNetwork{
 		Location: location,
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
@@ -1063,46 +848,4 @@ func getFakeVnet(location *string, addressSpace string) *armnetwork.VirtualNetwo
 			},
 		},
 	}
-}
-
-func mockHandlerSetup(mockAzureHandler *MockAzureSDKHandler) {
-	mockAzureHandler.On("GetAzureCredentials").Return(&dummyTokenCredential{}, nil)
-	mockAzureHandler.On("InitializeClients", &dummyTokenCredential{}).Return(nil)
-	mockAzureHandler.On("SetSubIdAndResourceGroup", mock.Anything, mock.Anything).Return()
-}
-
-func mockGetSecurityGroupSetup(mockAzureHandler *MockAzureSDKHandler, ctx context.Context, associatedResrouce string, fakeNsgID string, fakeNsgName string, fakeNsg *armnetwork.SecurityGroup, fakeNic *armnetwork.Interface) {
-	var nicErr error = nil
-	var nsgErr error = nil
-	if fakeNic == nil {
-		nicErr = fmt.Errorf("error while getting NIC")
-	}
-	if fakeNsg == nil {
-		nsgErr = fmt.Errorf("error while getting NSG")
-	}
-	nicId := validNicId
-	fakeResource := getGenericResourceVM(associatedResrouce, &nicId)
-	mockAzureHandler.On("GetResource", ctx, associatedResrouce).Return(&fakeResource, nil)
-	mockAzureHandler.On("GetNetworkInterface", ctx, validNicName).Return(fakeNic, nicErr)
-	mockAzureHandler.On("GetSecurityGroup", ctx, fakeNsgName).Return(fakeNsg, nsgErr)
-}
-
-func getGenericResourceVM(resourceId string, nicId *string) armresources.GenericResource {
-	return armresources.GenericResource{
-		ID:       to.Ptr(resourceId),
-		Type:     to.Ptr("Microsoft.Compute/virtualMachines"),
-		Location: to.Ptr("test-location"),
-		Properties: map[string]interface{}{
-			"networkProfile": map[string]interface{}{
-				"networkInterfaces": []interface{}{
-					map[string]interface{}{"id": *getFakeNIC().ID},
-				},
-			},
-		},
-	}
-}
-
-func mockGetVnetAndAddressSpaces(mockAzureHandler *MockAzureSDKHandler, ctx context.Context, vnetName string, vnetPrefix string, fakeVnet *armnetwork.VirtualNetwork, fakeAddressList map[string][]string) {
-	mockAzureHandler.On("GetVNet", ctx, vnetName).Return(fakeVnet, nil)
-	mockAzureHandler.On("GetVNetsAddressSpaces", ctx, vnetPrefix).Return(fakeAddressList, nil)
 }
