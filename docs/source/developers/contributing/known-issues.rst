@@ -15,7 +15,8 @@ You may see the following error from ``gopls`` in the ``*_test.go`` files.
     https://github.com/golang/tools/blob/master/gopls/doc/workspace.md.
 
 
-This is due to a known issue within ``gopls`` (https://github.com/golang/go/issues/29202). You can work around this in VS Code by specifying the following in your ``settings.json``.
+This is due to a known issue within ``gopls`` (https://github.com/golang/go/issues/29202). 
+You can work around this in VS Code by specifying the following in your ``settings.json``.
 
 .. code-block:: console
 

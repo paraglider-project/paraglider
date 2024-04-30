@@ -5,20 +5,19 @@ Prerequisites
 
 Prerequisites for working with the repo
 -----------------------------------------
-This section lists the prerequisites for working with the repository. Most contributors should start with the basic prerequisites. Depending on the task you need to perform, you may need to install more tools.
+This section lists the prerequisites for working with the repository. Most contributors should start with the basic prerequisites. 
+Depending on the task you need to perform, you may need to install more tools.
 
-We also provide a `Devcontainer <https://code.visualstudio.com/docs/devcontainers/containers>`_ for working with this repository without installing prerequisites. Keep reading for instructions.
-
+We also provide a `Devcontainer <https://code.visualstudio.com/docs/devcontainers/containers>`_ for working with this repository without installing prerequisites. 
+Keep reading for instructions.
 
 Operating system
 ^^^^^^^^^^^^^^^^^^^^
 We support developing on macOS, Linux and Windows with `WSL <https://docs.microsoft.com/windows/wsl/install>`_.
 
-
 Asking for help
 ^^^^^^^^^^^^^^^^^^^^
 If you get stuck installing any of our dependencies, you can raise an issue or ask for help in our `discord <https://discordapp.com/channels/1116864463832891502/11168644638328915074>`_.
-
 
 Required tools
 ^^^^^^^^^^^^^^^^^^^^
@@ -50,7 +49,6 @@ This is the list of core dependencies to install for the most common tasks. In g
 
         brew install make
     
-
 Testing Required Tools
 ^^^^^^^^^^^^^^^^^^^^^^^
 If you have not already done so, clone the repository and navigate there in your command shell.
@@ -62,7 +60,8 @@ You can build the main outputs using `make`:
     make build lint
 
 
-Running these steps will run our build and lint steps and verify that the tools are installed correctly. If you get stuck or suspect something is not working in these instructions please raise an issue or ask for help in our `discord <https://discordapp.com/channels/1116864463832891502/11168644638328915074>`_.
+Running these steps will run our build and lint steps and verify that the tools are installed correctly. 
+If you get stuck or suspect something is not working in these instructions please raise an issue or ask for help in our `discord <https://discordapp.com/channels/1116864463832891502/11168644638328915074>`_.
 
 **Integration/Multicloud Tests**
 
@@ -94,6 +93,11 @@ If you would like to run these locally, you will need to be authenticated. The f
 
 If you'd like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable `INVISINETS_TEST_PERSIST` to `1`.
 
+**IBM** 
+
+.. note: 
+    IBM integration tests are not currently supported. We plan to add some soon.
+
 Editor
 --------------------
 If you don't have a code editor set up for Go, we recommend VS Code. The experience with VS Code is high-quality and approachable for newcomers.
@@ -106,7 +110,6 @@ Alternatively, you can choose whichever editor you are most comfortable for work
 Install both of these and then follow the steps in the *Quick Start* for the Go extension.
 
 The extension will walk you through an automated install of some additional tools that match your installed version of Go.
-
 
 Launching VS Code
 ^^^^^^^^^^^^^^^^^^^^
@@ -123,15 +126,15 @@ Dev Containers allow you to run a development environment using VS Code inside a
 - Install `VS Code <https://code.visualstudio.com/>`_
 - Install the `Dev Container extension <https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers>`_
 
-Now when you open the Paraglider repo, you will be prompted with the option to open in a Dev Container. This will take a few minutes the first time to download and build the container, but will be much faster on subsequent opens.
-
+Now when you open the Paraglider repo, you will be prompted with the option to open in a Dev Container. 
+This will take a few minutes the first time to download and build the container, but will be much faster on subsequent opens.
 
 Additional Tools
 --------------------
 
-
 Test summaries
 ^^^^^^^^^^^^^^^^^^^^
-The default `go test` output can be hard to read when you have many tests. We recommend `gotestsum` as a tool to solve this. Our `make test` command will automatically use `gotestsum` if it is available.
+The default `go test` output can be hard to read when you have many tests. We recommend `gotestsum` as a tool to solve this. 
+Our `make test` command will automatically use `gotestsum` if it is available.
 
 - `gotestsum <https://github.com/gotestyourself/gotestsum#install>`_

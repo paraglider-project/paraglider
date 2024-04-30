@@ -27,7 +27,6 @@ Installing the code
 ^^^^^^^^^^^^^^^^^^^^^
 After building the code, you can run ``make install`` to install the binaries to your ``/usr/local/bin`` directory. This will allow you to run the binaries from anywhere on your system.
 
-
 Documentation
 -------------
 
@@ -59,12 +58,12 @@ Viewing
 
 Navigate to ``localhost:8000``.
 
-
 Troubleshooting and getting help
 ---------------------------------
 You might encounter error messages while running various `make` commands due to missing dependencies. Review the prerequisites listed above for installation instructions.
 
-If you get stuck working with the repository, please ask for help by `raising an issue on Github <https://github.com/paraglider-project/paraglider/issues/new>`_ or in our `discord <https://discordapp.com/channels/1116864463832891502/11168644638328915074>`_. We're always interested in ways to improve the tooling, so please feel free to report problems and suggest improvements.
+If you get stuck working with the repository, please ask for help by `raising an issue on Github <https://github.com/paraglider-project/paraglider/issues/new>`_ or in our `discord <https://discordapp.com/channels/1116864463832891502/11168644638328915074>`_. 
+We're always interested in ways to improve the tooling, so please feel free to report problems and suggest improvements.
 
 If you need to report an issue with the Makefile, we may ask you for a dump of the variables. You can see the state of all of the variables our Makefile defines with `make dump`. The output will be quite large so you might want to redirect this to a file.
 
