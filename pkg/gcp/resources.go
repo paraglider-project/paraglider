@@ -483,3 +483,11 @@ func (r *gcpGKE) fromResourceDecription(resourceDesc []byte) (*containerpb.Creat
 	}
 	return createClusterRequest, nil
 }
+
+func getInstanceUri(project, zone, instance string) string {
+	return fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instance)
+}
+
+func getClusterUri(project, zone, cluster string) string {
+	return fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, zone, cluster)
+}
