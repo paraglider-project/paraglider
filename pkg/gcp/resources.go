@@ -33,12 +33,9 @@ import (
 )
 
 const (
-	clusterTypeName    = "cluster"
-	instanceTypeName   = "instance"
-	clusterNameFormat  = "projects/%s/locations/%s/clusters/%s"
-	computeURLPrefix   = "https://www.googleapis.com/compute/v1/"
-	containerURLPrefix = "https://container.googleapis.com/v1beta1/"
-	networkInterface   = "nic0"
+	clusterTypeName   = "cluster"
+	instanceTypeName  = "instance"
+	clusterNameFormat = "projects/%s/locations/%s/clusters/%s"
 )
 
 type resourceInfo struct {

@@ -43,6 +43,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const (
+	computeURLPrefix   = "https://www.googleapis.com/compute/v1/"
+	containerURLPrefix = "https://container.googleapis.com/v1beta1/"
+)
+
 func generateProjectId(testName string) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	const projectIdMaxLength = 30
