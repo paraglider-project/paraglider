@@ -7,3 +7,6 @@ The Paraglider project is in its prototype phase. We are excited to work with th
 
 ## Guidelines
 Please refer to our full [contributor guidelines](docs/source/developers/contributing.rst) for more information.
+
+## Contact Us
+If you have questions or other concerns and would like to contact the maintainers, please join our [discord](https://discordapp.com/channels/1116864463832891502/11168644638328915074).
