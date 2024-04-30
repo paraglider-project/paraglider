@@ -65,7 +65,11 @@ func getNetworkTag(namespace string, resourceType string, resourceId string) str
 }
 
 func convertInstanceIdToString(instanceId uint64) string {
-	return strconv.FormatUint(instanceId, 16)
+	id := strconv.FormatUint(instanceId, 16)
+	if len(id) > 8 {
+		return id[:8]
+	}
+	return id
 }
 
 func shortenClusterId(clusterId string) string {
