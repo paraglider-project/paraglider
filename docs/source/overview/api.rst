@@ -202,6 +202,7 @@ Parameters:
 * ``resource_name``: Paraglider name of the resource
 * ``path_to_file``: path to JSON file describing rules to add
     * The file should describe rules in the following format:
+    
     .. code-block:: JSON
         
         {
