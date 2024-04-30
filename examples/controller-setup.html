@@ -3,10 +3,10 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Multicloud Example" href="multicloud.html" /><link rel="prev" title="Controller Setup" href="controller-setup.html" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Tag Example" href="tags.html" /><link rel="prev" title="Quickstart" href="../overview/quickstart.html" />
 
     <!-- Generated with Sphinx 7.2.6 and Furo 2024.01.29 -->
-        <title>Tag Example - Paraglider documentation</title>
+        <title>Controller Setup - Paraglider documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=135e06be" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
@@ -165,8 +165,8 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="controller-setup.html">Controller Setup</a></li>
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Tag Example</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Controller Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tags.html">Tag Example</a></li>
 <li class="toctree-l1"><a class="reference internal" href="multicloud.html">Multicloud Example</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Project Status</span></p>
@@ -219,92 +219,66 @@
           </label>
         </div>
         <article role="main">
-          <section id="tag-example">
-<span id="tagexample"></span><h1>Tag Example<a class="headerlink" href="#tag-example" title="Link to this heading">#</a></h1>
-<section id="goals">
-<h2>Goals<a class="headerlink" href="#goals" title="Link to this heading">#</a></h2>
+          <section id="controller-setup">
+<span id="controllersetup"></span><h1>Controller Setup<a class="headerlink" href="#controller-setup" title="Link to this heading">#</a></h1>
+<p>This page explains how to set up the Paraglider controller. The controller consists of many microservices which communicate via RPCs.
+Each microservice can be run on a different machine, but in this guide we will assume that all microservices are running on the same machine.
+For information on the commands for running each individual microservice, see <a class="reference internal" href="../overview/api.html#api"><span class="std std-ref">API</span></a>.</p>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h2>
+<p>The controller is configured using a configuration file. The configuration file is a YAML file with the following fields:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">server</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
+<span class="w">    </span><span class="nt">rpcPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8081</span>
+
+<span class="nt">cloudPlugins</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;gcp&quot;</span>
+<span class="w">        </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">        </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8082</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;azure&quot;</span>
+<span class="w">        </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">        </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8083</span>
+
+<span class="nt">namespaces</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">default</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;azure&quot;</span>
+<span class="w">          </span><span class="nt">deployment</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP}&quot;</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;gcp&quot;</span>
+<span class="w">          </span><span class="nt">deployment</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;projects/${GCP_PROJECT_ID}&quot;</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ibm&quot;</span>
+<span class="w">          </span><span class="nt">deployment</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;resource_groups/${IBM_RESOURCE_GROUP}&quot;</span>
+
+<span class="nt">tagService</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8084</span>
+
+<span class="nt">kvStore</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8085</span>
+</pre></div>
+</div>
+<p>This file contains all information needed to spin up each of the microservices.
+* The <code class="docutils literal notranslate"><span class="pre">server</span></code> field determines where the main controller service should be hosted (for user REST requests and plugin RPCs). This service is the frontend to the controller and orchestrates the other services.
+* The <code class="docutils literal notranslate"><span class="pre">cloudPlugins</span></code> field determines where the each cloud plugin should be hosted.
+* The <code class="docutils literal notranslate"><span class="pre">namespaces</span></code> field contains information about the namespaces. Each namespace has a name and consists of at least one cloud deployment.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>A cloud deployment consists of the name of the cloud (“azure”, “gcp”, or “ibm”) and the ID of the deployment. Exactly what maps to a deployment depends on the cloud. In Azure and IBM, this is a resource group. In GCP, it is a project.</p></li>
+</ul>
+</div></blockquote>
 <ul class="simple">
-<li><p>Create a tag for an IP address</p></li>
-<li><p>Add a parent tag for the IP tag</p></li>
-<li><p>Reference the parent tag in a resource’s permit list</p></li>
-<li><p>Add a new tag to the parent tag</p></li>
-<li><p>See that the resource’s permit list has been updated accordingly</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">tagService</span></code> field determines where the tag service should be hosted.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">kvStore</span></code> field determines where the key-value store should be hosted.</p></li>
 </ul>
 </section>
-<section id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h2>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/paraglider-project/paraglider
-<span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>paraglider
-<span class="gp">$ </span>make<span class="w"> </span>build<span class="w"> </span>install
+<section id="running-the-controller">
+<h2>Running the Controller<a class="headerlink" href="#running-the-controller" title="Link to this heading">#</a></h2>
+<p>To run the controller all locally, you need to run the following command:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glided<span class="w"> </span>startup<span class="w"> </span>&lt;path_to_config_file&gt;
 </pre></div>
 </div>
-</section>
-<section id="controller-setup">
-<h2>Controller Setup<a class="headerlink" href="#controller-setup" title="Link to this heading">#</a></h2>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glided<span class="w"> </span>startup<span class="w"> </span>&lt;path_to_config&gt;
-</pre></div>
-</div>
-<p>You can find example configuration files in the <code class="docutils literal notranslate"><span class="pre">tools/examples/controller-configs</span></code> directory.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This example will create a VM in GCP. You can create the VM in whichever cloud you prefer. Make sure that your chosen cloud provider is configured in the controller configuration file.</p>
-</div>
-</section>
-<section id="steps">
-<h2>Steps<a class="headerlink" href="#steps" title="Link to this heading">#</a></h2>
-<ol class="arabic">
-<li><p>Create a tag for an IP address with name <cite>iptag</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>iptag<span class="w"> </span>--ip<span class="w"> </span><span class="m">1</span>.1.1.1
-</pre></div>
-</div>
-</li>
-<li><p>Assign <cite>iptag</cite> to a parent tag named <cite>parenttag</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parenttag<span class="w"> </span>--children<span class="w"> </span>iptag
-</pre></div>
-</div>
-</li>
-<li><p>Resolve the parent tag down to list of names</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>parenttag<span class="w"> </span>--resolve
-</pre></div>
-</div>
-</li>
-<li><p>Create a resource name <cite>vm1</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>gcp<span class="w"> </span>vm1<span class="w"> </span>&lt;path_to_config&gt;
-</pre></div>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>You can find example configuration files in the <code class="docutils literal notranslate"><span class="pre">tools/examples/vm-configs</span></code> directory.</p>
-</div>
-</li>
-</ol>
-<ol class="arabic" start="4">
-<li><p>Add a rule referencing the parent tag to a resource</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>gcp<span class="w"> </span>vm1<span class="w"> </span>--ping<span class="w"> </span>parenttag
-</pre></div>
-</div>
-</li>
-<li><p>Create a tag, <cite>iptag2</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>iptag2<span class="w"> </span>--ip<span class="w"> </span><span class="m">2</span>.2.2.2
-</pre></div>
-</div>
-</li>
-<li><p>Add <cite>iptag2</cite> to <cite>parenttag</cite></p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parenttag<span class="w"> </span>--children<span class="w"> </span>iptag2
-</pre></div>
-</div>
-</li>
-<li><p>Get the permit list of the resource we added to</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>get<span class="w"> </span>gcp<span class="w"> </span>vm1
-</pre></div>
-</div>
-</li>
-<li><p>Resolve the parent tag</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>parenttag<span class="w"> </span>--resolve
-</pre></div>
-</div>
-</li>
-</ol>
+<p>Alternatively, all microservices can be spun up individually. For information on the commands for running each individual microservice, see <a class="reference internal" href="../overview/api.html#api"><span class="std std-ref">API</span></a>.</p>
 </section>
 </section>
 
@@ -313,23 +287,23 @@
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="multicloud.html">
+          <a class="next-page" href="tags.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">Multicloud Example</div>
+                <div class="title">Tag Example</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="controller-setup.html">
+          <a class="prev-page" href="../overview/quickstart.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">Controller Setup</div>
+                <div class="title">Quickstart</div>
                 
               </div>
             </a>
@@ -362,11 +336,9 @@
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#">Tag Example</a><ul>
-<li><a class="reference internal" href="#goals">Goals</a></li>
-<li><a class="reference internal" href="#installation">Installation</a></li>
-<li><a class="reference internal" href="#controller-setup">Controller Setup</a></li>
-<li><a class="reference internal" href="#steps">Steps</a></li>
+<li><a class="reference internal" href="#">Controller Setup</a><ul>
+<li><a class="reference internal" href="#configuration">Configuration</a></li>
+<li><a class="reference internal" href="#running-the-controller">Running the Controller</a></li>
 </ul>
 </li>
 </ul>

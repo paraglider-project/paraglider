@@ -165,6 +165,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="controller-setup.html">Controller Setup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tags.html">Tag Example</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Multicloud Example</a></li>
 </ul>
@@ -241,25 +242,37 @@
         </div></section>
 <section id="setup">
 <h2>Setup<a class="headerlink" href="#setup" title="Link to this heading">#</a></h2>
-<ul class="simple">
-<li><p>For this example, we assume that you have set up the necessary credentials for Azure and GCP and that you have configured your Paraglider controller with a <code class="docutils literal notranslate"><span class="pre">default</span></code> namespace for both clouds. For more on how to do this, see the quickstart.</p></li>
-<li><dl class="simple">
-<dt>Run <code class="docutils literal notranslate"><span class="pre">glided</span> <span class="pre">startup</span> <span class="pre">&lt;path_to_config&gt;</span></code> to start all the microservices</dt><dd><ul>
-<li><p>This example uses a templated controller config from the repo. You can find it at the <code class="docutils literal notranslate"><span class="pre">tools/examples/controller-configs/az-gcp-config.yml</span></code> directory.</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>This example uses the following templated configuration files in the repo. You can find them in the <code class="docutils literal notranslate"><span class="pre">tools/examples/</span></code>.</dt><dd><ul>
+<section id="installation">
+<h3>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h3>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/paraglider-project/paraglider
+<span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>paraglider
+<span class="gp">$ </span>make<span class="w"> </span>build<span class="w"> </span>install
+</pre></div>
+</div>
+</section>
+<section id="controller-setup">
+<h3>Controller Setup<a class="headerlink" href="#controller-setup" title="Link to this heading">#</a></h3>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glided<span class="w"> </span>startup<span class="w"> </span>&lt;path_to_config&gt;
+</pre></div>
+</div>
+<p>You can find example configuration files in the <code class="docutils literal notranslate"><span class="pre">tools/examples/controller-configs</span></code> directory.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Be sure to replace the template values for the GCP project and the Azure resource group in the template.</p>
+</div>
+<p>For this example, we assume that you have set up the necessary credentials for Azure and GCP and that you have configured your Paraglider controller with a <code class="docutils literal notranslate"><span class="pre">default</span></code> namespace for both clouds. For more on how to do this, see the <a class="reference internal" href="../overview/quickstart.html#quickstart"><span class="std std-ref">Quickstart</span></a> or <a class="reference internal" href="controller-setup.html#controllersetup"><span class="std std-ref">Controller Setup</span></a>.</p>
+</section>
+<section id="resource-configurations">
+<h3>Resource Configurations<a class="headerlink" href="#resource-configurations" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>This example uses the following templated configuration files in the repo. You can find them in the <code class="docutils literal notranslate"><span class="pre">tools/examples/</span></code>.</dt><dd><ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">vm-configs/azure-vm-westus.json</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">vm-configs/azure-vm-eastus.json</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">vm-configs/gcp-vm.json</span></code></p></li>
 </ul>
 </dd>
 </dl>
-</li>
-</ul>
+</section>
 </section>
 <section id="phase-0-multicloud-prep">
 <h2>Phase 0: Multicloud Prep<a class="headerlink" href="#phase-0-multicloud-prep" title="Link to this heading">#</a></h2>
@@ -342,7 +355,7 @@
 </ol>
 <ol class="arabic" start="4">
 <li><p>Remove a permit list rule allowing pings from VM A’s permit list.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>delete<span class="w"> </span>azure<span class="w"> </span>vm-a<span class="w"> </span>--rules<span class="w"> </span>allow-ping-inbound-default.gcp.vm-c
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>glide<span class="w"> </span>rule<span class="w"> </span>delete<span class="w"> </span>azure<span class="w"> </span>vm-a<span class="w"> </span>--rules<span class="w"> </span>ping-in-default-gcp-vm-c
 </pre></div>
 </div>
 </li>
@@ -408,7 +421,12 @@
             <ul>
 <li><a class="reference internal" href="#">Multicloud Example</a><ul>
 <li><a class="reference internal" href="#goals">Goals</a></li>
-<li><a class="reference internal" href="#setup">Setup</a></li>
+<li><a class="reference internal" href="#setup">Setup</a><ul>
+<li><a class="reference internal" href="#installation">Installation</a></li>
+<li><a class="reference internal" href="#controller-setup">Controller Setup</a></li>
+<li><a class="reference internal" href="#resource-configurations">Resource Configurations</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#phase-0-multicloud-prep">Phase 0: Multicloud Prep</a><ul>
 <li><a class="reference internal" href="#steps">Steps</a></li>
 </ul>
