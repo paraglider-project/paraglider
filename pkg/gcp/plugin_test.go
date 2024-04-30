@@ -1,7 +1,7 @@
 //go:build unit
 
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,10 +25,10 @@ import (
 
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
-	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/NetSys/invisinets/pkg/orchestrator"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -58,12 +58,12 @@ func TestGetPermitList(t *testing.T) {
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
-	request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: fakeNamespace}
+	request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: fakeNamespace}
 
 	responseActual, err := s._GetPermitList(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
 	require.NoError(t, err)
-	responseExpected := &invisinetspb.GetPermitListResponse{
-		Rules: []*invisinetspb.PermitListRule{fakePermitListRule1, fakePermitListRule2},
+	responseExpected := &paragliderpb.GetPermitListResponse{
+		Rules: []*paragliderpb.PermitListRule{fakePermitListRule1, fakePermitListRule2},
 	}
 	require.NotNil(t, responseActual)
 	assert.ElementsMatch(t, responseExpected.Rules, responseActual.Rules)
@@ -74,7 +74,7 @@ func TestGetPermitListMissingInstance(t *testing.T) {
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
-	request := &invisinetspb.GetPermitListRequest{Resource: fakeMissingResourceId, Namespace: fakeNamespace}
+	request := &paragliderpb.GetPermitListRequest{Resource: fakeMissingResourceId, Namespace: fakeNamespace}
 
 	resp, err := s._GetPermitList(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
 	require.Error(t, err)
@@ -88,7 +88,7 @@ func TestGetPermitListWrongNamespace(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 	s := &GCPPluginServer{}
-	request := &invisinetspb.GetPermitListRequest{Resource: fakeResourceId, Namespace: "wrongnamespace"}
+	request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: "wrongnamespace"}
 
 	resp, err := s._GetPermitList(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
 	require.Error(t, err)
@@ -107,7 +107,7 @@ func TestAddPermitListRules(t *testing.T) {
 	}
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
-			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")),
+			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")),
 			Network:    proto.String(GetVpcUri(fakeProject, fakeNamespace)),
 		},
 	}
@@ -120,18 +120,18 @@ func TestAddPermitListRules(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
-	request := &invisinetspb.AddPermitListRulesRequest{
+	request := &paragliderpb.AddPermitListRulesRequest{
 		Resource: fakeResourceId,
-		Rules: []*invisinetspb.PermitListRule{
+		Rules: []*paragliderpb.PermitListRule{
 			{
-				Direction: invisinetspb.Direction_INBOUND,
+				Direction: paragliderpb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   443,
 				Protocol:  6,
 				Targets:   []string{"10.0.0.1"},
 			},
 			{
-				Direction: invisinetspb.Direction_OUTBOUND,
+				Direction: paragliderpb.Direction_OUTBOUND,
 				SrcPort:   -1,
 				DstPort:   8080,
 				Protocol:  6,
@@ -156,11 +156,11 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
-	request := &invisinetspb.AddPermitListRulesRequest{
+	request := &paragliderpb.AddPermitListRulesRequest{
 		Resource: fakeMissingResourceId,
-		Rules: []*invisinetspb.PermitListRule{
+		Rules: []*paragliderpb.PermitListRule{
 			{
-				Direction: invisinetspb.Direction_INBOUND,
+				Direction: paragliderpb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   443,
 				Protocol:  6,
@@ -184,11 +184,11 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
-	request := &invisinetspb.AddPermitListRulesRequest{
+	request := &paragliderpb.AddPermitListRulesRequest{
 		Resource: fakeMissingResourceId,
-		Rules: []*invisinetspb.PermitListRule{
+		Rules: []*paragliderpb.PermitListRule{
 			{
-				Direction: invisinetspb.Direction_INBOUND,
+				Direction: paragliderpb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   443,
 				Protocol:  6,
@@ -220,7 +220,7 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 	}
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
-			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")),
+			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")),
 			Network:    proto.String(GetVpcUri(fakeProject, fakeNamespace)),
 		},
 	}
@@ -233,7 +233,7 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
-	newRule := &invisinetspb.PermitListRule{
+	newRule := &paragliderpb.PermitListRule{
 		Name:      fakePermitListRule1.Name,
 		Direction: fakePermitListRule1.Direction,
 		SrcPort:   fakePermitListRule1.SrcPort,
@@ -242,9 +242,9 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 		Targets:   []string{"10.0.0.1"},
 		Tags:      fakePermitListRule1.Tags,
 	}
-	request := &invisinetspb.AddPermitListRulesRequest{
+	request := &paragliderpb.AddPermitListRulesRequest{
 		Resource:  fakeResourceId,
-		Rules:     []*invisinetspb.PermitListRule{newRule},
+		Rules:     []*paragliderpb.PermitListRule{newRule},
 		Namespace: fakeNamespace,
 	}
 
@@ -259,7 +259,7 @@ func TestDeletePermitListRules(t *testing.T) {
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
-	request := &invisinetspb.DeletePermitListRulesRequest{
+	request := &paragliderpb.DeletePermitListRulesRequest{
 		Resource:  fakeResourceId,
 		RuleNames: []string{fakePermitListRule1.Name, fakePermitListRule2.Name},
 		Namespace: fakeNamespace,
@@ -275,7 +275,7 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
-	request := &invisinetspb.DeletePermitListRulesRequest{
+	request := &paragliderpb.DeletePermitListRulesRequest{
 		Resource:  fakeMissingResourceId,
 		RuleNames: []string{fakePermitListRule1.Name},
 		Namespace: fakeNamespace,
@@ -294,7 +294,7 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	s := &GCPPluginServer{}
-	request := &invisinetspb.DeletePermitListRulesRequest{
+	request := &paragliderpb.DeletePermitListRulesRequest{
 		Resource:  fakeMissingResourceId,
 		RuleNames: []string{"Name"},
 		Namespace: "wrongnamespace",
@@ -310,7 +310,7 @@ func TestCreateResource(t *testing.T) {
 		instance: getFakeInstance(true), // Include instance in server state since CreateResource will fetch after creating to add the tag
 		network: &computepb.Network{
 			Name:        proto.String(getVpcName(fakeNamespace)),
-			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")},
 		},
 	}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
@@ -329,8 +329,8 @@ func TestCreateResource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
+	resource := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		Name:        fakeInstanceName,
 		Description: description,
 	}
@@ -345,7 +345,7 @@ func TestCreateResourceCluster(t *testing.T) {
 		cluster: getFakeCluster(true), // Include cluster in server state since CreateResource will fetch after creating to add the tag
 		network: &computepb.Network{
 			Name:        proto.String(getVpcName(fakeNamespace)),
-			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "invisinets-"+fakeRegion+"-subnet")},
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")},
 		},
 	}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
@@ -363,8 +363,8 @@ func TestCreateResourceCluster(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
+	resource := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		Name:        fakeClusterName,
 		Description: description,
 	}
@@ -392,8 +392,8 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
+	resource := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		Name:        fakeInstanceName,
 		Description: description,
 	}
@@ -425,8 +425,8 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
+	resource := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		Name:        fakeInstanceName,
 		Description: description,
 	}
@@ -441,7 +441,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		network: &computepb.Network{
 			Name: proto.String(getVpcName(fakeNamespace)),
 			Subnetworks: []string{
-				"https://www.googleapis.com/compute/v1/projects/invisinets-playground/regions/us-fake1/subnetworks/invisinets-us-fake1-subnet",
+				"https://www.googleapis.com/compute/v1/projects/paraglider-playground/regions/us-fake1/subnetworks/paraglider-us-fake1-subnet",
 			},
 		},
 		subnetwork: &computepb.Subnetwork{
@@ -453,15 +453,15 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 
 	s := &GCPPluginServer{}
 
-	expectedAddressSpaceMappings := []*invisinetspb.AddressSpaceMapping{
+	expectedAddressSpaceMappings := []*paragliderpb.AddressSpaceMapping{
 		{
 			AddressSpaces: []string{"10.1.2.0/24"},
 			Cloud:         utils.GCP,
 			Namespace:     fakeNamespace,
 		},
 	}
-	req := &invisinetspb.GetUsedAddressSpacesRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{
+	req := &paragliderpb.GetUsedAddressSpacesRequest{
+		Deployments: []*paragliderpb.ParagliderDeployment{
 			{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		},
 	}
@@ -486,8 +486,8 @@ func TestGetUsedAsns(t *testing.T) {
 	vpnRegion = fakeRegion
 
 	usedAsnsExpected := []uint32{64512}
-	req := &invisinetspb.GetUsedAsnsRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{
+	req := &paragliderpb.GetUsedAsnsRequest{
+		Deployments: []*paragliderpb.ParagliderDeployment{
 			{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		},
 	}
@@ -513,8 +513,8 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 	vpnRegion = fakeRegion
 
 	usedBgpPeeringIpAddressExpected := []string{"169.254.21.1", "169.254.22.1"}
-	req := &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{
+	req := &paragliderpb.GetUsedBgpPeeringIpAddressesRequest{
+		Deployments: []*paragliderpb.ParagliderDeployment{
 			{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		},
 	}
@@ -543,8 +543,8 @@ func TestCreateVpnGateway(t *testing.T) {
 	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	vpnRegion = fakeRegion
 
-	req := &invisinetspb.CreateVpnGatewayRequest{
-		Deployment:            &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
+	req := &paragliderpb.CreateVpnGatewayRequest{
+		Deployment:            &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
 		Cloud:                 "fakecloud",
 		BgpPeeringIpAddresses: []string{"169.254.21.1", "169.254.22.1"},
 	}
@@ -563,8 +563,8 @@ func TestCreateVpnConnections(t *testing.T) {
 	s := &GCPPluginServer{}
 	vpnRegion = fakeRegion
 
-	req := &invisinetspb.CreateVpnConnectionsRequest{
-		Deployment:         &invisinetspb.InvisinetsDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
+	req := &paragliderpb.CreateVpnConnectionsRequest{
+		Deployment:         &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("projects/%s/regions/%s", fakeProject, fakeRegion)},
 		Cloud:              "fakecloud",
 		Asn:                65555,
 		GatewayIpAddresses: []string{"1.1.1.1"},

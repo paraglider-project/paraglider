@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 // CreateInstance creates a VM in the specified subnet and zone.
@@ -41,7 +41,7 @@ func (c *CloudClient) CreateInstance(vpcID, subnetID string,
 		return nil, err
 	}
 
-	instance, err := c.createInstance(keyID, vpcID, subnetID, instanceOptions, securityGroup, tags)
+	instance, err := c.createInstance(keyID, subnetID, instanceOptions, securityGroup, tags)
 	if err != nil {
 		utils.Log.Println("Failed to launch instance with error:\n", err)
 		return nil, err
@@ -49,7 +49,7 @@ func (c *CloudClient) CreateInstance(vpcID, subnetID string,
 	return instance, nil
 }
 
-func (c *CloudClient) createInstance(keyID, vpcID, subnetID string, instanceOptions *vpcv1.CreateInstanceOptions, securityGroup *vpcv1.SecurityGroup, tags []string) (
+func (c *CloudClient) createInstance(keyID, subnetID string, instanceOptions *vpcv1.CreateInstanceOptions, securityGroup *vpcv1.SecurityGroup, tags []string) (
 	*vpcv1.Instance, error) {
 
 	sgGrps := []vpcv1.SecurityGroupIdentityIntf{
@@ -92,29 +92,23 @@ func (c *CloudClient) createInstance(keyID, vpcID, subnetID string, instanceOpti
 	return instance, nil
 }
 
-// returns the security group ID that's associated with the VM's network interfaces
-func (c *CloudClient) GetInstanceSecurityGroupID(name string) (string, error) {
-
-	vmData, err := c.GetInstanceData(name)
-	if err != nil {
-		return "", err
-	}
-	vmID := vmData.ID
+// GetInstanceSecurityGroupID returns the security group ID that's associated with the VM's network interfaces
+func (c *CloudClient) GetInstanceSecurityGroupID(id string) (string, error) {
 
 	nics, _, err := c.vpcService.ListInstanceNetworkInterfaces(
-		&vpcv1.ListInstanceNetworkInterfacesOptions{InstanceID: vmID})
+		&vpcv1.ListInstanceNetworkInterfacesOptions{InstanceID: &id})
 	if err != nil {
 		return "", err
 	}
 	for _, nic := range nics.NetworkInterfaces {
 		for _, sg := range nic.SecurityGroups {
-			if IsInvisinetsResource(*sg.Name) {
-				// A VM is only ever associated with a single invisinets SG
+			if IsParagliderResource(*sg.Name) {
+				// A VM is only ever associated with a single paraglider SG
 				return *sg.ID, nil
 			}
 		}
 	}
-	return "", fmt.Errorf("no invisinets SG is associated with the specified instance.")
+	return "", fmt.Errorf("no paraglider SG is associated with the specified instance")
 }
 
 // NOTE: Currently not in use, as public ips are not provisioned.
@@ -198,7 +192,7 @@ func (c *CloudClient) VMToVPCObject(vmID string) (*vpcv1.VPCReference, error) {
 // region is an optional argument used to increase effectiveness of resource search
 func (c *CloudClient) IsInstanceInNamespace(InstanceName, namespace, region string) (bool, error) {
 	resourceQuery := ResourceQuery{}
-	vmData, err := c.GetInstanceData(InstanceName)
+	vmData, err := c.getInstanceDataFromID(InstanceName)
 	if err != nil {
 		return false, err
 	}
@@ -210,7 +204,7 @@ func (c *CloudClient) IsInstanceInNamespace(InstanceName, namespace, region stri
 	}
 
 	// look for a VM with the specified CRN in the specified namespace.
-	taggedVMData, err := c.GetInvisinetsTaggedResources(VM, []string{namespace},
+	taggedVMData, err := c.GetParagliderTaggedResources(VM, []string{namespace},
 		resourceQuery)
 	if err != nil {
 		return false, err
@@ -235,4 +229,14 @@ func (c *CloudClient) GetInstanceData(name string) (*vpcv1.Instance, error) {
 		return nil, fmt.Errorf("instance %s not found", name)
 	}
 	return &collection.Instances[0], nil
+}
+
+// GetInstanceID returns ID of the instance matching the specified name
+func (c *CloudClient) getInstanceDataFromID(id string) (*vpcv1.Instance, error) {
+	options := &vpcv1.GetInstanceOptions{ID: &id}
+	instance, _, err := c.vpcService.GetInstance(options)
+	if err != nil {
+		return nil, err
+	}
+	return instance, nil
 }

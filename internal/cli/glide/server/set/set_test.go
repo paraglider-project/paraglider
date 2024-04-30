@@ -1,7 +1,7 @@
 //go:build unit
 
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ package set
 import (
 	"testing"
 
-	"github.com/NetSys/invisinets/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
 	"github.com/stretchr/testify/assert"
 )
 

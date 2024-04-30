@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ limitations under the License.
 package server
 
 import (
-	"github.com/NetSys/invisinets/internal/cli/glide/server/get"
-	"github.com/NetSys/invisinets/internal/cli/glide/server/set"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/server/get"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/server/set"
 	"github.com/spf13/cobra"
 )
 

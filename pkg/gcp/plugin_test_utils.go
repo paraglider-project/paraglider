@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -40,20 +40,20 @@ import (
 
 // Fake project and resource
 const (
-	fakeProject      = "invisinets-fake"
+	fakeProject      = "paraglider-fake"
 	fakeRegion       = "us-fake1"
 	fakeZone         = fakeRegion + "-a"
-	fakeInstanceName = "vm-invisinets-fake"
-	fakeClusterName  = "cluster-invisinets-fake"
+	fakeInstanceName = "vm-paraglider-fake"
+	fakeClusterName  = "cluster-paraglider-fake"
 	fakeClusterId    = "12345678910"
 	fakeInstanceId   = uint64(1234)
 	fakeResourceId   = "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
 	fakeNamespace    = "default"
-	fakeSubnetName   = "subnet-invisinets-fake"
+	fakeSubnetName   = "subnet-paraglider-fake"
 	fakeSubnetId     = "projects/" + fakeProject + "/regions/" + fakeRegion + "/subnetworks/" + fakeSubnetName
 
 	// Missing resources not registered in fake server
-	fakeMissingInstance   = "vm-invisinets-missing"
+	fakeMissingInstance   = "vm-paraglider-missing"
 	fakeMissingResourceId = "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeMissingInstance
 
 	// Overarching dummy operation name
@@ -73,9 +73,9 @@ var (
 
 // Fake firewalls and permitlists
 var (
-	fakePermitListRule1 = &invisinetspb.PermitListRule{
+	fakePermitListRule1 = &paragliderpb.PermitListRule{
 		Name:      "rule-name1",
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   -1,
 		DstPort:   80,
 		Protocol:  6,
@@ -96,9 +96,9 @@ var (
 		TargetTags:   []string{fakeNetworkTag},
 		Description:  proto.String(getRuleDescription([]string{"tag1", "tag2"})),
 	}
-	fakePermitListRule2 = &invisinetspb.PermitListRule{
+	fakePermitListRule2 = &paragliderpb.PermitListRule{
 		Name:      "rule-name2",
-		Direction: invisinetspb.Direction_OUTBOUND,
+		Direction: paragliderpb.Direction_OUTBOUND,
 		SrcPort:   -1,
 		DstPort:   -1,
 		Protocol:  17,

@@ -1,7 +1,7 @@
 //go:build unit
 
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import (
 	"context"
 	"testing"
 
-	storepb "github.com/NetSys/invisinets/pkg/kvstore/storepb"
 	"github.com/go-redis/redismock/v9"
+	storepb "github.com/paraglider-project/paraglider/pkg/kvstore/storepb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -37,7 +37,7 @@ func TestSet(t *testing.T) {
 	cloud := "cloud"
 	namespace := "namespace"
 
-	mock.ExpectSet(getFullKey(key, cloud, namespace), value, 0).SetVal("OK")
+	mock.ExpectSet(GetFullKey(key, cloud, namespace), value, 0).SetVal("OK")
 	resp, err := server.Set(context.Background(), &storepb.SetRequest{Key: key, Value: value, Cloud: cloud, Namespace: namespace})
 
 	require.Nil(t, err)
@@ -57,7 +57,7 @@ func TestGet(t *testing.T) {
 	cloud := "cloud"
 	namespace := "namespace"
 
-	mock.ExpectGet(getFullKey(key, cloud, namespace)).SetVal(value)
+	mock.ExpectGet(GetFullKey(key, cloud, namespace)).SetVal(value)
 	resp, err := server.Get(context.Background(), &storepb.GetRequest{Key: key, Cloud: cloud, Namespace: namespace})
 
 	require.Nil(t, err)
@@ -77,7 +77,7 @@ func TestDelete(t *testing.T) {
 	cloud := "cloud"
 	namespace := "namespace"
 
-	mock.ExpectDel(getFullKey(key, cloud, namespace)).SetVal(0)
+	mock.ExpectDel(GetFullKey(key, cloud, namespace)).SetVal(0)
 	resp, err := server.Delete(context.Background(), &storepb.DeleteRequest{Key: key, Cloud: cloud, Namespace: namespace})
 
 	require.Nil(t, err)

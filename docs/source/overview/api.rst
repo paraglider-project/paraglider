@@ -5,7 +5,9 @@ API
 
 Namespace Operations
 --------------------
-Interact with the namespaces on the Paraglider Controller. The active namespace is a client-side CLI construct. All REST requests to the controller will be scoped on a namespace.
+Interact with the namespaces on the Paraglider Controller. 
+The active namespace is a client-side CLI construct. 
+All REST requests to the controller will be scoped on a namespace.
 
 Set
 ^^^
@@ -54,7 +56,8 @@ Resource Operations
 Create
 ^^^^^^
 
-Creates a resource according to the description provided in the specified cloud. Some clouds may require a URI before resource creation and others may leave this field blank. Note that a tag is automatically created for the resource with the name ``<namespace>.<cloud>.<vm_name>`` (where ``vm_name`` is pulled from the name field in the resource description).
+Creates a resource according to the description provided in the specified cloud. 
+Note that a tag is automatically created for the resource with the name ``<namespace>.<cloud>.<name>`` (where ``name`` is the resource name provided -- i.e., names inside the json description of the resource will be ignored).
 
 **CLI:**
 
@@ -65,21 +68,20 @@ Creates a resource according to the description provided in the specified cloud.
 Parameters:
 
 * ``cloud``: name of the cloud to create the resource in
-* ``resource_name`` : name of the resource to be created in the Invisinets controller (note: this name will be scoped on cloud and namespace when stored)
+* ``resource_name`` : name of the resource to be created in the Paraglider controller (note: this name will be scoped on cloud and namespace when stored)
 * ``path_to_json``: path to JSON file describing the resource to be created (excluding networking details)
 
 **REST:**
 
 .. code-block:: shell
 
-    POST /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}
+    POST /namespaces/{namespace}/clouds/{cloud}/resources
 
 * Example request body:
 
     .. code-block:: JSON
 
         {
-            "id": "resource/uri",
             "name": "resourceName",
             "description": "{
                         \"location\": \"eastus\",
@@ -106,10 +108,9 @@ Parameters:
 
 Parameters:
 
-* ``namespace``: Invisinets namespace to operate in
+* ``namespace``: Paraglider namespace to operate in
 * ``cloud``: name of the cloud to create the resource in
-* ``name`` : name of the resource to be created in the Invisinets controller (note: this name will be scoped on cloud and namespace when stored)
-* ``id`` : URI of the resource to create (required by Azure for metadata, can be left blank for GCP)
+* ``name`` : name of the resource to be created in the Paraglider controller (note: this name will be scoped on cloud and namespace when stored)
 * ``description``: JSON string describing the resource to be created (excluding networking details)
 
 .. code-block:: shell
@@ -121,7 +122,6 @@ Parameters:
     .. code-block:: JSON
         
         {
-        "id": "resource/uri",
         "description": "{
                         \"location\": \"eastus\",
                         \"properties\": {
@@ -147,10 +147,9 @@ Parameters:
 
 Parameters:
 
-* ``namespace``: Invisinets namespace to operate in
+* ``namespace``: Paraglider namespace to operate in
 * ``cloud``: name of the cloud to create the resource in
-* ``resource_name`` : name of the resource to be created in the Invisinets controller (note: this name will be scoped on cloud and namespace when stored)
-* ``id`` : URI of the resource to create (required by Azure for metadata, can be left blank for GCP)
+* ``resource_name`` : name of the resource to be created in the Paraglider controller (note: this name will be scoped on cloud and namespace when stored)
 * ``description``: JSON string describing the resource to be created (excluding networking details)
 
 Permit List Operations
@@ -172,7 +171,7 @@ Gets the rules associated with a resource.
 Parameters:
 
 * ``cloud``: name of the cloud that the resource is in
-* ``resource_name``: Invisinets name of the resource
+* ``resource_name``: Paraglider name of the resource
 
 **REST:**
 
@@ -182,9 +181,9 @@ Parameters:
 
 Parameters:
 
-* ``namespace``: Invisinets namespace to operate in
+* ``namespace``: Paraglider namespace to operate in
 * ``cloud``: name of the cloud that the resource is in
-* ``resourceName``: Invisinets name of the resource
+* ``resourceName``: Paraglider name of the resource
 
 Add 
 ^^^
@@ -200,20 +199,10 @@ Adds one or many rules to the permit list associated with a resource.
 Parameters:
 
 * ``cloud``: name of the cloud that the resource is in
-* ``resource_name``: Invisinets name of the resource
+* ``resource_name``: Paraglider name of the resource
 * ``path_to_file``: path to JSON file describing rules to add
-* ``tag``: Invisinets tag or IP to allow SSH/ICMP traffic to/from
-
-**REST:**
-
-.. code-block:: shell
+    * The file should describe rules in the following format:
     
-    POST /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/rules
-
-Creates/updates one rule of a resource's permit list.
-
-* Example Request Body:
-
     .. code-block:: JSON
         
         {
@@ -229,12 +218,35 @@ Creates/updates one rule of a resource's permit list.
             }
             ]
         }
+* ``tag``: Paraglider tag or IP/CIDR to allow SSH/ICMP traffic to/from
+
+**REST:**
+
+.. code-block:: shell
+    
+    POST /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/rules
+
+Creates/updates one rule of a resource's permit list.
+
+* Example Request Body:
+
+    .. code-block:: JSON
+        
+        {
+            "name": "rulename",
+            "id": "id",
+            "tags": ["tagname"],
+            "direction": 0,
+            "src_port": 1,
+            "dst_port": 2,
+            "protocol": 3
+        }
 
 Parameters:
 
-* ``namespace``: Invisinets namespace to operate in
+* ``namespace``: Paraglider namespace to operate in
 * ``cloud``: name of the cloud that the resource is in
-* ``resourceName``: Invisinets name of the resource
+* ``resourceName``: Paraglider name of the resource
 
 .. code-block:: shell
     
@@ -247,24 +259,20 @@ Creates/updates one rule of a resource's permit list.
     .. code-block:: JSON
 
         {
-            [
-            {
-                "name": "rulename",
-                "id": "id",
-                "tags": ["tagname"],
-                "direction": 0,
-                "src_port": 1,
-                "dst_port": 2,
-                "protocol": 3
-            }
-            ]
+            "name": "rulename",
+            "id": "id",
+            "tags": ["tagname"],
+            "direction": 0,
+            "src_port": 1,
+            "dst_port": 2,
+            "protocol": 3
         }
 
 Parameters:
 
-* ``namespace``: Invisinets namespace to operate in
+* ``namespace``: Paraglider namespace to operate in
 * ``cloud``: name of the cloud that the resource is in
-* ``resourceName``: Invisinets name of the resource
+* ``resourceName``: Paraglider name of the resource
 * ``ruleName``: name of the rule 
 
 
@@ -298,9 +306,9 @@ Creates/updates rules of resource in bulk.
 
 Parameters:
 
-* ``namespace``: Invisinets namespace to operate in
+* ``namespace``: Paraglider namespace to operate in
 * ``cloud``: name of the cloud that the resource is in
-* ``resourceName``: Invisinets name of the resource
+* ``resourceName``: Paraglider name of the resource
 
 Delete
 ^^^^^^
@@ -316,7 +324,7 @@ Deletes one or many rules from the permit list associated with the specified res
 Parameters:
 
 * ``cloud``: name of the cloud that the resource is in
-* ``resource_name``: Invisinets name of the resource
+* ``resource_name``: Paraglider name of the resource
 * ``rule_names``: list of rule names to delete
 
 **REST:**
@@ -329,9 +337,9 @@ Deletes one rule of a resource's permit list.
 
 Parameters:
 
-* ``namespace``: Invisinets namespace to operate in
+* ``namespace``: Paraglider namespace to operate in
 * ``cloud``: name of the cloud that the resource is in
-* ``resourceName``: Invisinets name of the resource
+* ``resourceName``: Paraglider name of the resource
 * ``ruleName``: name of the rule 
 
 .. code-block:: shell
@@ -354,15 +362,15 @@ Deletes rules of resource in bulk.
 
 Parameters:
 
-* ``namespace``: Invisinets namespace to operate in
+* ``namespace``: Paraglider namespace to operate in
 * ``cloud``: name of the cloud that the resource is in
-* ``resourceName``: Invisinets name of the resource
+* ``resourceName``: Paraglider name of the resource
 
 
 Tag Operations
 --------------
 
-Operations on Invisinets tags.
+Operations on Paraglider tags.
 
 Get
 ^^^
@@ -420,9 +428,9 @@ Parameters:
     .. code-block:: JSON
         
         {
-        "tag_name": "tag",
-        "uri": "uri",
-        "ip": "1.1.1.1"
+            "tag_name": "tag",
+            "uri": "uri",
+            "ip": "1.1.1.1"
         }
 
 * Example Request Body
@@ -430,11 +438,11 @@ Parameters:
     .. code-block:: JSON
         
         {
-        "tag_name": "tag",
-        "child_tags": [
-            "child1",
-            "child2"
-        ]
+            "tag_name": "tag",
+            "child_tags": [
+                "child1",
+                "child2"
+            ]
         }
 
 Parameters:
@@ -513,7 +521,6 @@ The ``central_controller_address`` should be the full host:port address where th
 GCP
 ^^^
 
-
 .. code-block:: shell
 
     glided gcp <port> <central_controller_address>
@@ -526,5 +533,14 @@ Tag Service
 .. code-block:: shell
 
     glided tagserv <redis_port> <server_port> <clear_keys>
+
+``clear_keys`` is a bool ("true" or "false") which determines whether the database state should be cleared on startup or not.
+
+Key-Value Store Service
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    glided kvserv <redis_port> <server_port> <clear_keys>
 
 ``clear_keys`` is a bool ("true" or "false") which determines whether the database state should be cleared on startup or not.

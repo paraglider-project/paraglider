@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import (
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
-	ibmCommon "github.com/NetSys/invisinets/pkg/ibm_plugin"
+	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 // CloudClient is the client used to interact with IBM Cloud SDK
@@ -56,7 +56,7 @@ func (c *CloudClient) UpdateRegion(region string) error {
 // NewIBMCloudClient returns CloudClient instance with initialized clients
 // Note: This will be used by IBM plugin through setupCloudClient, and
 // should not be used directly to create a cloud client otherwise.
-func NewIBMCloudClient(resourceGroupName, region string) (*CloudClient, error) {
+func NewIBMCloudClient(resourceGroupID, region string) (*CloudClient, error) {
 	if isRegionValid, err := ibmCommon.IsRegionValid(region); !isRegionValid || err != nil {
 		return nil, fmt.Errorf("region %v isn't valid", region)
 	}
@@ -92,12 +92,7 @@ func NewIBMCloudClient(resourceGroupName, region string) (*CloudClient, error) {
 		return nil, err
 	}
 
-	resourceGroupID, err := getResourceID(authenticator, resourceGroupName)
-	if err != nil {
-		return nil, err
-	}
-
-	resourceGroupIdentity := &vpcv1.ResourceGroupIdentityByID{ID: resourceGroupID}
+	resourceGroupIdentity := &vpcv1.ResourceGroupIdentityByID{ID: &resourceGroupID}
 
 	transitOptions := &transitgatewayapisv1.TransitGatewayApisV1Options{
 		Version:       core.StringPtr("2023-12-05"), // version is a mandatory field

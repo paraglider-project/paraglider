@@ -1,7 +1,7 @@
 //go:build unit
 
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,39 +35,39 @@ import (
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/stretchr/testify/require"
 
-	fake "github.com/NetSys/invisinets/pkg/fake/orchestrator/rpc"
-	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
+	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
+	"github.com/paraglider-project/paraglider/pkg/kvstore"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const (
-	fakeResGroup  = "invisinets-fake"
 	fakeRegion    = "us-east"  // Primary region used for tests
 	fakeConRegion = "us-south" // Region used to test VPC connectivity across regions
 	fakeZone      = fakeRegion + "-a"
-	fakeInstance  = "vm-invisinets-fake"
+	fakeInstance  = "vm-paraglider-fake"
 	fakeImage     = "fake-image"
-	fakeVPC       = "invisinets-fake-vpc"
+	fakeVPC       = "paraglider-fake-vpc"
 	fakeID        = "12345"
 	fakeID2       = "123452"
 	fakeRuleName1 = "fake-rule1"
 	fakeRuleName2 = "fake-rule2"
 	fakeCRN       = "crn:" + fakeID
 	fakeCRN2      = "crn:" + fakeID2
-	fakeSubnet    = "invisinets-fake-subnet"
-	fakeSG        = "invisinets-fake-sg"
-	fakeGW        = "invisnets-fake-gw"
+	fakeSubnet    = "paraglider-fake-subnet"
+	fakeSG        = "paraglider-fake-sg"
+	fakeGW        = "paraglider-fake-gw"
 	fakeIP        = "10.0.0.2"
 	fakeSubnet1   = "10.0.0.0/16"
 	fakeSubnet2   = "20.1.1.0/28"
 	fakeProfile   = "bx2-2x8"
-	invTag        = "inv"
+	paragliderTag = "paraglider"
 
-	fakeDeploymentID = "/ResourceGroupName/" + fakeResGroup
-	fakeResourceID   = "/ResourceGroupName/" + fakeResGroup + "/Zone/" + fakeZone + "/ResourceID/" + fakeInstance
-	fakeNamespace    = "inv-namespace"
-	wrongNamespace   = "wrong-inv-namespace"
+	fakeDeploymentID = "/resourcegroup/" + fakeID
+	fakeInstanceID   = "/resourcegroup/" + fakeID + "/zone/" + fakeZone + "/instance/" + fakeID
+	fakeNamespace    = "paraglider-namespace"
+	wrongNamespace   = "wrong-pg-namespace"
 )
 
 var (
@@ -77,10 +77,10 @@ var (
 		Profile: &vpcv1.InstanceProfileIdentityByName{Name: core.StringPtr(fakeProfile)},
 	}
 
-	fakePermitList1 = []*invisinetspb.PermitListRule{
+	fakePermitList1 = []*paragliderpb.PermitListRule{
 		{
 			Name:      fakeRuleName1,
-			Direction: invisinetspb.Direction_INBOUND,
+			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   443,
 			DstPort:   443,
 			Protocol:  6,
@@ -88,17 +88,17 @@ var (
 		},
 		{
 			Name:      fakeRuleName2,
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  -1,
 			Targets:   []string{"10.0.64.1"},
 		},
 	}
-	fakePermitList2 = []*invisinetspb.PermitListRule{
+	fakePermitList2 = []*paragliderpb.PermitListRule{
 		{
 			Name:      fakeRuleName1,
-			Direction: invisinetspb.Direction_INBOUND,
+			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   443,
 			DstPort:   443,
 			Protocol:  6,
@@ -114,6 +114,7 @@ type fakeIBMServerState struct {
 	Instance      *vpcv1.Instance
 	SecurityGroup *vpcv1.SecurityGroup
 	subnetVPC     map[string]string // VPC to Subnet CIDR mapping
+	rules         int
 }
 
 func sendFakeResponse(w http.ResponseWriter, response interface{}) {
@@ -180,7 +181,7 @@ func createFakeSecurityGroup(addRules bool) *vpcv1.SecurityGroup {
 	if addRules {
 		sgRules := []vpcv1.SecurityGroupRuleIntf{
 			&vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolTcpudp{
-				ID:        core.StringPtr(fakeRuleName1),
+				ID:        core.StringPtr(fakeID),
 				Direction: core.StringPtr("inbound"),
 				Protocol:  core.StringPtr("tcp"),
 				PortMin:   core.Int64Ptr(443),
@@ -188,7 +189,7 @@ func createFakeSecurityGroup(addRules bool) *vpcv1.SecurityGroup {
 				Remote:    &vpcv1.SecurityGroupRuleRemoteCIDR{CIDRBlock: core.StringPtr("10.0.0.0/18")},
 			},
 			&vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAll{
-				ID:        core.StringPtr(fakeRuleName2),
+				ID:        core.StringPtr(fakeID2),
 				Direction: core.StringPtr("outbound"),
 				Protocol:  core.StringPtr("all"),
 				Remote:    &vpcv1.SecurityGroupRuleRemoteIP{Address: core.StringPtr("10.0.64.1")},
@@ -376,7 +377,15 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 				return
 			}
 			if r.Method == http.MethodPost { // Add rules to a security group
-				var sg vpcv1.SecurityGroupRuleIntf
+				sg := vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAll{
+					ID:       core.StringPtr(fakeID),
+					Protocol: core.StringPtr(vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAllProtocolAllConst),
+				}
+				if fakeIBMServerState.rules != 0 {
+					// Return another rule ID for the second rule added
+					sg.ID = core.StringPtr(fakeID2)
+				}
+				fakeIBMServerState.rules++
 				sendFakeResponse(w, sg)
 				return
 			}
@@ -476,17 +485,17 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+	resource := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
 	}
@@ -510,17 +519,17 @@ func TestCreateResourceExistingVPCSubnet(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+	resource := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
 	}
@@ -541,17 +550,17 @@ func TestCreateResourceExistingVPCMissingSubnet(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{
-		Deployment:  &invisinetspb.InvisinetsDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+	resource := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
 	}
@@ -571,14 +580,14 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	deployment := &invisinetspb.GetUsedAddressSpacesRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{
-			{Id: fakeResourceID, Namespace: fakeNamespace},
+	deployment := &paragliderpb.GetUsedAddressSpacesRequest{
+		Deployments: []*paragliderpb.ParagliderDeployment{
+			{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		},
 	}
 
@@ -600,15 +609,15 @@ func TestGetUsedAddressSpacesMultipleVPC(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion):    fakeClient,
-			getClientMapKey(fakeResGroup, fakeConRegion): fakeClient,
+			getClientMapKey(fakeID, fakeRegion):    fakeClient,
+			getClientMapKey(fakeID, fakeConRegion): fakeClient,
 		}}
 
-	deployment := &invisinetspb.GetUsedAddressSpacesRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{
-			{Id: fakeResourceID, Namespace: fakeNamespace},
+	deployment := &paragliderpb.GetUsedAddressSpacesRequest{
+		Deployments: []*paragliderpb.ParagliderDeployment{
+			{Id: fakeInstanceID, Namespace: fakeNamespace},
 		},
 	}
 
@@ -619,6 +628,10 @@ func TestGetUsedAddressSpacesMultipleVPC(t *testing.T) {
 }
 
 func TestAddPermitListRules(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// fakeIBMServerState with an existing VPC, subnet, instance and a security group
 	fakeIBMServerState := &fakeIBMServerState{
 		VPCs:          createFakeVPC(false),
@@ -631,14 +644,16 @@ func TestAddPermitListRules(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
-		}}
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
 
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
 	}
 
@@ -648,6 +663,13 @@ func TestAddPermitListRules(t *testing.T) {
 }
 
 func TestAddPermitListRulesExisting(t *testing.T) {
+	store := map[string]string{
+		kvstore.GetFullKey(fakePermitList1[0].Name, utils.IBM, fakeNamespace): fakeID2,
+	}
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServerWithStore(utils.IBM, store)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// fakeIBMServerState with an existing VPC, subnet, instance and a security group
 	// with existing rules in fakePermitList1
 	fakeIBMServerState := &fakeIBMServerState{
@@ -661,14 +683,16 @@ func TestAddPermitListRulesExisting(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
-		}}
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
 
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
 	}
 
@@ -678,19 +702,25 @@ func TestAddPermitListRulesExisting(t *testing.T) {
 }
 
 func TestAddPermitListRulesMissingInstance(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// fakeIBMServerState with empty state without any instance
 	fakeIBMServerState := &fakeIBMServerState{}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
-		}}
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
 
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
 	}
 
@@ -700,6 +730,10 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 }
 
 func TestAddPermitListRulesMissingSecurityGroup(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// fakeIBMServerState with instance, VPC but no security group created
 	fakeIBMServerState := &fakeIBMServerState{
 		VPCs:     createFakeVPC(false),
@@ -711,14 +745,16 @@ func TestAddPermitListRulesMissingSecurityGroup(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
-		}}
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
 
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
 	}
 
@@ -728,6 +764,10 @@ func TestAddPermitListRulesMissingSecurityGroup(t *testing.T) {
 }
 
 func TestAddPermitListRulesWrongNamespace(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// fakeIBMServerState with instance, VPC,  security group and multiple subnets initialized.
 	fakeIBMServerState := &fakeIBMServerState{
 		VPCs:          createFakeVPC(false),
@@ -741,14 +781,16 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
-		}}
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
 
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: wrongNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		Rules:     fakePermitList1,
 	}
 
@@ -757,6 +799,10 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 	require.Nil(t, resp)
 }
 func TestAddPermitListRulesTransitGateway(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// fakeIBMServerState with two VPCs (and subnets) across regions
 	fakeIBMServerState := &fakeIBMServerState{
 		VPCs:          createFakeVPC(true),
@@ -769,17 +815,19 @@ func TestAddPermitListRulesTransitGateway(t *testing.T) {
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion):    fakeClient,
-			getClientMapKey(fakeResGroup, fakeConRegion): fakeClient,
-		}}
+			getClientMapKey(fakeID, fakeRegion):    fakeClient,
+			getClientMapKey(fakeID, fakeConRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
 
 	// fakePermitList2 is added to the permit list which will trigger creation of a link
 	// between VPCs across regions, and hence requiriing deployment of a transit gateway.
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		Rules:     fakePermitList2,
 	}
 
@@ -789,6 +837,15 @@ func TestAddPermitListRulesTransitGateway(t *testing.T) {
 }
 
 func TestDeletePermitListRules(t *testing.T) {
+	store := map[string]string{
+		kvstore.GetFullKey(fakePermitList1[0].Name, utils.IBM, fakeNamespace): fakeID,
+		kvstore.GetFullKey(fakePermitList1[1].Name, utils.IBM, fakeNamespace): fakeID2,
+	}
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServerWithStore(utils.IBM, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// fakeIBMServerState with an instance and security group with rules
 	fakeIBMServerState := &fakeIBMServerState{
 		Instance:      createFakeInstance(),
@@ -796,14 +853,16 @@ func TestDeletePermitListRules(t *testing.T) {
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
-		}}
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
 
-	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
+	deleteRulesRequest := &paragliderpb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
 	}
 
@@ -813,19 +872,25 @@ func TestDeletePermitListRules(t *testing.T) {
 }
 
 func TestDeletePermitListRulesMissingInstance(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// fakeIBMServerState without an instance
 	fakeIBMServerState := &fakeIBMServerState{}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
-		}}
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
 
 	// Currently the plugin takes rule ID since names are not supported by IBM Cloud SDK
-	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
+	deleteRulesRequest := &paragliderpb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
 	}
 
@@ -835,6 +900,10 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 }
 
 func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// fakeIBMServerState with a VM and security group
 	fakeIBMServerState := &fakeIBMServerState{
 		Instance:      createFakeInstance(),
@@ -842,14 +911,16 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
-		}}
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
 
-	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
+	deleteRulesRequest := &paragliderpb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
 	}
 
@@ -858,6 +929,14 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 	require.NotNil(t, resp)
 }
 func TestGetPermitList(t *testing.T) {
+	store := map[string]string{
+		kvstore.GetFullKey(fakeID, utils.IBM, fakeNamespace):  fakePermitList1[0].Name,
+		kvstore.GetFullKey(fakeID2, utils.IBM, fakeNamespace): fakePermitList1[1].Name,
+	}
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServerWithStore(utils.IBM, store)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// fakeIBMServerState with a VM and security group with rules
 	fakeIBMServerState := &fakeIBMServerState{
 		Instance:      createFakeInstance(),
@@ -865,22 +944,31 @@ func TestGetPermitList(t *testing.T) {
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
-		}}
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
 
-	getRulesRequest := &invisinetspb.GetPermitListRequest{
+	getRulesRequest := &paragliderpb.GetPermitListRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 	}
 
 	resp, err := s.GetPermitList(ctx, getRulesRequest)
 	require.NoError(t, err)
+	fmt.Printf("Retu %v\n", resp.Rules)
+	fmt.Printf("Need %v\n", fakePermitList1)
+
 	require.ElementsMatch(t, resp.Rules, fakePermitList1)
 }
 
 func TestGetPermitListEmpty(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// fakeIBMServerState with a VM and security group without rules
 	fakeIBMServerState := &fakeIBMServerState{
 		Instance:      createFakeInstance(),
@@ -888,14 +976,16 @@ func TestGetPermitListEmpty(t *testing.T) {
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
-		}}
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
 
-	getRulesRequest := &invisinetspb.GetPermitListRequest{
+	getRulesRequest := &paragliderpb.GetPermitListRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 	}
 
 	resp, err := s.GetPermitList(ctx, getRulesRequest)
@@ -904,18 +994,24 @@ func TestGetPermitListEmpty(t *testing.T) {
 }
 
 func TestGetPermitListMissingInstance(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// fakeIBMServerState with no instance
 	fakeIBMServerState := &fakeIBMServerState{}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
-		}}
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
 
-	getRulesRequest := &invisinetspb.GetPermitListRequest{
+	getRulesRequest := &paragliderpb.GetPermitListRequest{
 		Namespace: fakeNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 	}
 
 	resp, err := s.GetPermitList(ctx, getRulesRequest)
@@ -924,6 +1020,10 @@ func TestGetPermitListMissingInstance(t *testing.T) {
 }
 
 func TestGetPermitListWrongNamespace(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// fakeIBMServerState with a VM and security group with rules
 	fakeIBMServerState := &fakeIBMServerState{
 		Instance:      createFakeInstance(),
@@ -931,14 +1031,16 @@ func TestGetPermitListWrongNamespace(t *testing.T) {
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		cloudClient: map[string]*sdk.CloudClient{
-			getClientMapKey(fakeResGroup, fakeRegion): fakeClient,
-		}}
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
 
-	getRulesRequest := &invisinetspb.GetPermitListRequest{
+	getRulesRequest := &paragliderpb.GetPermitListRequest{
 		Namespace: wrongNamespace,
-		Resource:  fakeResourceID,
+		Resource:  fakeInstanceID,
 	}
 
 	resp, err := s.GetPermitList(ctx, getRulesRequest)

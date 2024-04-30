@@ -1,6 +1,6 @@
 // go:build unit
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,12 +26,12 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func getFakeInstanceResourceDescription() (*invisinetspb.ResourceDescription, *computepb.InsertInstanceRequest, error) {
+func getFakeInstanceResourceDescription() (*paragliderpb.ResourceDescription, *computepb.InsertInstanceRequest, error) {
 	instanceRequest := &computepb.InsertInstanceRequest{
 		Zone:             fakeZone,
 		InstanceResource: getFakeInstance(false),
@@ -41,11 +41,11 @@ func getFakeInstanceResourceDescription() (*invisinetspb.ResourceDescription, *c
 		return nil, nil, err
 	}
 
-	resource := &invisinetspb.ResourceDescription{Description: jsonReq}
+	resource := &paragliderpb.ResourceDescription{Description: jsonReq}
 	return resource, instanceRequest, nil
 }
 
-func getFakeClusterResourceDescription() (*invisinetspb.ResourceDescription, *containerpb.CreateClusterRequest, error) {
+func getFakeClusterResourceDescription() (*paragliderpb.ResourceDescription, *containerpb.CreateClusterRequest, error) {
 	clusterRequest := &containerpb.CreateClusterRequest{
 		Zone:    fakeZone,
 		Parent:  fmt.Sprintf("projects/%s/locations/%s", fakeProject, fakeZone),
@@ -56,7 +56,7 @@ func getFakeClusterResourceDescription() (*invisinetspb.ResourceDescription, *co
 		return nil, nil, err
 	}
 
-	resource := &invisinetspb.ResourceDescription{Description: jsonReq}
+	resource := &paragliderpb.ResourceDescription{Description: jsonReq}
 	return resource, clusterRequest, nil
 }
 

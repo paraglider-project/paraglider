@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,13 +20,14 @@ import (
 	"fmt"
 	"os"
 
-	common "github.com/NetSys/invisinets/internal/cli/common"
-	"github.com/NetSys/invisinets/internal/cli/glided/az"
-	"github.com/NetSys/invisinets/internal/cli/glided/gcp"
-	"github.com/NetSys/invisinets/internal/cli/glided/kvserv"
-	"github.com/NetSys/invisinets/internal/cli/glided/orchestrator"
-	"github.com/NetSys/invisinets/internal/cli/glided/startup"
-	"github.com/NetSys/invisinets/internal/cli/glided/tagserv"
+	common "github.com/paraglider-project/paraglider/internal/cli/common"
+	"github.com/paraglider-project/paraglider/internal/cli/glided/az"
+	"github.com/paraglider-project/paraglider/internal/cli/glided/gcp"
+	"github.com/paraglider-project/paraglider/internal/cli/glided/ibm"
+	"github.com/paraglider-project/paraglider/internal/cli/glided/kvserv"
+	"github.com/paraglider-project/paraglider/internal/cli/glided/orchestrator"
+	"github.com/paraglider-project/paraglider/internal/cli/glided/startup"
+	"github.com/paraglider-project/paraglider/internal/cli/glided/tagserv"
 	"github.com/spf13/cobra"
 )
 
@@ -39,6 +40,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(az.NewCommand())
 	rootCmd.AddCommand(gcp.NewCommand())
+	rootCmd.AddCommand(ibm.NewCommand())
 	rootCmd.AddCommand(orchestrator.NewCommand())
 	rootCmd.AddCommand(tagserv.NewCommand())
 	rootCmd.AddCommand(kvserv.NewCommand())

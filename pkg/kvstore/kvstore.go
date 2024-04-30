@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,12 +22,12 @@ import (
 	"log"
 	"net"
 
-	storepb "github.com/NetSys/invisinets/pkg/kvstore/storepb"
+	storepb "github.com/paraglider-project/paraglider/pkg/kvstore/storepb"
 	redis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 )
 
-func getFullKey(key string, cloud string, namespace string) string {
+func GetFullKey(key string, cloud string, namespace string) string {
 	return fmt.Sprintf("%s:%s:%s", namespace, cloud, key)
 }
 
@@ -43,7 +43,7 @@ func NewKVStoreServer(client *redis.Client) *kvStoreServer {
 }
 
 func (s *kvStoreServer) Get(ctx context.Context, req *storepb.GetRequest) (*storepb.GetResponse, error) {
-	value, err := s.client.Get(ctx, getFullKey(req.Key, req.Cloud, req.Namespace)).Result()
+	value, err := s.client.Get(ctx, GetFullKey(req.Key, req.Cloud, req.Namespace)).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func (s *kvStoreServer) Get(ctx context.Context, req *storepb.GetRequest) (*stor
 }
 
 func (s *kvStoreServer) Set(ctx context.Context, req *storepb.SetRequest) (*storepb.SetResponse, error) {
-	err := s.client.Set(ctx, getFullKey(req.Key, req.Cloud, req.Namespace), req.Value, 0).Err()
+	err := s.client.Set(ctx, GetFullKey(req.Key, req.Cloud, req.Namespace), req.Value, 0).Err()
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (s *kvStoreServer) Set(ctx context.Context, req *storepb.SetRequest) (*stor
 }
 
 func (s *kvStoreServer) Delete(ctx context.Context, req *storepb.DeleteRequest) (*storepb.DeleteResponse, error) {
-	err := s.client.Del(ctx, getFullKey(req.Key, req.Cloud, req.Namespace)).Err()
+	err := s.client.Del(ctx, GetFullKey(req.Key, req.Cloud, req.Namespace)).Err()
 	if err != nil {
 		return nil, err
 	}

@@ -25,7 +25,7 @@ Goals
 Setup
 ------
 * For this example, we assume that you have set up the necessary credentials for Azure and GCP and that you have configured your Paraglider controller with a ``default`` namespace for both clouds. For more on how to do this, see the quickstart.
-* Run ``invd startup <path_to_config>`` to start all the microservices
+* Run ``glided startup <path_to_config>`` to start all the microservices
     * This example uses a templated controller config from the repo. You can find it at the ``tools/examples/controller-configs/az-gcp-config.yml`` directory.
 
 
@@ -44,25 +44,25 @@ Steps
 
    .. code-block:: console
 
-        $ inv resource create azure vm-a <path/to/azure-vm-westus.json>
+        $ glide resource create azure vm-a <path/to/azure-vm-westus.json>
 
 2. Create VM C in GCP
 
    .. code-block:: console
 
-        $ inv resource create gcp vm-c <path/to/gcp-vm.json>
+        $ glide resource create gcp vm-c <path/to/gcp-vm.json>
 
 3. Log into VM C and try to ping VM A. Add the following rule to allow the in-browser SSH tool from GCP. The ping should fail.
 
    .. code-block:: console
 
-        $ inv rule add gcp vm-c --ssh 35.235.240.0/20
+        $ glide rule add gcp vm-c --ssh 35.235.240.0/20
 
 4. Set the permit list on VM C to allow pings from VM A.
 
    .. code-block:: console
 
-        $ inv rule add gcp vm-c --ping default.azure.vm-a
+        $ glide rule add gcp vm-c --ping default.azure.vm-a
 
    .. note::
     
@@ -79,13 +79,13 @@ Steps
 
    .. code-block:: console
 
-        $ inv resource create azure vm-b <path/to/azure-vm-eastus.json>
+        $ glide resource create azure vm-b <path/to/azure-vm-eastus.json>
 
 2. Set the permit list on VM ato allow pings to VM B.
     
    .. code-block:: console
     
-        $ inv rule add azure vm-a --ping default.azure.vm-b
+        $ glide rule add azure vm-a --ping default.azure.vm-b
 
 3. Log into VM A and try to ping VM B. The ping should fail.
 
@@ -95,7 +95,7 @@ Steps
 
    .. code-block:: console
 
-        $ inv rule add azure vm-b --ping default.azure.vm-a
+        $ glide rule add azure vm-b --ping default.azure.vm-a
 
 5. Log into VM A and try to ping VM B. The ping should succeed.
 
@@ -111,7 +111,7 @@ Steps
 
    .. code-block:: console
 
-        $ inv rule add azure vm-a --ping default.gcp.vm-c
+        $ glide rule add azure vm-a --ping default.gcp.vm-c
 
 3. Try to ping VM A from VM C. The ping should succeed.
 
@@ -119,12 +119,12 @@ Steps
     
    .. code-block:: console
     
-        $ inv rule get azure vm-a
+        $ glide rule get azure vm-a
 
 4. Remove a permit list rule allowing pings from VM A's permit list.
 
    .. code-block:: console
 
-        $ inv rule delete azure vm-a --rules allow-ping-inbound-default.gcp.vm-c
+        $ glide rule delete azure vm-a --rules allow-ping-inbound-default.gcp.vm-c
 
 5. Try to ping VM A from VM C. The ping should fail.

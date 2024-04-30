@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,10 +24,10 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/NetSys/invisinets/pkg/orchestrator"
-	"github.com/NetSys/invisinets/pkg/orchestrator/config"
-	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator/config"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	"github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -75,12 +75,12 @@ func getURLParams(url string, pattern string) map[string]string {
 	return params
 }
 
-func GetFakePermitListRules() []*invisinetspb.PermitListRule {
-	return []*invisinetspb.PermitListRule{
+func GetFakePermitListRules() []*paragliderpb.PermitListRule {
+	return []*paragliderpb.PermitListRule{
 		{
 			Name:      "name",
 			Targets:   []string{"1.1.1.1", "2.2.2.2"},
-			Direction: invisinetspb.Direction_INBOUND,
+			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   1,
 			DstPort:   1,
 			Protocol:  1,
@@ -153,7 +153,7 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 			return
 		// Create Resources (POST)
 		case urlMatches(path, orchestrator.CreateResourcePOSTURL) && r.Method == http.MethodPost:
-			resource := &invisinetspb.ResourceDescriptionString{}
+			resource := &paragliderpb.ResourceDescriptionString{}
 			err := json.Unmarshal(body, resource)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
@@ -165,7 +165,7 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 			return
 		// Create Resources (PUT)
 		case urlMatches(path, orchestrator.CreateResourcePUTURL) && r.Method == http.MethodPut:
-			resource := &invisinetspb.ResourceDescriptionString{}
+			resource := &paragliderpb.ResourceDescriptionString{}
 			err := json.Unmarshal(body, resource)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
@@ -177,7 +177,7 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 			return
 		// Add Permit List Rules
 		case urlMatches(path, orchestrator.AddPermitListRulesURL) && (r.Method == http.MethodPost):
-			rules := []*invisinetspb.PermitListRule{}
+			rules := []*paragliderpb.PermitListRule{}
 			err := json.Unmarshal(body, &rules)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
@@ -195,7 +195,7 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 			return
 		// Individual Rule Add (POST)
 		case urlMatches(path, orchestrator.PermitListRulePOSTURL) && (r.Method == http.MethodPost):
-			rule := &invisinetspb.PermitListRule{}
+			rule := &paragliderpb.PermitListRule{}
 			err := json.Unmarshal(body, rule)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
@@ -204,14 +204,14 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 			return
 		// Individual Rule Add (PUT)
 		case urlMatches(path, orchestrator.PermitListRulePUTURL) && (r.Method == http.MethodPut):
-			rule := &invisinetspb.PermitListRule{}
+			rule := &paragliderpb.PermitListRule{}
 			err := json.Unmarshal(body, rule)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 				return
 			}
 			return
-		// Invididual Rule Delete
+		// Individual Rule Delete
 		case urlMatches(path, orchestrator.PermitListRulePUTURL) && (r.Method == http.MethodDelete):
 			w.WriteHeader(http.StatusOK)
 			return
