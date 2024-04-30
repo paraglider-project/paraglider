@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"strings"
 
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
@@ -93,18 +94,24 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		}
 	}
 	if e.pingTag != "" {
+		ruleName := getSafeRuleName(e.pingTag)
 		// Add the rules to allow ping
-		rules = append(rules, &paragliderpb.PermitListRule{Name: "allow-ping-inbound-" + e.pingTag, Tags: []string{e.pingTag}, Protocol: 1, Direction: 0, DstPort: -1, SrcPort: -1})
-		rules = append(rules, &paragliderpb.PermitListRule{Name: "allow-ping-outbound-" + e.pingTag, Tags: []string{e.pingTag}, Protocol: 1, Direction: 1, DstPort: -1, SrcPort: -1})
+		rules = append(rules, &paragliderpb.PermitListRule{Name: "ping-in-" + ruleName, Tags: []string{e.pingTag}, Protocol: 1, Direction: 0, DstPort: -1, SrcPort: -1})
+		rules = append(rules, &paragliderpb.PermitListRule{Name: "ping-out-" + ruleName, Tags: []string{e.pingTag}, Protocol: 1, Direction: 1, DstPort: -1, SrcPort: -1})
 	}
 	if e.sshTag != "" {
+		ruleName := getSafeRuleName(e.sshTag)
 		// Add the rule to allow SSH
-		rules = append(rules, &paragliderpb.PermitListRule{Name: "allow-ssh-inbound-" + e.sshTag, Tags: []string{e.sshTag}, Protocol: 6, Direction: 0, DstPort: 22, SrcPort: -1})
-		rules = append(rules, &paragliderpb.PermitListRule{Name: "allow-ssh-outbound-" + e.sshTag, Tags: []string{e.sshTag}, Protocol: 6, Direction: 1, DstPort: -1, SrcPort: 22})
+		rules = append(rules, &paragliderpb.PermitListRule{Name: "ssh-in-" + ruleName, Tags: []string{e.sshTag}, Protocol: 6, Direction: 0, DstPort: 22, SrcPort: -1})
+		rules = append(rules, &paragliderpb.PermitListRule{Name: "ssh-out-" + ruleName, Tags: []string{e.sshTag}, Protocol: 6, Direction: 1, DstPort: -1, SrcPort: 22})
 	}
 
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	err := c.AddPermitListRules(e.cliSettings.ActiveNamespace, args[0], args[1], rules)
 
 	return err
+}
+
+func getSafeRuleName(ruleName string) string {
+	return strings.ReplaceAll(ruleName, "/", "-")
 }

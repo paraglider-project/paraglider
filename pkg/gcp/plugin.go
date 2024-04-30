@@ -46,7 +46,7 @@ type GCPPluginServer struct {
 
 // GCP naming conventions
 const (
-	paragliderPrefix              = "pg"
+	paragliderPrefix              = "paraglider"
 	firewallRuleDescriptionPrefix = "paraglider rule" // GCP firewall rule prefix for description
 )
 

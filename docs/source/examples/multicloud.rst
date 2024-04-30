@@ -24,12 +24,35 @@ Goals
 
 Setup
 ------
-* For this example, we assume that you have set up the necessary credentials for Azure and GCP and that you have configured your Paraglider controller with a ``default`` namespace for both clouds. For more on how to do this, see the :ref:`quickstart`.
-* Run ``glided startup <path_to_config>`` to start all the microservices
-    * This example uses a templated controller config from the repo. You can find it at the ``tools/examples/controller-configs/az-gcp-config.yml`` directory.
 
+Installation
+^^^^^^^^^^^^^^
 
-* This example uses the following templated configuration files in the repo. You can find them in the ``tools/examples/``.
+.. code-block:: console
+
+    $ git clone https://github.com/paraglider-project/paraglider
+    $ cd paraglider
+    $ make build install
+
+Controller Setup
+^^^^^^^^^^^^^^^^^^
+
+.. code-block:: console
+
+    $ glided startup <path_to_config>
+
+You can find example configuration files in the ``tools/examples/controller-configs`` directory.
+
+.. note::
+
+    Be sure to replace the template values for the GCP project and the Azure resource group in the template.
+
+For this example, we assume that you have set up the necessary credentials for Azure and GCP and that you have configured your Paraglider controller with a ``default`` namespace for both clouds. For more on how to do this, see the :ref:`quickstart` or :ref:`controllersetup`.
+
+Resource Configurations
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example uses the following templated configuration files in the repo. You can find them in the ``tools/examples/``.
     * ``vm-configs/azure-vm-westus.json``
     * ``vm-configs/azure-vm-eastus.json``
     * ``vm-configs/gcp-vm.json``

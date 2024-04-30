@@ -31,7 +31,7 @@ You can find example configuration files in the ``tools/examples/controller-conf
 
 .. note::
 
-    Be sure to replace the template values for the GCP project in the template.
+    Be sure to replace the template values for the GCP project in the template (you can exclude Azure entirely)
 
 Steps
 ------
