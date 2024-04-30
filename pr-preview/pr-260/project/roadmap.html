@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Known Issues" href="known-issues.html" /><link rel="prev" title="Feature Status" href="feature-status.html" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Contributing" href="../developers/contributing.html" /><link rel="prev" title="Feature Status" href="feature-status.html" />
 
     <!-- Generated with Sphinx 7.2.6 and Furo 2024.01.29 -->
         <title>Roadmap - Paraglider documentation</title>
@@ -158,15 +158,10 @@
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">Overview</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../overview/quickstart.html">Quickstart</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../overview/concepts.html">Concepts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../overview/howitworks.html">How It Works</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../overview/api.html">API</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Developers</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../developers/contributing.html">Contributing</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../developers/plugin-interface.html">Plugin Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/quickstart.html">Quickstart</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul>
@@ -178,7 +173,18 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="feature-status.html">Feature Status</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Roadmap</a></li>
-<li class="toctree-l1"><a class="reference internal" href="known-issues.html">Known Issues</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developers</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developers/contributing.html">Contributing</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of Contributing</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/prerequisites.html">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/building.html">Building The Project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/contributing-issues.html">Contributing Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/writing-go.html">Writing Good Go Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/known-issues.html">Known Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../developers/plugin-interface.html">Plugin Interface</a></li>
 </ul>
 
 </div>
@@ -218,12 +224,16 @@
 <p>This pages lists some of the features that are planned for the future of Paraglider.</p>
 <ul class="simple">
 <li><p>Get the IBM plugin caught up with the other plugins in feature completeness.</p></li>
-<li><p>Support brownfield deployment.</p></li>
-<li><p>Support aynchronous requests to the Paraglider controller.</p></li>
 <li><p>Add plugins for other clouds.</p></li>
-<li><p>Add support for additional resource types (e.g. private endpoints, etc.)</p></li>
+<li><p>Add support for additional resource types (e.g. specialized IaaS resources, PaaS resources, etc.).</p></li>
+<li><p>Support for brownfield scenarios like interop, or reverse engineering.</p></li>
+<li><p>Support aynchronous requests to the Paraglider controller.</p></li>
 <li><p>Integrate with k8s networking plugins.</p></li>
 <li><p>Add support for network functions such as load balancers, firewalls, etc.</p></li>
+<li><p>Support for assigning public/static IP addresses.</p></li>
+<li><p>Infrastructure-as-code support (e.g., Terraform).</p></li>
+<li><p>Improve provisioning latency for inter-cloud connectivity.</p></li>
+<li><p>Deeper integration with clouds, including Paraglider-centric diagnostics, policy, permissions.</p></li>
 </ul>
 </section>
 
@@ -232,12 +242,12 @@
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="known-issues.html">
+          <a class="next-page" href="../developers/contributing.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">Known Issues</div>
+                <div class="title">Contributing</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>

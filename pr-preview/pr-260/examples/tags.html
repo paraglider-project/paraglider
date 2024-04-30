@@ -158,15 +158,10 @@
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">Overview</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../overview/quickstart.html">Quickstart</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../overview/concepts.html">Concepts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../overview/howitworks.html">How It Works</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../overview/api.html">API</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Developers</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../developers/contributing.html">Contributing</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../developers/plugin-interface.html">Plugin Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/quickstart.html">Quickstart</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul class="current">
@@ -178,7 +173,18 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../project/feature-status.html">Feature Status</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../project/roadmap.html">Roadmap</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../project/known-issues.html">Known Issues</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developers</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developers/contributing.html">Contributing</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of Contributing</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/prerequisites.html">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/building.html">Building The Project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/contributing-issues.html">Contributing Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/writing-go.html">Writing Good Go Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/known-issues.html">Known Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../developers/plugin-interface.html">Plugin Interface</a></li>
 </ul>
 
 </div>
@@ -241,7 +247,7 @@
 <p>You can find example configuration files in the <code class="docutils literal notranslate"><span class="pre">tools/examples/controller-configs</span></code> directory.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Be sure to replace the template values for the GCP project in the template (you can exclude Azure entirely)</p>
+<p>This example will create a VM in GCP. You can create the VM in whichever cloud you prefer. Make sure that your chosen cloud provider is configured in the controller configuration file.</p>
 </div>
 </section>
 <section id="steps">
