@@ -13,7 +13,7 @@ Welcome to Paraglider!
 
 |
 
-Paraglider is a cross-cloud control plane for configuring cloud networks. 
+Paraglider is a cross-cloud control plane for configuring cloud networks. Small change here.
 
 The Paraglider project aims to evolve cloud networking by simplifying the creation and management of single and multi-cloud networking. 
 The project reduces the need for detailed networking knowledge from developers and administrators, and hides the complexity of low-level components like virtual networks, access control, load balancers, and inter-cloud connections. Paraglider provides high-level constructs for modeling connectivity and security as well as key network functions. Additionally, it provides mechanisms for semantically meaningful names and groups rather than limiting to IP-based constructs. 
