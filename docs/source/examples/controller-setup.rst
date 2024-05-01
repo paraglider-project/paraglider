@@ -42,13 +42,16 @@ The controller is configured using a configuration file. The configuration file 
         host: "localhost"
         port: 8085
 
-This file contains all information needed to spin up each of the microservices. 
- * The ``server`` field determines where the main controller service should be hosted (for user REST requests and plugin RPCs). This service is the frontend to the controller and orchestrates the other services.
- * The ``cloudPlugins`` field determines where the each cloud plugin should be hosted. 
- * The ``namespaces`` field contains information about the namespaces. Each namespace has a name and consists of at least one cloud deployment.
-    * A cloud deployment consists of the name of the cloud ("azure", "gcp", or "ibm") and the ID of the deployment. Exactly what maps to a deployment depends on the cloud. In Azure and IBM, this is a resource group. In GCP, it is a project.
- * The ``tagService`` field determines where the tag service should be hosted.
- * The ``kvStore`` field determines where the key-value store should be hosted.
+This file contains all information needed to spin up each of the microservices.
+
+* The ``server`` field determines where the main controller service should be hosted (for user REST requests and plugin RPCs). This service is the frontend to the controller and orchestrates the other services.
+* The ``cloudPlugins`` field determines where the each cloud plugin should be hosted.
+* The ``namespaces`` field contains information about the namespaces. Each namespace has a name and consists of at least one cloud deployment.
+
+  * A cloud deployment consists of the name of the cloud ("azure", "gcp", or "ibm") and the ID of the deployment. Exactly what maps to a deployment depends on the cloud. In Azure and IBM, this is a resource group. In GCP, it is a project.
+
+* The ``tagService`` field determines where the tag service should be hosted.
+* The ``kvStore`` field determines where the key-value store should be hosted.
 
 .. note: 
     The key-value store service can be omitted if none of the plugins require it. Currently, only the IBM plugin requires it.
