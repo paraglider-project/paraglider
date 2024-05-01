@@ -160,6 +160,7 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 			http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
 			return
 		}
+
 		switch {
 		// List Namespaces
 		case urlMatches(path, orchestrator.ListNamespacesURL) && r.Method == http.MethodGet:
