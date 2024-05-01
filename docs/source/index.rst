@@ -33,6 +33,7 @@ Check out the `GitHub repository <https://github.com/paraglider-project/paraglid
    :maxdepth: 1
    :caption: Overview
 
+   overview/what-is-paraglider.rst
    overview/concepts.rst
    overview/howitworks.rst
    overview/api.rst
