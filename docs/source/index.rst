@@ -11,7 +11,11 @@ Welcome to Paraglider!
    :alt: Paraglider Logo
    :class: no-scaled-link, only-light
 
-|
+.. raw:: html
+
+   <br />
+   <a href="https://discord.gg/KrZGbfZ7wm"><img src="https://dcbadge.vercel.app/api/server/KrZGbfZ7wm?compact=true&?compact=true" /></a>
+   <iframe src="https://ghbtns.com/github-btn.html?user=paraglider-project&repo=paraglider&type=star&count=true&size=large" frameborder="0" scrolling="0" width="170" height="30" title="GitHub"></iframe>
 
 Paraglider is a cross-cloud control plane for configuring cloud networks. 
 
