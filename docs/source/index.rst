@@ -15,7 +15,7 @@ Welcome to Paraglider!
 
    <br />
    <a href="https://discord.gg/KrZGbfZ7wm"><img src="https://dcbadge.vercel.app/api/server/KrZGbfZ7wm?compact=true&?compact=true" /></a>
-   <a class="github-button" href="https://github.com/paraglider-project/paraglider" data-color-scheme="no-preference: light; light: light; dark: dark;" data-size="large" data-show-count="true" aria-label="Star paraglider-project/paraglider on GitHub">Star</a>
+   <a class="github-button" href="https://github.com/paraglider-project/paraglider" data-size="large" data-show-count="true" aria-label="Star paraglider-project/paraglider on GitHub">Star</a>
 
    <!-- Place this tag in your head or just before your close body tag. -->
    <script async defer src="https://buttons.github.io/buttons.js"></script>
