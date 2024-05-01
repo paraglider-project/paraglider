@@ -110,6 +110,25 @@ func GetFakeTagMappingLeafTags(tagName string) []*tagservicepb.TagMapping {
 	}
 }
 
+func ListFakeTagMapping() []*tagservicepb.TagMapping {
+	return []*tagservicepb.TagMapping{
+		{
+			TagName:   "tag1",
+			ChildTags: []string{"member1", "member2"},
+		},
+		{
+			TagName: "member1",
+			Uri:     proto.String("resource/uri"),
+			Ip:      proto.String("1.1.1.1"),
+		},
+		{
+			TagName: "member2",
+			Uri:     proto.String("resource/uri"),
+			Ip:      proto.String("2.2.2.2"),
+		},
+	}
+}
+
 func GetFakeNamespaces() map[string][]config.CloudDeployment {
 	return map[string][]config.CloudDeployment{
 		"namespace1": {
@@ -141,7 +160,6 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 			http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
 			return
 		}
-
 		switch {
 		// List Namespaces
 		case urlMatches(path, orchestrator.ListNamespacesURL) && r.Method == http.MethodGet:
@@ -224,6 +242,16 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 				return
 			}
 			return
+		// Tag List
+		case urlMatches(path, orchestrator.ListTagURL):
+			if r.Method == http.MethodGet {
+				err := s.writeResponse(w, tagservicepb.TagMappingList{Mappings: ListFakeTagMapping()})
+				if err != nil {
+					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+					return
+				}
+				return
+			}
 		// Tag Get/Delete
 		case urlMatches(path, orchestrator.GetTagURL):
 			if r.Method == http.MethodDelete {

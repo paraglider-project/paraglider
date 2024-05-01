@@ -36,6 +36,7 @@ import (
 	grpc "google.golang.org/grpc"
 	insecure "google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/paraglider-project/paraglider/pkg/kvstore/storepb"
 	config "github.com/paraglider-project/paraglider/pkg/orchestrator/config"
@@ -52,6 +53,7 @@ const (
 	DeletePermitListRulesURL string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/deleteRules"
 	CreateResourcePUTURL     string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName"
 	CreateResourcePOSTURL    string = "/namespaces/:namespace/clouds/:cloud/resources"
+	ListTagURL               string = "/tags"
 	GetTagURL                string = "/tags/:tag"
 	ResolveTagURL            string = "/tags/:tag/resolveMembers"
 	SetTagURL                string = "/tags/:tag/applyMembers"
@@ -991,6 +993,26 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	c.JSON(http.StatusOK, resourceResp)
 }
 
+// List all tags from local tag service
+func (s *ControllerServer) listTags(c *gin.Context) {
+	// Call listTags locally
+	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	// Send RPC to list tags
+	client := tagservicepb.NewTagServiceClient(conn)
+	response, err := client.ListTags(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
 // Get tag from local tag service
 func (s *ControllerServer) getTag(c *gin.Context) {
 	// Call getTag locally
@@ -1300,6 +1322,7 @@ func Setup(cfg config.Config, background bool) {
 	router.DELETE(PermitListRulePUTURL, server.permitListRuleDelete)
 	router.PUT(CreateResourcePUTURL, server.resourceCreate)
 	router.POST(CreateResourcePOSTURL, server.resourceCreate)
+	router.GET(ListTagURL, server.listTags)
 	router.GET(GetTagURL, server.getTag)
 	router.POST(ResolveTagURL, server.resolveTag)
 	router.POST(SetTagURL, server.setTag)
