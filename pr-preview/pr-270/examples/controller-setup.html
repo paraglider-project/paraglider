@@ -263,22 +263,18 @@ For information on the commands for running each individual microservice, see <a
 <span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8085</span>
 </pre></div>
 </div>
-<dl class="simple">
-<dt>This file contains all information needed to spin up each of the microservices.</dt><dd><ul class="simple">
+<p>This file contains all information needed to spin up each of the microservices.</p>
+<ul class="simple">
 <li><p>The <code class="docutils literal notranslate"><span class="pre">server</span></code> field determines where the main controller service should be hosted (for user REST requests and plugin RPCs). This service is the frontend to the controller and orchestrates the other services.</p></li>
 <li><p>The <code class="docutils literal notranslate"><span class="pre">cloudPlugins</span></code> field determines where the each cloud plugin should be hosted.</p></li>
-<li><dl class="simple">
-<dt>The <code class="docutils literal notranslate"><span class="pre">namespaces</span></code> field contains information about the namespaces. Each namespace has a name and consists of at least one cloud deployment.</dt><dd><ul>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">namespaces</span></code> field contains information about the namespaces. Each namespace has a name and consists of at least one cloud deployment.</p>
+<ul>
 <li><p>A cloud deployment consists of the name of the cloud (“azure”, “gcp”, or “ibm”) and the ID of the deployment. Exactly what maps to a deployment depends on the cloud. In Azure and IBM, this is a resource group. In GCP, it is a project.</p></li>
 </ul>
-</dd>
-</dl>
 </li>
 <li><p>The <code class="docutils literal notranslate"><span class="pre">tagService</span></code> field determines where the tag service should be hosted.</p></li>
 <li><p>The <code class="docutils literal notranslate"><span class="pre">kvStore</span></code> field determines where the key-value store should be hosted.</p></li>
 </ul>
-</dd>
-</dl>
 </section>
 <section id="running-the-controller">
 <h2>Running the Controller<a class="headerlink" href="#running-the-controller" title="Link to this heading">#</a></h2>
