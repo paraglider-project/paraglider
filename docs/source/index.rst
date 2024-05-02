@@ -1,5 +1,4 @@
-Welcome to Paraglider!
-======================================
+|
 
 .. image:: ./_static/paraglider-color-darkmode.png
     :width: 300
@@ -40,6 +39,7 @@ Check out the `GitHub repository <https://github.com/paraglider-project/paraglid
    :maxdepth: 1
    :caption: Overview
 
+   overview/what-is-paraglider.rst
    overview/concepts.rst
    overview/howitworks.rst
    overview/api.rst
