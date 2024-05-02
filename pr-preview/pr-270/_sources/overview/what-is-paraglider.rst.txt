@@ -14,6 +14,7 @@ Some existing options for creating/managing cloud networks are (1) using the und
 While Terraform has its benefits in being infrastructure as code, this doesn't solve the underlying problem: that we're still speaking in terms of low-level components like virtual networks, gateways, etc. 
 Other options in the space like service meshes can simplify connectivity between apps at the application layer, not the network layer. 
 Often approaches like this assume that someone else has set up the IP-level connectivity for you. 
+Some solutions do create IP-level connectivity, like Aviatrix, but still use low-level networking building blocks and do not expose a streamlined API like Paraglider.
 
 ---
 

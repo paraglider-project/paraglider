@@ -234,7 +234,8 @@ The Paraglider Controller exposes the Paraglider API to tenants and uses public 
 <p>Some existing options for creating/managing cloud networks are (1) using the underlying cloud APIs directly or (2) using something like Terraform.
 While Terraform has its benefits in being infrastructure as code, this doesn’t solve the underlying problem: that we’re still speaking in terms of low-level components like virtual networks, gateways, etc.
 Other options in the space like service meshes can simplify connectivity between apps at the application layer, not the network layer.
-Often approaches like this assume that someone else has set up the IP-level connectivity for you.</p>
+Often approaches like this assume that someone else has set up the IP-level connectivity for you.
+Some solutions do create IP-level connectivity, like Aviatrix, but still use low-level networking building blocks and do not expose a streamlined API like Paraglider.</p>
 <p>—</p>
 </section>
 <section id="what-s-a-paraglider-use-case">
