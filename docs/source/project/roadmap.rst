@@ -12,6 +12,7 @@ Features:
  * Add support for network functions such as load balancers, firewalls, etc. :bdg-primary:`Longer-term` `[GitHub Issue]<https://github.com/paraglider-project/paraglider/issues/274>`_
  * Support for assigning public/static IP addresses. :bdg-secondary:`As Needed` `[GitHub Issue]<https://github.com/paraglider-project/paraglider/issues/275>`_
  * Add plugins for other clouds. :bdg-secondary:`As Needed` `[GitHub Issue]<https://github.com/paraglider-project/paraglider/issues/276>`_
+ * Add support for Zero-Trust architecture with trusted identities. :bdg-primary:`Longer-term` `[GitHub Issue]<https://github.com/paraglider-project/paraglider/issues/228>`_
 
 Technical:
  * Support asynchronous requests to the Paraglider controller. :bdg-primary:`Longer-term` `[GitHub Issue]<https://github.com/paraglider-project/paraglider/issues/10>`_
