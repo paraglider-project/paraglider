@@ -1,12 +1,5 @@
 #!/bin/sh
 
-# Check for an empty commit message
-if [ -z "$2" ]
-then
-    echo "Empty commit message is not allowed."
-    exit 1
-fi
-
 # Add sign-off
 NAME="$(git config user.name)"
 EMAIL="$(git config user.email)"
