@@ -29,11 +29,11 @@ This is the list of core dependencies to install for the most common tasks. In g
 - `protoc <https://grpc.io/docs/protoc-installation>`_
 - make
 
-  * Linux: Install the `build-essential` package:
+  * Linux: Install the ``build-essential`` package:
 
     .. code-block:: console
     
-        apt install build-essential
+        $ apt install build-essential
   
   * Mac:
 
@@ -41,27 +41,26 @@ This is the list of core dependencies to install for the most common tasks. In g
 
     .. code-block:: console  
         
-        xcode-select --install
+        $ xcode-select --install
     
     Homebrew
 
     .. code-block:: console
 
-        brew install make
+        $ brew install make
     
 Testing Required Tools
 ^^^^^^^^^^^^^^^^^^^^^^^
 If you have not already done so, clone the repository and navigate there in your command shell.
 
-You can build the main outputs using `make`:
+You can build the main outputs using ``make``:
 
 .. code-block:: console
 
-    make build lint
-
+    $ make build lint
 
 Running these steps will run our build and lint steps and verify that the tools are installed correctly. 
-If you get stuck or suspect something is not working in these instructions please raise an issue or ask for help in our `discord <https://discordapp.com/channels/1116864463832891502/11168644638328915074>`_.
+If you get stuck or suspect something is not working in these instructions please raise an issue or ask for help in our Discord linked on our homepage.
 
 **Integration/Multicloud Tests**
 
@@ -69,10 +68,10 @@ Our integration/multicloud tests perform real requests to cloud providers. You c
 
 .. code-block:: console
 
-    make integration-test
-    make multicloud-test
+    $ make integration-test
+    $ make multicloud-test
 
-Note that the `make test` command only runs unit tests.
+Note that the ``make test`` command only runs unit tests.
 
 If you would like to run these locally, you will need to be authenticated. The following are the steps for each respective cloud provider.
 
@@ -81,21 +80,31 @@ If you would like to run these locally, you will need to be authenticated. The f
 #. `Install the gcloud CLI <https://cloud.google.com/sdk/docs/install>`_. If you're using the dev container, this will already be installed for you.
 #. `Set up your application default credentials <https://cloud.google.com/docs/authentication/provide-credentials-adc>`_.
 #. Set the active project with ``gcloud config set project <project-id>``.
-#. The tests will automatically create (and delete) new projects for each test run. **You must set the environment variable `INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME` in the form of the `billingAccount` field of the `<"ProjectBillingInfo" resource https://cloud.google.com/billing/docs/reference/rest/v1/ProjectBillingInfo>`_.** 
-    * If you'd like them to be created in a certain parent, set the environment variable `INVISINETS_GCP_PROJECT_PARENT` in the form of the `parent` field of the `"Project" resource <https://cloud.google.com/resource-manager/reference/rest/v3/projects#resource:-project>`_. **Please note that this requires privileges of creating projects and linking billing accounts.** 
-    * If you want to use your own project, set the environment variable `INVISINETS_GCP_PROJECT`. **However, resources will not automatically be cleaned up for you.** The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.
+#. The tests will automatically create (and delete) new projects for each test run. You must set the environment variable ``INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME`` in the form of the ``billingAccount`` field of the `"ProjectBillingInfo" resource <https://cloud.google.com/billing/docs/reference/rest/v1/ProjectBillingInfo>`_.
+
+   * If you'd like them to be created in a certain parent, set the environment variable ``INVISINETS_GCP_PROJECT_PARENT`` in the form of the `parent` field of the `"Project" resource <https://cloud.google.com/resource-manager/reference/rest/v3/projects#resource:-project>`_.
+   
+     .. warning::
+        
+        This requires privileges of creating projects and linking billing accounts.
+    
+   * If you want to use your own project, set the environment variable ``INVISINETS_GCP_PROJECT``. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.
+     
+     .. warning::
+        
+        Resources will not automatically be cleaned up for you.
 
 **Azure**
 
 #. `Install azure cli <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>`_. If you're using the dev container, this will already be installed for you.
 #. `Authenticate to your account with azure login <https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli>`_.
-#. Set environment variables `INVISINETS_AZURE_SUBSCRIPTION_ID` with a valid subscription.
+#. Set environment variables ``INVISINETS_AZURE_SUBSCRIPTION_ID`` with a valid subscription.
 
-If you'd like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable `INVISINETS_TEST_PERSIST` to `1`.
+If you'd like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable ``INVISINETS_TEST_PERSIST`` to ``1``.
 
 **IBM** 
 
-.. note: 
+.. note:: 
     IBM integration tests are not currently supported. We plan to add some soon.
 
 Editor
@@ -107,15 +116,11 @@ Alternatively, you can choose whichever editor you are most comfortable for work
 - `Visual Studio Code <https://code.visualstudio.com/>`_
 - `Go extension <https://marketplace.visualstudio.com/items?itemName=golang.go>`_
 
-Install both of these and then follow the steps in the *Quick Start* for the Go extension.
-
-The extension will walk you through an automated install of some additional tools that match your installed version of Go.
-
 Launching VS Code
 ^^^^^^^^^^^^^^^^^^^^
-The best way to launch VS Code for Go is to do *File* -> *Open Folder* on the repository. 
+The best way to launch VS Code for Go is to do *File* > *Open Folder* on the repository. 
 
-You can easily do this from the command shell with `code .`, which opens the current directory as a folder in VS Code.
+You can easily do this from the command shell with ``code .``, which opens the current directory as a folder in VS Code.
 
 
 Using the Dev Container
@@ -134,7 +139,7 @@ Additional Tools
 
 Test summaries
 ^^^^^^^^^^^^^^^^^^^^
-The default `go test` output can be hard to read when you have many tests. We recommend `gotestsum` as a tool to solve this. 
-Our `make test` command will automatically use `gotestsum` if it is available.
+The default ``go test`` output can be hard to read when you have many tests. We recommend ``gotestsum`` as a tool to solve this. 
+Our ``make test`` command will automatically use ``gotestsum`` if it is available.
 
 - `gotestsum <https://github.com/gotestyourself/gotestsum#install>`_

@@ -147,10 +147,6 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../index.html">
   
-  <div class="sidebar-logo-container">
-    <img class="sidebar-logo only-light" src="../../_static/paraglider-color-lightmode.png" alt="Light Logo"/>
-    <img class="sidebar-logo only-dark" src="../../_static/paraglider-color-darkmode.png" alt="Dark Logo"/>
-  </div>
   
   <span class="sidebar-brand-text">Paraglider  documentation</span>
   
@@ -250,18 +246,18 @@ Keep reading for instructions.</p>
 <li><p><a class="reference external" href="https://grpc.io/docs/protoc-installation">protoc</a></p></li>
 <li><p>make</p>
 <ul>
-<li><p>Linux: Install the <cite>build-essential</cite> package:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">apt install build-essential</span>
+<li><p>Linux: Install the <code class="docutils literal notranslate"><span class="pre">build-essential</span></code> package:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>apt<span class="w"> </span>install<span class="w"> </span>build-essential
 </pre></div>
 </div>
 </li>
 <li><p>Mac:</p>
 <p>Xcode</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">xcode-select --install</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>xcode-select<span class="w"> </span>--install
 </pre></div>
 </div>
 <p>Homebrew</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">brew install make</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>brew<span class="w"> </span>install<span class="w"> </span>make
 </pre></div>
 </div>
 </li>
@@ -272,42 +268,54 @@ Keep reading for instructions.</p>
 <section id="testing-required-tools">
 <h3>Testing Required Tools<a class="headerlink" href="#testing-required-tools" title="Link to this heading">#</a></h3>
 <p>If you have not already done so, clone the repository and navigate there in your command shell.</p>
-<p>You can build the main outputs using <cite>make</cite>:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">make build lint</span>
+<p>You can build the main outputs using <code class="docutils literal notranslate"><span class="pre">make</span></code>:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>make<span class="w"> </span>build<span class="w"> </span>lint
 </pre></div>
 </div>
 <p>Running these steps will run our build and lint steps and verify that the tools are installed correctly.
-If you get stuck or suspect something is not working in these instructions please raise an issue or ask for help in our <a class="reference external" href="https://discordapp.com/channels/1116864463832891502/11168644638328915074">discord</a>.</p>
+If you get stuck or suspect something is not working in these instructions please raise an issue or ask for help in our Discord linked on our homepage.</p>
 <p><strong>Integration/Multicloud Tests</strong></p>
 <p>Our integration/multicloud tests perform real requests to cloud providers. You can run these with the following commands</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">make integration-test</span>
-<span class="go">make multicloud-test</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>make<span class="w"> </span>integration-test
+<span class="gp">$ </span>make<span class="w"> </span>multicloud-test
 </pre></div>
 </div>
-<p>Note that the <cite>make test</cite> command only runs unit tests.</p>
+<p>Note that the <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">test</span></code> command only runs unit tests.</p>
 <p>If you would like to run these locally, you will need to be authenticated. The following are the steps for each respective cloud provider.</p>
 <p><strong>Google Cloud</strong></p>
-<ol class="arabic simple">
+<ol class="arabic">
 <li><p><a class="reference external" href="https://cloud.google.com/sdk/docs/install">Install the gcloud CLI</a>. If you’re using the dev container, this will already be installed for you.</p></li>
 <li><p><a class="reference external" href="https://cloud.google.com/docs/authentication/provide-credentials-adc">Set up your application default credentials</a>.</p></li>
 <li><p>Set the active project with <code class="docutils literal notranslate"><span class="pre">gcloud</span> <span class="pre">config</span> <span class="pre">set</span> <span class="pre">project</span> <span class="pre">&lt;project-id&gt;</span></code>.</p></li>
-<li><dl class="simple">
-<dt>The tests will automatically create (and delete) new projects for each test run. <strong>You must set the environment variable `INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME` in the form of the `billingAccount` field of the `&lt;”ProjectBillingInfo” resource https://cloud.google.com/billing/docs/reference/rest/v1/ProjectBillingInfo&gt;`_.</strong></dt><dd><ul class="simple">
-<li><p>If you’d like them to be created in a certain parent, set the environment variable <cite>INVISINETS_GCP_PROJECT_PARENT</cite> in the form of the <cite>parent</cite> field of the <a class="reference external" href="https://cloud.google.com/resource-manager/reference/rest/v3/projects#resource:-project">“Project” resource</a>. <strong>Please note that this requires privileges of creating projects and linking billing accounts.</strong></p></li>
-<li><p>If you want to use your own project, set the environment variable <cite>INVISINETS_GCP_PROJECT</cite>. <strong>However, resources will not automatically be cleaned up for you.</strong> The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.</p></li>
+<li><p>The tests will automatically create (and delete) new projects for each test run. You must set the environment variable <code class="docutils literal notranslate"><span class="pre">INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME</span></code> in the form of the <code class="docutils literal notranslate"><span class="pre">billingAccount</span></code> field of the <a class="reference external" href="https://cloud.google.com/billing/docs/reference/rest/v1/ProjectBillingInfo">“ProjectBillingInfo” resource</a>.</p>
+<ul>
+<li><p>If you’d like them to be created in a certain parent, set the environment variable <code class="docutils literal notranslate"><span class="pre">INVISINETS_GCP_PROJECT_PARENT</span></code> in the form of the <cite>parent</cite> field of the <a class="reference external" href="https://cloud.google.com/resource-manager/reference/rest/v3/projects#resource:-project">“Project” resource</a>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This requires privileges of creating projects and linking billing accounts.</p>
+</div>
+</li>
+<li><p>If you want to use your own project, set the environment variable <code class="docutils literal notranslate"><span class="pre">INVISINETS_GCP_PROJECT</span></code>. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Resources will not automatically be cleaned up for you.</p>
+</div>
+</li>
 </ul>
-</dd>
-</dl>
 </li>
 </ol>
 <p><strong>Azure</strong></p>
 <ol class="arabic simple">
 <li><p><a class="reference external" href="https://learn.microsoft.com/en-us/cli/azure/install-azure-cli">Install azure cli</a>. If you’re using the dev container, this will already be installed for you.</p></li>
 <li><p><a class="reference external" href="https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli">Authenticate to your account with azure login</a>.</p></li>
-<li><p>Set environment variables <cite>INVISINETS_AZURE_SUBSCRIPTION_ID</cite> with a valid subscription.</p></li>
+<li><p>Set environment variables <code class="docutils literal notranslate"><span class="pre">INVISINETS_AZURE_SUBSCRIPTION_ID</span></code> with a valid subscription.</p></li>
 </ol>
-<p>If you’d like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable <cite>INVISINETS_TEST_PERSIST</cite> to <cite>1</cite>.</p>
+<p>If you’d like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable <code class="docutils literal notranslate"><span class="pre">INVISINETS_TEST_PERSIST</span></code> to <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
 <p><strong>IBM</strong></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>IBM integration tests are not currently supported. We plan to add some soon.</p>
+</div>
 </section>
 </section>
 <section id="editor">
@@ -318,12 +326,10 @@ If you get stuck or suspect something is not working in these instructions pleas
 <li><p><a class="reference external" href="https://code.visualstudio.com/">Visual Studio Code</a></p></li>
 <li><p><a class="reference external" href="https://marketplace.visualstudio.com/items?itemName=golang.go">Go extension</a></p></li>
 </ul>
-<p>Install both of these and then follow the steps in the <em>Quick Start</em> for the Go extension.</p>
-<p>The extension will walk you through an automated install of some additional tools that match your installed version of Go.</p>
 <section id="launching-vs-code">
 <h3>Launching VS Code<a class="headerlink" href="#launching-vs-code" title="Link to this heading">#</a></h3>
-<p>The best way to launch VS Code for Go is to do <em>File</em> -&gt; <em>Open Folder</em> on the repository.</p>
-<p>You can easily do this from the command shell with <cite>code .</cite>, which opens the current directory as a folder in VS Code.</p>
+<p>The best way to launch VS Code for Go is to do <em>File</em> &gt; <em>Open Folder</em> on the repository.</p>
+<p>You can easily do this from the command shell with <code class="docutils literal notranslate"><span class="pre">code</span> <span class="pre">.</span></code>, which opens the current directory as a folder in VS Code.</p>
 </section>
 </section>
 <section id="using-the-dev-container">
@@ -341,8 +347,8 @@ This will take a few minutes the first time to download and build the container,
 <h2>Additional Tools<a class="headerlink" href="#additional-tools" title="Link to this heading">#</a></h2>
 <section id="test-summaries">
 <h3>Test summaries<a class="headerlink" href="#test-summaries" title="Link to this heading">#</a></h3>
-<p>The default <cite>go test</cite> output can be hard to read when you have many tests. We recommend <cite>gotestsum</cite> as a tool to solve this.
-Our <cite>make test</cite> command will automatically use <cite>gotestsum</cite> if it is available.</p>
+<p>The default <code class="docutils literal notranslate"><span class="pre">go</span> <span class="pre">test</span></code> output can be hard to read when you have many tests. We recommend <code class="docutils literal notranslate"><span class="pre">gotestsum</span></code> as a tool to solve this.
+Our <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">test</span></code> command will automatically use <code class="docutils literal notranslate"><span class="pre">gotestsum</span></code> if it is available.</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://github.com/gotestyourself/gotestsum#install">gotestsum</a></p></li>
 </ul>

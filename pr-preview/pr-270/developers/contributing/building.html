@@ -147,10 +147,6 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../index.html">
   
-  <div class="sidebar-logo-container">
-    <img class="sidebar-logo only-light" src="../../_static/paraglider-color-lightmode.png" alt="Light Logo"/>
-    <img class="sidebar-logo only-dark" src="../../_static/paraglider-color-darkmode.png" alt="Dark Logo"/>
-  </div>
   
   <span class="sidebar-brand-text">Paraglider  documentation</span>
   
@@ -229,11 +225,11 @@
 <section id="building-the-code">
 <h2>Building the code<a class="headerlink" href="#building-the-code" title="Link to this heading">#</a></h2>
 <p>Paraglider uses a Makefile to build the repository and automate most common repository tasks.</p>
-<p>You can run <cite>make</cite> (no additional arguments) to see the list of targets and their descriptions.</p>
+<p>You can run <code class="docutils literal notranslate"><span class="pre">make</span></code> (no additional arguments) to see the list of targets and their descriptions.</p>
 <p>You can build the repository with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">build</span></code>. This will build all of the packages and executables.
 The first time you run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">build</span></code> it may take a few minutes because it will download and build dependencies. Subsequent builds will be faster because they can use cached output.</p>
 <p>The following command will build, run unit tests, and run linters. This command is handy for verifying that your local changes are working correctly.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">make build lint test</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>make<span class="w"> </span>build<span class="w"> </span>lint<span class="w"> </span><span class="nb">test</span>
 </pre></div>
 </div>
 <section id="built-binaries">
@@ -251,22 +247,22 @@ See the <a class="reference internal" href="../../overview/api.html#api"><span c
 <p>All of our documentation is located in <code class="docutils literal notranslate"><span class="pre">docs/</span></code>. We use <a class="reference external" href="https://www.sphinx-doc.org/">Sphinx</a> to generate our documents.</p>
 <section id="setup">
 <h3>Setup<a class="headerlink" href="#setup" title="Link to this heading">#</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
-<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
-pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>docs/requirements.txt
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
+<span class="gp">$ </span><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>docs/requirements.txt
 </pre></div>
 </div>
 </section>
 <section id="id1">
 <h3>Building<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>docs
-make<span class="w"> </span>html
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>docs
+<span class="gp">$ </span>make<span class="w"> </span>html
 </pre></div>
 </div>
 </section>
 <section id="viewing">
 <h3>Viewing<a class="headerlink" href="#viewing" title="Link to this heading">#</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>http.server
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>python<span class="w"> </span>-m<span class="w"> </span>http.server
 </pre></div>
 </div>
 <p>Navigate to <code class="docutils literal notranslate"><span class="pre">localhost:8000</span></code>.</p>
@@ -274,10 +270,10 @@ make<span class="w"> </span>html
 </section>
 <section id="troubleshooting-and-getting-help">
 <h2>Troubleshooting and getting help<a class="headerlink" href="#troubleshooting-and-getting-help" title="Link to this heading">#</a></h2>
-<p>You might encounter error messages while running various <cite>make</cite> commands due to missing dependencies. Review the prerequisites listed above for installation instructions.</p>
-<p>If you get stuck working with the repository, please ask for help by <a class="reference external" href="https://github.com/paraglider-project/paraglider/issues/new">raising an issue on Github</a> or in our <a class="reference external" href="https://discordapp.com/channels/1116864463832891502/11168644638328915074">discord</a>.
+<p>You might encounter error messages while running various <code class="docutils literal notranslate"><span class="pre">make</span></code> commands due to missing dependencies. Review the prerequisites listed above for installation instructions.</p>
+<p>If you get stuck working with the repository, please ask for help by <a class="reference external" href="https://github.com/paraglider-project/paraglider/issues/new">raising an issue on Github</a> or in our Discord (linked on our home page).
 We’re always interested in ways to improve the tooling, so please feel free to report problems and suggest improvements.</p>
-<p>If you need to report an issue with the Makefile, we may ask you for a dump of the variables. You can see the state of all of the variables our Makefile defines with <cite>make dump</cite>. The output will be quite large so you might want to redirect this to a file.</p>
+<p>If you need to report an issue with the Makefile, we may ask you for a dump of the variables. You can see the state of all of the variables our Makefile defines with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">dump</span></code>. The output will be quite large so you might want to redirect this to a file.</p>
 </section>
 </section>
 

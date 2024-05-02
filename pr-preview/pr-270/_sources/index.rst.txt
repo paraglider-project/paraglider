@@ -1,5 +1,4 @@
-Welcome to Paraglider!
-======================================
+|
 
 .. image:: ./_static/paraglider-color-darkmode.png
     :width: 300

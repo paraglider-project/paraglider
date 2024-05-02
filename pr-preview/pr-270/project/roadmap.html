@@ -136,7 +136,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -147,10 +147,6 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <div class="sidebar-logo-container">
-    <img class="sidebar-logo only-light" src="../_static/paraglider-color-lightmode.png" alt="Light Logo"/>
-    <img class="sidebar-logo only-dark" src="../_static/paraglider-color-darkmode.png" alt="Dark Logo"/>
-  </div>
   
   <span class="sidebar-brand-text">Paraglider  documentation</span>
   
@@ -218,37 +214,112 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main">
           <section id="roadmap">
-<span id="id1"></span><h1>Roadmap<a class="headerlink" href="#roadmap" title="Link to this heading">#</a></h1>
+<h1>Roadmap<a class="headerlink" href="#roadmap" title="Link to this heading">#</a></h1>
 <p>This pages lists some of the features that are planned for the future of Paraglider.</p>
-<dl class="simple">
-<dt>Features:</dt><dd><ul class="simple">
-<li><p>Get the IBM plugin caught up with the other plugins in feature completeness. <span class="sd-sphinx-override sd-badge sd-bg-warning sd-bg-text-warning">Short-term</span> <a href="#id2"><span class="problematic" id="id3">`[GitHub Issue]&lt;https://github.com/paraglider-project/paraglider/issues/271&gt;`_</span></a></p></li>
-<li><p>Add support for additional resource types (e.g. specialized IaaS resources, PaaS resources, etc.). <span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a href="#id4"><span class="problematic" id="id5">`[GitHub Issue]&lt;https://github.com/paraglider-project/paraglider/issues/272&gt;`_</span></a></p></li>
-<li><p>Support for brownfield scenarios like interop, or reverse engineering. <span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a href="#id6"><span class="problematic" id="id7">`[GitHub Issue]&lt;https://github.com/paraglider-project/paraglider/issues/170&gt;`_</span></a></p></li>
-<li><p>Add support for network functions such as load balancers, firewalls, etc. <span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a href="#id8"><span class="problematic" id="id9">`[GitHub Issue]&lt;https://github.com/paraglider-project/paraglider/issues/274&gt;`_</span></a></p></li>
-<li><p>Support for assigning public/static IP addresses. <span class="sd-sphinx-override sd-badge sd-bg-secondary sd-bg-text-secondary">As Needed</span> <a href="#id10"><span class="problematic" id="id11">`[GitHub Issue]&lt;https://github.com/paraglider-project/paraglider/issues/275&gt;`_</span></a></p></li>
-<li><p>Add plugins for other clouds. <span class="sd-sphinx-override sd-badge sd-bg-secondary sd-bg-text-secondary">As Needed</span> <a href="#id12"><span class="problematic" id="id13">`[GitHub Issue]&lt;https://github.com/paraglider-project/paraglider/issues/276&gt;`_</span></a></p></li>
-<li><p>Add support for Zero-Trust architecture with trusted identities. <span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a href="#id14"><span class="problematic" id="id15">`[GitHub Issue]&lt;https://github.com/paraglider-project/paraglider/issues/228&gt;`_</span></a></p></li>
-</ul>
-</dd>
-<dt>Technical:</dt><dd><ul class="simple">
-<li><p>Support asynchronous requests to the Paraglider controller. <span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a href="#id16"><span class="problematic" id="id17">`[GitHub Issue]&lt;https://github.com/paraglider-project/paraglider/issues/10&gt;`_</span></a></p></li>
-<li><p>Improve provisioning latency for inter-cloud connectivity. <span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a href="#id18"><span class="problematic" id="id19">`[GitHub Issue]&lt;https://github.com/paraglider-project/paraglider/issues/277&gt;`_</span></a></p></li>
-</ul>
-</dd>
-<dt>Integration:</dt><dd><ul class="simple">
-<li><p>Integrate with k8s networking plugins. <span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a href="#id20"><span class="problematic" id="id21">`[GitHub Issue]&lt;https://github.com/paraglider-project/paraglider/issues/279&gt;`_</span></a></p></li>
-<li><p>Infrastructure-as-code support (e.g., Terraform). <span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a href="#id22"><span class="problematic" id="id23">`[GitHub Issue]&lt;https://github.com/paraglider-project/paraglider/issues/280&gt;`_</span></a></p></li>
-</ul>
-</dd>
-</dl>
+<section id="features">
+<h2>Features:<a class="headerlink" href="#features" title="Link to this heading">#</a></h2>
+<div class="sd-card sd-sphinx-override sd-mb-3 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Get the IBM plugin caught up with the other plugins in feature completeness.</p>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text"><span class="sd-sphinx-override sd-badge sd-bg-warning sd-bg-text-warning">Short-term</span> <a class="sd-sphinx-override sd-badge sd-bg-muted sd-bg-text-muted reference external" href="https://github.com/paraglider-project/paraglider/issues/271"><span>Github Issue</span></a></p>
+</div>
+</div>
+<div class="sd-card sd-sphinx-override sd-mb-3 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Add support for additional resource types (e.g. specialized IaaS resources, PaaS resources, etc.).</p>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text"><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a class="sd-sphinx-override sd-badge sd-bg-muted sd-bg-text-muted reference external" href="https://github.com/paraglider-project/paraglider/issues/272"><span>Github Issue</span></a></p>
+</div>
+</div>
+<div class="sd-card sd-sphinx-override sd-mb-3 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Support for brownfield scenarios like interop, or reverse engineering.</p>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text"><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a class="sd-sphinx-override sd-badge sd-bg-muted sd-bg-text-muted reference external" href="https://github.com/paraglider-project/paraglider/issues/170"><span>Github Issue</span></a></p>
+</div>
+</div>
+<div class="sd-card sd-sphinx-override sd-mb-3 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Add support for network functions such as load balancers, firewalls, etc.</p>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text"><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a class="sd-sphinx-override sd-badge sd-bg-muted sd-bg-text-muted reference external" href="https://github.com/paraglider-project/paraglider/issues/274"><span>Github Issue</span></a></p>
+</div>
+</div>
+<div class="sd-card sd-sphinx-override sd-mb-3 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Support for assigning public/static IP addresses.</p>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text"><span class="sd-sphinx-override sd-badge sd-bg-secondary sd-bg-text-secondary">As Needed</span> <a class="sd-sphinx-override sd-badge sd-bg-muted sd-bg-text-muted reference external" href="https://github.com/paraglider-project/paraglider/issues/275"><span>Github Issue</span></a></p>
+</div>
+</div>
+<div class="sd-card sd-sphinx-override sd-mb-3 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Add plugins for other clouds.</p>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text"><span class="sd-sphinx-override sd-badge sd-bg-secondary sd-bg-text-secondary">As Needed</span> <a class="sd-sphinx-override sd-badge sd-bg-muted sd-bg-text-muted reference external" href="https://github.com/paraglider-project/paraglider/issues/276"><span>Github Issue</span></a></p>
+</div>
+</div>
+<div class="sd-card sd-sphinx-override sd-mb-3 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Add support for Zero-Trust architecture with trusted identities.</p>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text"><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a class="sd-sphinx-override sd-badge sd-bg-muted sd-bg-text-muted reference external" href="https://github.com/paraglider-project/paraglider/issues/228"><span>Github Issue</span></a></p>
+</div>
+</div>
+</section>
+<section id="technical">
+<h2>Technical:<a class="headerlink" href="#technical" title="Link to this heading">#</a></h2>
+<div class="sd-card sd-sphinx-override sd-mb-3 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Support asynchronous requests to the Paraglider controller.</p>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text"><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a class="sd-sphinx-override sd-badge sd-bg-muted sd-bg-text-muted reference external" href="https://github.com/paraglider-project/paraglider/issues/10"><span>Github Issue</span></a></p>
+</div>
+</div>
+<div class="sd-card sd-sphinx-override sd-mb-3 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Improve provisioning latency for inter-cloud connectivity.</p>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text"><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a class="sd-sphinx-override sd-badge sd-bg-muted sd-bg-text-muted reference external" href="https://github.com/paraglider-project/paraglider/issues/277"><span>Github Issue</span></a></p>
+</div>
+</div>
+</section>
+<section id="integration">
+<h2>Integration:<a class="headerlink" href="#integration" title="Link to this heading">#</a></h2>
+<div class="sd-card sd-sphinx-override sd-mb-3 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Integrate with k8s networking plugins.</p>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text"><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a class="sd-sphinx-override sd-badge sd-bg-muted sd-bg-text-muted reference external" href="https://github.com/paraglider-project/paraglider/issues/279"><span>Github Issue</span></a></p>
+</div>
+</div>
+<div class="sd-card sd-sphinx-override sd-mb-3 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Infrastructure-as-code support (e.g., Terraform).</p>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text"><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">Longer-term</span> <a class="sd-sphinx-override sd-badge sd-bg-muted sd-bg-text-muted reference external" href="https://github.com/paraglider-project/paraglider/issues/280"><span>Github Issue</span></a></p>
+</div>
+</div>
+</section>
 </section>
 
         </article>
@@ -300,8 +371,29 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Roadmap</a><ul>
+<li><a class="reference internal" href="#features">Features:</a></li>
+<li><a class="reference internal" href="#technical">Technical:</a></li>
+<li><a class="reference internal" href="#integration">Integration:</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>

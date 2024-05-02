@@ -29,6 +29,7 @@ Guidelines
 ------------------
 We always welcome minor contributions like documentation improvements, typo corrections, bug fixes, and minor features in the form of pull requests. 
 You are also welcome to `choose an existing issue <https://github.com/paraglider-project/paraglider/issues>`_, or `create an issue to work on <https://github.com/paraglider-project/paraglider/issues/new>`_.
+
 * But please work with the maintainers to ensure that what you're doing is in scope for the project before writing any code.
 * If you have any doubt whether a contribution would be valuable, feel free to ask.
 
@@ -70,7 +71,7 @@ For more information, see the `Contributor Covenant Code of Conduct 2.1 <https:/
 
 Troubleshooting and getting help
 ---------------------------------
-* Have a question? - Visit our `Discord server <https://discordapp.com/channels/1116864463832891502/11168644638328915074>`_ to post your question and we'll get back to you ASAP
+* Have a question? - Visit our Discord (linked on our homepage) to post your question and we'll get back to you ASAP
 * Found an issue? - Refer to :ref:`contributingissues` on filing a bug report
 * Have a proposal? - Refer to :ref:`contributingissues` for instructions on filing a feature request
 

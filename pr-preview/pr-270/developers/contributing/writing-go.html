@@ -147,10 +147,6 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../index.html">
   
-  <div class="sidebar-logo-container">
-    <img class="sidebar-logo only-light" src="../../_static/paraglider-color-lightmode.png" alt="Light Logo"/>
-    <img class="sidebar-logo only-dark" src="../../_static/paraglider-color-darkmode.png" alt="Dark Logo"/>
-  </div>
   
   <span class="sidebar-brand-text">Paraglider  documentation</span>
   
@@ -239,7 +235,7 @@
 </section>
 <section id="asking-for-help">
 <h2>Asking for help<a class="headerlink" href="#asking-for-help" title="Link to this heading">#</a></h2>
-<p>Get stuck while working on a change? Want to get advice on coding style or existing code? Please raise an issue or ask for help in our <a class="reference external" href="https://discordapp.com/channels/1116864463832891502/11168644638328915074">discord</a>.</p>
+<p>Get stuck while working on a change? Want to get advice on coding style or existing code? Please raise an issue or ask for help in our Discord (linked on our homepage).</p>
 </section>
 <section id="getting-productive">
 <h2>Getting productive<a class="headerlink" href="#getting-productive" title="Link to this heading">#</a></h2>
@@ -247,22 +243,23 @@
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>make<span class="w"> </span>build<span class="w"> </span><span class="nb">test</span><span class="w"> </span>lint
 </pre></div>
 </div>
-<p>This will build, run unit tests, and run linters to point out any problems. It’s a good idea to run this if you’re about to make a <cite>git commit</cite>.</p>
+<p>This will build, run unit tests, and run linters to point out any problems. It’s a good idea to run this if you’re about to make a <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">commit</span></code>.</p>
 </section>
 <section id="coding-style">
 <h2>Coding style<a class="headerlink" href="#coding-style" title="Link to this heading">#</a></h2>
 <p>We enforce coding style through using <a class="reference external" href="https://pkg.go.dev/cmd/gofmt">gofmt</a>.</p>
 <p>We stick to the usual philosophy of Go projects regarding styling, meaning that we prefer to avoid bikeshedding and debates about styling:</p>
-<p>&gt;  gofmt isn’t anybody’s preferred style, but it’s adequate for everybody.</p>
-<p>If you’re using a modern editor with Go support, chances are it is already integrated with <cite>gofmt</cite> and this will mostly be automatic.
+<blockquote>
+<div><p>gofmt isn’t anybody’s preferred style, but it’s adequate for everybody.</p>
+</div></blockquote>
+<p>If you’re using a modern editor with Go support, chances are it is already integrated with <code class="docutils literal notranslate"><span class="pre">gofmt</span></code> and this will mostly be automatic.
 If there’s any question about how to style a piece of code, following the style of the surrounding code is a safe bet.</p>
-<p>—</p>
 <p>We also <em>mostly</em> agree with <a class="reference external" href="https://google.github.io/styleguide/go/">Google’s Go Style Guide</a>, but don’t follow it strictly or enforce everything written there.
 If you’re new to working on a Go project, this is a great read that will get you thinking critically about the small decisions you will make when writing Go code.</p>
 </section>
 <section id="documentation">
 <h2>Documentation<a class="headerlink" href="#documentation" title="Link to this heading">#</a></h2>
-<p>One thing we do require is <cite>godoc comments &lt;https://tip.golang.org/doc/comment&gt;`_</cite> on <strong>exported</strong> packages, types, variables, constants, and functions. We like this because it has two good effects:</p>
+<p>One thing we do require is <a class="reference external" href="https://tip.golang.org/doc/comment">godoc comments</a> on <strong>exported</strong> packages, types, variables, constants, and functions. We like this because it has two good effects:</p>
 <ul class="simple">
 <li><p>Encourages you to minimize the exported surface-area, thus simplifying the design.</p></li>
 <li><p>Requires you to document clearly the purpose code you expect other parts of the codebase to call.</p></li>
