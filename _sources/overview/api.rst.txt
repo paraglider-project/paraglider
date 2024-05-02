@@ -12,43 +12,55 @@ All REST requests to the controller will be scoped on a namespace.
 Set
 ^^^
 
-**CLI:**
+.. tab-set::
 
-.. code-block:: shell
+    .. tab-item:: CLI
+        :sync: cli
 
-    glide namespace set <namespace>
+        .. code-block:: shell
 
-Parameters:
+            glide namespace set <namespace>
 
-* ``namespace``: namespace to set on the controller
+        Parameters:
+
+        * ``namespace``: namespace to set on the controller
+
 
 Get
 ^^^
 
 Gets the current active namespace in the CLI (Note: this is only a CLI feature).
 
-**CLI:**
+.. tab-set::
 
-.. code-block:: shell
+    .. tab-item:: CLI
+        :sync: cli
 
-    glide namespace get
+        .. code-block:: shell
+
+            glide namespace get
 
 List
 ^^^^
 
 Lists all namespaces configured on the controller.
 
-**CLI:**
+.. tab-set::
 
-.. code-block:: shell
+    .. tab-item:: CLI
+        :sync: cli
 
-    glide namespace list
+        .. code-block:: shell
 
-**HTTP:**
+            glide namespace list
 
-.. code-block:: shell
+    .. tab-item:: REST
+        :sync: rest
 
-    GET /namespaces/
+        .. code-block:: shell
+
+            GET /namespaces/
+
 
 Resource Operations
 -------------------
@@ -59,98 +71,109 @@ Create
 Creates a resource according to the description provided in the specified cloud. 
 Note that a tag is automatically created for the resource with the name ``<namespace>.<cloud>.<name>`` (where ``name`` is the resource name provided -- i.e., names inside the json description of the resource will be ignored).
 
-**CLI:**
+.. tab-set::
 
-.. code-block:: shell
-    
-    glide resource create <cloud> <resource_name> <path_to_json>
+    .. tab-item:: CLI
+        :sync: cli
 
-Parameters:
+        .. code-block:: shell
+            
+            glide resource create <cloud> <resource_name> <path_to_json>
 
-* ``cloud``: name of the cloud to create the resource in
-* ``resource_name`` : name of the resource to be created in the Paraglider controller (note: this name will be scoped on cloud and namespace when stored)
-* ``path_to_json``: path to JSON file describing the resource to be created (excluding networking details)
+        Parameters:
 
-**REST:**
+        * ``cloud``: name of the cloud to create the resource in
+        * ``resource_name`` : name of the resource to be created in the Paraglider controller (note: this name will be scoped on cloud and namespace when stored)
+        * ``path_to_json``: path to JSON file describing the resource to be created (excluding networking details)
 
-.. code-block:: shell
 
-    POST /namespaces/{namespace}/clouds/{cloud}/resources
+    .. tab-item:: REST
+        :sync: rest
 
-* Example request body:
+        .. tab-set::
 
-    .. code-block:: JSON
+            .. tab-item:: POST
 
-        {
-            "name": "resourceName",
-            "description": "{
-                        \"location\": \"eastus\",
-                        \"properties\": {
-                            \"hardwareProfile\": {
-                                \"vmSize\": \"Standard_B1s\"
-                            },
-                            \"osProfile\": {
-                                \"adminPassword\": \"\",
-                                \"adminUsername\": \"\",
-                                \"computerName\": \"sample-compute\"
-                            },
-                            \"storageProfile\": {
-                                \"imageReference\": {
-                                    \"offer\": \"debian-10\",
-                                    \"publisher\": \"Debian\",
-                                    \"sku\": \"10\",
-                                    \"version\": \"latest\"
-                                }
-                            }
-                        }
-                    }"
-        }
+                .. code-block:: shell
 
-Parameters:
+                    POST /namespaces/{namespace}/clouds/{cloud}/resources
 
-* ``namespace``: Paraglider namespace to operate in
-* ``cloud``: name of the cloud to create the resource in
-* ``name`` : name of the resource to be created in the Paraglider controller (note: this name will be scoped on cloud and namespace when stored)
-* ``description``: JSON string describing the resource to be created (excluding networking details)
+                * Example request body:
 
-.. code-block:: shell
-    
-    PUT /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}
+                .. code-block:: JSON
 
-* Example request body:
+                    {
+                        "name": "resourceName",
+                        "description": "{
+                                    \"location\": \"eastus\",
+                                    \"properties\": {
+                                        \"hardwareProfile\": {
+                                            \"vmSize\": \"Standard_B1s\"
+                                        },
+                                        \"osProfile\": {
+                                            \"adminPassword\": \"\",
+                                            \"adminUsername\": \"\",
+                                            \"computerName\": \"sample-compute\"
+                                        },
+                                        \"storageProfile\": {
+                                            \"imageReference\": {
+                                                \"offer\": \"debian-10\",
+                                                \"publisher\": \"Debian\",
+                                                \"sku\": \"10\",
+                                                \"version\": \"latest\"
+                                            }
+                                        }
+                                    }
+                                }"
+                    }
 
-    .. code-block:: JSON
-        
-        {
-        "description": "{
-                        \"location\": \"eastus\",
-                        \"properties\": {
-                            \"hardwareProfile\": {
-                                \"vmSize\": \"Standard_B1s\"
-                            },
-                            \"osProfile\": {
-                                \"adminPassword\": \"\",
-                                \"adminUsername\": \"\",
-                                \"computerName\": \"sample-compute\"
-                            },
-                            \"storageProfile\": {
-                                \"imageReference\": {
-                                    \"offer\": \"debian-10\",
-                                    \"publisher\": \"Debian\",
-                                    \"sku\": \"10\",
-                                    \"version\": \"latest\"
-                                }
-                            }
-                        }
-                    }"
-        }
+                Parameters:
 
-Parameters:
+                * ``namespace``: Paraglider namespace to operate in
+                * ``cloud``: name of the cloud to create the resource in
+                * ``name`` : name of the resource to be created in the Paraglider controller (note: this name will be scoped on cloud and namespace when stored)
+                * ``description``: JSON string describing the resource to be created (excluding networking details)
 
-* ``namespace``: Paraglider namespace to operate in
-* ``cloud``: name of the cloud to create the resource in
-* ``resource_name`` : name of the resource to be created in the Paraglider controller (note: this name will be scoped on cloud and namespace when stored)
-* ``description``: JSON string describing the resource to be created (excluding networking details)
+            .. tab-item:: PUT
+
+                .. code-block:: shell
+                    
+                    PUT /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}
+
+                * Example request body:
+
+                .. code-block:: JSON
+                        
+                    {
+                    "description": "{
+                                    \"location\": \"eastus\",
+                                    \"properties\": {
+                                        \"hardwareProfile\": {
+                                            \"vmSize\": \"Standard_B1s\"
+                                        },
+                                        \"osProfile\": {
+                                            \"adminPassword\": \"\",
+                                            \"adminUsername\": \"\",
+                                            \"computerName\": \"sample-compute\"
+                                        },
+                                        \"storageProfile\": {
+                                            \"imageReference\": {
+                                                \"offer\": \"debian-10\",
+                                                \"publisher\": \"Debian\",
+                                                \"sku\": \"10\",
+                                                \"version\": \"latest\"
+                                            }
+                                        }
+                                    }
+                                }"
+                    }
+
+                Parameters:
+
+                * ``namespace``: Paraglider namespace to operate in
+                * ``cloud``: name of the cloud to create the resource in
+                * ``resource_name`` : name of the resource to be created in the Paraglider controller (note: this name will be scoped on cloud and namespace when stored)
+                * ``description``: JSON string describing the resource to be created (excluding networking details)
 
 Permit List Operations
 ----------------------
@@ -162,209 +185,234 @@ Get
 
 Gets the rules associated with a resource.
 
-**CLI:**
+.. tab-set::
 
-.. code-block:: shell
-    
-    glide rule get <cloud> <resource_name>
+    .. tab-item:: CLI
+        :sync: cli
 
-Parameters:
+        .. code-block:: shell
+            
+            glide rule get <cloud> <resource_name>
 
-* ``cloud``: name of the cloud that the resource is in
-* ``resource_name``: Paraglider name of the resource
+        Parameters:
 
-**REST:**
+        * ``cloud``: name of the cloud that the resource is in
+        * ``resource_name``: Paraglider name of the resource
 
-.. code-block:: shell
+    .. tab-item:: REST
+        :sync: rest
 
-    GET /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/rules
+        .. code-block:: shell
 
-Parameters:
+            GET /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/rules
 
-* ``namespace``: Paraglider namespace to operate in
-* ``cloud``: name of the cloud that the resource is in
-* ``resourceName``: Paraglider name of the resource
+        Parameters:
+
+        * ``namespace``: Paraglider namespace to operate in
+        * ``cloud``: name of the cloud that the resource is in
+        * ``resourceName``: Paraglider name of the resource
 
 Add 
 ^^^
 
 Adds one or many rules to the permit list associated with a resource.
 
-**CLI:** 
+.. tab-set::
 
-.. code-block:: shell
+    .. tab-item:: CLI
+        :sync: cli
 
-    glide rule add <cloud> <resource_name> [--ssh <tag> --ping <tag> | --ruleFile <path_to_file>]
+        .. code-block:: shell
 
-Parameters:
+            glide rule add <cloud> <resource_name> [--ssh <tag> --ping <tag> | --ruleFile <path_to_file>]
 
-* ``cloud``: name of the cloud that the resource is in
-* ``resource_name``: Paraglider name of the resource
-* ``path_to_file``: path to JSON file describing rules to add
-    * The file should describe rules in the following format:
-    
-    .. code-block:: JSON
-        
-        {
-            [
-            {
-                "name": "rulename",
-                "id": "id",
-                "tags": ["tagname"],
-                "direction": 0,
-                "src_port": 1,
-                "dst_port": 2,
-                "protocol": 3
-            }
-            ]
-        }
-* ``tag``: Paraglider tag or IP/CIDR to allow SSH/ICMP traffic to/from
+        Parameters:
 
-**REST:**
+        * ``cloud``: name of the cloud that the resource is in
+        * ``resource_name``: Paraglider name of the resource
+        * ``path_to_file``: path to JSON file describing rules to add
+            * The file should describe rules in the following format:
+            
+            .. code-block:: JSON
+                
+                {
+                    [
+                    {
+                        "name": "rulename",
+                        "id": "id",
+                        "tags": ["tagname"],
+                        "direction": 0,
+                        "src_port": 1,
+                        "dst_port": 2,
+                        "protocol": 3
+                    }
+                    ]
+                }
 
-.. code-block:: shell
-    
-    POST /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/rules
+        * ``tag``: Paraglider tag or IP/CIDR to allow SSH/ICMP traffic to/from
 
-Creates/updates one rule of a resource's permit list.
+    .. tab-item:: REST
+        :sync: rest
 
-* Example Request Body:
+        .. tab-set::
 
-    .. code-block:: JSON
-        
-        {
-            "name": "rulename",
-            "id": "id",
-            "tags": ["tagname"],
-            "direction": 0,
-            "src_port": 1,
-            "dst_port": 2,
-            "protocol": 3
-        }
+            .. tab-item:: POST
 
-Parameters:
+                .. code-block:: shell
+            
+                    POST /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/rules
 
-* ``namespace``: Paraglider namespace to operate in
-* ``cloud``: name of the cloud that the resource is in
-* ``resourceName``: Paraglider name of the resource
+                Creates/updates one rule of a resource's permit list.
 
-.. code-block:: shell
-    
-    PUT /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/rules/{ruleName}
+                * Example Request Body:
 
-Creates/updates one rule of a resource's permit list.
+                .. code-block:: JSON
+                        
+                    {
+                        "name": "rulename",
+                        "id": "id",
+                        "tags": ["tagname"],
+                        "direction": 0,
+                        "src_port": 1,
+                        "dst_port": 2,
+                        "protocol": 3
+                    }
 
-* Example Request Body:
+                Parameters:
 
-    .. code-block:: JSON
+                * ``namespace``: Paraglider namespace to operate in
+                * ``cloud``: name of the cloud that the resource is in
+                * ``resourceName``: Paraglider name of the resource
 
-        {
-            "name": "rulename",
-            "id": "id",
-            "tags": ["tagname"],
-            "direction": 0,
-            "src_port": 1,
-            "dst_port": 2,
-            "protocol": 3
-        }
+            .. tab-item:: PUT
 
-Parameters:
+                .. code-block:: shell
+                    
+                    PUT /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/rules/{ruleName}
 
-* ``namespace``: Paraglider namespace to operate in
-* ``cloud``: name of the cloud that the resource is in
-* ``resourceName``: Paraglider name of the resource
-* ``ruleName``: name of the rule 
+                Creates/updates one rule of a resource's permit list.
 
+                * Example Request Body:
 
-.. note::
+                .. code-block:: JSON
 
-    If the name is provided in the request body, it will be ignored
+                    {
+                        "name": "rulename",
+                        "id": "id",
+                        "tags": ["tagname"],
+                        "direction": 0,
+                        "src_port": 1,
+                        "dst_port": 2,
+                        "protocol": 3
+                    }
 
-.. code-block:: shell
+                Parameters:
 
-    POST /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/applyRules
+                * ``namespace``: Paraglider namespace to operate in
+                * ``cloud``: name of the cloud that the resource is in
+                * ``resourceName``: Paraglider name of the resource
+                * ``ruleName``: name of the rule 
 
-Creates/updates rules of resource in bulk.
+                .. note::
 
-* Example Request Body:
+                    If the name is provided in the request body, it will be ignored
 
-    .. code-block:: JSON
+            .. tab-item:: POST (bulk operation)
 
-        {
-            [
-            {
-                "name": "rulename",
-                "id": "id",
-                "tags": ["tagname"],
-                "direction": 0,
-                "src_port": 1,
-                "dst_port": 2,
-                "protocol": 3
-            }
-            ]
-        }
+                .. code-block:: shell
 
-Parameters:
+                    POST /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/applyRules
 
-* ``namespace``: Paraglider namespace to operate in
-* ``cloud``: name of the cloud that the resource is in
-* ``resourceName``: Paraglider name of the resource
+                Creates/updates rules of resource in bulk.
+
+                * Example Request Body:
+
+                .. code-block:: JSON
+
+                    {
+                        [
+                        {
+                            "name": "rulename",
+                            "id": "id",
+                            "tags": ["tagname"],
+                            "direction": 0,
+                            "src_port": 1,
+                            "dst_port": 2,
+                            "protocol": 3
+                        }
+                        ]
+                    }
+
+                Parameters:
+
+                * ``namespace``: Paraglider namespace to operate in
+                * ``cloud``: name of the cloud that the resource is in
+                * ``resourceName``: Paraglider name of the resource
 
 Delete
 ^^^^^^
 
 Deletes one or many rules from the permit list associated with the specified resource.
 
-**CLI:**
+.. tab-set::
 
-.. code-block:: shell
-    
-    glide rule delete <cloud> <resource_name> --rules <rule_names>
+    .. tab-item:: CLI
+        :sync: cli
 
-Parameters:
+        .. code-block:: shell
+            
+            glide rule delete <cloud> <resource_name> --rules <rule_names>
 
-* ``cloud``: name of the cloud that the resource is in
-* ``resource_name``: Paraglider name of the resource
-* ``rule_names``: list of rule names to delete
+        Parameters:
 
-**REST:**
+        * ``cloud``: name of the cloud that the resource is in
+        * ``resource_name``: Paraglider name of the resource
+        * ``rule_names``: list of rule names to delete
 
-.. code-block:: shell
+    .. tab-item:: REST
+        :sync: rest
 
-    DELETE /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/rules/{ruleName}
+        .. tab-set::
 
-Deletes one rule of a resource's permit list.
+            .. tab-item:: DELETE
 
-Parameters:
+                .. code-block:: shell
 
-* ``namespace``: Paraglider namespace to operate in
-* ``cloud``: name of the cloud that the resource is in
-* ``resourceName``: Paraglider name of the resource
-* ``ruleName``: name of the rule 
+                    DELETE /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/rules/{ruleName}
 
-.. code-block:: shell
+                Deletes one rule of a resource's permit list.
 
-    POST /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/deleteRules
+                Parameters:
 
-Deletes rules of resource in bulk.
+                * ``namespace``: Paraglider namespace to operate in
+                * ``cloud``: name of the cloud that the resource is in
+                * ``resourceName``: Paraglider name of the resource
+                * ``ruleName``: name of the rule 
 
-* Example Request Body:
+            .. tab-item:: POST (bulk operation)
 
-    .. code-block:: JSON
+                .. code-block:: shell
 
-        {
-            [
-                "rulename1",
-                "rulename2"
-            ]
-        }
+                    POST /namespaces/{namespace}/clouds/{cloud}/resources/{resourceName}/deleteRules
 
+                Deletes rules of resource in bulk.
 
-Parameters:
+                * Example Request Body:
 
-* ``namespace``: Paraglider namespace to operate in
-* ``cloud``: name of the cloud that the resource is in
-* ``resourceName``: Paraglider name of the resource
+                .. code-block:: JSON
+
+                    {
+                        [
+                            "rulename1",
+                            "rulename2"
+                        ]
+                    }
+
+                Parameters:
+
+                * ``namespace``: Paraglider namespace to operate in
+                * ``cloud``: name of the cloud that the resource is in
+                * ``resourceName``: Paraglider name of the resource
 
 
 Tag Operations
@@ -377,117 +425,133 @@ Get
 
 Gets the children tags associated with a tag or resolves the tag down to last-level entries (IPs).
 
-**CLI:**
+.. tab-set::
 
-.. code-block:: shell
-    
-    glide tag get <tag> [--resolve]
+    .. tab-item:: CLI
+        :sync: cli
 
-Parameters:
+        .. code-block:: shell
 
-* ``tag``: tag to get
-* ``resolve``: true/false value indicating whether to resolve to last-level tags or not
+            glide tag get <tag> [--resolve]
 
-**REST:**
+        Parameters:
 
-.. code-block:: shell
-    
-    GET /tags/{tag}/
-    POST /tags/{tag}/resolve
+        * ``tag``: tag to get
+        * ``resolve``: true/false value indicating whether to resolve to last-level tags or not
 
-Parameters:
+    .. tab-item:: REST
+        :sync: rest
 
-* ``tag``: tag to get
+        .. code-block:: shell
+
+            GET /tags/{tag}/
+
+        .. code-block:: shell
+
+            POST /tags/{tag}/resolve
+
+        Parameters:
+
+        * ``tag``: tag to get
 
 Set
 ^^^
 
 Adds children tags to a parent tag or creates a last-level tag that associates a names with an URI and/or IP.
 
-**CLI:**
+.. tab-set::
 
-.. code-block:: shell
+    .. tab-item:: CLI
+        :sync: cli
 
-    glide tag set <tag> [--children <child_tag_list>] | [--uri <uri>] [--ip <ip>]
+        .. code-block:: shell
 
-Parameters:
+            glide tag set <tag> [--children <child_tag_list>] | [--uri <uri>] [--ip <ip>]
 
-* ``tag``: tag to set
-* ``children``: list of tags to add as children
-* ``uri``: uri to associate with tag
-* ``ip``: ip to associate with tag
+        Parameters:
 
-**REST:**
+        * ``tag``: tag to set
+        * ``children``: list of tags to add as children
+        * ``uri``: uri to associate with tag
+        * ``ip``: ip to associate with tag
 
-.. code-block:: shell
-    
-    POST /tags/{tag}/applyMembers
+    .. tab-item:: REST
+        :sync: rest
 
-* Example Request Body:
+        .. code-block:: shell
 
-    .. code-block:: JSON
-        
-        {
-            "tag_name": "tag",
-            "uri": "uri",
-            "ip": "1.1.1.1"
-        }
+            POST /tags/{tag}/applyMembers
 
-* Example Request Body
-    
-    .. code-block:: JSON
-        
-        {
-            "tag_name": "tag",
-            "child_tags": [
-                "child1",
-                "child2"
-            ]
-        }
+        * Example Request Body:
 
-Parameters:
-* ``tag``: tag to set
-* ``children``: list of tags to add as children
-* ``uri``: uri to associate with tag
-* ``ip``: ip to associate with tag
+        .. code-block:: JSON
+            
+            {
+                "tag_name": "tag",
+                "uri": "uri",
+                "ip": "1.1.1.1"
+            }
+
+        * Example Request Body
+            
+        .. code-block:: JSON
+            
+            {
+                "tag_name": "tag",
+                "child_tags": [
+                    "child1",
+                    "child2"
+                ]
+            }
+
+
+        Parameters:
+        * ``tag``: tag to set
+        * ``children``: list of tags to add as children
+        * ``uri``: uri to associate with tag
+        * ``ip``: ip to associate with tag"
 
 Delete
 ^^^^^^
 
 Deletes a tag or the association of members tags to that tag.
 
-**CLI:**
+.. tab-set::
 
-.. code-block:: shell
-    
-    glide tag delete <tag> [--member <members_list>]
+    .. tab-item:: CLI
+        :sync: cli
 
-Parameters:
+        .. code-block:: shell
 
-* ``tag``: tag to delete
-* ``member``: child tag to remove membership
+            glide tag delete <tag> [--member <members_list>]
 
-**REST:**
+        Parameters:
 
-.. code-block:: shell
+        * ``tag``: tag to delete
+        * ``member``: child tag to remove membership
 
-    DELETE /tags/{tag}/member/{member}
+    .. tab-item:: REST
+        :sync: rest
 
-Deletes a single member from a parent tag.
+        .. code-block:: shell
 
-Parameters:
-* ``tag``: parent tag
-* ``members``: child tag to remove membership
+            DELETE /tags/{tag}/member/{member}
 
-.. code-block:: shell
-    
-    DELETE /tags/{tag}
+        Deletes a single member from a parent tag.
 
-Deletes an entire tag (and all its child associations).
+        Parameters:
+        * ``tag``: parent tag
+        * ``members``: child tag to remove membership
 
-Parameters:
+        .. code-block:: shell
 
-* ``tag``: tag to delete
+            DELETE /tags/{tag}
+
+        Deletes an entire tag (and all its child associations).
+
+        Parameters:
+
+        * ``tag``: tag to delete
 
 Service Operations
 ------------------
@@ -497,50 +561,75 @@ Operations to interact with Paraglider services.
 All Services
 ^^^^^^^^^^^^
 
-.. code-block:: shell
+.. tab-set::
 
-    glided startup <path_to_config>
+    .. tab-item:: CLI
+        :sync: cli
+
+        .. code-block:: shell
+
+            glided startup <path_to_config>
             
 
 Orchestrator
 ^^^^^^^^^^^^
+.. tab-set::
 
-.. code-block:: shell
+    .. tab-item:: CLI
+        :sync: cli
 
-    glided orch <path_to_config>
+        .. code-block:: shell
+
+            glided orch <path_to_config>
 
 Azure
 ^^^^^
+.. tab-set::
 
-.. code-block:: shell
+    .. tab-item:: CLI
+        :sync: cli
 
-    glided az <port> <central_controller_address>
+        .. code-block:: shell
 
-The ``central_controller_address`` should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is "localhost:8081".
+            glided az <port> <central_controller_address>
+
+        The ``central_controller_address`` should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is "localhost:8081".
 
 GCP
 ^^^
+.. tab-set::
 
-.. code-block:: shell
+    .. tab-item:: CLI
+        :sync: cli
 
-    glided gcp <port> <central_controller_address>
+        .. code-block:: shell
 
-The ``central_controller_address`` should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is "localhost:8081".
+            glided gcp <port> <central_controller_address>
+
+        The ``central_controller_address`` should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is "localhost:8081".
 
 Tag Service
 ^^^^^^^^^^^
+.. tab-set::
 
-.. code-block:: shell
+    .. tab-item:: CLI
+        :sync: cli
 
-    glided tagserv <redis_port> <server_port> <clear_keys>
+        .. code-block:: shell
 
-``clear_keys`` is a bool ("true" or "false") which determines whether the database state should be cleared on startup or not.
+            glided tagserv <redis_port> <server_port> <clear_keys>
+
+        ``clear_keys`` is a bool ("true" or "false") which determines whether the database state should be cleared on startup or not.
 
 Key-Value Store Service
 ^^^^^^^^^^^^^^^^^^^^^^^^
+.. tab-set::
 
-.. code-block:: shell
+    .. tab-item:: CLI
+        :sync: cli
 
-    glided kvserv <redis_port> <server_port> <clear_keys>
+        .. code-block:: shell
 
-``clear_keys`` is a bool ("true" or "false") which determines whether the database state should be cleared on startup or not.
+            glided kvserv <redis_port> <server_port> <clear_keys>
+
+        ``clear_keys`` is a bool ("true" or "false") which determines whether the database state should be cleared on startup or not.
