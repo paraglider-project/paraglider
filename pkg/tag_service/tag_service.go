@@ -251,7 +251,7 @@ func (s *tagServiceServer) ListTags(c context.Context, e *emptypb.Empty) (*tagse
 		tagMapping, err := s.GetTag(c, &tagservicepb.Tag{TagName: tag})
 		if err != nil {
 			// Ignore errors
-			utils.Log.Println("Failed to get tag mapping of %s: %v", tag, err)
+			utils.Log.Printf("Failed to get tag mapping of %s: %v\n", tag, err)
 			continue
 		}
 		resolvedTagList = append(resolvedTagList, tagMapping)
