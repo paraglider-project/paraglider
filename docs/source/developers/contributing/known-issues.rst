@@ -7,8 +7,6 @@ Known Issues
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 You may see the following error from ``gopls`` in the ``*_test.go`` files.
 
-.. code-block:: console
-
     This file is within module ".", which is not included in your workspace.
     To fix this problem, you can add a go.work file that uses this directory.
     See the documentation for more information on setting up your workspace:
@@ -18,6 +16,6 @@ You may see the following error from ``gopls`` in the ``*_test.go`` files.
 This is due to a known issue within ``gopls`` (https://github.com/golang/go/issues/29202). 
 You can work around this in VS Code by specifying the following in your ``settings.json``.
 
-.. code-block:: console
+.. code-block:: json
 
-    "go.buildTags": "unit,integration"
+    "go.buildTags": "unit,integration,multicloud"
