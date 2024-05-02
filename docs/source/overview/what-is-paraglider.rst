@@ -10,11 +10,11 @@ The Paraglider Controller exposes the Paraglider API to tenants and uses public 
 
 How is Paraglider different from other cloud networking solutions?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Some existing options for creating/managing cloud networks are (1) using the underlying cloud APIs directly or (2) using something like Terraform.
-While Terraform has its benefits in being infrastructure as code, this doesn't solve the underlying problem: that we're still speaking in terms of low-level components like virtual networks, gateways, etc. 
-Other options in the space like service meshes can simplify connectivity between apps at the application layer, not the network layer. 
-Often approaches like this assume that someone else has set up the IP-level connectivity for you. 
-Some solutions do create IP-level connectivity, like Aviatrix, but still use low-level networking building blocks and do not expose a streamlined API like Paraglider.
+
+ * Infrastructure as code solutions like Terraform might save you from directly invoking cloud provider APIs and allow you to use a unified language to define your network, but everything is still expressed in terms of the resources and properties supported by each cloud. You'll still assemble your network from low-level components like virtual networks, peering, gateways, etc.
+ * Service meshes and other application-layer solutions can simplify managing connectivity between services at the application layer, but often assume that someone else has set up the network-level connectivity for you.
+ * Network-layer multicloud solutions like Aviatrix can simplify the process of creating IP-level connectivity between clouds, but still require you to work with low-level networking building blocks and do not expose a streamlined API like Paraglider.
+ * Paraglider also offers cloud-agnostic constructs and transparently supports multi-region and multi-cloud connectivity, meaning that you use the same constructs whether you are establishing a connection within the same cloud and the same region, or across regions and across clouds.
 
 ---
 
