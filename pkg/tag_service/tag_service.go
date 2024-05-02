@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	tagservicepb "github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	redis "github.com/redis/go-redis/v9"
 
 	"google.golang.org/grpc"
@@ -250,6 +251,7 @@ func (s *tagServiceServer) ListTags(c context.Context, e *emptypb.Empty) (*tagse
 		tagMapping, err := s.GetTag(c, &tagservicepb.Tag{TagName: tag})
 		if err != nil {
 			// Ignore errors
+			utils.Log.Println("Failed to get tag mapping of %s: %v", tag, err)
 			continue
 		}
 		resolvedTagList = append(resolvedTagList, tagMapping)
