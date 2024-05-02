@@ -199,6 +199,24 @@ func (c *Client) ResolveTag(tag string) ([]*tagservicepb.TagMapping, error) {
 	return tagMappings.Mappings, nil
 }
 
+// ListTags lists all tags and their mappings
+func (c *Client) ListTags() ([]*tagservicepb.TagMapping, error) {
+	path := orchestrator.GetFormatterString(orchestrator.ListTagURL)
+
+	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	tagMappings := tagservicepb.TagMappingList{}
+	err = json.Unmarshal(respBytes, &tagMappings)
+	if err != nil {
+		return nil, err
+	}
+
+	return tagMappings.Mappings, nil
+}
+
 // Set a tag as a member of a group or as a mapping to a URI/IP
 func (c *Client) SetTag(tag string, tagMapping *tagservicepb.TagMapping) error {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.SetTagURL), tag)

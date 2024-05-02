@@ -16,6 +16,7 @@ limitations under the License.
 
 syntax = "proto3";
 package tagservicepb;
+import "google/protobuf/empty.proto";
 
 option go_package="github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb";
 
@@ -23,6 +24,7 @@ service TagService {
     rpc SetTag(TagMapping) returns (BasicResponse) {}
     rpc GetTag(Tag) returns (TagMapping) {}
     rpc ResolveTag(Tag) returns (TagMappingList) {}
+    rpc ListTags(google.protobuf.Empty) returns (TagMappingList) {}
     rpc DeleteTagMember(TagMapping) returns (BasicResponse) {}
     rpc DeleteTag(Tag) returns (BasicResponse) {}
     rpc Subscribe(Subscription) returns (BasicResponse) {}

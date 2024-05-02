@@ -19,6 +19,7 @@ package tag
 import (
 	"github.com/paraglider-project/paraglider/internal/cli/glide/tag/delete"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/tag/get"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/tag/list"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/tag/set"
 	"github.com/spf13/cobra"
 )
@@ -35,6 +36,8 @@ func NewCommand() *cobra.Command {
 	cmd.AddCommand(getCmd)
 	setCmd, _ := set.NewCommand()
 	cmd.AddCommand(setCmd)
+	listCmd, _ := list.NewCommand()
+	cmd.AddCommand(listCmd)
 
 	return cmd
 }
