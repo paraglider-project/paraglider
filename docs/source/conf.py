@@ -32,8 +32,6 @@ html_static_path = ['_static']
 html_show_sphinx = False
 html_favicon = '_static/logo-square.png'
 html_theme_options = {
-    "light_logo": "paraglider-color-lightmode.png",
-    "dark_logo": "paraglider-color-darkmode.png",
     "footer_icons": [
         {
             "name": "GitHub",
