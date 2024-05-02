@@ -224,15 +224,15 @@
 <section id="gopls-linting-issue-in-testing-files-on-package-declaration-line">
 <h2><code class="docutils literal notranslate"><span class="pre">gopls</span></code> Linting Issue in Testing Files on Package Declaration Line<a class="headerlink" href="#gopls-linting-issue-in-testing-files-on-package-declaration-line" title="Link to this heading">#</a></h2>
 <p>You may see the following error from <code class="docutils literal notranslate"><span class="pre">gopls</span></code> in the <code class="docutils literal notranslate"><span class="pre">*_test.go</span></code> files.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">This file is within module &quot;.&quot;, which is not included in your workspace.</span>
-<span class="go">To fix this problem, you can add a go.work file that uses this directory.</span>
-<span class="go">See the documentation for more information on setting up your workspace:</span>
-<span class="go">https://github.com/golang/tools/blob/master/gopls/doc/workspace.md.</span>
-</pre></div>
-</div>
+<blockquote>
+<div><p>This file is within module “.”, which is not included in your workspace.
+To fix this problem, you can add a go.work file that uses this directory.
+See the documentation for more information on setting up your workspace:
+<a class="reference external" href="https://github.com/golang/tools/blob/master/gopls/doc/workspace.md">https://github.com/golang/tools/blob/master/gopls/doc/workspace.md</a>.</p>
+</div></blockquote>
 <p>This is due to a known issue within <code class="docutils literal notranslate"><span class="pre">gopls</span></code> (<a class="reference external" href="https://github.com/golang/go/issues/29202">https://github.com/golang/go/issues/29202</a>).
 You can work around this in VS Code by specifying the following in your <code class="docutils literal notranslate"><span class="pre">settings.json</span></code>.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">&quot;go.buildTags&quot;: &quot;unit,integration&quot;</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;go.buildTags&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;unit,integration,multicloud&quot;</span>
 </pre></div>
 </div>
 </section>
