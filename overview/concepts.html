@@ -3,9 +3,9 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="How It Works" href="howitworks.html" /><link rel="prev" title="Welcome to Paraglider!" href="../index.html" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="How It Works" href="howitworks.html" /><link rel="prev" title="What is Paraglider?" href="what-is-paraglider.html" />
 
-    <!-- Generated with Sphinx 7.2.6 and Furo 2024.01.29 -->
+    <link rel="shortcut icon" href="../_static/logo-square.png"/><!-- Generated with Sphinx 7.2.6 and Furo 2024.01.29 -->
         <title>Concepts - Paraglider documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=135e06be" />
@@ -147,8 +147,11 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo only-light" src="../_static/paraglider-color-lightmode.png" alt="Light Logo"/>
+    <img class="sidebar-logo only-dark" src="../_static/paraglider-color-darkmode.png" alt="Dark Logo"/>
+  </div>
   
-  <span class="sidebar-brand-text">Paraglider  documentation</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
@@ -158,6 +161,7 @@
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">Overview</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="what-is-paraglider.html">What is Paraglider?</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Concepts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="howitworks.html">How It Works</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
@@ -221,12 +225,8 @@
         <article role="main">
           <section id="concepts">
 <span id="id1"></span><h1>Concepts<a class="headerlink" href="#concepts" title="Link to this heading">#</a></h1>
-<section id="what-is-paraglider">
-<h2>What is Paraglider?<a class="headerlink" href="#what-is-paraglider" title="Link to this heading">#</a></h2>
-<p>Paraglider is a control plane for cloud networking resources designed to simplify the tenant networking experience.
-The Paraglider Controller exposes the Paraglider API to tenants and uses public cloud APIs to manage the tenant’s cloud network.</p>
-<section id="conceptual-overview">
-<h3>Conceptual Overview<a class="headerlink" href="#conceptual-overview" title="Link to this heading">#</a></h3>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
 <p>Paraglider takes an “endpoint-centric” view of networking: all non-networking resources should simply define their high-level networking intents and the rest should be deployed automatically – making the network <em>invisible</em>.</p>
 <p>Core Concepts</p>
 <ul class="simple">
@@ -237,9 +237,9 @@ The Paraglider Controller exposes the Paraglider API to tenants and uses public 
 </ul>
 </section>
 <section id="use">
-<h3>Use<a class="headerlink" href="#use" title="Link to this heading">#</a></h3>
-<p>To use Paraglider, a tenant would run the Paraglider Controller and use the Paraglider API to create cloud deployments. This task largely consists of creating endpoints and modifying their permit lists to enable connectivity between them.</p>
-</section>
+<h2>Use<a class="headerlink" href="#use" title="Link to this heading">#</a></h2>
+<p>To use Paraglider, a tenant would run the Paraglider Controller and use the Paraglider API to create cloud deployments.
+This task largely consists of creating endpoints and modifying their permit lists to enable connectivity between them.</p>
 </section>
 </section>
 
@@ -257,14 +257,14 @@ The Paraglider Controller exposes the Paraglider API to tenants and uses public 
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="../index.html">
+          <a class="prev-page" href="what-is-paraglider.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">Home</div>
+                <div class="title">What is Paraglider?</div>
                 
               </div>
             </a>
@@ -279,7 +279,14 @@ The Paraglider Controller exposes the Paraglider API to tenants and uses public 
             
           </div>
           <div class="right-details">
-            
+            <div class="icons">
+              <a class="muted-link " href="https://github.com/paraglider-project/paraglider" aria-label="GitHub">
+                <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path>
+                </svg>
+            </a>
+              
+            </div>
           </div>
         </div>
         
@@ -298,11 +305,8 @@ The Paraglider Controller exposes the Paraglider API to tenants and uses public 
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Concepts</a><ul>
-<li><a class="reference internal" href="#what-is-paraglider">What is Paraglider?</a><ul>
-<li><a class="reference internal" href="#conceptual-overview">Conceptual Overview</a></li>
+<li><a class="reference internal" href="#overview">Overview</a></li>
 <li><a class="reference internal" href="#use">Use</a></li>
-</ul>
-</li>
 </ul>
 </li>
 </ul>
