@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Add sign-off
+NAME="$(git config user.name)"
+EMAIL="$(git config user.email)"
+echo "" >> $1
+echo "Signed-off-by: $NAME <$EMAIL>" >> $1

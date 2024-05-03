@@ -26,9 +26,11 @@ import (
 	"strings"
 
 	tagservicepb "github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	redis "github.com/redis/go-redis/v9"
 
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type tagServiceServer struct {
@@ -192,10 +194,10 @@ func (s *tagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*ta
 func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolvedTags []*tagservicepb.TagMapping) ([]*tagservicepb.TagMapping, error) {
 	for _, tag := range tags {
 		// If the tag is an IP, it is already resolved
-		isIp := isIpAddrOrCidr(tag)
-		if isIp {
-			ip_tag := &tagservicepb.TagMapping{TagName: "", Uri: nil, Ip: &tag}
-			resolvedTags = append(resolvedTags, ip_tag)
+		isIP := isIpAddrOrCidr(tag)
+		if isIP {
+			ipTag := &tagservicepb.TagMapping{TagName: "", Uri: nil, Ip: &tag}
+			resolvedTags = append(resolvedTags, ipTag)
 		} else {
 			// Get the tag record type since may be hash (if name value) or set (if parent tag)
 			valType, err := s.client.Type(c, tag).Result()
@@ -239,6 +241,23 @@ func (s *tagServiceServer) ResolveTag(c context.Context, tag *tagservicepb.Tag) 
 	}
 
 	return &tagservicepb.TagMappingList{Mappings: resolvedTags}, nil
+}
+
+// Resolve a list of tags into all base-level IPs
+func (s *tagServiceServer) ListTags(c context.Context, e *emptypb.Empty) (*tagservicepb.TagMappingList, error) {
+	var resolvedTagList []*tagservicepb.TagMapping
+	tags := s.client.Keys(c, "*").Val()
+	for _, tag := range tags {
+		tagMapping, err := s.GetTag(c, &tagservicepb.Tag{TagName: tag})
+		if err != nil {
+			// Ignore errors
+			utils.Log.Printf("Failed to get tag mapping of %s: %v\n", tag, err)
+			continue
+		}
+		resolvedTagList = append(resolvedTagList, tagMapping)
+	}
+
+	return &tagservicepb.TagMappingList{Mappings: resolvedTagList}, nil
 }
 
 // Delete a member of a tag
