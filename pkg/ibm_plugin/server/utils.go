@@ -18,15 +18,16 @@ package ibm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	k8sv1 "github.com/IBM-Cloud/container-services-go-sdk/kubernetesserviceapiv1"
+	"github.com/IBM/vpc-go-sdk/vpcv1"
+
+	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
-)
-
-const (
-	instanceResourceType = "instance"
 )
 
 // ResourceIDInfo defines the necessary fields of a resource sent in a request
@@ -62,7 +63,7 @@ func getResourceIDInfo(deploymentID string) (ResourceIDInfo, error) {
 
 	if len(parts) >= 5 {
 		// In future, validate multiple resource type
-		if parts[5] != instanceResourceType {
+		if parts[5] != sdk.InstanceResourceType {
 			return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}/zone/{zone}/instance/{instance_id}', got '%s'", deploymentID)
 		}
 		info.ResourceID = parts[6]
@@ -71,8 +72,35 @@ func getResourceIDInfo(deploymentID string) (ResourceIDInfo, error) {
 	return info, nil
 }
 
-func createInstanceID(resGroup, zone, resName string) string {
-	return fmt.Sprintf("/resourcegroup/%s/zone/%s/%s/%s", resGroup, zone, instanceResourceType, resName)
+func getResourceOptions(resourceDesc []byte) (any, string, error) {
+	instanceOptions := vpcv1.CreateInstanceOptions{
+		InstancePrototype: &vpcv1.InstancePrototypeInstanceByImage{
+			Image:   &vpcv1.ImageIdentityByID{},
+			Zone:    &vpcv1.ZoneIdentityByName{},
+			Profile: &vpcv1.InstanceProfileIdentityByName{},
+		},
+	}
+
+	clusterOptions := k8sv1.VpcCreateClusterOptions{}
+
+	err := json.Unmarshal(resourceDesc, &instanceOptions)
+	if err == nil {
+		zone := instanceOptions.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Zone
+		if zone.(*vpcv1.ZoneIdentityByName).Name == nil {
+			return nil, "", fmt.Errorf("unspecified zone definition in instance description")
+		}
+		return &instanceOptions, *zone.(*vpcv1.ZoneIdentityByName).Name, nil
+	}
+
+	err = json.Unmarshal(resourceDesc, &clusterOptions)
+	if err == nil {
+		if len(clusterOptions.WorkerPool.Zones) == 0 {
+			return nil, "", fmt.Errorf("unspecified zone definition in cluster description")
+		}
+		return &clusterOptions, *clusterOptions.WorkerPool.Zones[0].ID, nil
+	}
+	return nil, "", fmt.Errorf("failed to unmarshal resource description:%+v", err)
+
 }
 
 func setRuleValToStore(ctx context.Context, client paragliderpb.ControllerClient, key, value, namespace string) error {

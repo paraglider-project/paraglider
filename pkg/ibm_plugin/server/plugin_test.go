@@ -147,6 +147,7 @@ func createFakeInstance() *vpcv1.Instance {
 			ID:  core.StringPtr(fakeID),
 			CRN: core.StringPtr(fakeCRN),
 		},
+		Zone: &vpcv1.ZoneReference{Name: core.StringPtr(fakeZone)},
 	}
 }
 

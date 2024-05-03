@@ -18,17 +18,14 @@ package ibm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"os"
 	"strings"
 
-	"github.com/IBM/vpc-go-sdk/vpcv1"
 	redis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/proto"
 
 	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
@@ -84,24 +81,12 @@ func (s *IBMPluginServer) getAllClientsForVPCs(cloudClient *sdk.CloudClient, res
 func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragliderpb.ResourceDescription) (*paragliderpb.CreateResourceResponse, error) {
 	var vpcID string
 	var subnetID string
-	resFields := vpcv1.CreateInstanceOptions{}
 	utils.Log.Printf("Creating resource %s in deployment %s\n", resourceDesc.Name, resourceDesc.Deployment.Id)
 	// TODO : Support unmarshalling to other struct types of InstancePrototype interface
-	resFields.InstancePrototype = &vpcv1.InstancePrototypeInstanceByImage{
-		Image:         &vpcv1.ImageIdentityByID{},
-		Zone:          &vpcv1.ZoneIdentityByName{},
-		Profile:       &vpcv1.InstanceProfileIdentityByName{},
-		ResourceGroup: &vpcv1.ResourceGroupIdentityByID{},
-	}
-
-	err := json.Unmarshal(resourceDesc.Description, &resFields)
+	resOptions, zone, err := getResourceOptions(resourceDesc.Description)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
+		return nil, err
 	}
-	if resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Zone.(*vpcv1.ZoneIdentityByName).Name == nil {
-		return nil, fmt.Errorf("unspecified zone definition in resource description")
-	}
-	zone := *resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Zone.(*vpcv1.ZoneIdentityByName).Name
 	region, err := ibmCommon.ZoneToRegion(zone)
 	if err != nil {
 		return nil, err
@@ -111,9 +96,6 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 	if err != nil {
 		return nil, err
 	}
-
-	resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Name = proto.String(resourceDesc.Name)
-	resFields.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).ResourceGroup.(*vpcv1.ResourceGroupIdentityByID).ID = &rInfo.ResourceGroup
 
 	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 	if err != nil {
@@ -174,17 +156,12 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 	}
 
 	// Launch an instance in the chosen subnet
-	vm, err := cloudClient.CreateInstance(vpcID, subnetID, &resFields, requiredTags)
-	if err != nil {
-		return nil, err
-	}
-	// get private IP of newly launched instance
-	reservedIP, err := cloudClient.GetInstanceReservedIP(*vm.ID)
+	resource, err := cloudClient.CreateResource(resourceDesc.Name, vpcID, subnetID, requiredTags, resOptions)
 	if err != nil {
 		return nil, err
 	}
 
-	return &paragliderpb.CreateResourceResponse{Name: *vm.Name, Uri: createInstanceID(rInfo.ResourceGroup, zone, *vm.ID), Ip: reservedIP}, nil
+	return &paragliderpb.CreateResourceResponse{Name: resource.Name, Uri: resource.Uri, Ip: resource.IP}, nil
 }
 
 // GetUsedAddressSpaces returns a list of address spaces used by either user's or paraglider' subnets,

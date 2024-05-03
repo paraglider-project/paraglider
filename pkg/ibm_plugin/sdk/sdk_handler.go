@@ -19,6 +19,7 @@ package ibm
 import (
 	"fmt"
 
+	k8sv1 "github.com/IBM-Cloud/container-services-go-sdk/kubernetesserviceapiv1"
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/networking-go-sdk/transitgatewayapisv1"
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
@@ -32,6 +33,7 @@ import (
 // CloudClient is the client used to interact with IBM Cloud SDK
 type CloudClient struct {
 	vpcService     *vpcv1.VpcV1
+	k8sService     *k8sv1.KubernetesServiceApiV1
 	region         string // region resources will be created in/fetched from
 	globalSearch   *globalsearchv2.GlobalSearchV2
 	taggingService *globaltaggingv1.GlobalTaggingV1
@@ -47,6 +49,10 @@ func (c *CloudClient) Region() string {
 func (c *CloudClient) UpdateRegion(region string) error {
 	c.region = region
 	err := c.vpcService.SetServiceURL(endpointURL(region))
+	if err != nil {
+		return err
+	}
+	err = c.k8sService.SetServiceURL(endpointURL(region))
 	if err != nil {
 		return err
 	}
@@ -72,6 +78,15 @@ func NewIBMCloudClient(resourceGroupID, region string) (*CloudClient, error) {
 	})
 	if err != nil {
 		utils.Log.Println("Failed to create vpc service client with error:\n", err)
+		return nil, err
+	}
+
+	k8sService, err := k8sv1.NewKubernetesServiceApiV1(&k8sv1.KubernetesServiceApiV1Options{
+		Authenticator: authenticator,
+		URL:           endpointURL(region),
+	})
+	if err != nil {
+		utils.Log.Println("Failed to create k8s service client with error:\n", err)
 		return nil, err
 	}
 
@@ -106,6 +121,7 @@ func NewIBMCloudClient(resourceGroupID, region string) (*CloudClient, error) {
 
 	client := CloudClient{
 		vpcService:     vpcService,
+		k8sService:     k8sService,
 		region:         region,
 		globalSearch:   globalSearch,
 		taggingService: taggingService,

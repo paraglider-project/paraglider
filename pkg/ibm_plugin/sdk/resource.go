@@ -21,14 +21,23 @@ import (
 	"strings"
 	"time"
 
+	k8sv1 "github.com/IBM-Cloud/container-services-go-sdk/kubernetesserviceapiv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
-// CreateInstance creates a VM in the specified subnet and zone.
-func (c *CloudClient) CreateInstance(vpcID, subnetID string,
-	instanceOptions *vpcv1.CreateInstanceOptions, tags []string) (*vpcv1.Instance, error) {
+type ResourceResponse struct {
+	Name string
+	Uri  string
+	IP   string
+}
+
+const (
+	InstanceResourceType = "instance"
+)
+
+func (c *CloudClient) CreateResource(name, vpcID, subnetID string, tags []string, resourceOptions any) (*ResourceResponse, error) {
 	keyID, err := c.setupAuth()
 	if err != nil {
 		utils.Log.Println("failed to setup authentication")
@@ -41,16 +50,40 @@ func (c *CloudClient) CreateInstance(vpcID, subnetID string,
 		return nil, err
 	}
 
-	instance, err := c.createInstance(keyID, subnetID, instanceOptions, securityGroup, tags)
-	if err != nil {
-		utils.Log.Println("Failed to launch instance with error:\n", err)
-		return nil, err
+	switch opts := resourceOptions.(type) {
+	case *vpcv1.CreateInstanceOptions:
+		return c.createInstance(name, keyID, subnetID, opts, securityGroup, tags)
+	case *k8sv1.VpcCreateClusterOptions:
+		return c.createVPCCluster(name, keyID, subnetID, opts, securityGroup, tags)
 	}
-	return instance, nil
+	return nil, fmt.Errorf("resource %v not supported", resourceOptions)
 }
 
-func (c *CloudClient) createInstance(keyID, subnetID string, instanceOptions *vpcv1.CreateInstanceOptions, securityGroup *vpcv1.SecurityGroup, tags []string) (
-	*vpcv1.Instance, error) {
+// // CreateInstance creates a VM in the specified subnet and zone.
+// func (c *CloudClient) CreateInstance(vpcID, subnetID string,
+// 	instanceOptions *vpcv1.CreateInstanceOptions, tags []string) (*vpcv1.Instance, error) {
+// 	keyID, err := c.setupAuth()
+// 	if err != nil {
+// 		utils.Log.Println("failed to setup authentication")
+// 		return nil, err
+// 	}
+
+// 	securityGroup, err := c.createSecurityGroup(vpcID)
+// 	if err != nil {
+// 		utils.Log.Println("Failed to create security group for VM with error: ", err)
+// 		return nil, err
+// 	}
+
+// 	instance, err := c.createInstance(keyID, subnetID, instanceOptions, securityGroup, tags)
+// 	if err != nil {
+// 		utils.Log.Println("Failed to launch instance with error:\n", err)
+// 		return nil, err
+// 	}
+// 	return instance, nil
+// }
+
+func (c *CloudClient) createInstance(name, keyID, subnetID string, instanceOptions *vpcv1.CreateInstanceOptions, securityGroup *vpcv1.SecurityGroup, tags []string) (
+	*ResourceResponse, error) {
 
 	sgGrps := []vpcv1.SecurityGroupIdentityIntf{
 		&vpcv1.SecurityGroupIdentityByID{ID: securityGroup.ID}}
@@ -64,6 +97,7 @@ func (c *CloudClient) createInstance(keyID, subnetID string, instanceOptions *vp
 	keyIdentity := vpcv1.KeyIdentityByID{ID: &keyID}
 	proto := instanceOptions.InstancePrototype
 
+	proto.(*vpcv1.InstancePrototypeInstanceByImage).Name = &name
 	proto.(*vpcv1.InstancePrototypeInstanceByImage).Keys = []vpcv1.KeyIdentityIntf{&keyIdentity}
 	proto.(*vpcv1.InstancePrototypeInstanceByImage).PrimaryNetworkInterface = &nicPrototype
 	proto.(*vpcv1.InstancePrototypeInstanceByImage).ResourceGroup = c.resourceGroup
@@ -88,8 +122,26 @@ func (c *CloudClient) createInstance(keyID, subnetID string, instanceOptions *vp
 		utils.Log.Print("Failed to tag SG with error:", err)
 		return nil, err
 	}
+	reservedIP, err := c.GetInstanceReservedIP(*instance.ID)
 
-	return instance, nil
+	if err != nil {
+		return nil, err
+	}
+
+	resp := ResourceResponse{Name: *instance.Name, Uri: createInstanceID(*c.resourceGroup.ID, *instance.Zone.Name, *instance.ID), IP: reservedIP}
+
+	return &resp, nil
+}
+
+func (c *CloudClient) createVPCCluster(name, keyID, subnetID string, clusterOptions *k8sv1.VpcCreateClusterOptions, securityGroup *vpcv1.SecurityGroup, tags []string) (
+	*ResourceResponse, error) {
+	clusterOptions.Name = &name
+	cluster, _, err := c.k8sService.VpcCreateCluster(clusterOptions)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("%v\n", cluster)
+	return &ResourceResponse{}, nil
 }
 
 // GetInstanceSecurityGroupID returns the security group ID that's associated with the VM's network interfaces
@@ -239,4 +291,8 @@ func (c *CloudClient) getInstanceDataFromID(id string) (*vpcv1.Instance, error) 
 		return nil, err
 	}
 	return instance, nil
+}
+
+func createInstanceID(resGroup, zone, resName string) string {
+	return fmt.Sprintf("/resourcegroup/%s/zone/%s/%s/%s", resGroup, zone, InstanceResourceType, resName)
 }
