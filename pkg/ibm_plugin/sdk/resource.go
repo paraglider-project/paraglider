@@ -259,6 +259,16 @@ func (i *ResourceInstanceType) GetID() string {
 	return i.ID
 }
 
+// GetVPC returns VPC data of specified instance
+func (i *ResourceInstanceType) GetVPC() (*vpcv1.VPCReference, error) {
+	instance, _, err := i.client.vpcService.GetInstance(
+		&vpcv1.GetInstanceOptions{ID: &i.ID})
+	if err != nil {
+		return nil, err
+	}
+	return instance.VPC, nil
+}
+
 func (c *ResourceClusterType) createURI(resGroup, zone, resName string) string {
 	return fmt.Sprintf("/resourcegroup/%s/zone/%s/%s/%s", resGroup, zone, ClusterResourceType, resName)
 }
@@ -274,32 +284,6 @@ func (c *ResourceClusterType) getResourceOptions(resourceDesc []byte) (*k8sv1.Vp
 	return &clusterOptions, nil
 }
 
-func (c *ResourceClusterType) getClusterEndpoint(vpcID string) (string, string, error) {
-	// in case the cluster recently launched, poll to wait for ip to be assigned to the instance.
-	vpeName := "iks-" + c.ID
-	var err error
-	var isClusterReady bool
-	fmt.Printf("Getting Cluster IP of %s\n", c.ID)
-	if isClusterReady, err = c.waitForReady(); isClusterReady {
-		options := &vpcv1.ListEndpointGatewaysOptions{}
-		options.VPCID = &vpcID
-		gateways, _, err := c.client.vpcService.ListEndpointGateways(options)
-		if err != nil {
-			return "", "", err
-		}
-		fmt.Printf("Endpoint gateways : %+v", gateways)
-
-		for _, gateway := range gateways.EndpointGateways {
-			fmt.Printf("%s\n", *gateway.Name)
-			if *gateway.Name == vpeName {
-				return *gateway.Ips[0].Address, *gateway.SecurityGroups[0].CRN, nil
-			}
-		}
-		return "", "", fmt.Errorf("unable to find the endpoint gateway of cluster %s", c.ID)
-	}
-	return "", "", err
-}
-
 func (i *ResourceClusterType) IsExclusiveNetworkNeeded() bool {
 	return true
 }
@@ -307,7 +291,6 @@ func (i *ResourceClusterType) IsExclusiveNetworkNeeded() bool {
 // returns True once the Cluster is ready.
 func (c *ResourceClusterType) waitForReady() (bool, error) {
 	sleepDuration := 60 * time.Second
-	fmt.Printf("Polling for Cluster ready\n")
 	for tries := 100; tries > 0; tries-- {
 		res, _, err := c.client.k8sService.VpcGetCluster(c.client.k8sService.NewVpcGetClusterOptions(c.ID))
 		if err != nil {
@@ -359,7 +342,7 @@ func (c *ResourceClusterType) CreateResource(name, vpcID, subnetID string, tags 
 	// Get Cluster VPC Security group
 	vpcSg, err := c.client.getDefaultSecurityGroup(vpcID)
 	if err != nil {
-		utils.Log.Print("Failed to get sg CRN:", err)
+		utils.Log.Print("Failed to get SG CRN:", err)
 		return nil, err
 	}
 
@@ -371,8 +354,13 @@ func (c *ResourceClusterType) CreateResource(name, vpcID, subnetID string, tags 
 
 	clusterCIDR, err := c.client.GetSubnetCIDR(subnetID)
 	if err != nil {
-		utils.Log.Print("Failed to subnet:", err)
+		utils.Log.Print("Failed to get subnet CIDR:", err)
 		return nil, err
+	}
+
+	if clusterReady, err := c.waitForReady(); !clusterReady || err != nil {
+		utils.Log.Print("Failed to get cluster to ready state:", err)
+		return nil, fmt.Errorf("cluster not ready %v", err.Error())
 	}
 
 	return &ResourceResponse{Name: name, URI: c.createURI(*c.client.resourceGroup.ID, *clusterOptions.WorkerPool.Zones[0].ID, *cluster.ClusterID), IP: clusterCIDR}, nil
@@ -413,10 +401,8 @@ func (c *ResourceClusterType) GetID() string {
 func (c *ResourceClusterType) getCRN() (string, error) {
 	options := c.client.k8sService.NewVpcGetClusterOptions(c.ID)
 	options.XAuthResourceGroup = c.client.resourceGroup.ID
-	cl, det, err := c.client.k8sService.VpcGetCluster(options)
+	cl, _, err := c.client.k8sService.VpcGetCluster(options)
 	if err != nil {
-		fmt.Printf("Response : %+v, %d", cl)
-		fmt.Printf("%+v, err: %s\n", det, err.Error())
 		return "", err
 	}
 	return *cl.Crn, nil
@@ -424,21 +410,19 @@ func (c *ResourceClusterType) getCRN() (string, error) {
 
 // GetVPC returns the VPC reference of the endpoint gateway of the cluster
 func (c *ResourceClusterType) GetVPC() (*vpcv1.VPCReference, error) {
-	vpeName := "iks-" + c.ID
-	options := &vpcv1.ListEndpointGatewaysOptions{}
-	gateways, _, err := c.client.vpcService.ListEndpointGateways(options)
+	clusterSG := "kube-" + c.ID
+	sgs, _, err := c.client.vpcService.ListSecurityGroups(c.client.vpcService.NewListSecurityGroupsOptions())
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("Endpoint gateways : %+v", gateways)
 
-	for _, gateway := range gateways.EndpointGateways {
-		fmt.Printf("%s\n", *gateway.Name)
-		if *gateway.Name == vpeName {
-			return gateway.VPC, nil
+	for _, sg := range sgs.SecurityGroups {
+		fmt.Printf("%s\n", *sg.Name)
+		if *sg.Name == clusterSG {
+			return sg.VPC, nil
 		}
 	}
-	return nil, fmt.Errorf("unable to find the endpoint gateway of cluster %s", c.ID)
+	return nil, fmt.Errorf("unable to find the VPC of cluster %s", c.ID)
 }
 
 // NOTE: Currently not in use, as public ips are not provisioned.

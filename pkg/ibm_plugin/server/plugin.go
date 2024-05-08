@@ -107,7 +107,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 	}
 
 	fmt.Printf("Got %+v\n", res)
-	// get VPCs in the request's namespace
+	// get VPCs in the request's namespace which can be shared between resources created
 	vpcsData, err := cloudClient.GetParagliderTaggedResources(sdk.VPC, []string{resourceDesc.Deployment.Namespace, sdk.SharedVPC},
 		sdk.ResourceQuery{Region: region})
 	if err != nil {
@@ -321,7 +321,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	// up to a single paraglider security group can exist per VM (queried resource by tag=vmID)
 	requestSGID := paragliderSgsData[0].ID
 
-	// get VPC of the VM specified in the request
+	// get VPC of the resource specified in the request
 	requestVPCData, err := res.GetVPC()
 	if err != nil {
 		utils.Log.Printf("Failed to get VPC: %v.\n", err)
