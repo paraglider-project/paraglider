@@ -34,6 +34,7 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 		ResourceID:   CRN,
 		ResourceType: &userTypeTag,
 	}
+
 	attachTagOptions := c.taggingService.NewAttachTagOptions(
 		[]globaltaggingv1.Resource{*resourceModel},
 	)
@@ -41,19 +42,19 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 
 	// attach tags with retires.
 	// retry mechanism improves stability and is needed due to possible temporary unavailability of resources, e.g. at time of creation.
-	maxAttempts := 10    // retries number to tag a resource
-	latestResponse := "" // record latest response from inner scope
-	for attempt := 1; attempt <= maxAttempts; attempt += 1 {
-		result, latestResponse, _ := c.taggingService.AttachTag(attachTagOptions)
+	maxAttempts := 10 // retries number to tag a resource
+	var err error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		result, _, err := c.taggingService.AttachTag(attachTagOptions)
 		// tracking all responses from error prone tagging service
-		utils.Log.Printf("Tagging attempt %v: Response: %+v", attempt, latestResponse)
+		utils.Log.Printf("Tagging attempt %v: Error: %v", attempt, err)
 		if !*result.Results[0].IsError {
 			return nil
 		}
 		// sleep to avoid busy waiting
 		time.Sleep(5 * time.Second)
 	}
-	return fmt.Errorf("Failed to tag resource with response:\n %+v", latestResponse)
+	return fmt.Errorf("failed to tag resource : %v", err)
 }
 
 // GetParagliderTaggedResources returns slice of IDs of tagged resources

@@ -52,10 +52,6 @@ func (c *CloudClient) UpdateRegion(region string) error {
 	if err != nil {
 		return err
 	}
-	err = c.k8sService.SetServiceURL(endpointURL(region))
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -83,7 +79,6 @@ func NewIBMCloudClient(resourceGroupID, region string) (*CloudClient, error) {
 
 	k8sService, err := k8sv1.NewKubernetesServiceApiV1(&k8sv1.KubernetesServiceApiV1Options{
 		Authenticator: authenticator,
-		URL:           endpointURL(region),
 	})
 	if err != nil {
 		utils.Log.Println("Failed to create k8s service client with error:\n", err)

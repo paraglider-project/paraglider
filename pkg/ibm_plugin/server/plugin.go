@@ -79,11 +79,10 @@ func (s *IBMPluginServer) getAllClientsForVPCs(cloudClient *sdk.CloudClient, res
 // CreateResource creates the specified resource.
 // Currently only supports instance creation.
 func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragliderpb.ResourceDescription) (*paragliderpb.CreateResourceResponse, error) {
-	var vpcID string
+	var vpcID *string
 	var subnetID string
 	utils.Log.Printf("Creating resource %s in deployment %s\n", resourceDesc.Name, resourceDesc.Deployment.Id)
-	// TODO : Support unmarshalling to other struct types of InstancePrototype interface
-	resOptions, zone, err := getResourceOptions(resourceDesc.Description)
+	zone, err := getZoneFromDesc(resourceDesc.Description)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +91,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 		return nil, err
 	}
 
-	rInfo, err := getResourceIDInfo(resourceDesc.Deployment.Id)
+	rInfo, err := getResourceMeta(resourceDesc.Deployment.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -102,36 +101,46 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 		return nil, err
 	}
 
+	res, err := cloudClient.GetResourceHandlerFromDesc(resourceDesc.Description)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("Got %+v\n", res)
 	// get VPCs in the request's namespace
-	vpcsData, err := cloudClient.GetParagliderTaggedResources(sdk.VPC, []string{resourceDesc.Deployment.Namespace},
+	vpcsData, err := cloudClient.GetParagliderTaggedResources(sdk.VPC, []string{resourceDesc.Deployment.Namespace, sdk.SharedVPC},
 		sdk.ResourceQuery{Region: region})
 	if err != nil {
 		return nil, err
 	}
-	if len(vpcsData) == 0 {
-		// No VPC found in the requested namespace and region. Create one.
-		utils.Log.Printf("No VPCs found in the region, will be creating.")
-		vpc, err := cloudClient.CreateVPC([]string{resourceDesc.Deployment.Namespace})
+
+	for _, vpcs := range vpcsData {
+		if !res.IsExclusiveNetworkNeeded() {
+			// Use an existing vpcID which is not an exclusive vpc used by an pre-existing resource
+			vpcID = &vpcs.ID
+			break
+		}
+	}
+
+	if vpcID == nil {
+		utils.Log.Printf("Creating a VPC (exclusive=%v).\n", res.IsExclusiveNetworkNeeded())
+		vpc, err := cloudClient.CreateVPC([]string{resourceDesc.Deployment.Namespace}, res.IsExclusiveNetworkNeeded())
 		if err != nil {
 			return nil, err
 		}
-		vpcID = *vpc.ID
-	} else {
-		// Assuming a single VPC per region and namespace
-		vpcID = vpcsData[0].ID
-		utils.Log.Printf("Using existing VPC ID : %s\n", vpcID)
+		vpcID = vpc.ID
 	}
 
 	// get subnets of VPC
-	requiredTags := []string{vpcID, resourceDesc.Deployment.Namespace}
+	requiredTags := []string{*vpcID, resourceDesc.Deployment.Namespace}
 	subnetsData, err := cloudClient.GetParagliderTaggedResources(sdk.SUBNET, requiredTags,
 		sdk.ResourceQuery{Zone: zone})
 	if err != nil {
 		return nil, err
 	}
 	if len(subnetsData) == 0 {
-		// No subnets in the specified VPC.
-		utils.Log.Printf("No Subnets found in the zone, getting address space from orchestrator\n")
+		// No existing subnets in the specified VPC
+		utils.Log.Printf("Getting address space from orchestrator\n")
 
 		// Find unused address space and create a subnet in it.
 		conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -145,7 +154,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 			return nil, err
 		}
 		utils.Log.Printf("Using %s address space", resp.AddressSpaces[0])
-		subnet, err := cloudClient.CreateSubnet(vpcID, zone, resp.AddressSpaces[0], requiredTags)
+		subnet, err := cloudClient.CreateSubnet(*vpcID, zone, resp.AddressSpaces[0], requiredTags)
 		if err != nil {
 			return nil, err
 		}
@@ -155,13 +164,13 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 		subnetID = subnetsData[0].ID
 	}
 
-	// Launch an instance in the chosen subnet
-	resource, err := cloudClient.CreateResource(resourceDesc.Name, vpcID, subnetID, requiredTags, resOptions)
+	// Create the resource in the chosen subnet
+	resource, err := res.CreateResource(resourceDesc.Name, *vpcID, subnetID, requiredTags, resourceDesc.Description)
 	if err != nil {
 		return nil, err
 	}
 
-	return &paragliderpb.CreateResourceResponse{Name: resource.Name, Uri: resource.Uri, Ip: resource.IP}, nil
+	return &paragliderpb.CreateResourceResponse{Name: resource.Name, Uri: resource.URI, Ip: resource.IP}, nil
 }
 
 // GetUsedAddressSpaces returns a list of address spaces used by either user's or paraglider' subnets,
@@ -175,7 +184,7 @@ func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragli
 			Namespace: deployment.Namespace,
 		}
 		utils.Log.Printf("Getting used address spaces for deployment : %v\n", deployment.Id)
-		rInfo, err := getResourceIDInfo(deployment.Id)
+		rInfo, err := getResourceMeta(deployment.Id)
 		if err != nil {
 			return nil, err
 		}
@@ -211,7 +220,7 @@ func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragli
 
 // GetPermitList returns security rules of security groups associated with the specified instance.
 func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest) (*paragliderpb.GetPermitListResponse, error) {
-	rInfo, err := getResourceIDInfo(req.Resource)
+	rInfo, err := getResourceMeta(req.Resource)
 	if err != nil {
 		return nil, err
 	}
@@ -225,14 +234,18 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.G
 		return nil, err
 	}
 
+	res, err := cloudClient.GetResourceHandlerFromID(req.Resource)
+	if err != nil {
+		return nil, err
+	}
 	// verify specified instance match the specified namespace
-	if isInNamespace, err := cloudClient.IsInstanceInNamespace(
-		rInfo.ResourceID, req.Namespace, region); !isInNamespace || err != nil {
-		return nil, fmt.Errorf("specified instance: %v doesn't exist in namespace: %v",
+	if isInNamespace, err := res.IsInNamespace(req.Namespace, region); !isInNamespace || err != nil {
+		return nil, fmt.Errorf("specified resource %v doesn't exist in namespace: %v",
 			rInfo.ResourceID, req.Namespace)
 	}
 	utils.Log.Printf("Getting permit lists for instance: %s\n", rInfo.ResourceID)
-	securityGroupID, err := cloudClient.GetInstanceSecurityGroupID(rInfo.ResourceID)
+
+	securityGroupID, err := res.GetSecurityGroupID()
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +282,7 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.G
 func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paragliderpb.AddPermitListRulesRequest) (*paragliderpb.AddPermitListRulesResponse, error) {
 
 	utils.Log.Printf("Adding PermitListRules %v, %v. namespace :%s \n ", req.Resource, req.Rules, req.Namespace)
-	rInfo, err := getResourceIDInfo(req.Resource)
+	rInfo, err := getResourceMeta(req.Resource)
 	if err != nil {
 		return nil, err
 	}
@@ -285,31 +298,31 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 		return nil, err
 	}
 
+	res, err := cloudClient.GetResourceHandlerFromID(req.Resource)
+	if err != nil {
+		return nil, err
+	}
 	// verify specified instance match the specified namespace
-	if isInNamespace, err := cloudClient.IsInstanceInNamespace(
-		rInfo.ResourceID, req.Namespace, region); !isInNamespace || err != nil {
-		utils.Log.Printf("Not in namespace %v\n", err)
-		return nil, fmt.Errorf("specified instance: %v doesn't exist in namespace: %v",
+	if isInNamespace, err := res.IsInNamespace(req.Namespace, region); !isInNamespace || err != nil {
+		return nil, fmt.Errorf("specified resource %v doesn't exist in namespace: %v",
 			rInfo.ResourceID, req.Namespace)
 	}
 
-	vmID := rInfo.ResourceID
-
-	// get security group of VM
-	paragliderSgsData, err := cloudClient.GetParagliderTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
+	// get security group of the resource
+	paragliderSgsData, err := cloudClient.GetParagliderTaggedResources(sdk.SG, []string{res.GetID()}, sdk.ResourceQuery{Region: region})
 	if err != nil {
-		utils.Log.Printf("Failed to get paraglider tagged resources %v: %v.\n", vmID, err)
+		utils.Log.Printf("Failed to get paraglider tagged resources %v: %v.\n", res.GetID(), err)
 		return nil, err
 	}
 	if len(paragliderSgsData) == 0 {
-		utils.Log.Printf("No security groups were found for VM %v\n", vmID)
-		return nil, fmt.Errorf("no security groups were found for VM %v", vmID)
+		utils.Log.Printf("No security groups were found for resource %v\n", res.GetID())
+		return nil, fmt.Errorf("no security groups were found for resource %v", res.GetID())
 	}
 	// up to a single paraglider security group can exist per VM (queried resource by tag=vmID)
 	requestSGID := paragliderSgsData[0].ID
 
 	// get VPC of the VM specified in the request
-	requestVPCData, err := cloudClient.VMToVPCObject(vmID)
+	requestVPCData, err := res.GetVPC()
 	if err != nil {
 		utils.Log.Printf("Failed to get VPC: %v.\n", err)
 		return nil, err
@@ -446,7 +459,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 
 // DeletePermitListRules deletes security group rules matching the attributes of the rules contained in the relevant Security group
 func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragliderpb.DeletePermitListRulesRequest) (*paragliderpb.DeletePermitListRulesResponse, error) {
-	rInfo, err := getResourceIDInfo(req.Resource)
+	rInfo, err := getResourceMeta(req.Resource)
 	if err != nil {
 		return nil, err
 	}
@@ -460,21 +473,23 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 		return nil, err
 	}
 
+	res, err := cloudClient.GetResourceHandlerFromID(req.Resource)
+	if err != nil {
+		return nil, err
+	}
+
 	// verify specified instance match the specified namespace
-	if isInNamespace, err := cloudClient.IsInstanceInNamespace(
-		rInfo.ResourceID, req.Namespace, region); !isInNamespace || err != nil {
-		return nil, fmt.Errorf("specified instance: %v doesn't exist in namespace: %v",
+	if isInNamespace, err := res.IsInNamespace(req.Namespace, region); !isInNamespace || err != nil {
+		return nil, fmt.Errorf("specified resource %v doesn't exist in namespace: %v",
 			rInfo.ResourceID, req.Namespace)
 	}
 
-	vmID := rInfo.ResourceID
-
-	paragliderSgsData, err := cloudClient.GetParagliderTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
+	paragliderSgsData, err := cloudClient.GetParagliderTaggedResources(sdk.SG, []string{res.GetID()}, sdk.ResourceQuery{Region: region})
 	if err != nil {
 		return nil, err
 	}
 	if len(paragliderSgsData) == 0 {
-		return nil, fmt.Errorf("no security groups were found for VM %v", rInfo.ResourceID)
+		return nil, fmt.Errorf("no security groups were found for resource %v", res.GetID())
 	}
 	// assuming up to a single paraglider subnet can exist per zone
 	vmParagliderSgID := paragliderSgsData[0].ID

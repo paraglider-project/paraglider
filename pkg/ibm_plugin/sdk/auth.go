@@ -35,6 +35,7 @@ import (
 )
 
 const keyType = "key"
+const configFile = "~/.bluemix/config.json"
 
 // Credentials extracted from local credential file
 type Credentials struct {
