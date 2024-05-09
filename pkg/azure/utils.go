@@ -178,7 +178,7 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 				if len(resourceTypeToResources) > 0 {
 					fmt.Printf("Attempting to clean up unexpected resources")
 					for resourceType, resources := range resourceTypeToResources {
-						deleteResources(ctx, resourcesClient, resources, resourceTypeToAPIVersion[resourceType])
+						err = deleteResources(ctx, resourcesClient, resources, resourceTypeToAPIVersion[resourceType])
 						if err != nil {
 							panic(fmt.Errorf("Failed to delete resource type %s: %w", resourceType, err))
 						}
