@@ -28,6 +28,7 @@ import (
 	"strings"
 	"testing"
 
+	k8sv1 "github.com/IBM-Cloud/container-services-go-sdk/kubernetesserviceapiv1"
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/networking-go-sdk/transitgatewayapisv1"
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
@@ -43,26 +44,28 @@ import (
 )
 
 const (
-	fakeRegion    = "us-east"  // Primary region used for tests
-	fakeConRegion = "us-south" // Region used to test VPC connectivity across regions
-	fakeZone      = fakeRegion + "-a"
-	fakeInstance  = "vm-paraglider-fake"
-	fakeImage     = "fake-image"
-	fakeVPC       = "paraglider-fake-vpc"
-	fakeID        = "12345"
-	fakeID2       = "123452"
-	fakeRuleName1 = "fake-rule1"
-	fakeRuleName2 = "fake-rule2"
-	fakeCRN       = "crn:" + fakeID
-	fakeCRN2      = "crn:" + fakeID2
-	fakeSubnet    = "paraglider-fake-subnet"
-	fakeSG        = "paraglider-fake-sg"
-	fakeGW        = "paraglider-fake-gw"
-	fakeIP        = "10.0.0.2"
-	fakeSubnet1   = "10.0.0.0/16"
-	fakeSubnet2   = "20.1.1.0/28"
-	fakeProfile   = "bx2-2x8"
-	paragliderTag = "paraglider"
+	fakeRegion     = "us-east"  // Primary region used for tests
+	fakeConRegion  = "us-south" // Region used to test VPC connectivity across regions
+	fakeZone       = fakeRegion + "-a"
+	fakeInstance   = "vm-paraglider-fake"
+	fakeCluster    = "cluster-paraglider-fake"
+	fakeImage      = "fake-image"
+	fakeVPC        = "paraglider-fake-vpc"
+	fakeID         = "12345"
+	fakeID2        = "123452"
+	fakeRuleName1  = "fake-rule1"
+	fakeRuleName2  = "fake-rule2"
+	fakeCRN        = "crn:" + fakeID
+	fakeCRN2       = "crn:" + fakeID2
+	fakeSubnet     = "paraglider-fake-subnet"
+	fakeSG         = "paraglider-fake-sg"
+	fakeGW         = "paraglider-fake-gw"
+	fakeIP         = "10.0.0.2"
+	fakeSubnet1    = "10.0.0.0/16"
+	fakeSubnet2    = "20.1.1.0/28"
+	fakeProfile    = "bx2-2x8"
+	paragliderTag  = "paraglider"
+	fakeWorkerPool = "fake"
 
 	fakeDeploymentID = "/resourcegroup/" + fakeID
 	fakeInstanceID   = "/resourcegroup/" + fakeID + "/zone/" + fakeZone + "/instance/" + fakeID
@@ -71,10 +74,24 @@ const (
 )
 
 var (
-	fakeInstancePrototype = vpcv1.InstancePrototypeInstanceByImage{
-		Image:   &vpcv1.ImageIdentityByID{ID: core.StringPtr(fakeImage)},
-		Zone:    &vpcv1.ZoneIdentityByName{Name: core.StringPtr(fakeZone)},
-		Profile: &vpcv1.InstanceProfileIdentityByName{Name: core.StringPtr(fakeProfile)},
+	fakeInstanceOptions = vpcv1.CreateInstanceOptions{
+		InstancePrototype: &vpcv1.InstancePrototypeInstanceByImage{
+			Image:   &vpcv1.ImageIdentityByID{ID: core.StringPtr(fakeImage)},
+			Zone:    &vpcv1.ZoneIdentityByName{Name: core.StringPtr(fakeZone)},
+			Profile: &vpcv1.InstanceProfileIdentityByName{Name: core.StringPtr(fakeProfile)},
+		},
+	}
+
+	fakeClusterOptions = k8sv1.VpcCreateClusterOptions{
+		WorkerPool: &k8sv1.VPCCreateClusterWorkerPool{
+			Name:   core.StringPtr(fakeWorkerPool),
+			Flavor: core.StringPtr(fakeProfile),
+			Zones: []k8sv1.VPCCreateClusterWorkerPoolZone{
+				{
+					ID: core.StringPtr(fakeZone),
+				},
+			},
+		},
 	}
 
 	fakePermitList1 = []*paragliderpb.PermitListRule{
@@ -107,12 +124,19 @@ var (
 	}
 )
 
+type fakeClusterState struct {
+	clusterID  string
+	clusterCRN string
+	subnetID   string
+}
+
 // State of the fake IBM server
 // It contains only the necessary items needed to test.
 type fakeIBMServerState struct {
 	VPCs          []*vpcv1.VPC
 	Instance      *vpcv1.Instance
 	SecurityGroup *vpcv1.SecurityGroup
+	clusterState  fakeClusterState
 	subnetVPC     map[string]string // VPC to Subnet CIDR mapping
 	rules         int
 }
@@ -317,12 +341,22 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 				sendFakeResponse(w, newVPCPrefix)
 				return
 			}
+		case path == "/vpcs/"+fakeID+"/default_security_group":
+			if r.Method == http.MethodGet { // Get default security group
+				sg := vpcv1.DefaultSecurityGroup{
+					ID:  core.StringPtr(fakeID),
+					CRN: core.StringPtr(fakeCRN),
+				}
+				sendFakeResponse(w, sg)
+				return
+			}
 		case path == "/subnets":
 			if r.Method == http.MethodPost { // Create Subnet
 				subnet := vpcv1.Subnet{
 					CRN: core.StringPtr(fakeSubnet),
 					ID:  core.StringPtr(fakeID),
 				}
+				fakeIBMServerState.clusterState.subnetID = fakeID
 				sendFakeResponse(w, subnet)
 				return
 			}
@@ -346,6 +380,12 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 				index := strings.LastIndex(path, "/")
 				if cidrBlock, ok := fakeIBMServerState.subnetVPC[path[index+1:]]; ok {
 					subnet := vpcv1.Subnet{Ipv4CIDRBlock: &cidrBlock}
+					sendFakeResponse(w, subnet)
+					return
+				}
+				// In case of cluster's subnet check its state
+				if fakeIBMServerState.clusterState.subnetID == fakeID {
+					subnet := vpcv1.Subnet{Ipv4CIDRBlock: core.StringPtr(fakeSubnet1)}
 					sendFakeResponse(w, subnet)
 					return
 				}
@@ -439,6 +479,27 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 				sendFakeResponse(w, netIntf)
 				return
 			}
+		case path == "/v2/vpc/createCluster":
+			if r.Method == http.MethodPost { // Create a k8s Cluster
+				fakeIBMServerState.clusterState.clusterID = fakeID
+				fakeIBMServerState.clusterState.clusterCRN = fakeCRN
+				cluster := k8sv1.CreateClusterResponse{
+					ClusterID: core.StringPtr(fakeID),
+				}
+				sendFakeResponse(w, cluster)
+				return
+			}
+
+		case path == "/v2/vpc/getCluster":
+			if r.Method == http.MethodGet { // Get a cluster
+				cluster := k8sv1.GetClusterResponse{
+					ID:    core.StringPtr(fakeID),
+					Crn:   core.StringPtr(fakeCRN),
+					State: core.StringPtr(sdk.ClusterReadyState),
+				}
+				sendFakeResponse(w, cluster)
+				return
+			}
 		case path == "/transit_gateways":
 			if r.Method == http.MethodPost { // Create transit gateway
 				gw := transitgatewayapisv1.TransitGateway{
@@ -492,7 +553,7 @@ func TestCreateResourceNewVPC(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
+	description, err := json.Marshal(fakeInstanceOptions)
 	require.NoError(t, err)
 
 	resource := &paragliderpb.ResourceDescription{
@@ -526,7 +587,7 @@ func TestCreateResourceExistingVPCSubnet(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
+	description, err := json.Marshal(fakeInstanceOptions)
 	require.NoError(t, err)
 
 	resource := &paragliderpb.ResourceDescription{
@@ -557,12 +618,74 @@ func TestCreateResourceExistingVPCMissingSubnet(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
+	description, err := json.Marshal(fakeInstanceOptions)
 	require.NoError(t, err)
 
 	resource := &paragliderpb.ResourceDescription{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
+		Description: description,
+	}
+	resp, err := s.CreateResource(ctx, resource)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+}
+
+func TestCreateResourceCluster(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// fakeIBMServerState with no states
+	fakeIBMServerState := &fakeIBMServerState{
+		VPCs: createFakeVPC(false),
+	}
+	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
+	defer fakeServer.Close()
+
+	s := &IBMPluginServer{
+		orchestratorServerAddr: fakeControllerServerAddr,
+		cloudClient: map[string]*sdk.CloudClient{
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		}}
+
+	description, err := json.Marshal(fakeClusterOptions)
+	require.NoError(t, err)
+
+	resource := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+		Name:        fakeCluster,
+		Description: description,
+	}
+	resp, err := s.CreateResource(ctx, resource)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+}
+
+func TestCreateResourceClusterExistingVPC(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// fakeIBMServerState with no states
+	fakeIBMServerState := &fakeIBMServerState{
+		VPCs: createFakeVPC(false),
+	}
+	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
+	defer fakeServer.Close()
+
+	s := &IBMPluginServer{
+		orchestratorServerAddr: fakeControllerServerAddr,
+		cloudClient: map[string]*sdk.CloudClient{
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		}}
+
+	description, err := json.Marshal(fakeClusterOptions)
+	require.NoError(t, err)
+
+	resource := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+		Name:        fakeCluster,
 		Description: description,
 	}
 	resp, err := s.CreateResource(ctx, resource)

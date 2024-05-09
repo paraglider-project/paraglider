@@ -106,7 +106,6 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 		return nil, err
 	}
 
-	fmt.Printf("Got %+v\n", res)
 	// get VPCs in the request's namespace which can be shared between resources created
 	vpcsData, err := cloudClient.GetParagliderTaggedResources(sdk.VPC, []string{resourceDesc.Deployment.Namespace, sdk.SharedVPC},
 		sdk.ResourceQuery{Region: region})

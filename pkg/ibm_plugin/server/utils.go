@@ -83,8 +83,7 @@ func getZoneFromDesc(resourceDesc []byte) (string, error) {
 	}
 
 	err = json.Unmarshal(resourceDesc, &instanceOptions)
-	fmt.Printf("%+v", instanceOptions)
-	if err == nil {
+	if err == nil && instanceOptions.InstancePrototype != nil {
 		zone := instanceOptions.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Zone
 		if zone.(*vpcv1.ZoneIdentityByName).Name == nil {
 			return "", fmt.Errorf("unspecified zone definition in instance description")

@@ -140,6 +140,15 @@ func FakeIBMCloudClient(fakeURL, fakeResGroupID, fakeRegion string) (*CloudClien
 		return nil, err
 	}
 
+	k8sService, err := k8sv1.NewKubernetesServiceApiV1(&k8sv1.KubernetesServiceApiV1Options{
+		Authenticator: noAuth,
+		URL:           fakeURL,
+	})
+	if err != nil {
+		utils.Log.Println("Failed to create k8s service client with error:\n", err)
+		return nil, err
+	}
+
 	globalSearch, err := globalsearchv2.NewGlobalSearchV2UsingExternalConfig(&globalsearchv2.GlobalSearchV2Options{
 		Authenticator: noAuth,
 		URL:           fakeURL,
@@ -171,6 +180,7 @@ func FakeIBMCloudClient(fakeURL, fakeResGroupID, fakeRegion string) (*CloudClien
 
 	client := CloudClient{
 		vpcService:     vpcService,
+		k8sService:     k8sService,
 		region:         fakeRegion,
 		globalSearch:   globalSearch,
 		taggingService: taggingService,
