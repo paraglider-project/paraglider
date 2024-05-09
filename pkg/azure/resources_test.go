@@ -1,4 +1,5 @@
-// go:build unit
+//go:build unit
+
 /*
 Copyright 2023 The Paraglider Authors.
 
