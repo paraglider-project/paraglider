@@ -40,7 +40,7 @@ func TestMulticloud(t *testing.T) {
 	azureSubscriptionId := azure.GetAzureSubscriptionId()
 	azureResourceGroupName := azure.SetupAzureTesting(azureSubscriptionId, "multicloud")
 	azureDeploymentId := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName)
-	defer azure.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
+	defer azure.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName, "default")
 
 	// GCP config
 	gcpPluginPort := 7992

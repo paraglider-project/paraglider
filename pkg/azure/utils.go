@@ -27,6 +27,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"google.golang.org/protobuf/proto"
 )
 
 // Gets subscription ID defined in environment variable
@@ -53,7 +54,14 @@ func createResourceGroupsClient(subscriptionId string) *armresources.ResourceGro
 }
 
 func SetupAzureTesting(subscriptionId string, testName string) string {
-	resourceGroupName := "paraglider-" + testName
+	// Use set resource group
+	var resourceGroupName string
+	if resourceGroupName = os.Getenv("INVISINETS_AZURE_RESOURCE_GROUP"); resourceGroupName != "" {
+		return resourceGroupName
+	}
+
+	// Create new resource group
+	resourceGroupName = "paraglider-" + testName
 	if os.Getenv("GH_RUN_NUMBER") != "" {
 		resourceGroupName += "-" + os.Getenv("GH_RUN_NUMBER")
 	}
@@ -67,20 +75,126 @@ func SetupAzureTesting(subscriptionId string, testName string) string {
 	return resourceGroupName
 }
 
-func TeardownAzureTesting(subscriptionId string, resourceGroupName string) {
+func TeardownAzureTesting(subscriptionId string, resourceGroupName string, namespace string) {
 	if os.Getenv("INVISINETS_TEST_PERSIST") != "1" {
-		ctx := context.Background()
-		resourceGroupsClient := createResourceGroupsClient(subscriptionId)
-		poller, err := resourceGroupsClient.BeginDelete(ctx, resourceGroupName, nil)
-		if err != nil {
-			// If deletion fails: refer to https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/delete-resource-group
-			panic(fmt.Sprintf("Error while deleting resource group: %v", err))
-		}
-		_, err = poller.PollUntilDone(ctx, nil)
-		if err != nil {
-			panic(fmt.Sprintf("Error while waiting for resource group deletion: %v", err))
+		if os.Getenv("INVISINETS_AZURE_RESOURCE_GROUP") == "" {
+			// Delete resource group
+			ctx := context.Background()
+			resourceGroupsClient := createResourceGroupsClient(subscriptionId)
+			poller, err := resourceGroupsClient.BeginDelete(ctx, resourceGroupName, nil)
+			if err != nil {
+				// If deletion fails: refer to https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/delete-resource-group
+				panic(fmt.Sprintf("Error while deleting resource group: %v", err))
+			}
+			_, err = poller.PollUntilDone(ctx, nil)
+			if err != nil {
+				panic(fmt.Sprintf("Error while waiting for resource group deletion: %v", err))
+			}
+		} else {
+			// Delete resources without deleting the resource group
+			// Order deletion is based off of https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/delete-resource-group#how-order-of-deletion-is-determined
+			ctx := context.Background()
+			cred, err := azidentity.NewDefaultAzureCredential(nil)
+			if err != nil {
+				panic(fmt.Sprintf("Error while getting azure credentials: %v", err))
+			}
+			resourcesClient, err := armresources.NewClient(subscriptionId, cred, nil)
+			if err != nil {
+				panic(fmt.Sprintf("Error while creating resources client: %v", err))
+			}
+			providersClient, err := armresources.NewProvidersClient(subscriptionId, cred, nil)
+			if err != nil {
+				panic(fmt.Sprintf("Error while creating providers client: %v", err))
+			}
+			pager := resourcesClient.NewListPager(&armresources.ClientListOptions{
+				Filter: proto.String(fmt.Sprintf("tagName eq '%s' and tagValue eq '%s'", namespaceTagKey, namespace)),
+			})
+			resourceTypeToResources := make(map[string][]*armresources.GenericResourceExpanded)
+			resourceTypeToAPIVersion := make(map[string]string)
+			for pager.More() {
+				result, err := pager.NextPage(ctx)
+				if err != nil {
+					panic(fmt.Sprintf("failed to get next page of resources: %v", err))
+				}
+
+				for _, resource := range result.Value {
+					resourceIDInfo, err := getResourceIDInfo(*resource.ID)
+					if err != nil {
+						panic(fmt.Sprintf("Unable to parse resource ID info: %v", err))
+					}
+
+					// Need to check here since resourceGroup can't be used with tags in the above filter
+					// Ignore case when checking because Azure sometimes capitalizes the resource group name for no apparent reason
+
+					if strings.EqualFold(resourceIDInfo.ResourceGroupName, resourceGroupName) {
+						if _, ok := resourceTypeToResources[*resource.Type]; !ok {
+							// Initialize list
+							resourceTypeToResources[*resource.Type] = make([]*armresources.GenericResourceExpanded, 0)
+							// Find correct API version
+							_, ok := resourceTypeToAPIVersion[*resource.Type]
+							if !ok {
+								providerNamespace := strings.Split(*resource.Type, "/")[0]
+								resp, err := providersClient.Get(ctx, providerNamespace, nil)
+								if err != nil {
+									panic(fmt.Errorf("Unable to get provider resource type: %w", err))
+								}
+								// Store all API versions under this provider namespace to reduce potential duplicate requests
+								for _, resourceType := range resp.Provider.ResourceTypes {
+									// Breakdown of the term "resource type" overloading
+									// - *resource.Type = "Microsoft.Compute/virtualMachines"
+									// - providerNamespace = "Microsoft.Compute"
+									// - *resourceType.ResourceType is one of "virtualMachines", "disks", etc.
+									resourceTypeToAPIVersion[providerNamespace+"/"+*resourceType.ResourceType] = *resourceType.APIVersions[0] // Use most recent API version
+								}
+							}
+						}
+						resourceTypeToResources[*resource.Type] = append(resourceTypeToResources[*resource.Type], resource)
+					}
+
+				}
+				// Delete resources in the following order
+				// TODO @seankimkdy: figure out where clusters fit in on this order
+				deletionOrder := []string{
+					virtualMachineTypeName,
+					networkInterfaceTypeName,
+					diskTypeName,
+					connectionTypeName,
+					virtualNetworkGatewayTypeName,
+					localNetworkGatewayTypeName,
+					publicIPAddressTypeName,
+					virtualNetworkTypeName,
+					networkSecurityGroupTypeName,
+				}
+				for _, resourceType := range deletionOrder {
+					if resources, ok := resourceTypeToResources[resourceType]; ok {
+						deleteResources(ctx, resourcesClient, resources, resourceTypeToAPIVersion[resourceType])
+						delete(resourceTypeToResources, resourceType)
+					}
+				}
+
+				if len(resourceTypeToResources) > 0 {
+					fmt.Printf("Attempting to clean up unexpected resources")
+					for resourceType, resources := range resourceTypeToResources {
+						deleteResources(ctx, resourcesClient, resources, resourceTypeToAPIVersion[resourceType])
+					}
+				}
+			}
 		}
 	}
+}
+
+func deleteResources(ctx context.Context, resourcesClient *armresources.Client, resources []*armresources.GenericResourceExpanded, apiVersion string) error {
+	for _, resource := range resources {
+		pollerResp, err := resourcesClient.BeginDeleteByID(ctx, *resource.ID, apiVersion, nil)
+		if err != nil {
+			return fmt.Errorf("Error while deleting resource: %v", err)
+		}
+		_, err = pollerResp.PollUntilDone(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("Error while deleting resource: %v", err)
+		}
+	}
+	return nil
 }
 
 func GetTestVmParameters(location string) armcompute.VirtualMachine {

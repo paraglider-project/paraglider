@@ -33,8 +33,16 @@ import (
 )
 
 const (
-	virtualMachineTypeName = "Microsoft.Compute/virtualMachines"
-	managedClusterTypeName = "Microsoft.ContainerService/managedClusters"
+	virtualMachineTypeName        = "Microsoft.Compute/virtualMachines"
+	managedClusterTypeName        = "Microsoft.ContainerService/managedClusters"
+	localNetworkGatewayTypeName   = "Microsoft.Network/localNetworkGateways"
+	diskTypeName                  = "Microsoft.Compute/disks"
+	connectionTypeName            = "Microsoft.Network/connections"
+	networkInterfaceTypeName      = "Microsoft.Network/networkInterfaces"
+	networkSecurityGroupTypeName  = "Microsoft.Network/networkSecurityGroups"
+	publicIPAddressTypeName       = "Microsoft.Network/publicIPAddresses"
+	virtualNetworkGatewayTypeName = "Microsoft.Network/virtualNetworkGateways"
+	virtualNetworkTypeName        = "Microsoft.Network/virtualNetworks"
 )
 
 type resourceNetworkInfo struct {
