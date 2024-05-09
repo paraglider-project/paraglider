@@ -36,7 +36,8 @@ const (
 	ClusterResourceType = "cluster"
 
 	instanceReadyState = "running"
-	ClusterReadyState  = "normal"
+	// ClusterReadyState is the ideal running state of a cluster
+	ClusterReadyState = "normal"
 
 	clusterType = "vpc-gen2"
 )
@@ -45,7 +46,7 @@ const (
 type ResourceResponse struct {
 	// Name is the resource name
 	Name string
-	// Uri is the unique resource identifier of the format /resourcegroup/{id}/zone/{zone}/{resource_type}/{resource_id}
+	// URI is the unique resource identifier of the format /resourcegroup/{id}/zone/{zone}/{resource_type}/{resource_id}
 	URI string
 	// IP is the endpoint IP of the resource
 	IP string
@@ -103,12 +104,12 @@ func (i *ResourceInstanceType) getResourceOptions(resourceDesc []byte) (*vpcv1.C
 	return &instanceOptions, nil
 }
 
-func (i *ResourceInstanceType) getInstanceIP(vmID string) (string, error) {
+func (i *ResourceInstanceType) getInstanceIP() (string, error) {
 	// in case the instance recently launched, poll to wait for ip to be assigned to the instance.
 	var err error
 	var isInstanceReady bool
 	if isInstanceReady, err = i.waitForReady(); isInstanceReady {
-		vmData, _, err := i.client.vpcService.GetInstance(&vpcv1.GetInstanceOptions{ID: &vmID})
+		vmData, _, err := i.client.vpcService.GetInstance(&vpcv1.GetInstanceOptions{ID: &i.ID})
 		if err != nil {
 			return "", err
 		}
@@ -175,23 +176,23 @@ func (i *ResourceInstanceType) CreateResource(name, vpcID, subnetID string, tags
 	if err != nil {
 		return nil, err
 	}
-	utils.Log.Printf("VM %s was launched with ID: %v", *instance.Name, *instance.ID)
+	utils.Log.Printf("Instance %s was launched with ID: %v", *instance.Name, *instance.ID)
 
 	i.ID = *instance.ID
 	err = i.client.attachTag(instance.CRN, tags)
 	if err != nil {
-		utils.Log.Print("Failed to tag VM with error:", err)
+		utils.Log.Print("Failed to tag instance with error:", err)
 		return nil, err
 	}
 
-	// add VM ID tag to security group
+	// add instance ID tag to security group
 	err = i.client.attachTag(securityGroup.CRN, []string{*instance.ID})
 	if err != nil {
 		utils.Log.Print("Failed to tag SG with error:", err)
 		return nil, err
 	}
 
-	reservedIP, err := i.getInstanceIP(*instance.ID)
+	reservedIP, err := i.getInstanceIP()
 
 	if err != nil {
 		return nil, err
@@ -378,18 +379,18 @@ func (c *ResourceClusterType) CreateResource(name, vpcID, subnetID string, tags 
 // IsInNamespace checks if the cluster is in the namespace
 func (c *ResourceClusterType) IsInNamespace(namespace, region string) (bool, error) {
 	resourceQuery := ResourceQuery{}
-	instanceCRN, err := c.getCRN()
+	clusterCRN, err := c.getCRN()
 	if err != nil {
 		return false, err
 	}
 
-	// add VM's CRN and region to search attributes
-	resourceQuery.CRN = instanceCRN
+	// add cluster's's CRN and region to search attributes
+	resourceQuery.CRN = clusterCRN
 	if region != "" {
 		resourceQuery.Region = region
 	}
 
-	// look for a VM with the specified CRN in the specified namespace.
+	// look for cluster with the specified CRN in the specified namespace.
 	taggedVMData, err := c.client.GetParagliderTaggedResources(CLUSTER, []string{namespace},
 		resourceQuery)
 	if err != nil {

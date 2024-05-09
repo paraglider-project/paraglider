@@ -76,8 +76,7 @@ func (s *IBMPluginServer) getAllClientsForVPCs(cloudClient *sdk.CloudClient, res
 	return cloudClients, nil
 }
 
-// CreateResource creates the specified resource.
-// Currently only supports instance creation.
+// CreateResource creates the specified resource (instance and cluster).
 func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragliderpb.ResourceDescription) (*paragliderpb.CreateResourceResponse, error) {
 	var vpcID *string
 	var subnetID string
@@ -217,7 +216,7 @@ func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragli
 	return resp, nil
 }
 
-// GetPermitList returns security rules of security groups associated with the specified instance.
+// GetPermitList returns security rules of security groups associated with the specified resource.
 func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest) (*paragliderpb.GetPermitListResponse, error) {
 	rInfo, err := getResourceMeta(req.Resource)
 	if err != nil {
@@ -237,12 +236,12 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.G
 	if err != nil {
 		return nil, err
 	}
-	// verify specified instance match the specified namespace
+	// verify specified resource match the specified namespace
 	if isInNamespace, err := res.IsInNamespace(req.Namespace, region); !isInNamespace || err != nil {
 		return nil, fmt.Errorf("specified resource %v doesn't exist in namespace: %v",
 			rInfo.ResourceID, req.Namespace)
 	}
-	utils.Log.Printf("Getting permit lists for instance: %s\n", rInfo.ResourceID)
+	utils.Log.Printf("Getting permit lists for resource: %s\n", rInfo.ResourceID)
 
 	securityGroupID, err := res.GetSecurityGroupID()
 	if err != nil {
@@ -277,7 +276,7 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.G
 	return &paragliderpb.GetPermitListResponse{Rules: paragliderRules}, nil
 }
 
-// AddPermitListRules attaches security group rules to the specified instance in PermitList.AssociatedResource.
+// AddPermitListRules attaches security group rules to the specified resource in PermitList.AssociatedResource.
 func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paragliderpb.AddPermitListRulesRequest) (*paragliderpb.AddPermitListRulesResponse, error) {
 
 	utils.Log.Printf("Adding PermitListRules %v, %v. namespace :%s \n ", req.Resource, req.Rules, req.Namespace)
@@ -301,7 +300,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	if err != nil {
 		return nil, err
 	}
-	// verify specified instance match the specified namespace
+	// verify specified resource match the specified namespace
 	if isInNamespace, err := res.IsInNamespace(req.Namespace, region); !isInNamespace || err != nil {
 		return nil, fmt.Errorf("specified resource %v doesn't exist in namespace: %v",
 			rInfo.ResourceID, req.Namespace)
@@ -317,7 +316,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 		utils.Log.Printf("No security groups were found for resource %v\n", res.GetID())
 		return nil, fmt.Errorf("no security groups were found for resource %v", res.GetID())
 	}
-	// up to a single paraglider security group can exist per VM (queried resource by tag=vmID)
+	// up to a single paraglider security group can exist per resource (queried resource by tag=resourceID)
 	requestSGID := paragliderSgsData[0].ID
 
 	// get VPC of the resource specified in the request
@@ -362,7 +361,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 				break
 			}
 		}
-		// if the remote resides inside a paraglider VPC that isn't the request VM's VPC, connect them
+		// if the remote resides inside a paraglider VPC that isn't the request resource's VPC, connect them
 		if remoteVPC != "" && remoteVPC != *requestVPCData.ID {
 			utils.Log.Printf("The following rule's remote is targeting a different IBM VPC\nRule: %+v\nVPC:%+v", ibmRule, remoteVPC)
 			// fetch or create transit gateway
@@ -372,7 +371,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 					return nil, err
 				}
 			}
-			// connect the VPC of the request's VM to the transit gateway.
+			// connect the VPC of the request's resource to the transit gateway.
 			// the `remoteVPC` should be connected by a separate symmetric request (e.g. to allow inbound traffic to remote).
 			err = cloudClient.ConnectVPC(gwID, *requestVPCData.CRN)
 			if err != nil {
@@ -477,7 +476,7 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 		return nil, err
 	}
 
-	// verify specified instance match the specified namespace
+	// verify specified resource match the specified namespace
 	if isInNamespace, err := res.IsInNamespace(req.Namespace, region); !isInNamespace || err != nil {
 		return nil, fmt.Errorf("specified resource %v doesn't exist in namespace: %v",
 			rInfo.ResourceID, req.Namespace)
@@ -491,7 +490,7 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 		return nil, fmt.Errorf("no security groups were found for resource %v", res.GetID())
 	}
 	// assuming up to a single paraglider subnet can exist per zone
-	vmParagliderSgID := paragliderSgsData[0].ID
+	paragliderSgID := paragliderSgsData[0].ID
 
 	conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -511,7 +510,7 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 		}
 		utils.Log.Printf("Got %s rule ID for name : %s", ruleID, ruleName)
 
-		err = cloudClient.DeleteSecurityGroupRule(vmParagliderSgID, ruleID)
+		err = cloudClient.DeleteSecurityGroupRule(paragliderSgID, ruleID)
 		if err != nil {
 			return nil, err
 		}
