@@ -15,7 +15,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4 v4.7.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2 v2.2.1
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.1.1
-	github.com/IBM-Cloud/container-services-go-sdk v0.0.0-20240216115622-a311507b4b5b
+	github.com/IBM-Cloud/container-services-go-sdk v0.0.0-20240510130133-9f76aa34af27
 	github.com/IBM/go-sdk-core/v5 v5.15.0
 	github.com/IBM/platform-services-go-sdk v0.55.0
 	github.com/IBM/vpc-go-sdk v0.46.0
@@ -111,5 +111,3 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240205150955-31a09d347014 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240205150955-31a09d347014 // indirect
 )
-
-replace github.com/IBM-Cloud/container-services-go-sdk => github.com/praveingk/container-services-go-sdk v0.0.1
