@@ -151,36 +151,51 @@ func (c *CloudClient) GetVPNIPs(vpnId string) ([]string, error) {
 	return publicIPs, nil
 }
 
-// Creating a routing table route to VPN gateway connection.
+// Creating routing table routes to VPN gateway connection.
+// routes from each of the VPC's zones will redirect traffic destined to any of the specified CIDRs to the VPN tunnel.
 // Idempotent function, i.e., err not raised if route already exists.
-func (c *CloudClient) createRoute(routingTableID, vpcID, destinationCIDR, VPNConnectionID string) error {
-	// NewCreateVPCRoutingTableRouteOptions is idempotent, so if err is a route conflict disregard error.
+func (c *CloudClient) createRoutes(routingTableID, vpcID, VPNConnectionID string, destinationCIDRs []string) error {
 	zones := ibmCommon.GetZonesOfRegion(c.region)
 
-	// create a route from each zone to the specified connection
-	for _, zone := range zones {
-		routeConfig := &vpcv1.CreateVPCRoutingTableRouteOptions{
-			VPCID:          &vpcID,
-			RoutingTableID: &routingTableID,
-			Destination:    &destinationCIDR,
-			Zone: &vpcv1.ZoneIdentityByName{
-				Name: &zone,
-			},
-			Action: core.StringPtr(vpcv1.CreateVPCRoutingTableRouteOptionsActionDeliverConst),
-			Name:   core.StringPtr(GenerateResourceName(string(routeType))),
-			NextHop: &vpcv1.RoutePrototypeNextHop{
-				ID: &VPNConnectionID,
-			},
+	// create routes redirecting traffic to each destination CIDR
+	for _, destinationCIDR := range destinationCIDRs {
+		// TODO(cohen-j-omer) will extend to contain proper verification
+		if !strings.Contains(destinationCIDR, "/") { // convert ip provided to a CIDR
+			destinationCIDR += "/32"
 		}
-		route, _, err := c.vpcService.CreateVPCRoutingTableRoute(routeConfig)
 
-		if err != nil {
-			// return err if not a route duplication error, otherwise we can use existing route
-			// Note: forced to rely on error message, as no error code is provided.
-			if !strings.Contains(err.Error(), "conflict with another route") { // Note: relying on error string, since status code is shared with multiple errors.
+		// create a route from each zone to the specified connection
+		for _, zone := range zones {
+			routeConfig := &vpcv1.CreateVPCRoutingTableRouteOptions{
+				VPCID:          &vpcID,
+				RoutingTableID: &routingTableID,
+				Destination:    &destinationCIDR,
+				Zone: &vpcv1.ZoneIdentityByName{
+					Name: &zone,
+				},
+				Action: core.StringPtr(vpcv1.CreateVPCRoutingTableRouteOptionsActionDeliverConst),
+				Name:   core.StringPtr(GenerateResourceName(string(routeType))),
+				NextHop: &vpcv1.RoutePrototypeNextHop{
+					ID: &VPNConnectionID,
+				},
+			}
+
+			ruleExists, priority, err := c.getAvailablePriority(routeConfig)
+			if err != nil {
 				return err
 			}
-		} else { // no existing route was found, a new one was created.
+			// avoid creating a duplicate rule
+			if ruleExists {
+				utils.Log.Printf("\nRoute with the following attributes already exists\n%+v", routeConfig)
+				continue
+			}
+
+			routeConfig.Priority = &priority
+			route, _, err := c.vpcService.CreateVPCRoutingTableRoute(routeConfig)
+			if err != nil {
+				return err
+			}
+
 			utils.Log.Printf("\nCreated route %v in zone %v", *route.ID, zone)
 		}
 	}
@@ -212,7 +227,7 @@ func (c *CloudClient) getVPNConnectionMatchingPeerIP(VPNGatewayID, peerGWAddress
 // - preSharedKey - pre-shared key for authentication between the 2 VPN connections.
 // - destinationCIDR - traffic destined to this CIDR will be redirect to the newly created connection via newly created routing table routes
 // - peerCloud - cloud residing the peer VPN gateway this connection is set to bridge
-func (c *CloudClient) CreateVPNConnectionRouteBased(VPNGatewayID, peerGatewayIP, preSharedKey, destinationCIDR, peerCloud string) error {
+func (c *CloudClient) CreateVPNConnectionRouteBased(VPNGatewayID, peerGatewayIP, preSharedKey, peerCloud string, destinationCIDRs []string) error {
 	var connectionID string
 
 	if peerCloud != utils.AZURE {
@@ -272,7 +287,7 @@ func (c *CloudClient) CreateVPNConnectionRouteBased(VPNGatewayID, peerGatewayIP,
 	}
 
 	// create routes for all zones in the default routing table of the VPC
-	err = c.createRoute(*defaultRoutingTable.ID, vpcID, destinationCIDR, connectionID)
+	err = c.createRoutes(*defaultRoutingTable.ID, vpcID, connectionID, destinationCIDRs)
 	if err != nil {
 		return err
 	}
@@ -317,7 +332,7 @@ func (c *CloudClient) pollRouteDeleted(vpcID, routingTableID string, route vpcv1
 		}
 		time.Sleep(10 * time.Second)
 	}
-	return fmt.Errorf("route with ID: %v failed to delete in the alloted time frame", *route.ID)
+	return fmt.Errorf("route named: %v failed to delete in the alloted time frame", *route.Name)
 }
 
 // Deletes routes (from the VPC that the specified VPN resides in) directing traffic to the specified connection
@@ -340,6 +355,7 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 		return err
 	}
 
+	deletedRoutes := []vpcv1.Route{}
 	// delete all routes with routing next hop pointing at the specified connection
 	for _, route := range routeCollection.Routes {
 		routeNextHop, isNextHopToVpnConnection := route.NextHop.(*vpcv1.RouteNextHop)
@@ -351,6 +367,8 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 				VPCID: &vpcID,
 				ID:    route.ID,
 			})
+			// keep track of routes set for deletion (directing to the specified connection)
+			deletedRoutes = append(deletedRoutes, route)
 			if err != nil {
 				return err
 			}
@@ -359,7 +377,7 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 	}
 
 	// wait for routes to delete
-	for _, route := range routeCollection.Routes {
+	for _, route := range deletedRoutes {
 		err := c.pollRouteDeleted(vpcID, *defaultRoutingTable.ID, route)
 		if err != nil {
 			return err
@@ -526,4 +544,53 @@ func (c *CloudClient) getIPSecPolicy(peerCloud string) (*vpcv1.IPsecPolicy, erro
 	}
 	// no policy matching the specified cloud was found
 	return nil, nil
+}
+
+// returns the first available priority that doesn't cause a routing conflict.
+// if rule exists, returns false.
+// - routing conflict - occurs when 2 rules share the same zone, destination and priority.
+// - rule duplication - if specified rule matches a rule on the following fields: destination, zone and nextHopConnection.
+func (c *CloudClient) getAvailablePriority(routeData *vpcv1.CreateVPCRoutingTableRouteOptions) (bool, int64, error) {
+
+	var doesRuleExist bool
+	const numOfPriorities = 5
+	// keeps tracks of available priorities for given rule, e.g. if rule[i]==false, priority i isn't available.
+	availablePriority := make(map[int64]bool, numOfPriorities)
+	for i := 0; i < numOfPriorities; i++ {
+		availablePriority[int64(i)] = true
+	}
+	options := c.vpcService.NewListVPCRoutingTableRoutesOptions(
+		*routeData.VPCID,
+		*routeData.RoutingTableID,
+	)
+
+	routeCollection, _, err := c.vpcService.ListVPCRoutingTableRoutes(options)
+	if err != nil {
+		return doesRuleExist, -1, err
+	}
+	routeDestination := *routeData.Destination
+	routeZone := *routeData.Zone.(*vpcv1.ZoneIdentityByName).Name
+	routeConnectionID := *routeData.NextHop.(*vpcv1.RoutePrototypeNextHop).ID
+
+	for _, route := range routeCollection.Routes {
+		// check if rule exists
+		if *route.Destination == routeDestination && *route.Zone.Name == routeZone &&
+			*route.NextHop.(*vpcv1.RouteNextHop).ID == routeConnectionID {
+			// rule already exists, return
+			return true, -1, nil
+		}
+		// if a route that shares the same zone and destination, its priority isn't available for the specified route
+		if *route.Zone.Name == routeZone && *route.Destination == routeDestination {
+			availablePriority[*route.Priority] = false
+		}
+	}
+
+	for priority, isAvailable := range availablePriority {
+		if isAvailable {
+			return doesRuleExist, priority, nil
+		}
+	}
+
+	// rule doesn't exist, but no available priority found
+	return doesRuleExist, -1, fmt.Errorf("No available priority found to create a route in zone: %v, destination: %v, to connectionID: %v", routeZone, routeDestination, routeConnectionID)
 }
