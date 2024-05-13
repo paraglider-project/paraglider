@@ -149,6 +149,25 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 	// get the vnet to be able to get both the address space as well as the peering when needed
 	resourceVnet, err := azureHandler.GetVNet(ctx, getVnetName(netInfo.Location, req.Namespace))
 	if err != nil {
+		utils.Log.Printf("An error occured while getting resource vnet:%+v", err)
+		return nil, err
+	}
+
+	// Get subnet address space
+	subnetAddressPrefix := []string{}
+	for _, subnet := range resourceVnet.Properties.Subnets {
+		if *subnet.Name == "default" {
+			if subnet.Properties.AddressPrefix != nil {
+				// Check to avoid nil pointer dereference
+				subnetAddressPrefix = append(subnetAddressPrefix, *subnet.Properties.AddressPrefix) 
+			}
+		}
+	}
+	if len(subnetAddressPrefix) == 0 {
+		return nil, fmt.Errorf("unable to get subnet address prefix")
+	}
+
+	if err != nil {
 		utils.Log.Printf("An error occured while getting paraglider vnets address spaces:%+v", err)
 		return nil, err
 	}
@@ -165,13 +184,16 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 			if peeringCloudInfo == nil {
 				continue
 			}
+			address := rule.Targets[i]
 			if peeringCloudInfo.Cloud != utils.AZURE {
 				// Create VPN connections
 				connectCloudsReq := &paragliderpb.ConnectCloudsRequest{
-					CloudA:          utils.AZURE,
-					CloudANamespace: req.Namespace,
-					CloudB:          peeringCloudInfo.Cloud,
-					CloudBNamespace: peeringCloudInfo.Namespace,
+					CloudA:             utils.AZURE,
+					CloudANamespace:    req.Namespace,
+					CloudB:             peeringCloudInfo.Cloud,
+					CloudBNamespace:    peeringCloudInfo.Namespace,
+					AddressSpaceCloudA: subnetAddressPrefix,
+					AddressSpaceCloudB: []string{address},
 				}
 				_, err := orchestratorClient.ConnectClouds(ctx, connectCloudsReq)
 				if err != nil {
@@ -682,14 +704,22 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 			if isErrorNotFound(err) {
 				localNetworkGatewayParameters := armnetwork.LocalNetworkGateway{
 					Properties: &armnetwork.LocalNetworkGatewayPropertiesFormat{
-						BgpSettings: &armnetwork.BgpSettings{
-							Asn:               to.Ptr(int64(req.Asn)),
-							BgpPeeringAddress: to.Ptr(req.BgpIpAddresses[i]),
-							PeerWeight:        to.Ptr(int32(0)),
-						},
 						GatewayIPAddress: to.Ptr(req.GatewayIpAddresses[i]),
 					},
 					Location: to.Ptr(vpnLocation),
+				}
+				if req.IsBGPDisabled {
+					addresses := make([]*string, len(req.RemoteAddresses))
+					for i, address := range req.RemoteAddresses {
+						addresses[i] = &address
+					}
+					localNetworkGatewayParameters.Properties.LocalNetworkAddressSpace = &armnetwork.AddressSpace{AddressPrefixes: addresses}
+				} else {
+					localNetworkGatewayParameters.Properties.BgpSettings = &armnetwork.BgpSettings{
+						Asn:               to.Ptr(int64(req.Asn)),
+						BgpPeeringAddress: to.Ptr(req.BgpIpAddresses[i]),
+						PeerWeight:        to.Ptr(int32(0)),
+					}
 				}
 				localNetworkGateway, err = azureHandler.CreateLocalNetworkGateway(ctx, localNetworkGatewayName, localNetworkGatewayParameters)
 				if err != nil {
@@ -706,6 +736,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 	if err != nil {
 		return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
 	}
+	var bgpStatus *bool // set to true if VPN connection is BGP enabled
 	for i := 0; i < vpnNumConnections; i++ {
 		virtualNetworkGatewayconnectionName := getVirtualNetworkGatewayConnectionName(req.Deployment.Namespace, req.Cloud, i)
 		_, err := azureHandler.GetVirtualNetworkGatewayConnection(ctx, virtualNetworkGatewayconnectionName)
@@ -715,6 +746,9 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 				// a new random shared key is generated upon every call to this method from the orchestrator server. Therefore, we don't
 				// want to update the shared key since some other cloud plugins (e.g. GCP) will not update the shared key due to POST
 				// semantics (i.e. GCP will not update the shared key).
+				if !req.IsBGPDisabled {
+					bgpStatus = to.Ptr(true)
+				}
 				virtualNetworkGatewayConnectionParameters := &armnetwork.VirtualNetworkGatewayConnection{
 					Properties: &armnetwork.VirtualNetworkGatewayConnectionPropertiesFormat{
 						ConnectionType:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionTypeIPsec),
@@ -722,8 +756,8 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 						ConnectionMode:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionModeDefault),
 						ConnectionProtocol:             to.Ptr(armnetwork.VirtualNetworkGatewayConnectionProtocolIKEv2),
 						DpdTimeoutSeconds:              to.Ptr(int32(45)),
-						EnableBgp:                      to.Ptr(true),
-						IPSecPolicies:                  []*armnetwork.IPSecPolicy{},
+						EnableBgp:                      bgpStatus,
+						IPSecPolicies:                  getIPSecPolicy(req.Cloud),
 						LocalNetworkGateway2:           localNetworkGateways[i],
 						RoutingWeight:                  to.Ptr(int32(0)),
 						SharedKey:                      to.Ptr(req.SharedKey),
@@ -786,6 +820,24 @@ func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler Azur
 		return fmt.Errorf("unable to find vnet belonging to permit list rule target")
 	}
 	return nil
+}
+
+// returns an IPSec policy to configure a VPN connection that's compatible the specified cloud
+func getIPSecPolicy(cloud string) []*armnetwork.IPSecPolicy {
+	ipSecPolicies := make([]*armnetwork.IPSecPolicy, 1)
+	if cloud == utils.IBM {
+		ipSecPolicies[0] = &armnetwork.IPSecPolicy{
+			DhGroup:             to.Ptr(armnetwork.DhGroupDHGroup24),
+			IPSecEncryption:     to.Ptr(armnetwork.IPSecEncryptionAES256),
+			IPSecIntegrity:      to.Ptr(armnetwork.IPSecIntegritySHA256),
+			IkeEncryption:       to.Ptr(armnetwork.IkeEncryptionAES256),
+			IkeIntegrity:        to.Ptr(armnetwork.IkeIntegritySHA384),
+			PfsGroup:            to.Ptr(armnetwork.PfsGroupNone),
+			SaDataSizeKilobytes: to.Ptr(int32(0)),
+			SaLifeTimeSeconds:   to.Ptr(int32(27000)),
+		}
+	}
+	return ipSecPolicies
 }
 
 func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
