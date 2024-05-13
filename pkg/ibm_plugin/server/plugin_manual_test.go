@@ -22,17 +22,24 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"gotest.tools/assert"
 
+	"github.com/NetSys/invisinets/pkg/azure_plugin"
 	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
 	ibmCommon "github.com/NetSys/invisinets/pkg/ibm_plugin"
 	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
 	"github.com/NetSys/invisinets/pkg/invisinetspb"
+	"github.com/NetSys/invisinets/pkg/orchestrator"
+	"github.com/NetSys/invisinets/pkg/orchestrator/config"
 	utils "github.com/NetSys/invisinets/pkg/utils"
 )
 
@@ -111,7 +118,7 @@ var testPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRu
 }
 
 // permit list to test connectivity via pings. Made to test Transit and VPN gateways configurations
-var pingTestPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRule{ //nolint:all keeping unused variable for future testing 
+var pingTestPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRule{ //nolint:all keeping unused variable for future testing
 	//ICMP protocol rule to accept pings
 	{
 		Direction: invisinetspb.Direction_INBOUND,
@@ -138,7 +145,7 @@ var pingTestPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitLi
 	},
 }
 
-// go test --tags=ibm -run TestCreateResourceNewVPC -sg=<security group name>
+// go test --tags=ibm -run TestCreateNewResource -sg=<security group name>
 func TestCreateNewResource(t *testing.T) {
 	// Notes for tester:
 	// to change region set the values below according to constants above, e.g.:
@@ -205,10 +212,17 @@ func TestAddPermitRules(t *testing.T) {
 	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
 		Namespace: testNamespace,
 		Resource:  resourceID,
-		Rules:     pingTestPermitList,
+		Rules:     testPermitList,
 	}
 
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient),
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
 
 	resp, err := s.AddPermitListRules(context.Background(), addRulesRequest)
 	require.NoError(t, err)
@@ -300,7 +314,7 @@ func TestCreateVpnGateway(t *testing.T) {
 // usage: go test --tags=ibm -run TestCreateVpnConnections -sg=<security group name>
 func TestCreateVpnConnections(t *testing.T) {
 
-	peerVPNGatewayIP := "4.227.185.167" // remote VPN gateway IP connection will direct traffic to
+	peerVPNGatewayIP := "4.227.185.167"   // remote VPN gateway IP connection will direct traffic to
 	deploymentID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDUSSouth1
 
 	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
@@ -308,8 +322,9 @@ func TestCreateVpnConnections(t *testing.T) {
 		Deployment:         &invisinetspb.InvisinetsDeployment{Id: deploymentID, Namespace: testNamespace},
 		GatewayIpAddresses: []string{peerVPNGatewayIP},
 		SharedKey:          "password",
-		RemoteAddress:      "10.0.0.0/24",
-		Cloud: utils.AZURE,
+		RemoteAddresses:    []string{"10.0.0.0/24"},
+		Cloud:              utils.AZURE,
+		IsBGPDisabled:      true,
 	}
 	resp, err := s.CreateVpnConnections(context.Background(), createVPNRequest)
 	require.NoError(t, err)
@@ -334,4 +349,248 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 	require.NoError(t, err)
 
 	utils.Log.Printf("Response: %v", resp)
+}
+
+// usage: go test --tags=ibm -run TestAddPermitListRules -sg=<security group name> -timeout 0
+// -timeout 0 removes limit of 10 min. runtime, which is necessary due to long deployment time of Azure's VPN.
+func TestAddPermitRulesIntegration(t *testing.T) {
+	azureServerPort := 7991
+	IBMServerPort := 7992
+	IBMDeploymentID := testResourceIDUSEast1
+
+	orchestratorServerConfig := config.Config{
+		CloudPlugins: []config.CloudPlugin{
+			{
+				Name: utils.IBM,
+				Host: "localhost",
+				Port: strconv.Itoa(IBMServerPort),
+			},
+		},
+		Namespaces: map[string][]config.CloudDeployment{
+			testNamespace: {
+				{
+					Name:       utils.IBM,
+					Deployment: IBMDeploymentID,
+				},
+			},
+		},
+	}
+
+	// start controller server
+	orchestratorServerAddr := orchestrator.SetupControllerServer(orchestratorServerConfig)
+
+	// start ibm plugin server
+	ibmServer := Setup(IBMServerPort, orchestratorServerAddr)
+
+	// start azure plugin server
+	_ = azure_plugin.Setup(azureServerPort, orchestratorServerAddr)
+
+	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+		Namespace: testNamespace,
+		Resource:  IBMDeploymentID,
+		// using a rule with a public ip, since private ips are required to reference existing VMs.
+		Rules: []*invisinetspb.PermitListRule{
+			{
+				Direction: invisinetspb.Direction_OUTBOUND,
+				SrcPort:   -1,
+				DstPort:   -1,
+				Protocol:  -1,
+				Targets:   []string{"47.235.107.235"},
+			},
+		},
+	}
+
+	resp, err := ibmServer.AddPermitListRules(context.Background(), addRulesRequest)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	utils.Log.Printf("Response: %+v", resp)
+}
+
+// usage: go test --tags=ibm -run TestMulticloudIBMAzure -sg=<security group name> -timeout 0
+// -timeout 0 removes limit of 10 minutes runtime, which is necessary due to long deployment time of Azure's VPN.
+// Note: Azure's Network Watcher must be deployed in the region before execution
+func TestMulticloudIBMAzure(t *testing.T) {
+	// ibm config
+	IBMServerPort := 7992
+	IBMDeploymentID := testResourceIDUSEast1
+	image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1, testResourceIDUSEast1
+	// azure config
+	azureServerPort := 7991
+	azureSubscriptionId := azure_plugin.GetAzureSubscriptionId()
+	azureResourceGroupName := azure_plugin.SetupAzureTesting(azureSubscriptionId, "ibmazure")
+	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
+
+	azureNamespace := "multicloud" + uuid.NewString()[:6]
+	AzureDeploymentID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName)
+
+	orchestratorServerConfig := config.Config{
+		CloudPlugins: []config.CloudPlugin{
+			{
+				Name: utils.IBM,
+				Host: "localhost",
+				Port: strconv.Itoa(IBMServerPort),
+			},
+
+			{
+				Name: utils.AZURE,
+				Host: "localhost",
+				Port: strconv.Itoa(azureServerPort),
+			},
+		},
+		Namespaces: map[string][]config.CloudDeployment{
+			testNamespace: {
+				{
+					Name:       utils.IBM,
+					Deployment: IBMDeploymentID,
+				},
+			},
+			azureNamespace: {
+				{
+					Name:       utils.AZURE,
+					Deployment: AzureDeploymentID,
+				},
+			},
+		},
+	}
+
+	// start controller server
+	orchestratorServerAddr := orchestrator.SetupControllerServer(orchestratorServerConfig)
+	fmt.Println("Setup controller server")
+
+	// start ibm plugin server
+	fmt.Println("Setting up IBM server")
+	ibmServer := Setup(IBMServerPort, orchestratorServerAddr)
+
+	// start azure plugin server
+	fmt.Println("Setting up Azure server")
+	azureServer := azure_plugin.Setup(azureServerPort, orchestratorServerAddr)
+
+	ctx := context.Background()
+
+	// Create Azure VM
+	fmt.Println("Creating Azure VM...")
+	azureVm1Location := "westus"
+	azureVm1Parameters := azure_plugin.GetTestVmParameters(azureVm1Location)
+	azureVm1Description, err := json.Marshal(azureVm1Parameters)
+	require.NoError(t, err)
+	azureVm1ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + "invisinets-vm-multicloud708"
+	azureCreateResourceResp1, err := azureServer.CreateResource(
+		ctx,
+		&invisinetspb.ResourceDescription{Id: azureVm1ResourceId, Description: azureVm1Description, Namespace: azureNamespace},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, azureCreateResourceResp1)
+	assert.Equal(t, azureCreateResourceResp1.Uri, azureVm1ResourceId)
+
+	// Create IBM VM
+	fmt.Println("Creating IBM VM...")
+	imageIdentity := vpcv1.ImageIdentityByID{ID: &image}
+	zoneIdentity := vpcv1.ZoneIdentityByName{Name: &zone}
+	myTestProfile := string(testProfile)
+
+	testPrototype := &vpcv1.InstancePrototypeInstanceByImage{
+		Image:   &imageIdentity,
+		Zone:    &zoneIdentity,
+		Name:    core.StringPtr(instanceName),
+		Profile: &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
+	}
+
+	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
+	require.NoError(t, err)
+
+	resource := &invisinetspb.ResourceDescription{Id: resourceID, Description: description, Namespace: testNamespace}
+	createResourceResponse, err := ibmServer.CreateResource(ctx, resource)
+	if err != nil {
+		println(err)
+	}
+	require.NoError(t, err)
+	require.NotNil(t, createResourceResponse)
+
+	// Add permit list for IBM VM
+	fmt.Println("Adding IBM permit list rules...")
+	azureVmIpAddress, err := azure_plugin.GetVmIpAddress(azureVm1ResourceId)
+	require.NoError(t, err)
+
+	ibmPermitList := []*invisinetspb.PermitListRule{
+		//inbound ICMP protocol rule to accept & respond to pings
+		{
+			Direction: invisinetspb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{azureVmIpAddress},
+		},
+		//outbound ICMP protocol rule to initiate pings
+		{
+			Direction: invisinetspb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{azureVmIpAddress},
+		},
+		// allow inbound ssh connection
+		{
+			Direction: invisinetspb.Direction_INBOUND,
+			SrcPort:   22,
+			DstPort:   22,
+			Protocol:  6,
+			Targets:   []string{"0.0.0.0/0"},
+		},
+	}
+
+	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+		Namespace: testNamespace,
+		Resource:  IBMDeploymentID,
+		Rules:     ibmPermitList,
+	}
+
+	respAddRules, err := ibmServer.AddPermitListRules(ctx, addRulesRequest)
+	require.NoError(t, err)
+	require.NotNil(t, respAddRules)
+
+	// Create Azure VM permit list
+	ibmVmIpAddress := createResourceResponse.Ip
+
+	fmt.Println("Adding Azure permit list rules...")
+	azureVm1PermitListReq := &invisinetspb.AddPermitListRulesRequest{
+		Resource: azureVm1ResourceId,
+		Rules: []*invisinetspb.PermitListRule{
+			{
+				Name:      "ibm-inbound-rule",
+				Direction: invisinetspb.Direction_INBOUND,
+				SrcPort:   -1,
+				DstPort:   -1,
+				Protocol:  1,
+				Targets:   []string{ibmVmIpAddress},
+			},
+			{
+				Name:      "ibm-outbound-rule",
+				Direction: invisinetspb.Direction_OUTBOUND,
+				SrcPort:   -1,
+				DstPort:   -1,
+				Protocol:  1,
+				Targets:   []string{ibmVmIpAddress},
+			},
+			{ // SSH rule for debugging
+				Name:      "ssh-inbound-rule",
+				Direction: invisinetspb.Direction_INBOUND,
+				SrcPort:   -1,
+				DstPort:   22,
+				Protocol:  6,
+				Targets:   []string{"0.0.0.0/0"},
+			},
+		},
+		Namespace: azureNamespace,
+	}
+	azureAddPermitListRules1Resp, err := azureServer.AddPermitListRules(ctx, azureVm1PermitListReq)
+	require.NoError(t, err)
+	require.NotNil(t, azureAddPermitListRules1Resp)
+
+	// Run Azure connectivity check (ping from Azure VM to IBM VM)
+	// Note: Azure's Network Watcher must be deployed in the region before execution
+	fmt.Println("running Azure connectivity test...")
+	azureConnectivityCheck1, err := azure_plugin.RunPingConnectivityCheck(azureVm1ResourceId, ibmVmIpAddress)
+	require.Nil(t, err)
+	require.True(t, azureConnectivityCheck1)
 }
