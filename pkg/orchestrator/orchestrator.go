@@ -18,10 +18,9 @@ package orchestrator
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/netip"
@@ -794,14 +793,20 @@ func (s *ControllerServer) findUnusedBgpPeeringIpAddresses(ctx context.Context, 
 	return ips, nil
 }
 
-// Generates 32-byte shared key for VPN connections
-func generateSharedKey() (string, error) {
-	key := make([]byte, 24)
-	_, err := rand.Read(key)
-	if err != nil {
-		return "", fmt.Errorf("unable to get random bytes: %w", err)
+// Generates a shared key for VPN connections
+func generateSharedKey() string {
+	const length = 24
+	// characters allowed in the random string
+	// '/' is prohibited as part of the pre-shared key for IBM VPN connections
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()"
+	generatedRunes := make([]rune, length)
+
+	for i := range generatedRunes {
+		c := rune(charset[rand.Intn(len(charset))])
+		generatedRunes[i] = c
 	}
-	return base64.StdEncoding.EncodeToString(key), nil
+
+	return string(generatedRunes)
 }
 
 // Gets the Paraglider deployment field of a cloud
@@ -821,12 +826,16 @@ func (s *ControllerServer) getCloudDeployment(cloud, namespace string) string {
 
 // Connects two clouds with VPN gateways
 func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.ConnectCloudsRequest) (*paragliderpb.ConnectCloudsResponse, error) {
+	var isBGPDisabledConnection bool
 	if req.CloudA == req.CloudB {
 		return nil, fmt.Errorf("must specify different clouds to connect")
 	}
 
 	// TODO @seankimkdy: cloudA and cloudB naming seems to be very prone to typos, so perhaps use another naming scheme[?
 	if utils.MatchCloudProviders(req.CloudA, req.CloudB, utils.AZURE, utils.GCP) || utils.MatchCloudProviders(req.CloudA, req.CloudB, utils.AZURE, utils.IBM) {
+		if req.CloudA == utils.IBM || req.CloudB == utils.IBM {
+			isBGPDisabledConnection = true
+		}
 		cloudAClientAddress, ok := s.pluginAddresses[req.CloudA]
 		if !ok {
 			return nil, fmt.Errorf("invalid cloud name: %s", req.CloudA)
@@ -884,10 +893,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 			return nil, fmt.Errorf("unable to create vpn gateway in cloud %s: %w", req.CloudB, err)
 		}
 
-		sharedKey, err := generateSharedKey()
-		if err != nil {
-			return nil, fmt.Errorf("unable to generate shared key: %w", err)
-		}
+		sharedKey := generateSharedKey()
 
 		cloudACreateVpnConnectionsReq := &paragliderpb.CreateVpnConnectionsRequest{
 			Deployment:         cloudAParagliderDeployment,
@@ -896,6 +902,8 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 			GatewayIpAddresses: cloudBCreateVpnGatewayResp.GatewayIpAddresses,
 			BgpIpAddresses:     cloudBBgpPeeringIpAddresses,
 			SharedKey:          sharedKey,
+			RemoteAddresses:    req.AddressSpaceCloudB,  // provides non BGP connections with remote address target
+			IsBGPDisabled:      isBGPDisabledConnection, // informs cloud A that BGP is disabled on peer cloud
 		}
 		_, err = cloudAClient.CreateVpnConnections(ctx, cloudACreateVpnConnectionsReq)
 		if err != nil {
@@ -908,6 +916,8 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 			GatewayIpAddresses: cloudACreateVpnGatewayResp.GatewayIpAddresses,
 			BgpIpAddresses:     cloudABgpPeeringIpAddresses,
 			SharedKey:          sharedKey,
+			RemoteAddresses:    req.AddressSpaceCloudA,  // provides non BGP connections with remote address target
+			IsBGPDisabled:      isBGPDisabledConnection, // informs cloud B that BGP is disabled on peer cloud
 		}
 		_, err = cloudBClient.CreateVpnConnections(ctx, cloudBCreateVpnConnectionsReq)
 		if err != nil {
