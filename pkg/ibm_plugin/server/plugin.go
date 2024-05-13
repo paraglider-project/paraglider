@@ -334,6 +334,11 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	}
 	utils.Log.Printf("Translated permit list to intermediate IBM Rule : %v\n", ibmRulesToAdd)
 
+	vpcAddressSpaces, err:=cloudClient.GetVpcCIDR(*requestVPCData.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	// get current rules in SG and record their hash values
 	sgRules, err := cloudClient.GetSecurityRulesOfSG(requestSGID)
 	if err != nil {
@@ -372,12 +377,18 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 				continue
 			}
 			if peeringCloudInfo.Cloud != utils.IBM {
+				ruleTargetAddress:=ibmRules[i].Remote
 				// Create VPN connections
 				connectCloudsReq := &paragliderpb.ConnectCloudsRequest{
 					CloudA:          utils.IBM,
 					CloudANamespace: req.Namespace,
 					CloudB:          peeringCloudInfo.Cloud,
 					CloudBNamespace: peeringCloudInfo.Namespace,
+					AddressSpaceCloudA: vpcAddressSpaces,
+					AddressSpaceCloudB: []string{ruleTargetAddress},
+				}
+				if len(ruleTargetAddress) == 0{
+					return nil, fmt.Errorf("Missing remote address for rule %+v", ibmRules[i])
 				}
 				_, err := controllerClient.ConnectClouds(ctx, connectCloudsReq)
 				if err != nil {
@@ -613,6 +624,9 @@ func (s *IBMPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderp
 
 // creates VPN connection
 func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.BasicResponse, error) {
+	if len(req.RemoteAddresses) == 0{
+		return nil, fmt.Errorf("RemoteAddress is a mandatory field for IBM VPN connections.")
+	}
 	rInfo, err := getResourceMeta(req.Deployment.Id)
 	if err != nil {
 		return nil, err
@@ -639,8 +653,9 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 	}
 	vpn := vpns[0]
 
+	// create and connect a VPN tunnel to each remote VPN tunnel
 	for _, peerVPNIPAddress := range req.GatewayIpAddresses {
-		err := cloudClient.CreateVPNConnectionRouteBased(vpn.ID, peerVPNIPAddress, req.SharedKey, req.RemoteAddress, req.Cloud)
+		err := cloudClient.CreateVPNConnectionRouteBased(vpn.ID, peerVPNIPAddress, req.SharedKey, req.Cloud, req.RemoteAddresses)
 		if err != nil {
 			return nil, err
 		}
@@ -687,6 +702,11 @@ func (s *IBMPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req 
 		}
 	}
 	return resp, nil
+}
+
+// returns an empty response, since ASNs aren't exposed on IBM cloud
+func (s *IBMPluginServer) GetUsedAsns(ctx context.Context, req *paragliderpb.GetUsedAsnsRequest) (*paragliderpb.GetUsedAsnsResponse, error) {
+	return &paragliderpb.GetUsedAsnsResponse{}, nil
 }
 
 // Setup starts up the plugin server and stores the orchestrator server address.

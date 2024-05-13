@@ -119,3 +119,23 @@ func (c *CloudClient) GetVPCByID(vpcID string) (*vpcv1.VPC, error) {
 	}
 	return vpc, nil
 }
+
+// returns CIDR of VPC
+func (c *CloudClient) GetVpcCIDR(vpcID string) ([]string, error) {
+	// aggregate addresses of subnets in VPC 
+	subnets, err := c.GetSubnetsInVpcRegionBound(vpcID)
+	var addresses = make([]string, len(subnets))
+	if err != nil {
+		return nil, err
+	}
+	for i, subnet := range subnets {
+		address, err := c.GetSubnetCIDR(*subnet.ID)
+		if err != nil {
+			return nil, err
+		}
+		addresses[i] = address
+	}
+	
+
+	return addresses, nil
+}
