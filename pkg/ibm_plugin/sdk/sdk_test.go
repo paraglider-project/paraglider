@@ -34,7 +34,7 @@ const (
 
 // TODO @praveingk: Expand tests of SDK functions
 
-// run via: go test --tags=ibm -run TestCleanup -sg=<security group name> -cleanup
+// run via: go test --tags=unit -run TestCleanup -sg=<security group name> -cleanup
 // deletes all invisinets VPCs
 func TestCleanup(t *testing.T) {
 	if !*shouldTearDownProject {
