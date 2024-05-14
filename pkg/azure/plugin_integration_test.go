@@ -236,10 +236,10 @@ func TestCrossNamespaces(t *testing.T) {
 	}
 
 	// Run connectivity checks on both directions between vm1 and vm2
-	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(vm1ResourceId, vm2Ip)
+	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(vm1ResourceId, vm2Ip, resourceGroup1Namespace)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM1toVM2)
-	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(vm2ResourceId, vm1Ip)
+	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(vm2ResourceId, vm1Ip, resourceGroup2Namespace)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM2toVM1)
 }

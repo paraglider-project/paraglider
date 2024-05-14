@@ -164,6 +164,7 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 					publicIPAddressTypeName,
 					virtualNetworkTypeName,
 					networkSecurityGroupTypeName,
+					networkWatcherTypeName,
 				}
 				for _, resourceType := range deletionOrder {
 					if resources, ok := resourceTypeToResources[resourceType]; ok {
@@ -273,7 +274,28 @@ func GetVmIpAddress(vmId string) (string, error) {
 	return *networkInterface.Properties.IPConfigurations[0].Properties.PrivateIPAddress, nil
 }
 
-func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress string) (bool, error) {
+func findNetworkWatcher(ctx context.Context, watchersClient *armnetwork.WatchersClient, location string) (*ResourceIDInfo, error) {
+	pager := watchersClient.NewListAllPager(nil)
+	for pager.More() {
+		result, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get next page of resources: %v", err)
+		}
+
+		for _, networkWatcher := range result.Value {
+			if *networkWatcher.Location == location {
+				networkWatcherResourceIDInfo, err := getResourceIDInfo(*networkWatcher.ID)
+				if err != nil {
+					return nil, fmt.Errorf("unable to parse network watcher ID: %w", err)
+				}
+				return &networkWatcherResourceIDInfo, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
+func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress string, sourceVmNamespace string) (bool, error) {
 	resourceIDInfo, err := getResourceIDInfo(sourceVmResourceID)
 	if err != nil {
 		return false, fmt.Errorf("unable to parse resource ID: %w", err)
@@ -327,9 +349,35 @@ func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress st
 		PreferredIPVersion: to.Ptr(armnetwork.IPVersionIPv4),
 		Protocol:           to.Ptr(armnetwork.ProtocolIcmp),
 	}
+
+	// Configure network watcher
+	// Hard coded resource group for CI pipeline (https://github.com/paraglider-project/paraglider/issues/217)
+	networkWatcherResourceGroup := "NetworkWatcherRG"
+	networkWatcherName := "NetworkWatcher_" + *vm.Location
+	if os.Getenv("INVISINETS_AZURE_RESOURCE_GROUP") != "" {
+		// Check if network watcher already exists within the subscription since Azure limits network watchers to one per subscription for each region
+		networkWatcherResourceIDInfo, err := findNetworkWatcher(ctx, watchersClient, *vm.Location)
+		if err != nil {
+			return false, fmt.Errorf("error when finding network watcher: %w", err)
+		}
+		if networkWatcherResourceIDInfo != nil {
+			// Use existing network watcher
+			networkWatcherResourceGroup = networkWatcherResourceIDInfo.ResourceGroupName
+			networkWatcherName = networkWatcherResourceIDInfo.ResourceName
+		} else {
+			// Create network watcher in provided resource group
+			networkWatcherResourceGroup = os.Getenv("INVISINETS_AZURE_RESOURCE_GROUP")
+			// Tag it to make sure it gets deleted
+			_, err := watchersClient.CreateOrUpdate(ctx, networkWatcherResourceGroup, networkWatcherName, armnetwork.Watcher{Location: vm.Location, Tags: map[string]*string{namespaceTagKey: to.Ptr(sourceVmNamespace)}}, nil)
+			if err != nil {
+				return false, fmt.Errorf("unable to create network watcher: %w", err)
+			}
+		}
+	}
+
 	// Retries up to 5 times
 	for i := 0; i < 5; i++ {
-		checkConnectivityPollerResponse, err := watchersClient.BeginCheckConnectivity(ctx, "NetworkWatcherRG", fmt.Sprintf("NetworkWatcher_%s", *vm.Location), connectivityParameters, nil)
+		checkConnectivityPollerResponse, err := watchersClient.BeginCheckConnectivity(ctx, networkWatcherResourceGroup, networkWatcherName, connectivityParameters, nil)
 		if err != nil {
 			return false, err
 		}

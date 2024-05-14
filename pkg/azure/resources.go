@@ -43,6 +43,7 @@ const (
 	publicIPAddressTypeName       = "Microsoft.Network/publicIPAddresses"
 	virtualNetworkGatewayTypeName = "Microsoft.Network/virtualNetworkGateways"
 	virtualNetworkTypeName        = "Microsoft.Network/virtualNetworks"
+	networkWatcherTypeName        = "Microsoft.Network/networkWatchers"
 )
 
 type resourceNetworkInfo struct {
