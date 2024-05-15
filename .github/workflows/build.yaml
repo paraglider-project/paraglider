@@ -238,7 +238,7 @@ jobs:
           workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/paraglider'
           service_account: 'invisinets-cicd@invisinets-cicd.iam.gserviceaccount.com'
       - name: 'Az CLI login'
-        uses: azure/login@v1
+        uses: azure/login@v2
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         with:
             creds: ${{ secrets.AZURE_CREDENTIALS }}
