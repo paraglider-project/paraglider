@@ -232,7 +232,7 @@ jobs:
           path: ./dist/cache
           key: code-coverage-${{ github.sha }}-${{ github.run_number }}
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v1
+        uses: google-github-actions/auth@v2
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         with:
           workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/paraglider'
