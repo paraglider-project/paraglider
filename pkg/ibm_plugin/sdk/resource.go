@@ -384,7 +384,7 @@ func (c *ResourceClusterType) IsInNamespace(namespace, region string) (bool, err
 		return false, err
 	}
 
-	// add cluster's's CRN and region to search attributes
+	// add cluster's CRN and region to search attributes
 	resourceQuery.CRN = clusterCRN
 	if region != "" {
 		resourceQuery.Region = region
