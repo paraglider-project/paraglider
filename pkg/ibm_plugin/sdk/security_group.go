@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,13 +17,16 @@ limitations under the License.
 package ibm
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
+	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const (
@@ -51,6 +54,34 @@ type SecurityGroupRule struct {
 	Egress     bool   // The rule affects to outbound traffic (true) or inbound (false)
 }
 
+// mapping paraglider traffic directions to booleans
+var paragliderToIBMDirection = map[paragliderpb.Direction]bool{
+	paragliderpb.Direction_OUTBOUND: true,
+	paragliderpb.Direction_INBOUND:  false,
+}
+
+// mapping booleans paraglider traffic directions
+var ibmToParagliderDirection = map[bool]paragliderpb.Direction{
+	true:  paragliderpb.Direction_OUTBOUND,
+	false: paragliderpb.Direction_INBOUND,
+}
+
+// mapping integers determined by the IANA standard to IBM protocols
+var paragliderToIBMprotocol = map[int32]string{
+	-1: "all",
+	1:  "icmp",
+	6:  "tcp",
+	17: "udp",
+}
+
+// mapping IBM protocols to integers determined by the IANA standard
+var ibmToParagliderProtocol = map[string]int32{
+	"all":  -1,
+	"icmp": 1,
+	"tcp":  6,
+	"udp":  17,
+}
+
 // creates security group in the specified VPC and tags it.
 func (c *CloudClient) createSecurityGroup(
 	vpcID string) (*vpcv1.SecurityGroup, error) {
@@ -72,7 +103,7 @@ func (c *CloudClient) createSecurityGroup(
 
 	err = c.attachTag(sg.CRN, sgTags)
 	if err != nil {
-		utils.Log.Print("Failed to tag VPC with error:", err)
+		utils.Log.Print("Failed to tag SG with error:", err)
 		return nil, err
 	}
 	return sg, nil
@@ -190,10 +221,13 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolTCPUDP(
 		SgID:       sgID,
 		Remote:     remote,
 		RemoteType: remoteType,
-		PortMin:    *ibmRuleTCPUDP.PortMin,
-		PortMax:    *ibmRuleTCPUDP.PortMax,
 		Egress:     isEgress,
 	}
+	if ibmRuleTCPUDP.PortMin != nil && ibmRuleTCPUDP.PortMax != nil {
+		rule.PortMin = *ibmRuleTCPUDP.PortMin
+		rule.PortMax = *ibmRuleTCPUDP.PortMax
+	}
+
 	return &rule, nil
 }
 
@@ -229,14 +263,35 @@ func (c *CloudClient) translateSecurityGroupRuleRemote(
 
 // AddSecurityGroupRule adds following functions are responsible for assigning SecurityGroupRules
 // to a security group.
-func (c *CloudClient) AddSecurityGroupRule(rule SecurityGroupRule) error {
+func (c *CloudClient) AddSecurityGroupRule(rule SecurityGroupRule) (string, error) {
+	prototype, err := c.translateRuleProtocol(rule)
+	if err != nil {
+		return "", err
+	}
+	return c.addSecurityGroupRule(rule.SgID, prototype)
+}
+
+func (c *CloudClient) addSecurityGroupRule(sgID string, prototype vpcv1.SecurityGroupRulePrototypeIntf) (string, error) {
+
+	options := vpcv1.CreateSecurityGroupRuleOptions{
+		SecurityGroupID:            &sgID,
+		SecurityGroupRulePrototype: prototype,
+	}
+	res, _, err := c.vpcService.CreateSecurityGroupRule(&options)
+	if err != nil {
+		return "", err
+	}
+	return c.getIBMRuleID(res), err
+}
+
+func (c *CloudClient) translateRuleProtocol(rule SecurityGroupRule) (vpcv1.SecurityGroupRulePrototypeIntf, error) {
 	var remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf
 	if len(rule.Remote) == 0 {
-		return fmt.Errorf("SecurityGroupRule is missing remote value")
+		return nil, fmt.Errorf("SecurityGroupRule is missing remote value")
 	}
 	remote, err := GetRemoteType(rule.Remote)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if remote == ipType {
@@ -246,79 +301,76 @@ func (c *CloudClient) AddSecurityGroupRule(rule SecurityGroupRule) error {
 	}
 
 	direction := getEgressDirection(rule.Egress)
+	var prototype vpcv1.SecurityGroupRulePrototypeIntf
 	switch rule.Protocol {
 	case "all":
-		return c.addAnyProtoSecurityGroupRule(rule.SgID, remotePrototype, direction)
+		prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolAll{
+			Direction: direction,
+			Protocol:  core.StringPtr("all"),
+			Remote:    remotePrototype,
+		}
 	case "tcp", "udp":
-		return c.addTCPUDPSecurityGroupRule(rule.SgID, remotePrototype, rule.Protocol, rule.PortMin, rule.PortMax, direction)
+		if rule.PortMin == -1 && rule.PortMax == -1 {
+			prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolTcpudp{
+				Direction: direction,
+				Protocol:  &rule.Protocol,
+				Remote:    remotePrototype,
+			}
+		} else {
+			prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolTcpudp{
+				Direction: direction,
+				Protocol:  &rule.Protocol,
+				PortMin:   &rule.PortMin,
+				PortMax:   &rule.PortMax,
+				Remote:    remotePrototype,
+			}
+		}
 	case "icmp":
-		return c.addIcmpSecurityGroupRule(rule.SgID, remotePrototype, rule.IcmpType, rule.IcmpCode, direction)
+		if rule.IcmpType == -1 && rule.IcmpCode == -1 {
+			prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp{
+				Direction: direction,
+				Protocol:  core.StringPtr("icmp"),
+				Remote:    remotePrototype,
+			}
+		} else {
+			prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp{
+				Code:      &rule.IcmpCode,
+				Direction: direction,
+				Protocol:  core.StringPtr("icmp"),
+				Type:      &rule.IcmpType,
+				Remote:    remotePrototype,
+			}
+		}
 	}
-	return nil
+
+	return prototype, nil
 }
 
-func (c *CloudClient) addTCPUDPSecurityGroupRule(
-	sgID string,
-	remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf,
-	protocol string,
-	portMin, portMax int64,
-	direction *string,
-) error {
-
-	prototype := vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolTcpudp{
-		Direction: direction,
-		Protocol:  &protocol,
-		PortMin:   &portMin,
-		PortMax:   &portMax,
-		Remote:    remotePrototype,
+func (c *CloudClient) UpdateSecurityGroupRule(rule SecurityGroupRule) error {
+	prototype, err := c.translateRuleProtocol(rule)
+	if err != nil {
+		return err
 	}
-	return c.addSecurityGroupRule(sgID, &prototype)
+	var patchMap map[string]interface{}
+	jsonVersion, err := json.Marshal(&prototype)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(jsonVersion, &patchMap)
+	if err != nil {
+		return err
+	}
+	return c.updateSecurityGroupRule(rule.SgID, rule.ID, patchMap)
 }
 
-func (c *CloudClient) addIcmpSecurityGroupRule(
-	sgID string,
-	remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf,
-	icmpType, icmpCode int64,
-	direction *string,
-) error {
+func (c *CloudClient) updateSecurityGroupRule(sgID string, ruleID string, patch map[string]interface{}) error {
 
-	// In IBM Cloud, -1 is not accepted to signal "all types and codes", and
-	// a nil pointer is used instead
-	if icmpType != -1 && icmpCode != -1 {
-		return fmt.Errorf(`invisinets permitlist rule doesn't support 
-			icmp with specific codes and types`)
+	options := vpcv1.UpdateSecurityGroupRuleOptions{
+		SecurityGroupID:        &sgID,
+		ID:                     &ruleID,
+		SecurityGroupRulePatch: patch,
 	}
-
-	prototype := vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp{
-		Direction: direction,
-		Protocol:  core.StringPtr("icmp"),
-		Type:      &icmpType,
-		Code:      &icmpCode,
-		Remote:    remotePrototype,
-	}
-	return c.addSecurityGroupRule(sgID, &prototype)
-}
-
-func (c *CloudClient) addAnyProtoSecurityGroupRule(
-	sgID string,
-	remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf,
-	direction *string,
-) error {
-	prototype := vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolAll{
-		Direction: direction,
-		Protocol:  core.StringPtr("all"),
-		Remote:    remotePrototype,
-	}
-	return c.addSecurityGroupRule(sgID, &prototype)
-}
-
-func (c *CloudClient) addSecurityGroupRule(sgID string, prototype vpcv1.SecurityGroupRulePrototypeIntf) error {
-
-	options := vpcv1.CreateSecurityGroupRuleOptions{
-		SecurityGroupID:            &sgID,
-		SecurityGroupRulePrototype: prototype,
-	}
-	_, _, err := c.vpcService.CreateSecurityGroupRule(&options)
+	_, _, err := c.vpcService.UpdateSecurityGroupRule(&options)
 	return err
 }
 
@@ -375,4 +427,117 @@ func getEgressDirection(egress bool) *string {
 	} else {
 		return core.StringPtr(inboundType)
 	}
+}
+
+// return the specified rules without duplicates, while keeping the rules' hash values updated for future use.
+func (c *CloudClient) GetUniqueSGRules(rules []SecurityGroupRule, rulesHashValues map[uint64]bool) ([]SecurityGroupRule, error) {
+	var res []SecurityGroupRule
+	for _, rule := range rules {
+		// exclude unique field "ID" from hash calculation.
+		ruleHashValue, err := ibmCommon.GetStructHash(rule, []string{"ID"})
+		if err != nil {
+			return nil, err
+		}
+		if _, ruleExists := rulesHashValues[ruleHashValue]; !ruleExists {
+			res = append(res, rule)
+			rulesHashValues[ruleHashValue] = true
+		}
+	}
+	return res, nil
+}
+
+// return IDs of rules matching the specified specifications.
+func (c *CloudClient) GetRulesIDs(rules []SecurityGroupRule, sgID string) ([]string, error) {
+	var rulesIDs []string
+	sgRules, err := c.GetSecurityRulesOfSG(sgID)
+	if err != nil {
+		return nil, err
+	}
+	for _, sgRule := range sgRules {
+		for _, rule := range rules {
+			// aggregate rules matching the specified rules, based on all fields except their IDs and SG IDs.
+			if ibmCommon.AreStructsEqual(rule, sgRule, []string{"ID", "SgID"}) {
+				rulesIDs = append(rulesIDs, sgRule.ID)
+				// found matching rule, continue to the next sgRule
+				break
+			}
+		}
+	}
+	return rulesIDs, nil
+}
+
+func (c *CloudClient) getIBMRuleID(ibmRule vpcv1.SecurityGroupRuleIntf) string {
+	switch rule := ibmRule.(type) {
+	case *vpcv1.SecurityGroupRule:
+		return *rule.ID
+	case *vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAll:
+		return *rule.ID
+	case *vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolIcmp:
+		return *rule.ID
+	case *vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolTcpudp:
+		return *rule.ID
+	}
+	return ""
+}
+
+// returns rules in paraglider format from IBM cloud format
+// TODO @cohen-j-omer: handle permitList tags if required.
+func IBMToParagliderRules(rules []SecurityGroupRule) ([]*paragliderpb.PermitListRule, error) {
+	var paragliderRules []*paragliderpb.PermitListRule
+
+	for _, rule := range rules {
+		if rule.PortMin != rule.PortMax {
+			return nil, fmt.Errorf("SG rules with port ranges aren't currently supported")
+		}
+		// PortMin=PortMax since port ranges aren't supported.
+		// srcPort=dstPort since ibm security rules are stateful,
+		// i.e. they automatically also permit the reverse traffic.
+		srcPort, dstPort := rule.PortMin, rule.PortMin
+
+		permitListRule := &paragliderpb.PermitListRule{
+			Targets:   []string{rule.Remote},
+			Name:      rule.ID,
+			Direction: ibmToParagliderDirection[rule.Egress],
+			SrcPort:   int32(srcPort),
+			DstPort:   int32(dstPort),
+			Protocol:  ibmToParagliderProtocol[rule.Protocol],
+		}
+		paragliderRules = append(paragliderRules, permitListRule)
+
+	}
+	return paragliderRules, nil
+}
+
+// returns rules in IBM cloud format to paraglider format
+// NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code
+func ParagliderToIBMRules(securityGroupID string, rules []*paragliderpb.PermitListRule) (
+	[]SecurityGroupRule, error) {
+	var sgRules []SecurityGroupRule
+	for _, rule := range rules {
+		if len(rule.Targets) == 0 {
+			return nil, fmt.Errorf("PermitListRule is missing Tag value. Rule:%+v", rule)
+		}
+		for _, target := range rule.Targets {
+			remote := target
+			remoteType, err := GetRemoteType(remote)
+			if err != nil {
+				return nil, err
+			}
+			sgRule := SecurityGroupRule{
+				ID:         rule.Name,
+				SgID:       securityGroupID,
+				Protocol:   paragliderToIBMprotocol[rule.Protocol],
+				Remote:     remote,
+				RemoteType: remoteType,
+				PortMin:    int64(rule.SrcPort),
+				PortMax:    int64(rule.SrcPort),
+				Egress:     paragliderToIBMDirection[rule.Direction],
+				// explicitly setting value to -1. other icmp values have meaning.
+				IcmpType: -1,
+				IcmpCode: -1,
+			}
+			sgRules = append(sgRules, sgRule)
+		}
+	}
+	return sgRules, nil
 }

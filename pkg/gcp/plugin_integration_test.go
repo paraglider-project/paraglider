@@ -1,7 +1,7 @@
 //go:build integration
 
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,28 +22,34 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	networkmanagementpb "cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
-	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	utils "github.com/NetSys/invisinets/pkg/utils"
-	"github.com/google/go-cmp/cmp"
+	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator/config"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/testing/protocmp"
 )
 
-const namespace = "default"
-
-func checkPermitListsEqual(instanceId uint64, pl1 *invisinetspb.PermitList, pl2 *invisinetspb.PermitList) bool {
-	sortPermitListRuleOpt := protocmp.SortRepeated(func(plr1, plr2 *invisinetspb.PermitListRule) bool {
-		return getFirewallName(plr1, instanceId) < getFirewallName(plr2, instanceId)
-	})
-	return cmp.Diff(pl1, pl2, protocmp.Transform(), sortPermitListRuleOpt) == ""
+func createInstance(ctx context.Context, server *GCPPluginServer, project string, namespace string, zone string, name string) (*paragliderpb.CreateResourceResponse, error) {
+	insertInstanceReq := GetTestVmParameters(project, zone, name)
+	insertInstanceReqBytes, err := json.Marshal(insertInstanceReq)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal insert instance request: %w", err)
+	}
+	resourceDescription := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + project, Namespace: namespace},
+		Name:        name,
+		Description: insertInstanceReqBytes,
+	}
+	return server.CreateResource(ctx, resourceDescription)
 }
 
 // Tests creating two vms in separate regions and basic add/delete/get permit list functionality
@@ -51,22 +57,27 @@ func TestIntegration(t *testing.T) {
 	// Setup
 	projectId := SetupGcpTesting("integration")
 	defer TeardownGcpTesting(projectId)
-	_, fakeControllerServerAddr, err := fake.SetupFakeControllerServer(utils.GCP)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{frontendServerAddr: fakeControllerServerAddr}
+	namespace := "default"
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	ctx := context.Background()
 
 	// Create VM in a clean state (i.e. no VPC or subnet)
-	vm1Name := "vm-invisinets-test-1"
+	vm1Name := "vm-paraglider-test-1"
 	vm1Zone := "us-west1-a"
 	insertInstanceReq1 := GetTestVmParameters(projectId, vm1Zone, vm1Name)
 	insertInstanceReq1Bytes, err := json.Marshal(insertInstanceReq1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription1 := &invisinetspb.ResourceDescription{Description: insertInstanceReq1Bytes, Namespace: namespace}
+	resourceDescription1 := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + projectId, Namespace: namespace},
+		Name:        vm1Name,
+		Description: insertInstanceReq1Bytes,
+	}
 	createResource1Resp, err := s.CreateResource(
 		ctx,
 		resourceDescription1,
@@ -76,14 +87,18 @@ func TestIntegration(t *testing.T) {
 	assert.Equal(t, createResource1Resp.Name, vm1Name)
 
 	// Create VM in different region (i.e. requires new subnet to be created)
-	vm2Name := "vm-invisinets-test-2"
+	vm2Name := "vm-paraglider-test-2"
 	vm2Zone := "us-east1-b"
 	insertInstanceReq2 := GetTestVmParameters(projectId, vm2Zone, vm2Name)
 	insertInstanceReq2Bytes, err := json.Marshal(insertInstanceReq2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription2 := &invisinetspb.ResourceDescription{Description: insertInstanceReq2Bytes, Namespace: namespace}
+	resourceDescription2 := &paragliderpb.ResourceDescription{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + projectId, Namespace: namespace},
+		Name:        vm2Name,
+		Description: insertInstanceReq2Bytes,
+	}
 	createResource2Resp, err := s.CreateResource(
 		ctx,
 		resourceDescription2,
@@ -136,81 +151,66 @@ func TestIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	vmUris := []string{vm1Uri, vm2Uri}
-	permitLists := [2]*invisinetspb.PermitList{
+	rules1 := []*paragliderpb.PermitListRule{
 		{
-			AssociatedResource: vm1Uri,
-			Rules: []*invisinetspb.PermitListRule{
-				{
-					Direction: invisinetspb.Direction_INBOUND,
-					SrcPort:   -1,
-					DstPort:   -1,
-					Protocol:  1,
-					Targets:   []string{vm2Ip},
-				},
-				{
-					Direction: invisinetspb.Direction_OUTBOUND,
-					SrcPort:   -1,
-					DstPort:   -1,
-					Protocol:  1,
-					Targets:   []string{vm2Ip},
-				},
-			},
-			Namespace: namespace,
+			Name:      "test-rule1",
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm2Ip},
 		},
 		{
-			AssociatedResource: vm2Uri,
-			Rules: []*invisinetspb.PermitListRule{
-				{
-					Direction: invisinetspb.Direction_INBOUND,
-					SrcPort:   -1,
-					DstPort:   -1,
-					Protocol:  1,
-					Targets:   []string{vm1Ip},
-				},
-				{
-					Direction: invisinetspb.Direction_OUTBOUND,
-					SrcPort:   -1,
-					DstPort:   -1,
-					Protocol:  1,
-					Targets:   []string{vm1Ip},
-				},
-			},
-			Namespace: namespace,
+			Name:      "test-rule2",
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm2Ip},
 		},
 	}
-	vm1Id, err := GetInstanceId(projectId, vm1Zone, vm1Name)
-	if err != nil {
-		t.Fatal(err)
+	rules2 := []*paragliderpb.PermitListRule{
+		{
+			Name:      "test-rule3",
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm1Ip},
+		},
+		{
+			Name:      "test-rule4",
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm1Ip},
+		},
 	}
-	vm2Id, err := GetInstanceId(projectId, vm2Zone, vm2Name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	vmIds := []uint64{vm1Id, vm2Id}
+	ruleLists := [][]*paragliderpb.PermitListRule{rules1, rules2}
 	for i, vmUri := range vmUris {
-		permitList := permitLists[i]
-		addPermitListRulesResp, err := s.AddPermitListRules(ctx, permitList)
+		rules := ruleLists[i]
+		addPermitListRulesResp, err := s.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: rules, Namespace: namespace, Resource: vmUri})
 		require.NoError(t, err)
 		require.NotNil(t, addPermitListRulesResp)
-		assert.True(t, addPermitListRulesResp.Success)
 
-		getPermitListAfterAddResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmUri, Namespace: namespace})
+		getPermitListAfterAddResp, err := s.GetPermitList(ctx, &paragliderpb.GetPermitListRequest{Resource: vmUri, Namespace: namespace})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterAddResp)
 
 		// TODO @seankimkdy: use this in all of the codebase to ensure permitlists are being compared properly
-		assert.True(t, checkPermitListsEqual(vmIds[i], permitList, getPermitListAfterAddResp))
+		assert.ElementsMatch(t, rules, getPermitListAfterAddResp.Rules)
 	}
 
 	// Connectivity tests that ping the two VMs
 	vm1Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm1Ip,
-		Network:   "projects/" + projectId + "/" + GetVpcUri(namespace),
+		Network:   GetVpcUri(projectId, namespace),
 		ProjectId: projectId,
 	}
 	vm2Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm2Ip,
-		Network:   "projects/" + projectId + "/" + GetVpcUri(namespace),
+		Network:   GetVpcUri(projectId, namespace),
 		ProjectId: projectId,
 	}
 
@@ -220,16 +220,147 @@ func TestIntegration(t *testing.T) {
 
 	// Delete permit lists
 	for i, vmId := range vmUris {
-		permitList := permitLists[i]
-		deletePermitListRulesResp, err := s.DeletePermitListRules(ctx, permitList)
+		ruleNames := []string{ruleLists[i][0].Name, ruleLists[i][1].Name}
+		deletePermitListRulesResp, err := s.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: ruleNames, Namespace: "default", Resource: vmId})
 		require.NoError(t, err)
 		require.NotNil(t, deletePermitListRulesResp)
-		assert.True(t, deletePermitListRulesResp.Success)
 
-		getPermitListAfterDeleteResp, err := s.GetPermitList(ctx, &invisinetspb.ResourceID{Id: vmId, Namespace: namespace})
+		getPermitListAfterDeleteResp, err := s.GetPermitList(ctx, &paragliderpb.GetPermitListRequest{Resource: vmId, Namespace: namespace})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterDeleteResp)
-		assert.Equal(t, permitList.AssociatedResource, getPermitListAfterDeleteResp.AssociatedResource)
 		assert.Empty(t, getPermitListAfterDeleteResp.Rules)
 	}
+}
+
+func TestCrossNamespace(t *testing.T) {
+	// Create two projects
+	project1Id := SetupGcpTesting("integration1")
+	defer TeardownGcpTesting(project1Id)
+	project2Id := SetupGcpTesting("integration2")
+	defer TeardownGcpTesting(project2Id)
+
+	// Set GCP plugin port
+	gcpServerPort := 7992
+
+	// Setup orchestrator server
+	project1Namespace := "project1"
+	project2Namespace := "project2"
+	orchestratorServerConfig := config.Config{
+		Server: config.Server{
+			Host:    "localhost",
+			Port:    "8082",
+			RpcPort: "8083",
+		},
+		CloudPlugins: []config.CloudPlugin{
+			{
+				Name: utils.GCP,
+				Host: "localhost",
+				Port: strconv.Itoa(gcpServerPort),
+			},
+		},
+		Namespaces: map[string][]config.CloudDeployment{
+			project1Namespace: {
+				{
+					Name:       utils.GCP,
+					Deployment: fmt.Sprintf("projects/%s", project1Id),
+				},
+			},
+			project2Namespace: {
+				{
+					Name:       utils.GCP,
+					Deployment: fmt.Sprintf("projects/%s", project2Id),
+				},
+			},
+		},
+	}
+	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
+	orchestrator.Setup(orchestratorServerConfig, true)
+
+	// Setup GCP plugin server
+	gcpServer := Setup(gcpServerPort, orchestratorServerAddr)
+	ctx := context.Background()
+
+	// Create vm1 in project1
+	vm1Name := "vm-paraglider-test1"
+	vm1Zone := "us-west1-a"
+	createVm1Resp, err := createInstance(ctx, gcpServer, project1Id, project1Namespace, vm1Zone, vm1Name)
+	require.NoError(t, err)
+	require.NotNil(t, createVm1Resp)
+	assert.Equal(t, createVm1Resp.Name, vm1Name)
+
+	// Create vm2 in project2
+	vm2Name := "vm-paraglider-test-2"
+	vm2Zone := "us-west1-a"
+	createVm2Resp, err := createInstance(ctx, gcpServer, project2Id, project2Namespace, vm2Zone, vm2Name)
+	require.NoError(t, err)
+	require.NotNil(t, createVm2Resp)
+	assert.Equal(t, createVm2Resp.Name, vm2Name)
+
+	// Add permit list rules to vm1 and vm2 to ping each other
+	vm1Uri := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project1Id, vm1Zone, vm1Name)
+	vm2Uri := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project2Id, vm2Zone, vm2Name)
+	vm1Ip, err := GetInstanceIpAddress(project1Id, vm1Zone, vm1Name)
+	require.NoError(t, err)
+	vm2Ip, err := GetInstanceIpAddress(project2Id, vm2Zone, vm2Name)
+	require.NoError(t, err)
+	vmUris := []string{vm1Uri, vm2Uri}
+	vm1Rules := []*paragliderpb.PermitListRule{
+		{
+			Name:      "vm2-ping-ingress",
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm2Ip},
+		},
+		{
+			Name:      "vm2-ping-egress",
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm2Ip},
+		},
+	}
+	vm2Rules := []*paragliderpb.PermitListRule{
+		{
+			Name:      "vm1-ping-ingress",
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm1Ip},
+		},
+		{
+			Name:      "vm1-ping-egress",
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{vm1Ip},
+		},
+	}
+	vmRules := [][]*paragliderpb.PermitListRule{vm1Rules, vm2Rules}
+	namespaces := []string{project1Namespace, project2Namespace}
+	for i, vmUri := range vmUris {
+		addPermitListRulesReq := &paragliderpb.AddPermitListRulesRequest{Rules: vmRules[i], Namespace: namespaces[i], Resource: vmUri}
+		addPermitListRulesResp, err := gcpServer.AddPermitListRules(ctx, addPermitListRulesReq)
+		require.NoError(t, err)
+		require.NotNil(t, addPermitListRulesResp)
+	}
+
+	// Run connectivity tests
+	vm1Endpoint := &networkmanagementpb.Endpoint{
+		IpAddress: vm1Ip,
+		Network:   GetVpcUri(project1Id, project1Namespace),
+		ProjectId: project1Id,
+	}
+	vm2Endpoint := &networkmanagementpb.Endpoint{
+		IpAddress: vm2Ip,
+		Network:   GetVpcUri(project2Id, project2Namespace),
+		ProjectId: project2Id,
+	}
+	// Run connectivity tests on both directions between vm1 and vm2
+	RunPingConnectivityTest(t, project1Id, "vm1-to-vm2", vm1Endpoint, vm2Endpoint)
+	RunPingConnectivityTest(t, project2Id, "vm2-to-vm1", vm2Endpoint, vm1Endpoint)
 }

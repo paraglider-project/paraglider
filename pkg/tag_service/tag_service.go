@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,12 +22,15 @@ import (
 	"log"
 	"net"
 	"net/netip"
+	"os/exec"
 	"strings"
 
-	tagservicepb "github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
+	tagservicepb "github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	redis "github.com/redis/go-redis/v9"
 
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type tagServiceServer struct {
@@ -108,7 +111,16 @@ func (s *tagServiceServer) _setLeafTag(c context.Context, mapping *tagservicepb.
 		return fmt.Errorf("Cannot set tag %s as a leaf tag because it already exists.", mapping.TagName)
 	}
 
-	err = s.client.HSet(c, mapping.TagName, map[string]string{"uri": *mapping.Uri, "ip": *mapping.Ip}).Err()
+	uri := ""
+	if mapping.Uri != nil {
+		uri = *mapping.Uri
+	}
+	ip := ""
+	if mapping.Ip != nil {
+		ip = *mapping.Ip
+	}
+
+	err = s.client.HSet(c, mapping.TagName, map[string]string{"uri": uri, "ip": ip}).Err()
 	if err != nil {
 		return err
 	}
@@ -182,10 +194,10 @@ func (s *tagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*ta
 func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolvedTags []*tagservicepb.TagMapping) ([]*tagservicepb.TagMapping, error) {
 	for _, tag := range tags {
 		// If the tag is an IP, it is already resolved
-		isIp := isIpAddrOrCidr(tag)
-		if isIp {
-			ip_tag := &tagservicepb.TagMapping{TagName: "", Uri: nil, Ip: &tag}
-			resolvedTags = append(resolvedTags, ip_tag)
+		isIP := isIpAddrOrCidr(tag)
+		if isIP {
+			ipTag := &tagservicepb.TagMapping{TagName: "", Uri: nil, Ip: &tag}
+			resolvedTags = append(resolvedTags, ipTag)
 		} else {
 			// Get the tag record type since may be hash (if name value) or set (if parent tag)
 			valType, err := s.client.Type(c, tag).Result()
@@ -229,6 +241,23 @@ func (s *tagServiceServer) ResolveTag(c context.Context, tag *tagservicepb.Tag) 
 	}
 
 	return &tagservicepb.TagMappingList{Mappings: resolvedTags}, nil
+}
+
+// Resolve a list of tags into all base-level IPs
+func (s *tagServiceServer) ListTags(c context.Context, e *emptypb.Empty) (*tagservicepb.TagMappingList, error) {
+	var resolvedTagList []*tagservicepb.TagMapping
+	tags := s.client.Keys(c, "*").Val()
+	for _, tag := range tags {
+		tagMapping, err := s.GetTag(c, &tagservicepb.Tag{TagName: tag})
+		if err != nil {
+			// Ignore errors
+			utils.Log.Printf("Failed to get tag mapping of %s: %v\n", tag, err)
+			continue
+		}
+		resolvedTagList = append(resolvedTagList, tagMapping)
+	}
+
+	return &tagservicepb.TagMappingList{Mappings: resolvedTagList}, nil
 }
 
 // Delete a member of a tag
@@ -320,13 +349,27 @@ func newServer(database *redis.Client) *tagServiceServer {
 
 // Setup and run the server
 func Setup(dbPort int, serverPort int, clearKeys bool) {
+	// Start the Redis server if it's not already running
+	pgrepCmd := exec.Command("pgrep", "redis-server")
+	if err := pgrepCmd.Run(); err != nil {
+		if err.Error() == "exit status 1" {
+			// According to man pgrep, exit status 1 means "no processes matched or none of them could be signalled"
+			redisServerCmd := exec.Command("redis-server")
+			if err := redisServerCmd.Start(); err != nil {
+				fmt.Println("Failed to start redis server")
+			}
+		} else {
+			fmt.Printf("Failed to check if redis-server is already running: %v\n", err.Error())
+		}
+	}
+
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("localhost:%d", dbPort),
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
 	if clearKeys {
-		fmt.Printf("Flushed all keys.")
+		fmt.Println("Flushed all keys")
 		client.FlushAll(context.Background())
 	}
 
@@ -337,7 +380,7 @@ func Setup(dbPort int, serverPort int, clearKeys bool) {
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
 	tagservicepb.RegisterTagServiceServer(grpcServer, newServer(client))
-	fmt.Printf("Serving TagService at localhost:%d", serverPort)
+	fmt.Printf("Serving TagService at localhost:%d\n", serverPort)
 	err = grpcServer.Serve(lis)
 	if err != nil {
 		fmt.Println(err.Error())

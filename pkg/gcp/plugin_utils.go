@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,8 +19,13 @@ package gcp
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
+	"strings"
 	"testing"
 
 	billing "cloud.google.com/go/billing/apiv1"
@@ -34,13 +39,19 @@ import (
 	serviceusage "cloud.google.com/go/serviceusage/apiv1"
 	"cloud.google.com/go/serviceusage/apiv1/serviceusagepb"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/protobuf/proto"
+)
+
+const (
+	computeURLPrefix   = "https://www.googleapis.com/compute/v1/"
+	containerURLPrefix = "https://container.googleapis.com/v1beta1/"
 )
 
 func generateProjectId(testName string) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	const projectIdMaxLength = 30
-	prefix := "inv-" + testName
+	prefix := "pg-" + testName
 	var suffix string
 	if os.Getenv("GH_RUN_ID") != "" {
 		// Use run ID as part of the project ID since run number can reset after a workflow changes, meaning it could result in duplicate project IDs which GCP doesn't allow (even after deletion).
@@ -69,7 +80,7 @@ func SetupGcpTesting(testName string) string {
 		projectId = generateProjectId(testName)
 		if os.Getenv("GH_RUN_NUMBER") != "" {
 			// Use run number in project display name since it's more human readable
-			projectDisplayName = fmt.Sprintf("invisinets-gh-%s-%s", os.Getenv("GH_RUN_NUMBER"), testName)
+			projectDisplayName = fmt.Sprintf("paraglider-gh-%s-%s", os.Getenv("GH_RUN_NUMBER"), testName)
 		} else {
 			projectDisplayName = projectId
 		}
@@ -256,4 +267,51 @@ func RunPingConnectivityTest(t *testing.T, project string, name string, srcEndpo
 	}
 
 	require.True(t, reachable)
+}
+
+// GCP naming conventions
+const (
+	paragliderPrefix = "para"
+)
+
+// Hashes values to lowercase hex string for use in naming GCP resources
+func hash(values ...string) string {
+	hash := sha256.Sum256([]byte(strings.Join(values, "")))
+	return strings.ToLower(hex.EncodeToString(hash[:]))
+}
+
+/* --- RESOURCE NAME --- */
+
+func getParagliderNamespacePrefix(namespace string) string {
+	return paragliderPrefix + "-" + namespace
+}
+
+func getRegionFromZone(zone string) string {
+	return zone[:strings.LastIndex(zone, "-")]
+}
+
+// Parses GCP compute URL for desired fields
+func parseGCPURL(url string) map[string]string {
+	path := strings.TrimPrefix(url, computeURLPrefix)
+	path = strings.TrimPrefix(path, containerURLPrefix)
+	parsedURL := map[string]string{}
+	pathComponents := strings.Split(path, "/")
+	for i := 0; i < len(pathComponents)-1; i += 2 {
+		parsedURL[pathComponents[i]] = pathComponents[i+1]
+	}
+	return parsedURL
+}
+
+// Checks if GCP error response is a not found error
+func isErrorNotFound(err error) bool {
+	var e *googleapi.Error
+	ok := errors.As(err, &e)
+	return ok && e.Code == http.StatusNotFound
+}
+
+// Checks if GCP error response is a duplicate error
+func isErrorDuplicate(err error) bool {
+	var e *googleapi.Error
+	ok := errors.As(err, &e)
+	return ok && e.Code == http.StatusConflict
 }

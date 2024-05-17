@@ -1,4 +1,4 @@
-BASE_PACKAGE_NAME := github.com/NetSys/invisinets
+BASE_PACKAGE_NAME := github.com/paraglider-project/paraglider
 OUT_DIR := ./dist
 
 GOOS ?= $(shell go env GOOS)
@@ -37,11 +37,20 @@ export GOPROXY ?= https://proxy.golang.org
 export GOSUMDB ?= sum.golang.org
 export CGO_ENABLED=0
 
+PROTOFILES := $(shell find . -type f -name '*.proto')
+
 ##@ Build
 
 .PHONY: build
-build: build-packages build-binaries ## Build all go targets.
+build: compile-protoc build-packages build-binaries ## Build all go targets.
 
+.PHONY: compile-protoc
+compile-protoc: ## Compiles all proto files.
+	@echo "$(ARROW) Compiling all proto files"
+	@export PATH=$(GOPATH)/bin:$$PATH;$(foreach file,$(PROTOFILES),echo "compiling $(file)" & protoc --go_out=$(dir $(file)) \
+	--go_opt=paths=source_relative --go-grpc_out=$(dir $(file))  --go-grpc_opt=paths=source_relative \
+	--proto_path=$(dir $(file)) $(file);)
+	
 .PHONY: build-packages
 build-packages: ## Builds all go packages.
 	@echo "$(ARROW) Building all packages"
@@ -82,7 +91,7 @@ endef
 # defines a target for each binary
 GOOSES := darwin linux windows
 GOARCHES := amd64 arm arm64
-BINARIES := inv invd
+BINARIES := glide glided
 $(foreach ITEM,$(BINARIES),$(eval $(call generateBuildTarget,$(ITEM),./cmd/$(ITEM))))
 $(foreach ARCH,$(GOARCHES),$(foreach OS,$(GOOSES),$(foreach ITEM,$(BINARIES),$(eval $(call generatePlatformBuildTarget,$(OS),$(ARCH),$(ITEM),./cmd/$(ITEM))))))
 
@@ -98,7 +107,7 @@ clean: ## Cleans output directory.
 	rm -rf $(OUT_DIR)
 
 # Due to https://github.com/golangci/golangci-lint/issues/580, we need to add --fix for windows
-.PHONY: lint
-lint: ## Runs golangci-lint
+.PHONY: lint 
+lint: compile-protoc ## Runs golangci-lint
 	$(GOLANGCI_LINT) run --fix --timeout 5m
 

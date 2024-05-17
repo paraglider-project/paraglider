@@ -6,11 +6,15 @@ on:
       - release/*
     tags:
       - v*
+    paths-ignore:
+      - 'docs/**'
   pull_request:
     branches:
       - main
       - features/*
       - release/*
+    paths-ignore:
+      - 'docs/**'
 
 concurrency:
   # Cancel the previously triggered build for only PR build.
@@ -19,7 +23,7 @@ concurrency:
 
 env:
   # Go version to install
-  GOVER: '^1.20'
+  GOVER: '^1.21'
   GOPROXY: https://proxy.golang.org
   
   # gotestsum version - see: https://github.com/gotestyourself/gotestsum
@@ -92,8 +96,15 @@ jobs:
           key: code-coverage-
       - name: Parse release version and set environment variables
         run: python ./.github/scripts/get_release_version.py
+      - name: Get protoc
+        uses: arduino/setup-protoc@v3
+      - name: Get protoc-gen-go
+        run: |
+          GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
       - name: Make build
-        run: make build
+        run: |
+          make build
       - name: Run linter
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'  
         uses: golangci/golangci-lint-action@v3
@@ -221,10 +232,10 @@ jobs:
           path: ./dist/cache
           key: code-coverage-${{ github.sha }}-${{ github.run_number }}
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v1    
+        uses: google-github-actions/auth@v1
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         with:
-          workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider'
+          workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/paraglider'
           service_account: 'invisinets-cicd@invisinets-cicd.iam.gserviceaccount.com'
       - name: 'Az CLI login'
         uses: azure/login@v1

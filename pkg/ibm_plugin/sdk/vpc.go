@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,14 +21,13 @@ import (
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const vpcType = "vpc"
 
-// CreateVPC creates an Invisinets VPC for a region resources are tagged.
-func (c *CloudClient) CreateVPC() (*vpcv1.VPC, error) {
-	vpcTags := []string{}
+// CreateVPC creates a Paraglider VPC for a region resources are tagged.
+func (c *CloudClient) CreateVPC(tags []string) (*vpcv1.VPC, error) {
 	var prefixManagement string
 
 	vpcName := GenerateResourceName(vpcType)
@@ -48,7 +47,7 @@ func (c *CloudClient) CreateVPC() (*vpcv1.VPC, error) {
 			"\nResponse:\n", response)
 		return nil, err
 	}
-	err = c.attachTag(vpc.CRN, vpcTags)
+	err = c.attachTag(vpc.CRN, tags)
 	if err != nil {
 		utils.Log.Print("Failed to tag VPC with error:", err)
 		return nil, err

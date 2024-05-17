@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/NetSys/invisinets/pkg/tag_service/tagservicepb"
+	"github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
 	"google.golang.org/grpc"
 )
 
@@ -38,6 +38,7 @@ var (
 	TagIp               = "ip"
 	ResolvedTagIp       = "1.2.3.4"
 	SubscriberCloudName = "cloudName"
+	SubscriberNamespace = "default"
 )
 
 type FakeTagServiceServer struct {
@@ -50,6 +51,9 @@ func (s *FakeTagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) 
 	}
 	if strings.HasPrefix(tag.TagName, ValidParentTagName) {
 		return &tagservicepb.TagMapping{TagName: tag.TagName, ChildTags: []string{"child"}}, nil
+	}
+	if strings.HasSuffix(tag.TagName, ValidLastLevelTagName) {
+		return &tagservicepb.TagMapping{TagName: tag.TagName, Uri: &TagUri, Ip: &TagIp}, nil
 	}
 	return nil, fmt.Errorf("GetTag: Invalid tag name")
 }
@@ -93,7 +97,7 @@ func (s *FakeTagServiceServer) Unsubscribe(c context.Context, sub *tagservicepb.
 
 func (s *FakeTagServiceServer) GetSubscribers(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.SubscriberList, error) {
 	if strings.HasPrefix(tag.TagName, ValidTagName) {
-		return &tagservicepb.SubscriberList{Subscribers: []string{SubscriberCloudName + ">uri"}}, nil
+		return &tagservicepb.SubscriberList{Subscribers: []string{SubscriberNamespace + ">" + SubscriberCloudName + ">uri"}}, nil
 	}
 	return nil, fmt.Errorf("tag does not exist")
 }

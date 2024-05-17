@@ -1,7 +1,7 @@
 //go:build multicloud
 
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -23,66 +23,91 @@ import (
 	"testing"
 
 	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
-	azure_plugin "github.com/NetSys/invisinets/pkg/azure_plugin"
-	frontend "github.com/NetSys/invisinets/pkg/frontend"
-	gcp "github.com/NetSys/invisinets/pkg/gcp"
-	invisinetspb "github.com/NetSys/invisinets/pkg/invisinetspb"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	azure "github.com/paraglider-project/paraglider/pkg/azure"
+	gcp "github.com/paraglider-project/paraglider/pkg/gcp"
+	orchestrator "github.com/paraglider-project/paraglider/pkg/orchestrator"
+	config "github.com/paraglider-project/paraglider/pkg/orchestrator/config"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TODO @seankimkdy: should this be turned into a system test where we actually call the cloud plugins through the controller GRPC?
+// TODO @seankimkdy: should this be turned into a system test where we actually call the cloud plugins through the orchestrator GRPC?
 func TestMulticloud(t *testing.T) {
 	// Azure config
 	azurePluginPort := 7991
-	azureSubscriptionId := azure_plugin.GetAzureSubscriptionId()
-	azureResourceGroupName := azure_plugin.SetupAzureTesting(azureSubscriptionId, "multicloud")
-	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
+	azureSubscriptionId := azure.GetAzureSubscriptionId()
+	azureResourceGroupName := azure.SetupAzureTesting(azureSubscriptionId, "multicloud")
+	azureDeploymentId := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName)
+	defer azure.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
 
 	// GCP config
 	gcpPluginPort := 7992
 	gcpProjectId := gcp.SetupGcpTesting("multicloud")
 	defer gcp.TeardownGcpTesting(gcpProjectId)
 
-	// Setup controller server
-	controllerServerConfig := frontend.Config{
-		Clouds: []frontend.Cloud{
+	// Setup orchestrator server
+	orchestratorServerConfig := config.Config{
+		Server: config.Server{
+			Host:    "localhost",
+			Port:    "8080",
+			RpcPort: "8081",
+		},
+		CloudPlugins: []config.CloudPlugin{
 			{
-				Name:          utils.AZURE,
-				Host:          "localhost",
-				Port:          strconv.Itoa(azurePluginPort),
-				InvDeployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName),
+				Name: utils.AZURE,
+				Host: "localhost",
+				Port: strconv.Itoa(azurePluginPort),
 			},
 			{
-				Name:          utils.GCP,
-				Host:          "localhost",
-				Port:          strconv.Itoa(gcpPluginPort),
-				InvDeployment: fmt.Sprintf("projects/%s", gcpProjectId),
+				Name: utils.GCP,
+				Host: "localhost",
+				Port: strconv.Itoa(gcpPluginPort),
+			},
+		},
+		Namespaces: map[string][]config.CloudDeployment{
+			"default": {
+				{
+					Name:       utils.AZURE,
+					Deployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName),
+				},
+			},
+			"other": {
+				{
+					Name:       utils.GCP,
+					Deployment: fmt.Sprintf("projects/%s", gcpProjectId),
+				},
 			},
 		},
 	}
-	controllerServerAddr := frontend.SetupControllerServer(controllerServerConfig)
-	fmt.Println("Setup controller server")
+	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
+	orchestrator.Setup(orchestratorServerConfig, true)
+	fmt.Println("Setup orchestrator server")
 
 	// Setup Azure
-	azureServer := azure_plugin.Setup(azurePluginPort, controllerServerAddr)
+	azureServer := azure.Setup(azurePluginPort, orchestratorServerAddr)
 	fmt.Println("Setup Azure server")
 
 	// Setup GCP
-	gcpServer := gcp.Setup(gcpPluginPort, controllerServerAddr)
+	gcpServer := gcp.Setup(gcpPluginPort, orchestratorServerAddr)
 	fmt.Println("Setup GCP server")
 
 	ctx := context.Background()
 
 	// Create Azure VM 1
 	azureVm1Location := "westus"
-	azureVm1Parameters := azure_plugin.GetTestVmParameters(azureVm1Location)
+	azureVm1Parameters := azure.GetTestVmParameters(azureVm1Location)
 	azureVm1Description, err := json.Marshal(azureVm1Parameters)
-	azureVm1ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + "invisinets-vm-test-1"
+	azureVm1Name := "paraglider-vm-test-1"
+	azureVm1ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + azureVm1Name
 	azureCreateResourceResp1, err := azureServer.CreateResource(
 		ctx,
-		&invisinetspb.ResourceDescription{Id: azureVm1ResourceId, Description: azureVm1Description, Namespace: "default"},
+		&paragliderpb.ResourceDescription{
+			Deployment:  &paragliderpb.ParagliderDeployment{Id: azureDeploymentId, Namespace: "default"},
+			Name:        azureVm1Name,
+			Description: azureVm1Description,
+		},
 	)
 	require.NoError(t, err)
 	require.NoError(t, err)
@@ -92,12 +117,16 @@ func TestMulticloud(t *testing.T) {
 
 	// Create GCP VM
 	gcpVmZone := "us-west1-a"
-	gcpVmName := utils.GetGitHubRunPrefix() + "vm-invisinets-test"
+	gcpVmName := utils.GetGitHubRunPrefix() + "vm-paraglider-test"
 	gcpVmParameters := gcp.GetTestVmParameters(gcpProjectId, gcpVmZone, gcpVmName)
 	gcpVmDescription, err := json.Marshal(gcpVmParameters)
 	gcpCreateResourceResp, err := gcpServer.CreateResource(
 		ctx,
-		&invisinetspb.ResourceDescription{Description: gcpVmDescription, Namespace: "default"},
+		&paragliderpb.ResourceDescription{
+			Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + gcpProjectId, Namespace: "other"},
+			Name:        gcpVmName,
+			Description: gcpVmDescription,
+		},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, gcpCreateResourceResp)
@@ -105,63 +134,68 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Created GCP VM")
 
 	// Create GCP permit list for Azure VM 1
-	azureVm1IpAddress, err := azure_plugin.GetVmIpAddress(azureVm1ResourceId)
+	azureVm1IpAddress, err := azure.GetVmIpAddress(azureVm1ResourceId)
 	require.NoError(t, err)
-	gcpVmPermitList1 := &invisinetspb.PermitList{
-		AssociatedResource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProjectId, gcpVmZone, gcpVmName),
-		Rules: []*invisinetspb.PermitListRule{
+	gcpVmPermitList1Req := &paragliderpb.AddPermitListRulesRequest{
+		Resource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProjectId, gcpVmZone, gcpVmName),
+		Rules: []*paragliderpb.PermitListRule{
 			{
-				Direction: invisinetspb.Direction_INBOUND,
+				Name:      "azure1-inbound-rule",
+				Direction: paragliderpb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
 				Protocol:  1,
 				Targets:   []string{azureVm1IpAddress},
 			},
 			{
-				Direction: invisinetspb.Direction_OUTBOUND,
+				Name:      "azure1-outbound-rule",
+				Direction: paragliderpb.Direction_OUTBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
 				Protocol:  1,
 				Targets:   []string{azureVm1IpAddress},
 			},
 			{ // SSH rule for debugging
-				Direction: invisinetspb.Direction_INBOUND,
+				Name:      "ssh-inbound-rule",
+				Direction: paragliderpb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   22,
 				Protocol:  6,
 				Targets:   []string{"0.0.0.0/0"},
 			},
 		},
-		Namespace: "default",
+		Namespace: "other",
 	}
-	gcpAddPermitListRulesResp, err := gcpServer.AddPermitListRules(ctx, gcpVmPermitList1)
+	gcpAddPermitListRulesResp, err := gcpServer.AddPermitListRules(ctx, gcpVmPermitList1Req)
 	require.NoError(t, err)
 	require.NotNil(t, gcpAddPermitListRulesResp)
-	assert.True(t, gcpAddPermitListRulesResp.Success)
 	fmt.Println("Added GCP permit list rules")
 
 	// Create Azure VM1 permit list
 	gcpVmIpAddress, err := gcp.GetInstanceIpAddress(gcpProjectId, gcpVmZone, gcpVmName)
 	require.NoError(t, err)
-	azureVm1PermitList := &invisinetspb.PermitList{
-		AssociatedResource: azureVm1ResourceId,
-		Rules: []*invisinetspb.PermitListRule{
+	azureVm1PermitListReq := &paragliderpb.AddPermitListRulesRequest{
+		Resource: azureVm1ResourceId,
+		Rules: []*paragliderpb.PermitListRule{
 			{
-				Direction: invisinetspb.Direction_INBOUND,
+				Name:      "gcp-inbound-rule",
+				Direction: paragliderpb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
 				Protocol:  1,
 				Targets:   []string{gcpVmIpAddress},
 			},
 			{
-				Direction: invisinetspb.Direction_OUTBOUND,
+				Name:      "gcp-outbound-rule",
+				Direction: paragliderpb.Direction_OUTBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
 				Protocol:  1,
 				Targets:   []string{gcpVmIpAddress},
 			},
 			{ // SSH rule for debugging
-				Direction: invisinetspb.Direction_INBOUND,
+				Name:      "ssh-inbound-rule",
+				Direction: paragliderpb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   22,
 				Protocol:  6,
@@ -170,16 +204,15 @@ func TestMulticloud(t *testing.T) {
 		},
 		Namespace: "default",
 	}
-	azureAddPermitListRules1Resp, err := azureServer.AddPermitListRules(ctx, azureVm1PermitList)
+	azureAddPermitListRules1Resp, err := azureServer.AddPermitListRules(ctx, azureVm1PermitListReq)
 	require.NoError(t, err)
 	require.NotNil(t, azureAddPermitListRules1Resp)
-	assert.True(t, azureAddPermitListRules1Resp.Success)
 	fmt.Println("Added Azure permit list rules")
 
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
 	gcpConnectivityTest1GcpVmEndpoint := &networkmanagementpb.Endpoint{
 		IpAddress: gcpVmIpAddress,
-		Network:   "projects/" + gcpProjectId + "/" + gcp.GetVpcUri("default"),
+		Network:   gcp.GetVpcUri(gcpProjectId, "other"),
 		ProjectId: gcpProjectId,
 	}
 	gcpConnectivityTest1AzureVmEndpoint := &networkmanagementpb.Endpoint{
@@ -189,18 +222,23 @@ func TestMulticloud(t *testing.T) {
 	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-1", gcpConnectivityTest1GcpVmEndpoint, gcpConnectivityTest1AzureVmEndpoint)
 
 	// Run Azure connectivity check (ping from Azure VM to GCP VM)
-	azureConnectivityCheck1, err := azure_plugin.RunPingConnectivityCheck(azureVm1ResourceId, gcpVmIpAddress)
+	azureConnectivityCheck1, err := azure.RunPingConnectivityCheck(azureVm1ResourceId, gcpVmIpAddress)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck1)
 
 	// Create Azure VM 2
 	azureVm2Location := "eastus"
-	azureVm2Parameters := azure_plugin.GetTestVmParameters(azureVm2Location)
+	azureVm2Parameters := azure.GetTestVmParameters(azureVm2Location)
 	azureVm2Description, err := json.Marshal(azureVm2Parameters)
-	azureVm2ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + "invisinets-vm-test-2"
+	azureVm2Name := "paraglider-vm-test-2"
+	azureVm2ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + azureVm2Name
 	azureCreateResourceResp2, err := azureServer.CreateResource(
 		ctx,
-		&invisinetspb.ResourceDescription{Id: azureVm2ResourceId, Description: azureVm2Description, Namespace: "default"},
+		&paragliderpb.ResourceDescription{
+			Deployment:  &paragliderpb.ParagliderDeployment{Id: azureDeploymentId, Namespace: "default"},
+			Name:        azureVm2Name,
+			Description: azureVm2Description,
+		},
 	)
 	require.NoError(t, err)
 	require.NoError(t, err)
@@ -209,61 +247,66 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Created Azure VM")
 
 	// Create GCP permit list for Azure VM 2
-	azureVm2IpAddress, err := azure_plugin.GetVmIpAddress(azureVm2ResourceId)
+	azureVm2IpAddress, err := azure.GetVmIpAddress(azureVm2ResourceId)
 	require.NoError(t, err)
-	gcpVmPermitList2 := &invisinetspb.PermitList{
-		AssociatedResource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProjectId, gcpVmZone, gcpVmName),
-		Rules: []*invisinetspb.PermitListRule{
+	gcpVmPermitList2Req := &paragliderpb.AddPermitListRulesRequest{
+		Resource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", gcpProjectId, gcpVmZone, gcpVmName),
+		Rules: []*paragliderpb.PermitListRule{
 			{
-				Direction: invisinetspb.Direction_INBOUND,
+				Name:      "azure2-inbound-rule",
+				Direction: paragliderpb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
 				Protocol:  1,
 				Targets:   []string{azureVm2IpAddress},
 			},
 			{
-				Direction: invisinetspb.Direction_OUTBOUND,
+				Name:      "azure2-outbound-rule",
+				Direction: paragliderpb.Direction_OUTBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
 				Protocol:  1,
 				Targets:   []string{azureVm2IpAddress},
 			},
 			{ // SSH rule for debugging
-				Direction: invisinetspb.Direction_INBOUND,
+				Name:      "ssh-inbound-rule",
+				Direction: paragliderpb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   22,
 				Protocol:  6,
 				Targets:   []string{"0.0.0.0/0"},
 			},
 		},
-		Namespace: "default",
+		Namespace: "other",
 	}
-	gcpAddPermitListRules2Resp, err := gcpServer.AddPermitListRules(ctx, gcpVmPermitList2)
+	gcpAddPermitListRules2Resp, err := gcpServer.AddPermitListRules(ctx, gcpVmPermitList2Req)
 	require.NoError(t, err)
 	require.NotNil(t, gcpAddPermitListRules2Resp)
-	assert.True(t, gcpAddPermitListRules2Resp.Success)
 	fmt.Println("Added GCP permit list rules")
 
 	// Create Azure VM 2 permit list
-	azureVm2PermitList := &invisinetspb.PermitList{
-		AssociatedResource: azureVm2ResourceId,
-		Rules: []*invisinetspb.PermitListRule{
+	azureVm2PermitListReq := &paragliderpb.AddPermitListRulesRequest{
+		Resource: azureVm2ResourceId,
+		Rules: []*paragliderpb.PermitListRule{
 			{
-				Direction: invisinetspb.Direction_INBOUND,
+				Name:      "gcp-inbound-rule",
+				Direction: paragliderpb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
 				Protocol:  1,
 				Targets:   []string{gcpVmIpAddress},
 			},
 			{
-				Direction: invisinetspb.Direction_OUTBOUND,
+				Name:      "gcp-outbound-rule",
+				Direction: paragliderpb.Direction_OUTBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
 				Protocol:  1,
 				Targets:   []string{gcpVmIpAddress},
 			},
 			{ // SSH rule for debugging
-				Direction: invisinetspb.Direction_INBOUND,
+				Name:      "ssh-inbound-rule",
+				Direction: paragliderpb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   22,
 				Protocol:  6,
@@ -272,16 +315,15 @@ func TestMulticloud(t *testing.T) {
 		},
 		Namespace: "default",
 	}
-	azureAddPermitListRules2Resp, err := azureServer.AddPermitListRules(ctx, azureVm2PermitList)
+	azureAddPermitListRules2Resp, err := azureServer.AddPermitListRules(ctx, azureVm2PermitListReq)
 	require.NoError(t, err)
 	require.NotNil(t, azureAddPermitListRules2Resp)
-	assert.True(t, azureAddPermitListRules2Resp.Success)
 	fmt.Println("Added Azure permit list rules")
 
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
 	gcpConnectivityTest2GcpVmEndpoint := &networkmanagementpb.Endpoint{
 		IpAddress: gcpVmIpAddress,
-		Network:   "projects/" + gcpProjectId + "/" + gcp.GetVpcUri("default"),
+		Network:   gcp.GetVpcUri(gcpProjectId, "other"),
 		ProjectId: gcpProjectId,
 	}
 	gcpConnectivityTest2AzureVmEndpoint := &networkmanagementpb.Endpoint{
@@ -291,7 +333,7 @@ func TestMulticloud(t *testing.T) {
 	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-2", gcpConnectivityTest2GcpVmEndpoint, gcpConnectivityTest2AzureVmEndpoint)
 
 	// Run Azure connectivity check (ping from Azure VM to GCP VM)
-	azureConnectivityCheck2, err := azure_plugin.RunPingConnectivityCheck(azureVm2ResourceId, gcpVmIpAddress)
+	azureConnectivityCheck2, err := azure.RunPingConnectivityCheck(azureVm2ResourceId, gcpVmIpAddress)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck2)
 }
