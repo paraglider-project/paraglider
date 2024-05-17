@@ -15,7 +15,8 @@ on:
       - features/*
       - release/*
     paths:
-      docs/**
+      - docs/**
+      - .github/workflows/docs.yaml
 
 env:
   # Python
@@ -24,6 +25,9 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Check out repo
         uses: actions/checkout@v3
