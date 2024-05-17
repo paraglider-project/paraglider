@@ -44,8 +44,9 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 	// retry mechanism improves stability and is needed due to possible temporary unavailability of resources, e.g. at time of creation.
 	maxAttempts := 10 // retries number to tag a resource
 	var err error
+	var result *globaltaggingv1.TagResults
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		result, _, err := c.taggingService.AttachTag(attachTagOptions)
+		result, _, err = c.taggingService.AttachTag(attachTagOptions)
 		// tracking all responses from error prone tagging service
 		utils.Log.Printf("Tagging attempt %v: Error: %v", attempt, err)
 		if !*result.Results[0].IsError {
