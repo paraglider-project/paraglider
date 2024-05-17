@@ -35,9 +35,12 @@ env:
   GH_RUN_ATTEMPT: ${{ github.run_attempt }}
 
   # Cloud account fields
+  INVISINETS_AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  INVISINETS_AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+  INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  INVISINETS_AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   INVISINETS_GCP_PROJECT_PARENT: ${{ secrets.GCP_FOLDER_ID }}
   INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME: ${{ secrets.GCP_BILLING_ACCOUNT_NAME }}
-  INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
 jobs:
   build:
@@ -70,6 +73,8 @@ jobs:
       issues: read
       pull-requests: write
     steps:
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
       - name: Check out repo
         uses: actions/checkout@v3
       - name: Set up Go ${{ env.GOVER }}
