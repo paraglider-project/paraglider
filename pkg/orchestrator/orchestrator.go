@@ -36,7 +36,6 @@ import (
 	grpc "google.golang.org/grpc"
 	insecure "google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/paraglider-project/paraglider/pkg/kvstore/storepb"
 	config "github.com/paraglider-project/paraglider/pkg/orchestrator/config"
@@ -114,7 +113,7 @@ func isIpAddrOrCidr(value string) bool {
 }
 
 // Retrieve the IPs from a list of name mappings
-func getIPsFromResolvedTag(mappings []*tagservicepb.TagMapping) []string {
+func getIPsFromResolvedTag(mappings []*tagservicepb.Tag) []string {
 	ips := make([]string, len(mappings))
 	for i, mapping := range mappings {
 		ips[i] = *mapping.Ip
@@ -162,15 +161,15 @@ func (s *ControllerServer) getTagUri(tag string) (string, error) {
 
 	// Send RPC to get tag
 	client := tagservicepb.NewTagServiceClient(conn)
-	response, err := client.GetTag(context.Background(), &tagservicepb.Tag{TagName: tag})
+	response, err := client.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tag})
 	if err != nil {
 		return "", fmt.Errorf("could not get tag: %s", err.Error())
 	}
 
-	if response.Uri == nil || *response.Uri == "" {
+	if response.Tag.Uri == nil || *response.Tag.Uri == "" {
 		return "", fmt.Errorf("tag %s is not an individual resource tag", tag)
 	}
-	return *response.Uri, nil
+	return *response.Tag.Uri, nil
 }
 
 // Get URL params for a resource and resolve the resource name if needed
@@ -216,7 +215,7 @@ func (s *ControllerServer) resolvePermitListRules(rules []*paragliderpb.PermitLi
 
 				// Send RPC to resolve tag
 				client := tagservicepb.NewTagServiceClient(conn)
-				resolvedTag, err := client.ResolveTag(context.Background(), &tagservicepb.Tag{TagName: tag})
+				resolvedTag, err := client.ResolveTag(context.Background(), &tagservicepb.ResolveTagRequest{TagName: tag})
 				if err != nil {
 					return nil, fmt.Errorf("could not resolve tag: %s", err.Error())
 				}
@@ -224,14 +223,14 @@ func (s *ControllerServer) resolvePermitListRules(rules []*paragliderpb.PermitLi
 				// Subscribe self to tag
 				if subscribe {
 					_, err := client.Subscribe(context.Background(),
-						&tagservicepb.Subscription{TagName: tag,
-							Subscriber: createSubscriberName(resource.namespace, resource.cloud, resource.uri)})
+						&tagservicepb.SubscribeRequest{Subscription: &tagservicepb.Subscription{TagName: tag,
+							Subscriber: createSubscriberName(resource.namespace, resource.cloud, resource.uri)}})
 					if err != nil {
 						return nil, fmt.Errorf("could not subscribe to tag: %s", err.Error())
 					}
 				}
 
-				rule.Targets = append(rule.Targets, getIPsFromResolvedTag(resolvedTag.Mappings)...)
+				rule.Targets = append(rule.Targets, getIPsFromResolvedTag(resolvedTag.Tags)...)
 			} else {
 				rule.Targets = append(rule.Targets, tag)
 			}
@@ -413,7 +412,7 @@ func (s *ControllerServer) checkAndUnsubscribe(resource *ResourceInfo, beforeLis
 
 	// Send RPC to unsubscribe from each tag
 	for _, tag := range tagsToUnsubscribe {
-		_, err := client.Unsubscribe(context.Background(), &tagservicepb.Subscription{TagName: tag, Subscriber: createSubscriberName(resource.namespace, resource.cloud, resource.uri)})
+		_, err := client.Unsubscribe(context.Background(), &tagservicepb.UnsubscribeRequest{Subscription: &tagservicepb.Subscription{TagName: tag, Subscriber: createSubscriberName(resource.namespace, resource.cloud, resource.uri)}})
 		if err != nil {
 			return err
 		}
@@ -982,7 +981,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 
 	tagName := createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
 	tagClient := tagservicepb.NewTagServiceClient(conn)
-	_, err = tagClient.SetTag(context.Background(), &tagservicepb.TagMapping{TagName: tagName, Uri: &resourceResp.Uri, Ip: &resourceResp.Ip})
+	_, err = tagClient.SetTag(context.Background(), &tagservicepb.SetTagRequest{Tag: &tagservicepb.Tag{Name: tagName, Uri: &resourceResp.Uri, Ip: &resourceResp.Ip}})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error())) // TODO @smcclure20: change this to a warning?
 		return
@@ -1005,7 +1004,7 @@ func (s *ControllerServer) listTags(c *gin.Context) {
 
 	// Send RPC to list tags
 	client := tagservicepb.NewTagServiceClient(conn)
-	response, err := client.ListTags(context.Background(), &emptypb.Empty{})
+	response, err := client.ListTags(context.Background(), &tagservicepb.ListTagsRequest{})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 	}
@@ -1026,7 +1025,7 @@ func (s *ControllerServer) getTag(c *gin.Context) {
 	// Send RPC to get tag
 	tag := c.Param("tag")
 	client := tagservicepb.NewTagServiceClient(conn)
-	response, err := client.GetTag(context.Background(), &tagservicepb.Tag{TagName: tag})
+	response, err := client.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tag})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 	}
@@ -1047,7 +1046,7 @@ func (s *ControllerServer) resolveTag(c *gin.Context) {
 	// Send RPC to get tag
 	tag := c.Param("tag")
 	client := tagservicepb.NewTagServiceClient(conn)
-	response, err := client.ResolveTag(context.Background(), &tagservicepb.Tag{TagName: tag})
+	response, err := client.ResolveTag(context.Background(), &tagservicepb.ResolveTagRequest{TagName: tag})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 	}
@@ -1073,7 +1072,7 @@ func (s *ControllerServer) updateSubscribers(tag string) error {
 	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
-	response, err := client.GetSubscribers(context.Background(), &tagservicepb.Tag{TagName: tag})
+	response, err := client.GetSubscribers(context.Background(), &tagservicepb.GetSubscribersRequest{Tag: tag})
 	if err != nil {
 		return err
 	}
@@ -1106,8 +1105,8 @@ func (s *ControllerServer) updateSubscribers(tag string) error {
 // Set tag mapping in local db and update subscribers to membership change
 func (s *ControllerServer) setTag(c *gin.Context) {
 	// Parse data
-	var tagMapping tagservicepb.TagMapping
-	if err := c.BindJSON(&tagMapping); err != nil {
+	var tag tagservicepb.Tag
+	if err := c.BindJSON(&tag); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
@@ -1121,26 +1120,23 @@ func (s *ControllerServer) setTag(c *gin.Context) {
 	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
-	response, err := client.SetTag(context.Background(), &tagMapping)
+	_, err = client.SetTag(context.Background(), &tagservicepb.SetTagRequest{Tag: &tag})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 	// Look up subscribers and re-resolve the tag
-	if err := s.updateSubscribers(tagMapping.TagName); err != nil {
+	if err := s.updateSubscribers(tag.Name); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"response": response.Message,
-	})
+	c.JSON(http.StatusOK, gin.H{})
 }
 
 // Delete tag (all mappings under it) in local db and update subscribers to membership change
 func (s *ControllerServer) deleteTag(c *gin.Context) {
 	tagName := c.Param("tag")
-	tag := &tagservicepb.Tag{TagName: tagName}
 
 	// Call DeleteTag
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -1151,7 +1147,7 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
-	response, err := client.DeleteTag(context.Background(), tag)
+	_, err = client.DeleteTag(context.Background(), &tagservicepb.DeleteTagRequest{TagName: tagName})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1164,16 +1160,14 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"response": response.Message,
-	})
+	c.JSON(http.StatusOK, gin.H{})
 }
 
 // Delete members of tag in local db and update subscribers to membership change
 func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	parentTag := c.Param("tag")
 	memberTag := c.Param("member")
-	tagMapping := &tagservicepb.TagMapping{TagName: parentTag, ChildTags: []string{memberTag}}
+	tag := &tagservicepb.Tag{Name: parentTag, ChildTags: []string{memberTag}}
 
 	// Call DeleteTagMember
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -1184,21 +1178,19 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
-	response, err := client.DeleteTagMember(context.Background(), tagMapping)
+	_, err = client.DeleteTagMember(context.Background(), &tagservicepb.DeleteTagMemberRequest{Tag: tag})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
 	// Look up subscribers and re-resolve the tag
-	if err := s.updateSubscribers(tagMapping.TagName); err != nil {
+	if err := s.updateSubscribers(tag.Name); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"response": response.Message,
-	})
+	c.JSON(http.StatusOK, gin.H{})
 }
 
 // List all configured namespaces
