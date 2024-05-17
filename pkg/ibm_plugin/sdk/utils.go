@@ -31,9 +31,10 @@ import (
 type TaggedResourceType string
 
 const (
-	VPC    TaggedResourceType = "vpc"
-	SUBNET TaggedResourceType = "subnet"
-	VM     TaggedResourceType = "instance"
+	VPC     TaggedResourceType = "vpc"
+	SUBNET  TaggedResourceType = "subnet"
+	VM      TaggedResourceType = "instance"
+	CLUSTER TaggedResourceType = "k8-cluster"
 	// Security group of a specific instance
 	SG TaggedResourceType = "security-group"
 	// transit gateway for vpc-peering

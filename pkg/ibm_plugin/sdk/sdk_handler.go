@@ -19,6 +19,7 @@ package ibm
 import (
 	"fmt"
 
+	k8sv1 "github.com/IBM-Cloud/container-services-go-sdk/kubernetesserviceapiv1"
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/networking-go-sdk/transitgatewayapisv1"
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
@@ -32,6 +33,7 @@ import (
 // CloudClient is the client used to interact with IBM Cloud SDK
 type CloudClient struct {
 	vpcService     *vpcv1.VpcV1
+	k8sService     *k8sv1.KubernetesServiceApiV1
 	region         string // region resources will be created in/fetched from
 	globalSearch   *globalsearchv2.GlobalSearchV2
 	taggingService *globaltaggingv1.GlobalTaggingV1
@@ -75,6 +77,14 @@ func NewIBMCloudClient(resourceGroupID, region string) (*CloudClient, error) {
 		return nil, err
 	}
 
+	k8sService, err := k8sv1.NewKubernetesServiceApiV1(&k8sv1.KubernetesServiceApiV1Options{
+		Authenticator: authenticator,
+	})
+	if err != nil {
+		utils.Log.Println("Failed to create k8s service client with error:\n", err)
+		return nil, err
+	}
+
 	globalSearch, err := globalsearchv2.NewGlobalSearchV2(&globalsearchv2.GlobalSearchV2Options{
 		Authenticator: authenticator,
 	})
@@ -106,6 +116,7 @@ func NewIBMCloudClient(resourceGroupID, region string) (*CloudClient, error) {
 
 	client := CloudClient{
 		vpcService:     vpcService,
+		k8sService:     k8sService,
 		region:         region,
 		globalSearch:   globalSearch,
 		taggingService: taggingService,
@@ -126,6 +137,15 @@ func FakeIBMCloudClient(fakeURL, fakeResGroupID, fakeRegion string) (*CloudClien
 		URL:           fakeURL,
 	})
 	if err != nil {
+		return nil, err
+	}
+
+	k8sService, err := k8sv1.NewKubernetesServiceApiV1(&k8sv1.KubernetesServiceApiV1Options{
+		Authenticator: noAuth,
+		URL:           fakeURL,
+	})
+	if err != nil {
+		utils.Log.Println("Failed to create k8s service client with error:\n", err)
 		return nil, err
 	}
 
@@ -160,6 +180,7 @@ func FakeIBMCloudClient(fakeURL, fakeResGroupID, fakeRegion string) (*CloudClien
 
 	client := CloudClient{
 		vpcService:     vpcService,
+		k8sService:     k8sService,
 		region:         fakeRegion,
 		globalSearch:   globalSearch,
 		taggingService: taggingService,

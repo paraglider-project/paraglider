@@ -26,11 +26,17 @@ import (
 
 const vpcType = "vpc"
 
+const SharedVPC = "shared"
+
 // CreateVPC creates a Paraglider VPC for a region resources are tagged.
-func (c *CloudClient) CreateVPC(tags []string) (*vpcv1.VPC, error) {
+func (c *CloudClient) CreateVPC(tags []string, exclusive bool) (*vpcv1.VPC, error) {
 	var prefixManagement string
 
 	vpcName := GenerateResourceName(vpcType)
+
+	if !exclusive {
+		tags = append(tags, SharedVPC)
+	}
 
 	// Prefix Management is done when subnet are created separately
 	prefixManagement = vpcv1.CreateVPCOptionsAddressPrefixManagementManualConst
