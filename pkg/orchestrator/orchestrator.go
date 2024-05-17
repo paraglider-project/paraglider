@@ -36,6 +36,7 @@ import (
 	grpc "google.golang.org/grpc"
 	insecure "google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/paraglider-project/paraglider/pkg/kvstore/storepb"
 	config "github.com/paraglider-project/paraglider/pkg/orchestrator/config"
@@ -611,7 +612,7 @@ func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *parag
 }
 
 // Gets unused address spaces across all clouds
-func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, _ *paragliderpb.Empty) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
+func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, _ *emptypb.Empty) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
 	err := s.updateUsedAddressSpaces()
 	if err != nil {
 		return nil, err
@@ -819,7 +820,7 @@ func (s *ControllerServer) getCloudDeployment(cloud, namespace string) string {
 }
 
 // Connects two clouds with VPN gateways
-func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.ConnectCloudsRequest) (*paragliderpb.BasicResponse, error) {
+func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.ConnectCloudsRequest) (*paragliderpb.ConnectCloudsResponse, error) {
 	if req.CloudA == req.CloudB {
 		return nil, fmt.Errorf("must specify different clouds to connect")
 	}
@@ -912,7 +913,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 		if err != nil {
 			return nil, fmt.Errorf("unable to create vpn connections in cloud %s: %w", req.CloudB, err)
 		}
-		return &paragliderpb.BasicResponse{Success: true}, nil
+		return &paragliderpb.ConnectCloudsResponse{}, nil
 	}
 	return nil, fmt.Errorf("clouds %s and %s are not supported for multi-cloud connecting", req.CloudA, req.CloudB)
 }
@@ -959,7 +960,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	defer conn.Close()
 
 	// Send RPC to create the resource
-	resource := paragliderpb.ResourceDescription{
+	resource := paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: s.getCloudDeployment(resourceInfo.cloud, resourceInfo.namespace), Namespace: resourceInfo.namespace},
 		Name:        resourceInfo.name,
 		Description: []byte(resourceWithString.Description),

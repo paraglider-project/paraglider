@@ -26,6 +26,7 @@ import (
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // Sets up fake orchestrator server
@@ -58,7 +59,7 @@ func (f *FakeOrchestratorRPCServer) FindUnusedAsn(ctx context.Context, _ *paragl
 	return &paragliderpb.FindUnusedAsnResponse{Asn: orchestrator.MIN_PRIVATE_ASN_2BYTE}, nil
 }
 
-func (f *FakeOrchestratorRPCServer) GetUsedAddressSpaces(ctx context.Context, _ *paragliderpb.Empty) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
+func (f *FakeOrchestratorRPCServer) GetUsedAddressSpaces(ctx context.Context, _ *emptypb.Empty) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
 	addressSpaces := make([]string, f.Counter)
 	for i := 0; i < f.Counter; i++ {
 		addressSpaces[i] = fmt.Sprintf("10.%d.0.0/16", i)
