@@ -71,7 +71,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Check out repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up Go ${{ env.GOVER }}
         uses: actions/setup-go@v3
         with:
@@ -107,7 +107,7 @@ jobs:
           make build
       - name: Run linter
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'  
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
           version: 'latest'
           args: --timeout=10m
@@ -238,7 +238,7 @@ jobs:
           workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/paraglider'
           service_account: 'invisinets-cicd@invisinets-cicd.iam.gserviceaccount.com'
       - name: 'Az CLI login'
-        uses: azure/login@v1
+        uses: azure/login@v2
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         with:
             creds: ${{ secrets.AZURE_CREDENTIALS }}
