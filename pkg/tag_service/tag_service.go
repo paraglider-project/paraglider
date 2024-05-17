@@ -30,7 +30,6 @@ import (
 	redis "github.com/redis/go-redis/v9"
 
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type tagServiceServer struct {
@@ -83,44 +82,44 @@ func (s *tagServiceServer) isDescendent(c context.Context, tag string, potential
 	return false, nil
 }
 
-func isLeafTagMapping(mapping *tagservicepb.TagMapping) (bool, error) {
-	hasChildren := len(mapping.ChildTags) > 0
-	hasUriOrIp := mapping.Uri != nil || mapping.Ip != nil
+func isLeafTagMapping(tag *tagservicepb.Tag) (bool, error) {
+	hasChildren := len(tag.ChildTags) > 0
+	hasUriOrIp := tag.Uri != nil || tag.Ip != nil
 	if hasChildren && hasUriOrIp {
-		return false, fmt.Errorf("TagMapping %s has both children and URI/IP", mapping.TagName)
+		return false, fmt.Errorf("TagMapping %s has both children and URI/IP", tag.Name)
 	}
 
 	return !hasChildren && hasUriOrIp, nil
 }
 
 func (s *tagServiceServer) isLeafTag(c context.Context, tag *tagservicepb.Tag) (bool, error) {
-	recordType, err := s.client.Type(c, tag.TagName).Result()
+	recordType, err := s.client.Type(c, tag.Name).Result()
 	if err != nil {
-		return false, fmt.Errorf("isLeafTag TYPE %s: %v", tag.TagName, err)
+		return false, fmt.Errorf("isLeafTag TYPE %s: %v", tag.Name, err)
 	}
 	return recordType == "hash", nil
 }
 
 // Record tag by storing mapping to URI and IP
-func (s *tagServiceServer) _setLeafTag(c context.Context, mapping *tagservicepb.TagMapping) error {
-	exists, err := s.client.HExists(c, mapping.TagName, "uri").Result()
+func (s *tagServiceServer) _setLeafTag(c context.Context, tag *tagservicepb.Tag) error {
+	exists, err := s.client.HExists(c, tag.Name, "uri").Result()
 	if err != nil {
 		return err
 	}
 	if exists {
-		return fmt.Errorf("Cannot set tag %s as a leaf tag because it already exists.", mapping.TagName)
+		return fmt.Errorf("Cannot set tag %s as a leaf tag because it already exists.", tag.Name)
 	}
 
 	uri := ""
-	if mapping.Uri != nil {
-		uri = *mapping.Uri
+	if tag.Uri != nil {
+		uri = *tag.Uri
 	}
 	ip := ""
-	if mapping.Ip != nil {
-		ip = *mapping.Ip
+	if tag.Ip != nil {
+		ip = *tag.Ip
 	}
 
-	err = s.client.HSet(c, mapping.TagName, map[string]string{"uri": uri, "ip": ip}).Err()
+	err = s.client.HSet(c, tag.Name, map[string]string{"uri": uri, "ip": ip}).Err()
 	if err != nil {
 		return err
 	}
@@ -128,75 +127,75 @@ func (s *tagServiceServer) _setLeafTag(c context.Context, mapping *tagservicepb.
 }
 
 // Set tag relationship by adding child tag to parent tag's set
-func (s *tagServiceServer) SetTag(c context.Context, mapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
+func (s *tagServiceServer) SetTag(c context.Context, req *tagservicepb.SetTagRequest) (*tagservicepb.SetTagResponse, error) {
 	// If tag is leaf entry (no children), set as a hash record and return
-	isLeaf, err := isLeafTagMapping(mapping)
+	isLeaf, err := isLeafTagMapping(req.Tag)
 	if err != nil {
-		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
+		return &tagservicepb.SetTagResponse{}, fmt.Errorf("SetTag: %v", err)
 	}
 	if isLeaf {
-		err := s._setLeafTag(c, mapping)
+		err := s._setLeafTag(c, req.Tag)
 		if err != nil {
-			return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
+			return &tagservicepb.SetTagResponse{}, fmt.Errorf("SetTag: %v", err)
 		}
-		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Created/updated tag: %s", mapping.TagName)}, nil
+		return &tagservicepb.SetTagResponse{}, nil
 	}
 
 	// If tag is not leaf entry, set as a set record and return
 	// Prevent cycles by checking if the parent tag is a descendent of any child tags
-	for _, child := range mapping.ChildTags {
-		parentTagIsDescendent, err := s.isDescendent(c, child, mapping.TagName)
+	for _, child := range req.Tag.ChildTags {
+		parentTagIsDescendent, err := s.isDescendent(c, child, req.Tag.Name)
 		if err != nil {
-			return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
+			return &tagservicepb.SetTagResponse{}, fmt.Errorf("SetTag: %v", err)
 		}
 		if parentTagIsDescendent {
-			return &tagservicepb.BasicResponse{Success: false, Message: fmt.Sprintf("Cannot set tag %s as a child of %s (cycle).", child, mapping.TagName)}, nil
+			return &tagservicepb.SetTagResponse{}, nil
 		}
 	}
 
 	// Add the tags
-	err = s.client.SAdd(c, mapping.TagName, mapping.ChildTags).Err()
+	err = s.client.SAdd(c, req.Tag.Name, req.Tag.ChildTags).Err()
 	if err != nil {
-		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("SetTag: %v", err)
+		return &tagservicepb.SetTagResponse{}, fmt.Errorf("SetTag: %v", err)
 	}
 
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Created/updated tag: %s", mapping.TagName)}, nil
+	return &tagservicepb.SetTagResponse{}, nil
 }
 
 // Get the members of a tag
-func (s *tagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMapping, error) {
+func (s *tagServiceServer) GetTag(c context.Context, req *tagservicepb.GetTagRequest) (*tagservicepb.GetTagResponse, error) {
 	// Determine if the tag is a leaf tag or not
-	isLeaf, err := s.isLeafTag(c, &tagservicepb.Tag{TagName: tag.TagName})
+	isLeaf, err := s.isLeafTag(c, &tagservicepb.Tag{Name: req.TagName})
 	if err != nil {
-		return nil, fmt.Errorf("GetTag %s: %v", tag.TagName, err)
+		return nil, fmt.Errorf("GetTag %s: %v", req.TagName, err)
 	}
 
 	// If it is, retrieve the hash record
 	if isLeaf {
-		info, err := s.client.HGetAll(c, tag.TagName).Result()
+		info, err := s.client.HGetAll(c, req.TagName).Result()
 		if err != nil {
-			return nil, fmt.Errorf("GetTag %s: %v", tag.TagName, err)
+			return nil, fmt.Errorf("GetTag %s: %v", req.TagName, err)
 		}
 		uri := info["uri"]
 		ip := info["ip"]
-		return &tagservicepb.TagMapping{TagName: tag.TagName, Uri: &uri, Ip: &ip}, nil
+		return &tagservicepb.GetTagResponse{Tag: &tagservicepb.Tag{Name: req.TagName, Uri: &uri, Ip: &ip}}, nil
 	}
 
 	// Otherwise, retrieve set of child tags
-	childrenTags, err := s.client.SMembers(c, tag.TagName).Result()
+	childrenTags, err := s.client.SMembers(c, req.TagName).Result()
 	if err != nil {
-		return nil, fmt.Errorf("GetTag %s: %v", tag.TagName, err)
+		return nil, fmt.Errorf("GetTag %s: %v", req.TagName, err)
 	}
-	return &tagservicepb.TagMapping{TagName: tag.TagName, ChildTags: childrenTags}, nil
+	return &tagservicepb.GetTagResponse{Tag: &tagservicepb.Tag{Name: req.TagName, ChildTags: childrenTags}}, nil
 }
 
 // Resolve a list of tags into all base-level IPs
-func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolvedTags []*tagservicepb.TagMapping) ([]*tagservicepb.TagMapping, error) {
+func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolvedTags []*tagservicepb.Tag) ([]*tagservicepb.Tag, error) {
 	for _, tag := range tags {
 		// If the tag is an IP, it is already resolved
 		isIP := isIpAddrOrCidr(tag)
 		if isIP {
-			ipTag := &tagservicepb.TagMapping{TagName: "", Uri: nil, Ip: &tag}
+			ipTag := &tagservicepb.Tag{Name: "", Uri: nil, Ip: &tag}
 			resolvedTags = append(resolvedTags, ipTag)
 		} else {
 			// Get the tag record type since may be hash (if name value) or set (if parent tag)
@@ -214,7 +213,7 @@ func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolv
 				}
 				uri := info["uri"]
 				ip := info["ip"]
-				resolvedTags = append(resolvedTags, &tagservicepb.TagMapping{TagName: tag, Uri: &uri, Ip: &ip})
+				resolvedTags = append(resolvedTags, &tagservicepb.Tag{Name: tag, Uri: &uri, Ip: &ip})
 			} else { // The tag has children that may also need resolved
 				childrenTags, err := s.client.SMembers(c, tag).Result()
 				if err != nil {
@@ -233,50 +232,50 @@ func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolv
 }
 
 // Resolve a tag down to all the IPs in it
-func (s *tagServiceServer) ResolveTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMappingList, error) {
-	var emptyTagList []*tagservicepb.TagMapping
-	resolvedTags, err := s._resolveTags(c, []string{tag.TagName}, emptyTagList)
+func (s *tagServiceServer) ResolveTag(c context.Context, req *tagservicepb.ResolveTagRequest) (*tagservicepb.ResolveTagResponse, error) {
+	var emptyTagList []*tagservicepb.Tag
+	resolvedTags, err := s._resolveTags(c, []string{req.TagName}, emptyTagList)
 	if err != nil {
 		return nil, err
 	}
 
-	return &tagservicepb.TagMappingList{Mappings: resolvedTags}, nil
+	return &tagservicepb.ResolveTagResponse{Tags: resolvedTags}, nil
 }
 
 // Resolve a list of tags into all base-level IPs
-func (s *tagServiceServer) ListTags(c context.Context, e *emptypb.Empty) (*tagservicepb.TagMappingList, error) {
-	var resolvedTagList []*tagservicepb.TagMapping
+func (s *tagServiceServer) ListTags(c context.Context, req *tagservicepb.ListTagsRequest) (*tagservicepb.ListTagsResponse, error) {
+	var resolvedTagList []*tagservicepb.Tag
 	tags := s.client.Keys(c, "*").Val()
 	for _, tag := range tags {
-		tagMapping, err := s.GetTag(c, &tagservicepb.Tag{TagName: tag})
+		resp, err := s.GetTag(c, &tagservicepb.GetTagRequest{TagName: tag})
 		if err != nil {
 			// Ignore errors
 			utils.Log.Printf("Failed to get tag mapping of %s: %v\n", tag, err)
 			continue
 		}
-		resolvedTagList = append(resolvedTagList, tagMapping)
+		resolvedTagList = append(resolvedTagList, resp.Tag)
 	}
 
-	return &tagservicepb.TagMappingList{Mappings: resolvedTagList}, nil
+	return &tagservicepb.ListTagsResponse{Tags: resolvedTagList}, nil
 }
 
 // Delete a member of a tag
-func (s *tagServiceServer) DeleteTagMember(c context.Context, mapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
-	err := s.client.SRem(c, mapping.TagName, mapping.ChildTags).Err()
+func (s *tagServiceServer) DeleteTagMember(c context.Context, req *tagservicepb.DeleteTagMemberRequest) (*tagservicepb.DeleteTagMemberResponse, error) {
+	err := s.client.SRem(c, req.Tag.Name, req.Tag.ChildTags).Err()
 	if err != nil {
-		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteTagMember %s: %v", mapping.TagName, err)
+		return &tagservicepb.DeleteTagMemberResponse{}, fmt.Errorf("DeleteTagMember %s: %v", req.Tag.Name, err)
 	}
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Deleted members from tag: %s", mapping.TagName)}, nil
+	return &tagservicepb.DeleteTagMemberResponse{}, nil
 }
 
 // Delete a leaf record for a tag
 func (s *tagServiceServer) _deleteLeafTag(c context.Context, tag *tagservicepb.Tag) error {
-	keys, err := s.client.HKeys(c, tag.TagName).Result()
+	keys, err := s.client.HKeys(c, tag.Name).Result()
 	if err != nil {
 		return err
 	}
 
-	err = s.client.HDel(c, tag.TagName, keys...).Err()
+	err = s.client.HDel(c, tag.Name, keys...).Err()
 	if err != nil {
 		return err
 	}
@@ -284,61 +283,61 @@ func (s *tagServiceServer) _deleteLeafTag(c context.Context, tag *tagservicepb.T
 }
 
 // Delete a tag and its relationship to its children tags
-func (s *tagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error) {
+func (s *tagServiceServer) DeleteTag(c context.Context, req *tagservicepb.DeleteTagRequest) (*tagservicepb.DeleteTagResponse, error) {
 	// If the tag is a leaf tag, delete the hash record
-	isLeaf, err := s.isLeafTag(c, tag)
+	isLeaf, err := s.isLeafTag(c, &tagservicepb.Tag{Name: req.TagName})
 	if err != nil {
-		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteTag %s: %v", tag.TagName, err)
+		return &tagservicepb.DeleteTagResponse{}, fmt.Errorf("DeleteTag %s: %v", req.TagName, err)
 	}
 	if isLeaf {
-		err := s._deleteLeafTag(c, tag)
+		err := s._deleteLeafTag(c, &tagservicepb.Tag{Name: req.TagName})
 		if err != nil {
-			return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteTag %s: %v", tag.TagName, err)
+			return &tagservicepb.DeleteTagResponse{}, fmt.Errorf("DeleteTag %s: %v", req.TagName, err)
 		}
-		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Deleted tag: %s", tag.TagName)}, nil
+		return &tagservicepb.DeleteTagResponse{}, nil
 	}
 
 	// Delete all children in mapping
-	childrenTags, err := s.client.SMembers(c, tag.TagName).Result()
+	childrenTags, err := s.client.SMembers(c, req.TagName).Result()
 	if err != nil {
-		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteTag %s: %v", tag.TagName, err)
+		return &tagservicepb.DeleteTagResponse{}, fmt.Errorf("DeleteTag %s: %v", req.TagName, err)
 	}
 
-	err = s.client.SRem(c, tag.TagName, childrenTags).Err()
+	err = s.client.SRem(c, req.TagName, childrenTags).Err()
 	if err != nil {
-		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("DeleteTag %s: %v", tag.TagName, err)
+		return &tagservicepb.DeleteTagResponse{}, fmt.Errorf("DeleteTag %s: %v", req.TagName, err)
 	}
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Deleted tag: %s", tag.TagName)}, nil
+	return &tagservicepb.DeleteTagResponse{}, nil
 }
 
 // Subscribe to a tag
-func (s *tagServiceServer) Subscribe(c context.Context, sub *tagservicepb.Subscription) (*tagservicepb.BasicResponse, error) {
-	err := s.client.SAdd(c, getSubscriptionKey(sub.TagName), sub.Subscriber).Err()
+func (s *tagServiceServer) Subscribe(c context.Context, req *tagservicepb.SubscribeRequest) (*tagservicepb.SubscribeResponse, error) {
+	err := s.client.SAdd(c, getSubscriptionKey(req.Subscription.TagName), req.Subscription.Subscriber).Err()
 	if err != nil {
-		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("Subscribe: %v", err)
+		return &tagservicepb.SubscribeResponse{}, fmt.Errorf("Subscribe: %v", err)
 	}
 
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Subscribed %s to tag %s", sub.Subscriber, sub.TagName)}, nil
+	return &tagservicepb.SubscribeResponse{}, nil
 }
 
 // Unsubscribe from a tag
-func (s *tagServiceServer) Unsubscribe(c context.Context, sub *tagservicepb.Subscription) (*tagservicepb.BasicResponse, error) {
-	err := s.client.SRem(c, getSubscriptionKey(sub.TagName), sub.Subscriber).Err()
+func (s *tagServiceServer) Unsubscribe(c context.Context, req *tagservicepb.UnsubscribeRequest) (*tagservicepb.UnsubscribeResponse, error) {
+	err := s.client.SRem(c, getSubscriptionKey(req.Subscription.TagName), req.Subscription.Subscriber).Err()
 	if err != nil {
-		return &tagservicepb.BasicResponse{Success: false, Message: err.Error()}, fmt.Errorf("Unsubscribe: %v", err)
+		return &tagservicepb.UnsubscribeResponse{}, fmt.Errorf("Unsubscribe: %v", err)
 	}
 
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("Unsubscribed %s from tag %s", sub.Subscriber, sub.TagName)}, nil
+	return &tagservicepb.UnsubscribeResponse{}, nil
 }
 
 // Get all subscribers to a tag
-func (s *tagServiceServer) GetSubscribers(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.SubscriberList, error) {
-	subs, err := s.client.SMembers(c, getSubscriptionKey(tag.TagName)).Result()
+func (s *tagServiceServer) GetSubscribers(c context.Context, req *tagservicepb.GetSubscribersRequest) (*tagservicepb.GetSubscribersResponse, error) {
+	subs, err := s.client.SMembers(c, getSubscriptionKey(req.Tag)).Result()
 	if err != nil {
 		return nil, fmt.Errorf("GetSubscribers: %v", err)
 	}
 
-	return &tagservicepb.SubscriberList{Subscribers: subs}, nil
+	return &tagservicepb.GetSubscribersResponse{Subscribers: subs}, nil
 }
 
 // Create a server for the tag service
