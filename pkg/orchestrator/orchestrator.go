@@ -1072,7 +1072,7 @@ func (s *ControllerServer) updateSubscribers(tag string) error {
 	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
-	response, err := client.GetSubscribers(context.Background(), &tagservicepb.GetSubscribersRequest{Tag: tag})
+	response, err := client.GetSubscribers(context.Background(), &tagservicepb.GetSubscribersRequest{TagName: tag})
 	if err != nil {
 		return err
 	}
@@ -1178,7 +1178,7 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
-	_, err = client.DeleteTagMember(context.Background(), &tagservicepb.DeleteTagMemberRequest{Tag: tag})
+	_, err = client.DeleteTagMember(context.Background(), &tagservicepb.DeleteTagMemberRequest{ParentTag: parentTag, ChildTag: memberTag})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return

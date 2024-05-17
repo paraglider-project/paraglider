@@ -261,9 +261,9 @@ func (s *tagServiceServer) ListTags(c context.Context, req *tagservicepb.ListTag
 
 // Delete a member of a tag
 func (s *tagServiceServer) DeleteTagMember(c context.Context, req *tagservicepb.DeleteTagMemberRequest) (*tagservicepb.DeleteTagMemberResponse, error) {
-	err := s.client.SRem(c, req.Tag.Name, req.Tag.ChildTags).Err()
+	err := s.client.SRem(c, req.ParentTag, req.ChildTags).Err()
 	if err != nil {
-		return &tagservicepb.DeleteTagMemberResponse{}, fmt.Errorf("DeleteTagMember %s: %v", req.Tag.Name, err)
+		return &tagservicepb.DeleteTagMemberResponse{}, fmt.Errorf("DeleteTagMember %s: %v", req.ParentTag, err)
 	}
 	return &tagservicepb.DeleteTagMemberResponse{}, nil
 }
@@ -332,7 +332,7 @@ func (s *tagServiceServer) Unsubscribe(c context.Context, req *tagservicepb.Unsu
 
 // Get all subscribers to a tag
 func (s *tagServiceServer) GetSubscribers(c context.Context, req *tagservicepb.GetSubscribersRequest) (*tagservicepb.GetSubscribersResponse, error) {
-	subs, err := s.client.SMembers(c, getSubscriptionKey(req.Tag)).Result()
+	subs, err := s.client.SMembers(c, getSubscriptionKey(req.TagName)).Result()
 	if err != nil {
 		return nil, fmt.Errorf("GetSubscribers: %v", err)
 	}
