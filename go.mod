@@ -23,7 +23,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
-	golang.org/x/crypto v0.22.0
+	golang.org/x/crypto v0.23.0
 	google.golang.org/api v0.162.0
 	google.golang.org/grpc v1.61.0
 	google.golang.org/protobuf v1.32.0
