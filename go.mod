@@ -1,6 +1,6 @@
 module github.com/paraglider-project/paraglider
 
-go 1.21
+go 1.22
 
 require (
 	cloud.google.com/go/billing v1.18.0
@@ -86,7 +86,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/redis/go-redis/v9 v9.1.0
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	go.mongodb.org/mongo-driver v1.12.1 // indirect
