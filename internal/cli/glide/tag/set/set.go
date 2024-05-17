@@ -93,7 +93,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		ip = &e.ip
 	}
 
-	tagMapping := &tagservicepb.TagMapping{TagName: args[0], ChildTags: e.children, Uri: uri, Ip: ip}
+	tagMapping := &tagservicepb.TagMapping{Name: args[0], ChildTags: e.children, Uri: uri, Ip: ip}
 
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	err := c.SetTag(args[0], tagMapping)

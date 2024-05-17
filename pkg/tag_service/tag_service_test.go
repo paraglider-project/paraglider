@@ -16,8 +16,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// TODO: Test the new helper functions
-
 package tagservice
 
 import (
@@ -85,9 +83,9 @@ func TestIsDescendent(t *testing.T) {
 }
 
 func TestIsLeafTagMapping(t *testing.T) {
-	leafTag := &tagservicepb.TagMapping{TagName: "tagname", ChildTags: []string{}, Uri: &uriVal, Ip: &ipVal}
-	notLeafTag := &tagservicepb.TagMapping{TagName: "tagname", ChildTags: []string{"child"}}
-	malformedTag := &tagservicepb.TagMapping{TagName: "tagname", ChildTags: []string{"child"}, Uri: &uriVal, Ip: &ipVal}
+	leafTag := &tagservicepb.TagMapping{Name: "tagname", ChildTags: []string{}, Uri: &uriVal, Ip: &ipVal}
+	notLeafTag := &tagservicepb.TagMapping{Name: "tagname", ChildTags: []string{"child"}}
+	malformedTag := &tagservicepb.TagMapping{Name: "tagname", ChildTags: []string{"child"}, Uri: &uriVal, Ip: &ipVal}
 
 	result, err := isLeafTagMapping(leafTag)
 	assert.True(t, result)
@@ -106,14 +104,14 @@ func TestIsLeafTag(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
-	leafTag := &tagservicepb.Tag{TagName: "leaf"}
-	mock.ExpectType(leafTag.TagName).SetVal("hash")
+	leafTag := "leaf"
+	mock.ExpectType(leafTag).SetVal("hash")
 
 	result, _ := server.isLeafTag(context.Background(), leafTag)
 	assert.True(t, result)
 
-	nonLeafTag := &tagservicepb.Tag{TagName: "nonleaflevel"}
-	mock.ExpectType(nonLeafTag.TagName).SetVal("set")
+	nonLeafTag := "nonleaflevel"
+	mock.ExpectType(nonLeafTag).SetVal("set")
 
 	result, _ = server.isLeafTag(context.Background(), nonLeafTag)
 	assert.False(t, result)
@@ -127,9 +125,9 @@ func TestSetLeafTag(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
-	newTag := tagservicepb.TagMapping{TagName: "tag", Uri: &uriVal, Ip: &ipVal}
-	mock.ExpectHExists(newTag.TagName, "uri").SetVal(false)
-	mock.ExpectHSet(newTag.TagName, map[string]string{"uri": *newTag.Uri, "ip": *newTag.Ip}).SetVal(0)
+	newTag := tagservicepb.TagMapping{Name: "tag", Uri: &uriVal, Ip: &ipVal}
+	mock.ExpectHExists(newTag.Name, "uri").SetVal(false)
+	mock.ExpectHSet(newTag.Name, map[string]string{"uri": *newTag.Uri, "ip": *newTag.Ip}).SetVal(0)
 
 	err := server._setLeafTag(context.Background(), &newTag)
 
@@ -140,7 +138,7 @@ func TestSetLeafTag(t *testing.T) {
 	}
 
 	// Test tag already exists
-	mock.ExpectHExists(newTag.TagName, "uri").SetVal(true)
+	mock.ExpectHExists(newTag.Name, "uri").SetVal(true)
 
 	err = server._setLeafTag(context.Background(), &newTag)
 
@@ -156,26 +154,26 @@ func TestSetTag(t *testing.T) {
 	server := newTagServiceServer(db)
 
 	// Tag mapping to children tags
-	newTag := tagservicepb.TagMapping{TagName: "parent", ChildTags: []string{"child"}}
+	newTag := tagservicepb.TagMapping{Name: "parent", ChildTags: []string{"child"}}
 	mock.ExpectType(newTag.ChildTags[0]).SetVal("hash")
-	mock.ExpectSAdd(newTag.TagName, newTag.ChildTags).SetVal(0)
+	mock.ExpectSAdd(newTag.Name, newTag.ChildTags).SetVal(0)
 
-	resp, _ := server.SetTag(context.Background(), &newTag)
+	_, err := server.SetTag(context.Background(), &tagservicepb.SetTagRequest{Tag: &newTag})
 
-	assert.True(t, resp.Success)
+	assert.Nil(t, err)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
 	}
 
 	// Leaf tag mapping
-	newTag = tagservicepb.TagMapping{TagName: "tag", Uri: &uriVal, Ip: &ipVal}
-	mock.ExpectHExists(newTag.TagName, "uri").SetVal(false)
-	mock.ExpectHSet(newTag.TagName, map[string]string{"uri": *newTag.Uri, "ip": *newTag.Ip}).SetVal(0)
+	newTag = tagservicepb.TagMapping{Name: "tag", Uri: &uriVal, Ip: &ipVal}
+	mock.ExpectHExists(newTag.Name, "uri").SetVal(false)
+	mock.ExpectHSet(newTag.Name, map[string]string{"uri": *newTag.Uri, "ip": *newTag.Ip}).SetVal(0)
 
-	resp, _ = server.SetTag(context.Background(), &newTag)
+	_, err = server.SetTag(context.Background(), &tagservicepb.SetTagRequest{Tag: &newTag})
 
-	assert.True(t, resp.Success)
+	assert.Nil(t, err)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
@@ -187,22 +185,24 @@ func TestGetTag(t *testing.T) {
 	server := newTagServiceServer(db)
 
 	// Non-leaf tag
-	tag := &tagservicepb.TagMapping{TagName: "parent", ChildTags: []string{"child"}}
-	mock.ExpectType(tag.TagName).SetVal("set")
-	mock.ExpectSMembers(tag.TagName).SetVal(tag.ChildTags)
-	resp, _ := server.GetTag(context.Background(), &tagservicepb.Tag{TagName: tag.TagName})
-	assert.Equal(t, resp, tag)
+	tag := &tagservicepb.TagMapping{Name: "parent", ChildTags: []string{"child"}}
+	mock.ExpectType(tag.Name).SetVal("set")
+	mock.ExpectSMembers(tag.Name).SetVal(tag.ChildTags)
+	resp, err := server.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tag.Name})
+	assert.Nil(t, err)
+	assert.Equal(t, resp.Tag, tag)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
 	}
 
 	// Leaf tag
-	tag = &tagservicepb.TagMapping{TagName: "tag", Uri: &uriVal, Ip: &ipVal}
-	mock.ExpectType(tag.TagName).SetVal("hash")
-	mock.ExpectHGetAll(tag.TagName).SetVal(map[string]string{"uri": *tag.Uri, "ip": *tag.Ip})
-	resp, _ = server.GetTag(context.Background(), &tagservicepb.Tag{TagName: tag.TagName})
-	assert.Equal(t, resp, tag)
+	tag = &tagservicepb.TagMapping{Name: "tag", Uri: &uriVal, Ip: &ipVal}
+	mock.ExpectType(tag.Name).SetVal("hash")
+	mock.ExpectHGetAll(tag.Name).SetVal(map[string]string{"uri": *tag.Uri, "ip": *tag.Ip})
+	resp, err = server.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tag.Name})
+	assert.Nil(t, err)
+	assert.Equal(t, resp.Tag, tag)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
@@ -213,11 +213,11 @@ func TestGetTagNotPresent(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
-	tag := &tagservicepb.TagMapping{TagName: "parent", ChildTags: []string{"child"}}
-	mock.ExpectType(tag.TagName).SetVal("set")
-	mock.ExpectSMembers(tag.TagName).SetErr(errors.New("no such tag present"))
-	resp, err := server.GetTag(context.Background(), &tagservicepb.Tag{TagName: tag.TagName})
-	var nilresult *tagservicepb.TagMapping
+	tag := &tagservicepb.TagMapping{Name: "parent", ChildTags: []string{"child"}}
+	mock.ExpectType(tag.Name).SetVal("set")
+	mock.ExpectSMembers(tag.Name).SetErr(errors.New("no such tag present"))
+	resp, err := server.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tag.Name})
+	var nilresult *tagservicepb.GetTagResponse
 	assert.ErrorContains(t, err, "no such tag present")
 	assert.Equal(t, resp, nilresult)
 
@@ -230,18 +230,18 @@ func TestResolveTag(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
-	childMapping := &tagservicepb.TagMapping{TagName: "child1", Uri: &uriVal, Ip: &ipVal}
+	childMapping := &tagservicepb.TagMapping{Name: "child1", Uri: &uriVal, Ip: &ipVal}
 	childIp := "1.2.3.4"
-	mapping := &tagservicepb.TagMapping{TagName: "parent", ChildTags: []string{childMapping.TagName, childIp}}
-	mock.ExpectType(mapping.TagName).SetVal("set")
-	mock.ExpectSMembers(mapping.TagName).SetVal(mapping.ChildTags)
-	mock.ExpectType(childMapping.TagName).SetVal("hash")
-	mock.ExpectHGetAll(childMapping.TagName).SetVal(map[string]string{"uri": *childMapping.Uri, "ip": *childMapping.Ip})
+	mapping := &tagservicepb.TagMapping{Name: "parent", ChildTags: []string{childMapping.Name, childIp}}
+	mock.ExpectType(mapping.Name).SetVal("set")
+	mock.ExpectSMembers(mapping.Name).SetVal(mapping.ChildTags)
+	mock.ExpectType(childMapping.Name).SetVal("hash")
+	mock.ExpectHGetAll(childMapping.Name).SetVal(map[string]string{"uri": *childMapping.Uri, "ip": *childMapping.Ip})
 
-	resp, err := server.ResolveTag(context.Background(), &tagservicepb.Tag{TagName: mapping.TagName})
+	resp, err := server.ResolveTag(context.Background(), &tagservicepb.ResolveTagRequest{TagName: mapping.Name})
 	assert.Nil(t, err)
-	assert.Equal(t, resp.Mappings[0], childMapping)
-	assert.Equal(t, *(resp.Mappings[1].Ip), childIp)
+	assert.Equal(t, resp.Tags[0], childMapping)
+	assert.Equal(t, *(resp.Tags[1].Ip), childIp)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
@@ -252,19 +252,19 @@ func TestResolveTagMemberNotPresent(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
-	childMapping := &tagservicepb.TagMapping{TagName: "child1", Uri: &uriVal, Ip: &ipVal}
+	childMapping := &tagservicepb.TagMapping{Name: "child1", Uri: &uriVal, Ip: &ipVal}
 	childIp := "1.2.3.4"
-	mapping := &tagservicepb.TagMapping{TagName: "parent", ChildTags: []string{childMapping.TagName, "non-existent-tag", childIp}}
-	mock.ExpectType(mapping.TagName).SetVal("set")
-	mock.ExpectSMembers(mapping.TagName).SetVal(mapping.ChildTags)
-	mock.ExpectType(childMapping.TagName).SetVal("hash")
-	mock.ExpectHGetAll(childMapping.TagName).SetVal(map[string]string{"uri": *childMapping.Uri, "ip": *childMapping.Ip})
+	mapping := &tagservicepb.TagMapping{Name: "parent", ChildTags: []string{childMapping.Name, "non-existent-tag", childIp}}
+	mock.ExpectType(mapping.Name).SetVal("set")
+	mock.ExpectSMembers(mapping.Name).SetVal(mapping.ChildTags)
+	mock.ExpectType(childMapping.Name).SetVal("hash")
+	mock.ExpectHGetAll(childMapping.Name).SetVal(map[string]string{"uri": *childMapping.Uri, "ip": *childMapping.Ip})
 	mock.ExpectType("non-existent-tag").SetVal("none")
 
-	resp, err := server.ResolveTag(context.Background(), &tagservicepb.Tag{TagName: mapping.TagName})
+	resp, err := server.ResolveTag(context.Background(), &tagservicepb.ResolveTagRequest{TagName: mapping.Name})
 	assert.Nil(t, err)
-	assert.Equal(t, resp.Mappings[0], childMapping)
-	assert.Equal(t, *(resp.Mappings[1].Ip), childIp)
+	assert.Equal(t, resp.Tags[0], childMapping)
+	assert.Equal(t, *(resp.Tags[1].Ip), childIp)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
@@ -275,10 +275,10 @@ func TestDeleteTagMember(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
-	tag := &tagservicepb.TagMapping{TagName: "parent", ChildTags: []string{"child1", "child2"}}
-	mock.ExpectSRem(tag.TagName, tag.ChildTags).SetVal(0)
-	resp, _ := server.DeleteTagMember(context.Background(), tag)
-	assert.True(t, resp.Success)
+	tag := &tagservicepb.TagMapping{Name: "parent", ChildTags: []string{"child1", "child2"}}
+	mock.ExpectSRem(tag.Name, tag.ChildTags[0]).SetVal(0)
+	_, err := server.DeleteTagMember(context.Background(), &tagservicepb.DeleteTagMemberRequest{ParentTag: tag.Name, ChildTag: tag.ChildTags[0]})
+	assert.Nil(t, err)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
@@ -289,10 +289,10 @@ func TestDeleteTagMemberNotPresent(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
-	tag := &tagservicepb.TagMapping{TagName: "parent", ChildTags: []string{"child"}}
-	mock.ExpectSRem(tag.TagName, tag.ChildTags).SetErr(errors.New("no such tag present"))
-	resp, err := server.DeleteTagMember(context.Background(), tag)
-	assert.False(t, resp.Success)
+	tag := &tagservicepb.TagMapping{Name: "parent", ChildTags: []string{"child"}}
+	mock.ExpectSRem(tag.Name, tag.ChildTags).SetErr(errors.New("no such tag present"))
+	_, err := server.DeleteTagMember(context.Background(), &tagservicepb.DeleteTagMemberRequest{ParentTag: tag.Name, ChildTag: tag.ChildTags[0]})
+	assert.NotNil(t, err)
 	assert.ErrorContains(t, err, "no such tag present")
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -305,25 +305,25 @@ func TestDeleteTag(t *testing.T) {
 	server := newTagServiceServer(db)
 
 	// Non-leaf tag
-	tag := &tagservicepb.TagMapping{TagName: "parent", ChildTags: []string{"child1", "child2"}}
-	mock.ExpectType(tag.TagName).SetVal("set")
-	mock.ExpectSMembers(tag.TagName).SetVal(tag.ChildTags)
-	mock.ExpectSRem(tag.TagName, tag.ChildTags).SetVal(0)
-	resp, _ := server.DeleteTag(context.Background(), &tagservicepb.Tag{TagName: tag.TagName})
-	assert.True(t, resp.Success)
+	tag := &tagservicepb.TagMapping{Name: "parent", ChildTags: []string{"child1", "child2"}}
+	mock.ExpectType(tag.Name).SetVal("set")
+	mock.ExpectSMembers(tag.Name).SetVal(tag.ChildTags)
+	mock.ExpectSRem(tag.Name, tag.ChildTags).SetVal(0)
+	_, err := server.DeleteTag(context.Background(), &tagservicepb.DeleteTagRequest{TagName: tag.Name})
+	assert.Nil(t, err)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
 	}
 
 	// Leaf tag
-	tag = &tagservicepb.TagMapping{TagName: "tag", Uri: &uriVal, Ip: &ipVal}
+	tag = &tagservicepb.TagMapping{Name: "tag", Uri: &uriVal, Ip: &ipVal}
 	keys := []string{"uri", "ip"}
-	mock.ExpectType(tag.TagName).SetVal("hash")
-	mock.ExpectHKeys(tag.TagName).SetVal(keys)
-	mock.ExpectHDel(tag.TagName, keys...).SetVal(0)
-	resp, _ = server.DeleteTag(context.Background(), &tagservicepb.Tag{TagName: tag.TagName})
-	assert.True(t, resp.Success)
+	mock.ExpectType(tag.Name).SetVal("hash")
+	mock.ExpectHKeys(tag.Name).SetVal(keys)
+	mock.ExpectHDel(tag.Name, keys...).SetVal(0)
+	_, err = server.DeleteTag(context.Background(), &tagservicepb.DeleteTagRequest{TagName: tag.Name})
+	assert.Nil(t, err)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
@@ -334,11 +334,11 @@ func TestDeleteTagNotPresent(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
-	tag := &tagservicepb.TagMapping{TagName: "parent", ChildTags: []string{"child1", "child2"}}
-	mock.ExpectType(tag.TagName).SetVal("set")
-	mock.ExpectSMembers(tag.TagName).SetErr(errors.New("no such tag present"))
-	resp, err := server.DeleteTag(context.Background(), &tagservicepb.Tag{TagName: tag.TagName})
-	assert.False(t, resp.Success)
+	tag := &tagservicepb.TagMapping{Name: "parent", ChildTags: []string{"child1", "child2"}}
+	mock.ExpectType(tag.Name).SetVal("set")
+	mock.ExpectSMembers(tag.Name).SetErr(errors.New("no such tag present"))
+	_, err := server.DeleteTag(context.Background(), &tagservicepb.DeleteTagRequest{TagName: tag.Name})
+	assert.NotNil(t, err)
 	assert.ErrorContains(t, err, "no such tag present")
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -351,10 +351,10 @@ func TestDeleteLeafTag(t *testing.T) {
 	server := newTagServiceServer(db)
 
 	keys := []string{"uri", "ip"}
-	nameMapping := &tagservicepb.TagMapping{TagName: "example", Uri: &uriVal, Ip: &ipVal}
-	mock.ExpectHKeys(nameMapping.TagName).SetVal(keys)
-	mock.ExpectHDel(nameMapping.TagName, keys...).SetVal(0)
-	err := server._deleteLeafTag(context.Background(), &tagservicepb.Tag{TagName: nameMapping.TagName})
+	nameMapping := &tagservicepb.TagMapping{Name: "example", Uri: &uriVal, Ip: &ipVal}
+	mock.ExpectHKeys(nameMapping.Name).SetVal(keys)
+	mock.ExpectHDel(nameMapping.Name, keys...).SetVal(0)
+	err := server._deleteLeafTag(context.Background(), &tagservicepb.TagMapping{Name: nameMapping.Name})
 	assert.Nil(t, err)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -368,8 +368,8 @@ func TestSubscribe(t *testing.T) {
 
 	sub := &tagservicepb.Subscription{TagName: "example", Subscriber: "sub/uri"}
 	mock.ExpectSAdd("SUB:"+sub.TagName, sub.Subscriber).SetVal(0)
-	resp, _ := server.Subscribe(context.Background(), sub)
-	assert.True(t, resp.Success)
+	_, err := server.Subscribe(context.Background(), &tagservicepb.SubscribeRequest{Subscription: sub})
+	assert.Nil(t, err)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
@@ -382,8 +382,8 @@ func TestUnsubscribe(t *testing.T) {
 
 	sub := &tagservicepb.Subscription{TagName: "example", Subscriber: "sub/uri"}
 	mock.ExpectSRem("SUB:"+sub.TagName, sub.Subscriber).SetVal(0)
-	resp, _ := server.Unsubscribe(context.Background(), sub)
-	assert.True(t, resp.Success)
+	_, err := server.Unsubscribe(context.Background(), &tagservicepb.UnsubscribeRequest{Subscription: sub})
+	assert.Nil(t, err)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
@@ -394,10 +394,10 @@ func TestGetSubscribers(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
 
-	tag := &tagservicepb.Tag{TagName: "example"}
+	tag := "example"
 	subscribers := []string{"uri1", "uri2"}
-	mock.ExpectSMembers("SUB:" + tag.TagName).SetVal(subscribers)
-	resp, _ := server.GetSubscribers(context.Background(), tag)
+	mock.ExpectSMembers("SUB:" + tag).SetVal(subscribers)
+	resp, _ := server.GetSubscribers(context.Background(), &tagservicepb.GetSubscribersRequest{TagName: tag})
 	assert.Equal(t, subscribers, resp.Subscribers)
 
 	if err := mock.ExpectationsWereMet(); err != nil {

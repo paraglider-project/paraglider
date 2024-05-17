@@ -82,7 +82,7 @@ func (s *tagServiceServer) isDescendent(c context.Context, tag string, potential
 	return false, nil
 }
 
-func isLeafTagMapping(tag *tagservicepb.Tag) (bool, error) {
+func isLeafTagMapping(tag *tagservicepb.TagMapping) (bool, error) {
 	hasChildren := len(tag.ChildTags) > 0
 	hasUriOrIp := tag.Uri != nil || tag.Ip != nil
 	if hasChildren && hasUriOrIp {
@@ -92,16 +92,16 @@ func isLeafTagMapping(tag *tagservicepb.Tag) (bool, error) {
 	return !hasChildren && hasUriOrIp, nil
 }
 
-func (s *tagServiceServer) isLeafTag(c context.Context, tag *tagservicepb.Tag) (bool, error) {
-	recordType, err := s.client.Type(c, tag.Name).Result()
+func (s *tagServiceServer) isLeafTag(c context.Context, tag string) (bool, error) {
+	recordType, err := s.client.Type(c, tag).Result()
 	if err != nil {
-		return false, fmt.Errorf("isLeafTag TYPE %s: %v", tag.Name, err)
+		return false, fmt.Errorf("isLeafTag TYPE %s: %v", tag, err)
 	}
 	return recordType == "hash", nil
 }
 
 // Record tag by storing mapping to URI and IP
-func (s *tagServiceServer) _setLeafTag(c context.Context, tag *tagservicepb.Tag) error {
+func (s *tagServiceServer) _setLeafTag(c context.Context, tag *tagservicepb.TagMapping) error {
 	exists, err := s.client.HExists(c, tag.Name, "uri").Result()
 	if err != nil {
 		return err
@@ -165,7 +165,7 @@ func (s *tagServiceServer) SetTag(c context.Context, req *tagservicepb.SetTagReq
 // Get the members of a tag
 func (s *tagServiceServer) GetTag(c context.Context, req *tagservicepb.GetTagRequest) (*tagservicepb.GetTagResponse, error) {
 	// Determine if the tag is a leaf tag or not
-	isLeaf, err := s.isLeafTag(c, &tagservicepb.Tag{Name: req.TagName})
+	isLeaf, err := s.isLeafTag(c, req.TagName)
 	if err != nil {
 		return nil, fmt.Errorf("GetTag %s: %v", req.TagName, err)
 	}
@@ -178,7 +178,7 @@ func (s *tagServiceServer) GetTag(c context.Context, req *tagservicepb.GetTagReq
 		}
 		uri := info["uri"]
 		ip := info["ip"]
-		return &tagservicepb.GetTagResponse{Tag: &tagservicepb.Tag{Name: req.TagName, Uri: &uri, Ip: &ip}}, nil
+		return &tagservicepb.GetTagResponse{Tag: &tagservicepb.TagMapping{Name: req.TagName, Uri: &uri, Ip: &ip}}, nil
 	}
 
 	// Otherwise, retrieve set of child tags
@@ -186,16 +186,16 @@ func (s *tagServiceServer) GetTag(c context.Context, req *tagservicepb.GetTagReq
 	if err != nil {
 		return nil, fmt.Errorf("GetTag %s: %v", req.TagName, err)
 	}
-	return &tagservicepb.GetTagResponse{Tag: &tagservicepb.Tag{Name: req.TagName, ChildTags: childrenTags}}, nil
+	return &tagservicepb.GetTagResponse{Tag: &tagservicepb.TagMapping{Name: req.TagName, ChildTags: childrenTags}}, nil
 }
 
 // Resolve a list of tags into all base-level IPs
-func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolvedTags []*tagservicepb.Tag) ([]*tagservicepb.Tag, error) {
+func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolvedTags []*tagservicepb.TagMapping) ([]*tagservicepb.TagMapping, error) {
 	for _, tag := range tags {
 		// If the tag is an IP, it is already resolved
 		isIP := isIpAddrOrCidr(tag)
 		if isIP {
-			ipTag := &tagservicepb.Tag{Name: "", Uri: nil, Ip: &tag}
+			ipTag := &tagservicepb.TagMapping{Name: "", Uri: nil, Ip: &tag}
 			resolvedTags = append(resolvedTags, ipTag)
 		} else {
 			// Get the tag record type since may be hash (if name value) or set (if parent tag)
@@ -213,7 +213,7 @@ func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolv
 				}
 				uri := info["uri"]
 				ip := info["ip"]
-				resolvedTags = append(resolvedTags, &tagservicepb.Tag{Name: tag, Uri: &uri, Ip: &ip})
+				resolvedTags = append(resolvedTags, &tagservicepb.TagMapping{Name: tag, Uri: &uri, Ip: &ip})
 			} else { // The tag has children that may also need resolved
 				childrenTags, err := s.client.SMembers(c, tag).Result()
 				if err != nil {
@@ -233,7 +233,7 @@ func (s *tagServiceServer) _resolveTags(c context.Context, tags []string, resolv
 
 // Resolve a tag down to all the IPs in it
 func (s *tagServiceServer) ResolveTag(c context.Context, req *tagservicepb.ResolveTagRequest) (*tagservicepb.ResolveTagResponse, error) {
-	var emptyTagList []*tagservicepb.Tag
+	var emptyTagList []*tagservicepb.TagMapping
 	resolvedTags, err := s._resolveTags(c, []string{req.TagName}, emptyTagList)
 	if err != nil {
 		return nil, err
@@ -244,7 +244,7 @@ func (s *tagServiceServer) ResolveTag(c context.Context, req *tagservicepb.Resol
 
 // Resolve a list of tags into all base-level IPs
 func (s *tagServiceServer) ListTags(c context.Context, req *tagservicepb.ListTagsRequest) (*tagservicepb.ListTagsResponse, error) {
-	var resolvedTagList []*tagservicepb.Tag
+	var resolvedTagList []*tagservicepb.TagMapping
 	tags := s.client.Keys(c, "*").Val()
 	for _, tag := range tags {
 		resp, err := s.GetTag(c, &tagservicepb.GetTagRequest{TagName: tag})
@@ -269,7 +269,7 @@ func (s *tagServiceServer) DeleteTagMember(c context.Context, req *tagservicepb.
 }
 
 // Delete a leaf record for a tag
-func (s *tagServiceServer) _deleteLeafTag(c context.Context, tag *tagservicepb.Tag) error {
+func (s *tagServiceServer) _deleteLeafTag(c context.Context, tag *tagservicepb.TagMapping) error {
 	keys, err := s.client.HKeys(c, tag.Name).Result()
 	if err != nil {
 		return err
@@ -285,12 +285,12 @@ func (s *tagServiceServer) _deleteLeafTag(c context.Context, tag *tagservicepb.T
 // Delete a tag and its relationship to its children tags
 func (s *tagServiceServer) DeleteTag(c context.Context, req *tagservicepb.DeleteTagRequest) (*tagservicepb.DeleteTagResponse, error) {
 	// If the tag is a leaf tag, delete the hash record
-	isLeaf, err := s.isLeafTag(c, &tagservicepb.Tag{Name: req.TagName})
+	isLeaf, err := s.isLeafTag(c, req.TagName)
 	if err != nil {
 		return &tagservicepb.DeleteTagResponse{}, fmt.Errorf("DeleteTag %s: %v", req.TagName, err)
 	}
 	if isLeaf {
-		err := s._deleteLeafTag(c, &tagservicepb.Tag{Name: req.TagName})
+		err := s._deleteLeafTag(c, &tagservicepb.TagMapping{Name: req.TagName})
 		if err != nil {
 			return &tagservicepb.DeleteTagResponse{}, fmt.Errorf("DeleteTag %s: %v", req.TagName, err)
 		}

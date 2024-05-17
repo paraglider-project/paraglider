@@ -494,7 +494,7 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &paragliderpb.ResourceDescription{
+	resource := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
@@ -528,7 +528,7 @@ func TestCreateResourceExistingVPCSubnet(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &paragliderpb.ResourceDescription{
+	resource := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
@@ -559,7 +559,7 @@ func TestCreateResourceExistingVPCMissingSubnet(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(&fakeInstancePrototype)})
 	require.NoError(t, err)
 
-	resource := &paragliderpb.ResourceDescription{
+	resource := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,

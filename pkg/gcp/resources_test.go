@@ -32,7 +32,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func getFakeInstanceResourceDescription() (*paragliderpb.ResourceDescription, *computepb.InsertInstanceRequest, error) {
+func getFakeInstanceResourceDescription() (*paragliderpb.CreateResourceRequest, *computepb.InsertInstanceRequest, error) {
 	instanceRequest := &computepb.InsertInstanceRequest{
 		Zone:             fakeZone,
 		InstanceResource: getFakeInstance(false),
@@ -42,11 +42,11 @@ func getFakeInstanceResourceDescription() (*paragliderpb.ResourceDescription, *c
 		return nil, nil, err
 	}
 
-	resource := &paragliderpb.ResourceDescription{Description: jsonReq}
+	resource := &paragliderpb.CreateResourceRequest{Description: jsonReq}
 	return resource, instanceRequest, nil
 }
 
-func getFakeClusterResourceDescription() (*paragliderpb.ResourceDescription, *containerpb.CreateClusterRequest, error) {
+func getFakeClusterResourceDescription() (*paragliderpb.CreateResourceRequest, *containerpb.CreateClusterRequest, error) {
 	clusterRequest := &containerpb.CreateClusterRequest{
 		Zone:    fakeZone,
 		Parent:  fmt.Sprintf("projects/%s/locations/%s", fakeProject, fakeZone),
@@ -57,7 +57,7 @@ func getFakeClusterResourceDescription() (*paragliderpb.ResourceDescription, *co
 		return nil, nil, err
 	}
 
-	resource := &paragliderpb.ResourceDescription{Description: jsonReq}
+	resource := &paragliderpb.CreateResourceRequest{Description: jsonReq}
 	return resource, clusterRequest, nil
 }
 

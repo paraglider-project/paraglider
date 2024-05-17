@@ -31,6 +31,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	config "github.com/paraglider-project/paraglider/pkg/orchestrator/config"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
@@ -823,7 +824,7 @@ func TestGetTag(t *testing.T) {
 
 	// Well-formed request for non-last-level tag
 	tag := faketagservice.ValidParentTagName
-	expectedResult := &tagservicepb.TagMapping{TagName: tag, ChildTags: []string{"child"}}
+	expectedResult := &tagservicepb.TagMapping{Name: tag, ChildTags: []string{"child"}}
 
 	url := fmt.Sprintf(GetFormatterString(GetTagURL), tag)
 	req, _ := http.NewRequest("GET", url, nil)
@@ -840,7 +841,7 @@ func TestGetTag(t *testing.T) {
 
 	// Well-formed request for last-level tag
 	tag = faketagservice.ValidLastLevelTagName
-	expectedResult = &tagservicepb.TagMapping{TagName: tag, Uri: &faketagservice.TagUri, Ip: &faketagservice.TagIp}
+	expectedResult = &tagservicepb.TagMapping{Name: tag, Uri: &faketagservice.TagUri, Ip: &faketagservice.TagIp}
 
 	url = fmt.Sprintf(GetFormatterString(GetTagURL), tag)
 	req, _ = http.NewRequest("GET", url, nil)
@@ -880,7 +881,7 @@ func TestResolveTag(t *testing.T) {
 	// Well-formed request
 	tag := faketagservice.ValidTagName
 	newUri := "uri/" + tag
-	expectedResult := &tagservicepb.TagMapping{TagName: tag, Uri: &newUri, Ip: &faketagservice.ResolvedTagIp}
+	expectedResult := &tagservicepb.TagMapping{Name: tag, Uri: &newUri, Ip: &faketagservice.ResolvedTagIp}
 
 	url := fmt.Sprintf(GetFormatterString(ResolveTagURL), tag)
 	req, _ := http.NewRequest("GET", url, nil)
@@ -888,12 +889,12 @@ func TestResolveTag(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	responseData, _ := io.ReadAll(w.Body)
-	var nameMaps *tagservicepb.TagMappingList
+	nameMaps := []*tagservicepb.TagMapping{}
 	err := json.Unmarshal(responseData, &nameMaps)
 
 	require.Nil(t, err)
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, expectedResult, nameMaps.Mappings[0])
+	assert.Equal(t, expectedResult, nameMaps[0])
 
 	// Resolve non-existent tag
 	tag = "badtag"
@@ -922,10 +923,10 @@ func TestSetTag(t *testing.T) {
 	r.POST(SetTagURL, orchestratorServer.setTag)
 
 	// Well-formed request
-	tagMapping := &tagservicepb.TagMapping{TagName: faketagservice.ValidTagName, ChildTags: []string{faketagservice.ValidTagName + "child"}}
+	tagMapping := &tagservicepb.TagMapping{Name: faketagservice.ValidTagName, ChildTags: []string{faketagservice.ValidTagName + "child"}}
 	jsonValue, _ := json.Marshal(tagMapping)
 
-	url := fmt.Sprintf(GetFormatterString(SetTagURL), tagMapping.TagName)
+	url := fmt.Sprintf(GetFormatterString(SetTagURL), tagMapping.Name)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -940,7 +941,7 @@ func TestSetTag(t *testing.T) {
 	// Malformed request
 	jsonValue, _ = json.Marshal(tagMapping.ChildTags)
 
-	url = fmt.Sprintf(GetFormatterString(SetTagURL), tagMapping.TagName)
+	url = fmt.Sprintf(GetFormatterString(SetTagURL), tagMapping.Name)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -967,9 +968,9 @@ func TestDeleteTagMember(t *testing.T) {
 	r.DELETE(DeleteTagMemberURL, orchestratorServer.deleteTagMember)
 
 	// Well-formed request
-	tagMapping := &tagservicepb.TagMapping{TagName: faketagservice.ValidTagName, ChildTags: []string{"child"}}
+	tagMapping := &tagservicepb.TagMapping{Name: faketagservice.ValidTagName, ChildTags: []string{"child"}}
 
-	url := fmt.Sprintf(GetFormatterString(DeleteTagMemberURL), tagMapping.TagName, tagMapping.ChildTags[0])
+	url := fmt.Sprintf(GetFormatterString(DeleteTagMemberURL), tagMapping.Name, tagMapping.ChildTags[0])
 	req, _ := http.NewRequest("DELETE", url, nil)
 	w := httptest.NewRecorder()
 
@@ -982,9 +983,9 @@ func TestDeleteTagMember(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Non-existent tag
-	tagMapping = &tagservicepb.TagMapping{TagName: "badtag", ChildTags: []string{"child"}}
+	tagMapping = &tagservicepb.TagMapping{Name: "badtag", ChildTags: []string{"child"}}
 
-	url = fmt.Sprintf(GetFormatterString(DeleteTagMemberURL), tagMapping.TagName, tagMapping.ChildTags[0])
+	url = fmt.Sprintf(GetFormatterString(DeleteTagMemberURL), tagMapping.Name, tagMapping.ChildTags[0])
 	req, _ = http.NewRequest("DELETE", url, nil)
 	w = httptest.NewRecorder()
 
@@ -1074,8 +1075,8 @@ func TestGetIPsFromResolvedTag(t *testing.T) {
 	uri1 := "uri/name1"
 	uri2 := "uri/name2"
 	mappings := []*tagservicepb.TagMapping{
-		{TagName: "name1", Uri: &uri1, Ip: &ip1},
-		{TagName: "name2", Uri: &uri2, Ip: &ip2},
+		{Name: "name1", Uri: &uri1, Ip: &ip1},
+		{Name: "name2", Uri: &uri2, Ip: &ip2},
 	}
 	expectedIps := []string{ip1, ip2}
 
@@ -1275,7 +1276,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		"otherNamespace": {{Name: utils.AZURE, Deployment: "deployment2"}},
 	}
 
-	getUsedAddressSpacesResp, err := orchestratorServer.GetUsedAddressSpaces(context.Background(), &paragliderpb.Empty{})
+	getUsedAddressSpacesResp, err := orchestratorServer.GetUsedAddressSpaces(context.Background(), &emptypb.Empty{})
 	require.Nil(t, err)
 	assert.ElementsMatch(t, getUsedAddressSpacesResp.AddressSpaceMappings, []*paragliderpb.AddressSpaceMapping{
 		{AddressSpaces: gcp_address_spaces, Cloud: utils.GCP, Namespace: defaultNamespace, Deployment: proto.String("deployment1")},

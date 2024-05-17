@@ -329,7 +329,7 @@ func TestCreateResource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &paragliderpb.ResourceDescription{
+	resource := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		Name:        fakeInstanceName,
 		Description: description,
@@ -363,7 +363,7 @@ func TestCreateResourceCluster(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &paragliderpb.ResourceDescription{
+	resource := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		Name:        fakeClusterName,
 		Description: description,
@@ -392,7 +392,7 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &paragliderpb.ResourceDescription{
+	resource := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		Name:        fakeInstanceName,
 		Description: description,
@@ -425,7 +425,7 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resource := &paragliderpb.ResourceDescription{
+	resource := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		Name:        fakeInstanceName,
 		Description: description,
@@ -574,5 +574,4 @@ func TestCreateVpnConnections(t *testing.T) {
 	resp, err := s._CreateVpnConnections(ctx, req, fakeClients.externalVpnGatewaysClient, fakeClients.vpnTunnelsClient, fakeClients.routersClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	require.True(t, resp.Success)
 }

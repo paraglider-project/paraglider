@@ -114,7 +114,7 @@ func isIpAddrOrCidr(value string) bool {
 }
 
 // Retrieve the IPs from a list of name mappings
-func getIPsFromResolvedTag(mappings []*tagservicepb.Tag) []string {
+func getIPsFromResolvedTag(mappings []*tagservicepb.TagMapping) []string {
 	ips := make([]string, len(mappings))
 	for i, mapping := range mappings {
 		ips[i] = *mapping.Ip
@@ -982,7 +982,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 
 	tagName := createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
 	tagClient := tagservicepb.NewTagServiceClient(conn)
-	_, err = tagClient.SetTag(context.Background(), &tagservicepb.SetTagRequest{Tag: &tagservicepb.Tag{Name: tagName, Uri: &resourceResp.Uri, Ip: &resourceResp.Ip}})
+	_, err = tagClient.SetTag(context.Background(), &tagservicepb.SetTagRequest{Tag: &tagservicepb.TagMapping{Name: tagName, Uri: &resourceResp.Uri, Ip: &resourceResp.Ip}})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error())) // TODO @smcclure20: change this to a warning?
 		return
@@ -1010,7 +1010,7 @@ func (s *ControllerServer) listTags(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 	}
 
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, response.Tags)
 }
 
 // Get tag from local tag service
@@ -1029,9 +1029,10 @@ func (s *ControllerServer) getTag(c *gin.Context) {
 	response, err := client.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tag})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
 	}
 
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, response.Tag)
 }
 
 // Resolve tag down to IP/URI(s) from local tag service
@@ -1050,9 +1051,10 @@ func (s *ControllerServer) resolveTag(c *gin.Context) {
 	response, err := client.ResolveTag(context.Background(), &tagservicepb.ResolveTagRequest{TagName: tag})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
 	}
 
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, response.Tags)
 }
 
 // Clear targets from rules provided by the user
@@ -1106,7 +1108,7 @@ func (s *ControllerServer) updateSubscribers(tag string) error {
 // Set tag mapping in local db and update subscribers to membership change
 func (s *ControllerServer) setTag(c *gin.Context) {
 	// Parse data
-	var tag tagservicepb.Tag
+	var tag tagservicepb.TagMapping
 	if err := c.BindJSON(&tag); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1168,7 +1170,7 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	parentTag := c.Param("tag")
 	memberTag := c.Param("member")
-	tag := &tagservicepb.Tag{Name: parentTag, ChildTags: []string{memberTag}}
+	tag := &tagservicepb.TagMapping{Name: parentTag, ChildTags: []string{memberTag}}
 
 	// Call DeleteTagMember
 	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))

@@ -83,7 +83,7 @@ func TestCreateResource(t *testing.T) {
 
 	t.Run("TestCreateResource: Failure, invalid json", func(t *testing.T) {
 		server, ctx := setupTestAzurePluginServer()
-		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
+		response, err := server.CreateResource(ctx, &paragliderpb.CreateResourceRequest{
 			Description: []byte("invalid json"),
 		})
 
@@ -100,7 +100,7 @@ func TestCreateResource(t *testing.T) {
 		}
 		server, ctx := setupTestAzurePluginServer()
 
-		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
+		response, err := server.CreateResource(ctx, &paragliderpb.CreateResourceRequest{
 			Description: desc,
 		})
 
@@ -124,7 +124,7 @@ func TestCreateResource(t *testing.T) {
 
 		server, ctx := setupTestAzurePluginServer()
 
-		response, err := server.CreateResource(ctx, &paragliderpb.ResourceDescription{
+		response, err := server.CreateResource(ctx, &paragliderpb.CreateResourceRequest{
 			Description: desc,
 		})
 
@@ -699,7 +699,6 @@ func TestCreateVpnConnections(t *testing.T) {
 	resp, err := server.CreateVpnConnections(ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	require.True(t, resp.Success)
 }
 
 /* --- Helper Functions --- */

@@ -36,7 +36,7 @@ message Subscription {
     string subscriber = 2;
 }
 
-message Tag {
+message TagMapping {
     string name = 1;
     repeated string child_tags = 2;
     optional string uri = 3;
@@ -44,7 +44,7 @@ message Tag {
 }
 
 message SetTagRequest {
-    Tag tag = 1;
+    TagMapping tag = 1;
 }
 
 message SetTagResponse {
@@ -55,7 +55,7 @@ message GetTagRequest {
 }
 
 message GetTagResponse {
-    Tag tag = 1;
+    TagMapping tag = 1;
 }
 
 message ResolveTagRequest {
@@ -63,14 +63,14 @@ message ResolveTagRequest {
 }
 
 message ResolveTagResponse {
-    repeated Tag tags = 1;
+    repeated TagMapping tags = 1;
 }
 
 message ListTagsRequest {
 }
 
 message ListTagsResponse {
-    repeated Tag tags = 1;
+    repeated TagMapping tags = 1;
 }
 
 message DeleteTagMemberRequest {

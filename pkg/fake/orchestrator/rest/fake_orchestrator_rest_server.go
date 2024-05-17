@@ -95,7 +95,7 @@ func GetFakePermitListRuleNames() []string {
 
 func GetFakeTagMapping(tagName string) *tagservicepb.TagMapping {
 	return &tagservicepb.TagMapping{
-		TagName:   tagName,
+		Name:      tagName,
 		ChildTags: []string{"member1", "member2"},
 	}
 }
@@ -103,9 +103,9 @@ func GetFakeTagMapping(tagName string) *tagservicepb.TagMapping {
 func GetFakeTagMappingLeafTags(tagName string) []*tagservicepb.TagMapping {
 	return []*tagservicepb.TagMapping{
 		{
-			TagName: tagName,
-			Uri:     proto.String("resource/uri"),
-			Ip:      proto.String("3.3.3.3"),
+			Name: tagName,
+			Uri:  proto.String("resource/uri"),
+			Ip:   proto.String("3.3.3.3"),
 		},
 	}
 }
@@ -113,18 +113,18 @@ func GetFakeTagMappingLeafTags(tagName string) []*tagservicepb.TagMapping {
 func ListFakeTagMapping() []*tagservicepb.TagMapping {
 	return []*tagservicepb.TagMapping{
 		{
-			TagName:   "tag1",
+			Name:      "tag1",
 			ChildTags: []string{"member1", "member2"},
 		},
 		{
-			TagName: "member1",
-			Uri:     proto.String("resource/uri"),
-			Ip:      proto.String("1.1.1.1"),
+			Name: "member1",
+			Uri:  proto.String("resource/uri"),
+			Ip:   proto.String("1.1.1.1"),
 		},
 		{
-			TagName: "member2",
-			Uri:     proto.String("resource/uri"),
-			Ip:      proto.String("2.2.2.2"),
+			Name: "member2",
+			Uri:  proto.String("resource/uri"),
+			Ip:   proto.String("2.2.2.2"),
 		},
 	}
 }
@@ -246,7 +246,7 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 		// Tag List
 		case urlMatches(path, orchestrator.ListTagURL):
 			if r.Method == http.MethodGet {
-				err := s.writeResponse(w, tagservicepb.TagMappingList{Mappings: ListFakeTagMapping()})
+				err := s.writeResponse(w, ListFakeTagMapping())
 				if err != nil {
 					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 					return
@@ -284,7 +284,7 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 			return
 		// Resolve Tag
 		case urlMatches(path, orchestrator.ResolveTagURL) && r.Method == http.MethodPost:
-			mappings := tagservicepb.TagMappingList{Mappings: GetFakeTagMappingLeafTags(getURLParams(path, string(orchestrator.ResolveTagURL))["tag"])}
+			mappings := GetFakeTagMappingLeafTags(getURLParams(path, string(orchestrator.ResolveTagURL))["tag"])
 			err := s.writeResponse(w, &mappings)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
