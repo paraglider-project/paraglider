@@ -15,8 +15,8 @@ on:
       - features/*
       - release/*
     paths:
-      docs/**
-      .github/workflows/docs.yaml
+      - docs/**
+      - .github/workflows/docs.yaml
 
 env:
   # Python
