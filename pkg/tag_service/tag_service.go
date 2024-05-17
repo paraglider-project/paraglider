@@ -261,7 +261,7 @@ func (s *tagServiceServer) ListTags(c context.Context, req *tagservicepb.ListTag
 
 // Delete a member of a tag
 func (s *tagServiceServer) DeleteTagMember(c context.Context, req *tagservicepb.DeleteTagMemberRequest) (*tagservicepb.DeleteTagMemberResponse, error) {
-	err := s.client.SRem(c, req.ParentTag, req.ChildTags).Err()
+	err := s.client.SRem(c, req.ParentTag, req.ChildTag).Err()
 	if err != nil {
 		return &tagservicepb.DeleteTagMemberResponse{}, fmt.Errorf("DeleteTagMember %s: %v", req.ParentTag, err)
 	}
