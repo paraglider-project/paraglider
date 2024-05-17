@@ -1,14 +1,5 @@
-|
-
-.. image:: ./_static/paraglider-color-darkmode.png
-    :width: 300
-    :alt: Paraglider Logo
-    :class: no-scaled-link, only-dark
-
-.. image:: ./_static/paraglider-color-lightmode.png
-   :width: 300
-   :alt: Paraglider Logo
-   :class: no-scaled-link, only-light
+Welcome to Paraglider!
+======================================
 
 .. raw:: html
 
