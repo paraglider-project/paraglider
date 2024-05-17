@@ -23,7 +23,7 @@ concurrency:
 
 env:
   # Go version to install
-  GOVER: '^1.21'
+  GOVER: '^1.22'
   GOPROXY: https://proxy.golang.org
   
   # gotestsum version - see: https://github.com/gotestyourself/gotestsum
