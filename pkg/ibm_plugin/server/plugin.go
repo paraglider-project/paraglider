@@ -334,7 +334,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	}
 	utils.Log.Printf("Translated permit list to intermediate IBM Rule : %v\n", ibmRulesToAdd)
 
-	vpcAddressSpaces, err:=cloudClient.GetVpcCIDR(*requestVPCData.ID)
+	vpcAddressSpaces, err := cloudClient.GetVpcCIDR(*requestVPCData.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -357,17 +357,17 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
 	gwID := "" // global transit gateway ID for vpc-peering.
-	for _, invisinetsRule := range req.Rules {
-		// translate invisinets rule to IBM rules to compare hash values with current rules.
+	for _, paragliderRule := range req.Rules {
+		// translate paraglider rule to IBM rules to compare hash values with current rules.
 		// multiple ibm rules can be returned due to multiple possible targets
-		ibmRules, err := sdk.ParagliderToIBMRule(requestSGID, invisinetsRule)
+		ibmRules, err := sdk.ParagliderToIBMRule(requestSGID, paragliderRule)
 		if err != nil {
 			utils.Log.Printf("Failed to get remote vpc: %v.\n", err)
 			return nil, err
 		}
 
 		// peeringCloudInfos contains cloud info associated with the specified rule's targets
-		peeringCloudInfos, err := utils.GetPermitListRulePeeringCloudInfo(invisinetsRule, addressSpaceMappings.AddressSpaceMappings)
+		peeringCloudInfos, err := utils.GetPermitListRulePeeringCloudInfo(paragliderRule, addressSpaceMappings.AddressSpaceMappings)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get peering cloud infos: %w", err)
 		}
@@ -377,17 +377,17 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 				continue
 			}
 			if peeringCloudInfo.Cloud != utils.IBM {
-				ruleTargetAddress:=ibmRules[i].Remote
+				ruleTargetAddress := ibmRules[i].Remote
 				// Create VPN connections
 				connectCloudsReq := &paragliderpb.ConnectCloudsRequest{
-					CloudA:          utils.IBM,
-					CloudANamespace: req.Namespace,
-					CloudB:          peeringCloudInfo.Cloud,
-					CloudBNamespace: peeringCloudInfo.Namespace,
+					CloudA:             utils.IBM,
+					CloudANamespace:    req.Namespace,
+					CloudB:             peeringCloudInfo.Cloud,
+					CloudBNamespace:    peeringCloudInfo.Namespace,
 					AddressSpaceCloudA: vpcAddressSpaces,
 					AddressSpaceCloudB: []string{ruleTargetAddress},
 				}
-				if len(ruleTargetAddress) == 0{
+				if len(ruleTargetAddress) == 0 {
 					return nil, fmt.Errorf("Missing remote address for rule %+v", ibmRules[i])
 				}
 				_, err := controllerClient.ConnectClouds(ctx, connectCloudsReq)
@@ -496,7 +496,7 @@ func (s *IBMPluginServer) connectToTransitGatewayIfNeeded(cloudClient *sdk.Cloud
 		}
 	}
 	vpcID := sdk.CRN2ID(vpcCRN)
-	// if the remote resides inside an invisinets VPC that isn't the request VM's VPC, connect them
+	// if the remote resides inside an paraglider VPC that isn't the request VM's VPC, connect them
 	if remoteVPC != "" && remoteVPC != vpcID {
 		utils.Log.Printf("The following rule's remote is targeting a different IBM VPC\nRule: %+v\nVPC:%+v", ibmRule, remoteVPC)
 		// fetch or create transit gateway
@@ -606,9 +606,12 @@ func (s *IBMPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderp
 	if err != nil {
 		return nil, err
 	}
-	region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
+	region, err := s.getRegionOfAddressSpace(rInfo.ResourceGroup, req.Deployment.Namespace, req.AddressSpace)
 	if err != nil {
 		return nil, err
+	}
+	if region == ""{
+		return nil, fmt.Errorf("Failed to find a region where the %v is deployed", req.AddressSpace)
 	}
 	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 	if err != nil {
@@ -622,18 +625,47 @@ func (s *IBMPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderp
 	return &paragliderpb.CreateVpnGatewayResponse{GatewayIpAddresses: ipAddresses}, nil
 }
 
+// returns the region of the VPC containing the specified address space 
+func (s *IBMPluginServer) getRegionOfAddressSpace(resourceGroup, namespace, addressSpace string) (string, error) {
+	client, err:= s.setupCloudClient(resourceGroup, defaultRegion)
+	if err != nil {
+		return "", err
+	}
+	vpcsData, err:= client.GetParagliderTaggedResources(sdk.VPC, []string{namespace}, sdk.ResourceQuery{})
+	if err!=nil{
+		return "", err
+	}
+	for _,vpcData:=range vpcsData{
+		client, err:= s.setupCloudClient(resourceGroup, vpcData.Region)
+		if err!=nil{
+			return "", err
+		}
+		VPCFound,err:=client.IsRemoteInVPC(vpcData.ID, addressSpace)
+		if err!=nil{
+			return "", err
+		}	
+		if VPCFound{
+			return vpcData.Region, nil
+		}
+	}
+	return "", nil
+}
+
 // creates VPN connection
 func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.BasicResponse, error) {
-	if len(req.RemoteAddresses) == 0{
+	if len(req.RemoteAddresses) == 0 {
 		return nil, fmt.Errorf("RemoteAddress is a mandatory field for IBM VPN connections.")
 	}
 	rInfo, err := getResourceMeta(req.Deployment.Id)
 	if err != nil {
 		return nil, err
 	}
-	region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
+	region, err := s.getRegionOfAddressSpace(rInfo.ResourceGroup, req.Deployment.Namespace, req.AddressSpace)
 	if err != nil {
 		return nil, err
+	}
+	if region == ""{
+		return nil, fmt.Errorf("Failed to find a region where the %v is deployed", req.AddressSpace)
 	}
 	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 	if err != nil {
@@ -664,44 +696,9 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 	return &paragliderpb.BasicResponse{Success: true}, nil
 }
 
-// returns IP addresses of VPNs referenced in request
+// IBM doesn't currently support BGP peering
 func (s *IBMPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *paragliderpb.GetUsedBgpPeeringIpAddressesRequest) (*paragliderpb.GetUsedBgpPeeringIpAddressesResponse, error) {
-	resp := &paragliderpb.GetUsedBgpPeeringIpAddressesResponse{}
-	// collect public IP addresses from each VPN that is referenced by deployments specified in the request
-	for _, deployment := range req.Deployments {
-		rInfo, err := getResourceMeta(deployment.Id)
-		if err != nil {
-			return nil, err
-		}
-		region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
-		if err != nil {
-			return nil, err
-		}
-		cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
-		if err != nil {
-			return nil, err
-		}
-
-		// gets all VPNs associated with specified namespace
-		vpns, err := cloudClient.GetVPNsInNamespaceRegion(deployment.Namespace, "")
-		if err != nil {
-			return nil, err
-		}
-		// collects public IPs of each VPN
-		for _, vpn := range vpns {
-			vpnRegion := vpn.Region
-			cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, vpnRegion)
-			if err != nil {
-				return nil, err
-			}
-			ips, err := cloudClient.GetVPNIPs(vpn.ID)
-			if err != nil {
-				return nil, err
-			}
-			resp.IpAddresses = append(resp.IpAddresses, ips...)
-		}
-	}
-	return resp, nil
+	return &paragliderpb.GetUsedBgpPeeringIpAddressesResponse{}, nil
 }
 
 // returns an empty response, since ASNs aren't exposed on IBM cloud
