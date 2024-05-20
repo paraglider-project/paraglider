@@ -1,7 +1,7 @@
-//go:build ibm
+// //go:build ibm
 
 /*
-Copyright 2023 The Invisinets Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,38 +25,43 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gotest.tools/assert"
 
-	"github.com/NetSys/invisinets/pkg/azure_plugin"
-	fake "github.com/NetSys/invisinets/pkg/fake/controller/rpc"
-	ibmCommon "github.com/NetSys/invisinets/pkg/ibm_plugin"
-	sdk "github.com/NetSys/invisinets/pkg/ibm_plugin/sdk"
-	"github.com/NetSys/invisinets/pkg/invisinetspb"
-	"github.com/NetSys/invisinets/pkg/orchestrator"
-	"github.com/NetSys/invisinets/pkg/orchestrator/config"
-	utils "github.com/NetSys/invisinets/pkg/utils"
+	azure "github.com/paraglider-project/paraglider/pkg/azure"
+	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
+	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
+	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
+	"github.com/paraglider-project/paraglider/pkg/kvstore"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator/config"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	tagging "github.com/paraglider-project/paraglider/pkg/tag_service"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
-var testResGroupName = flag.String("sg", "pywren", "Name of the user's security group")
+var testResGroupName = flag.String("sg", "8145289ddf7047ea93fd2835de391f43", "ID of the user's security group")
 var testResourceIDUSEast1 string
 var testResourceIDUSEast2 string
 var testResourceIDUSEast3 string
 var testResourceIDEUDE1 string
 var testResourceIDUSSouth1 string
+var testDeployment string
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	testResourceIDUSEast1 = "/ResourceGroupName/" + *testResGroupName + "/Zone/" + testZoneUSEast1 + "/ResourceID/" + testInstanceNameUSEast1
-	testResourceIDUSEast2 = "/ResourceGroupName/" + *testResGroupName + "/Zone/" + testZoneUSEast2 + "/ResourceID/" + testInstanceNameUSEast2
-	testResourceIDUSEast3 = "/ResourceGroupName/" + *testResGroupName + "/Zone/" + testZoneUSEast3 + "/ResourceID/" + testInstanceNameUSEast3
-	testResourceIDEUDE1 = "/ResourceGroupName/" + *testResGroupName + "/Zone/" + testZoneEUDE1 + "/ResourceID/" + testInstanceNameEUDE1
-	testResourceIDUSSouth1 = "/ResourceGroupName/" + *testResGroupName + "/Zone/" + testZoneUSSouth1 + "/ResourceID/" + testInstanceNameUSSouth1
+	testResourceIDUSEast1 = "/resourcegroup/" + *testResGroupName + "/zone/" + testZoneUSEast1 + "/instance/"
+	testResourceIDUSEast2 = "/resourcegroup/" + *testResGroupName + "/zone/" + testZoneUSEast2 + "/instance/"
+	testResourceIDUSEast3 = "/resourcegroup/" + *testResGroupName + "/zone/" + testZoneUSEast3 + "/instance/"
+	testResourceIDEUDE1 = "/resourcegroup/" + *testResGroupName + "/zone/" + testZoneEUDE1 + "/instance/"
+	testResourceIDUSSouth1 = "/resourcegroup/" + *testResGroupName + "/zone/" + testZoneUSSouth1 + "/instance/"
+	testDeployment = "/resourcegroup/" + *testResGroupName
 	exitCode := m.Run()
 	os.Exit(exitCode)
 }
@@ -70,31 +75,31 @@ const (
 	testZoneUSEast3          = testUSEastRegion + "-3"
 	testZoneUSSouth1         = testUSSouthRegion + "-1"
 	testZoneEUDE1            = testEURegion + "-1"
-	testInstanceNameUSEast1  = "invisinets-vm-east-1"
-	testInstanceNameUSEast2  = "invisinets-vm-east-2"
-	testInstanceNameUSEast3  = "invisinets-vm-east-3"
-	testInstanceNameUSSouth1 = "invisinets-vm-south-1"
-	testInstanceNameEUDE1    = "invisinets-vm-de-1"
+	testInstanceNameUSEast1  = "pg-vm-east-1"
+	testInstanceNameUSEast2  = "pg-vm-east-2"
+	testInstanceNameUSEast3  = "pg-vm-east-3"
+	testInstanceNameUSSouth1 = "pg-vm-south-1"
+	testInstanceNameEUDE1    = "pg-vm-de-1"
 
 	testImageUSEast  = "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb" // us-east Ubuntu 22.04
 	testImageEUDE    = "r010-f68ef7b3-1c5e-4ef7-8040-7ae0f5bf04fd" // eu-de Ubuntu 22.04
 	testImageUSSouth = "r006-01deb923-46f6-44c3-8fdc-99d8493d2464" // us-south Ubuntu 22.04
 	testProfile      = "bx2-2x8"
-	testNamespace    = "inv-namespace"
+	testNamespace    = "paraglider-namespace"
 )
 
 // permit list example
-var testPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRule{
+var testPermitList []*paragliderpb.PermitListRule = []*paragliderpb.PermitListRule{
 	//TCP protocol rules
 	{
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   443,
 		DstPort:   443,
 		Protocol:  6,
 		Targets:   []string{"10.0.0.0/18"},
 	},
 	{
-		Direction: invisinetspb.Direction_OUTBOUND,
+		Direction: paragliderpb.Direction_OUTBOUND,
 		SrcPort:   8080,
 		DstPort:   8080,
 		Protocol:  6,
@@ -102,14 +107,14 @@ var testPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRu
 	},
 	//All protocol rules
 	{
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   -1,
 		DstPort:   -1,
 		Protocol:  -1,
 		Targets:   []string{"10.0.64.0/22", "10.0.64.0/24"},
 	},
 	{
-		Direction: invisinetspb.Direction_OUTBOUND,
+		Direction: paragliderpb.Direction_OUTBOUND,
 		SrcPort:   -1,
 		DstPort:   -1,
 		Protocol:  -1,
@@ -118,10 +123,10 @@ var testPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRu
 }
 
 // permit list to test connectivity via pings. Made to test Transit and VPN gateways configurations
-var pingTestPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitListRule{ //nolint:all keeping unused variable for future testing
+var pingTestPermitList []*paragliderpb.PermitListRule = []*paragliderpb.PermitListRule{ //nolint:all keeping unused variable for future testing
 	//ICMP protocol rule to accept pings
 	{
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   -1,
 		DstPort:   -1,
 		Protocol:  1,
@@ -129,7 +134,7 @@ var pingTestPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitLi
 	},
 	// ssh to accept ssh connection
 	{
-		Direction: invisinetspb.Direction_INBOUND,
+		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   22,
 		DstPort:   22,
 		Protocol:  6,
@@ -137,7 +142,7 @@ var pingTestPermitList []*invisinetspb.PermitListRule = []*invisinetspb.PermitLi
 	},
 	//All protocol to allow all egress traffic
 	{
-		Direction: invisinetspb.Direction_OUTBOUND,
+		Direction: paragliderpb.Direction_OUTBOUND,
 		SrcPort:   -1,
 		DstPort:   -1,
 		Protocol:  -1,
@@ -155,7 +160,8 @@ func TestCreateNewResource(t *testing.T) {
 	// image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast2, testInstanceNameUSEast2, testResourceIDUSEast2
 	// - test arguments for us-south-1:
 	// image, zone, instanceName, resourceID := testImageUSSouth, testZoneUSSouth1, testInstanceNameUSSouth1, testResourceIDUSSouth1
-	image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1, testResourceIDUSEast1
+	// image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1, testResourceIDUSEast1
+	image, zone, instanceName := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1
 
 	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
 	if err != nil {
@@ -172,14 +178,14 @@ func TestCreateNewResource(t *testing.T) {
 		Profile: &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
 	}
 
-	s := &ibmPluginServer{
+	s := &IBMPluginServer{
 		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient:            make(map[string]*sdk.CloudClient)}
 
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: resourceID, Description: description, Namespace: testNamespace}
+	resource := &paragliderpb.ResourceDescription{Deployment: &paragliderpb.ParagliderDeployment{Id: testDeployment, Namespace: testNamespace}, Description: description}
 	resp, err := s.CreateResource(context.Background(), resource)
 	if err != nil {
 		println(err)
@@ -192,9 +198,9 @@ func TestCreateNewResource(t *testing.T) {
 func TestGetPermitRules(t *testing.T) {
 	resourceID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDEUDE1
 
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
+	s := &IBMPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
-	resp, err := s.GetPermitList(context.Background(), &invisinetspb.GetPermitListRequest{Resource: resourceID,
+	resp, err := s.GetPermitList(context.Background(), &paragliderpb.GetPermitListRequest{Resource: resourceID,
 		Namespace: testNamespace})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -209,7 +215,7 @@ func TestGetPermitRules(t *testing.T) {
 func TestAddPermitRules(t *testing.T) {
 	resourceID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDEUDE1
 
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: testNamespace,
 		Resource:  resourceID,
 		Rules:     testPermitList,
@@ -220,7 +226,7 @@ func TestAddPermitRules(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient),
+	s := &IBMPluginServer{cloudClient: make(map[string]*sdk.CloudClient),
 		orchestratorServerAddr: fakeControllerServerAddr,
 	}
 
@@ -241,7 +247,7 @@ func TestDeletePermitRules(t *testing.T) {
 	region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
 	require.NoError(t, err)
 
-	cloudClient, err := sdk.NewIBMCloudClient(rInfo.ResourceGroupName, region)
+	cloudClient, err := sdk.NewIBMCloudClient(rInfo.ResourceGroup, region)
 	require.NoError(t, err)
 
 	// Get the VM ID from the resource ID (typically refers to VM Name)
@@ -250,27 +256,27 @@ func TestDeletePermitRules(t *testing.T) {
 
 	vmID := *vmData.ID
 
-	invisinetsSgsData, err := cloudClient.GetInvisinetsTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
+	paragliderSgsData, err := cloudClient.GetParagliderTaggedResources(sdk.SG, []string{vmID}, sdk.ResourceQuery{Region: region})
 	require.NoError(t, err)
 
-	require.NotEqualValues(t, len(invisinetsSgsData), 0, "no security groups were found for VM "+rInfo.ResourceID)
+	require.NotEqualValues(t, len(paragliderSgsData), 0, "no security groups were found for VM "+rInfo.ResourceID)
 
-	// assuming up to a single invisinets subnet can exist per zone
-	vmInvisinetsSgID := invisinetsSgsData[0].ID
+	// assuming up to a single paraglider subnet can exist per zone
+	vmParagliderSgID := paragliderSgsData[0].ID
 
-	ibmRulesToDelete, err := sdk.InvisinetsToIBMRules(vmInvisinetsSgID, testPermitList)
+	ibmRulesToDelete, err := sdk.ParagliderToIBMRules(vmParagliderSgID, testPermitList)
 	require.NoError(t, err)
 
-	rulesIDs, err := cloudClient.GetRulesIDs(ibmRulesToDelete, vmInvisinetsSgID)
+	rulesIDs, err := cloudClient.GetRulesIDs(ibmRulesToDelete, vmParagliderSgID)
 	require.NoError(t, err)
 
-	deleteRulesRequest := &invisinetspb.DeletePermitListRulesRequest{
+	deleteRulesRequest := &paragliderpb.DeletePermitListRulesRequest{
 		Namespace: testNamespace,
 		Resource:  resourceID,
 		RuleNames: rulesIDs,
 	}
 
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
+	s := &IBMPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
 	resp, err := s.DeletePermitListRules(context.Background(), deleteRulesRequest)
 	require.NoError(t, err)
@@ -280,15 +286,15 @@ func TestDeletePermitRules(t *testing.T) {
 }
 
 // usage: go test --tags=ibm -run TestGetUsedAddressSpaces -sg=<security group name>
-// this function logs subnets' address spaces from all invisinets' VPCs.
+// this function logs subnets' address spaces from all paraglider VPCs.
 func TestGetExistingAddressSpaces(t *testing.T) {
 	// GetUsedAddressSpaces() is independent of any region, since it returns
 	// address spaces in global scope, so any test resource ID will do.
-	deployments := &invisinetspb.GetUsedAddressSpacesRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{{Id: testResourceIDUSEast1}},
+	deployments := &paragliderpb.GetUsedAddressSpacesRequest{
+		Deployments: []*paragliderpb.ParagliderDeployment{{Id: testResourceIDUSEast1}},
 	}
 
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
+	s := &IBMPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
 	usedAddressSpace, err := s.GetUsedAddressSpaces(context.Background(), deployments)
 	require.NoError(t, err)
@@ -301,9 +307,9 @@ func TestGetExistingAddressSpaces(t *testing.T) {
 func TestCreateVpnGateway(t *testing.T) {
 	resourceID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDUSSouth1
 
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
-	createVPNRequest := &invisinetspb.CreateVpnGatewayRequest{
-		Deployment: &invisinetspb.InvisinetsDeployment{Id: resourceID, Namespace: testNamespace}}
+	s := &IBMPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
+	createVPNRequest := &paragliderpb.CreateVpnGatewayRequest{
+		Deployment: &paragliderpb.ParagliderDeployment{Id: resourceID, Namespace: testNamespace}}
 	resp, err := s.CreateVpnGateway(context.Background(), createVPNRequest)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -317,9 +323,9 @@ func TestCreateVpnConnections(t *testing.T) {
 	peerVPNGatewayIP := "4.227.185.167"   // remote VPN gateway IP connection will direct traffic to
 	deploymentID := testResourceIDUSEast1 // replace as needed with other IDs, e.g. testResourceIDUSSouth1
 
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
-	createVPNRequest := &invisinetspb.CreateVpnConnectionsRequest{
-		Deployment:         &invisinetspb.InvisinetsDeployment{Id: deploymentID, Namespace: testNamespace},
+	s := &IBMPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
+	createVPNRequest := &paragliderpb.CreateVpnConnectionsRequest{
+		Deployment:         &paragliderpb.ParagliderDeployment{Id: deploymentID, Namespace: testNamespace},
 		GatewayIpAddresses: []string{peerVPNGatewayIP},
 		SharedKey:          "password",
 		RemoteAddresses:    []string{"10.0.0.0/24"},
@@ -338,10 +344,10 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 	// as it retrieves ip addresses from all VPNs from the request's namespace.
 	deploymentID1 := testResourceIDEUDE1 // replace as needed with other IDs, e.g. testResourceIDUSSouth1
 
-	s := &ibmPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
+	s := &IBMPluginServer{cloudClient: make(map[string]*sdk.CloudClient)}
 
-	request := &invisinetspb.GetUsedBgpPeeringIpAddressesRequest{
-		Deployments: []*invisinetspb.InvisinetsDeployment{
+	request := &paragliderpb.GetUsedBgpPeeringIpAddressesRequest{
+		Deployments: []*paragliderpb.ParagliderDeployment{
 			{Id: deploymentID1, Namespace: testNamespace}},
 	}
 
@@ -351,14 +357,34 @@ func TestGetUsedBgpPeeringIpAddresses(t *testing.T) {
 	utils.Log.Printf("Response: %v", resp)
 }
 
-// usage: go test --tags=ibm -run TestAddPermitListRules -sg=<security group name> -timeout 0
+// usage: go test --tags=ibm -run TestAddPermitListRules -sg=<security group id> -timeout 0
 // -timeout 0 removes limit of 10 min. runtime, which is necessary due to long deployment time of Azure's VPN.
+// Note: Run kvstore and tagging service before execution
 func TestAddPermitRulesIntegration(t *testing.T) {
-	azureServerPort := 7991
 	IBMServerPort := 7992
-	IBMDeploymentID := testResourceIDUSEast1
+	kvstorePort := 7993
+	taggingPort := 7994
+	IBMDeploymentID := testDeployment
+	IBMResourceIDPrefix := testResourceIDUSEast1
+	image, zone, instanceName := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1
 
 	orchestratorServerConfig := config.Config{
+		Server: config.Server{
+			Host:    "localhost",
+			Port:    "8080",
+			RpcPort: "8081",
+		},
+		TagService: config.TagService{
+			Host: "localhost",
+			Port: strconv.Itoa(taggingPort),
+		},
+		KVStore: struct {
+			Port string `yaml:"port"`
+			Host string `yaml:"host"`
+		}{
+			Host: "localhost",
+			Port: strconv.Itoa(kvstorePort),
+		},
 		CloudPlugins: []config.CloudPlugin{
 			{
 				Name: utils.IBM,
@@ -377,21 +403,48 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	}
 
 	// start controller server
-	orchestratorServerAddr := orchestrator.SetupControllerServer(orchestratorServerConfig)
+	fmt.Println("Setting up controller server and kvstore server")
+	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
+	orchestrator.Setup(orchestratorServerConfig, true)
 
 	// start ibm plugin server
+	fmt.Println("Setting up IBM server")
 	ibmServer := Setup(IBMServerPort, orchestratorServerAddr)
 
-	// start azure plugin server
-	_ = azure_plugin.Setup(azureServerPort, orchestratorServerAddr)
+	// Create IBM VM
+	fmt.Println("Creating IBM VM...")
+	imageIdentity := vpcv1.ImageIdentityByID{ID: &image}
+	zoneIdentity := vpcv1.ZoneIdentityByName{Name: &zone}
+	myTestProfile := string(testProfile)
 
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	testPrototype := &vpcv1.InstancePrototypeInstanceByImage{
+		Image:   &imageIdentity,
+		Zone:    &zoneIdentity,
+		Name:    core.StringPtr(instanceName),
+		Profile: &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
+	}
+
+	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
+	require.NoError(t, err)
+
+	resource := &paragliderpb.ResourceDescription{Name: instanceName, Deployment: &paragliderpb.ParagliderDeployment{Id: testDeployment, Namespace: testNamespace}, Description: description}
+	res, err := ibmServer.CreateResource(context.Background(), resource)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	URIParts := strings.Split(res.Uri, "/")
+	resID := IBMResourceIDPrefix + URIParts[len(URIParts)-1]
+
+	// Add permit list for IBM VM
+	fmt.Println("Adding IBM permit list rules...")
+
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: testNamespace,
-		Resource:  IBMDeploymentID,
+		Resource:  resID,
 		// using a rule with a public ip, since private ips are required to reference existing VMs.
-		Rules: []*invisinetspb.PermitListRule{
+		Rules: []*paragliderpb.PermitListRule{
 			{
-				Direction: invisinetspb.Direction_OUTBOUND,
+				Name:      "testPermitListRule",
+				Direction: paragliderpb.Direction_OUTBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
 				Protocol:  -1,
@@ -407,24 +460,54 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	utils.Log.Printf("Response: %+v", resp)
 }
 
-// usage: go test --tags=ibm -run TestMulticloudIBMAzure -sg=<security group name> -timeout 0
+// go test --tags=ibm -run TestRunKVStore -timeout 0
+func TestRunKVStore(t *testing.T) {
+	dbPort := 6379
+	kvstorePort := 7993
+
+	kvstore.Setup(dbPort, kvstorePort, true)
+}
+
+func TestRunTaggingService(t *testing.T) {
+	dbPort := 6379
+	taggingPort := 7994
+
+	tagging.Setup(dbPort, taggingPort, true)
+}
+
+// usage: go test --tags=ibm -run TestMulticloudIBMAzure -sg=<security group id> -timeout 0
 // -timeout 0 removes limit of 10 minutes runtime, which is necessary due to long deployment time of Azure's VPN.
-// Note: Azure's Network Watcher must be deployed in the region before execution
+// Note: Run kvstore and tagging service before execution
 func TestMulticloudIBMAzure(t *testing.T) {
+	kvstorePort := 7993
 	// ibm config
 	IBMServerPort := 7992
-	IBMDeploymentID := testResourceIDUSEast1
-	image, zone, instanceName, resourceID := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1, testResourceIDUSEast1
+	IBMDeploymentID := testDeployment
+	IBMResourceIDPrefix := testResourceIDUSEast1
+	image, zone, instanceName := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1
 	// azure config
 	azureServerPort := 7991
-	azureSubscriptionId := azure_plugin.GetAzureSubscriptionId()
-	azureResourceGroupName := azure_plugin.SetupAzureTesting(azureSubscriptionId, "ibmazure")
-	defer azure_plugin.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
+	azureSubscriptionId := azure.GetAzureSubscriptionId()
+	azureResourceGroupName := "challenge-1377"
+	
+	// NOTE: Uncomment the following lines if a user have resource group privileges
+	// azureResourceGroupName := azure.SetupAzureTesting(azureSubscriptionId, "ibmazure")
+	// defer azure.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
 
 	azureNamespace := "multicloud" + uuid.NewString()[:6]
-	AzureDeploymentID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName)
+	azureDeploymentId := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName)
+	azureVm1Name := "pg-vm-multicloud-" + uuid.NewString()[:6]
 
 	orchestratorServerConfig := config.Config{
+		Server: config.Server{
+			Host:    "localhost",
+			Port:    "8080",
+			RpcPort: "8081",
+		},
+		KVStore: config.TagService{
+			Port: strconv.Itoa(kvstorePort),
+			Host: "localhost",
+		},
 		CloudPlugins: []config.CloudPlugin{
 			{
 				Name: utils.IBM,
@@ -448,15 +531,16 @@ func TestMulticloudIBMAzure(t *testing.T) {
 			azureNamespace: {
 				{
 					Name:       utils.AZURE,
-					Deployment: AzureDeploymentID,
+					Deployment: azureDeploymentId,
 				},
 			},
 		},
 	}
 
 	// start controller server
-	orchestratorServerAddr := orchestrator.SetupControllerServer(orchestratorServerConfig)
-	fmt.Println("Setup controller server")
+	fmt.Println("Setting up controller server")
+	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
+	orchestrator.Setup(orchestratorServerConfig, true)
 
 	// start ibm plugin server
 	fmt.Println("Setting up IBM server")
@@ -464,20 +548,24 @@ func TestMulticloudIBMAzure(t *testing.T) {
 
 	// start azure plugin server
 	fmt.Println("Setting up Azure server")
-	azureServer := azure_plugin.Setup(azureServerPort, orchestratorServerAddr)
+	azureServer := azure.Setup(azureServerPort, orchestratorServerAddr)
 
 	ctx := context.Background()
 
 	// Create Azure VM
 	fmt.Println("Creating Azure VM...")
 	azureVm1Location := "westus"
-	azureVm1Parameters := azure_plugin.GetTestVmParameters(azureVm1Location)
+	azureVm1Parameters := azure.GetTestVmParameters(azureVm1Location)
 	azureVm1Description, err := json.Marshal(azureVm1Parameters)
 	require.NoError(t, err)
-	azureVm1ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + "invisinets-vm-multicloud708"
+	azureVm1ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + azureVm1Name
 	azureCreateResourceResp1, err := azureServer.CreateResource(
 		ctx,
-		&invisinetspb.ResourceDescription{Id: azureVm1ResourceId, Description: azureVm1Description, Namespace: azureNamespace},
+		&paragliderpb.ResourceDescription{
+			Deployment:  &paragliderpb.ParagliderDeployment{Id: azureDeploymentId, Namespace: azureNamespace},
+			Name:        azureVm1Name,
+			Description: azureVm1Description,
+		},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, azureCreateResourceResp1)
@@ -499,23 +587,22 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)
 
-	resource := &invisinetspb.ResourceDescription{Id: resourceID, Description: description, Namespace: testNamespace}
+	resource := &paragliderpb.ResourceDescription{Name: instanceName, Deployment: &paragliderpb.ParagliderDeployment{Id: testDeployment, Namespace: testNamespace}, Description: description}
 	createResourceResponse, err := ibmServer.CreateResource(ctx, resource)
-	if err != nil {
-		println(err)
-	}
 	require.NoError(t, err)
 	require.NotNil(t, createResourceResponse)
+	URIParts := strings.Split(createResourceResponse.Uri, "/")
+	IBMResourceID := IBMResourceIDPrefix + URIParts[len(URIParts)-1]
 
 	// Add permit list for IBM VM
 	fmt.Println("Adding IBM permit list rules...")
-	azureVmIpAddress, err := azure_plugin.GetVmIpAddress(azureVm1ResourceId)
+	azureVmIpAddress, err := azure.GetVmIpAddress(azureVm1ResourceId)
 	require.NoError(t, err)
 
-	ibmPermitList := []*invisinetspb.PermitListRule{
+	ibmPermitList := []*paragliderpb.PermitListRule{
 		//inbound ICMP protocol rule to accept & respond to pings
 		{
-			Direction: invisinetspb.Direction_INBOUND,
+			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  1,
@@ -523,7 +610,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 		},
 		//outbound ICMP protocol rule to initiate pings
 		{
-			Direction: invisinetspb.Direction_OUTBOUND,
+			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
 			Protocol:  1,
@@ -531,7 +618,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 		},
 		// allow inbound ssh connection
 		{
-			Direction: invisinetspb.Direction_INBOUND,
+			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   22,
 			DstPort:   22,
 			Protocol:  6,
@@ -539,9 +626,9 @@ func TestMulticloudIBMAzure(t *testing.T) {
 		},
 	}
 
-	addRulesRequest := &invisinetspb.AddPermitListRulesRequest{
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: testNamespace,
-		Resource:  IBMDeploymentID,
+		Resource:  IBMResourceID,
 		Rules:     ibmPermitList,
 	}
 
@@ -553,12 +640,12 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	ibmVmIpAddress := createResourceResponse.Ip
 
 	fmt.Println("Adding Azure permit list rules...")
-	azureVm1PermitListReq := &invisinetspb.AddPermitListRulesRequest{
+	azureVm1PermitListReq := &paragliderpb.AddPermitListRulesRequest{
 		Resource: azureVm1ResourceId,
-		Rules: []*invisinetspb.PermitListRule{
+		Rules: []*paragliderpb.PermitListRule{
 			{
 				Name:      "ibm-inbound-rule",
-				Direction: invisinetspb.Direction_INBOUND,
+				Direction: paragliderpb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
 				Protocol:  1,
@@ -566,7 +653,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 			},
 			{
 				Name:      "ibm-outbound-rule",
-				Direction: invisinetspb.Direction_OUTBOUND,
+				Direction: paragliderpb.Direction_OUTBOUND,
 				SrcPort:   -1,
 				DstPort:   -1,
 				Protocol:  1,
@@ -574,7 +661,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 			},
 			{ // SSH rule for debugging
 				Name:      "ssh-inbound-rule",
-				Direction: invisinetspb.Direction_INBOUND,
+				Direction: paragliderpb.Direction_INBOUND,
 				SrcPort:   -1,
 				DstPort:   22,
 				Protocol:  6,
@@ -588,9 +675,9 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	require.NotNil(t, azureAddPermitListRules1Resp)
 
 	// Run Azure connectivity check (ping from Azure VM to IBM VM)
-	// Note: Azure's Network Watcher must be deployed in the region before execution
-	fmt.Println("running Azure connectivity test...")
-	azureConnectivityCheck1, err := azure_plugin.RunPingConnectivityCheck(azureVm1ResourceId, ibmVmIpAddress)
-	require.Nil(t, err)
-	require.True(t, azureConnectivityCheck1)
+	// Uncomment following lines if Azure's Network Watcher has been deployed in the region before execution.
+	// fmt.Println("running Azure connectivity test...")
+	// azureConnectivityCheck1, err := azure.RunPingConnectivityCheck(azureVm1ResourceId, ibmVmIpAddress)
+	// require.Nil(t, err)
+	// require.True(t, azureConnectivityCheck1)
 }
