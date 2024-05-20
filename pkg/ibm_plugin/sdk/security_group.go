@@ -348,9 +348,9 @@ func (c *CloudClient) translateRuleProtocol(rule SecurityGroupRule) (vpcv1.Secur
 			}
 		}
 	case "icmp":
-		// NOTE invisinets permitlist rule doesn't support ICMP with specific codes and types
+		// NOTE paraglider permitlist rule doesn't support ICMP with specific codes and types
 		if rule.IcmpType != -1 || rule.IcmpCode != -1 {
-			return nil, fmt.Errorf(`invisinets permitlist rule doesn't support 
+			return nil, fmt.Errorf(`paraglider permitlist rule doesn't support 
 				icmp with specific codes and types`)
 		}
 		prototype = &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolIcmp{
@@ -557,7 +557,7 @@ func ParagliderToIBMRules(securityGroupID string, rules []*paragliderpb.PermitLi
 
 			if rule.Protocol == 1 { // icmp rule
 				// setting value to -1 to indicate that all codes and types are allowed.
-				// non negative icmp values have meaning, which is not supported by invisinets.
+				// non negative icmp values have meaning, which is not supported by paraglider.
 				sgRule.IcmpType = -1
 				sgRule.IcmpCode = -1
 			}
@@ -568,33 +568,33 @@ func ParagliderToIBMRules(securityGroupID string, rules []*paragliderpb.PermitLi
 	return sgRules, nil
 }
 
-// returns rules in IBM cloud format to invisinets format
+// returns rules in IBM cloud format to paraglider format
 // NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code
-func ParagliderToIBMRule(securityGroupID string, invRule *paragliderpb.PermitListRule) (
+func ParagliderToIBMRule(securityGroupID string, pgRule *paragliderpb.PermitListRule) (
 	[]SecurityGroupRule, error) {
 	var sgRules []SecurityGroupRule
 
-	if len(invRule.Targets) == 0 {
-		return nil, fmt.Errorf("PermitListRule is missing target value. Rule:%+v", invRule)
+	if len(pgRule.Targets) == 0 {
+		return nil, fmt.Errorf("PermitListRule is missing target value. Rule:%+v", pgRule)
 	}
-	for _, target := range invRule.Targets {
+	for _, target := range pgRule.Targets {
 		remote := target
 		remoteType, err := GetRemoteType(remote)
 		if err != nil {
 			return nil, err
 		}
 		sgRule := SecurityGroupRule{
-			ID:         invRule.Id,
+			ID:         pgRule.Name,
 			SgID:       securityGroupID,
-			Protocol:   paragliderToIBMprotocol[invRule.Protocol],
+			Protocol:   paragliderToIBMprotocol[pgRule.Protocol],
 			Remote:     remote,
 			RemoteType: remoteType,
-			PortMin:    int64(invRule.SrcPort),
-			PortMax:    int64(invRule.SrcPort),
-			Egress:     paragliderToIBMDirection[invRule.Direction],
+			PortMin:    int64(pgRule.SrcPort),
+			PortMax:    int64(pgRule.SrcPort),
+			Egress:     paragliderToIBMDirection[pgRule.Direction],
 		}
 
-		if invRule.Protocol == 1 { // icmp rule
+		if pgRule.Protocol == 1 { // icmp rule
 			// setting value to -1 to indicate that all codes and types are allowed.
 			// non negative icmp values have meaning, which is not supported by invisinets.
 			sgRule.IcmpType = -1
