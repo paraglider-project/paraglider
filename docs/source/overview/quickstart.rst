@@ -178,7 +178,7 @@ Copy paste the following configuration into a new file called ``paraglider_confi
             namespaces:
               default:
                 - name: "ibm"
-                  deployment: "resourcegroup/${IBM_RESOURCE_GROUP_ID}"
+                  deployment: "/resourcegroup/${IBM_RESOURCE_GROUP_ID}"
 
         .. note::
 
@@ -263,7 +263,7 @@ To create VMs in clouds, Paraglider requires a JSON file that describes the VM. 
                                 },
                             "type": "PERSISTENT"
                         }],
-                        "machine_type": "zones/us-west1-a/machineTypes/f1-micro",
+                        "machine_type": "zones/us-west1-a/machineTypes/f1-micro"
                     },
                     "zone": "us-west1-a"
                 }
@@ -292,7 +292,7 @@ To create VMs in clouds, Paraglider requires a JSON file that describes the VM. 
                         },
                         "zone": {
                             "name": "us-east-1"
-                        },
+                        }
                     }
                 }
 

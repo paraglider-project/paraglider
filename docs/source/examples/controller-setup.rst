@@ -32,7 +32,7 @@ The controller is configured using a configuration file. The configuration file 
             - name: "gcp"
               deployment: "projects/${GCP_PROJECT_ID}"
             - name: "ibm"
-              deployment: "resource_groups/${IBM_RESOURCE_GROUP}"
+              deployment: "/resourcegroup/${IBM_RESOURCE_GROUP}"
 
     tagService:
         host: "localhost"
