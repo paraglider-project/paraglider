@@ -16,7 +16,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4 v4.3.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
 	github.com/IBM-Cloud/container-services-go-sdk v0.0.0-20240510130133-9f76aa34af27
-	github.com/IBM/go-sdk-core/v5 v5.16.5
+	github.com/IBM/go-sdk-core/v5 v5.17.3
 	github.com/IBM/platform-services-go-sdk v0.62.11
 	github.com/IBM/vpc-go-sdk v0.42.0
 	github.com/gin-gonic/gin v1.10.0
