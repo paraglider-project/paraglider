@@ -151,8 +151,6 @@ func (c *CloudClient) getTaggedResources(query string) (*globalsearchv2.ScanResu
 		if err != nil {
 			utils.Log.Printf("Tags search was invalid at attempt %v.\nResponse:%+v\nErr%+v\n", attempt, response, err)
 		} else {
-			// log response on success due to inconsistent results from service.   
-			utils.Log.Printf("Tags search was successful.\nResponse:%+v\nErr%+v\n", response, err)
 			return res, nil
 		}
 		// sleep to avoid busy waiting
