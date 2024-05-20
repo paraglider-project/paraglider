@@ -154,7 +154,7 @@ jobs:
           files: |
             ./dist/unit_test/processed/*.xml
       - name: 'Upload unit test results'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always() && matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         with:
           name: unit_test_results
@@ -199,7 +199,7 @@ jobs:
           GO_TOOL_COVER: go tool cover
       - name: Upload unit-test coverage artifact
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: unit_test_coverage
           path: |
