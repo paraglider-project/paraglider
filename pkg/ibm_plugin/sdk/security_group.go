@@ -109,6 +109,14 @@ func (c *CloudClient) createSecurityGroup(
 	return sg, nil
 }
 
+func (c *CloudClient) getDefaultSecurityGroup(vpcID string) (*vpcv1.DefaultSecurityGroup, error) {
+	vpc, _, err := c.vpcService.GetVPCDefaultSecurityGroup(c.vpcService.NewGetVPCDefaultSecurityGroupOptions(vpcID))
+	if err != nil {
+		return nil, err
+	}
+	return vpc, nil
+}
+
 // GetSecurityRulesOfSG gets the rules of security groups
 func (c *CloudClient) GetSecurityRulesOfSG(sgID string) ([]SecurityGroupRule, error) {
 	options := &vpcv1.ListSecurityGroupRulesOptions{}
