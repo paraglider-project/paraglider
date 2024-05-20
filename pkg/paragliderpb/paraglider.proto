@@ -144,6 +144,7 @@ message CreateVpnGatewayRequest {
     ParagliderDeployment deployment = 1;
     string cloud = 2;
     repeated string bgp_peering_ip_addresses = 3;
+    string AddressSpace = 4;  // address space in this cloud, to be served by the VPN gateway. Used by IBM.
 }
 
 message CreateVpnGatewayResponse {
@@ -160,6 +161,7 @@ message CreateVpnConnectionsRequest {
     string shared_key = 6;
     repeated string remoteAddresses = 7;    // addresses in remote cloud. Used to support non BGP VPNs
     bool isBGPDisabled = 8; // indicates whether BGP for peer VPN is disabled. Currently only indicated by a single flag for IBM
+    string AddressSpace = 9;  // address space in this cloud, to be served by the VPN gateway. Used by IBM.
 }
 
 message CreateVpnConnectionsResponse {
