@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var testResGroupName = flag.String("sg", "invisinets", "Name of the user's security group")
+var testResGroupName = flag.String("sg", "8145289ddf7047ea93fd2835de391f43", "ID of the user's security group")
 var shouldTearDownProject = flag.Bool("cleanup", false, "if set to true test procedure will include TestCleanup")
 
 const (
@@ -35,7 +35,7 @@ const (
 // TODO @praveingk: Expand tests of SDK functions
 
 // run via: go test --tags=unit -run TestCleanup -sg=<security group name> -cleanup
-// deletes all invisinets VPCs
+// deletes all paraglider's VPCs
 func TestCleanup(t *testing.T) {
 	if !*shouldTearDownProject {
 		println("TestCleanup skipped - cleanup flag wasn't set")
@@ -44,7 +44,7 @@ func TestCleanup(t *testing.T) {
 	cloudClient, err := NewIBMCloudClient(*testResGroupName, testRegion)
 	require.NoError(t, err)
 
-	vpnsData, err :=cloudClient.GetInvisinetsTaggedResources(VPN, []string{}, ResourceQuery{})
+	vpnsData, err :=cloudClient.GetParagliderTaggedResources(VPN, []string{}, ResourceQuery{})
 	require.NoError(t, err)
 	// terminate all VPNs and their associated resources.
 	for _, vpnData := range vpnsData{
@@ -55,7 +55,7 @@ func TestCleanup(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	vpcsData, err := cloudClient.GetInvisinetsTaggedResources(VPC, []string{}, ResourceQuery{})
+	vpcsData, err := cloudClient.GetParagliderTaggedResources(VPC, []string{}, ResourceQuery{})
 	require.NoError(t, err)
 	// terminate all VPCs and their associated resources.
 	for _, vpcsData := range vpcsData {
@@ -66,7 +66,7 @@ func TestCleanup(t *testing.T) {
 		require.NoError(t, err)
 	}
 	// terminate transit gateways and their connections
-	transitGWs, err := cloudClient.GetInvisinetsTaggedResources(GATEWAY, []string{}, ResourceQuery{})
+	transitGWs, err := cloudClient.GetParagliderTaggedResources(GATEWAY, []string{}, ResourceQuery{})
 	require.NoError(t, err)
 	for _, gw := range transitGWs {
 		err = cloudClient.DeleteTransitGW(gw.ID)
