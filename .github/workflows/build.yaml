@@ -73,7 +73,7 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
       - name: Set up Go ${{ env.GOVER }}
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GOVER }}
       - name: Get Go Cache path
