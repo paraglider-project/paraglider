@@ -22,11 +22,12 @@ import (
 	"flag"
 	"testing"
 
+	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 	"github.com/stretchr/testify/require"
 )
 
-var testResGroupName = flag.String("sg", "8145289ddf7047ea93fd2835de391f43", "ID of the user's security group")
 var shouldTearDownProject = flag.Bool("cleanup", false, "if set to true test procedure will include TestCleanup")
+var resourceGroupID = ibmCommon.GetIBMResourceGroupID()
 
 const (
 	testRegion = "us-east"
@@ -34,44 +35,15 @@ const (
 
 // TODO @praveingk: Expand tests of SDK functions
 
-// run via: go test --tags=unit -run TestCleanup -sg=<security group name> -cleanup
+// run via: go test --tags=unit -run TestCleanup -cleanup
 // deletes all paraglider's VPCs
 func TestCleanup(t *testing.T) {
 	if !*shouldTearDownProject {
 		println("TestCleanup skipped - cleanup flag wasn't set")
 		t.Skip("TestCleanup skipped - cleanup flag wasn't set")
 	}
-	cloudClient, err := NewIBMCloudClient(*testResGroupName, testRegion)
+	err := TerminateParagilderDeployments(resourceGroupID, testRegion)
 	require.NoError(t, err)
-
-	vpnsData, err :=cloudClient.GetParagliderTaggedResources(VPN, []string{}, ResourceQuery{})
-	require.NoError(t, err)
-	// terminate all VPNs and their associated resources.
-	for _, vpnData := range vpnsData{
-		// set client to the region of the current VPC
-		cloudClient, err := NewIBMCloudClient(*testResGroupName, vpnData.Region)
-		require.NoError(t, err)
-		err = cloudClient.DeleteVPN(vpnData.ID)
-		require.NoError(t, err)
-	}
-
-	vpcsData, err := cloudClient.GetParagliderTaggedResources(VPC, []string{}, ResourceQuery{})
-	require.NoError(t, err)
-	// terminate all VPCs and their associated resources.
-	for _, vpcsData := range vpcsData {
-		// cloud client must be set to the region of the current VPC
-		cloudClient, err := NewIBMCloudClient(*testResGroupName, vpcsData.Region)
-		require.NoError(t, err)
-		err = cloudClient.TerminateVPC(vpcsData.ID)
-		require.NoError(t, err)
-	}
-	// terminate transit gateways and their connections
-	transitGWs, err := cloudClient.GetParagliderTaggedResources(GATEWAY, []string{}, ResourceQuery{})
-	require.NoError(t, err)
-	for _, gw := range transitGWs {
-		err = cloudClient.DeleteTransitGW(gw.ID)
-		require.NoError(t, err)
-	}
 }
 
 // Testing a function that returns true if cidr1 is a subset of cidr2,

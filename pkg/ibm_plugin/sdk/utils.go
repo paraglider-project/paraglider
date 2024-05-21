@@ -130,3 +130,56 @@ func IsCIDRSubset(cidr1, cidr2 string) (bool, error) {
 	// fewer bits are left for user address space.
 	return netCidr2.Contains(firstIP1) && maskSize1 >= maskSize2, nil
 }
+
+func TerminateParagilderDeployments(resGroupID, region string) error {
+	cloudClient, err := NewIBMCloudClient(resGroupID, region)
+	if err != nil {
+		return err
+	}
+
+	vpnsData, err := cloudClient.GetParagliderTaggedResources(VPN, []string{}, ResourceQuery{})
+	if err != nil {
+		return err
+	}
+	// terminate all VPNs and their associated resources.
+	for _, vpnData := range vpnsData {
+		// set client to the region of the current VPC
+		cloudClient, err := NewIBMCloudClient(resGroupID, vpnData.Region)
+		if err != nil {
+			return err
+		}
+		err = cloudClient.DeleteVPN(vpnData.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	vpcsData, err := cloudClient.GetParagliderTaggedResources(VPC, []string{}, ResourceQuery{})
+	if err != nil {
+		return err
+	}
+	// terminate all VPCs and their associated resources.
+	for _, vpcsData := range vpcsData {
+		// cloud client must be set to the region of the current VPC
+		cloudClient, err := NewIBMCloudClient(resGroupID, vpcsData.Region)
+		if err != nil {
+			return err
+		}
+		err = cloudClient.TerminateVPC(vpcsData.ID)
+		if err != nil {
+			return err
+		}
+	}
+	// terminate transit gateways and their connections
+	transitGWs, err := cloudClient.GetParagliderTaggedResources(GATEWAY, []string{}, ResourceQuery{})
+	if err != nil {
+		return err
+	}
+	for _, gw := range transitGWs {
+		err = cloudClient.DeleteTransitGW(gw.ID)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
