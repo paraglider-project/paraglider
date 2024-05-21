@@ -40,12 +40,14 @@ func getNetworkPeeringName(namespace string, peerNamespace string) string {
 	return getParagliderNamespacePrefix(namespace) + "-" + peerNamespace + "-peering"
 }
 
-func getSubnetworkURL(project string, region string, name string) string {
-	return fmt.Sprintf("projects/%s/regions/%s/subnetworks/%s", project, region, name)
+// getSubnetworkUrl returns a fully qualified URL for a subnetwork
+func getSubnetworkUrl(project string, region string, name string) string {
+	return computeUrlPrefix + fmt.Sprintf("projects/%s/regions/%s/subnetworks/%s", project, region, name)
 }
 
-func GetVpcUri(project, namespace string) string {
-	return computeURLPrefix + fmt.Sprintf("projects/%s/global/networks/%s", project, getVpcName(namespace))
+// GetVpcUrl returns a fully qualified URL for a VPC network
+func GetVpcUrl(project string, namespace string) string {
+	return computeUrlPrefix + fmt.Sprintf("projects/%s/global/networks/%s", project, getVpcName(namespace))
 }
 
 // Creates bi-directional peering between two VPC networks
@@ -68,7 +70,7 @@ func peerVpcNetwork(ctx context.Context, networksClient *compute.NetworksClient,
 	}
 
 	// Add peering
-	peerVpcUri := GetVpcUri(peerProject, peerNamespace)
+	peerVpcUrl := GetVpcUrl(peerProject, peerNamespace)
 	addPeeringNetworkReq := &computepb.AddPeeringNetworkRequest{
 		Network: getVpcName(currentNamespace),
 		Project: currentProject,
@@ -76,7 +78,7 @@ func peerVpcNetwork(ctx context.Context, networksClient *compute.NetworksClient,
 			// Don't specify Name or PeerNetwork field here as GCP will throw an error
 			NetworkPeering: &computepb.NetworkPeering{
 				Name:                 proto.String(networkPeeringName),
-				Network:              proto.String(peerVpcUri),
+				Network:              proto.String(peerVpcUrl),
 				ExchangeSubnetRoutes: proto.Bool(true),
 			},
 		},

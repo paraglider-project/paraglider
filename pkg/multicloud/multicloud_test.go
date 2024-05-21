@@ -212,7 +212,7 @@ func TestMulticloud(t *testing.T) {
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
 	gcpConnectivityTest1GcpVmEndpoint := &networkmanagementpb.Endpoint{
 		IpAddress: gcpVmIpAddress,
-		Network:   gcp.GetVpcUri(gcpProjectId, "other"),
+		Network:   gcp.GetVpcUrl(gcpProjectId, "other"),
 		ProjectId: gcpProjectId,
 	}
 	gcpConnectivityTest1AzureVmEndpoint := &networkmanagementpb.Endpoint{
@@ -323,7 +323,7 @@ func TestMulticloud(t *testing.T) {
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
 	gcpConnectivityTest2GcpVmEndpoint := &networkmanagementpb.Endpoint{
 		IpAddress: gcpVmIpAddress,
-		Network:   gcp.GetVpcUri(gcpProjectId, "other"),
+		Network:   gcp.GetVpcUrl(gcpProjectId, "other"),
 		ProjectId: gcpProjectId,
 	}
 	gcpConnectivityTest2AzureVmEndpoint := &networkmanagementpb.Endpoint{

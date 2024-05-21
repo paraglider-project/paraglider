@@ -61,10 +61,10 @@ func getFakeClusterResourceDescription() (*paragliderpb.ResourceDescription, *co
 	return resource, clusterRequest, nil
 }
 
-func TestParseResourceURI(t *testing.T) {
-	instanceUri := fmt.Sprintf("projects/%s/zones/%s/instances/%s", fakeProject, fakeZone, fakeInstanceName)
+func TestParseResourceUrl(t *testing.T) {
+	instanceUrl := fmt.Sprintf("projects/%s/zones/%s/instances/%s", fakeProject, fakeZone, fakeInstanceName)
 
-	resourceInfo, err := parseResourceUri(instanceUri)
+	resourceInfo, err := parseResourceUrl(instanceUrl)
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeProject, resourceInfo.Project)
@@ -72,9 +72,9 @@ func TestParseResourceURI(t *testing.T) {
 	assert.Equal(t, fakeInstanceName, resourceInfo.Name)
 	assert.Equal(t, instanceTypeName, resourceInfo.ResourceType)
 
-	clusterUri := fmt.Sprintf("projects/%s/locations/%s/clusters/%s", fakeProject, fakeZone, fakeClusterName)
+	clusterUrl := fmt.Sprintf("projects/%s/locations/%s/clusters/%s", fakeProject, fakeZone, fakeClusterName)
 
-	resourceInfo, err = parseResourceUri(clusterUri)
+	resourceInfo, err = parseResourceUrl(clusterUrl)
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeProject, resourceInfo.Project)
@@ -172,10 +172,10 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	client := fakeClients.instancesClient
 
-	uri, ip, err := ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, client, nil, nil, make([]string, 0))
+	url, ip, err := ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, client, nil, nil, make([]string, 0))
 
 	require.NoError(t, err)
-	assert.Contains(t, uri, *instanceRequest.InstanceResource.Name)
+	assert.Contains(t, url, *instanceRequest.InstanceResource.Name)
 	assert.Equal(t, ip, *getFakeInstance(true).NetworkInterfaces[0].NetworkIP)
 
 	// Test for cluster
@@ -188,10 +188,10 @@ func TestReadAndProvisionResource(t *testing.T) {
 	firewallClient := fakeClients.firewallsClient
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
-	uri, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, nil, clusterClient, firewallClient, additionalAddressSpaces)
+	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, nil, clusterClient, firewallClient, additionalAddressSpaces)
 
 	require.NoError(t, err)
-	assert.Equal(t, getClusterUri(fakeProject, fakeZone, clusterRequest.Cluster.Name), uri)
+	assert.Equal(t, getClusterUrl(fakeProject, fakeZone, clusterRequest.Cluster.Name), url)
 	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
 }
 
@@ -208,10 +208,10 @@ func TestInstanceReadAndProvisionResource(t *testing.T) {
 
 	instanceHandler.client = fakeClients.instancesClient
 
-	uri, ip, err := instanceHandler.readAndProvisionResource(ctx, resource, subnet, rInfo, nil, make([]string, 0))
+	url, ip, err := instanceHandler.readAndProvisionResource(ctx, resource, subnet, rInfo, nil, make([]string, 0))
 
 	require.NoError(t, err)
-	assert.Contains(t, uri, *getFakeInstance(true).Name)
+	assert.Contains(t, url, *getFakeInstance(true).Name)
 	assert.Equal(t, ip, *getFakeInstance(true).NetworkInterfaces[0].NetworkIP)
 }
 
@@ -242,7 +242,7 @@ func TestInstanceGetNetworkInfo(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, convertInstanceIdToString(*instance.Id), networkInfo.ResourceID)
 	assert.Contains(t, *instance.NetworkInterfaces[0].Network, networkInfo.NetworkName)
-	assert.Equal(t, *instance.NetworkInterfaces[0].Subnetwork, networkInfo.SubnetURI)
+	assert.Equal(t, *instance.NetworkInterfaces[0].Subnetwork, networkInfo.SubnetUrl)
 }
 
 func TestInstanceFromResourceDecription(t *testing.T) {
@@ -272,10 +272,10 @@ func TestInstanceCreateWithNetwork(t *testing.T) {
 
 	instanceHandler.client = fakeClients.instancesClient
 
-	uri, ip, err := instanceHandler.createWithNetwork(ctx, instanceRequest, subnet, rInfo, nil)
+	url, ip, err := instanceHandler.createWithNetwork(ctx, instanceRequest, subnet, rInfo, nil)
 
 	require.NoError(t, err)
-	assert.Contains(t, uri, *instanceRequest.InstanceResource.Name)
+	assert.Contains(t, url, *instanceRequest.InstanceResource.Name)
 	assert.Equal(t, ip, *getFakeInstance(true).NetworkInterfaces[0].NetworkIP)
 
 }
@@ -295,10 +295,10 @@ func TestClusterReadAndProvisionResource(t *testing.T) {
 	firewallClient := fakeClients.firewallsClient
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
-	uri, ip, err := clusterHandler.readAndProvisionResource(ctx, resource, "subnet-1", rInfo, firewallClient, additionalAddressSpaces)
+	url, ip, err := clusterHandler.readAndProvisionResource(ctx, resource, "subnet-1", rInfo, firewallClient, additionalAddressSpaces)
 
 	require.NoError(t, err)
-	assert.Equal(t, getClusterUri(fakeProject, fakeZone, clusterRequest.Cluster.Name), uri)
+	assert.Equal(t, getClusterUrl(fakeProject, fakeZone, clusterRequest.Cluster.Name), url)
 	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
 }
 
@@ -329,7 +329,7 @@ func TestGKEGetNetworkInfo(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, shortenClusterId(cluster.Id), networkInfo.ResourceID)
-	assert.Equal(t, fakeSubnetId, networkInfo.SubnetURI)
+	assert.Equal(t, fakeSubnetId, networkInfo.SubnetUrl)
 }
 
 func TestGKEFromResourceDecription(t *testing.T) {
@@ -358,9 +358,9 @@ func TestGKECreateWithNetwork(t *testing.T) {
 	fwClient := fakeClients.firewallsClient
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
-	uri, ip, err := clusterHandler.createWithNetwork(ctx, clusterRequest, subnet, rInfo, fwClient, additionalAddressSpaces)
+	url, ip, err := clusterHandler.createWithNetwork(ctx, clusterRequest, subnet, rInfo, fwClient, additionalAddressSpaces)
 
 	require.NoError(t, err)
-	assert.Equal(t, getClusterUri(fakeProject, fakeZone, fakeClusterName), uri)
+	assert.Equal(t, getClusterUrl(fakeProject, fakeZone, fakeClusterName), url)
 	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
 }

@@ -49,7 +49,7 @@ func TestGetPermitList(t *testing.T) {
 				},
 				Direction:  proto.String(computepb.Firewall_INGRESS.String()),
 				Name:       proto.String("fw-allow-icmp"),
-				Network:    proto.String(GetVpcUri(fakeProject, fakeNamespace)),
+				Network:    proto.String(GetVpcUrl(fakeProject, fakeNamespace)),
 				TargetTags: []string{"0.0.0.0/0"},
 			},
 		},
@@ -108,7 +108,7 @@ func TestAddPermitListRules(t *testing.T) {
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
 			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")),
-			Network:    proto.String(GetVpcUri(fakeProject, fakeNamespace)),
+			Network:    proto.String(GetVpcUrl(fakeProject, fakeNamespace)),
 		},
 	}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
@@ -221,7 +221,7 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
 			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")),
-			Network:    proto.String(GetVpcUri(fakeProject, fakeNamespace)),
+			Network:    proto.String(GetVpcUrl(fakeProject, fakeNamespace)),
 		},
 	}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)

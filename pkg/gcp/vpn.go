@@ -56,19 +56,22 @@ func getBgpPeerName(cloud string, peerIdx int) string {
 	return cloud + "-bgp-peer-" + strconv.Itoa(peerIdx)
 }
 
-func getVpnGwUri(project, region, vpnGwName string) string {
-	return computeURLPrefix + fmt.Sprintf("projects/%s/regions/%s/vpnGateways/%s", project, region, vpnGwName)
+// getVpnGatewayUrl returns a fully qualified URL for a VPN Gateway
+func getVpnGatewayUrl(project, region, vpnGatewayName string) string {
+	return computeUrlPrefix + fmt.Sprintf("projects/%s/regions/%s/vpnGateways/%s", project, region, vpnGatewayName)
 }
 
-func getRouterUri(project, region, routerName string) string {
-	return computeURLPrefix + fmt.Sprintf("projects/%s/regions/%s/routers/%s", project, region, routerName)
+// getRouterUrl returns a fully qualified URL for a router
+func getRouterUrl(project, region, routerName string) string {
+	return computeUrlPrefix + fmt.Sprintf("projects/%s/regions/%s/routers/%s", project, region, routerName)
 }
 
-// Returns a full GCP URI of a VPN tunnel
-func getVpnTunnelUri(project, region, vpnTunnelName string) string {
-	return computeURLPrefix + fmt.Sprintf("projects/%s/regions/%s/vpnTunnels/%s", project, region, vpnTunnelName)
+// getVpnTunnelUrl returns a fully qualified URL for a VPN Tunnel
+func getVpnTunnelUrl(project, region, vpnTunnelName string) string {
+	return computeUrlPrefix + fmt.Sprintf("projects/%s/regions/%s/vpnTunnels/%s", project, region, vpnTunnelName)
 }
 
-func getPeerGwUri(project, peerGwName string) string {
-	return computeURLPrefix + fmt.Sprintf("projects/%s/global/externalVpnGateways/%s", project, peerGwName)
+// getPeerGatewayUrl returns a fully qualified URL for a peer gateway
+func getPeerGatewayUrl(project, peerGatewayName string) string {
+	return computeUrlPrefix + fmt.Sprintf("projects/%s/global/externalVpnGateways/%s", project, peerGatewayName)
 }

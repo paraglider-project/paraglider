@@ -117,7 +117,7 @@ func paragliderRuleToFirewallRule(namespace string, project string, firewallName
 		Description: proto.String(getRuleDescription(rule.Tags)),
 		Direction:   proto.String(firewallDirectionMapParagliderToGCP[rule.Direction]),
 		Name:        proto.String(firewallName),
-		Network:     proto.String(GetVpcUri(project, namespace)),
+		Network:     proto.String(GetVpcUrl(project, namespace)),
 		TargetTags:  []string{networkTag},
 	}
 	if rule.DstPort != -1 {

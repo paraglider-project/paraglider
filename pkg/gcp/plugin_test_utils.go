@@ -47,14 +47,14 @@ const (
 	fakeClusterName  = "cluster-paraglider-fake"
 	fakeClusterId    = "12345678910"
 	fakeInstanceId   = uint64(1234)
-	fakeResourceId   = "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
+	fakeResourceId   = computeUrlPrefix + "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
 	fakeNamespace    = "default"
 	fakeSubnetName   = "subnet-paraglider-fake"
-	fakeSubnetId     = "projects/" + fakeProject + "/regions/" + fakeRegion + "/subnetworks/" + fakeSubnetName
+	fakeSubnetId     = computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/subnetworks/" + fakeSubnetName
 
 	// Missing resources not registered in fake server
 	fakeMissingInstance   = "vm-paraglider-missing"
-	fakeMissingResourceId = "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeMissingInstance
+	fakeMissingResourceId = computeUrlPrefix + "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeMissingInstance
 
 	// Overarching dummy operation name
 	fakeOperation = "operation-fake"
@@ -91,7 +91,7 @@ var (
 		},
 		Direction:    proto.String(computepb.Firewall_INGRESS.String()),
 		Name:         proto.String(getFirewallName(fakeNamespace, fakePermitListRule1.Name, convertInstanceIdToString(fakeInstanceId))),
-		Network:      proto.String(GetVpcUri(fakeProject, fakeNamespace)),
+		Network:      proto.String(GetVpcUrl(fakeProject, fakeNamespace)),
 		SourceRanges: []string{"10.1.2.0/24"},
 		TargetTags:   []string{fakeNetworkTag},
 		Description:  proto.String(getRuleDescription([]string{"tag1", "tag2"})),
@@ -114,7 +114,7 @@ var (
 		DestinationRanges: []string{"10.3.4.0/24"},
 		Direction:         proto.String(computepb.Firewall_EGRESS.String()),
 		Name:              proto.String(getFirewallName(fakeNamespace, fakePermitListRule2.Name, convertInstanceIdToString(fakeInstanceId))),
-		Network:           proto.String(GetVpcUri(fakeProject, fakeNamespace)),
+		Network:           proto.String(GetVpcUrl(fakeProject, fakeNamespace)),
 		TargetTags:        []string{fakeNetworkTag},
 	}
 )
@@ -130,7 +130,7 @@ func getFakeInstance(includeNetwork bool) *computepb.Instance {
 		instance.NetworkInterfaces = []*computepb.NetworkInterface{
 			{
 				NetworkIP:  proto.String("10.1.1.1"),
-				Network:    proto.String(GetVpcUri(fakeProject, fakeNamespace)),
+				Network:    proto.String(GetVpcUrl(fakeProject, fakeNamespace)),
 				Subnetwork: proto.String(fakeSubnetId),
 			},
 		}
@@ -154,7 +154,7 @@ func getFakeCluster(includeNetwork bool) *containerpb.Cluster {
 	}
 	if includeNetwork {
 		cluster.Subnetwork = fakeSubnetName
-		cluster.Network = GetVpcUri(fakeProject, fakeNamespace)
+		cluster.Network = GetVpcUrl(fakeProject, fakeNamespace)
 	}
 	return cluster
 }
