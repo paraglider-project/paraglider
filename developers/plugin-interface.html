@@ -293,8 +293,8 @@
 <p class="admonition-title">Note</p>
 <p>Each cloud API is different and may not be able to implement the features described below with their current parameters. In such cases, we can discuss the best way to proceed (potentially modifying the interface itself to be more cloud-agnostic).</p>
 </div>
-<section id="rpc-createresource-resourcedescription-returns-createresourceresponse">
-<h2><strong>rpc CreateResource(ResourceDescription) returns (CreateResourceResponse) {}</strong><a class="headerlink" href="#rpc-createresource-resourcedescription-returns-createresourceresponse" title="Link to this heading">¶</a></h2>
+<section id="rpc-createresource-createresourcerequest-returns-createresourceresponse">
+<h2><strong>rpc CreateResource(CreateResourceRequest) returns (CreateResourceResponse) {}</strong><a class="headerlink" href="#rpc-createresource-createresourcerequest-returns-createresourceresponse" title="Link to this heading">¶</a></h2>
 <section id="tenant-level-description">
 <h3>Tenant-Level Description:<a class="headerlink" href="#tenant-level-description" title="Link to this heading">¶</a></h3>
 <p>Creates the provided resource as a Paraglider-enabled resource.The tenant should not provide any networking details in the resource description.</p>
@@ -308,7 +308,7 @@
 <p>The <code class="docutils literal notranslate"><span class="pre">description</span></code> in the resource description should specify all required parameters for that cloud but the networking details of the resource. It is expected to be a JSON string that can be directly passed to the cloud API for resource creation.
 The <code class="docutils literal notranslate"><span class="pre">name</span></code> field in the resource description will be the name used when creating the resource. If it is specified within the resource description itself, that value will be ignored.
 An example of a resource description for an Azure VM is as follows:</p>
-<div class="highlight-go notranslate"><div class="highlight"><pre><span></span><span class="nx">vm</span><span class="o">-</span><span class="nx">a</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ResourceDescription</span><span class="w"> </span><span class="p">{</span>
+<div class="highlight-go notranslate"><div class="highlight"><pre><span></span><span class="nx">vm</span><span class="o">-</span><span class="nx">a</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">CreateResourceRequest</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nx">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;vm-a&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nx">deployment</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="s">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/subscriptions/sub123/resourceGroups/rg123&quot;</span><span class="p">,</span>
@@ -596,8 +596,8 @@ Gets all used BGP peering IP addresses in a given cloud.</p>
 </ul>
 </section>
 </section>
-<section id="rpc-createvpnconnections-createvpnconnectionsrequest-returns-basicresponse">
-<h2>rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (BasicResponse) {}<a class="headerlink" href="#rpc-createvpnconnections-createvpnconnectionsrequest-returns-basicresponse" title="Link to this heading">¶</a></h2>
+<section id="rpc-createvpnconnections-createvpnconnectionsrequest-returns-createvpnconnectionsresponse">
+<h2>rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (CreateVpnConnectionsResponse) {}<a class="headerlink" href="#rpc-createvpnconnections-createvpnconnectionsrequest-returns-createvpnconnectionsresponse" title="Link to this heading">¶</a></h2>
 <section id="id32">
 <h3>Implementation-Level Description:<a class="headerlink" href="#id32" title="Link to this heading">¶</a></h3>
 <p>Creates VPN connections between two clouds.</p>
@@ -683,7 +683,7 @@ Gets all used BGP peering IP addresses in a given cloud.</p>
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Plugin Interface</a><ul>
-<li><a class="reference internal" href="#rpc-createresource-resourcedescription-returns-createresourceresponse"><strong>rpc CreateResource(ResourceDescription) returns (CreateResourceResponse) {}</strong></a><ul>
+<li><a class="reference internal" href="#rpc-createresource-createresourcerequest-returns-createresourceresponse"><strong>rpc CreateResource(CreateResourceRequest) returns (CreateResourceResponse) {}</strong></a><ul>
 <li><a class="reference internal" href="#tenant-level-description">Tenant-Level Description:</a></li>
 <li><a class="reference internal" href="#implementation-level-description">Implementation-Level Description:</a></li>
 <li><a class="reference internal" href="#input-details">Input Details:</a></li>
@@ -743,7 +743,7 @@ Gets all used BGP peering IP addresses in a given cloud.</p>
 <li><a class="reference internal" href="#id31">High-Level Logic:</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#rpc-createvpnconnections-createvpnconnectionsrequest-returns-basicresponse">rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (BasicResponse) {}</a><ul>
+<li><a class="reference internal" href="#rpc-createvpnconnections-createvpnconnectionsrequest-returns-createvpnconnectionsresponse">rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (CreateVpnConnectionsResponse) {}</a><ul>
 <li><a class="reference internal" href="#id32">Implementation-Level Description:</a></li>
 <li><a class="reference internal" href="#id33">Input Details:</a></li>
 <li><a class="reference internal" href="#id34">Resources to Create:</a></li>
