@@ -516,26 +516,26 @@ func getFakeAKSGenericResource() armresources.GenericResource {
 	}
 }
 
-func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*paragliderpb.ResourceDescription, error) {
+func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*paragliderpb.CreateResourceRequest, error) {
 	desc, err := json.Marshal(vm)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
-	return &paragliderpb.ResourceDescription{
+	return &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: deploymentId, Namespace: namespace},
 		Name:        validVmName,
 		Description: desc,
 	}, nil
 }
 
-func getFakeClusterResourceDescription(cluster *armcontainerservice.ManagedCluster) (*paragliderpb.ResourceDescription, error) {
+func getFakeClusterResourceDescription(cluster *armcontainerservice.ManagedCluster) (*paragliderpb.CreateResourceRequest, error) {
 	desc, err := json.Marshal(cluster)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
-	return &paragliderpb.ResourceDescription{
+	return &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: deploymentId, Namespace: namespace},
 		Name:        validClusterName,
 		Description: desc,

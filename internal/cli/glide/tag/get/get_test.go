@@ -60,7 +60,7 @@ func TestTagGetExecute(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Contains(t, output.String(), tagName)
-	assert.Contains(t, output.String(), fake.GetFakeTagMapping(tagName).TagName)
+	assert.Contains(t, output.String(), fake.GetFakeTagMapping(tagName).Name)
 	assert.Contains(t, output.String(), fake.GetFakeTagMapping(tagName).ChildTags[0])
 
 	// Resolve the tag
@@ -69,5 +69,5 @@ func TestTagGetExecute(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Contains(t, output.String(), tagName)
-	assert.Contains(t, output.String(), fake.GetFakeTagMappingLeafTags(tagName)[0].TagName)
+	assert.Contains(t, output.String(), fake.GetFakeTagMappingLeafTags(tagName)[0].Name)
 }
