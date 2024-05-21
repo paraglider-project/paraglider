@@ -24,7 +24,9 @@ The controller is configured using a configuration file. The configuration file 
         - name: "azure"
           host: "localhost"
           port: 8083
-
+        - name: "ibm"
+          host: "localhost"
+          port: 8084
     namespaces: 
         default:
             - name: "azure"
