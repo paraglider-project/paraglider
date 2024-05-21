@@ -19,11 +19,11 @@ The controller is configured using a configuration file. The configuration file 
 
     cloudPlugins:
         - name: "gcp"
-            host: "localhost"
-            port: 8082
+          host: "localhost"
+          port: 8082
         - name: "azure"
-            host: "localhost"
-            port: 8083
+          host: "localhost"
+          port: 8083
 
     namespaces: 
         default:
