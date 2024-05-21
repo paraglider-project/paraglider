@@ -27,6 +27,7 @@ The controller is configured using a configuration file. The configuration file 
         - name: "ibm"
           host: "localhost"
           port: 8084
+
     namespaces: 
         default:
             - name: "azure"
@@ -38,11 +39,11 @@ The controller is configured using a configuration file. The configuration file 
 
     tagService:
         host: "localhost"
-        port: 8084
+        port: 8085
 
     kvStore:
         host: "localhost"
-        port: 8085
+        port: 8086
 
 This file contains all information needed to spin up each of the microservices.
 
