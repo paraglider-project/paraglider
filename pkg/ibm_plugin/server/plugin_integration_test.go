@@ -68,7 +68,6 @@ func TestMain(m *testing.M) {
 // TODO(cohen-j-omer) will add verification for number of rules
 // usage: go test --tags=ibm -run TestAddPermitRulesIntegration -timeout 0
 // -timeout 0 removes limit of 10 min. runtime, which is necessary due to long deployment time of Azure's VPN.
-// Note: Run kvstore and tagging service before execution
 func TestAddPermitRulesIntegration(t *testing.T) {
 	dbPort := 6379
 	IBMServerPort := 7992
@@ -175,7 +174,6 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 // TODO(cohen-j-omer) will add IBM connectivity check method
 // usage: go test --tags=ibm -run TestMulticloudIBMAzure -timeout 0
 // -timeout 0 removes limit of 10 minutes runtime, which is necessary due to long deployment time of Azure's VPN.
-// Note: Run kvstore and tagging service before execution
 func TestMulticloudIBMAzure(t *testing.T) {
 	dbPort := 6379
 	kvstorePort := 7993
