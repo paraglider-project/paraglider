@@ -19,6 +19,5 @@ GCP
 
 IBM
 ~~~
-* Supports instances for all paraglider operations.
+* Supports instances and k8s cluster for all paraglider operations.
 * Support for multicloud connections to Azure and GCP is in progress.
-* There is no support for managed k8s clusters yet.

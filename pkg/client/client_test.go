@@ -78,7 +78,7 @@ func TestGetTag(t *testing.T) {
 	tag, err := client.GetTag(tagName)
 
 	assert.Nil(t, err)
-	assert.Equal(t, tagName, tag.TagName)
+	assert.Equal(t, tagName, tag.Name)
 }
 
 func TestResolveTag(t *testing.T) {
@@ -90,7 +90,7 @@ func TestResolveTag(t *testing.T) {
 	tags, err := client.ResolveTag(tagName)
 
 	assert.Nil(t, err)
-	assert.Equal(t, tagName, tags[0].TagName)
+	assert.Equal(t, tagName, tags[0].Name)
 	assert.NotNil(t, tags[0].Uri)
 }
 

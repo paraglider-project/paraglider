@@ -556,7 +556,7 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	description, err := json.Marshal(fakeInstanceOptions)
 	require.NoError(t, err)
 
-	resource := &paragliderpb.ResourceDescription{
+	resource := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
@@ -590,7 +590,7 @@ func TestCreateResourceExistingVPCSubnet(t *testing.T) {
 	description, err := json.Marshal(fakeInstanceOptions)
 	require.NoError(t, err)
 
-	resource := &paragliderpb.ResourceDescription{
+	resource := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
@@ -621,7 +621,7 @@ func TestCreateResourceExistingVPCMissingSubnet(t *testing.T) {
 	description, err := json.Marshal(fakeInstanceOptions)
 	require.NoError(t, err)
 
-	resource := &paragliderpb.ResourceDescription{
+	resource := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeInstance,
 		Description: description,
@@ -652,7 +652,7 @@ func TestCreateResourceCluster(t *testing.T) {
 	description, err := json.Marshal(fakeClusterOptions)
 	require.NoError(t, err)
 
-	resource := &paragliderpb.ResourceDescription{
+	resource := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeCluster,
 		Description: description,
@@ -683,7 +683,7 @@ func TestCreateResourceClusterExistingVPC(t *testing.T) {
 	description, err := json.Marshal(fakeClusterOptions)
 	require.NoError(t, err)
 
-	resource := &paragliderpb.ResourceDescription{
+	resource := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeCluster,
 		Description: description,

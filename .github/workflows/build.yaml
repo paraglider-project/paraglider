@@ -23,7 +23,7 @@ concurrency:
 
 env:
   # Go version to install
-  GOVER: '^1.21'
+  GOVER: '^1.22'
   GOPROXY: https://proxy.golang.org
   
   # gotestsum version - see: https://github.com/gotestyourself/gotestsum
@@ -73,7 +73,7 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
       - name: Set up Go ${{ env.GOVER }}
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GOVER }}
       - name: Get Go Cache path
@@ -81,7 +81,7 @@ jobs:
         run: |
           echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
           echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ${{ steps.go-cache-paths.outputs.go-build }}
@@ -90,7 +90,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - name: Restore the previous coverage
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v4
         with:
           path: ./dist/cache
           key: code-coverage-
@@ -154,7 +154,7 @@ jobs:
           files: |
             ./dist/unit_test/processed/*.xml
       - name: 'Upload unit test results'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always() && matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         with:
           name: unit_test_results
@@ -199,7 +199,7 @@ jobs:
           GO_TOOL_COVER: go tool cover
       - name: Upload unit-test coverage artifact
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: unit_test_coverage
           path: |
@@ -226,13 +226,13 @@ jobs:
 
             > The coverage result does not include the functional test results. 
       - name: Save coverage (only main push)
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v4
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux' && github.ref == 'refs/heads/main'
         with:
           path: ./dist/cache
           key: code-coverage-${{ github.sha }}-${{ github.run_number }}
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v1
+        uses: google-github-actions/auth@v2
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         with:
           workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/paraglider'

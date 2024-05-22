@@ -103,7 +103,7 @@ func TestMulticloud(t *testing.T) {
 	azureVm1ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + azureVm1Name
 	azureCreateResourceResp1, err := azureServer.CreateResource(
 		ctx,
-		&paragliderpb.ResourceDescription{
+		&paragliderpb.CreateResourceRequest{
 			Deployment:  &paragliderpb.ParagliderDeployment{Id: azureDeploymentId, Namespace: "default"},
 			Name:        azureVm1Name,
 			Description: azureVm1Description,
@@ -122,7 +122,7 @@ func TestMulticloud(t *testing.T) {
 	gcpVmDescription, err := json.Marshal(gcpVmParameters)
 	gcpCreateResourceResp, err := gcpServer.CreateResource(
 		ctx,
-		&paragliderpb.ResourceDescription{
+		&paragliderpb.CreateResourceRequest{
 			Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + gcpProjectId, Namespace: "other"},
 			Name:        gcpVmName,
 			Description: gcpVmDescription,
@@ -234,7 +234,7 @@ func TestMulticloud(t *testing.T) {
 	azureVm2ResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + azureVm2Name
 	azureCreateResourceResp2, err := azureServer.CreateResource(
 		ctx,
-		&paragliderpb.ResourceDescription{
+		&paragliderpb.CreateResourceRequest{
 			Deployment:  &paragliderpb.ParagliderDeployment{Id: azureDeploymentId, Namespace: "default"},
 			Name:        azureVm2Name,
 			Description: azureVm2Description,

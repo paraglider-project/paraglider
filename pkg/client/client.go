@@ -190,13 +190,13 @@ func (c *Client) ResolveTag(tag string) ([]*tagservicepb.TagMapping, error) {
 		return nil, err
 	}
 
-	tagMappings := tagservicepb.TagMappingList{}
-	err = json.Unmarshal(respBytes, &tagMappings)
+	tags := []*tagservicepb.TagMapping{}
+	err = json.Unmarshal(respBytes, &tags)
 	if err != nil {
 		return nil, err
 	}
 
-	return tagMappings.Mappings, nil
+	return tags, nil
 }
 
 // ListTags lists all tags and their mappings
@@ -208,13 +208,13 @@ func (c *Client) ListTags() ([]*tagservicepb.TagMapping, error) {
 		return nil, err
 	}
 
-	tagMappings := tagservicepb.TagMappingList{}
-	err = json.Unmarshal(respBytes, &tagMappings)
+	tags := []*tagservicepb.TagMapping{}
+	err = json.Unmarshal(respBytes, &tags)
 	if err != nil {
 		return nil, err
 	}
 
-	return tagMappings.Mappings, nil
+	return tags, nil
 }
 
 // Set a tag as a member of a group or as a mapping to a URI/IP

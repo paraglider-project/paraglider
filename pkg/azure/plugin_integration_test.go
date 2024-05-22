@@ -38,7 +38,7 @@ func createVM(ctx context.Context, server *azurePluginServer, subscriptionId str
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal VM parameters")
 	}
-	resourceDescription := &paragliderpb.ResourceDescription{
+	resourceDescription := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: namespace},
 		Name:        name,
 		Description: parametersBytes,
@@ -72,7 +72,7 @@ func TestBasicPermitListOps(t *testing.T) {
 	require.NoError(t, err)
 	vmName := vmNamePrefix + "-" + uuid.NewString()
 	vmID := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + vmName
-	createResourceResp, err := s.CreateResource(ctx, &paragliderpb.ResourceDescription{
+	createResourceResp, err := s.CreateResource(ctx, &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: namespace},
 		Name:        vmName,
 		Description: descriptionJson,

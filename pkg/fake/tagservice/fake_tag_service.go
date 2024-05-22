@@ -45,59 +45,59 @@ type FakeTagServiceServer struct {
 	tagservicepb.UnimplementedTagServiceServer
 }
 
-func (s *FakeTagServiceServer) GetTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMapping, error) {
-	if strings.HasPrefix(tag.TagName, ValidLastLevelTagName) {
-		return &tagservicepb.TagMapping{TagName: tag.TagName, Uri: &TagUri, Ip: &TagIp}, nil
+func (s *FakeTagServiceServer) GetTag(c context.Context, req *tagservicepb.GetTagRequest) (*tagservicepb.GetTagResponse, error) {
+	if strings.HasPrefix(req.TagName, ValidLastLevelTagName) {
+		return &tagservicepb.GetTagResponse{Tag: &tagservicepb.TagMapping{Name: req.TagName, Uri: &TagUri, Ip: &TagIp}}, nil
 	}
-	if strings.HasPrefix(tag.TagName, ValidParentTagName) {
-		return &tagservicepb.TagMapping{TagName: tag.TagName, ChildTags: []string{"child"}}, nil
+	if strings.HasPrefix(req.TagName, ValidParentTagName) {
+		return &tagservicepb.GetTagResponse{Tag: &tagservicepb.TagMapping{Name: req.TagName, ChildTags: []string{"child"}}}, nil
 	}
-	if strings.HasSuffix(tag.TagName, ValidLastLevelTagName) {
-		return &tagservicepb.TagMapping{TagName: tag.TagName, Uri: &TagUri, Ip: &TagIp}, nil
+	if strings.HasSuffix(req.TagName, ValidLastLevelTagName) {
+		return &tagservicepb.GetTagResponse{Tag: &tagservicepb.TagMapping{Name: req.TagName, Uri: &TagUri, Ip: &TagIp}}, nil
 	}
 	return nil, fmt.Errorf("GetTag: Invalid tag name")
 }
 
-func (s *FakeTagServiceServer) ResolveTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.TagMappingList, error) {
-	if strings.HasPrefix(tag.TagName, ValidTagName) {
-		newUri := "uri/" + tag.TagName
-		return &tagservicepb.TagMappingList{Mappings: []*tagservicepb.TagMapping{{TagName: tag.TagName, Uri: &newUri, Ip: &ResolvedTagIp}}}, nil
+func (s *FakeTagServiceServer) ResolveTag(c context.Context, req *tagservicepb.ResolveTagRequest) (*tagservicepb.ResolveTagResponse, error) {
+	if strings.HasPrefix(req.TagName, ValidTagName) {
+		newUri := "uri/" + req.TagName
+		return &tagservicepb.ResolveTagResponse{Tags: []*tagservicepb.TagMapping{{Name: req.TagName, Uri: &newUri, Ip: &ResolvedTagIp}}}, nil
 	}
 	return nil, fmt.Errorf("ResolveTag: Invalid tag name")
 }
 
-func (s *FakeTagServiceServer) SetTag(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully created tag: %s", tagMapping.TagName)}, nil
+func (s *FakeTagServiceServer) SetTag(c context.Context, tagMapping *tagservicepb.SetTagRequest) (*tagservicepb.SetTagResponse, error) {
+	return &tagservicepb.SetTagResponse{}, nil
 }
 
-func (s *FakeTagServiceServer) DeleteTag(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.BasicResponse, error) {
-	if strings.HasPrefix(tag.TagName, ValidTagName) {
-		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted tag: %s", tag.TagName)}, nil
+func (s *FakeTagServiceServer) DeleteTag(c context.Context, req *tagservicepb.DeleteTagRequest) (*tagservicepb.DeleteTagResponse, error) {
+	if strings.HasPrefix(req.TagName, ValidTagName) {
+		return &tagservicepb.DeleteTagResponse{}, nil
 	}
-	return &tagservicepb.BasicResponse{Success: false, Message: fmt.Sprintf("tag %s does not exist", tag.TagName)}, fmt.Errorf("tag does not exist")
+	return &tagservicepb.DeleteTagResponse{}, fmt.Errorf("tag does not exist")
 }
 
-func (s *FakeTagServiceServer) DeleteTagMember(c context.Context, tagMapping *tagservicepb.TagMapping) (*tagservicepb.BasicResponse, error) {
-	if strings.HasPrefix(tagMapping.TagName, ValidTagName) {
-		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully deleted member %s from tag %s", tagMapping.ChildTags[0], tagMapping.TagName)}, nil
+func (s *FakeTagServiceServer) DeleteTagMember(c context.Context, req *tagservicepb.DeleteTagMemberRequest) (*tagservicepb.DeleteTagMemberResponse, error) {
+	if strings.HasPrefix(req.ParentTag, ValidTagName) {
+		return &tagservicepb.DeleteTagMemberResponse{}, nil
 	}
-	return &tagservicepb.BasicResponse{Success: false, Message: "parent tag does not exist"}, fmt.Errorf("parentTag does not exist")
+	return &tagservicepb.DeleteTagMemberResponse{}, fmt.Errorf("parentTag does not exist")
 }
 
-func (s *FakeTagServiceServer) Subscribe(c context.Context, sub *tagservicepb.Subscription) (*tagservicepb.BasicResponse, error) {
-	return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully subscribed to tag: %s", sub.TagName)}, nil
+func (s *FakeTagServiceServer) Subscribe(c context.Context, req *tagservicepb.SubscribeRequest) (*tagservicepb.SubscribeResponse, error) {
+	return &tagservicepb.SubscribeResponse{}, nil
 }
 
-func (s *FakeTagServiceServer) Unsubscribe(c context.Context, sub *tagservicepb.Subscription) (*tagservicepb.BasicResponse, error) {
-	if strings.HasPrefix(sub.TagName, ValidTagName) {
-		return &tagservicepb.BasicResponse{Success: true, Message: fmt.Sprintf("successfully unsubscribed from tag: %s", sub.TagName)}, nil
+func (s *FakeTagServiceServer) Unsubscribe(c context.Context, req *tagservicepb.UnsubscribeRequest) (*tagservicepb.UnsubscribeResponse, error) {
+	if strings.HasPrefix(req.Subscription.TagName, ValidTagName) {
+		return &tagservicepb.UnsubscribeResponse{}, nil
 	}
-	return &tagservicepb.BasicResponse{Success: false, Message: fmt.Sprintf("no subscriptions for tag: %s", sub.TagName)}, fmt.Errorf("tag has no subscribers")
+	return &tagservicepb.UnsubscribeResponse{}, fmt.Errorf("tag has no subscribers")
 }
 
-func (s *FakeTagServiceServer) GetSubscribers(c context.Context, tag *tagservicepb.Tag) (*tagservicepb.SubscriberList, error) {
-	if strings.HasPrefix(tag.TagName, ValidTagName) {
-		return &tagservicepb.SubscriberList{Subscribers: []string{SubscriberNamespace + ">" + SubscriberCloudName + ">uri"}}, nil
+func (s *FakeTagServiceServer) GetSubscribers(c context.Context, req *tagservicepb.GetSubscribersRequest) (*tagservicepb.GetSubscribersResponse, error) {
+	if strings.HasPrefix(req.TagName, ValidTagName) {
+		return &tagservicepb.GetSubscribersResponse{Subscribers: []string{SubscriberNamespace + ">" + SubscriberCloudName + ">uri"}}, nil
 	}
 	return nil, fmt.Errorf("tag does not exist")
 }

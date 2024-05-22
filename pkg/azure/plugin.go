@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const maxPriority = 4096
@@ -140,7 +141,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 	}
 	defer orchestratorConn.Close()
 	orchestratorClient := paragliderpb.NewControllerClient(orchestratorConn)
-	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &paragliderpb.Empty{})
+	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
@@ -259,7 +260,7 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *paragl
 // CreateResource does the mapping from Paraglider to Azure to create a paraglider enabled resource
 // which means the resource should be added to a valid paraglider network, the attachement to a paraglider network
 // is determined by the resource's location.
-func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *paragliderpb.ResourceDescription) (*paragliderpb.CreateResourceResponse, error) {
+func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *paragliderpb.CreateResourceRequest) (*paragliderpb.CreateResourceResponse, error) {
 	resourceDescInfo, err := GetResourceInfoFromResourceDesc(ctx, resourceDesc)
 	if err != nil {
 		utils.Log.Printf("Resource description is invalid:%+v", err)
@@ -667,7 +668,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *paraglide
 	return resp, nil
 }
 
-func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.BasicResponse, error) {
+func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.CreateVpnConnectionsResponse, error) {
 	resourceIdInfo, err := getResourceIDInfo(req.Deployment.Id)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
@@ -747,7 +748,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 		}
 	}
 
-	return &paragliderpb.BasicResponse{Success: true}, nil
+	return &paragliderpb.CreateVpnConnectionsResponse{}, nil
 }
 
 // Peer with another virtual network

@@ -16,6 +16,7 @@ limitations under the License.
 
 syntax = "proto3";
 package paragliderpb;
+import "google/protobuf/empty.proto";
 
 option go_package="github.com/paraglider-project/paraglider/pkg/paragliderpb";
 
@@ -23,36 +24,29 @@ service CloudPlugin {
     rpc GetUsedAddressSpaces(GetUsedAddressSpacesRequest) returns (GetUsedAddressSpacesResponse) {}
     rpc GetUsedAsns(GetUsedAsnsRequest) returns (GetUsedAsnsResponse) {}
     rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}
-    rpc CreateResource(ResourceDescription) returns (CreateResourceResponse) {}
+    rpc CreateResource(CreateResourceRequest) returns (CreateResourceResponse) {}
     rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}
     rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}
     rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}
     rpc CreateVpnGateway(CreateVpnGatewayRequest) returns (CreateVpnGatewayResponse) {}
-    rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (BasicResponse) {}
+    rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (CreateVpnConnectionsResponse) {}
 }
 
 service Controller {
     rpc FindUnusedAddressSpaces(FindUnusedAddressSpacesRequest) returns (FindUnusedAddressSpacesResponse) {}
-    rpc GetUsedAddressSpaces(Empty) returns (GetUsedAddressSpacesResponse) {} // TODO @seankimkdy: we should rename either this or the CloudPlugin's to not share the same method name
+    rpc GetUsedAddressSpaces(google.protobuf.Empty) returns (GetUsedAddressSpacesResponse) {} // TODO @seankimkdy: we should rename either this or the CloudPlugin's to not share the same method name
     rpc FindUnusedAsn(FindUnusedAsnRequest) returns (FindUnusedAsnResponse) {}
-    rpc ConnectClouds(ConnectCloudsRequest) returns (BasicResponse) {}
+    rpc ConnectClouds(ConnectCloudsRequest) returns (ConnectCloudsResponse) {}
     rpc SetValue(SetValueRequest) returns (SetValueResponse) {}
     rpc GetValue(GetValueRequest) returns (GetValueResponse) {}
     rpc DeleteValue(DeleteValueRequest) returns (DeleteValueResponse) {}
 }
 
-message Empty {
-
-}
+// Internal message objects
+// -------------------------
 
 message Namespace {
     string namespace = 1;
-}
-
-message CreateResourceResponse {
-    string name = 1;
-    string uri = 2;
-    string ip = 3;
 }
 
 // Provides the necessary URI/ID to find the Paraglider networks (eg, subscription + resource group in Azure or project in GCP)
@@ -68,30 +62,9 @@ message AddressSpaceMapping{
     optional string deployment = 4;
 }
 
-message AddressSpaceMappingList {
-    repeated AddressSpaceMapping address_space_mappings = 1;
-}
-
-message ResourceID {
-    string id = 1;
-    string namespace = 2;
-}
-
-message ResourceDescription {
-    ParagliderDeployment deployment = 1;
-    string name = 2;
-    bytes description = 3;
-}
-
 message ResourceDescriptionString {
     string name = 1;
     string description = 2;
-}
-
-message BasicResponse {
-    bool success = 1;
-    string message = 2;
-    optional ResourceID updated_resource = 3;
 }
 
 enum Direction {
@@ -99,7 +72,7 @@ enum Direction {
     OUTBOUND = 1;
 }
 
-// TODO ?: have a version of this without the tags field to avoid users setting that at all
+// TODO @smcclure20: have a version of this without the tags field to avoid users setting that at all (?)
 message PermitListRule {
     string name = 1;
     repeated string targets = 2;
@@ -110,9 +83,19 @@ message PermitListRule {
     repeated string tags = 7;
 }
 
-message PermitList {
-    string associated_resource = 1; 
-    repeated PermitListRule rules = 2;
+// RPC Messages
+// ------------
+
+message CreateResourceRequest {
+    ParagliderDeployment deployment = 1;
+    string name = 2;
+    bytes description = 3;
+}
+
+message CreateResourceResponse {
+    string name = 1;
+    string uri = 2;
+    string ip = 3;
 }
 
 message AddPermitListRulesRequest {
@@ -149,6 +132,9 @@ message ConnectCloudsRequest {
     string cloudBNamespace = 4;
 }
 
+message ConnectCloudsResponse {
+}
+
 // TODO @seankimkdy: check naming of all of these to be as cloud neutral as possible
 // TODO @seankmkdy: should all methods have a {method name}Request and {method name}Response message buffers
 
@@ -170,6 +156,9 @@ message CreateVpnConnectionsRequest {
     repeated string gateway_ip_addresses = 4;
     repeated string bgp_ip_addresses = 5;
     string shared_key = 6;
+}
+
+message CreateVpnConnectionsResponse {
 }
 
 message GetUsedAddressSpacesRequest{
@@ -241,6 +230,3 @@ message DeleteValueRequest {
 
 message DeleteValueResponse {
 }
-
-
-

@@ -40,7 +40,7 @@ func TestTagListExecute(t *testing.T) {
 	err := executor.Execute(cmd, nil)
 
 	assert.Nil(t, err)
-	assert.Contains(t, output.String(), fake.ListFakeTagMapping()[0].TagName)
-	assert.Contains(t, output.String(), fake.ListFakeTagMapping()[1].TagName)
-	assert.Contains(t, output.String(), fake.ListFakeTagMapping()[2].TagName)
+	assert.Contains(t, output.String(), fake.ListFakeTagMapping()[0].Name)
+	assert.Contains(t, output.String(), fake.ListFakeTagMapping()[1].Name)
+	assert.Contains(t, output.String(), fake.ListFakeTagMapping()[2].Name)
 }
