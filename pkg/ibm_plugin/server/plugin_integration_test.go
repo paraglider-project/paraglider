@@ -148,7 +148,7 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)
 
-	resource := &paragliderpb.ResourceDescription{Name: instanceName, Deployment: &paragliderpb.ParagliderDeployment{Id: testDeployment, Namespace: testNamespace}, Description: description}
+	resource := &paragliderpb.CreateResourceRequest{Name: instanceName, Deployment: &paragliderpb.ParagliderDeployment{Id: testDeployment, Namespace: testNamespace}, Description: description}
 	res, err := ibmServer.CreateResource(context.Background(), resource)
 	require.NoError(t, err)
 	require.NotNil(t, res)
@@ -280,7 +280,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	azureVmResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + azureVmName
 	azureCreateResourceResp1, err := azureServer.CreateResource(
 		ctx,
-		&paragliderpb.ResourceDescription{
+		&paragliderpb.CreateResourceRequest{
 			Deployment:  &paragliderpb.ParagliderDeployment{Id: azureDeploymentId, Namespace: azureNamespace},
 			Name:        azureVmName,
 			Description: azureVm1Description,
@@ -306,7 +306,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)
 
-	resource := &paragliderpb.ResourceDescription{Name: instanceName, Deployment: &paragliderpb.ParagliderDeployment{Id: testDeployment, Namespace: testNamespace}, Description: description}
+	resource := &paragliderpb.CreateResourceRequest{Name: instanceName, Deployment: &paragliderpb.ParagliderDeployment{Id: testDeployment, Namespace: testNamespace}, Description: description}
 	createResourceResponse, err := ibmServer.CreateResource(ctx, resource)
 	require.NoError(t, err)
 	require.NotNil(t, createResourceResponse)

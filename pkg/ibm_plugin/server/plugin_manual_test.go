@@ -128,7 +128,7 @@ func TestCreateNewResource(t *testing.T) {
 	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
 	require.NoError(t, err)
 
-	resource := &paragliderpb.ResourceDescription{Deployment: &paragliderpb.ParagliderDeployment{Id: testDeployment, Namespace: testNamespace}, Description: description}
+	resource := &paragliderpb.CreateResourceRequest{Deployment: &paragliderpb.ParagliderDeployment{Id: testDeployment, Namespace: testNamespace}, Description: description}
 	resp, err := s.CreateResource(context.Background(), resource)
 	if err != nil {
 		println(err)

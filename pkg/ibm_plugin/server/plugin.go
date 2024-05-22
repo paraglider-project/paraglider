@@ -31,6 +31,7 @@ import (
 	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type IBMPluginServer struct {
@@ -352,7 +353,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	}
 	defer controllerConn.Close()
 	controllerClient := paragliderpb.NewControllerClient(controllerConn)
-	addressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &paragliderpb.Empty{})
+	addressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
@@ -652,7 +653,7 @@ func (s *IBMPluginServer) getRegionOfAddressSpace(resourceGroup, namespace, addr
 }
 
 // creates VPN connection
-func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.BasicResponse, error) {
+func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.CreateVpnConnectionsResponse, error) {
 	if len(req.RemoteAddresses) == 0 {
 		return nil, fmt.Errorf("RemoteAddress is a mandatory field for IBM VPN connections.")
 	}
@@ -693,7 +694,7 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 		}
 	}
 
-	return &paragliderpb.BasicResponse{Success: true}, nil
+	return &paragliderpb.CreateVpnConnectionsResponse{}, nil
 }
 
 // IBM doesn't currently support BGP peering
