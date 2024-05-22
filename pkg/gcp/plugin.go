@@ -62,9 +62,9 @@ func (s *GCPPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.G
 }
 
 func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, clustersClient *container.ClusterManagerClient) (*paragliderpb.GetPermitListResponse, error) {
-	resourceInfo, err := parseResourceUri(req.Resource)
+	resourceInfo, err := parseResourceUrl(req.Resource)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse resource URI: %w", err)
+		return nil, fmt.Errorf("unable to parse resource URL: %w", err)
 	}
 	resourceInfo.Namespace = req.Namespace
 
@@ -128,9 +128,9 @@ func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 }
 
 func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paragliderpb.AddPermitListRulesRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, subnetworksClient *compute.SubnetworksClient, networksClient *compute.NetworksClient, clustersClient *container.ClusterManagerClient) (*paragliderpb.AddPermitListRulesResponse, error) {
-	resourceInfo, err := parseResourceUri(req.Resource)
+	resourceInfo, err := parseResourceUrl(req.Resource)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse resource URI: %w", err)
+		return nil, fmt.Errorf("unable to parse resource URL: %w", err)
 	}
 	resourceInfo.Namespace = req.Namespace
 
@@ -210,7 +210,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 			} else {
 				if peeringCloudInfo.Namespace != req.Namespace {
 					// Create VPC network peering (in both directions) for different namespaces
-					peerProject := parseGCPURL(peeringCloudInfo.Deployment)["projects"]
+					peerProject := parseUrl(peeringCloudInfo.Deployment)["projects"]
 					err = peerVpcNetwork(ctx, networksClient, resourceInfo.Project, req.Namespace, peerProject, peeringCloudInfo.Namespace)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create peering from %s to %s: %w", req.Namespace, peeringCloudInfo.Namespace, err)
@@ -282,9 +282,9 @@ func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 }
 
 func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *paragliderpb.DeletePermitListRulesRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, clustersClient *container.ClusterManagerClient) (*paragliderpb.DeletePermitListRulesResponse, error) {
-	resourceInfo, err := parseResourceUri(req.Resource)
+	resourceInfo, err := parseResourceUrl(req.Resource)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse resource URI: %w", err)
+		return nil, fmt.Errorf("unable to parse resource URL: %w", err)
 	}
 	resourceInfo.Namespace = req.Namespace
 
@@ -342,7 +342,7 @@ func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescriptio
 }
 
 func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *paragliderpb.CreateResourceRequest, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient, clustersClient *container.ClusterManagerClient) (*paragliderpb.CreateResourceResponse, error) {
-	project := parseGCPURL(resourceDescription.Deployment.Id)["projects"]
+	project := parseUrl(resourceDescription.Deployment.Id)["projects"]
 
 	// Read and validate user-provided description
 	resourceInfo, err := IsValidResource(ctx, resourceDescription)
@@ -401,7 +401,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 					DestinationRanges: []string{"0.0.0.0/0"},
 					Direction:         proto.String(computepb.Firewall_EGRESS.String()),
 					Name:              proto.String(getDenyAllIngressFirewallName(resourceDescription.Deployment.Namespace)),
-					Network:           proto.String(GetVpcUri(project, resourceDescription.Deployment.Namespace)),
+					Network:           proto.String(GetVpcUrl(project, resourceDescription.Deployment.Namespace)),
 					Priority:          proto.Int32(65534),
 				},
 			}
@@ -418,7 +418,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	} else {
 		// Check if there is a subnet in the region that resource will be placed in
 		for _, subnetURL := range getNetworkResp.Subnetworks {
-			parsedSubnetURL := parseGCPURL(subnetURL)
+			parsedSubnetURL := parseUrl(subnetURL)
 			if subnetName == parsedSubnetURL["subnetworks"] {
 				subnetExists = true
 				break
@@ -458,7 +458,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 			SubnetworkResource: &computepb.Subnetwork{
 				Name:        proto.String(subnetName),
 				Description: proto.String("Paraglider subnetwork for " + region),
-				Network:     proto.String(GetVpcUri(project, resourceDescription.Deployment.Namespace)),
+				Network:     proto.String(GetVpcUrl(project, resourceDescription.Deployment.Namespace)),
 				IpCidrRange: proto.String(addressSpaces[0]),
 			},
 		}
@@ -473,12 +473,12 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	}
 
 	// Read and provision the resource
-	uri, ip, err := ReadAndProvisionResource(ctx, resourceDescription, subnetName, resourceInfo, instancesClient, clustersClient, firewallsClient, addressSpaces)
+	url, ip, err := ReadAndProvisionResource(ctx, resourceDescription, subnetName, resourceInfo, instancesClient, clustersClient, firewallsClient, addressSpaces)
 
 	if err != nil {
 		return nil, fmt.Errorf("unable to read and provision resource: %w", err)
 	}
-	return &paragliderpb.CreateResourceResponse{Name: resourceInfo.Name, Uri: uri, Ip: ip}, nil
+	return &paragliderpb.CreateResourceResponse{Name: resourceInfo.Name, Uri: url, Ip: ip}, nil
 }
 
 func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
@@ -505,7 +505,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *paragl
 			Cloud:     utils.GCP,
 			Namespace: deployment.Namespace,
 		}
-		project := parseGCPURL(deployment.Id)["projects"]
+		project := parseUrl(deployment.Id)["projects"]
 
 		vpcName := getVpcName(deployment.Namespace)
 		getNetworkReq := &computepb.GetNetworkRequest{
@@ -523,7 +523,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *paragl
 		}
 		resp.AddressSpaceMappings[i].AddressSpaces = []string{}
 		for _, subnetURL := range getNetworkResp.Subnetworks {
-			parsedSubnetURL := parseGCPURL(subnetURL)
+			parsedSubnetURL := parseUrl(subnetURL)
 			getSubnetworkRequest := &computepb.GetSubnetworkRequest{
 				Project:    project,
 				Region:     parsedSubnetURL["regions"],
@@ -554,7 +554,7 @@ func (s *GCPPluginServer) GetUsedAsns(ctx context.Context, req *paragliderpb.Get
 func (s *GCPPluginServer) _GetUsedAsns(ctx context.Context, req *paragliderpb.GetUsedAsnsRequest, routersClient *compute.RoutersClient) (*paragliderpb.GetUsedAsnsResponse, error) {
 	resp := &paragliderpb.GetUsedAsnsResponse{}
 	for _, deployment := range req.Deployments {
-		project := parseGCPURL(deployment.Id)["projects"]
+		project := parseUrl(deployment.Id)["projects"]
 
 		getRouterReq := &computepb.GetRouterRequest{
 			Project: project,
@@ -585,7 +585,7 @@ func (s *GCPPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req 
 func (s *GCPPluginServer) _GetUsedBgpPeeringIpAddresses(ctx context.Context, req *paragliderpb.GetUsedBgpPeeringIpAddressesRequest, routersClient *compute.RoutersClient) (*paragliderpb.GetUsedBgpPeeringIpAddressesResponse, error) {
 	resp := &paragliderpb.GetUsedBgpPeeringIpAddressesResponse{}
 	for _, deployment := range req.Deployments {
-		project := parseGCPURL(deployment.Id)["projects"]
+		project := parseUrl(deployment.Id)["projects"]
 
 		getRouterReq := &computepb.GetRouterRequest{
 			Project: project,
@@ -622,7 +622,7 @@ func (s *GCPPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderp
 }
 
 func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paragliderpb.CreateVpnGatewayRequest, vpnGatewaysClient *compute.VpnGatewaysClient, routersClient *compute.RoutersClient) (*paragliderpb.CreateVpnGatewayResponse, error) {
-	project := parseGCPURL(req.Deployment.Id)["projects"]
+	project := parseUrl(req.Deployment.Id)["projects"]
 
 	// Create VPN gateway
 	insertVpnGatewayReq := &computepb.InsertVpnGatewayRequest{
@@ -631,7 +631,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 		VpnGatewayResource: &computepb.VpnGateway{
 			Name:        proto.String(getVpnGwName(req.Deployment.Namespace)),
 			Description: proto.String("Paraglider VPN gateway for multicloud connections"),
-			Network:     proto.String(GetVpcUri(project, req.Deployment.Namespace)),
+			Network:     proto.String(GetVpcUrl(project, req.Deployment.Namespace)),
 		},
 	}
 	insertVpnGatewayOp, err := vpnGatewaysClient.Insert(ctx, insertVpnGatewayReq)
@@ -665,7 +665,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 		RouterResource: &computepb.Router{
 			Name:        proto.String(getRouterName(req.Deployment.Namespace)),
 			Description: proto.String("Paraglider router for multicloud connections"),
-			Network:     proto.String(GetVpcUri(project, req.Deployment.Namespace)),
+			Network:     proto.String(GetVpcUrl(project, req.Deployment.Namespace)),
 			Bgp: &computepb.RouterBgp{
 				Asn: proto.Uint32(asn),
 			},
@@ -711,7 +711,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 				&computepb.RouterInterface{
 					Name:            proto.String(interfaceName),
 					IpRange:         proto.String(req.BgpPeeringIpAddresses[i] + "/30"),
-					LinkedVpnTunnel: proto.String(getVpnTunnelUri(project, vpnRegion, getVpnTunnelName(req.Deployment.Namespace, req.Cloud, i))),
+					LinkedVpnTunnel: proto.String(getVpnTunnelUrl(project, vpnRegion, getVpnTunnelName(req.Deployment.Namespace, req.Cloud, i))),
 				},
 			)
 		}
@@ -763,7 +763,7 @@ func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 }
 
 func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest, externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient, vpnTunnelsClient *compute.VpnTunnelsClient, routersClient *compute.RoutersClient) (*paragliderpb.CreateVpnConnectionsResponse, error) {
-	project := parseGCPURL(req.Deployment.Id)["projects"]
+	project := parseUrl(req.Deployment.Id)["projects"]
 	vpnNumConnections := utils.GetNumVpnConnections(req.Cloud, utils.GCP)
 
 	// Insert external VPN gateway
@@ -801,12 +801,12 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *paragl
 			VpnTunnelResource: &computepb.VpnTunnel{
 				Name:                         proto.String(getVpnTunnelName(req.Deployment.Namespace, req.Cloud, i)),
 				Description:                  proto.String(fmt.Sprintf("Paraglider VPN tunnel to %s (interface %d)", req.Cloud, i)),
-				PeerExternalGateway:          proto.String(getPeerGwUri(project, getPeerGwName(req.Deployment.Namespace, req.Cloud))),
+				PeerExternalGateway:          proto.String(getPeerGatewayUrl(project, getPeerGwName(req.Deployment.Namespace, req.Cloud))),
 				PeerExternalGatewayInterface: proto.Int32(int32(i)),
 				IkeVersion:                   proto.Int32(ikeVersion),
 				SharedSecret:                 proto.String(req.SharedKey),
-				Router:                       proto.String(getRouterUri(project, vpnRegion, getRouterName(req.Deployment.Namespace))),
-				VpnGateway:                   proto.String(getVpnGwUri(project, vpnRegion, getVpnGwName(req.Deployment.Namespace))),
+				Router:                       proto.String(getRouterUrl(project, vpnRegion, getRouterName(req.Deployment.Namespace))),
+				VpnGateway:                   proto.String(getVpnGatewayUrl(project, vpnRegion, getVpnGwName(req.Deployment.Namespace))),
 				VpnGatewayInterface:          proto.Int32(int32(i)), // TODO @seankimkdy: handle separately for four connections (AWS specific)?
 			},
 		}

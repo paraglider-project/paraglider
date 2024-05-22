@@ -143,14 +143,14 @@ func TestIntegration(t *testing.T) {
 	require.NotNil(t, getFirewallResp)
 
 	// Add bidirectional PING permit list rules
-	vm1Uri := fmt.Sprintf("projects/%s/zones/%s/instances/%s", projectId, vm1Zone, vm1Name)
-	vm2Uri := fmt.Sprintf("projects/%s/zones/%s/instances/%s", projectId, vm2Zone, vm2Name)
+	vm1Url := getInstanceUrl(projectId, vm1Zone, vm1Name)
+	vm2Url := getInstanceUrl(projectId, vm2Zone, vm2Name)
 	vm1Ip, err := GetInstanceIpAddress(projectId, vm1Zone, vm1Name)
 	require.NoError(t, err)
 	vm2Ip, err := GetInstanceIpAddress(projectId, vm2Zone, vm2Name)
 	require.NoError(t, err)
 
-	vmUris := []string{vm1Uri, vm2Uri}
+	vmUrls := []string{vm1Url, vm2Url}
 	rules1 := []*paragliderpb.PermitListRule{
 		{
 			Name:      "test-rule1",
@@ -188,13 +188,13 @@ func TestIntegration(t *testing.T) {
 		},
 	}
 	ruleLists := [][]*paragliderpb.PermitListRule{rules1, rules2}
-	for i, vmUri := range vmUris {
+	for i, vmUrl := range vmUrls {
 		rules := ruleLists[i]
-		addPermitListRulesResp, err := s.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: rules, Namespace: namespace, Resource: vmUri})
+		addPermitListRulesResp, err := s.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: rules, Namespace: namespace, Resource: vmUrl})
 		require.NoError(t, err)
 		require.NotNil(t, addPermitListRulesResp)
 
-		getPermitListAfterAddResp, err := s.GetPermitList(ctx, &paragliderpb.GetPermitListRequest{Resource: vmUri, Namespace: namespace})
+		getPermitListAfterAddResp, err := s.GetPermitList(ctx, &paragliderpb.GetPermitListRequest{Resource: vmUrl, Namespace: namespace})
 		require.NoError(t, err)
 		require.NotNil(t, getPermitListAfterAddResp)
 
@@ -205,12 +205,12 @@ func TestIntegration(t *testing.T) {
 	// Connectivity tests that ping the two VMs
 	vm1Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm1Ip,
-		Network:   GetVpcUri(projectId, namespace),
+		Network:   GetVpcUrl(projectId, namespace),
 		ProjectId: projectId,
 	}
 	vm2Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm2Ip,
-		Network:   GetVpcUri(projectId, namespace),
+		Network:   GetVpcUrl(projectId, namespace),
 		ProjectId: projectId,
 	}
 
@@ -219,7 +219,7 @@ func TestIntegration(t *testing.T) {
 	RunPingConnectivityTest(t, projectId, "2to1", vm2Endpoint, vm1Endpoint)
 
 	// Delete permit lists
-	for i, vmId := range vmUris {
+	for i, vmId := range vmUrls {
 		ruleNames := []string{ruleLists[i][0].Name, ruleLists[i][1].Name}
 		deletePermitListRulesResp, err := s.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: ruleNames, Namespace: "default", Resource: vmId})
 		require.NoError(t, err)
@@ -297,13 +297,13 @@ func TestCrossNamespace(t *testing.T) {
 	assert.Equal(t, createVm2Resp.Name, vm2Name)
 
 	// Add permit list rules to vm1 and vm2 to ping each other
-	vm1Uri := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project1Id, vm1Zone, vm1Name)
-	vm2Uri := fmt.Sprintf("projects/%s/zones/%s/instances/%s", project2Id, vm2Zone, vm2Name)
+	vm1Url := getInstanceUrl(project1Id, vm1Zone, vm1Name)
+	vm2Url := getInstanceUrl(project2Id, vm2Zone, vm2Name)
 	vm1Ip, err := GetInstanceIpAddress(project1Id, vm1Zone, vm1Name)
 	require.NoError(t, err)
 	vm2Ip, err := GetInstanceIpAddress(project2Id, vm2Zone, vm2Name)
 	require.NoError(t, err)
-	vmUris := []string{vm1Uri, vm2Uri}
+	vmUrls := []string{vm1Url, vm2Url}
 	vm1Rules := []*paragliderpb.PermitListRule{
 		{
 			Name:      "vm2-ping-ingress",
@@ -342,8 +342,8 @@ func TestCrossNamespace(t *testing.T) {
 	}
 	vmRules := [][]*paragliderpb.PermitListRule{vm1Rules, vm2Rules}
 	namespaces := []string{project1Namespace, project2Namespace}
-	for i, vmUri := range vmUris {
-		addPermitListRulesReq := &paragliderpb.AddPermitListRulesRequest{Rules: vmRules[i], Namespace: namespaces[i], Resource: vmUri}
+	for i, vmUrl := range vmUrls {
+		addPermitListRulesReq := &paragliderpb.AddPermitListRulesRequest{Rules: vmRules[i], Namespace: namespaces[i], Resource: vmUrl}
 		addPermitListRulesResp, err := gcpServer.AddPermitListRules(ctx, addPermitListRulesReq)
 		require.NoError(t, err)
 		require.NotNil(t, addPermitListRulesResp)
@@ -352,12 +352,12 @@ func TestCrossNamespace(t *testing.T) {
 	// Run connectivity tests
 	vm1Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm1Ip,
-		Network:   GetVpcUri(project1Id, project1Namespace),
+		Network:   GetVpcUrl(project1Id, project1Namespace),
 		ProjectId: project1Id,
 	}
 	vm2Endpoint := &networkmanagementpb.Endpoint{
 		IpAddress: vm2Ip,
-		Network:   GetVpcUri(project2Id, project2Namespace),
+		Network:   GetVpcUrl(project2Id, project2Namespace),
 		ProjectId: project2Id,
 	}
 	// Run connectivity tests on both directions between vm1 and vm2

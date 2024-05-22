@@ -50,7 +50,7 @@ type resourceInfo struct {
 }
 
 type resourceNetworkInfo struct {
-	SubnetURI   string
+	SubnetUrl   string
 	ResourceID  string
 	NetworkName string
 }
@@ -103,15 +103,15 @@ func getFirewallRules(ctx context.Context, client *compute.FirewallsClient, proj
 	return firewallRules, nil
 }
 
-// Parse the resource URI and return information about the resource (such as project, zone, name, and type)
-func parseResourceUri(resourceUri string) (*resourceInfo, error) {
-	parsedResourceId := parseGCPURL(resourceUri)
+// parseResourceUrl parses the resource URL and returns information about the resource (such as project, zone, name, and type)
+func parseResourceUrl(resourceUrl string) (*resourceInfo, error) {
+	parsedResourceId := parseUrl(resourceUrl)
 	if name, ok := parsedResourceId["instances"]; ok {
 		return &resourceInfo{Project: parsedResourceId["projects"], Zone: parsedResourceId["zones"], Region: getRegionFromZone(parsedResourceId["zones"]), Name: name, ResourceType: instanceTypeName}, nil
 	} else if name, ok := parsedResourceId["clusters"]; ok {
 		return &resourceInfo{Project: parsedResourceId["projects"], Zone: parsedResourceId["locations"], Region: getRegionFromZone(parsedResourceId["locations"]), Name: name, ResourceType: clusterTypeName}, nil
 	}
-	return nil, fmt.Errorf("unable to parse resource URI")
+	return nil, fmt.Errorf("unable to parse resource URL")
 }
 
 // Get the resource handler for a given resource type with the client field set
@@ -144,7 +144,7 @@ func getResourceHandlerFromDescription(resourceDesc []byte) (iGCPResourceHandler
 }
 
 // Gets network information about a resource and confirms it is in the correct namespace
-// Returns the subnet URI and resource ID (instance ID or cluster ID, not URI since this is used for firewall rule naming)
+// Returns the subnet URL and resource ID (instance ID or cluster ID, not URL since this is used for firewall rule naming)
 func GetResourceNetworkInfo(ctx context.Context, instancesClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient, resourceInfo *resourceInfo) (*string, *string, error) {
 	if resourceInfo.Namespace == "" {
 		return nil, nil, fmt.Errorf("namespace is empty")
@@ -162,7 +162,7 @@ func GetResourceNetworkInfo(ctx context.Context, instancesClient *compute.Instan
 	if !resourceIsInNamespace(netInfo.NetworkName, resourceInfo.Namespace) {
 		return nil, nil, fmt.Errorf("resource is not in namespace")
 	}
-	return &netInfo.SubnetURI, &netInfo.ResourceID, nil
+	return &netInfo.SubnetUrl, &netInfo.ResourceID, nil
 }
 
 // Determine whether the provided resource description is supported
@@ -238,7 +238,7 @@ func (r *gcpInstance) getNumberAddressSpacesRequired() int {
 }
 
 // Get network information about a GCP instance
-// Returns the network name, subnet URI, and instance ID converted to a string for rule naming
+// Returns the network name, subnet URL, and instance ID converted to a string for rule naming
 func (r *gcpInstance) getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo) (*resourceNetworkInfo, error) {
 	instanceRequest := &computepb.GetInstanceRequest{
 		Instance: resourceInfo.Name,
@@ -250,13 +250,13 @@ func (r *gcpInstance) getNetworkInfo(ctx context.Context, resourceInfo *resource
 		return nil, fmt.Errorf("unable to get instance: %w", err)
 	}
 	networkName := *instanceResponse.NetworkInterfaces[0].Network
-	subnetURI := *instanceResponse.NetworkInterfaces[0].Subnetwork
+	subnetUrl := *instanceResponse.NetworkInterfaces[0].Subnetwork
 	resourceID := convertInstanceIdToString(*instanceResponse.Id)
-	return &resourceNetworkInfo{NetworkName: networkName, SubnetURI: subnetURI, ResourceID: resourceID}, nil
+	return &resourceNetworkInfo{NetworkName: networkName, SubnetUrl: subnetUrl, ResourceID: resourceID}, nil
 }
 
 // Create a GCP instance with network settings
-// Returns the instance URI and instance IP
+// Returns the instance URL and instance IP
 func (r *gcpInstance) createWithNetwork(ctx context.Context, instance *computepb.InsertInstanceRequest, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient) (string, string, error) {
 	// Set project and name
 	instance.Project = resourceInfo.Project
@@ -265,8 +265,8 @@ func (r *gcpInstance) createWithNetwork(ctx context.Context, instance *computepb
 	// Configure network settings to Paraglider VPC and corresponding subnet
 	instance.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
-			Network:    proto.String(GetVpcUri(resourceInfo.Project, resourceInfo.Namespace)),
-			Subnetwork: proto.String("regions/" + resourceInfo.Region + "/subnetworks/" + subnetName),
+			Network:    proto.String(GetVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
+			Subnetwork: proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName)),
 		},
 	}
 
@@ -313,7 +313,7 @@ func (r *gcpInstance) createWithNetwork(ctx context.Context, instance *computepb
 		return "", "", fmt.Errorf("unable to wait for the operation")
 	}
 
-	return getInstanceUri(resourceInfo.Project, resourceInfo.Zone, instanceName), *getInstanceResp.NetworkInterfaces[0].NetworkIP, nil
+	return getInstanceUrl(resourceInfo.Project, resourceInfo.Zone, instanceName), *getInstanceResp.NetworkInterfaces[0].NetworkIP, nil
 }
 
 // Parse the resource description and return the instance request
@@ -360,7 +360,7 @@ func (r *gcpGKE) getNumberAddressSpacesRequired() int {
 }
 
 // Get network information about a GCP cluster
-// Returns the subnet URI and resource ID (cluster ID, not URI since this is used for firewall rule naming)
+// Returns the subnet URL and resource ID (cluster ID, not URL since this is used for firewall rule naming)
 func (r *gcpGKE) getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo) (*resourceNetworkInfo, error) {
 	clusterRequest := &containerpb.GetClusterRequest{
 		Name: fmt.Sprintf(clusterNameFormat, resourceInfo.Project, resourceInfo.Zone, resourceInfo.Name),
@@ -369,11 +369,11 @@ func (r *gcpGKE) getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get cluster: %w", err)
 	}
-	return &resourceNetworkInfo{SubnetURI: getSubnetworkURL(resourceInfo.Project, resourceInfo.Region, clusterResponse.Subnetwork), NetworkName: clusterResponse.Network, ResourceID: shortenClusterId(clusterResponse.Id)}, nil
+	return &resourceNetworkInfo{SubnetUrl: getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, clusterResponse.Subnetwork), NetworkName: clusterResponse.Network, ResourceID: shortenClusterId(clusterResponse.Id)}, nil
 }
 
 // Create a GCP cluster with network settings
-// Returns the cluster URI and cluster CIDR
+// Returns the cluster URL and cluster CIDR
 func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.CreateClusterRequest, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
 	// Set project and name
 	cluster.Parent = fmt.Sprintf("projects/%s/locations/%s", resourceInfo.Project, resourceInfo.Zone)
@@ -381,7 +381,7 @@ func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.Cre
 
 	// Configure network settings to Paraglider VPC and corresponding subnet
 	cluster.Cluster.Network = getVpcName(resourceInfo.Namespace)
-	cluster.Cluster.Subnetwork = getSubnetworkURL(resourceInfo.Project, resourceInfo.Region, subnetName)
+	cluster.Cluster.Subnetwork = getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName)
 	controlPlaneCidr := strings.Split(additionalAddrSpaces[0], "/")[0] + "/28" // TODO @smcclure20: Update this once FindUnusedAddressSpaces can give dynamically sized prefixes
 	if cluster.Cluster.PrivateClusterConfig == nil {
 		cluster.Cluster.PrivateClusterConfig = &containerpb.PrivateClusterConfig{MasterIpv4CidrBlock: controlPlaneCidr}
@@ -421,7 +421,7 @@ func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.Cre
 				Description: proto.String("Paraglider allow cluster egress traffic"),
 				Direction:   proto.String(direction),
 				Name:        proto.String("paraglider-allow-control-plane-" + strings.ToLower(direction) + "-" + resourceInfo.Name),
-				Network:     proto.String(GetVpcUri(resourceInfo.Project, resourceInfo.Namespace)),
+				Network:     proto.String(GetVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
 				Priority:    proto.Int32(65500),
 				TargetTags:  []string{getClusterNodeTag(resourceInfo.Namespace, getClusterResp.Name, getClusterResp.Id)},
 			},
@@ -464,7 +464,7 @@ func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.Cre
 		return "", "", fmt.Errorf("unable to set tags: %w", err)
 	}
 
-	return getClusterUri(resourceInfo.Project, resourceInfo.Zone, getClusterResp.Name), getClusterResp.ClusterIpv4Cidr, nil
+	return getClusterUrl(resourceInfo.Project, resourceInfo.Zone, getClusterResp.Name), getClusterResp.ClusterIpv4Cidr, nil
 }
 
 // Parse the resource description and return the cluster request
@@ -488,10 +488,12 @@ func (r *gcpGKE) fromResourceDecription(resourceDesc []byte) (*containerpb.Creat
 	return createClusterRequest, nil
 }
 
-func getInstanceUri(project, zone, instance string) string {
-	return fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instance)
+// getInstanceUrl returns a fully qualified URL for an instance
+func getInstanceUrl(project, zone, instance string) string {
+	return computeUrlPrefix + fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instance)
 }
 
-func getClusterUri(project, zone, cluster string) string {
-	return fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, zone, cluster)
+// getClusterUrl returns a fully qualified URL for a cluster
+func getClusterUrl(project, zone, cluster string) string {
+	return containerUrlPrefix + fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, zone, cluster)
 }

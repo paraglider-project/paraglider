@@ -44,9 +44,11 @@ import (
 )
 
 const (
-	computeURLPrefix   = "https://www.googleapis.com/compute/v1/"
-	containerURLPrefix = "https://container.googleapis.com/v1beta1/"
+	computeUrlPrefix   = "https://www.googleapis.com/compute/v1/"
+	containerUrlPrefix = "https://container.googleapis.com/v1beta1/"
 )
+
+var urlPrefixes = []string{computeUrlPrefix, containerUrlPrefix}
 
 func generateProjectId(testName string) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -290,16 +292,26 @@ func getRegionFromZone(zone string) string {
 	return zone[:strings.LastIndex(zone, "-")]
 }
 
-// Parses GCP compute URL for desired fields
-func parseGCPURL(url string) map[string]string {
-	path := strings.TrimPrefix(url, computeURLPrefix)
-	path = strings.TrimPrefix(path, containerURLPrefix)
-	parsedURL := map[string]string{}
-	pathComponents := strings.Split(path, "/")
-	for i := 0; i < len(pathComponents)-1; i += 2 {
-		parsedURL[pathComponents[i]] = pathComponents[i+1]
+// parseUrl parses fully qualified and partial GCP resource URLs into a map of URL components (e.g., region)
+// and their corresponding values (e.g., us-west1).
+func parseUrl(url string) map[string]string {
+	path := url
+	for _, urlPrefix := range urlPrefixes {
+		path = strings.TrimPrefix(path, urlPrefix)
 	}
-	return parsedURL
+	parsedUrl := map[string]string{}
+	pathComponents := strings.Split(path, "/")
+	for i := 0; i < len(pathComponents)-1; {
+		if pathComponents[i] == "global" {
+			// Global resources only have a "global" specification without a trailing value
+			// (e.g., projects/invisinets/global/networks/default)
+			i += 1
+		} else {
+			parsedUrl[pathComponents[i]] = pathComponents[i+1]
+			i += 2
+		}
+	}
+	return parsedUrl
 }
 
 // Checks if GCP error response is a not found error
