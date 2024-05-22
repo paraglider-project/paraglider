@@ -9,7 +9,7 @@ This page describes the interface that the cloud plugins must implement to be co
     Each cloud API is different and may not be able to implement the features described below with their current parameters. In such cases, we can discuss the best way to proceed (potentially modifying the interface itself to be more cloud-agnostic).
 
 
-**rpc CreateResource(ResourceDescription) returns (CreateResourceResponse) {}**
+**rpc CreateResource(CreateResourceRequest) returns (CreateResourceResponse) {}**
 -----------------------------------------------------------------------------------
 
 
@@ -29,7 +29,7 @@ An example of a resource description for an Azure VM is as follows:
 
 .. code-block:: go
 
-    vm-a := ResourceDescription {
+    vm-a := CreateResourceRequest {
         name: "vm-a", 
         deployment: { 
             "id": "/subscriptions/sub123/resourceGroups/rg123",
@@ -256,7 +256,7 @@ High-Level Logic:
 ^^^^^^^^^^^^^^^^^
 * Get all BGP peering IP addresses used by Paraglider in the given deployments
 
-rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (BasicResponse) {}
+rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (CreateVpnConnectionsResponse) {}
 -----------------------------------------------------------------------------------
 
 Implementation-Level Description:
