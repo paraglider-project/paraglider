@@ -134,7 +134,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 	var inboundPriority int32 = 100
 
 	// Get used address spaces of all clouds
-	orchestratorConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	orchestratorConn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
@@ -308,7 +308,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 	additionalAddrs := []string{}
 	if resourceDescInfo.NumAdditionalAddressSpaces > 0 {
 		// Create additional address spaces
-		conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			utils.Log.Printf("Could not dial the orchestrator")
 			return nil, err
@@ -549,7 +549,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *paraglide
 				return nil, fmt.Errorf("unable to get VPN gateway subnet: %w", err)
 			}
 
-			conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
 				return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 			}
