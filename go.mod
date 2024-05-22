@@ -1,6 +1,6 @@
 module github.com/paraglider-project/paraglider
 
-go 1.22.0
+go 1.22.2
 
 require (
 	cloud.google.com/go/billing v1.18.5
@@ -54,7 +54,7 @@ require (
 
 require (
 	github.com/IBM/go-sdk-core v1.1.0
-	github.com/IBM/networking-go-sdk v0.44.0
+	github.com/IBM/networking-go-sdk v0.46.1
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
