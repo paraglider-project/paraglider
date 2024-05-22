@@ -762,13 +762,8 @@ func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 	return s._CreateVpnConnections(ctx, req, externalVpnGatewaysClient, vpnTunnelsClient, routersClient)
 }
 
-<<<<<<< HEAD
-func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest, externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient, vpnTunnelsClient *compute.VpnTunnelsClient, routersClient *compute.RoutersClient) (*paragliderpb.BasicResponse, error) {
-	project := parseUrl(req.Deployment.Id)["projects"]
-=======
 func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest, externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient, vpnTunnelsClient *compute.VpnTunnelsClient, routersClient *compute.RoutersClient) (*paragliderpb.CreateVpnConnectionsResponse, error) {
-	project := parseGCPURL(req.Deployment.Id)["projects"]
->>>>>>> main
+	project := parseUrl(req.Deployment.Id)["projects"]
 	vpnNumConnections := utils.GetNumVpnConnections(req.Cloud, utils.GCP)
 
 	// Insert external VPN gateway
