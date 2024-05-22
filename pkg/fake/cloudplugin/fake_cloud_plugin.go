@@ -53,7 +53,7 @@ func (s *fakeCloudPluginServer) DeletePermitListRules(c context.Context, req *pa
 	return &paragliderpb.DeletePermitListRulesResponse{}, nil
 }
 
-func (s *fakeCloudPluginServer) CreateResource(c context.Context, req *paragliderpb.ResourceDescription) (*paragliderpb.CreateResourceResponse, error) {
+func (s *fakeCloudPluginServer) CreateResource(c context.Context, req *paragliderpb.CreateResourceRequest) (*paragliderpb.CreateResourceResponse, error) {
 	return &paragliderpb.CreateResourceResponse{Name: "resource_name", Uri: "resource_uri"}, nil
 }
 

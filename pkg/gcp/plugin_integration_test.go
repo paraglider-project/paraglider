@@ -44,7 +44,7 @@ func createInstance(ctx context.Context, server *GCPPluginServer, project string
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal insert instance request: %w", err)
 	}
-	resourceDescription := &paragliderpb.ResourceDescription{
+	resourceDescription := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + project, Namespace: namespace},
 		Name:        name,
 		Description: insertInstanceReqBytes,
@@ -73,7 +73,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription1 := &paragliderpb.ResourceDescription{
+	resourceDescription1 := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + projectId, Namespace: namespace},
 		Name:        vm1Name,
 		Description: insertInstanceReq1Bytes,
@@ -94,7 +94,7 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resourceDescription2 := &paragliderpb.ResourceDescription{
+	resourceDescription2 := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + projectId, Namespace: namespace},
 		Name:        vm2Name,
 		Description: insertInstanceReq2Bytes,

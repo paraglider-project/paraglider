@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type GCPPluginServer struct {
@@ -159,7 +160,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 	}
 	defer orchestratorConn.Close()
 	orchestratorClient := paragliderpb.NewControllerClient(orchestratorConn)
-	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &paragliderpb.Empty{})
+	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
@@ -310,7 +311,7 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *parag
 	return &paragliderpb.DeletePermitListRulesResponse{}, nil
 }
 
-func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescription *paragliderpb.ResourceDescription) (*paragliderpb.CreateResourceResponse, error) {
+func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescription *paragliderpb.CreateResourceRequest) (*paragliderpb.CreateResourceResponse, error) {
 	instancesClient, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
@@ -340,7 +341,7 @@ func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescriptio
 	return s._CreateResource(ctx, resourceDescription, instancesClient, networksClient, subnetworksClient, firewallsClient, clustersClient)
 }
 
-func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *paragliderpb.ResourceDescription, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient, clustersClient *container.ClusterManagerClient) (*paragliderpb.CreateResourceResponse, error) {
+func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *paragliderpb.CreateResourceRequest, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient, clustersClient *container.ClusterManagerClient) (*paragliderpb.CreateResourceResponse, error) {
 	project := parseUrl(resourceDescription.Deployment.Id)["projects"]
 
 	// Read and validate user-provided description
@@ -742,7 +743,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 	return resp, nil
 }
 
-func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.BasicResponse, error) {
+func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.CreateVpnConnectionsResponse, error) {
 	externalVpnGatewaysClient, err := compute.NewExternalVpnGatewaysRESTClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("NewExternalVpnGatewaysClient: %w", err)
@@ -761,8 +762,13 @@ func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 	return s._CreateVpnConnections(ctx, req, externalVpnGatewaysClient, vpnTunnelsClient, routersClient)
 }
 
+<<<<<<< HEAD
 func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest, externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient, vpnTunnelsClient *compute.VpnTunnelsClient, routersClient *compute.RoutersClient) (*paragliderpb.BasicResponse, error) {
 	project := parseUrl(req.Deployment.Id)["projects"]
+=======
+func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest, externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient, vpnTunnelsClient *compute.VpnTunnelsClient, routersClient *compute.RoutersClient) (*paragliderpb.CreateVpnConnectionsResponse, error) {
+	project := parseGCPURL(req.Deployment.Id)["projects"]
+>>>>>>> main
 	vpnNumConnections := utils.GetNumVpnConnections(req.Cloud, utils.GCP)
 
 	// Insert external VPN gateway
@@ -862,7 +868,7 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *paragl
 		return nil, fmt.Errorf("unable to wait on setting up bgp sessions operation: %w", err)
 	}
 
-	return &paragliderpb.BasicResponse{Success: true}, nil
+	return &paragliderpb.CreateVpnConnectionsResponse{}, nil
 }
 
 func Setup(port int, orchestratorServerAddr string) *GCPPluginServer {
