@@ -297,7 +297,7 @@ func getRegionFromZone(zone string) string {
 func parseUrl(url string) map[string]string {
 	path := url
 	for _, urlPrefix := range urlPrefixes {
-		path = strings.TrimPrefix(url, urlPrefix)
+		path = strings.TrimPrefix(path, urlPrefix)
 	}
 	parsedUrl := map[string]string{}
 	pathComponents := strings.Split(path, "/")
