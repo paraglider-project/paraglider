@@ -48,6 +48,8 @@ const (
 	containerUrlPrefix = "https://container.googleapis.com/v1beta1/"
 )
 
+var urlPrefixes = []string{computeUrlPrefix, containerUrlPrefix}
+
 func generateProjectId(testName string) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	const projectIdMaxLength = 30
@@ -293,13 +295,15 @@ func getRegionFromZone(zone string) string {
 // parseUrl parses fully qualified and partial GCP resource URLs into a map of URL components (e.g., region)
 // and their corresponding values (e.g., us-west1).
 func parseUrl(url string) map[string]string {
-	path := strings.TrimPrefix(url, computeUrlPrefix)
-	path = strings.TrimPrefix(path, containerUrlPrefix)
+	path := url
+	for _, urlPrefix := range urlPrefixes {
+		path = strings.TrimPrefix(url, urlPrefix)
+	}
 	parsedUrl := map[string]string{}
 	pathComponents := strings.Split(path, "/")
 	for i := 0; i < len(pathComponents)-1; {
 		if pathComponents[i] == "global" {
-			// Global resources only have a "global" specification withput a trailing value
+			// Global resources only have a "global" specification without a trailing value
 			// (e.g., projects/invisinets/global/networks/default)
 			i += 1
 		} else {
