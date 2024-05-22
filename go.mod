@@ -9,7 +9,7 @@ require (
 	cloud.google.com/go/networkmanagement v1.13.0
 	cloud.google.com/go/resourcemanager v1.9.6
 	cloud.google.com/go/serviceusage v1.8.1
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.11.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.11.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.2
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4 v4.2.1
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4 v4.7.0
