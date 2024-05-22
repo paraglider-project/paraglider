@@ -30,6 +30,18 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const (
+	localNetworkGatewayTypeName   = "Microsoft.Network/localNetworkGateways"
+	diskTypeName                  = "Microsoft.Compute/disks"
+	connectionTypeName            = "Microsoft.Network/connections"
+	networkInterfaceTypeName      = "Microsoft.Network/networkInterfaces"
+	networkSecurityGroupTypeName  = "Microsoft.Network/networkSecurityGroups"
+	publicIPAddressTypeName       = "Microsoft.Network/publicIPAddresses"
+	virtualNetworkGatewayTypeName = "Microsoft.Network/virtualNetworkGateways"
+	virtualNetworkTypeName        = "Microsoft.Network/virtualNetworks"
+	networkWatcherTypeName        = "Microsoft.Network/networkWatchers"
+)
+
 // Gets subscription ID defined in environment variable
 func GetAzureSubscriptionId() string {
 	subscriptionId := os.Getenv("INVISINETS_AZURE_SUBSCRIPTION_ID")
@@ -125,10 +137,9 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 
 					// Need to check here since resourceGroup can't be used with tags in the above filter
 					// Ignore case when checking because Azure sometimes capitalizes the resource group name for no apparent reason
-
 					if strings.EqualFold(resourceIDInfo.ResourceGroupName, resourceGroupName) {
+						// Group resources by type and get the correct API version for the type
 						if _, ok := resourceTypeToResources[*resource.Type]; !ok {
-							// Initialize list
 							resourceTypeToResources[*resource.Type] = make([]*armresources.GenericResourceExpanded, 0)
 							// Find correct API version
 							_, ok := resourceTypeToAPIVersion[*resource.Type]
@@ -153,9 +164,9 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 
 				}
 				// Delete resources in the following order
-				// TODO @seankimkdy: figure out where clusters fit in on this order
 				deletionOrder := []string{
 					virtualMachineTypeName,
+					managedClusterTypeName,
 					networkInterfaceTypeName,
 					diskTypeName,
 					connectionTypeName,
