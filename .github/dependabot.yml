@@ -12,7 +12,7 @@ updates:
     groups:
       all:
         patterns:
-          - ".*"
+          - "*"
         update-types:
           - "minor"
           - "patch"
@@ -23,7 +23,7 @@ updates:
     groups:
       all:
         patterns:
-          - ".*"
+          - "*"
         update-types:
           - "minor"
           - "patch"
@@ -34,7 +34,7 @@ updates:
     groups:
       all:
         patterns:
-          - ".*"
+          - "*"
         update-types:
           - "minor"
           - "patch"
@@ -45,7 +45,7 @@ updates:
     groups:
       all:
         patterns:
-          - ".*"
+          - "*"
         update-types:
           - "minor"
           - "patch"
