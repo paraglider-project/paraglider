@@ -1,5 +1,8 @@
 BASE_PACKAGE_NAME := github.com/paraglider-project/paraglider
 OUT_DIR := ./dist
+IMAGE_VERSION ?= latest
+IMAGE_ORG ?= paraglider-project
+IMAGE_BASE ?= ghcr.io/$(IMAGE_ORG)
 
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
@@ -100,6 +103,9 @@ BINARY_TARGETS:=$(foreach ITEM,$(BINARIES),build-$(ITEM))
 
 .PHONY: build-binaries
 build-binaries: $(BINARY_TARGETS) ## Builds all go binaries.
+
+push-image: build-binaries
+	docker buildx build --platform $(GOOS)/$(GOARCH) --progress=plain --rm --tag $(IMAGE_BASE)/paraglider:$(IMAGE_VERSION) --push -f ./Dockerfile .
 
 .PHONY: clean
 clean: ## Cleans output directory.
