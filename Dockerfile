@@ -11,4 +11,4 @@ RUN mkdir -p /usr/local/bin
 COPY ./dist/$TARGET_DIR/release/glide /usr/local/bin/glide
 COPY ./dist/$TARGET_DIR/release/glided /usr/local/bin/glided
 
-ENTRYPOINT ["/usr/local/bin/glided", "startup" "config.yaml"]
+ENTRYPOINT ["/usr/local/bin/glided", "startup", "config.yaml"]
