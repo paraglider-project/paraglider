@@ -189,7 +189,10 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	// removes all of paraglide's deployments on IBM
 	region, err := ibmCommon.ZoneToRegion(zone)
 	require.NoError(t, err)
-	defer sdk.TerminateParagilderDeployments(resourceGroupID, region)
+	defer func() {
+		err := sdk.TerminateParagilderDeployments(resourceGroupID, region)
+		require.NoError(t, err)
+	}()
 
 	// requires resource group creation/deletion privileges
 	if DoesHaveResourceGroupPrivileges {
@@ -395,6 +398,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, azureAddPermitListRules1Resp)
 
+	// TODO Remove condition check once PR#290 is merged (https://github.com/paraglider-project/paraglider/pull/290)
 	// Run Azure connectivity check (ping from Azure VM to IBM VM)
 	// requires resource group creation due to Azure Network Watcher being deployed on a separate resource group
 	if DoesHaveResourceGroupPrivileges {

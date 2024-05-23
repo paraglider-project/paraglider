@@ -347,12 +347,12 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	}
 
 	// Get used address spaces of all clouds
-	controllerConn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	orchestratorConn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
-	defer controllerConn.Close()
-	controllerClient := paragliderpb.NewControllerClient(controllerConn)
+	defer orchestratorConn.Close()
+	controllerClient := paragliderpb.NewControllerClient(orchestratorConn)
 	addressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get used address spaces: %w", err)
@@ -374,7 +374,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 		}
 		// connect clouds if needed
 		for i, peeringCloudInfo := range peeringCloudInfos {
-			if peeringCloudInfo == nil { // public IP address
+			if peeringCloudInfo == nil {
 				continue
 			}
 			if peeringCloudInfo.Cloud != utils.IBM {
@@ -611,7 +611,7 @@ func (s *IBMPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderp
 	if err != nil {
 		return nil, err
 	}
-	if region == ""{
+	if region == "" {
 		return nil, fmt.Errorf("Failed to find a region where the %v is deployed", req.AddressSpace)
 	}
 	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
@@ -626,26 +626,26 @@ func (s *IBMPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderp
 	return &paragliderpb.CreateVpnGatewayResponse{GatewayIpAddresses: ipAddresses}, nil
 }
 
-// returns the region of the VPC containing the specified address space 
+// returns the region of the VPC containing the specified address space
 func (s *IBMPluginServer) getRegionOfAddressSpace(resourceGroup, namespace, addressSpace string) (string, error) {
-	client, err:= s.setupCloudClient(resourceGroup, defaultRegion)
+	client, err := s.setupCloudClient(resourceGroup, defaultRegion)
 	if err != nil {
 		return "", err
 	}
-	vpcsData, err:= client.GetParagliderTaggedResources(sdk.VPC, []string{namespace}, sdk.ResourceQuery{})
-	if err!=nil{
+	vpcsData, err := client.GetParagliderTaggedResources(sdk.VPC, []string{namespace}, sdk.ResourceQuery{})
+	if err != nil {
 		return "", err
 	}
-	for _,vpcData:=range vpcsData{
-		client, err:= s.setupCloudClient(resourceGroup, vpcData.Region)
-		if err!=nil{
+	for _, vpcData := range vpcsData {
+		client, err := s.setupCloudClient(resourceGroup, vpcData.Region)
+		if err != nil {
 			return "", err
 		}
-		VPCFound,err:=client.IsRemoteInVPC(vpcData.ID, addressSpace)
-		if err!=nil{
+		VPCFound, err := client.IsRemoteInVPC(vpcData.ID, addressSpace)
+		if err != nil {
 			return "", err
-		}	
-		if VPCFound{
+		}
+		if VPCFound {
 			return vpcData.Region, nil
 		}
 	}
@@ -665,7 +665,7 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 	if err != nil {
 		return nil, err
 	}
-	if region == ""{
+	if region == "" {
 		return nil, fmt.Errorf("Failed to find a region where the %v is deployed", req.AddressSpace)
 	}
 	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)

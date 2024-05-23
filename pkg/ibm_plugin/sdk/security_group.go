@@ -526,7 +526,7 @@ func IBMToParagliderRules(rules []SecurityGroupRule) ([]*paragliderpb.PermitList
 	return paragliderRules, nil
 }
 
-// returns rules in IBM cloud format to paraglider format
+// returns IBM SecurityGroupRule, converted from specified paraglider rule
 // NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code
 func ParagliderToIBMRules(securityGroupID string, rules []*paragliderpb.PermitListRule) (
 	[]SecurityGroupRule, error) {
@@ -572,12 +572,12 @@ func ParagliderToIBMRules(securityGroupID string, rules []*paragliderpb.PermitLi
 // NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code
 func ParagliderToIBMRule(securityGroupID string, pgRule *paragliderpb.PermitListRule) (
 	[]SecurityGroupRule, error) {
-	var sgRules []SecurityGroupRule
 
 	if len(pgRule.Targets) == 0 {
 		return nil, fmt.Errorf("PermitListRule is missing target value. Rule:%+v", pgRule)
 	}
-	for _, target := range pgRule.Targets {
+	sgRules := make([]SecurityGroupRule, len(pgRule.Targets))
+	for i, target := range pgRule.Targets {
 		remote := target
 		remoteType, err := GetRemoteType(remote)
 		if err != nil {
@@ -600,8 +600,7 @@ func ParagliderToIBMRule(securityGroupID string, pgRule *paragliderpb.PermitList
 			sgRule.IcmpType = -1
 			sgRule.IcmpCode = -1
 		}
-
-		sgRules = append(sgRules, sgRule)
+		sgRules[i] = sgRule
 	}
 
 	return sgRules, nil

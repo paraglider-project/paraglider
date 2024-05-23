@@ -476,8 +476,7 @@ func (c *CloudClient) getOrCreateIKEPolicy(peerCloud string) (*string, error) {
 		config.SetKeyLifetime(27000)
 	}
 
-	ikePolicy, response, err := c.vpcService.CreateIkePolicy(config)
-	fmt.Print(response)
+	ikePolicy, _, err := c.vpcService.CreateIkePolicy(config)
 	if err != nil {
 		return nil, err
 	}
@@ -552,7 +551,6 @@ func (c *CloudClient) getIPSecPolicy(peerCloud string) (*vpcv1.IPsecPolicy, erro
 // - rule duplication - if specified rule matches a rule on the following fields: destination, zone and nextHopConnection.
 func (c *CloudClient) getAvailablePriority(routeData *vpcv1.CreateVPCRoutingTableRouteOptions) (bool, int64, error) {
 
-	var doesRuleExist bool
 	const numOfPriorities = 5
 	// keeps tracks of available priorities for given rule, e.g. if rule[i]==false, priority i isn't available.
 	availablePriority := make(map[int64]bool, numOfPriorities)
@@ -566,7 +564,7 @@ func (c *CloudClient) getAvailablePriority(routeData *vpcv1.CreateVPCRoutingTabl
 
 	routeCollection, _, err := c.vpcService.ListVPCRoutingTableRoutes(options)
 	if err != nil {
-		return doesRuleExist, -1, err
+		return false, -1, err
 	}
 	routeDestination := *routeData.Destination
 	routeZone := *routeData.Zone.(*vpcv1.ZoneIdentityByName).Name
@@ -587,10 +585,10 @@ func (c *CloudClient) getAvailablePriority(routeData *vpcv1.CreateVPCRoutingTabl
 
 	for priority, isAvailable := range availablePriority {
 		if isAvailable {
-			return doesRuleExist, priority, nil
+			return false, priority, nil
 		}
 	}
 
 	// rule doesn't exist, but no available priority found
-	return doesRuleExist, -1, fmt.Errorf("No available priority found to create a route in zone: %v, destination: %v, to connectionID: %v", routeZone, routeDestination, routeConnectionID)
+	return false, -1, fmt.Errorf("No available priority found to create a route in zone: %v, destination: %v, to connectionID: %v", routeZone, routeDestination, routeConnectionID)
 }

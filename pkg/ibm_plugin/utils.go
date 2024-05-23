@@ -96,7 +96,7 @@ func ZoneToRegion(zone string) (string, error) {
 }
 
 func GetZonesOfRegion(region string) []string {
-	zonesPerRegion := 3
+	const zonesPerRegion = 3
 	res := make([]string, zonesPerRegion)
 	for i := 0; i < zonesPerRegion; i++ {
 		res[i] = region + "-" + fmt.Sprint(i+1)
