@@ -95,15 +95,6 @@ func ZoneToRegion(zone string) (string, error) {
 	}
 }
 
-func GetZonesOfRegion(region string) []string {
-	const zonesPerRegion = 3
-	res := make([]string, zonesPerRegion)
-	for i := 0; i < zonesPerRegion; i++ {
-		res[i] = region + "-" + fmt.Sprint(i+1)
-	}
-	return res
-}
-
 // AreStructsEqual returns true if two given structs of the same type have matching fields values
 // on all types except those listed in fieldsToExclude
 func AreStructsEqual(s1, s2 interface{}, fieldsToExclude []string) bool {

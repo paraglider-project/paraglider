@@ -23,7 +23,6 @@ import (
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
-	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
@@ -155,7 +154,11 @@ func (c *CloudClient) GetVPNIPs(vpnId string) ([]string, error) {
 // routes from each of the VPC's zones will redirect traffic destined to any of the specified CIDRs to the VPN tunnel.
 // Idempotent function, i.e., err not raised if route already exists.
 func (c *CloudClient) createRoutes(routingTableID, vpcID, VPNConnectionID string, destinationCIDRs []string) error {
-	zones := ibmCommon.GetZonesOfRegion(c.region)
+	zones, err := c.GetZonesOfRegion(c.region)
+	if err != nil{
+		utils.Log.Printf("error while translating zones from region %v", c.region)
+		return err
+	}
 
 	// create routes redirecting traffic to each destination CIDR
 	for _, destinationCIDR := range destinationCIDRs {
