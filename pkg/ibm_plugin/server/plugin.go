@@ -26,12 +26,12 @@ import (
 	redis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type IBMPluginServer struct {
@@ -404,7 +404,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 			}
 		}
 
-		// add rule to security group if aren't duplicates
+		// add unique rules to security group
 		for _, ibmRule := range ibmRules {
 			rulesHashValues := make(map[uint64]bool)
 			_, err = cloudClient.GetUniqueSGRules(sgRules, rulesHashValues)
@@ -652,7 +652,7 @@ func (s *IBMPluginServer) getRegionOfAddressSpace(resourceGroup, namespace, addr
 	return "", nil
 }
 
-// creates VPN connection
+// CreateVpnConnections creates VPN connection
 func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.CreateVpnConnectionsResponse, error) {
 	if len(req.RemoteAddresses) == 0 {
 		return nil, fmt.Errorf("RemoteAddress is a mandatory field for IBM VPN connections.")
@@ -697,12 +697,12 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 	return &paragliderpb.CreateVpnConnectionsResponse{}, nil
 }
 
-// IBM doesn't currently support BGP peering
+// GetUsedBgpPeeringIpAddresses will return empty response since IBM doesn't currently support BGP peering
 func (s *IBMPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *paragliderpb.GetUsedBgpPeeringIpAddressesRequest) (*paragliderpb.GetUsedBgpPeeringIpAddressesResponse, error) {
 	return &paragliderpb.GetUsedBgpPeeringIpAddressesResponse{}, nil
 }
 
-// returns an empty response, since ASNs aren't exposed on IBM cloud
+// GetUsedAsns returns an empty response, since ASNs aren't exposed on IBM cloud
 func (s *IBMPluginServer) GetUsedAsns(ctx context.Context, req *paragliderpb.GetUsedAsnsRequest) (*paragliderpb.GetUsedAsnsResponse, error) {
 	return &paragliderpb.GetUsedAsnsResponse{}, nil
 }

@@ -135,7 +135,6 @@ func (c *CloudClient) GetVpcCIDR(vpcID string) ([]string, error) {
 		}
 		addresses[i] = address
 	}
-	
 
 	return addresses, nil
 }

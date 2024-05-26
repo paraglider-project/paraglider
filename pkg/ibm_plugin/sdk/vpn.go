@@ -30,13 +30,13 @@ import (
 const routeType = "route"
 const vpnConnectionType = "vpn-connection"
 
-// creates a route based VPN and returns its public IPs
+// CreateRouteBasedVPN creates a route based VPN and returns its public IPs
 func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 
 	// fetch the the specified namespace's VPC in the region
 	vpcData, err := c.GetParagliderTaggedResources(VPC, []string{namespace}, ResourceQuery{Region: c.region})
 	if err != nil {
-		utils.Log.Print("Failed to get VPC data for VPN deployment")
+		utils.Log.Printf("Failed to get VPC data for VPN deployment with error: %v", err)
 		return nil, err
 	}
 	if len(vpcData) == 0 {

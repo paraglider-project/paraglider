@@ -54,7 +54,8 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 		// sleep to avoid busy waiting
 		time.Sleep(5 * time.Second)
 	}
-	return fmt.Errorf("Failed to tag resource with response:\n %+v", latestResponse)
+	utils.Log.Printf("Failed to tag resource with response:\n %+v", latestResponse)
+	return fmt.Errorf("failed to tag resource %v", resourceModel)
 }
 
 // GetParagliderTaggedResources returns slice of IDs of tagged resources
@@ -156,5 +157,6 @@ func (c *CloudClient) getTaggedResources(query string) (*globalsearchv2.ScanResu
 		// sleep to avoid busy waiting
 		time.Sleep(5 * time.Second)
 	}
-	return nil, fmt.Errorf("Failed to fetch tagged resource with response:\n %+v", latestResponse)
+	utils.Log.Printf("Failed to fetch tagged resource with response:\n %+v", latestResponse)
+	return nil, fmt.Errorf("Failed to fetch tagged resource")
 }

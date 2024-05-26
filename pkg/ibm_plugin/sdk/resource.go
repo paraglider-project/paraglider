@@ -512,12 +512,3 @@ func (c *CloudClient) GetResourceHandlerFromID(deploymentID string) (ResourceInt
 	return nil, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}/zone/{zone}/{resource}/{resource_id}', got '%s'", deploymentID)
 }
 
-// GetInstanceID returns ID of the instance matching the specified name
-func (c *CloudClient) GetInstanceDataFromID(id string) (*vpcv1.Instance, error) {
-	options := &vpcv1.GetInstanceOptions{ID: &id}
-	instance, _, err := c.vpcService.GetInstance(options)
-	if err != nil {
-		return nil, err
-	}
-	return instance, nil
-}

@@ -154,16 +154,16 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 	}
 
 	// Get subnet address space
-	subnetAddressPrefix := []string{}
+	subnetAddressPrefixes := []string{}
 	for _, subnet := range resourceVnet.Properties.Subnets {
 		if *subnet.Name == "default" {
 			if subnet.Properties.AddressPrefix != nil {
 				// Check to avoid nil pointer dereference
-				subnetAddressPrefix = append(subnetAddressPrefix, *subnet.Properties.AddressPrefix) 
+				subnetAddressPrefixes = append(subnetAddressPrefixes, *subnet.Properties.AddressPrefix) 
 			}
 		}
 	}
-	if len(subnetAddressPrefix) == 0 {
+	if len(subnetAddressPrefixes) == 0 {
 		return nil, fmt.Errorf("unable to get subnet address prefix")
 	}
 
@@ -192,7 +192,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 					CloudANamespace:    req.Namespace,
 					CloudB:             peeringCloudInfo.Cloud,
 					CloudBNamespace:    peeringCloudInfo.Namespace,
-					AddressSpaceCloudA: subnetAddressPrefix,
+					AddressSpaceCloudA: subnetAddressPrefixes,
 					AddressSpaceCloudB: []string{address},
 				}
 				_, err := orchestratorClient.ConnectClouds(ctx, connectCloudsReq)

@@ -802,8 +802,7 @@ func generateSharedKey() string {
 	generatedRunes := make([]rune, length)
 
 	for i := range generatedRunes {
-		c := rune(charset[rand.Intn(len(charset))])
-		generatedRunes[i] = c
+		generatedRunes[i] = rune(charset[rand.Intn(len(charset))])
 	}
 
 	return string(generatedRunes)
