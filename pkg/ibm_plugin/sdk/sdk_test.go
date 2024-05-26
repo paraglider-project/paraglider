@@ -19,14 +19,12 @@ limitations under the License.
 package ibm
 
 import (
-	"flag"
 	"testing"
 
 	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 	"github.com/stretchr/testify/require"
 )
 
-var shouldTearDownProject = flag.Bool("cleanup", false, "if set to true test procedure will include TestCleanup")
 var resourceGroupID = ibmCommon.GetIBMResourceGroupID()
 
 const (
@@ -35,13 +33,10 @@ const (
 
 // TODO @praveingk: Expand tests of SDK functions
 
-// run via: go test --tags=unit -run TestCleanup -cleanup
-// deletes all paraglider's VPCs
+// run via: go test --tags=unit -run TestCleanup
+// deletes all Paraglider's resources on IBM cloud
+// Note: env var INVISINETS_TEST_PERSIST must be set to 1 for deployments to be terminated
 func TestCleanup(t *testing.T) {
-	if !*shouldTearDownProject {
-		println("TestCleanup skipped - cleanup flag wasn't set")
-		t.Skip("TestCleanup skipped - cleanup flag wasn't set")
-	}
 	err := TerminateParagilderDeployments(resourceGroupID, testRegion)
 	require.NoError(t, err)
 }

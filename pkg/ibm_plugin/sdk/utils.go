@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"os"
 	"strings"
 
 	"github.com/google/uuid"
@@ -131,7 +132,12 @@ func IsCIDRSubset(cidr1, cidr2 string) (bool, error) {
 	return netCidr2.Contains(firstIP1) && maskSize1 >= maskSize2, nil
 }
 
+// TODO cleanup k8s clusters
 func TerminateParagilderDeployments(resGroupID, region string) error {
+	if os.Getenv("INVISINETS_TEST_PERSIST")== "1"{
+		utils.Log.Printf("Skipped IBM resource cleanup function - INVISINETS_TEST_PERSIST is set to 1")
+		return nil
+	}
 	cloudClient, err := NewIBMCloudClient(resGroupID, region)
 	if err != nil {
 		return err
