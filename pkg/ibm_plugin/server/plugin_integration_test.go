@@ -44,6 +44,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// IBM test variables
 var testDeployment, resourceGroupID string
 
 // NOTE: if user doesn't have resource group privileges set DoesHaveResourceGroupPrivileges to false
@@ -51,6 +52,65 @@ const DoesHaveResourceGroupPrivileges = false
 
 // NOTE: if user doesn't have resource group privileges set azureResourceGroupName to match an existing resource group
 var azureResourceGroupName string = "challenge-1377"
+
+var testResourceIDUSEast1 string
+var testResourceIDUSEast2 string
+var testResourceIDUSEast3 string
+var testResourceIDEUDE1 string
+var testResourceIDUSSouth1 string
+
+const (
+	testUSEastRegion         = "us-east"
+	testUSSouthRegion        = "us-south"
+	testEURegion             = "eu-de"
+	testZoneUSEast1          = testUSEastRegion + "-1"
+	testZoneUSEast2          = testUSEastRegion + "-2"
+	testZoneUSEast3          = testUSEastRegion + "-3"
+	testZoneUSSouth1         = testUSSouthRegion + "-1"
+	testZoneEUDE1            = testEURegion + "-1"
+	testInstanceNameUSEast1  = "pg-vm-east-1"
+	testInstanceNameUSEast2  = "pg-vm-east-2"
+	testInstanceNameUSEast3  = "pg-vm-east-3"
+	testInstanceNameUSSouth1 = "pg-vm-south-1"
+	testInstanceNameEUDE1    = "pg-vm-de-1"
+
+	testImageUSEast  = "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb" // us-east Ubuntu 22.04
+	testImageEUDE    = "r010-f68ef7b3-1c5e-4ef7-8040-7ae0f5bf04fd" // eu-de Ubuntu 22.04
+	testImageUSSouth = "r006-01deb923-46f6-44c3-8fdc-99d8493d2464" // us-south Ubuntu 22.04
+	testProfile      = "bx2-2x8"
+	testNamespace    = "paraglider-namespace"
+)
+
+// permit list to test connectivity via pings. Made to test Transit and VPN gateways configurations
+var pingTestPermitList []*paragliderpb.PermitListRule = []*paragliderpb.PermitListRule{
+	//ICMP protocol rule to accept pings
+	{
+		Name:      "inboundICMP",
+		Direction: paragliderpb.Direction_INBOUND,
+		SrcPort:   -1,
+		DstPort:   -1,
+		Protocol:  1,
+		Targets:   []string{"0.0.0.0/0"},
+	},
+	// ssh to accept ssh connection
+	{
+		Name:      "inboundSSH",
+		Direction: paragliderpb.Direction_INBOUND,
+		SrcPort:   22,
+		DstPort:   22,
+		Protocol:  6,
+		Targets:   []string{"0.0.0.0/0"},
+	},
+	//All protocol to allow all egress traffic
+	{
+		Name:      "outboundALL",
+		Direction: paragliderpb.Direction_OUTBOUND,
+		SrcPort:   -1,
+		DstPort:   -1,
+		Protocol:  -1,
+		Targets:   []string{"0.0.0.0/0"},
+	},
+}
 
 func TestMain(m *testing.M) {
 	flag.Parse()
