@@ -40,18 +40,15 @@ import (
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	tagging "github.com/paraglider-project/paraglider/pkg/tag_service"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gotest.tools/assert"
 )
 
 // IBM test variables
 var testDeployment, resourceGroupID string
 
-// NOTE: if user doesn't have resource group privileges set DoesHaveResourceGroupPrivileges to false
-const DoesHaveResourceGroupPrivileges = false
-
-// NOTE: if user doesn't have resource group privileges set azureResourceGroupName to match an existing resource group
-var azureResourceGroupName string = "challenge-1377"
+// NOTE: set DoesHaveResourceGroupPrivileges to false if user doesn't have resource group privileges on Azure
+const DoesHaveResourceGroupPrivileges = true
 
 var testResourceIDUSEast1 string
 var testResourceIDUSEast2 string
@@ -231,9 +228,9 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	utils.Log.Printf("Test response: %+v", resp)
 }
 
-// TODO(cohen-j-omer) will add IBM connectivity check method
 // usage: go test --tags=ibm -run TestMulticloudIBMAzure -timeout 0
 // -timeout 0 removes limit of 10 minutes runtime, which is necessary due to long deployment time of Azure's VPN.
+// Note: if user doesn't have resource group privileges, set env PARAGLIDER_AZURE_RESOURCE_GROUP with an existing resource group
 func TestMulticloudIBMAzure(t *testing.T) {
 	dbPort := 6379
 	kvstorePort := 7993
@@ -245,10 +242,11 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	// azure config
 	azureServerPort := 7991
 	azureSubscriptionId := azure.GetAzureSubscriptionId()
+	azureResourceGroupName := os.Getenv("PARAGLIDER_AZURE_RESOURCE_GROUP")
 
-	// removes all of paraglide's deployments on IBM
 	region, err := ibmCommon.ZoneToRegion(zone)
 	require.NoError(t, err)
+	// removes all of paraglider's deployments on IBM when test ends (if INVISINETS_TEST_PERSIST=1)
 	defer func() {
 		err := sdk.TerminateParagilderDeployments(resourceGroupID, region)
 		require.NoError(t, err)
@@ -256,8 +254,12 @@ func TestMulticloudIBMAzure(t *testing.T) {
 
 	// requires resource group creation/deletion privileges
 	if DoesHaveResourceGroupPrivileges {
-		azureResourceGroupName := azure.SetupAzureTesting(azureSubscriptionId, "ibmazure")
+		azureResourceGroupName = azure.SetupAzureTesting(azureSubscriptionId, "ibmazure")
 		defer azure.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
+		// otherwise get resource group name from env variable
+	} else if azureResourceGroupName == "" {
+		fmt.Printf("users without resource group privileges on Azure are required to set PARAGLIDER_AZURE_RESOURCE_GROUP")
+		require.NotEmpty(t, azureResourceGroupName)
 	}
 
 	azureNamespace := "test" + uuid.NewString()[:4]
