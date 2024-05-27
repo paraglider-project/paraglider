@@ -326,14 +326,6 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 		utils.Log.Printf("Failed to get VPC: %v.\n", err)
 		return nil, err
 	}
-	utils.Log.Printf("Adding rule to SG ID : %s\n", requestSGID)
-	// translate paraglider rules to IBM rules to compare hash values with current rules.
-	ibmRulesToAdd, err := sdk.ParagliderToIBMRules(requestSGID, req.Rules)
-	if err != nil {
-		utils.Log.Printf("Failed to convert to ibm rules : %v.", err)
-		return nil, err
-	}
-	utils.Log.Printf("Translated permit list to intermediate IBM Rule : %v\n", ibmRulesToAdd)
 
 	vpcAddressSpaces, err := cloudClient.GetVpcCIDR(*requestVPCData.ID)
 	if err != nil {

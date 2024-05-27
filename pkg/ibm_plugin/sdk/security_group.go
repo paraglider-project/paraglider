@@ -550,9 +550,6 @@ func ParagliderToIBMRules(securityGroupID string, rules []*paragliderpb.PermitLi
 				PortMin:    int64(rule.SrcPort),
 				PortMax:    int64(rule.SrcPort),
 				Egress:     paragliderToIBMDirection[rule.Direction],
-				// explicitly setting value to -1. other icmp values have meaning.
-				IcmpType: -1,
-				IcmpCode: -1,
 			}
 
 			if rule.Protocol == 1 { // icmp rule
