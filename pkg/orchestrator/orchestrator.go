@@ -60,6 +60,7 @@ const (
 	DeleteTagURL             string = "/tags/:tag"
 	DeleteTagMemberURL       string = "/tags/:tag/members/:member"
 	ListNamespacesURL        string = "/namespaces"
+	SetNamespaceURL          string = "/namespaces/:namespace"
 )
 
 type Warning struct {
@@ -1196,6 +1197,16 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{})
 }
 
+// Set namespace
+func (s *ControllerServer) setNamespace(c *gin.Context) {
+	namespace := c.Param("namespace")
+	s.namespace = namespace
+
+	utils.Log.Printf("setNamespace: %s", namespace)
+
+	c.JSON(http.StatusOK, namespace)
+}
+
 // List all configured namespaces
 func (s *ControllerServer) listNamespaces(c *gin.Context) {
 	c.JSON(http.StatusOK, s.config.Namespaces)
@@ -1324,6 +1335,7 @@ func Setup(cfg config.Config, background bool) {
 	router.DELETE(DeleteTagURL, server.deleteTag)
 	router.DELETE(DeleteTagMemberURL, server.deleteTagMember)
 	router.GET(ListNamespacesURL, server.listNamespaces)
+	router.POST(SetNamespaceURL, server.setNamespace)
 
 	// Run server
 	if background {

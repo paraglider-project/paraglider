@@ -258,6 +258,18 @@ func (c *Client) DeleteTagMembers(tag string, member string) error {
 	return nil
 }
 
+// Set namespace
+func (c *Client) SetNamespace(namespace string) error {
+	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.SetNamespaceURL), namespace)
+
+	_, err := c.sendRequest(path, http.MethodPost, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // List all configured namespaces
 func (c *Client) ListNamespaces() (map[string][]config.CloudDeployment, error) {
 	result, err := c.sendRequest(orchestrator.ListNamespacesURL, http.MethodGet, nil)

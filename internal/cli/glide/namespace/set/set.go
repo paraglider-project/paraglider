@@ -67,7 +67,14 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	e.cliSettings.ActiveNamespace = args[0]
+	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
+	err := c.SetNamespace(args[0])
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(e.writer, "Namespace: %v", args[0])
 
 	return nil
 }
