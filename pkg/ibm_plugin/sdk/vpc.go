@@ -42,7 +42,7 @@ func (c *CloudClient) CreateVPC(tags []string, exclusive bool) (*vpcv1.VPC, erro
 	prefixManagement = vpcv1.CreateVPCOptionsAddressPrefixManagementManualConst
 
 	options := vpcv1.CreateVPCOptions{
-		Name:                   &vpcName,
+		Name:                    &vpcName,
 		ResourceGroup:           c.resourceGroup,
 		AddressPrefixManagement: &prefixManagement,
 	}
@@ -122,15 +122,17 @@ func (c *CloudClient) GetVPCByID(vpcID string) (*vpcv1.VPC, error) {
 
 // returns CIDR of VPC
 func (c *CloudClient) GetVpcCIDR(vpcID string) ([]string, error) {
-	// aggregate addresses of subnets in VPC 
+	// aggregate addresses of subnets in VPC
 	subnets, err := c.GetSubnetsInVpcRegionBound(vpcID)
 	if err != nil {
+		utils.Log.Printf("error while aggregating addresses of subnets to fetch VPC's CIDR: %+v", err)
 		return nil, err
 	}
 	var addresses = make([]string, len(subnets))
 	for i, subnet := range subnets {
 		address, err := c.GetSubnetCIDR(*subnet.ID)
 		if err != nil {
+			utils.Log.Printf("error while fetching subnets CIDRs in VPC: %+v", err)
 			return nil, err
 		}
 		addresses[i] = address

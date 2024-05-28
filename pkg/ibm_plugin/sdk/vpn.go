@@ -44,6 +44,7 @@ func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 
 	subnets, err := c.GetSubnetsInVpcRegionBound(vpcData[0].ID)
 	if err != nil {
+		utils.Log.Printf("Failed to get subnets for VPN deployments with error: %+v", err)
 		return nil, err
 	}
 	if len(subnets) == 0 {
@@ -67,11 +68,13 @@ func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 			// retrieve existing VPN
 			vpn, err := c.GetVPNsInNamespaceRegion(namespace, c.region)
 			if err != nil {
+				utils.Log.Printf("Failed to get VPN in region %v with error: %+v", c.region, err)
 				return nil, err
 			}
 			utils.Log.Printf("Retrieving already deployed VPN gateway of VPC %v\n", vpcData[0].ID)
 			ipAddresses, err := c.GetVPNIPs(vpn[0].ID) // array lookup is safe since a VPN exists
 			if err != nil {
+				utils.Log.Printf("Failed to get VPN IPs of VPN ID %v in region %v with error: %+v", vpn[0].ID, c.region, err)
 				return nil, err
 			}
 			return ipAddresses, nil
@@ -84,17 +87,20 @@ func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 
 	err = c.pollVPNStatus(vpnID, true) // wait for VPN to be ready
 	if err != nil {
+		utils.Log.Printf("VPN polling error occurred while deploying a VPN:\n%+v", err)
 		return nil, err
 	}
 
 	ipAddresses, err := c.GetVPNIPs(vpnID)
 	if err != nil {
+		utils.Log.Printf("Failed to get VPN IPs of newly created VPN with error:\n%+v", err)
 		return nil, err
 	}
 	utils.Log.Printf("VPN %v was launched successfully at %v with assigned IPs: %+v", vpnID, c.region, ipAddresses)
 
 	err = c.attachTag(&VPNCRN, []string{namespace, vpcData[0].ID})
 	if err != nil {
+		utils.Log.Printf("Error when attaching tags to newly created VPN id %v: %+v", vpnID, err)
 		return nil, err
 	}
 
@@ -115,6 +121,7 @@ func (c *CloudClient) pollVPNStatus(vpnId string, readyOrDeleted bool) error {
 
 		if err != nil {
 			if readyOrDeleted { // received err while waiting for ready status
+				utils.Log.Printf("Error occurred while waiting for VPN %v for status update: %+v", vpnId, err)
 				return err
 			} else {
 				return nil // VPN can't be found, since it was deleted
@@ -138,6 +145,7 @@ func (c *CloudClient) GetVPNIPs(vpnId string) ([]string, error) {
 		vpnId,
 	))
 	if err != nil {
+		utils.Log.Printf("Failed to get VPN IPs for VPN %v with error: %+v", vpnId, err)
 		return nil, err
 	}
 	vpnMembers := vpnData.(*vpcv1.VPNGateway).Members
@@ -155,7 +163,7 @@ func (c *CloudClient) GetVPNIPs(vpnId string) ([]string, error) {
 // Idempotent function, i.e., err not raised if route already exists.
 func (c *CloudClient) createRoutes(routingTableID, vpcID, VPNConnectionID string, destinationCIDRs []string) error {
 	zones, err := c.GetZonesOfRegion(c.region)
-	if err != nil{
+	if err != nil {
 		utils.Log.Printf("error while translating zones from region %v", c.region)
 		return err
 	}
@@ -185,6 +193,7 @@ func (c *CloudClient) createRoutes(routingTableID, vpcID, VPNConnectionID string
 
 			ruleExists, priority, err := c.getAvailablePriority(routeConfig)
 			if err != nil {
+				utils.Log.Printf("Error occurred while getting an available rule priority to create rule %+v: %+v", routeConfig, err)
 				return err
 			}
 			// avoid creating a duplicate rule
@@ -196,6 +205,7 @@ func (c *CloudClient) createRoutes(routingTableID, vpcID, VPNConnectionID string
 			routeConfig.Priority = &priority
 			route, _, err := c.vpcService.CreateVPCRoutingTableRoute(routeConfig)
 			if err != nil {
+				utils.Log.Printf("Error occurred while creating a route with config %+v: %+v", routeConfig, err)
 				return err
 			}
 
@@ -211,6 +221,7 @@ func (c *CloudClient) getVPNConnectionMatchingPeerIP(VPNGatewayID, peerGWAddress
 		&vpcv1.ListVPNGatewayConnectionsOptions{VPNGatewayID: &VPNGatewayID},
 	)
 	if err != nil {
+		utils.Log.Printf("Error occurred while getting VPN connections matching peer VPN gateway IP address %v: %+v", peerGWAddress, err)
 		return nil, err
 	}
 	// filter connections by
@@ -260,15 +271,17 @@ func (c *CloudClient) CreateVPNConnectionRouteBased(VPNGatewayID, peerGatewayIP,
 	connectionInterface, _, err := c.vpcService.CreateVPNGatewayConnection(connectionConfig)
 
 	if err != nil {
-		// check if connection already exists. Note: forced to rely on error message, as no error code is provided.
+		// check if connection already exists.
 		if strings.Contains(err.Error(), "duplicate") { // Note: relying on error string, since status code is shared with multiple errors.
 			connection, err := c.getVPNConnectionMatchingPeerIP(VPNGatewayID, peerGatewayIP)
 			if err != nil {
+				utils.Log.Printf("Error occurred while checking for existing connections to peer IP %v in VPN %v: %+v", peerGatewayIP, VPNGatewayID, err)
 				return err
 			}
 			connectionID = *connection.ID
 			utils.Log.Printf("\nReusing VPN connection: %v", connectionID)
 		} else {
+			utils.Log.Printf("Failed to create VPN connection for VPN %v to peer IP %v: %+v", peerGatewayIP, VPNGatewayID, err)
 			return err
 		}
 	}
@@ -279,12 +292,14 @@ func (c *CloudClient) CreateVPNConnectionRouteBased(VPNGatewayID, peerGatewayIP,
 
 	// get the routing table of the VPC where the VPN gateway resides
 	vpnGateway, _, err := c.vpcService.GetVPNGateway(c.vpcService.NewGetVPNGatewayOptions(VPNGatewayID))
+	utils.Log.Printf("Failed to get routing table of the VPC containing VPN gateway %v with error: %+v", VPNGatewayID, err)
 	if err != nil {
 		return err
 	}
 	vpcID := *vpnGateway.(*vpcv1.VPNGateway).VPC.ID
 
 	defaultRoutingTable, _, err := c.vpcService.GetVPCDefaultRoutingTable(c.vpcService.NewGetVPCDefaultRoutingTableOptions(vpcID))
+	utils.Log.Printf("Failed to default routing table for VPN %v with error: %+v", VPNGatewayID, err)
 	if err != nil {
 		return err
 	}
@@ -292,6 +307,7 @@ func (c *CloudClient) CreateVPNConnectionRouteBased(VPNGatewayID, peerGatewayIP,
 	// create routes for all zones in the default routing table of the VPC
 	err = c.createRoutes(*defaultRoutingTable.ID, vpcID, connectionID, destinationCIDRs)
 	if err != nil {
+		utils.Log.Printf("Error occurred while creating routes after deploying VPN connections for VPN %v: %+v", VPNGatewayID, err)
 		return err
 	}
 	return nil
@@ -344,17 +360,20 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 	// get the routing table of the VPC where the VPN gateway resides
 	vpnGateway, _, err := c.vpcService.GetVPNGateway(c.vpcService.NewGetVPNGatewayOptions(VPNGatewayID))
 	if err != nil {
+		utils.Log.Printf("Failed to fetch VPN gateway data for VPN ID %v, during routes deletion process, with error: %+v", VPNGatewayID, err)
 		return err
 	}
 	vpcID := *vpnGateway.(*vpcv1.VPNGateway).VPC.ID
 	defaultRoutingTable, _, err := c.vpcService.GetVPCDefaultRoutingTable(c.vpcService.NewGetVPCDefaultRoutingTableOptions(vpcID))
 	if err != nil {
+		utils.Log.Printf("Failed to fetch default routing table for VPC containing VPN ID %v, during routes deletion process, with error: %+v", VPNGatewayID, err)
 		return err
 	}
 
 	routeCollection, _, err := c.vpcService.ListVPCRoutingTableRoutes(
 		&vpcv1.ListVPCRoutingTableRoutesOptions{VPCID: &vpcID, RoutingTableID: defaultRoutingTable.ID})
 	if err != nil {
+		utils.Log.Printf("Failed to fetch routes for VPC containing VPN ID %v, during routes deletion process, with error: %+v", VPNGatewayID, err)
 		return err
 	}
 
@@ -370,11 +389,12 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 				VPCID: &vpcID,
 				ID:    route.ID,
 			})
-			// keep track of routes set for deletion (directing to the specified connection)
-			deletedRoutes = append(deletedRoutes, route)
 			if err != nil {
+				utils.Log.Printf("Failed to delete VPC route ID %v routing to connection %v, with error: %+v", *route.ID, *connection.ID, err)
 				return err
 			}
+			// keep track of routes set for deletion (directing to the specified connection)
+			deletedRoutes = append(deletedRoutes, route)
 			utils.Log.Printf("Deleted VPC route %v directing traffic from %v ", *route.ID, *route.Zone.Name)
 		}
 	}
@@ -383,6 +403,7 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 	for _, route := range deletedRoutes {
 		err := c.pollRouteDeleted(vpcID, *defaultRoutingTable.ID, route)
 		if err != nil {
+			utils.Log.Printf("Error occurred while polling route status for routes in routing table %v, during routes deletion process, with error: %+v", *defaultRoutingTable.ID, err)
 			return err
 		}
 	}
@@ -395,6 +416,7 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 	vpnConnections, _, err := c.vpcService.ListVPNGatewayConnections(
 		&vpcv1.ListVPNGatewayConnectionsOptions{VPNGatewayID: core.StringPtr(VPNGatewayID)})
 	if err != nil {
+		utils.Log.Printf("Failed to fetch VPN connections of VPN %v, during VPN deletion process, with error: %+v", VPNGatewayID, err)
 		return err
 	}
 
@@ -404,6 +426,7 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 		// delete routes directing to this connection
 		err := c.DeleteRoutesDependentOnConnection(VPNGatewayID, connection)
 		if err != nil {
+			utils.Log.Printf("Failed to delete routes of VPN connection %v, during VPN deletion process, with error: %+v", *connection.ID, err)
 			return err
 		}
 		// set connection for deletion
@@ -411,6 +434,7 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 			&vpcv1.DeleteVPNGatewayConnectionOptions{VPNGatewayID: &VPNGatewayID, ID: connection.ID})
 
 		if err != nil {
+			utils.Log.Printf("Failed to delete VPN connection %v, with error: %+v", *connection.ID, err)
 			return err
 		}
 	}
@@ -420,12 +444,14 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 		connectionID := *connectionInterface.(*vpcv1.VPNGatewayConnection).ID
 		err = c.pollVPNConnectionDeleted(VPNGatewayID, connectionID)
 		if err != nil {
+			utils.Log.Printf("Error occurred while polling connection %v status, during VPN deletion process, with error: %+v", connectionID, err)
 			return err
 		}
 	}
 
 	_, err = c.vpcService.DeleteVPNGateway(&vpcv1.DeleteVPNGatewayOptions{ID: &VPNGatewayID})
 	if err != nil {
+		utils.Log.Printf("Failed to delete VPN %v, with error: %+v", VPNGatewayID, err)
 		return err
 	}
 	utils.Log.Printf("VPN gateway with ID %v was set for deletion", VPNGatewayID)
@@ -442,13 +468,15 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 // return ResourceData object of a VPN gateway matching the specified namespace and region.
 // if region value is empty avoid filtering results by region.
 func (c *CloudClient) GetVPNsInNamespaceRegion(namespace, region string) ([]ResourceData, error) {
-	queryFilter := ResourceQuery{}
-	if len(region) > 0 {
-		queryFilter.Region = region
-	}
+	queryFilter := ResourceQuery{Region: region}
 	// fetch VPN of the specified namespace's region.
 	vpns, err := c.GetParagliderTaggedResources(VPN, []string{namespace}, queryFilter)
 	if err != nil {
+		errMsg := fmt.Sprintf("Failed to fetch VPNs in namespace %v ", namespace)
+		if len(region) > 0 {
+			errMsg += fmt.Sprintf("in region %v", region)
+		}
+		utils.Log.Printf(errMsg+" with error: %+v", err)
 		return nil, err
 	}
 	return vpns, nil
@@ -459,6 +487,7 @@ func (c *CloudClient) getOrCreateIKEPolicy(peerCloud string) (*string, error) {
 	// return an existing IPSec policy for the specified cloud if one exists in the region
 	existingPolicy, err := c.getIKEPolicy(peerCloud)
 	if err != nil {
+		utils.Log.Printf("Error occurred while looking for an existing IKEPolicy policy for cloud %v: %+v", peerCloud, err)
 		return nil, err
 	}
 	if existingPolicy != nil {
@@ -481,6 +510,7 @@ func (c *CloudClient) getOrCreateIKEPolicy(peerCloud string) (*string, error) {
 
 	ikePolicy, _, err := c.vpcService.CreateIkePolicy(config)
 	if err != nil {
+		utils.Log.Printf("Failed to create IKEPolicy policy for cloud %v, with error: %+v", peerCloud, err)
 		return nil, err
 	}
 
@@ -491,6 +521,7 @@ func (c *CloudClient) getOrCreateIKEPolicy(peerCloud string) (*string, error) {
 func (c *CloudClient) getIKEPolicy(peerCloud string) (*vpcv1.IkePolicy, error) {
 	ikePolicies, _, err := c.vpcService.ListIkePolicies(&vpcv1.ListIkePoliciesOptions{})
 	if err != nil {
+		utils.Log.Printf("Failed to list existing IKEPolicies policies for cloud %v, with error: %+v", peerCloud, err)
 		return nil, err
 	}
 	for _, policy := range ikePolicies.IkePolicies {
@@ -507,6 +538,7 @@ func (c *CloudClient) getOrCreateIPSecPolicy(peerCloud string) (*string, error) 
 	// return an existing IPSec policy for the specified cloud if one exists in the region
 	existingPolicy, err := c.getIPSecPolicy(peerCloud)
 	if err != nil {
+		utils.Log.Printf("Error occurred while looking for an existing IPSec policy for cloud %v: %+v", peerCloud, err)
 		return nil, err
 	}
 	if existingPolicy != nil {
@@ -527,6 +559,7 @@ func (c *CloudClient) getOrCreateIPSecPolicy(peerCloud string) (*string, error) 
 	}
 	ipsecPolicy, _, err := c.vpcService.CreateIpsecPolicy(config)
 	if err != nil {
+		utils.Log.Printf("Failed to create IPSec policy for cloud %v, with error: %+v", peerCloud, err)
 		return nil, err
 	}
 
@@ -537,6 +570,7 @@ func (c *CloudClient) getOrCreateIPSecPolicy(peerCloud string) (*string, error) 
 func (c *CloudClient) getIPSecPolicy(peerCloud string) (*vpcv1.IPsecPolicy, error) {
 	ipSecPolicies, _, err := c.vpcService.ListIpsecPolicies(&vpcv1.ListIpsecPoliciesOptions{})
 	if err != nil {
+		utils.Log.Printf("Failed to list existing IPSec policies for cloud %v, with error: %+v", peerCloud, err)
 		return nil, err
 	}
 	for _, policy := range ipSecPolicies.IpsecPolicies {
@@ -567,6 +601,7 @@ func (c *CloudClient) getAvailablePriority(routeData *vpcv1.CreateVPCRoutingTabl
 
 	routeCollection, _, err := c.vpcService.ListVPCRoutingTableRoutes(options)
 	if err != nil {
+		utils.Log.Printf("Failed to get routes of routing table %v of VPC %v,while mapping available priorities, with error: %+v", *routeData.RoutingTableID, *routeData.VPCID, err)
 		return false, -1, err
 	}
 	routeDestination := *routeData.Destination

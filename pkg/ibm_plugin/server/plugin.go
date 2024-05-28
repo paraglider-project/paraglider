@@ -98,6 +98,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 
 	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 	if err != nil {
+		utils.Log.Printf("Failed to create resource in resource group %v and region %v, with error: %+v", rInfo.ResourceGroup, region, err)
 		return nil, err
 	}
 
@@ -335,6 +336,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	// get current rules in SG and record their hash values
 	sgRules, err := cloudClient.GetSecurityRulesOfSG(requestSGID)
 	if err != nil {
+		utils.Log.Printf("Failed to fetch current SG rules of resource %v, while adding permit rules, with error: %+v", rInfo.ResourceID, err)
 		return nil, err
 	}
 
@@ -431,6 +433,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 				utils.Log.Printf("Failed to retrieve from KV store for rule %s: %v.", ibmRule.ID, err)
 				err = cloudClient.DeleteSecurityGroupRule(requestSGID, ruleID)
 				if err != nil {
+					utils.Log.Printf("Error occurred while deleting SG rule %v, after failing to retrieve it from the KV store: %+v", ruleID, err)
 					return nil, err
 				}
 				return nil, fmt.Errorf("failed to get from kv store %v", err)
@@ -440,6 +443,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 				// Existing rule found with the same permitlist name
 				err = cloudClient.DeleteSecurityGroupRule(requestSGID, oldRuleID)
 				if err != nil {
+					utils.Log.Printf("Error occurred while deleting SG rule %v, after a rule in KV store with identical name %v: %+v", ruleID, ibmRule.ID, err)
 					return nil, err
 				}
 				utils.Log.Printf("Cleaning up old rule %s with same permitlist name %s", oldRuleID, ibmRule.ID)
@@ -472,11 +476,12 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 
 // connects the VPC matching the specified vpcCRN, and the remote VPC containing the address space in the specified ibmRule,
 // to the global transit gateway, if such a VPC exists
-func (s *IBMPluginServer) connectToTransitGatewayIfNeeded(cloudClient *sdk.CloudClient, ibmRule sdk.SecurityGroupRule, gwID, resourceGroupName, vpcCRN, region string) error {
+func (s *IBMPluginServer) connectToTransitGatewayIfNeeded(cloudClient *sdk.CloudClient, ibmRule sdk.SecurityGroupRule, gwID, resourceGroup, vpcCRN, region string) error {
 
 	// get the VPCs and clients to search if the remote IP resides in any of them
-	clients, err := s.getAllClientsForVPCs(cloudClient, resourceGroupName, true)
+	clients, err := s.getAllClientsForVPCs(cloudClient, resourceGroup, true)
 	if err != nil {
+		utils.Log.Printf("Failed to get cloud client for resource group %v, while connecting to transit gateway, with error: %+v", resourceGroup, err)
 		return err
 	}
 	remoteVPC := ""
@@ -496,23 +501,27 @@ func (s *IBMPluginServer) connectToTransitGatewayIfNeeded(cloudClient *sdk.Cloud
 		if len(gwID) == 0 { // lookup optimization, use the already fetched gateway ID if possible
 			gwID, err = cloudClient.GetOrCreateTransitGateway(region)
 			if err != nil {
+				utils.Log.Printf("Failed to get/create a transit gateway in region %v with error: %+v", region, err)
 				return err
 			}
 		}
 		// connect the VPC of the request's VM to the transit gateway.
 		err = cloudClient.ConnectVPC(gwID, vpcCRN)
 		if err != nil {
+			utils.Log.Printf("Failed to connect VPC %v to transit gateway %v, with error: %+v", vpcID, gwID, err)
 			return err
 		}
 
 		remoteVPC, err := remoteVPCClient.GetVPCByID(remoteVPC)
 		if err != nil {
+			utils.Log.Printf("Failed to get remote VPC data of VPC %v, attempting to connect to transit gateway %v, with error: %+v", remoteVPC, gwID, err)
 			return err
 		}
 
 		// connect remote VPC to the transit gateway.
 		err = remoteVPCClient.ConnectVPC(gwID, *remoteVPC.CRN)
 		if err != nil {
+			utils.Log.Printf("Failed to connect remote VPC %v to transit gateway %v, with error: %+v", remoteVPC, gwID, err)
 			return err
 		}
 	}
@@ -622,19 +631,23 @@ func (s *IBMPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderp
 func (s *IBMPluginServer) getRegionOfAddressSpace(resourceGroup, namespace, addressSpace string) (string, error) {
 	client, err := s.setupCloudClient(resourceGroup, defaultRegion)
 	if err != nil {
+		utils.Log.Printf("Failed to setup cloud client while trying to get region of address space %v in namespace %v with error: %+v", addressSpace, namespace, err)
 		return "", err
 	}
 	vpcsData, err := client.GetParagliderTaggedResources(sdk.VPC, []string{namespace}, sdk.ResourceQuery{})
 	if err != nil {
+		utils.Log.Printf("Failed to fetch VPCs while trying to get region of address space %v in namespace %v with error: %+v", addressSpace, namespace, err)
 		return "", err
 	}
 	for _, vpcData := range vpcsData {
 		client, err := s.setupCloudClient(resourceGroup, vpcData.Region)
 		if err != nil {
+			utils.Log.Printf("Failed to setup cloud client in region %v, while trying to get region of address space %v in namespace %v with error: %+v", vpcData.Region, addressSpace, namespace, err)
 			return "", err
 		}
 		VPCFound, err := client.IsRemoteInVPC(vpcData.ID, addressSpace)
 		if err != nil {
+			utils.Log.Printf("Error occurred while checking whether VPC %v contains address space %v, in region %v: %+v", vpcData.ID, vpcData.Region, addressSpace, err)
 			return "", err
 		}
 		if VPCFound {
@@ -651,10 +664,12 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 	}
 	rInfo, err := getResourceMeta(req.Deployment.Id)
 	if err != nil {
+		utils.Log.Printf("Failed to get ResourceIDInfo from deployment %v, while creating VPN connections, with error: %+v", req.Deployment.Id, err)
 		return nil, err
 	}
 	region, err := s.getRegionOfAddressSpace(rInfo.ResourceGroup, req.Deployment.Namespace, req.AddressSpace)
 	if err != nil {
+		utils.Log.Printf("Failed to get region of address space %v, while creating VPN connections, with error: %+v", req.AddressSpace, err)
 		return nil, err
 	}
 	if region == "" {
@@ -667,6 +682,7 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 	// get VPN in the namespace and region
 	vpns, err := cloudClient.GetVPNsInNamespaceRegion(req.Deployment.Namespace, region)
 	if err != nil {
+		utils.Log.Printf("Failed to get VPNs in namespace %v and region %v, while creating VPN connections, with error: %+v", req.Deployment.Namespace, region, err)
 		return nil, err
 	}
 
@@ -682,6 +698,7 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 	for _, peerVPNIPAddress := range req.GatewayIpAddresses {
 		err := cloudClient.CreateVPNConnectionRouteBased(vpn.ID, peerVPNIPAddress, req.SharedKey, req.Cloud, req.RemoteAddresses)
 		if err != nil {
+			utils.Log.Printf("Failed to create VPN connection in VPN %v to peer VPN at %v, with error: %+v", vpn.ID, peerVPNIPAddress, err)
 			return nil, err
 		}
 	}
