@@ -107,7 +107,14 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	}
 
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
-	err := c.AddPermitListRules(e.cliSettings.ActiveNamespace, args[0], args[1], rules)
+
+	namespace, err := c.GetNamespace()
+
+	if err != nil {
+		return err
+	}
+
+	err = c.AddPermitListRules(namespace, args[0], args[1], rules)
 
 	return err
 }

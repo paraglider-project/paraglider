@@ -62,6 +62,13 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	// Send the rules to the server
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
-	err := c.DeletePermitListRules(e.cliSettings.ActiveNamespace, args[0], args[1], e.ruleNames)
+
+	namespace, err := c.GetNamespace()
+
+	if err != nil {
+		return err
+	}
+
+	err = c.DeletePermitListRules(namespace, args[0], args[1], e.ruleNames)
 	return err
 }
