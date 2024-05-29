@@ -23,6 +23,7 @@ import (
 
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/pkg/client"
 	"github.com/spf13/cobra"
 )
 
@@ -53,7 +54,14 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	fmt.Fprintf(e.writer, "Active namespace: %s\n", e.cliSettings.ActiveNamespace)
+	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
+	namespace, err := c.GetNamespace()
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(e.writer, "Active namespace: %s\n", &namespace)
 
 	return nil
 }
