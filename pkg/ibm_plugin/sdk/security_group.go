@@ -144,7 +144,7 @@ func (c *CloudClient) translateSecurityGroupRules(
 	return rules, nil
 }
 
-// returns a SecurityGroupRule of an IBM rule interface based on its concrete type
+// translateSecurityGroupRule returns a SecurityGroupRule converted from vpcv1.SecurityGroupRuleIntf based on its concrete type
 func (c *CloudClient) translateSecurityGroupRule(
 	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
 	switch ibmRule.(type) {
@@ -158,8 +158,8 @@ func (c *CloudClient) translateSecurityGroupRule(
 	return nil, nil
 }
 
-// returns SecurityGroupRule object converted from an abstract rule whose concrete
-// type is an "all" protocol rule
+// translateSecurityGroupRuleGroupRuleProtocolAll returns SecurityGroupRule object converted from
+// SecurityGroupRuleIntf, whose concrete type is SecurityGroupRuleSecurityGroupRuleProtocolAll
 func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolAll(
 	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
 
@@ -182,8 +182,8 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolAll(
 	return &rule, nil
 }
 
-// returns SecurityGroupRule object converted from an abstract rule whose concrete
-// type is an ICMP protocol rule
+// translateSecurityGroupRuleGroupRuleProtocolICMP returns SecurityGroupRule object converted from
+// SecurityGroupRuleIntf, whose concrete type is SecurityGroupRuleSecurityGroupRuleProtocolIcmp
 func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolICMP(
 	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
 
@@ -221,8 +221,8 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolICMP(
 	return &rule, nil
 }
 
-// returns SecurityGroupRule object converted from an abstract rule whose concrete
-// type is either a TCP or a UDP protocol rule
+// translateSecurityGroupRuleGroupRuleProtocolTCPUDP returns SecurityGroupRule object converted from
+// SecurityGroupRuleIntf, whose concrete type is SecurityGroupRuleSecurityGroupRuleProtocolTcpudp
 func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolTCPUDP(
 	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
 
