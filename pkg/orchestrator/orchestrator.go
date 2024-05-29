@@ -61,8 +61,7 @@ const (
 	DeleteTagMemberURL       string = "/tags/:tag/members/:member"
 	ListNamespacesURL        string = "/namespaces"
 	SetNamespaceURL          string = "/namespaces/:namespace"
-	// TODO: use better path
-	GetNamespaceURL string = "/namespace"
+	GetNamespaceURL          string = "/namespace"
 )
 
 type Warning struct {
@@ -1204,15 +1203,11 @@ func (s *ControllerServer) setNamespace(c *gin.Context) {
 	namespace := c.Param("namespace")
 	s.namespace = namespace
 
-	utils.Log.Printf("setNamespace: %s", namespace)
-
 	c.JSON(http.StatusOK, namespace)
 }
 
 // Get namespace
 func (s *ControllerServer) getNamespace(c *gin.Context) {
-
-	utils.Log.Printf("getNamespace: %s", s.namespace)
 
 	c.JSON(http.StatusOK, s.namespace)
 }

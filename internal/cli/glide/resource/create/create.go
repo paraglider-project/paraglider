@@ -79,7 +79,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 
 	namespace, err := c.GetNamespace()
 	if err != nil {
-		fmt.Fprintf(e.writer, "Failed to get namespace: %v\n", err)
+		fmt.Fprintf(e.writer, "Failed to get active namespace: %v\n", err)
 		return err
 	}
 
