@@ -270,6 +270,21 @@ func (c *Client) SetNamespace(namespace string) error {
 	return nil
 }
 
+// Get namespace
+func (c *Client) GetNamespace() (string, error) {
+	result, err := c.sendRequest(orchestrator.GetNamespaceURL, http.MethodGet, nil)
+	if err != nil {
+		return "", err
+	}
+
+	var namespace string
+	err = json.Unmarshal(result, &namespace)
+	if err != nil {
+		return "", err
+	}
+	return namespace, nil
+}
+
 // List all configured namespaces
 func (c *Client) ListNamespaces() (map[string][]config.CloudDeployment, error) {
 	result, err := c.sendRequest(orchestrator.ListNamespacesURL, http.MethodGet, nil)
