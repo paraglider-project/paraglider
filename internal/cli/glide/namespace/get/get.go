@@ -61,7 +61,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Fprintf(e.writer, "Active namespace: %s\n", &namespace)
+	fmt.Fprintf(e.writer, "Active namespace: %s\n", namespace)
 
 	return nil
 }
