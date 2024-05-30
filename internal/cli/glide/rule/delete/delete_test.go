@@ -46,7 +46,7 @@ func TestRuleDeleteExecute(t *testing.T) {
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
 	cmd, executor := NewCommand()
-	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr}
 	executor.ruleNames = []string{"name1", "name2"}
 
 	args := []string{fake.CloudName, "uri"}

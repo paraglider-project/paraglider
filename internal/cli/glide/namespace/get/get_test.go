@@ -34,10 +34,10 @@ func TestNamespaceGetExecute(t *testing.T) {
 	cmd, executor := NewCommand()
 	var output bytes.Buffer
 	executor.writer = &output
-	executor.cliSettings = settings.CLISettings{ActiveNamespace: "default", ServerAddr: serverAddr}
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr}
 
 	err := executor.Execute(cmd, []string{})
 
 	assert.Nil(t, err)
-	assert.Contains(t, output.String(), executor.cliSettings.ActiveNamespace)
+	assert.Contains(t, output.String(), executor.cliSettings.ServerAddr)
 }
