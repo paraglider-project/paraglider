@@ -43,7 +43,7 @@ func TestResourceCreateExecute(t *testing.T) {
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
 	cmd, executor := NewCommand()
-	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr}
 
 	var output bytes.Buffer
 	executor.writer = &output

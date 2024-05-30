@@ -52,7 +52,7 @@ func TestRuleAddExecute(t *testing.T) {
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
 	cmd, executor := NewCommand()
-	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
+	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr}
 	executor.pingTag = "pingTag"
 	executor.sshTag = "sshTag"
 
