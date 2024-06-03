@@ -5,19 +5,47 @@
 
 version: 2
 updates:
-  - package-ecosystem: "gomod" # See documentation for possible values
+  - package-ecosystem: "gomod" 
     directory: "/" # Location of package manifests
     schedule:
-      interval: "weekly"
-  - package-ecosystem: "devcontainers" # See documentation for possible values
-    directory: "/" # Location of package manifests
+      interval: "monthly"
+    groups:
+      all:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+  - package-ecosystem: "devcontainers" 
+    directory: "/" 
     schedule:
-      interval: "weekly"
-  - package-ecosystem: "pip" # See documentation for possible values
-    directory: "/" # Location of package manifests
+      interval: "monthly"
+    groups:
+      all:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+  - package-ecosystem: "pip" 
+    directory: "/" 
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      all:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      all:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
