@@ -98,6 +98,8 @@ jobs:
         run: python ./.github/scripts/get_release_version.py
       - name: Get protoc
         uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Get protoc-gen-go
         run: |
           GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
