@@ -76,7 +76,6 @@ func (s *IBMPluginServer) getAllClientsForVPCs(cloudClient *sdk.CloudClient, res
 	return cloudClients, nil
 }
 
-
 // CreateResource creates the specified resource (instance and cluster).
 func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragliderpb.CreateResourceRequest) (*paragliderpb.CreateResourceResponse, error) {
 	var vpcID *string
@@ -142,7 +141,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 		utils.Log.Printf("Getting address space from orchestrator\n")
 
 		// Find unused address space and create a subnet in it.
-		conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, err
 		}
@@ -257,7 +256,7 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.G
 		return nil, err
 	}
 
-	conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +334,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	}
 	utils.Log.Printf("Translated permit list to intermediate IBM Rule : %v\n", ibmRulesToAdd)
 
-	conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -493,7 +492,7 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 	// assuming up to a single paraglider subnet can exist per zone
 	paragliderSgID := paragliderSgsData[0].ID
 
-	conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}

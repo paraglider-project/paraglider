@@ -467,7 +467,7 @@ func (h *AzureSDKHandler) GetParagliderVnet(ctx context.Context, vnetName string
 		if isErrorNotFound(err) {
 			// Create the virtual network if it doesn't exist
 			// Get the address space from the orchestrator service
-			conn, err := grpc.Dial(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.NewClient(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
 				utils.Log.Printf("could not dial the orchestrator")
 				return nil, err
@@ -492,7 +492,7 @@ func (h *AzureSDKHandler) GetParagliderVnet(ctx context.Context, vnetName string
 // AddSubnetToParagliderVnet adds a subnet to an paraglider vnet
 func (h *AzureSDKHandler) AddSubnetToParagliderVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error) {
 	// Get a new address space
-	conn, err := grpc.Dial(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		utils.Log.Printf("could not dial the orchestrator")
 		return nil, err

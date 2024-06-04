@@ -154,7 +154,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 	networkTag := getNetworkTag(req.Namespace, resourceInfo.ResourceType, *resourceID)
 
 	// Get used address spaces of all clouds
-	orchestratorConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	orchestratorConn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
@@ -430,7 +430,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	addressSpaces := []string{}
 	numAddressSpacesNeeded := int32(resourceInfo.NumAdditionalAddressSpaces)
 	if !subnetExists || resourceInfo.NumAdditionalAddressSpaces > 0 {
-		conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 		}
@@ -646,7 +646,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 	}
 
 	// Find unused ASN
-	conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
