@@ -292,15 +292,15 @@ func (c *CloudClient) CreateVPNConnectionRouteBased(VPNGatewayID, peerGatewayIP,
 
 	// get the routing table of the VPC where the VPN gateway resides
 	vpnGateway, _, err := c.vpcService.GetVPNGateway(c.vpcService.NewGetVPNGatewayOptions(VPNGatewayID))
-	utils.Log.Printf("Failed to get routing table of the VPC containing VPN gateway %v with error: %+v", VPNGatewayID, err)
 	if err != nil {
+		utils.Log.Printf("Failed to get routing table of the VPC containing VPN gateway %v with error: %+v", VPNGatewayID, err)
 		return err
 	}
 	vpcID := *vpnGateway.(*vpcv1.VPNGateway).VPC.ID
 
 	defaultRoutingTable, _, err := c.vpcService.GetVPCDefaultRoutingTable(c.vpcService.NewGetVPCDefaultRoutingTableOptions(vpcID))
-	utils.Log.Printf("Failed to default routing table for VPN %v with error: %+v", VPNGatewayID, err)
 	if err != nil {
+		utils.Log.Printf("Failed to get default routing table for VPN %v with error: %+v", VPNGatewayID, err)
 		return err
 	}
 

@@ -49,6 +49,7 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 		xCorrelationId := response.Headers["X-Correlation-Id"][0]
 		utils.Log.Printf("Tagging attempt %v on resource CRN: %v with transaction ID: %v and err: %+v\n", attempt, *CRN, xCorrelationId, err)
 		if !*result.Results[0].IsError {
+			utils.Log.Printf("Successfully tagged resource CRN: %v on attempt %v\n", attempt, *CRN)
 			return nil
 		}
 		// sleep to avoid busy waiting
