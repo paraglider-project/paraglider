@@ -28,6 +28,7 @@ import (
 	"github.com/paraglider-project/paraglider/internal/cli/glide/resource"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/rule"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/server"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/tag"
 	"github.com/spf13/cobra"
 )
@@ -39,6 +40,8 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
+	// read the state first so that Global is being refreshed
+	settings.ReadState()
 	rootCmd.AddCommand(resource.NewCommand())
 	rootCmd.AddCommand(rule.NewCommand())
 	rootCmd.AddCommand(tag.NewCommand())
