@@ -73,7 +73,7 @@ func ReadState() {
 	data, err := os.ReadFile(configPath())
 	if err != nil {
 		log.Printf("Unable to read json file: %v\n", err)
-		// only set the state. Global is up to date
+		// only set the state. No need to refresh Global
 		setState()
 	} else {
 		json.Unmarshal(data, &Global)
