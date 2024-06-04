@@ -47,7 +47,7 @@ const (
 	gatewaySubnetAddressPrefix = "192.168.255.0/27"
 )
 
-func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) (*AzureSDKHandler, error) {
+func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo, namespace string) (*AzureSDKHandler, error) {
 	var azureHandler AzureSDKHandler
 	cred, err := s.azureCredentialGetter.GetAzureCredentials()
 	if err != nil {
@@ -55,6 +55,7 @@ func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo) (*A
 		return nil, err
 	}
 	azureHandler.SetSubIdAndResourceGroup(resourceIdInfo.SubscriptionID, resourceIdInfo.ResourceGroupName)
+	azureHandler.paragliderNamespace = namespace
 	err = azureHandler.InitializeClients(cred)
 	if err != nil {
 		utils.Log.Printf("An error occured while initializing azure clients: %+v", err)
@@ -73,7 +74,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *paragliderpb
 		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
 	}
-	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo, req.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +113,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
 	}
-	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo, req.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +235,7 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *paragl
 		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 		return nil, err
 	}
-	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo, req.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +273,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 		return nil, err
 	}
 
-	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo, resourceDesc.Deployment.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +419,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *parag
 			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 			return nil, err
 		}
-		azureHandler, err := s.setupAzureHandler(resourceIdInfo)
+		azureHandler, err := s.setupAzureHandler(resourceIdInfo, deployment.Namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -448,7 +449,7 @@ func (s *azurePluginServer) GetUsedAsns(ctx context.Context, req *paragliderpb.G
 			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 			return nil, err
 		}
-		azureHandler, err := s.setupAzureHandler(resourceIdInfo)
+		azureHandler, err := s.setupAzureHandler(resourceIdInfo, deployment.Namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -475,7 +476,7 @@ func (s *azurePluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, re
 			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
 			return nil, err
 		}
-		azureHandler, err := s.setupAzureHandler(resourceIdInfo)
+		azureHandler, err := s.setupAzureHandler(resourceIdInfo, deployment.Namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -503,7 +504,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *paraglide
 	if err != nil {
 		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
 	}
-	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo, req.Deployment.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("unable to setup azure handler: %w", err)
 	}
@@ -672,7 +673,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 	if err != nil {
 		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
 	}
-	azureHandler, err := s.setupAzureHandler(resourceIdInfo)
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo, req.Deployment.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("unable to setup azure handler: %w", err)
 	}
@@ -756,7 +757,7 @@ func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler Azur
 	if err != nil {
 		return fmt.Errorf("unable to get resource ID info for peering Cloud: %w", err)
 	}
-	peeringCloudAzureHandler, err := s.setupAzureHandler(peeringCloudResourceIDInfo)
+	peeringCloudAzureHandler, err := s.setupAzureHandler(peeringCloudResourceIDInfo, peeringCloudInfo.Namespace)
 	if err != nil {
 		return err
 	}

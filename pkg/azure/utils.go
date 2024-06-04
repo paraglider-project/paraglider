@@ -27,6 +27,21 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"google.golang.org/protobuf/proto"
+)
+
+const (
+	virtualMachineTypeName        = "Microsoft.Compute/virtualMachines"
+	managedClusterTypeName        = "Microsoft.ContainerService/managedClusters"
+	localNetworkGatewayTypeName   = "Microsoft.Network/localNetworkGateways"
+	diskTypeName                  = "Microsoft.Compute/disks"
+	connectionTypeName            = "Microsoft.Network/connections"
+	networkInterfaceTypeName      = "Microsoft.Network/networkInterfaces"
+	networkSecurityGroupTypeName  = "Microsoft.Network/networkSecurityGroups"
+	publicIPAddressTypeName       = "Microsoft.Network/publicIPAddresses"
+	virtualNetworkGatewayTypeName = "Microsoft.Network/virtualNetworkGateways"
+	virtualNetworkTypeName        = "Microsoft.Network/virtualNetworks"
+	networkWatcherTypeName        = "Microsoft.Network/networkWatchers"
 )
 
 // Gets subscription ID defined in environment variable
@@ -53,7 +68,14 @@ func createResourceGroupsClient(subscriptionId string) *armresources.ResourceGro
 }
 
 func SetupAzureTesting(subscriptionId string, testName string) string {
-	resourceGroupName := "paraglider-" + testName
+	// Use set resource group
+	var resourceGroupName string
+	if resourceGroupName = os.Getenv("INVISINETS_AZURE_RESOURCE_GROUP"); resourceGroupName != "" {
+		return resourceGroupName
+	}
+
+	// Create new resource group
+	resourceGroupName = "paraglider-" + testName
 	if os.Getenv("GH_RUN_NUMBER") != "" {
 		resourceGroupName += "-" + os.Getenv("GH_RUN_NUMBER")
 	}
@@ -67,20 +89,132 @@ func SetupAzureTesting(subscriptionId string, testName string) string {
 	return resourceGroupName
 }
 
-func TeardownAzureTesting(subscriptionId string, resourceGroupName string) {
+func TeardownAzureTesting(subscriptionId string, resourceGroupName string, namespace string) {
 	if os.Getenv("INVISINETS_TEST_PERSIST") != "1" {
-		ctx := context.Background()
-		resourceGroupsClient := createResourceGroupsClient(subscriptionId)
-		poller, err := resourceGroupsClient.BeginDelete(ctx, resourceGroupName, nil)
-		if err != nil {
-			// If deletion fails: refer to https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/delete-resource-group
-			panic(fmt.Sprintf("Error while deleting resource group: %v", err))
-		}
-		_, err = poller.PollUntilDone(ctx, nil)
-		if err != nil {
-			panic(fmt.Sprintf("Error while waiting for resource group deletion: %v", err))
+		if os.Getenv("INVISINETS_AZURE_RESOURCE_GROUP") == "" {
+			// Delete resource group
+			ctx := context.Background()
+			resourceGroupsClient := createResourceGroupsClient(subscriptionId)
+			poller, err := resourceGroupsClient.BeginDelete(ctx, resourceGroupName, nil)
+			if err != nil {
+				// If deletion fails: refer to https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/delete-resource-group
+				panic(fmt.Sprintf("Error while deleting resource group: %v", err))
+			}
+			_, err = poller.PollUntilDone(ctx, nil)
+			if err != nil {
+				panic(fmt.Sprintf("Error while waiting for resource group deletion: %v", err))
+			}
+		} else {
+			// Delete resources without deleting the resource group
+			// Order deletion is based off of https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/delete-resource-group#how-order-of-deletion-is-determined
+			ctx := context.Background()
+			cred, err := azidentity.NewDefaultAzureCredential(nil)
+			if err != nil {
+				panic(fmt.Sprintf("Error while getting azure credentials: %v", err))
+			}
+			resourcesClient, err := armresources.NewClient(subscriptionId, cred, nil)
+			if err != nil {
+				panic(fmt.Sprintf("Error while creating resources client: %v", err))
+			}
+			providersClient, err := armresources.NewProvidersClient(subscriptionId, cred, nil)
+			if err != nil {
+				panic(fmt.Sprintf("Error while creating providers client: %v", err))
+			}
+			pager := resourcesClient.NewListPager(&armresources.ClientListOptions{
+				Filter: proto.String(fmt.Sprintf("tagName eq '%s' and tagValue eq '%s'", namespaceTagKey, namespace)),
+			})
+			resourceTypeToResources := make(map[string][]*armresources.GenericResourceExpanded)
+			resourceTypeToAPIVersion := make(map[string]string)
+			for pager.More() {
+				result, err := pager.NextPage(ctx)
+				if err != nil {
+					panic(fmt.Sprintf("failed to get next page of resources: %v", err))
+				}
+
+				for _, resource := range result.Value {
+					resourceIDInfo, err := getResourceIDInfo(*resource.ID)
+					if err != nil {
+						panic(fmt.Sprintf("Unable to parse resource ID info: %v", err))
+					}
+
+					// Need to check here since resourceGroup can't be used with tags in the above filter
+					// Ignore case when checking because Azure sometimes capitalizes the resource group name for no apparent reason
+					if strings.EqualFold(resourceIDInfo.ResourceGroupName, resourceGroupName) {
+						// Group resources by type and get the correct API version for the type
+						if _, ok := resourceTypeToResources[*resource.Type]; !ok {
+							resourceTypeToResources[*resource.Type] = make([]*armresources.GenericResourceExpanded, 0)
+							// Find correct API version
+							_, ok := resourceTypeToAPIVersion[*resource.Type]
+							if !ok {
+								providerNamespace := strings.Split(*resource.Type, "/")[0]
+								resp, err := providersClient.Get(ctx, providerNamespace, nil)
+								if err != nil {
+									panic(fmt.Errorf("Unable to get provider resource type: %w", err))
+								}
+								// Store all API versions under this provider namespace to reduce potential duplicate requests
+								for _, resourceType := range resp.Provider.ResourceTypes {
+									// Breakdown of the term "resource type" overloading
+									// - *resource.Type = "Microsoft.Compute/virtualMachines"
+									// - providerNamespace = "Microsoft.Compute"
+									// - *resourceType.ResourceType is one of "virtualMachines", "disks", etc.
+									resourceTypeToAPIVersion[providerNamespace+"/"+*resourceType.ResourceType] = *resourceType.APIVersions[0] // Use most recent API version
+								}
+							}
+						}
+						resourceTypeToResources[*resource.Type] = append(resourceTypeToResources[*resource.Type], resource)
+					}
+
+				}
+				// Delete resources in the following order
+				deletionOrder := []string{
+					virtualMachineTypeName,
+					managedClusterTypeName,
+					networkInterfaceTypeName,
+					diskTypeName,
+					connectionTypeName,
+					virtualNetworkGatewayTypeName,
+					localNetworkGatewayTypeName,
+					publicIPAddressTypeName,
+					virtualNetworkTypeName,
+					networkSecurityGroupTypeName,
+					networkWatcherTypeName,
+				}
+				for _, resourceType := range deletionOrder {
+					if resources, ok := resourceTypeToResources[resourceType]; ok {
+						err = deleteResources(ctx, resourcesClient, resources, resourceTypeToAPIVersion[resourceType])
+						if err != nil {
+							panic(fmt.Errorf("Failed to delete resource type %s: %w", resourceType, err))
+						}
+						delete(resourceTypeToResources, resourceType)
+					}
+				}
+
+				if len(resourceTypeToResources) > 0 {
+					fmt.Printf("Attempting to clean up unexpected resources")
+					for resourceType, resources := range resourceTypeToResources {
+						err = deleteResources(ctx, resourcesClient, resources, resourceTypeToAPIVersion[resourceType])
+						if err != nil {
+							panic(fmt.Errorf("Failed to delete resource type %s: %w", resourceType, err))
+						}
+					}
+				}
+			}
 		}
 	}
+}
+
+func deleteResources(ctx context.Context, resourcesClient *armresources.Client, resources []*armresources.GenericResourceExpanded, apiVersion string) error {
+	for _, resource := range resources {
+		pollerResp, err := resourcesClient.BeginDeleteByID(ctx, *resource.ID, apiVersion, nil)
+		if err != nil {
+			return fmt.Errorf("Error while deleting resource: %v", err)
+		}
+		_, err = pollerResp.PollUntilDone(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("Error while deleting resource: %v", err)
+		}
+	}
+	return nil
 }
 
 func GetTestVmParameters(location string) armcompute.VirtualMachine {
@@ -153,7 +287,28 @@ func GetVmIpAddress(vmId string) (string, error) {
 	return *networkInterface.Properties.IPConfigurations[0].Properties.PrivateIPAddress, nil
 }
 
-func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress string) (bool, error) {
+func findNetworkWatcher(ctx context.Context, watchersClient *armnetwork.WatchersClient, location string) (*ResourceIDInfo, error) {
+	pager := watchersClient.NewListAllPager(nil)
+	for pager.More() {
+		result, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get next page of resources: %v", err)
+		}
+
+		for _, networkWatcher := range result.Value {
+			if *networkWatcher.Location == location {
+				networkWatcherResourceIDInfo, err := getResourceIDInfo(*networkWatcher.ID)
+				if err != nil {
+					return nil, fmt.Errorf("unable to parse network watcher ID: %w", err)
+				}
+				return &networkWatcherResourceIDInfo, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
+func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress string, sourceVmNamespace string) (bool, error) {
 	resourceIDInfo, err := getResourceIDInfo(sourceVmResourceID)
 	if err != nil {
 		return false, fmt.Errorf("unable to parse resource ID: %w", err)
@@ -207,9 +362,35 @@ func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress st
 		PreferredIPVersion: to.Ptr(armnetwork.IPVersionIPv4),
 		Protocol:           to.Ptr(armnetwork.ProtocolIcmp),
 	}
+
+	// Configure network watcher
+	// Hard coded resource group for CI pipeline (https://github.com/paraglider-project/paraglider/issues/217)
+	networkWatcherResourceGroup := "NetworkWatcherRG"
+	networkWatcherName := "NetworkWatcher_" + *vm.Location
+	if os.Getenv("INVISINETS_AZURE_RESOURCE_GROUP") != "" {
+		// Check if network watcher already exists within the subscription since Azure limits network watchers to one per subscription for each region
+		networkWatcherResourceIDInfo, err := findNetworkWatcher(ctx, watchersClient, *vm.Location)
+		if err != nil {
+			return false, fmt.Errorf("error when finding network watcher: %w", err)
+		}
+		if networkWatcherResourceIDInfo != nil {
+			// Use existing network watcher
+			networkWatcherResourceGroup = networkWatcherResourceIDInfo.ResourceGroupName
+			networkWatcherName = networkWatcherResourceIDInfo.ResourceName
+		} else {
+			// Create network watcher in provided resource group
+			networkWatcherResourceGroup = os.Getenv("INVISINETS_AZURE_RESOURCE_GROUP")
+			// Tag it to make sure it gets deleted
+			_, err := watchersClient.CreateOrUpdate(ctx, networkWatcherResourceGroup, networkWatcherName, armnetwork.Watcher{Location: vm.Location, Tags: map[string]*string{namespaceTagKey: to.Ptr(sourceVmNamespace)}}, nil)
+			if err != nil {
+				return false, fmt.Errorf("unable to create network watcher: %w", err)
+			}
+		}
+	}
+
 	// Retries up to 5 times
 	for i := 0; i < 5; i++ {
-		checkConnectivityPollerResponse, err := watchersClient.BeginCheckConnectivity(ctx, "NetworkWatcherRG", fmt.Sprintf("NetworkWatcher_%s", *vm.Location), connectivityParameters, nil)
+		checkConnectivityPollerResponse, err := watchersClient.BeginCheckConnectivity(ctx, networkWatcherResourceGroup, networkWatcherName, connectivityParameters, nil)
 		if err != nil {
 			return false, err
 		}

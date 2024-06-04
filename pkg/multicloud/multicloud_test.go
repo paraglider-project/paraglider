@@ -40,7 +40,7 @@ func TestMulticloud(t *testing.T) {
 	azureSubscriptionId := azure.GetAzureSubscriptionId()
 	azureResourceGroupName := azure.SetupAzureTesting(azureSubscriptionId, "multicloud")
 	azureDeploymentId := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName)
-	defer azure.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
+	defer azure.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName, "default")
 
 	// GCP config
 	gcpPluginPort := 7992
@@ -222,7 +222,7 @@ func TestMulticloud(t *testing.T) {
 	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-1", gcpConnectivityTest1GcpVmEndpoint, gcpConnectivityTest1AzureVmEndpoint)
 
 	// Run Azure connectivity check (ping from Azure VM to GCP VM)
-	azureConnectivityCheck1, err := azure.RunPingConnectivityCheck(azureVm1ResourceId, gcpVmIpAddress)
+	azureConnectivityCheck1, err := azure.RunPingConnectivityCheck(azureVm1ResourceId, gcpVmIpAddress, "default")
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck1)
 
@@ -333,7 +333,7 @@ func TestMulticloud(t *testing.T) {
 	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-2", gcpConnectivityTest2GcpVmEndpoint, gcpConnectivityTest2AzureVmEndpoint)
 
 	// Run Azure connectivity check (ping from Azure VM to GCP VM)
-	azureConnectivityCheck2, err := azure.RunPingConnectivityCheck(azureVm2ResourceId, gcpVmIpAddress)
+	azureConnectivityCheck2, err := azure.RunPingConnectivityCheck(azureVm2ResourceId, gcpVmIpAddress, "default")
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck2)
 }
