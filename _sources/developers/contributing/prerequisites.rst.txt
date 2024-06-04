@@ -98,7 +98,14 @@ If you would like to run these locally, you will need to be authenticated. The f
 
 #. `Install azure cli <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>`_. If you're using the dev container, this will already be installed for you.
 #. `Authenticate to your account with azure login <https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli>`_.
-#. Set environment variables ``INVISINETS_AZURE_SUBSCRIPTION_ID`` with a valid subscription.
+#. The tests will automatically create (and delete) new resource groups for each test run. You must set the environment variable ``INVISINETS_AZURE_SUBSCRIPTION_ID`` with a valid subscription.
+   
+   * If you want to use your own existing resource group, set the environment variable ``INVISINETS_AZURE_RESOURCE_GROUP``. The tests will not delete the resource group and instead only clean up the resources within it.
+    
+     .. warning::
+          
+          Resource group must be created before running the test.
+
 
 If you'd like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable ``INVISINETS_TEST_PERSIST`` to ``1``.
 

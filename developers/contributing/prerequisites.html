@@ -371,10 +371,19 @@ If you get stuck or suspect something is not working in these instructions pleas
 </li>
 </ol>
 <p><strong>Azure</strong></p>
-<ol class="arabic simple">
+<ol class="arabic">
 <li><p><a class="reference external" href="https://learn.microsoft.com/en-us/cli/azure/install-azure-cli">Install azure cli</a>. If you’re using the dev container, this will already be installed for you.</p></li>
 <li><p><a class="reference external" href="https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli">Authenticate to your account with azure login</a>.</p></li>
-<li><p>Set environment variables <code class="docutils literal notranslate"><span class="pre">INVISINETS_AZURE_SUBSCRIPTION_ID</span></code> with a valid subscription.</p></li>
+<li><p>The tests will automatically create (and delete) new resource groups for each test run. You must set the environment variable <code class="docutils literal notranslate"><span class="pre">INVISINETS_AZURE_SUBSCRIPTION_ID</span></code> with a valid subscription.</p>
+<ul>
+<li><p>If you want to use your own existing resource group, set the environment variable <code class="docutils literal notranslate"><span class="pre">INVISINETS_AZURE_RESOURCE_GROUP</span></code>. The tests will not delete the resource group and instead only clean up the resources within it.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Resource group must be created before running the test.</p>
+</div>
+</li>
+</ul>
+</li>
 </ol>
 <p>If you’d like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable <code class="docutils literal notranslate"><span class="pre">INVISINETS_TEST_PERSIST</span></code> to <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
 <p><strong>IBM</strong></p>
