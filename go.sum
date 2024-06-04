@@ -50,8 +50,6 @@ github.com/AzureAD/microsoft-authentication-library-for-go v1.2.2/go.mod h1:wP83
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/IBM-Cloud/container-services-go-sdk v0.0.0-20240510130133-9f76aa34af27 h1:WJ7RTGvACcoV5wgwfQ/BEiYn45V7ewzqtaNOuNapqec=
 github.com/IBM-Cloud/container-services-go-sdk v0.0.0-20240510130133-9f76aa34af27/go.mod h1:xUQL9SGAjoZFd4GNjrjjtEpjpkgU7RFXRyHesbKTjiY=
-github.com/IBM/go-sdk-core v1.1.0 h1:pV73lZqr9r1xKb3h08c1uNG3AphwoV5KzUzhS+pfEqY=
-github.com/IBM/go-sdk-core v1.1.0/go.mod h1:2pcx9YWsIsZ3I7kH+1amiAkXvLTZtAq9kbxsfXilSoY=
 github.com/IBM/go-sdk-core/v5 v5.5.1/go.mod h1:Sn+z+qTDREQvCr+UFa22TqqfXNxx3o723y8GsfLV8e0=
 github.com/IBM/go-sdk-core/v5 v5.17.3 h1:CZSVCKzhQc/hRQZOtuEmi9dlNtWMnxJvOsPtQKP7cZ4=
 github.com/IBM/go-sdk-core/v5 v5.17.3/go.mod h1:GatGZpxlo1KaxiRN6E10/rNgWtUtx1hN/GoHSCaSPKA=
