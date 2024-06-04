@@ -16,6 +16,14 @@ limitations under the License.
 
 package settings
 
+import (
+	"encoding/json"
+	"log"
+	"os"
+	"os/user"
+	"path"
+)
+
 var (
 	Global CLISettings = CLISettings{ServerAddr: "http://localhost:8080", ActiveNamespace: "default"}
 )
@@ -23,4 +31,43 @@ var (
 type CLISettings struct {
 	ServerAddr      string
 	ActiveNamespace string
+}
+
+func CreateProjectfolder() string {
+	usr, _ := user.Current()
+	fol := path.Join(usr.HomeDir, "/.paraglider/")
+	//Create folder
+	err := os.MkdirAll(fol, 0755)
+	if err != nil {
+		log.Println(err)
+	}
+	return fol
+}
+
+func configPath() string {
+	//set cfg file in home directory
+	usr, _ := user.Current()
+	return path.Join(usr.HomeDir, "/.paraglider/", "settings.json")
+}
+
+func SetState() {
+	CreateProjectfolder()
+	SaveState(Global)
+}
+
+func SaveState(cliSettins CLISettings) {
+	jsonC, err := json.MarshalIndent(&cliSettins, "", "\t")
+	if err != nil {
+		log.Printf("Unable to write json file: %v\n", err)
+		return
+	}
+	os.WriteFile(configPath(), jsonC, 0644)
+}
+
+func ReadState() {
+	data, err := os.ReadFile(configPath())
+	if err != nil {
+		log.Printf("Unable to read json file: %v\n", err)
+	}
+	json.Unmarshal(data, &Global)
 }

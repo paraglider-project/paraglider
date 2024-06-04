@@ -28,6 +28,7 @@ import (
 	"github.com/paraglider-project/paraglider/internal/cli/glide/resource"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/rule"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/server"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/tag"
 	"github.com/spf13/cobra"
 )
@@ -45,6 +46,7 @@ func init() {
 	rootCmd.AddCommand(common.NewVersionCommand())
 	rootCmd.AddCommand(server.NewCommand())
 	rootCmd.AddCommand(namespace.NewCommand())
+	settings.SetState()
 }
 
 func Execute() {
