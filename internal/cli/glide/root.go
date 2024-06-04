@@ -48,6 +48,7 @@ func init() {
 	rootCmd.AddCommand(common.NewVersionCommand())
 	rootCmd.AddCommand(server.NewCommand())
 	rootCmd.AddCommand(namespace.NewCommand())
+	settings.SetState()
 }
 
 func Execute() {
