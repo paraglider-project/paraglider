@@ -10,7 +10,7 @@
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=387cc868" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=87e54e7c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=36a5483c" />
     
     
@@ -302,7 +302,7 @@
 <p>Paraglider currently supports Azure, GCP and IBM. To use Paraglider with a cloud provider, you must have an account with that provider and have the necessary credentials set up.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
-</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-0">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="azure" for="sd-tab-item-0">
 Azure</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p><a class="reference external" href="https://learn.microsoft.com/en-us/cli/azure/install-azure-cli">Install the Azure CLI</a>.</p></li>
@@ -320,7 +320,7 @@ Azure</label><div class="sd-tab-content docutils">
 </ol>
 </div>
 <input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
-</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-1">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="gcp" for="sd-tab-item-1">
 GCP</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p><a class="reference external" href="https://cloud.google.com/sdk/docs/install">Install the Google Cloud CLI</a>.</p></li>
@@ -343,7 +343,7 @@ GCP</label><div class="sd-tab-content docutils">
 </ol>
 </div>
 <input id="sd-tab-item-2" name="sd-tab-set-0" type="radio">
-</input><label class="sd-tab-label" data-sync-id="ibm" for="sd-tab-item-2">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="ibm" for="sd-tab-item-2">
 IBM</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p><a class="reference external" href="https://cloud.ibm.com/docs/cli?topic=cli-getting-started">Install the IBM Cloud CLI</a>.</p></li>
@@ -380,7 +380,7 @@ IBM</label><div class="sd-tab-content docutils">
 <p>Copy paste the following configuration into a new file called <code class="docutils literal notranslate"><span class="pre">paraglider_config.yaml</span></code>. Make sure to substitute the necessary parameters for your cloud provider.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
-</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-3">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="azure" for="sd-tab-item-3">
 Azure</label><div class="sd-tab-content docutils">
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">server</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
@@ -404,7 +404,7 @@ Azure</label><div class="sd-tab-content docutils">
 </div>
 </div>
 <input id="sd-tab-item-4" name="sd-tab-set-1" type="radio">
-</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-4">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="gcp" for="sd-tab-item-4">
 GCP</label><div class="sd-tab-content docutils">
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">server</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
@@ -428,7 +428,7 @@ GCP</label><div class="sd-tab-content docutils">
 </div>
 </div>
 <input id="sd-tab-item-5" name="sd-tab-set-1" type="radio">
-</input><label class="sd-tab-label" data-sync-id="ibm" for="sd-tab-item-5">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="ibm" for="sd-tab-item-5">
 IBM</label><div class="sd-tab-content docutils">
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">server</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;localhost&quot;</span>
@@ -481,7 +481,7 @@ IBM</label><div class="sd-tab-content docutils">
 <p>To create VMs in clouds, Paraglider requires a JSON file that describes the VM. This is the same as what you would provide in the body of the REST API request to the cloud.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-6" name="sd-tab-set-2" type="radio">
-</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-6">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="azure" for="sd-tab-item-6">
 Azure</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Copy the following into a file called <code class="docutils literal notranslate"><span class="pre">azure_vm.json</span></code>. Make sure to fill in the <code class="docutils literal notranslate"><span class="pre">adminUsername</span></code> and <code class="docutils literal notranslate"><span class="pre">adminPassword</span></code> fields!</p>
@@ -518,7 +518,7 @@ Azure</label><div class="sd-tab-content docutils">
 </ol>
 </div>
 <input id="sd-tab-item-7" name="sd-tab-set-2" type="radio">
-</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-7">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="gcp" for="sd-tab-item-7">
 GCP</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Copy the following into a file called <code class="docutils literal notranslate"><span class="pre">gcp_vm.json</span></code>.</p>
@@ -549,7 +549,7 @@ GCP</label><div class="sd-tab-content docutils">
 </ol>
 </div>
 <input id="sd-tab-item-8" name="sd-tab-set-2" type="radio">
-</input><label class="sd-tab-label" data-sync-id="ibm" for="sd-tab-item-8">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="ibm" for="sd-tab-item-8">
 IBM</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Copy the following into a file called <code class="docutils literal notranslate"><span class="pre">ibm_vm.json</span></code>.</p>
@@ -585,7 +585,7 @@ IBM</label><div class="sd-tab-content docutils">
 <p>Since Paraglider creates VMs without public IPs, you will need to use cloud specific connectivity checks instead of SSH-ing into the VMs which may require some setup.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-9" name="sd-tab-set-3" type="radio">
-</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-9">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="azure" for="sd-tab-item-9">
 Azure</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Configure Azure Network Watcher.</p>
@@ -608,7 +608,7 @@ Azure</label><div class="sd-tab-content docutils">
 </ol>
 </div>
 <input id="sd-tab-item-10" name="sd-tab-set-3" type="radio">
-</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-10">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="gcp" for="sd-tab-item-10">
 GCP</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Run connectivity test between vm-1 and vm-2.</p>
@@ -625,7 +625,7 @@ GCP</label><div class="sd-tab-content docutils">
 </ol>
 </div>
 <input id="sd-tab-item-11" name="sd-tab-set-3" type="radio">
-</input><label class="sd-tab-label" data-sync-id="ibm" for="sd-tab-item-11">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="ibm" for="sd-tab-item-11">
 IBM</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Login to the VM vm-1 using serial console/ssh.</p></li>
@@ -650,7 +650,7 @@ IBM</label><div class="sd-tab-content docutils">
 <p>To get the VMs to talk to each other, you will need to add permit list rules to both VMs.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-12" name="sd-tab-set-4" type="radio">
-</input><label class="sd-tab-label" data-sync-id="azure" for="sd-tab-item-12">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="azure" for="sd-tab-item-12">
 Azure</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Add permit list rules to both VMs.</p>
@@ -668,7 +668,7 @@ Azure</label><div class="sd-tab-content docutils">
 </ol>
 </div>
 <input id="sd-tab-item-13" name="sd-tab-set-4" type="radio">
-</input><label class="sd-tab-label" data-sync-id="gcp" for="sd-tab-item-13">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="gcp" for="sd-tab-item-13">
 GCP</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Add permit list rules to both VMs.</p>
@@ -686,7 +686,7 @@ GCP</label><div class="sd-tab-content docutils">
 </ol>
 </div>
 <input id="sd-tab-item-14" name="sd-tab-set-4" type="radio">
-</input><label class="sd-tab-label" data-sync-id="ibm" for="sd-tab-item-14">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="ibm" for="sd-tab-item-14">
 IBM</label><div class="sd-tab-content docutils">
 <ol class="arabic">
 <li><p>Add permit list rules to both VMs.</p>
@@ -801,6 +801,6 @@ IBM</label><div class="sd-tab-content docutils">
     <script src="../_static/scripts/furo.js?v=4e2eecee"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=a56c686a"></script>
-    <script src="../_static/design-tabs.js?v=36754332"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
     </body>
 </html>
