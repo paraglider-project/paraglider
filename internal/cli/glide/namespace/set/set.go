@@ -69,6 +69,6 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	e.cliSettings.ActiveNamespace = args[0]
 
-	settings.SaveState(e.cliSettings)
+	settings.SaveSettings(e.cliSettings)
 	return nil
 }

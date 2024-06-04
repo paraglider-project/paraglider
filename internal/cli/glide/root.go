@@ -41,7 +41,7 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	// read the state first so that Global is being refreshed
-	settings.ReadState()
+	settings.ReadSettings()
 	rootCmd.AddCommand(resource.NewCommand())
 	rootCmd.AddCommand(rule.NewCommand())
 	rootCmd.AddCommand(tag.NewCommand())
