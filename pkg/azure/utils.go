@@ -31,6 +31,8 @@ import (
 )
 
 const (
+	virtualMachineTypeName        = "Microsoft.Compute/virtualMachines"
+	managedClusterTypeName        = "Microsoft.ContainerService/managedClusters"
 	localNetworkGatewayTypeName   = "Microsoft.Network/localNetworkGateways"
 	diskTypeName                  = "Microsoft.Compute/disks"
 	connectionTypeName            = "Microsoft.Network/connections"

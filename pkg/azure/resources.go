@@ -32,11 +32,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
 
-const (
-	virtualMachineTypeName = "Microsoft.Compute/virtualMachines"
-	managedClusterTypeName = "Microsoft.ContainerService/managedClusters"
-)
-
 type resourceNetworkInfo struct {
 	SubnetID string
 	Address  string
