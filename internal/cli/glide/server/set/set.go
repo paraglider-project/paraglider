@@ -21,16 +21,16 @@ import (
 	"os"
 
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	"github.com/spf13/cobra"
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
+	executor := &executor{writer: os.Stdout, cliSettings: &config.ActiveConfig.Settings}
 	cmd := &cobra.Command{
 		Use:     "set <server address>",
 		Short:   "Set the server settings",
-		Args:    cobra.ExactArgs(0),
+		Args:    cobra.ExactArgs(1),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
@@ -40,7 +40,7 @@ func NewCommand() (*cobra.Command, *executor) {
 type executor struct {
 	common.CommandExecutor
 	writer      io.Writer
-	cliSettings settings.CLISettings
+	cliSettings *config.CliSettings
 }
 
 func (e *executor) SetOutput(w io.Writer) {
@@ -54,5 +54,9 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	e.cliSettings.ServerAddr = args[0]
+	err := config.SaveActiveConfig()
+	if err != nil {
+		return err
+	}
 	return nil
 }

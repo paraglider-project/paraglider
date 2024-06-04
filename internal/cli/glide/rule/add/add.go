@@ -23,14 +23,14 @@ import (
 	"strings"
 
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	"github.com/paraglider-project/paraglider/pkg/client"
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/spf13/cobra"
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
+	executor := &executor{writer: os.Stdout, cliSettings: config.ActiveConfig.Settings}
 	cmd := &cobra.Command{
 		Use:     "add <cloud> <resource name> [--rulefile <path to rule json file>] [--ping <tag>] [--ssh <tag>]",
 		Short:   "Add a rule to a resource's permit list",
@@ -47,7 +47,7 @@ func NewCommand() (*cobra.Command, *executor) {
 type executor struct {
 	common.CommandExecutor
 	writer      io.Writer
-	cliSettings settings.CLISettings
+	cliSettings config.CliSettings
 	ruleFile    string
 	pingTag     string
 	sshTag      string
