@@ -18,7 +18,7 @@ package settings
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"os"
 	"os/user"
 	"path"
@@ -26,7 +26,7 @@ import (
 
 const (
 	projectFolder = "/.paraglider/"
-	settinsFile   = "settings.json"
+	settingsFile  = "settings.json"
 )
 
 var (
@@ -38,25 +38,24 @@ type CLISettings struct {
 	ActiveNamespace string
 }
 
-func CreateProjectfolder() string {
+func createProjectfolder() string {
 	usr, _ := user.Current()
 	fol := path.Join(usr.HomeDir, projectFolder)
-	//Create folder
+	// create folder
 	err := os.MkdirAll(fol, 0755)
 	if err != nil {
-		log.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 	}
 	return fol
 }
 
-func configPath() string {
-	//set cfg file in home directory
+func settingPath() string {
 	usr, _ := user.Current()
-	return path.Join(usr.HomeDir, projectFolder, settinsFile)
+	return path.Join(usr.HomeDir, projectFolder, settingsFile)
 }
 
 func setSettings() {
-	CreateProjectfolder()
+	createProjectfolder()
 	SaveSettings(Global)
 }
 
@@ -64,10 +63,10 @@ func SaveSettings(cliSettings CLISettings) {
 	// persist settings and update Global
 	jsonC, err := json.MarshalIndent(&cliSettings, "", "\t")
 	if err != nil {
-		log.Printf("Unable to parse json: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to parse json: %v\n", err)
 		return
 	}
-	os.WriteFile(configPath(), jsonC, 0644)
+	os.WriteFile(settingPath(), jsonC, 0644)
 	Global = CLISettings{
 		ServerAddr:      cliSettings.ServerAddr,
 		ActiveNamespace: cliSettings.ActiveNamespace,
@@ -75,10 +74,10 @@ func SaveSettings(cliSettings CLISettings) {
 }
 
 func ReadSettings() {
-	data, err := os.ReadFile(configPath())
+	data, err := os.ReadFile(settingPath())
 	if err != nil {
-		log.Printf("Unable to read json file: %v\n", err)
-		// only set the state. No need to refresh Global
+		fmt.Fprintf(os.Stdout, "Unable to read settings file: %v\n", err)
+		// only persist settings. No need to update Global
 		setSettings()
 	} else {
 		json.Unmarshal(data, &Global)

@@ -70,5 +70,8 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	e.cliSettings.ActiveNamespace = args[0]
 
 	settings.SaveSettings(e.cliSettings)
+
+	fmt.Fprintf(e.writer, "Namespaces set with: %s\n", args[0])
+
 	return nil
 }
