@@ -2,6 +2,8 @@ name: Release Images and Binaries
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v**'
 
