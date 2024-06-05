@@ -63,10 +63,13 @@ func SaveSettings(cliSettings CLISettings) {
 	// persist settings and update Global
 	jsonC, err := json.MarshalIndent(&cliSettings, "", "\t")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to parse json: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to marshal settings into json: %v\n", err)
 		return
 	}
-	os.WriteFile(settingPath(), jsonC, 0644)
+	err = os.WriteFile(settingPath(), jsonC, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Uanble to write json settings: %v", err)
+	}
 	Global = CLISettings{
 		ServerAddr:      cliSettings.ServerAddr,
 		ActiveNamespace: cliSettings.ActiveNamespace,
@@ -80,6 +83,9 @@ func ReadSettings() {
 		// only persist settings. No need to update Global
 		setSettings()
 	} else {
-		json.Unmarshal(data, &Global)
+		err = json.Unmarshal(data, &Global)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Unable to unmarshal json into settings: %v\n", err)
+		}
 	}
 }
