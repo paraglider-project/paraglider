@@ -29,25 +29,32 @@ import (
 func TestNamespaceSetValidate(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
+
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
 	executor.cliSettings = &config.CliSettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
 
 	// Valid option
 	for namespace := range fake.GetFakeNamespaces() {
-		err := executor.Validate(cmd, []string{namespace})
+		err = executor.Validate(cmd, []string{namespace})
 		assert.Nil(t, err)
 	}
 
 	// Invalid option
-	err := executor.Validate(cmd, []string{"invalid-namespace"})
+	err = executor.Validate(cmd, []string{"invalid-namespace"})
 	assert.NotNil(t, err)
 }
 
 func TestNamespaceSetExecute(t *testing.T) {
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
 	executor.cliSettings = &config.CliSettings{ActiveNamespace: "default"}
 
-	err := executor.Execute(cmd, []string{"new-namespace"})
+	err = executor.Execute(cmd, []string{"new-namespace"})
 
 	assert.Nil(t, err)
 	assert.Equal(t, "new-namespace", executor.cliSettings.ActiveNamespace)

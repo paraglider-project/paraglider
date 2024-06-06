@@ -29,11 +29,14 @@ import (
 )
 
 func TestRuleDeleteValidate(t *testing.T) {
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
 
 	args := []string{fake.CloudName, "uri"}
 	rules := "name1,names2"
-	err := cmd.Flags().Set("rules", rules)
+	err = cmd.Flags().Set("rules", rules)
 	require.Nil(t, err)
 	err = executor.Validate(cmd, args)
 
@@ -45,12 +48,15 @@ func TestRuleDeleteExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
 	executor.cliSettings = config.CliSettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
 	executor.ruleNames = []string{"name1", "name2"}
 
 	args := []string{fake.CloudName, "uri"}
-	err := executor.Execute(cmd, args)
+	err = executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
 }

@@ -27,12 +27,15 @@ import (
 )
 
 func TestServerGetExecute(t *testing.T) {
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
 	executor.cliSettings = config.CliSettings{ServerAddr: "serverAddr"}
 	var b bytes.Buffer
 	executor.writer = &b
 
-	err := executor.Execute(cmd, []string{})
+	err = executor.Execute(cmd, []string{})
 
 	assert.Nil(t, err)
 	assert.Contains(t, b.String(), "serverAddr")

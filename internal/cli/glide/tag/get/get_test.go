@@ -29,11 +29,14 @@ import (
 )
 
 func TestTagGetValidate(t *testing.T) {
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
 
 	args := []string{"tag"}
 
-	err := cmd.Flags().Set("resolve", "true")
+	err = cmd.Flags().Set("resolve", "true")
 
 	require.Nil(t, err)
 
@@ -47,6 +50,9 @@ func TestTagGetExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
 	executor.cliSettings = config.CliSettings{ServerAddr: serverAddr}
 	var output bytes.Buffer
@@ -56,7 +62,7 @@ func TestTagGetExecute(t *testing.T) {
 	// Get the tag
 	tagName := "tag1"
 	args := []string{tagName}
-	err := executor.Execute(cmd, args)
+	err = executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
 	assert.Contains(t, output.String(), tagName)

@@ -28,12 +28,15 @@ import (
 )
 
 func TestRuleAddValidate(t *testing.T) {
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
 
 	args := []string{fake.CloudName, "uri"}
 	ruleFile := "not-a-file.json"
 	tag := "tag"
-	err := cmd.Flags().Set("rulefile", ruleFile)
+	err = cmd.Flags().Set("rulefile", ruleFile)
 	require.Nil(t, err)
 	err = cmd.Flags().Set("ping", tag)
 	require.Nil(t, err)
@@ -51,13 +54,16 @@ func TestRuleAddExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
 	executor.cliSettings = config.CliSettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
 	executor.pingTag = "pingTag"
 	executor.sshTag = "sshTag"
 
 	args := []string{fake.CloudName, "uri"}
-	err := executor.Execute(cmd, args)
+	err = executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
 }

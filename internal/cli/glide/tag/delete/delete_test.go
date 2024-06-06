@@ -28,12 +28,15 @@ import (
 )
 
 func TestTagDeleteValidate(t *testing.T) {
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
 
 	args := []string{"tag"}
 	member := "child1"
 
-	err := cmd.Flags().Set("member", member)
+	err = cmd.Flags().Set("member", member)
 	require.Nil(t, err)
 
 	err = executor.Validate(cmd, args)
@@ -46,12 +49,15 @@ func TestTagDeleteExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
 	executor.cliSettings = config.CliSettings{ServerAddr: serverAddr}
 
 	// Delete entire tag
 	args := []string{"tag"}
-	err := executor.Execute(cmd, args)
+	err = executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
 

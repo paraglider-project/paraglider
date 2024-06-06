@@ -31,12 +31,15 @@ func TestNamespaceGetExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
 	var output bytes.Buffer
 	executor.writer = &output
 	executor.cliSettings = config.CliSettings{ActiveNamespace: "default", ServerAddr: serverAddr}
 
-	err := executor.Execute(cmd, []string{})
+	err = executor.Execute(cmd, []string{})
 
 	assert.Nil(t, err)
 	assert.Contains(t, output.String(), executor.cliSettings.ActiveNamespace)
