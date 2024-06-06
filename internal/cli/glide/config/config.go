@@ -17,14 +17,13 @@ limitations under the License.
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
-
-	yaml "gopkg.in/yaml.v3"
 )
 
 const (
-	DefaultConfigLocation = "~/.paraglider/clicfg"
+	DefaultConfigLocation = "/.paraglider/settings.json"
 	DefaultServerAddr     = "http://localhost:8080"
 	DefaultNamespace      = "default"
 )
@@ -39,14 +38,19 @@ type CliConfig struct {
 }
 
 type CliSettings struct {
-	ServerAddr      string `yaml:"serverAddr"`
-	ActiveNamespace string `yaml:"activeNamespace"`
+	ServerAddr      string `json:"serverAddr"`
+	ActiveNamespace string `json:"activeNamespace"`
 }
 
 func ReadOrCreateConfig() error {
-	newConfig := &CliConfig{Path: DefaultConfigLocation}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(homeDir, DefaultConfigLocation)
+	newConfig := &CliConfig{Path: path}
 
-	_, err := os.Stat(newConfig.Path)
+	_, err = os.Stat(newConfig.Path)
 	if os.IsNotExist(err) {
 		parentDir := filepath.Dir(newConfig.Path)
 		_, err := os.Stat(parentDir)
@@ -58,14 +62,12 @@ func ReadOrCreateConfig() error {
 		}
 		newConfig.Settings = CliSettings{ServerAddr: DefaultServerAddr, ActiveNamespace: DefaultNamespace}
 	} else {
-		f, err := os.Open(newConfig.Path)
+		data, err := os.ReadFile(newConfig.Path)
 		if err != nil {
 			return err
 		}
-		defer f.Close()
 
-		decoder := yaml.NewDecoder(f)
-		err = decoder.Decode(&newConfig.Settings)
+		err = json.Unmarshal(data, &newConfig.Settings)
 		if err != nil {
 			return err
 		}
@@ -76,12 +78,12 @@ func ReadOrCreateConfig() error {
 }
 
 func SaveActiveConfig() error {
-	yamlData, err := yaml.Marshal(&ActiveConfig.Settings)
+	data, err := json.Marshal(&ActiveConfig.Settings)
 	if err != nil {
 		return err
 	}
 
-	err = os.WriteFile(ActiveConfig.Path, yamlData, 0644)
+	err = os.WriteFile(ActiveConfig.Path, data, 0644)
 	if err != nil {
 		return err
 	}
