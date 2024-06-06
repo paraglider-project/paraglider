@@ -114,22 +114,6 @@ If you'd like to persist resources after a test (i.e., not teardown project/reso
 .. note:: 
     IBM integration tests are not currently supported. We plan to add some soon.
 
-Editor
---------------------
-If you don't have a code editor set up for Go, we recommend VS Code. The experience with VS Code is high-quality and approachable for newcomers.
-
-Alternatively, you can choose whichever editor you are most comfortable for working on Go code. Feel free to skip this section if you want to make another choice.
-
-- `Visual Studio Code <https://code.visualstudio.com/>`_
-- `Go extension <https://marketplace.visualstudio.com/items?itemName=golang.go>`_
-
-Launching VS Code
-^^^^^^^^^^^^^^^^^^^^
-The best way to launch VS Code for Go is to do *File* > *Open Folder* on the repository. 
-
-You can easily do this from the command shell with ``code .``, which opens the current directory as a folder in VS Code.
-
-
 Using the Dev Container
 ------------------------
 Dev Containers allow you to run a development environment using VS Code inside a container. If you want to try this:
