@@ -21,14 +21,14 @@ package set
 import (
 	"testing"
 
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestServerSetExecute(t *testing.T) {
 	newAddr := "serverAddrAfter"
 	cmd, executor := NewCommand()
-	executor.cliSettings = settings.CLISettings{ServerAddr: "serverAddrBefore"}
+	executor.cliSettings = &config.CliSettings{ServerAddr: "serverAddrBefore"}
 
 	err := executor.Execute(cmd, []string{newAddr})
 

@@ -22,13 +22,13 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestServerGetExecute(t *testing.T) {
 	cmd, executor := NewCommand()
-	executor.cliSettings = settings.CLISettings{ServerAddr: "serverAddr"}
+	executor.cliSettings = config.CliSettings{ServerAddr: "serverAddr"}
 	var b bytes.Buffer
 	executor.writer = &b
 

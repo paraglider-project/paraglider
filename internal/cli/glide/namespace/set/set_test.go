@@ -21,7 +21,7 @@ package set
 import (
 	"testing"
 
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rest"
 	"github.com/stretchr/testify/assert"
 )
@@ -30,7 +30,7 @@ func TestNamespaceSetValidate(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 	cmd, executor := NewCommand()
-	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
+	executor.cliSettings = &config.CliSettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
 
 	// Valid option
 	for namespace := range fake.GetFakeNamespaces() {
@@ -45,7 +45,7 @@ func TestNamespaceSetValidate(t *testing.T) {
 
 func TestNamespaceSetExecute(t *testing.T) {
 	cmd, executor := NewCommand()
-	executor.cliSettings = settings.CLISettings{ActiveNamespace: "default"}
+	executor.cliSettings = &config.CliSettings{ActiveNamespace: "default"}
 
 	err := executor.Execute(cmd, []string{"new-namespace"})
 

@@ -21,7 +21,7 @@ package add
 import (
 	"testing"
 
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,7 +52,7 @@ func TestRuleAddExecute(t *testing.T) {
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
 	cmd, executor := NewCommand()
-	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
+	executor.cliSettings = config.CliSettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
 	executor.pingTag = "pingTag"
 	executor.sshTag = "sshTag"
 

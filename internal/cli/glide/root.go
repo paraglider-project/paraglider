@@ -41,7 +41,11 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	// Get current CLI configuration
-	config.ReadOrCreateConfig()
+	err := config.ReadOrCreateConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading configuration: %s\n", err)
+		os.Exit(1)
+	}
 
 	rootCmd.AddCommand(resource.NewCommand())
 	rootCmd.AddCommand(rule.NewCommand())

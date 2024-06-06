@@ -29,7 +29,7 @@ func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{writer: os.Stdout, cliSettings: &config.ActiveConfig.Settings}
 	cmd := &cobra.Command{
 		Use:     "set <server address>",
-		Short:   "Set the server settings",
+		Short:   "Set the server config",
 		Args:    cobra.ExactArgs(1),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
