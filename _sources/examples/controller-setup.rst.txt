@@ -19,11 +19,14 @@ The controller is configured using a configuration file. The configuration file 
 
     cloudPlugins:
         - name: "gcp"
-            host: "localhost"
-            port: 8082
+          host: "localhost"
+          port: 8082
         - name: "azure"
-            host: "localhost"
-            port: 8083
+          host: "localhost"
+          port: 8083
+        - name: "ibm"
+          host: "localhost"
+          port: 8084
 
     namespaces: 
         default:
@@ -32,15 +35,15 @@ The controller is configured using a configuration file. The configuration file 
             - name: "gcp"
               deployment: "projects/${GCP_PROJECT_ID}"
             - name: "ibm"
-              deployment: "resource_groups/${IBM_RESOURCE_GROUP}"
+              deployment: "/resourcegroup/${IBM_RESOURCE_GROUP}"
 
     tagService:
         host: "localhost"
-        port: 8084
+        port: 8085
 
     kvStore:
         host: "localhost"
-        port: 8085
+        port: 8086
 
 This file contains all information needed to spin up each of the microservices.
 
