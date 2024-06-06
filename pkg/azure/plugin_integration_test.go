@@ -252,14 +252,14 @@ func TestMultipleRegionsIntraNamespace(t *testing.T) {
 	defer TeardownAzureTesting(subscriptionId, resourceGroupName, defaultNamespace)
 
 	// Set Azure plugin port
-	azureServerPort := 7991
+	azureServerPort := 7992
 
 	// Setup orchestrator server
 	orchestratorServerConfig := config.Config{
 		Server: config.Server{
 			Host:    "localhost",
 			Port:    "8080",
-			RpcPort: "8081",
+			RpcPort: "9091",
 		},
 		CloudPlugins: []config.CloudPlugin{
 			{
