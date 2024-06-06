@@ -248,8 +248,8 @@ func TestMultipleRegionsIntraNamespace(t *testing.T) {
 	// Setup
 	subscriptionId := GetAzureSubscriptionId()
 	resourceGroupName := SetupAzureTesting(subscriptionId, "integration5")
-	defer TeardownAzureTesting(subscriptionId, resourceGroupName)
 	defaultNamespace := "default"
+	defer TeardownAzureTesting(subscriptionId, resourceGroupName, defaultNamespace)
 
 	// Set Azure plugin port
 	azureServerPort := 7991
@@ -353,10 +353,10 @@ func TestMultipleRegionsIntraNamespace(t *testing.T) {
 	}
 
 	// Run connectivity checks on both directions between vm1 and vm2
-	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(vm1ResourceId, vm2Ip)
+	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(vm1ResourceId, vm2Ip, defaultNamespace)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM1toVM2)
-	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(vm2ResourceId, vm1Ip)
+	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(vm2ResourceId, vm1Ip, defaultNamespace)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM2toVM1)
 }
