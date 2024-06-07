@@ -118,13 +118,21 @@ linters-settings:
 
 output:
   # prefer the simplest output: `line-number` without saving to file
-  format: line-number
+  formats:
+    - format: colored-line-number
   print-issued-lines: false
   print-linter-name: true
   # allow multiple reports per line
-  uniq-by-line: false
+  uniq-by-line: true
   # easier to follow the results with a deterministic output
   sort-results: true
+  sort-order:
+    - linter
+    - severity
+    - file # filepath, line, and column.
+  # Show statistics per linter.
+  # Default: false
+  show-stats: true
 
 issues:
   # setting 0 to have all the results.
