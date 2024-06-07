@@ -150,11 +150,6 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 	// get the vnet to be able to get both the address space as well as the peering when needed
 	resourceVnet, err := azureHandler.GetVNet(ctx, getVnetName(netInfo.Location, req.Namespace))
 	if err != nil {
-		utils.Log.Printf("An error occured while getting resource vnet:%+v", err)
-		return nil, err
-	}
-
-	if err != nil {
 		utils.Log.Printf("An error occured while getting paraglider vnets address spaces:%+v", err)
 		return nil, err
 	}
