@@ -45,5 +45,3 @@ docs/build/
 
 # Python
 .venv/
-
-config/paraglider_config.yaml
