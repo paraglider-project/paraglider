@@ -22,7 +22,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rest"
 	"github.com/stretchr/testify/assert"
 )
@@ -31,12 +31,15 @@ func TestNamespaceGetExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
 	var output bytes.Buffer
 	executor.writer = &output
-	executor.cliSettings = settings.CLISettings{ActiveNamespace: "default", ServerAddr: serverAddr}
+	executor.cliSettings = config.CliSettings{ActiveNamespace: "default", ServerAddr: serverAddr}
 
-	err := executor.Execute(cmd, []string{})
+	err = executor.Execute(cmd, []string{})
 
 	assert.Nil(t, err)
 	assert.Contains(t, output.String(), executor.cliSettings.ActiveNamespace)
