@@ -37,7 +37,7 @@ const (
 // deletes all Paraglider's resources on IBM cloud
 // Note: env var INVISINETS_TEST_PERSIST must be set to 1 for deployments to be terminated
 func TestCleanup(t *testing.T) {
-	err := TerminateParagilderDeployments(resourceGroupID, testRegion)
+	err := TerminateParagliderDeployments(resourceGroupID, testRegion)
 	require.NoError(t, err)
 }
 

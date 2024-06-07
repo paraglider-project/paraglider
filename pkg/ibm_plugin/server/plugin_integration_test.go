@@ -138,7 +138,7 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	defer func() {
-		err := sdk.TerminateParagilderDeployments(resourceGroupID, region)
+		err := sdk.TerminateParagliderDeployments(resourceGroupID, region)
 		require.NoError(t, err)
 	}()
 
@@ -248,7 +248,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	require.NoError(t, err)
 	// removes all of paraglider's deployments on IBM when test ends (if INVISINETS_TEST_PERSIST=1)
 	defer func() {
-		err := sdk.TerminateParagilderDeployments(resourceGroupID, region)
+		err := sdk.TerminateParagliderDeployments(resourceGroupID, region)
 		require.NoError(t, err)
 	}()
 

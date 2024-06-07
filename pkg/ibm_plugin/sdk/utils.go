@@ -133,7 +133,7 @@ func IsCIDRSubset(cidr1, cidr2 string) (bool, error) {
 }
 
 // TODO cleanup k8s clusters
-func TerminateParagilderDeployments(resGroupID, region string) error {
+func TerminateParagliderDeployments(resGroupID, region string) error {
 	if os.Getenv("INVISINETS_TEST_PERSIST")== "1"{
 		utils.Log.Printf("Skipped IBM resource cleanup function - INVISINETS_TEST_PERSIST is set to 1")
 		return nil
