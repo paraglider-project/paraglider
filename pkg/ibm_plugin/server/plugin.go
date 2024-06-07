@@ -379,8 +379,8 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 					CloudANamespace:    req.Namespace,
 					CloudB:             peeringCloudInfo.Cloud,
 					CloudBNamespace:    peeringCloudInfo.Namespace,
-					AddressSpaceCloudA: vpcAddressSpaces,
-					AddressSpaceCloudB: []string{ruleTargetAddress},
+					AddressSpacesCloudA: vpcAddressSpaces,
+					AddressSpacesCloudB: []string{ruleTargetAddress},
 				}
 				if len(ruleTargetAddress) == 0 {
 					return nil, fmt.Errorf("Missing remote address for rule %+v", ibmRules[i])

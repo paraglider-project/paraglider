@@ -192,8 +192,8 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 					CloudANamespace:    req.Namespace,
 					CloudB:             peeringCloudInfo.Cloud,
 					CloudBNamespace:    peeringCloudInfo.Namespace,
-					AddressSpaceCloudA: subnetAddressPrefixes,
-					AddressSpaceCloudB: []string{address},
+					AddressSpacesCloudA: subnetAddressPrefixes,
+					AddressSpacesCloudB: []string{address},
 				}
 				_, err := orchestratorClient.ConnectClouds(ctx, connectCloudsReq)
 				if err != nil {
@@ -708,7 +708,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 					},
 					Location: to.Ptr(vpnLocation),
 				}
-				if req.IsBGPDisabled {
+				if req.IsBgpDisabled {
 					addresses := make([]*string, len(req.RemoteAddresses))
 					for i, address := range req.RemoteAddresses {
 						addresses[i] = &address
@@ -746,7 +746,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 				// a new random shared key is generated upon every call to this method from the orchestrator server. Therefore, we don't
 				// want to update the shared key since some other cloud plugins (e.g. GCP) will not update the shared key due to POST
 				// semantics (i.e. GCP will not update the shared key).
-				if !req.IsBGPDisabled {
+				if !req.IsBgpDisabled {
 					bgpStatus = to.Ptr(true)
 				}
 				virtualNetworkGatewayConnectionParameters := &armnetwork.VirtualNetworkGatewayConnection{
