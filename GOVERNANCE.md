@@ -27,7 +27,7 @@ Google
 Google
 
 **Sean Kim** </br>
-Databricks
+UC Berkeley
 
 ### Contact Info
 You can contact the TSC at paraglider-tsc [at] googlegroups.com.
