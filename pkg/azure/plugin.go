@@ -736,7 +736,8 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 	if err != nil {
 		return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
 	}
-	var bgpStatus *bool // set to true if VPN connection is BGP enabled
+	
+	bgpStatus := !req.IsBgpDisabled
 	for i := 0; i < vpnNumConnections; i++ {
 		virtualNetworkGatewayconnectionName := getVirtualNetworkGatewayConnectionName(req.Deployment.Namespace, req.Cloud, i)
 		_, err := azureHandler.GetVirtualNetworkGatewayConnection(ctx, virtualNetworkGatewayconnectionName)
@@ -746,9 +747,6 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 				// a new random shared key is generated upon every call to this method from the orchestrator server. Therefore, we don't
 				// want to update the shared key since some other cloud plugins (e.g. GCP) will not update the shared key due to POST
 				// semantics (i.e. GCP will not update the shared key).
-				if !req.IsBgpDisabled {
-					bgpStatus = to.Ptr(true)
-				}
 				virtualNetworkGatewayConnectionParameters := &armnetwork.VirtualNetworkGatewayConnection{
 					Properties: &armnetwork.VirtualNetworkGatewayConnectionPropertiesFormat{
 						ConnectionType:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionTypeIPsec),
@@ -756,7 +754,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 						ConnectionMode:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionModeDefault),
 						ConnectionProtocol:             to.Ptr(armnetwork.VirtualNetworkGatewayConnectionProtocolIKEv2),
 						DpdTimeoutSeconds:              to.Ptr(int32(45)),
-						EnableBgp:                      bgpStatus,
+						EnableBgp:                      to.Ptr(bgpStatus),
 						IPSecPolicies:                  getIPSecPolicy(req.Cloud),
 						LocalNetworkGateway2:           localNetworkGateways[i],
 						RoutingWeight:                  to.Ptr(int32(0)),
