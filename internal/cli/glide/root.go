@@ -24,6 +24,7 @@ import (
 	"syscall"
 
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/namespace"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/resource"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/rule"
@@ -39,6 +40,13 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
+	// Get current CLI configuration
+	err := config.ReadOrCreateConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading configuration: %s\n", err)
+		os.Exit(1)
+	}
+
 	rootCmd.AddCommand(resource.NewCommand())
 	rootCmd.AddCommand(rule.NewCommand())
 	rootCmd.AddCommand(tag.NewCommand())
