@@ -71,6 +71,10 @@ func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 				utils.Log.Printf("Failed to get VPN in region %v with error: %+v", c.region, err)
 				return nil, err
 			}
+			if len(vpn) == 0 {
+				utils.Log.Printf("Failed to fetch existing VPN in region %v. Possible tagging/global search issue.", c.region)
+				return nil, fmt.Errorf("Failed to fetch existing VPN in region %v", c.region)
+			}
 			utils.Log.Printf("Retrieving already deployed VPN gateway of VPC %v\n", vpcData[0].ID)
 			ipAddresses, err := c.GetVPNIPs(vpn[0].ID) // array lookup is safe since a VPN exists
 			if err != nil {
@@ -129,7 +133,7 @@ func (c *CloudClient) pollVPNStatus(vpnId string, readyOrDeleted bool) error {
 		}
 
 		// VPN desired status is "ready" and so is its current status
-		if readyOrDeleted && *vpnData.(*vpcv1.VPNGateway).Status == vpcv1.VPNGatewayStatusAvailableConst {
+		if readyOrDeleted && *vpnData.(*vpcv1.VPNGateway).LifecycleState == vpcv1.RouteLifecycleStateStableConst {
 			utils.Log.Printf("\nVPN achieved status ready in attempt No. %v\n", attempt)
 			return nil
 		}
@@ -216,7 +220,7 @@ func (c *CloudClient) createRoutes(routingTableID, vpcID, VPNConnectionID string
 }
 
 // returns a connection (of the provided VPN) matching the specified peer VPN gateway IP address
-func (c *CloudClient) getVPNConnectionMatchingPeerIP(VPNGatewayID, peerGWAddress string) (*vpcv1.VPNGatewayConnection, error) {
+func (c *CloudClient) getVPNConnectionMatchingPeerIP(VPNGatewayID, peerGWAddress string) (*vpcv1.VPNGatewayConnectionRouteModeVPNGatewayConnectionStaticRouteMode, error) {
 	vpnGatewayConnections, _, err := c.vpcService.ListVPNGatewayConnections(
 		&vpcv1.ListVPNGatewayConnectionsOptions{VPNGatewayID: &VPNGatewayID},
 	)
@@ -226,8 +230,9 @@ func (c *CloudClient) getVPNConnectionMatchingPeerIP(VPNGatewayID, peerGWAddress
 	}
 	// filter connections by
 	for _, connectionInterface := range vpnGatewayConnections.Connections {
-		connection := connectionInterface.(*vpcv1.VPNGatewayConnection)
-		if *connection.PeerAddress == peerGWAddress {
+		connection := connectionInterface.(*vpcv1.VPNGatewayConnectionRouteModeVPNGatewayConnectionStaticRouteMode)
+		peerConnection := connection.Peer.(*vpcv1.VPNGatewayConnectionStaticRouteModePeer)
+		if *peerConnection.Address == peerGWAddress {
 			return connection, nil // return matching connection
 		}
 	}
@@ -261,7 +266,7 @@ func (c *CloudClient) CreateVPNConnectionRouteBased(VPNGatewayID, peerGatewayIP,
 	connectionConfig := &vpcv1.CreateVPNGatewayConnectionOptions{
 		VPNGatewayID: &VPNGatewayID,
 		VPNGatewayConnectionPrototype: &vpcv1.VPNGatewayConnectionPrototypeVPNGatewayConnectionStaticRouteModePrototype{
-			PeerAddress: &peerGatewayIP,
+			Peer:        &vpcv1.VPNGatewayConnectionStaticRouteModePeerPrototype{Address: &peerGatewayIP},
 			Psk:         &preSharedKey,
 			Name:        core.StringPtr(GenerateResourceName(string(vpnConnectionType))),
 			IkePolicy:   &vpcv1.VPNGatewayConnectionIkePolicyPrototypeIkePolicyIdentityByID{ID: IKEPolicyID},
@@ -286,7 +291,7 @@ func (c *CloudClient) CreateVPNConnectionRouteBased(VPNGatewayID, peerGatewayIP,
 		}
 	}
 	if len(connectionID) == 0 { // if connection doesn't exist, use the one just created
-		connectionID = *connectionInterface.(*vpcv1.VPNGatewayConnection).ID
+		connectionID = *connectionInterface.(*vpcv1.VPNGatewayConnectionRouteModeVPNGatewayConnectionStaticRouteMode).ID
 		utils.Log.Printf("\nCreated VPN connection %v", connectionID)
 	}
 
@@ -355,7 +360,7 @@ func (c *CloudClient) pollRouteDeleted(vpcID, routingTableID string, route vpcv1
 }
 
 // Deletes routes (from the VPC that the specified VPN resides in) directing traffic to the specified connection
-func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, connection *vpcv1.VPNGatewayConnection) error {
+func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, connection *vpcv1.VPNGatewayConnectionRouteModeVPNGatewayConnectionStaticRouteMode) error {
 
 	// get the routing table of the VPC where the VPN gateway resides
 	vpnGateway, _, err := c.vpcService.GetVPNGateway(c.vpcService.NewGetVPNGatewayOptions(VPNGatewayID))
@@ -422,7 +427,7 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 
 	// invoke delete operation on all VPN connections
 	for _, connectionInterface := range vpnConnections.Connections {
-		connection := connectionInterface.(*vpcv1.VPNGatewayConnection)
+		connection := connectionInterface.(*vpcv1.VPNGatewayConnectionRouteModeVPNGatewayConnectionStaticRouteMode)
 		// delete routes directing to this connection
 		err := c.DeleteRoutesDependentOnConnection(VPNGatewayID, connection)
 		if err != nil {
@@ -441,7 +446,7 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 
 	// wait for connections deletion operation to finalize
 	for _, connectionInterface := range vpnConnections.Connections {
-		connectionID := *connectionInterface.(*vpcv1.VPNGatewayConnection).ID
+		connectionID := *connectionInterface.(*vpcv1.VPNGatewayConnectionRouteModeVPNGatewayConnectionStaticRouteMode).ID
 		err = c.pollVPNConnectionDeleted(VPNGatewayID, connectionID)
 		if err != nil {
 			utils.Log.Printf("Error occurred while polling connection %v status, during VPN deletion process, with error: %+v", connectionID, err)
