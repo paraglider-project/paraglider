@@ -1,4 +1,4 @@
-//go:build ibm
+//go:build integration
 
 /*
 Copyright 2023 The Paraglider Authors.
@@ -469,4 +469,127 @@ func TestMulticloudIBMAzure(t *testing.T) {
 		require.Nil(t, err)
 		require.True(t, azureConnectivityCheck1)
 	}
+}
+
+// TestCreateVpnGateway creates resource, in which it deploys a vpn gateway with vpn connections.
+// usage: go test --tags=integration -run TestCreateVpnGateway -timeout 0
+func TestCreateVpnGateway(t *testing.T) {
+	dbPort := 6379
+	IBMServerPort := 7992
+	kvstorePort := 7993
+	taggingPort := 7994
+	image, zone, instanceName := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1
+
+	region, err := ibmCommon.ZoneToRegion(zone)
+	require.NoError(t, err)
+	// removes all of paraglider's deployments on IBM when test ends (if INVISINETS_TEST_PERSIST=1)
+	defer func() {
+		err := sdk.TerminateParagliderDeployments(resourceGroupID, region)
+		require.NoError(t, err)
+	}()
+
+	orchestratorServerConfig := config.Config{
+		Server: config.Server{
+			Host:    "localhost",
+			Port:    "8080",
+			RpcPort: "8081",
+		},
+		TagService: config.TagService{
+			Host: "localhost",
+			Port: strconv.Itoa(taggingPort),
+		},
+		KVStore: config.TagService{
+			Port: strconv.Itoa(kvstorePort),
+			Host: "localhost",
+		},
+		CloudPlugins: []config.CloudPlugin{
+			{
+				Name: utils.IBM,
+				Host: "localhost",
+				Port: strconv.Itoa(IBMServerPort),
+			},
+		},
+		Namespaces: map[string][]config.CloudDeployment{
+			testNamespace: {
+				{
+					Name:       utils.IBM,
+					Deployment: testDeployment,
+				},
+			},
+		},
+	}
+
+	// start controller server
+	fmt.Println("Setting up controller server and kvstore server")
+	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
+	orchestrator.Setup(orchestratorServerConfig, true)
+
+	// start ibm plugin server
+	fmt.Println("Setting up IBM server")
+	ibmServer := Setup(IBMServerPort, orchestratorServerAddr)
+
+	fmt.Println("Setting up kv store server")
+	tagging.Setup(dbPort, taggingPort, true)
+
+	fmt.Println("Setting up kv tagging server")
+	kvstore.Setup(dbPort, kvstorePort, true)
+
+	// Create IBM VM
+	fmt.Println("\nCreating IBM VM...")
+	imageIdentity := vpcv1.ImageIdentityByID{ID: &image}
+	zoneIdentity := vpcv1.ZoneIdentityByName{Name: &zone}
+	myTestProfile := string(testProfile)
+
+	testPrototype := &vpcv1.InstancePrototypeInstanceByImage{
+		Image:   &imageIdentity,
+		Zone:    &zoneIdentity,
+		Name:    core.StringPtr(instanceName),
+		Profile: &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
+	}
+
+	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
+	require.NoError(t, err)
+
+	resource := &paragliderpb.CreateResourceRequest{Name: instanceName, Deployment: &paragliderpb.ParagliderDeployment{Id: testDeployment, Namespace: testNamespace}, Description: description}
+	res, err := ibmServer.CreateResource(context.Background(), resource)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+
+	// fetch address space from VM ip address
+	ipOctets := strings.Split(res.Ip, ".")
+	ipOctets[3] = "0"
+	resourceAddressSpace := strings.Join(ipOctets, ".") + "/16"
+
+	createVPNRequest := &paragliderpb.CreateVpnGatewayRequest{
+		Deployment:   &paragliderpb.ParagliderDeployment{Id: testDeployment, Namespace: testNamespace},
+		Cloud:        utils.AZURE,
+		AddressSpace: resourceAddressSpace,
+	}
+	fmt.Println("\nCreating IBM VPN...")
+	vpnGatewayResp, err := ibmServer.CreateVpnGateway(context.Background(), createVPNRequest)
+	require.NoError(t, err)
+	require.NotNil(t, vpnGatewayResp)
+
+	utils.Log.Printf("VPN gateway creation response: %v", vpnGatewayResp)
+
+	// random addresses of peer resource on remote cloud.
+	// To test connectivity with existing deployment on remote cloud replace below values.
+	peerVPNGatewayIP := "4.227.185.167" // remote VPN gateway IP a VPN connection will direct traffic to
+	remoteAddressSpace := "10.0.0.0/24" // address space of remote VPC/VNet
+
+	createVPNConnectionRequest := &paragliderpb.CreateVpnConnectionsRequest{
+		Deployment:         &paragliderpb.ParagliderDeployment{Id: testDeployment, Namespace: testNamespace},
+		GatewayIpAddresses: []string{peerVPNGatewayIP},
+		SharedKey:          "password",
+		RemoteAddresses:    []string{remoteAddressSpace}, // random address.
+		Cloud:              utils.AZURE,
+		IsBgpDisabled:      true,
+		AddressSpace:       resourceAddressSpace,
+	}
+
+	fmt.Println("\nCreating an IBM Connection...")
+	vpnConnectionResp, err := ibmServer.CreateVpnConnections(context.Background(), createVPNConnectionRequest)
+	require.NoError(t, err)
+
+	utils.Log.Printf("VPN connection creation response: %v", vpnConnectionResp)
 }
