@@ -47,8 +47,9 @@ import (
 // IBM test variables
 var testDeployment, resourceGroupID string
 
-// NOTE: set DoesHaveResourceGroupPrivileges to false if user doesn't have resource group privileges on Azure
-const DoesHaveResourceGroupPrivileges = true
+// NOTE: set isAzureNetworkWatcherDeployed to false if AzureNetworkWatcher isn't deployed on the test's region.
+// required to test connectivity between VMs launched during testing.
+const isAzureNetworkWatcherDeployed = true
 
 var testResourceIDUSEast1 string
 var testResourceIDUSEast2 string
@@ -228,7 +229,7 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	utils.Log.Printf("Test response: %+v", resp)
 }
 
-// usage: go test --tags=ibm -run TestMulticloudIBMAzure -timeout 0
+// usage: go test --tags=integration -run TestMulticloudIBMAzure -timeout 0
 // -timeout 0 removes limit of 10 minutes runtime, which is necessary due to long deployment time of Azure's VPN.
 // Note: if user doesn't have resource group privileges, set env PARAGLIDER_AZURE_RESOURCE_GROUP with an existing resource group
 func TestMulticloudIBMAzure(t *testing.T) {
@@ -242,7 +243,9 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	// azure config
 	azureServerPort := 7991
 	azureSubscriptionId := azure.GetAzureSubscriptionId()
-	azureResourceGroupName := os.Getenv("PARAGLIDER_AZURE_RESOURCE_GROUP")
+	azureResourceGroupName := azure.SetupAzureTesting(azureSubscriptionId, "ibmazure")
+	azureNamespace := "multicloud"
+	defer azure.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName, azureNamespace)
 
 	region, err := ibmCommon.ZoneToRegion(zone)
 	require.NoError(t, err)
@@ -252,21 +255,10 @@ func TestMulticloudIBMAzure(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	// requires resource group creation/deletion privileges
-	if DoesHaveResourceGroupPrivileges {
-		azureResourceGroupName = azure.SetupAzureTesting(azureSubscriptionId, "ibmazure")
-		defer azure.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName)
-		// otherwise get resource group name from env variable
-	} else if azureResourceGroupName == "" {
-		fmt.Printf("users without resource group privileges on Azure are required to set PARAGLIDER_AZURE_RESOURCE_GROUP")
-		require.NotEmpty(t, azureResourceGroupName)
-	}
-
-	azureNamespace := "test" + uuid.NewString()[:4]
 	azureDeploymentId := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName)
 	azureVmName := "pg-vm-test-" + uuid.NewString()[:4]
 	// temporary print due to possible issue with Azure's log visibility
-	fmt.Printf("\nAzure's testing namespace: %v.\nAzure's testing azureVmName: %v\n", azureNamespace, azureVmName)
+	fmt.Printf("\nAzure's testing namespace: %v.\nAzure's testing VM: %v\n", azureNamespace, azureVmName)
 
 	orchestratorServerConfig := config.Config{
 		Server: config.Server{
@@ -460,12 +452,11 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, azureAddPermitListRules1Resp)
 
-	// TODO Remove condition check once PR#290 is merged (https://github.com/paraglider-project/paraglider/pull/290)
 	// Run Azure connectivity check (ping from Azure VM to IBM VM)
-	// requires resource group creation due to Azure Network Watcher being deployed on a separate resource group
-	if DoesHaveResourceGroupPrivileges {
+	// requires Azure Network Watcher to be deployed in the test's region.
+	if isAzureNetworkWatcherDeployed {
 		fmt.Println("running Azure connectivity test...")
-		azureConnectivityCheck1, err := azure.RunPingConnectivityCheck(azureVmResourceId, ibmVmIpAddress)
+		azureConnectivityCheck1, err := azure.RunPingConnectivityCheck(azureVmResourceId, ibmVmIpAddress, azureNamespace)
 		require.Nil(t, err)
 		require.True(t, azureConnectivityCheck1)
 	}
