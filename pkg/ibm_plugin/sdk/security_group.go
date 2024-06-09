@@ -434,7 +434,7 @@ func GetRemoteType(remote string) (string, error) {
 	if err == nil {
 		return cidrType, nil
 	}
-	return "", fmt.Errorf("remote %v isn't a IP/CIDR", remote)
+	return "", fmt.Errorf("remote %v isn't an IP/CIDR", remote)
 }
 
 // returns IBM specific keyword returned by vpc1 SDK,
@@ -593,7 +593,7 @@ func ParagliderToIBMRule(securityGroupID string, pgRule *paragliderpb.PermitList
 
 		if pgRule.Protocol == 1 { // icmp rule
 			// setting value to -1 to indicate that all codes and types are allowed.
-			// non negative icmp values have meaning, which is not supported by invisinets.
+			// non negative icmp values have meaning, which is not supported by paraglider.
 			sgRule.IcmpType = -1
 			sgRule.IcmpCode = -1
 		}

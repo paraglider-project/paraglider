@@ -613,7 +613,7 @@ func (s *IBMPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderp
 		return nil, err
 	}
 	if region == "" {
-		return nil, fmt.Errorf("Failed to find a region where the %v is deployed", req.AddressSpace)
+		return nil, fmt.Errorf("Failed to find a region containing address space %v", req.AddressSpace)
 	}
 	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 	if err != nil {
@@ -673,7 +673,7 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 		return nil, err
 	}
 	if region == "" {
-		return nil, fmt.Errorf("Failed to find a region where the %v is deployed", req.AddressSpace)
+		return nil, fmt.Errorf("Failed to find a region containing address space %v", req.AddressSpace)
 	}
 	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 	if err != nil {

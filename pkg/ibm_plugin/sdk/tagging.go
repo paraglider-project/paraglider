@@ -148,11 +148,10 @@ func (c *CloudClient) getTaggedResources(query string) (*globalsearchv2.ScanResu
 	// retry mechanism improves stability and is needed due to possible temporary unavailability of resources, e.g. at time of creation.
 	maxAttempts := 10 // retries number to fetch a tagged resource
 	for attempt := 1; attempt <= maxAttempts; attempt += 1 {
-		res, response, err := c.globalSearch.Search(searchOptions)
+		res, _, err := c.globalSearch.Search(searchOptions)
 		if err != nil {
 			// keeping unique transaction ID to identify possible recurring errors related to the tagging service.
-			xCorrelationId := response.Headers["X-Correlation-Id"][0]
-			utils.Log.Printf("Tags search with query %v was invalid at attempt %v. Transaction ID: %v with error:%+v\n", query, attempt, xCorrelationId, err)
+			utils.Log.Printf("Tags search with query %v was invalid at attempt %v with error:%+v\n", query, attempt, err)
 		} else {
 			return res, nil
 		}
