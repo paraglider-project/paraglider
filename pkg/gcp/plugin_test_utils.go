@@ -38,7 +38,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Fake project and resource
+// Fake project and resource.
 const (
 	fakeProject      = "paraglider-fake"
 	fakeRegion       = "us-fake1"
@@ -52,18 +52,18 @@ const (
 	fakeSubnetName   = "subnet-paraglider-fake"
 	fakeSubnetId     = computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/subnetworks/" + fakeSubnetName
 
-	// Missing resources not registered in fake server
+	// Missing resources not registered in fake server.
 	fakeMissingInstance   = "vm-paraglider-missing"
 	fakeMissingResourceId = computeUrlPrefix + "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeMissingInstance
 
-	// Overarching dummy operation name
+	// Overarching dummy operation name.
 	fakeOperation = "operation-fake"
 )
 
-// Fake tag for fake resource
+// Fake tag for fake resource.
 var fakeNetworkTag = getNetworkTag(fakeNamespace, instanceTypeName, convertInstanceIdToString(fakeInstanceId))
 
-// Portions of GCP API URLs
+// Portions of GCP API URLs.
 var (
 	urlProject  = "/compute/v1/projects/" + fakeProject
 	urlZone     = "/zones/" + fakeZone
@@ -71,7 +71,7 @@ var (
 	urlInstance = "/instances/" + fakeInstanceName
 )
 
-// Fake firewalls and permitlists
+// Fake firewalls and permitlists.
 var (
 	fakePermitListRule1 = &paragliderpb.PermitListRule{
 		Name:      "rule-name1",
@@ -119,7 +119,7 @@ var (
 	}
 )
 
-// Fake instance
+// Fake instance.
 func getFakeInstance(includeNetwork bool) *computepb.Instance {
 	instance := &computepb.Instance{
 		Id:   proto.Uint64(fakeInstanceId),
@@ -138,7 +138,7 @@ func getFakeInstance(includeNetwork bool) *computepb.Instance {
 	return instance
 }
 
-// Fake cluster
+// Fake cluster.
 func getFakeCluster(includeNetwork bool) *containerpb.Cluster {
 	cluster := &containerpb.Cluster{
 		Name: fakeClusterName,
@@ -353,7 +353,7 @@ func (f *fakeClusterManagerServer) UpdateCluster(ctx context.Context, req *conta
 	return &containerpb.Operation{Name: fakeOperation}, nil
 }
 
-// Struct to hold state for fake server
+// Struct to hold state for fake server.
 type fakeServerState struct {
 	firewallMap map[string]*computepb.Firewall
 	instance    *computepb.Instance
@@ -364,7 +364,7 @@ type fakeServerState struct {
 	cluster     *containerpb.Cluster
 }
 
-// Struct to hold fake clients
+// Struct to hold fake clients.
 type fakeClients struct {
 	externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient
 	firewallsClient           *compute.FirewallsClient
@@ -377,7 +377,7 @@ type fakeClients struct {
 	clusterClient             *container.ClusterManagerClient
 }
 
-// Sets up fake http server and fake GCP compute clients
+// Sets up fake http server and fake GCP compute clients.
 func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClients fakeClients, gsrv *grpc.Server) {
 	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
 
@@ -448,7 +448,7 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 	return
 }
 
-// Cleans up fake http server and fake GCP compute clients
+// Cleans up fake http server and fake GCP compute clients.
 func teardown(fakeServer *httptest.Server, fakeClients fakeClients, fakeGRPCServer *grpc.Server) {
 	fakeServer.Close()
 	if fakeClients.firewallsClient != nil {

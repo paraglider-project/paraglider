@@ -38,13 +38,14 @@ const (
 )
 
 // creates a global transit gateway (global routing) at the specified region and
-// tags it with the specified namespace
+// tags it with the specified namespace.
 func (c *CloudClient) CreateTransitGW(region string) (*transitgatewayapisv1.TransitGateway, error) {
 	createTransitGatewayOptions := &transitgatewayapisv1.CreateTransitGatewayOptions{
 		Location:      &region, // location is mandatory even on global transmit GW.
 		Global:        core.BoolPtr(true),
 		ResourceGroup: (*transitgatewayapisv1.ResourceGroupIdentity)(c.resourceGroup),
-		Name:          core.StringPtr("Paraglider-transit-gw-" + uuid.New().String()[:8])}
+		Name:          core.StringPtr("Paraglider-transit-gw-" + uuid.New().String()[:8]),
+	}
 	transitGateway, _, err := c.transitGW.CreateTransitGateway(createTransitGatewayOptions)
 	if err != nil {
 		return nil, err
@@ -60,7 +61,7 @@ func (c *CloudClient) CreateTransitGW(region string) (*transitgatewayapisv1.Tran
 	return transitGateway, nil
 }
 
-// returns connections of the transit gateway
+// returns connections of the transit gateway.
 func (c *CloudClient) GetTransitGWConnections(gwID string) ([]TransitConnection, error) {
 	var connections []TransitConnection
 	listTransitGatewayConnectionsOptions := c.transitGW.NewListTransitGatewayConnectionsOptions(gwID)
@@ -76,7 +77,7 @@ func (c *CloudClient) GetTransitGWConnections(gwID string) ([]TransitConnection,
 	return connections, nil
 }
 
-// adds VPC as a connection to an existing Transit Gateway
+// adds VPC as a connection to an existing Transit Gateway.
 func (c *CloudClient) AddTransitGWConnection(transitGatewayID string, vpcCRN string) (TransitConnection, error) {
 	connectionName := GenerateResourceName(connectionType)
 	createConnectionOptions := &transitgatewayapisv1.CreateTransitGatewayConnectionOptions{
@@ -94,7 +95,7 @@ func (c *CloudClient) AddTransitGWConnection(transitGatewayID string, vpcCRN str
 	return TransitConnection{ID: *res.ID, Name: *res.Name, VPCCRN: *res.NetworkID}, nil
 }
 
-// deletes a gateway matching the specified ID
+// deletes a gateway matching the specified ID.
 func (c *CloudClient) DeleteTransitGW(gwID string) error {
 	// gateway's connection must be removed before the GW can be deleted
 	err := c.RemoveTransitGWConnections(gwID)
@@ -160,7 +161,6 @@ func (c *CloudClient) pollConnectionDeleted(connectionID string, gwID string) (b
 
 // removes the specified connection from the specified transit gateway.
 func (c *CloudClient) RemoveTransitGWConnection(connection string, transitGW string) error {
-
 	deleteConnectionOptions := &transitgatewayapisv1.DeleteTransitGatewayConnectionOptions{
 		TransitGatewayID: &transitGW,
 		ID:               &connection,

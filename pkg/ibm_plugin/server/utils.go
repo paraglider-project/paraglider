@@ -29,7 +29,7 @@ import (
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
-// ResourceIDInfo defines the necessary fields of a resource sent in a request
+// ResourceIDInfo defines the necessary fields of a resource sent in a request.
 type ResourceIDInfo struct {
 	ResourceGroup string `json:"resourcegroup"`
 	Zone          string `json:"zone"`
@@ -41,7 +41,7 @@ func getClientMapKey(resGroup, region string) string {
 }
 
 // returns ResourceIDInfo out of an agreed upon formatted string:
-// "/resourcegroup/{ResourceGroupName}/zone/{zone}/resourcetype/{ResourceID}"
+// "/resourcegroup/{ResourceGroupName}/zone/{zone}/resourcetype/{ResourceID}".
 func getResourceMeta(deploymentID string) (ResourceIDInfo, error) {
 	parts := strings.Split(deploymentID, "/")
 
@@ -92,7 +92,6 @@ func getZoneFromDesc(resourceDesc []byte) (string, error) {
 	}
 
 	return "", fmt.Errorf("failed to unmarshal resource description:%+v", err)
-
 }
 
 func setRuleValToStore(ctx context.Context, client paragliderpb.ControllerClient, key, value, namespace string) error {
@@ -114,7 +113,6 @@ func getRuleValFromStore(ctx context.Context, client paragliderpb.ControllerClie
 		Namespace: namespace,
 	}
 	resp, err := client.GetValue(ctx, getVal)
-
 	if err != nil {
 		return "", err
 	}

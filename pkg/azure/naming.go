@@ -34,7 +34,7 @@ type ResourceIDInfo struct {
 	ResourceName      string
 }
 
-// Extract the Vnet name from the subnet ID
+// Extract the Vnet name from the subnet ID.
 func getVnetFromSubnetId(subnetId string) string {
 	parts := strings.Split(subnetId, "/")
 	return parts[8] // TODO @smcclure20: do this in a less brittle way
@@ -42,7 +42,7 @@ func getVnetFromSubnetId(subnetId string) string {
 
 // getResourceIDInfo parses the resourceID to extract subscriptionID and resourceGroupName (and VM name if needed)
 // and returns a ResourceIDInfo object filled with the extracted values
-// a valid resourceID should be in the format of '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/...'
+// a valid resourceID should be in the format of '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/...'.
 func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	parts := strings.Split(resourceID, "/")
 	if len(parts) < 5 {
@@ -62,13 +62,13 @@ func getResourceIDInfo(resourceID string) (ResourceIDInfo, error) {
 	return info, nil
 }
 
-// getParagliderResourceName returns a name for the Paraglider resource
+// getParagliderResourceName returns a name for the Paraglider resource.
 func getParagliderResourceName(resourceType string) string {
 	// TODO @nnomier: change based on paraglider naming convention
 	return paragliderPrefix + "-" + resourceType + "-" + uuid.New().String()
 }
 
-// getNSGRuleName returns a name for the Paraglider rule
+// getNSGRuleName returns a name for the Paraglider rule.
 func getNSGRuleName(ruleName string) string {
 	return paragliderPrefix + "-" + ruleName
 }
@@ -86,7 +86,7 @@ func getParagliderNamespacePrefix(namespace string) string {
 }
 
 // getVnetName returns the name of the paraglider vnet in the given location
-// since a paraglider vnet is unique per location
+// since a paraglider vnet is unique per location.
 func getVnetName(location string, namespace string) string {
 	return getParagliderNamespacePrefix(namespace) + "-" + location + "-vnet"
 }

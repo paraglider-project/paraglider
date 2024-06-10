@@ -48,7 +48,7 @@ type Client struct {
 	ControllerAddress string
 }
 
-// Proccess the response from the controller and return the body
+// Process the response from the controller and return the body.
 func (c *Client) processResponse(resp *http.Response) ([]byte, error) {
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -62,7 +62,7 @@ func (c *Client) processResponse(resp *http.Response) ([]byte, error) {
 	return bodyBytes, nil
 }
 
-// Send a request to the controller and return the response body
+// Send a request to the controller and return the response body.
 func (c *Client) sendRequest(url string, method string, body io.Reader) ([]byte, error) {
 	client := &http.Client{}
 
@@ -88,7 +88,7 @@ func (c *Client) sendRequest(url string, method string, body io.Reader) ([]byte,
 	return bodyBytes, err
 }
 
-// Get a permit list for a resource
+// Get a permit list for a resource.
 func (c *Client) GetPermitList(namespace string, cloud string, resourceName string) ([]*paragliderpb.PermitListRule, error) {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.GetPermitListRulesURL), namespace, cloud, resourceName)
 
@@ -106,7 +106,7 @@ func (c *Client) GetPermitList(namespace string, cloud string, resourceName stri
 	return rules, nil
 }
 
-// Add permit list rules to a resource
+// Add permit list rules to a resource.
 func (c *Client) AddPermitListRules(namespace string, cloud string, resourceName string, rules []*paragliderpb.PermitListRule) error {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.AddPermitListRulesURL), namespace, cloud, resourceName)
 
@@ -123,7 +123,7 @@ func (c *Client) AddPermitListRules(namespace string, cloud string, resourceName
 	return nil
 }
 
-// Delete permit list rules from a resource
+// Delete permit list rules from a resource.
 func (c *Client) DeletePermitListRules(namespace string, cloud string, resourceName string, rules []string) error {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.DeletePermitListRulesURL), namespace, cloud, resourceName)
 
@@ -140,7 +140,7 @@ func (c *Client) DeletePermitListRules(namespace string, cloud string, resourceN
 	return nil
 }
 
-// Create a resource
+// Create a resource.
 func (c *Client) CreateResource(namespace string, cloud string, resourceName string, resource *paragliderpb.ResourceDescriptionString) (map[string]string, error) {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.CreateResourcePUTURL), namespace, cloud, resourceName)
 
@@ -163,7 +163,7 @@ func (c *Client) CreateResource(namespace string, cloud string, resourceName str
 	return resourceDict, nil
 }
 
-// Get the members of a tag
+// Get the members of a tag.
 func (c *Client) GetTag(tag string) (*tagservicepb.TagMapping, error) {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.GetTagURL), tag)
 
@@ -181,7 +181,7 @@ func (c *Client) GetTag(tag string) (*tagservicepb.TagMapping, error) {
 	return tagMapping, nil
 }
 
-// Resolve a tag down to all IP/URI members
+// Resolve a tag down to all IP/URI members.
 func (c *Client) ResolveTag(tag string) ([]*tagservicepb.TagMapping, error) {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.ResolveTagURL), tag)
 
@@ -199,7 +199,7 @@ func (c *Client) ResolveTag(tag string) ([]*tagservicepb.TagMapping, error) {
 	return tags, nil
 }
 
-// ListTags lists all tags and their mappings
+// ListTags lists all tags and their mappings.
 func (c *Client) ListTags() ([]*tagservicepb.TagMapping, error) {
 	path := orchestrator.GetFormatterString(orchestrator.ListTagURL)
 
@@ -217,7 +217,7 @@ func (c *Client) ListTags() ([]*tagservicepb.TagMapping, error) {
 	return tags, nil
 }
 
-// Set a tag as a member of a group or as a mapping to a URI/IP
+// Set a tag as a member of a group or as a mapping to a URI/IP.
 func (c *Client) SetTag(tag string, tagMapping *tagservicepb.TagMapping) error {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.SetTagURL), tag)
 
@@ -234,7 +234,7 @@ func (c *Client) SetTag(tag string, tagMapping *tagservicepb.TagMapping) error {
 	return nil
 }
 
-// Delete an entire tag and all its member associations under it
+// Delete an entire tag and all its member associations under it.
 func (c *Client) DeleteTag(tag string) error {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.DeleteTagURL), tag)
 
@@ -246,7 +246,7 @@ func (c *Client) DeleteTag(tag string) error {
 	return nil
 }
 
-// Delete member from a tag
+// Delete member from a tag.
 func (c *Client) DeleteTagMembers(tag string, member string) error {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.DeleteTagMemberURL), tag, member)
 
@@ -258,7 +258,7 @@ func (c *Client) DeleteTagMembers(tag string, member string) error {
 	return nil
 }
 
-// List all configured namespaces
+// List all configured namespaces.
 func (c *Client) ListNamespaces() (map[string][]config.CloudDeployment, error) {
 	result, err := c.sendRequest(orchestrator.ListNamespacesURL, http.MethodGet, nil)
 	if err != nil {

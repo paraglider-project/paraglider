@@ -31,7 +31,7 @@ const (
 	firewallRuleDescriptionPrefix = "paraglider rule" // GCP firewall rule prefix for description
 )
 
-// Maps between of GCP and Paraglider traffic direction terminologies
+// Maps between of GCP and Paraglider traffic direction terminologies.
 var (
 	firewallDirectionMapGCPToParaglider = map[string]paragliderpb.Direction{
 		"INGRESS": paragliderpb.Direction_INBOUND,
@@ -55,12 +55,12 @@ var gcpProtocolNumberMap = map[string]int{
 	"ipip": 94,
 }
 
-// Checks if GCP firewall rule is a Paraglider permit list rule
+// Checks if GCP firewall rule is a Paraglider permit list rule.
 func isParagliderPermitListRule(namespace string, firewall *computepb.Firewall) bool {
 	return strings.HasSuffix(*firewall.Network, getVpcName(namespace)) && strings.HasPrefix(*firewall.Name, getFirewallNamePrefix(namespace))
 }
 
-// Converts a GCP firewall rule to a Paraglider permit list rule
+// Converts a GCP firewall rule to a Paraglider permit list rule.
 func firewallRuleToParagliderRule(namespace string, fw *computepb.Firewall) (*paragliderpb.PermitListRule, error) {
 	if len(fw.Allowed) != 1 {
 		return nil, fmt.Errorf("firewall rule has more than one allowed protocol")
@@ -106,7 +106,7 @@ func firewallRuleToParagliderRule(namespace string, fw *computepb.Firewall) (*pa
 	return rule, nil
 }
 
-// Converts a Paraglider permit list rule to a GCP firewall rule
+// Converts a Paraglider permit list rule to a GCP firewall rule.
 func paragliderRuleToFirewallRule(namespace string, project string, firewallName string, networkTag string, rule *paragliderpb.PermitListRule) (*computepb.Firewall, error) {
 	firewall := &computepb.Firewall{
 		Allowed: []*computepb.Allowed{
@@ -134,7 +134,7 @@ func paragliderRuleToFirewallRule(namespace string, project string, firewallName
 	return firewall, nil
 }
 
-// Determine if a firewall rule and permit list rule are equivalent
+// Determine if a firewall rule and permit list rule are equivalent.
 func isFirewallEqPermitListRule(namespace string, firewall *computepb.Firewall, rule *paragliderpb.PermitListRule) (bool, error) {
 	paragliderVersion, err := firewallRuleToParagliderRule(namespace, firewall)
 	if err != nil {
@@ -159,7 +159,7 @@ func isFirewallEqPermitListRule(namespace string, firewall *computepb.Firewall, 
 		paragliderVersion.SrcPort == rule.SrcPort, nil
 }
 
-// Gets protocol number from GCP specificiation (either a name like "tcp" or an int-string like "6")
+// Gets protocol number from GCP specificiation (either a name like "tcp" or an int-string like "6").
 func getProtocolNumber(firewallProtocol string) (int32, error) {
 	protocolNumber, ok := gcpProtocolNumberMap[firewallProtocol]
 	if !ok {
@@ -178,19 +178,19 @@ func getFirewallName(namespace string, ruleName string, resourceId string) strin
 	return fmt.Sprintf("%s-%s-%s", getFirewallNamePrefix(namespace), resourceId, ruleName)
 }
 
-// Retrieve the name of the permit list rule from the GCP firewall name
+// Retrieve the name of the permit list rule from the GCP firewall name.
 func parseFirewallName(namespace string, firewallName string) string {
 	fmt.Println(firewallName)
 	fmt.Println(strings.TrimPrefix(firewallName, getFirewallNamePrefix(namespace)+"-"))
 	return strings.SplitN(strings.TrimPrefix(firewallName, getFirewallNamePrefix(namespace)+"-"), "-", 2)[1]
 }
 
-// Returns name of firewall for denying all egress traffic
+// Returns name of firewall for denying all egress traffic.
 func getDenyAllIngressFirewallName(namespace string) string {
 	return getParagliderNamespacePrefix(namespace) + "-deny-all-egress"
 }
 
-// Format the description to keep metadata about tags
+// Format the description to keep metadata about tags.
 func getRuleDescription(tags []string) string {
 	if len(tags) == 0 {
 		return firewallRuleDescriptionPrefix
@@ -198,7 +198,7 @@ func getRuleDescription(tags []string) string {
 	return fmt.Sprintf("%s:%v", firewallRuleDescriptionPrefix, tags)
 }
 
-// Parses description string to get tags
+// Parses description string to get tags.
 func parseDescriptionTags(description string) []string {
 	var tags []string
 	if strings.HasPrefix(description, firewallRuleDescriptionPrefix+":[") {

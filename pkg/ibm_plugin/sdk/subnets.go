@@ -28,7 +28,8 @@ const subnetType = "subnet"
 
 // CreateSubnet creates subnet in specified vpc and zone.
 func (c *CloudClient) CreateSubnet(
-	vpcID, zone, addressSpace string, tags []string) (*vpcv1.Subnet, error) {
+	vpcID, zone, addressSpace string, tags []string,
+) (*vpcv1.Subnet, error) {
 	zone = strings.TrimSpace(zone)
 
 	zoneIdentity := vpcv1.ZoneIdentity{Name: &zone}
@@ -127,7 +128,8 @@ func (c *CloudClient) IsRemoteInVPC(vpcID string, remote string) (bool, error) {
 // returns true if any of the specified vpc's subnets' address spaces overlap with given cidr
 // NOTE: before invoking this function Set VPC client to the region the VPC is located in.
 func (c *CloudClient) DoSubnetsInVPCOverlapCIDR(vpcID string,
-	CIDR string) (bool, error) {
+	CIDR string,
+) (bool, error) {
 	subnets, err := c.GetSubnetsInVpcRegionBound(vpcID)
 	if err != nil {
 		return true, err

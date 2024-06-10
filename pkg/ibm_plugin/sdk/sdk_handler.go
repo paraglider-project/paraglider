@@ -30,7 +30,7 @@ import (
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
-// CloudClient is the client used to interact with IBM Cloud SDK
+// CloudClient is the client used to interact with IBM Cloud SDK.
 type CloudClient struct {
 	vpcService     *vpcv1.VpcV1
 	k8sService     *k8sv1.KubernetesServiceApiV1
@@ -45,7 +45,7 @@ func (c *CloudClient) Region() string {
 	return c.region
 }
 
-// updates the vpc service's url service to the specified region
+// updates the vpc service's url service to the specified region.
 func (c *CloudClient) UpdateRegion(region string) error {
 	c.region = region
 	err := c.vpcService.SetServiceURL(endpointURL(region))
@@ -96,7 +96,6 @@ func NewIBMCloudClient(resourceGroupID, region string) (*CloudClient, error) {
 	taggingService, err := globaltaggingv1.NewGlobalTaggingV1(&globaltaggingv1.GlobalTaggingV1Options{
 		Authenticator: authenticator,
 	})
-
 	if err != nil {
 		utils.Log.Println("Failed to create tagging client with error:\n", err)
 		return nil, err
@@ -126,7 +125,7 @@ func NewIBMCloudClient(resourceGroupID, region string) (*CloudClient, error) {
 	return &client, nil
 }
 
-// FakeIBMCloudClient returns a fake/mock CloudClient instance without auth, that needs to be handled in the URL
+// FakeIBMCloudClient returns a fake/mock CloudClient instance without auth, that needs to be handled in the URL.
 func FakeIBMCloudClient(fakeURL, fakeResGroupID, fakeRegion string) (*CloudClient, error) {
 	noAuth, err := core.NewNoAuthAuthenticator()
 	if err != nil {

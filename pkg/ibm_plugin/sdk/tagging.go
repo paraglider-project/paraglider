@@ -61,7 +61,7 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 // GetParagliderTaggedResources returns slice of IDs of tagged resources
 // Arg resourceType: type of VPC resource, e.g. subnet, security group, instance.
 // Arg tags: labels set by dev, e.g. {<vpcID>,<deploymentID>}
-// Args customQueryMap: map of attributes to filter by, e.g. {"region":"<regionName>"}
+// Args customQueryMap: map of attributes to filter by, e.g. {"region":"<regionName>"}.
 func (c *CloudClient) GetParagliderTaggedResources(resourceType TaggedResourceType, tags []string, customQuery ResourceQuery) ([]ResourceData, error) {
 	// parse tags
 	var tagsStr string
@@ -94,7 +94,7 @@ func (c *CloudClient) GetParagliderTaggedResources(resourceType TaggedResourceTy
 	return resourceList, nil
 }
 
-// returns IDs of resources filtered by tags and query
+// returns IDs of resources filtered by tags and query.
 func (c *CloudClient) getParagliderResourceByTags(resourceType string, tags string, customQueryStr string) ([]ResourceData, error) {
 	var taggedResources []ResourceData
 

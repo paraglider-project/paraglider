@@ -36,7 +36,7 @@ import (
 
 const keyType = "key"
 
-// Credentials extracted from local credential file
+// Credentials extracted from local credential file.
 type Credentials struct {
 	APIKey string `yaml:"iam_api_key"`
 }
@@ -73,7 +73,6 @@ func (c *CloudClient) setupAuth() (string, error) {
 			utils.Log.Println("Failed to register SSH key\n", err)
 			return "", err
 		}
-
 	} else {
 		keyID = *result.ID
 	}
@@ -103,7 +102,7 @@ func (c *CloudClient) getKeyByPublicKey(publicKeyData string) (string, error) {
 			 key was found`)
 }
 
-// returns "Credentials" object loaded from "credentialsPath"
+// returns "Credentials" object loaded from "credentialsPath".
 func getIBMCred() (Credentials, error) {
 	var credentials Credentials
 
@@ -123,7 +122,7 @@ func getIBMCred() (Credentials, error) {
 	return credentials, nil
 }
 
-// returns a user authenticator object to authorize IBM cloud services
+// returns a user authenticator object to authorize IBM cloud services.
 func getAuthenticator() (*core.IamAuthenticator, error) {
 	creds, err := getIBMCred()
 	if err != nil {
@@ -143,13 +142,13 @@ func getLocalPubKey() (string, error) {
 	}
 
 	pubKeyPath := filepath.Join(homeDir, publicSSHKey)
-	err = os.MkdirAll(filepath.Dir(filepath.Join(homeDir, publicSSHKey)), 0700)
+	err = os.MkdirAll(filepath.Dir(filepath.Join(homeDir, publicSSHKey)), 0o700)
 	if err != nil {
 		utils.Log.Println("Failed to create ssh key folder\n", err)
 		return "", err
 	}
 
-	//check if ssh keys exist
+	// check if ssh keys exist
 	_, err = os.Stat(pubKeyPath)
 
 	if err != nil {
@@ -187,7 +186,7 @@ func createSSHKeys(privateKeyPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	privateKeyFile, err := os.OpenFile(privateKeyPath, os.O_RDWR|os.O_CREATE, 0600)
+	privateKeyFile, err := os.OpenFile(privateKeyPath, os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return "", err
 	}
@@ -204,7 +203,7 @@ func createSSHKeys(privateKeyPath string) (string, error) {
 	}
 	pubKeyStr := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(publicRsaKey)))
 
-	publicKeyFile, err := os.OpenFile(privateKeyPath+".pub", os.O_RDWR|os.O_CREATE, 0655)
+	publicKeyFile, err := os.OpenFile(privateKeyPath+".pub", os.O_RDWR|os.O_CREATE, 0o655)
 	if err != nil {
 		return "", err
 	}

@@ -44,7 +44,7 @@ const (
 	networkWatcherTypeName        = "Microsoft.Network/networkWatchers"
 )
 
-// Gets subscription ID defined in environment variable
+// Gets subscription ID defined in environment variable.
 func GetAzureSubscriptionId() string {
 	subscriptionId := os.Getenv("INVISINETS_AZURE_SUBSCRIPTION_ID")
 	if subscriptionId == "" {
@@ -53,7 +53,7 @@ func GetAzureSubscriptionId() string {
 	return subscriptionId
 }
 
-// Creates a resource groups client
+// Creates a resource groups client.
 func createResourceGroupsClient(subscriptionId string) *armresources.ResourceGroupsClient {
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
@@ -163,7 +163,6 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 						}
 						resourceTypeToResources[*resource.Type] = append(resourceTypeToResources[*resource.Type], resource)
 					}
-
 				}
 				// Delete resources in the following order
 				deletionOrder := []string{
@@ -250,7 +249,7 @@ func InitializeServer(orchestratorAddr string) *azurePluginServer {
 	}
 }
 
-// TODO @seankimkdy: figure out how to merge this with Azure SDK handler
+// TODO @seankimkdy: figure out how to merge this with Azure SDK handler.
 func GetVmIpAddress(vmId string) (string, error) {
 	resourceIdInfo, err := getResourceIDInfo(vmId)
 	if err != nil {

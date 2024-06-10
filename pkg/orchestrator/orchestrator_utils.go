@@ -16,7 +16,7 @@ limitations under the License.
 
 package orchestrator
 
-// Private ASN ranges (RFC 6996)
+// Private ASN ranges (RFC 6996).
 const (
 	MIN_PRIVATE_ASN_2BYTE uint32 = 64512
 	MAX_PRIVATE_ASN_2BYTE uint32 = 65534

@@ -53,7 +53,6 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	// Get all namespaces from the orchestrator and confirm that the given string is one of them
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	namespaces, err := c.ListNamespaces()
-
 	if err != nil {
 		return err
 	}

@@ -34,8 +34,7 @@ func NewCommand() *cobra.Command {
 	}
 }
 
-type executor struct {
-}
+type executor struct{}
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	return nil

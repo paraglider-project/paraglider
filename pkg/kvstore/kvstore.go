@@ -68,7 +68,7 @@ func (s *kvStoreServer) Delete(ctx context.Context, req *storepb.DeleteRequest) 
 	return &storepb.DeleteResponse{}, nil
 }
 
-// Setup and run the server
+// Setup and run the server.
 func Setup(dbPort int, serverPort int, clearKeys bool) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("localhost:%d", dbPort),

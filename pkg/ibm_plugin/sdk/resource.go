@@ -30,19 +30,19 @@ import (
 )
 
 const (
-	// InstanceResourceType is an instance type of resource
+	// InstanceResourceType is an instance type of resource.
 	InstanceResourceType = "instance"
-	// ClusterResourceType is a cluster type of resource
+	// ClusterResourceType is a cluster type of resource.
 	ClusterResourceType = "cluster"
 
 	instanceReadyState = "running"
-	// ClusterReadyState is the ideal running state of a cluster
+	// ClusterReadyState is the ideal running state of a cluster.
 	ClusterReadyState = "normal"
 
 	clusterType = "vpc-gen2"
 )
 
-// ResourceResponse contains the required resource fields to be returned after creation of a resource
+// ResourceResponse contains the required resource fields to be returned after creation of a resource.
 type ResourceResponse struct {
 	// Name is the resource name
 	Name string
@@ -62,14 +62,14 @@ type ResourceIntf interface {
 	GetVPC() (*vpcv1.VPCReference, error)
 }
 
-// ResourceInstanceType is the handler for instance type resources
+// ResourceInstanceType is the handler for instance type resources.
 type ResourceInstanceType struct {
 	ResourceIntf
 	ID     string
 	client *CloudClient
 }
 
-// ResourceClusterType is the handler for cluster type resources
+// ResourceClusterType is the handler for cluster type resources.
 type ResourceClusterType struct {
 	ResourceIntf
 	ID     string
@@ -134,7 +134,7 @@ func (i *ResourceInstanceType) waitForReady() (bool, error) {
 	return false, fmt.Errorf("instance ID %v failed to launch within the alloted time", i.ID)
 }
 
-// CreateResource create an instance
+// CreateResource create an instance.
 func (i *ResourceInstanceType) CreateResource(name, vpcID, subnetID string, tags []string, resourceDesc []byte) (*ResourceResponse, error) {
 	instanceOptions, err := i.getResourceOptions(resourceDesc)
 	if err != nil {
@@ -154,7 +154,8 @@ func (i *ResourceInstanceType) CreateResource(name, vpcID, subnetID string, tags
 	}
 
 	sgGrps := []vpcv1.SecurityGroupIdentityIntf{
-		&vpcv1.SecurityGroupIdentityByID{ID: securityGroup.ID}}
+		&vpcv1.SecurityGroupIdentityByID{ID: securityGroup.ID},
+	}
 
 	subnetIdentity := vpcv1.SubnetIdentityByID{ID: &subnetID}
 
@@ -193,7 +194,6 @@ func (i *ResourceInstanceType) CreateResource(name, vpcID, subnetID string, tags
 	}
 
 	reservedIP, err := i.getInstanceIP()
-
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +204,7 @@ func (i *ResourceInstanceType) CreateResource(name, vpcID, subnetID string, tags
 }
 
 // IsInNamespace returns True if an instance resides inside the specified namespace
-// region is an optional argument used to increase effectiveness of resource search
+// region is an optional argument used to increase effectiveness of resource search.
 func (i *ResourceInstanceType) IsInNamespace(namespace, region string) (bool, error) {
 	resourceQuery := ResourceQuery{}
 	vmData, err := i.getCRN()
@@ -233,17 +233,17 @@ func (i *ResourceInstanceType) IsInNamespace(namespace, region string) (bool, er
 	return false, nil
 }
 
-// IsExclusiveNetworkNeeded indicates if this resource needs an exclusive VPC to be provisioned
+// IsExclusiveNetworkNeeded indicates if this resource needs an exclusive VPC to be provisioned.
 func (i *ResourceInstanceType) IsExclusiveNetworkNeeded() bool {
 	return false
 }
 
-// GetID fetches the identifier of instance
+// GetID fetches the identifier of instance.
 func (i *ResourceInstanceType) GetID() string {
 	return i.ID
 }
 
-// GetSecurityGroupID returns the security group ID that's associated with the instance's network interfaces
+// GetSecurityGroupID returns the security group ID that's associated with the instance's network interfaces.
 func (i *ResourceInstanceType) GetSecurityGroupID() (string, error) {
 	nics, _, err := i.client.vpcService.ListInstanceNetworkInterfaces(
 		&vpcv1.ListInstanceNetworkInterfacesOptions{InstanceID: &i.ID})
@@ -261,7 +261,7 @@ func (i *ResourceInstanceType) GetSecurityGroupID() (string, error) {
 	return "", fmt.Errorf("no paraglider SG is associated with the specified instance")
 }
 
-// GetVPC returns VPC data of specified instance
+// GetVPC returns VPC data of specified instance.
 func (i *ResourceInstanceType) GetVPC() (*vpcv1.VPCReference, error) {
 	instance, _, err := i.client.vpcService.GetInstance(
 		&vpcv1.GetInstanceOptions{ID: &i.ID})
@@ -313,7 +313,7 @@ func (c *ResourceClusterType) waitForReady() (bool, error) {
 	return false, fmt.Errorf("cluster ID %v failed to launch within the alloted time", c.ID)
 }
 
-// CreateResource creates a cluster
+// CreateResource creates a cluster.
 func (c *ResourceClusterType) CreateResource(name, vpcID, subnetID string, tags []string, resourceDesc []byte) (*ResourceResponse, error) {
 	clusterOptions, err := c.getResourceOptions(resourceDesc)
 	if err != nil {
@@ -376,7 +376,7 @@ func (c *ResourceClusterType) CreateResource(name, vpcID, subnetID string, tags 
 	return &ResourceResponse{Name: name, URI: c.createURI(*c.client.resourceGroup.ID, *clusterOptions.WorkerPool.Zones[0].ID, *cluster.ClusterID), IP: clusterCIDR}, nil
 }
 
-// IsInNamespace checks if the cluster is in the namespace
+// IsInNamespace checks if the cluster is in the namespace.
 func (c *ResourceClusterType) IsInNamespace(namespace, region string) (bool, error) {
 	resourceQuery := ResourceQuery{}
 	clusterCRN, err := c.getCRN()
@@ -405,17 +405,17 @@ func (c *ResourceClusterType) IsInNamespace(namespace, region string) (bool, err
 	return false, nil
 }
 
-// IsExclusiveNetworkNeeded indicates if this resource needs an exclusive VPC to be provisioned
+// IsExclusiveNetworkNeeded indicates if this resource needs an exclusive VPC to be provisioned.
 func (c *ResourceClusterType) IsExclusiveNetworkNeeded() bool {
 	return true
 }
 
-// GetID fetches the identifier of instance
+// GetID fetches the identifier of instance.
 func (c *ResourceClusterType) GetID() string {
 	return c.ID
 }
 
-// GetVPC returns the VPC reference of the endpoint gateway of the cluster
+// GetVPC returns the VPC reference of the endpoint gateway of the cluster.
 func (c *ResourceClusterType) GetVPC() (*vpcv1.VPCReference, error) {
 	// A Cluster would have a security group with prefix of 'kube-',
 	// We infer the VPC of the cluster using the VPC of this security group
@@ -435,7 +435,7 @@ func (c *ResourceClusterType) GetVPC() (*vpcv1.VPCReference, error) {
 
 // NOTE: Currently not in use, as public ips are not provisioned.
 // deletes floating ips marked recyclable, that are attached to
-// any interface associated with given VM
+// any interface associated with given VM.
 func (c *CloudClient) deleteFloatingIPsOfVM(vm *vpcv1.Instance) {
 	recyclableResource := "recyclable" // placeholder indicator
 
@@ -470,7 +470,7 @@ func (c *CloudClient) waitForInstanceRemoval(vmID string) bool {
 	return false
 }
 
-// GetResourceHandlerFromDesc gets the resource handler from the resource description
+// GetResourceHandlerFromDesc gets the resource handler from the resource description.
 func (c *CloudClient) GetResourceHandlerFromDesc(resourceDesc []byte) (ResourceIntf, error) {
 	instanceOptions := vpcv1.CreateInstanceOptions{
 		InstancePrototype: &vpcv1.InstancePrototypeInstanceByImage{
@@ -493,10 +493,9 @@ func (c *CloudClient) GetResourceHandlerFromDesc(resourceDesc []byte) (ResourceI
 	}
 
 	return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
-
 }
 
-// GetResourceHandlerFromID gets the resource handler from the resource ID/URI
+// GetResourceHandlerFromID gets the resource handler from the resource ID/URI.
 func (c *CloudClient) GetResourceHandlerFromID(deploymentID string) (ResourceIntf, error) {
 	parts := strings.Split(deploymentID, "/")
 

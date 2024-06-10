@@ -26,19 +26,17 @@ import (
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 )
 
-var (
-	Log *log.Logger
-)
+var Log *log.Logger
 
 // Cloud names
-// TODO @seankimkdy: turn these into its own type and use enums
+// TODO @seankimkdy: turn these into its own type and use enums.
 const (
 	GCP   = "gcp"
 	AZURE = "azure"
 	IBM   = "ibm"
 )
 
-// Private address spaces as defined in RFC 1918
+// Private address spaces as defined in RFC 1918.
 var privateAddressSpaces = []netip.Prefix{
 	netip.MustParsePrefix("10.0.0.0/8"),
 	netip.MustParsePrefix("172.16.0.0/12"),
@@ -82,7 +80,7 @@ func IsPermitListRuleTagInAddressSpace(permitListRuleTag string, addressSpaces [
 	return false, nil
 }
 
-// Checks if an IP address is public
+// Checks if an IP address is public.
 func isIPAddressPrivate(addressString string) (bool, error) {
 	var addr netip.Addr
 	var err error
@@ -115,7 +113,7 @@ type PeeringCloudInfo struct {
 // Retrieves the peering cloud info (name, namespace, deployment) for a given permit list rule
 // Notes
 // 1. this method may return duplicate PeeringCloudInfos, so it's the responsibility of the cloud plugin to gracefully handle duplicates
-// 2. peeringCloudInfo[i] will be nil if the target is a public IP address, so make sure to check for that
+// 2. peeringCloudInfo[i] will be nil if the target is a public IP address, so make sure to check for that.
 func GetPermitListRulePeeringCloudInfo(permitListRule *paragliderpb.PermitListRule, usedAddressSpaceMappings []*paragliderpb.AddressSpaceMapping) ([]*PeeringCloudInfo, error) {
 	peeringCloudInfos := make([]*PeeringCloudInfo, len(permitListRule.Targets))
 	for i, target := range permitListRule.Targets {
@@ -151,7 +149,7 @@ func GetPermitListRulePeeringCloudInfo(permitListRule *paragliderpb.PermitListRu
 	return peeringCloudInfos, nil
 }
 
-// Returns prefix with GitHub workflow run numbers for integration tests
+// Returns prefix with GitHub workflow run numbers for integration tests.
 func GetGitHubRunPrefix() string {
 	ghRunNumber := os.Getenv("GH_RUN_NUMBER")
 	if ghRunNumber != "" {
@@ -160,12 +158,12 @@ func GetGitHubRunPrefix() string {
 	return ""
 }
 
-// Checks if cloud1 and cloud2 match with target1 and target2 in any order
+// Checks if cloud1 and cloud2 match with target1 and target2 in any order.
 func MatchCloudProviders(cloud1, cloud2, target1, target2 string) bool {
 	return (cloud1 == target1 && cloud2 == target2) || (cloud1 == target2 && cloud2 == target1)
 }
 
-// Returns the number of VPN connections needed between cloud1 and cloud2
+// Returns the number of VPN connections needed between cloud1 and cloud2.
 func GetNumVpnConnections(cloud1, cloud2 string) int {
 	if MatchCloudProviders(cloud1, cloud2, AZURE, GCP) {
 		return 2

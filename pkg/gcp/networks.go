@@ -25,32 +25,32 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Gets a GCP VPC name
+// Gets a GCP VPC name.
 func getVpcName(namespace string) string {
 	return getParagliderNamespacePrefix(namespace) + "-vpc"
 }
 
-// Gets a GCP subnetwork name for Paraglider based on region
+// Gets a GCP subnetwork name for Paraglider based on region.
 func getSubnetworkName(namespace string, region string) string {
 	return getParagliderNamespacePrefix(namespace) + "-" + region + "-subnet"
 }
 
-// Returns a VPC network peering name
+// Returns a VPC network peering name.
 func getNetworkPeeringName(namespace string, peerNamespace string) string {
 	return getParagliderNamespacePrefix(namespace) + "-" + peerNamespace + "-peering"
 }
 
-// getSubnetworkUrl returns a fully qualified URL for a subnetwork
+// getSubnetworkUrl returns a fully qualified URL for a subnetwork.
 func getSubnetworkUrl(project string, region string, name string) string {
 	return computeUrlPrefix + fmt.Sprintf("projects/%s/regions/%s/subnetworks/%s", project, region, name)
 }
 
-// GetVpcUrl returns a fully qualified URL for a VPC network
+// GetVpcUrl returns a fully qualified URL for a VPC network.
 func GetVpcUrl(project string, namespace string) string {
 	return computeUrlPrefix + fmt.Sprintf("projects/%s/global/networks/%s", project, getVpcName(namespace))
 }
 
-// Creates bi-directional peering between two VPC networks
+// Creates bi-directional peering between two VPC networks.
 func peerVpcNetwork(ctx context.Context, networksClient *compute.NetworksClient, currentProject string, currentNamespace string, peerProject string, peerNamespace string) error {
 	// Check if peering already exists
 	currentVpcName := getVpcName(currentNamespace)

@@ -344,7 +344,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 	})
 }
 
-// Struct to hold state for fake server
+// Struct to hold state for fake server.
 type fakeServerState struct {
 	subId         string
 	rgName        string
@@ -361,7 +361,7 @@ type fakeServerState struct {
 	cluster       *armcontainerservice.ManagedCluster
 }
 
-// Sets up fake http server
+// Sets up fake http server.
 func SetupFakeAzureServer(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context) {
 	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
 

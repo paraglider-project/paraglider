@@ -51,14 +51,14 @@ func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo, nam
 	var azureHandler AzureSDKHandler
 	cred, err := s.azureCredentialGetter.GetAzureCredentials()
 	if err != nil {
-		utils.Log.Printf("An error occured while getting azure credentials:%+v", err)
+		utils.Log.Printf("An error occurred while getting azure credentials:%+v", err)
 		return nil, err
 	}
 	azureHandler.SetSubIdAndResourceGroup(resourceIdInfo.SubscriptionID, resourceIdInfo.ResourceGroupName)
 	azureHandler.paragliderNamespace = namespace
 	err = azureHandler.InitializeClients(cred)
 	if err != nil {
-		utils.Log.Printf("An error occured while initializing azure clients: %+v", err)
+		utils.Log.Printf("An error occurred while initializing azure clients: %+v", err)
 		return nil, err
 	}
 
@@ -66,12 +66,12 @@ func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo, nam
 }
 
 // GetPermitList returns the permit list for the given resource by getting the NSG rules
-// associated with the resource and filtering out the Paraglider rules
+// associated with the resource and filtering out the Paraglider rules.
 func (s *azurePluginServer) GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest) (*paragliderpb.GetPermitListResponse, error) {
 	resourceId := req.Resource
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
 	if err != nil {
-		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+		utils.Log.Printf("An error occurred while getting resource ID info: %+v", err)
 		return nil, err
 	}
 	azureHandler, err := s.setupAzureHandler(resourceIdInfo, req.Namespace)
@@ -93,7 +93,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *paragliderpb
 		if !strings.HasPrefix(*rule.Name, denyAllNsgRulePrefix) && strings.HasPrefix(*rule.Name, paragliderPrefix) {
 			plRule, err := azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
-				utils.Log.Printf("An error occured while getting Paraglider rule from NSG rule: %+v", err)
+				utils.Log.Printf("An error occurred while getting Paraglider rule from NSG rule: %+v", err)
 				return nil, err
 			}
 			plRule.Name = getRuleNameFromNSGRuleName(plRule.Name)
@@ -110,7 +110,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 	resourceID := req.GetResource()
 	resourceIdInfo, err := getResourceIDInfo(resourceID)
 	if err != nil {
-		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+		utils.Log.Printf("An error occurred while getting resource ID info: %+v", err)
 		return nil, err
 	}
 	azureHandler, err := s.setupAzureHandler(resourceIdInfo, req.Namespace)
@@ -128,7 +128,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 	var reservedPrioritiesOutbound map[int32]bool = make(map[int32]bool)
 	err = setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, existingRulePriorities, netInfo.NSG)
 	if err != nil {
-		utils.Log.Printf("An error occured during setup: %+v", err)
+		utils.Log.Printf("An error occurred during setup: %+v", err)
 		return nil, err
 	}
 	var outboundPriority int32 = 100
@@ -149,12 +149,12 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 	// get the vnet to be able to get both the address space as well as the peering when needed
 	resourceVnet, err := azureHandler.GetVNet(ctx, getVnetName(netInfo.Location, req.Namespace))
 	if err != nil {
-		utils.Log.Printf("An error occured while getting resource vnet:%+v", err)
+		utils.Log.Printf("An error occurred while getting resource vnet:%+v", err)
 		return nil, err
 	}
 
 	if err != nil {
-		utils.Log.Printf("An error occured while getting paraglider vnets address spaces:%+v", err)
+		utils.Log.Printf("An error occurred while getting paraglider vnets address spaces:%+v", err)
 		return nil, err
 	}
 
@@ -218,7 +218,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 		// Create the NSG rule
 		securityRule, err := azureHandler.CreateSecurityRule(ctx, rule, *netInfo.NSG.Name, getNSGRuleName(rule.Name), netInfo.Address, priority)
 		if err != nil {
-			utils.Log.Printf("An error occured while creating security rule:%+v", err)
+			utils.Log.Printf("An error occurred while creating security rule:%+v", err)
 			return nil, err
 		}
 		utils.Log.Printf("Successfully created network security rule: %s", *securityRule.ID)
@@ -232,7 +232,7 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *paragl
 	resourceID := req.GetResource()
 	resourceIdInfo, err := getResourceIDInfo(resourceID)
 	if err != nil {
-		utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+		utils.Log.Printf("An error occurred while getting resource ID info: %+v", err)
 		return nil, err
 	}
 	azureHandler, err := s.setupAzureHandler(resourceIdInfo, req.Namespace)
@@ -248,7 +248,7 @@ func (s *azurePluginServer) DeletePermitListRules(c context.Context, req *paragl
 	for _, rule := range req.GetRuleNames() {
 		err := azureHandler.DeleteSecurityRule(c, *netInfo.NSG.Name, getNSGRuleName(rule))
 		if err != nil {
-			utils.Log.Printf("An error occured while deleting security rule:%+v", err)
+			utils.Log.Printf("An error occurred while deleting security rule:%+v", err)
 			return nil, err
 		}
 		utils.Log.Printf("Successfully deleted network security rule: %s", rule)
@@ -269,7 +269,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 
 	resourceIdInfo, err := getResourceIDInfo(resourceDesc.Deployment.Id)
 	if err != nil {
-		utils.Log.Printf("An error occured while getting resource id info:%+v", err)
+		utils.Log.Printf("An error occurred while getting resource id info:%+v", err)
 		return nil, err
 	}
 
@@ -281,7 +281,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 	vnetName := getVnetName(resourceDescInfo.Location, resourceDesc.Deployment.Namespace)
 	paragliderVnet, err := azureHandler.GetParagliderVnet(ctx, vnetName, resourceDescInfo.Location, resourceDesc.Deployment.Namespace, s.orchestratorServerAddr)
 	if err != nil {
-		utils.Log.Printf("An error occured while getting paraglider vnet:%+v", err)
+		utils.Log.Printf("An error occurred while getting paraglider vnet:%+v", err)
 		return nil, err
 	}
 
@@ -300,7 +300,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 		if !subnetExists {
 			resourceSubnet, err = azureHandler.AddSubnetToParagliderVnet(ctx, resourceDesc.Deployment.Namespace, vnetName, getSubnetName(resourceDescInfo.ResourceName), s.orchestratorServerAddr)
 			if err != nil {
-				utils.Log.Printf("An error occured while creating subnet:%+v", err)
+				utils.Log.Printf("An error occurred while creating subnet:%+v", err)
 				return nil, err
 			}
 		}
@@ -327,7 +327,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 	// Create the resource
 	ip, err := ReadAndProvisionResource(ctx, resourceDesc, resourceSubnet, &resourceIdInfo, azureHandler, additionalAddrs)
 	if err != nil {
-		utils.Log.Printf("An error occured while creating resource:%+v", err)
+		utils.Log.Printf("An error occurred while creating resource:%+v", err)
 		return nil, err
 	}
 
@@ -405,7 +405,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 	return &paragliderpb.CreateResourceResponse{Name: resourceDescInfo.ResourceName, Uri: resourceDescInfo.ResourceID, Ip: ip}, nil
 }
 
-// GetUsedAddressSpaces returns the address spaces used by paraglider which are the address spaces of the paraglider vnets
+// GetUsedAddressSpaces returns the address spaces used by paraglider which are the address spaces of the paraglider vnets.
 func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
 	resp := &paragliderpb.GetUsedAddressSpacesResponse{}
 	resp.AddressSpaceMappings = make([]*paragliderpb.AddressSpaceMapping, len(req.Deployments))
@@ -416,7 +416,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *parag
 		}
 		resourceIdInfo, err := getResourceIDInfo(deployment.Id)
 		if err != nil {
-			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+			utils.Log.Printf("An error occurred while getting resource ID info: %+v", err)
 			return nil, err
 		}
 		azureHandler, err := s.setupAzureHandler(resourceIdInfo, deployment.Namespace)
@@ -426,7 +426,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *parag
 
 		addressSpaces, err := azureHandler.GetVNetsAddressSpaces(ctx, getParagliderNamespacePrefix(deployment.Namespace))
 		if err != nil {
-			utils.Log.Printf("An error occured while getting address spaces:%+v", err)
+			utils.Log.Printf("An error occurred while getting address spaces:%+v", err)
 			return nil, err
 		}
 		paragliderAddressList := []string{}
@@ -438,7 +438,6 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *parag
 		resp.AddressSpaceMappings[i].AddressSpaces = paragliderAddressList
 	}
 	return resp, nil
-
 }
 
 func (s *azurePluginServer) GetUsedAsns(ctx context.Context, req *paragliderpb.GetUsedAsnsRequest) (*paragliderpb.GetUsedAsnsResponse, error) {
@@ -446,7 +445,7 @@ func (s *azurePluginServer) GetUsedAsns(ctx context.Context, req *paragliderpb.G
 	for _, deployment := range req.Deployments {
 		resourceIdInfo, err := getResourceIDInfo(deployment.Id)
 		if err != nil {
-			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+			utils.Log.Printf("An error occurred while getting resource ID info: %+v", err)
 			return nil, err
 		}
 		azureHandler, err := s.setupAzureHandler(resourceIdInfo, deployment.Namespace)
@@ -473,7 +472,7 @@ func (s *azurePluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, re
 	for _, deployment := range req.Deployments {
 		resourceIdInfo, err := getResourceIDInfo(deployment.Id)
 		if err != nil {
-			utils.Log.Printf("An error occured while getting resource ID info: %+v", err)
+			utils.Log.Printf("An error occurred while getting resource ID info: %+v", err)
 			return nil, err
 		}
 		azureHandler, err := s.setupAzureHandler(resourceIdInfo, deployment.Namespace)
@@ -751,7 +750,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 	return &paragliderpb.CreateVpnConnectionsResponse{}, nil
 }
 
-// Peer with another virtual network
+// Peer with another virtual network.
 func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler AzureSDKHandler, resourceIDInfo ResourceIDInfo, resourceVnetLocation string, namespace string, peeringCloudInfo *utils.PeeringCloudInfo, permitListRuleTarget string) error {
 	peeringCloudResourceIDInfo, err := getResourceIDInfo(peeringCloudInfo.Deployment)
 	if err != nil {

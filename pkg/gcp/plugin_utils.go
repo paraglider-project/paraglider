@@ -224,7 +224,7 @@ func GetInstanceId(project string, zone string, instanceName string) (uint64, er
 	return *instance.Id, nil
 }
 
-// Runs connectivity test between two endpoints
+// Runs connectivity test between two endpoints.
 func RunPingConnectivityTest(t *testing.T, project string, name string, srcEndpoint *networkmanagementpb.Endpoint, dstEndpoint *networkmanagementpb.Endpoint) {
 	ctx := context.Background()
 	reachabilityClient, err := networkmanagement.NewReachabilityClient(ctx) // Can't use REST client for some reason (filed as bug within Google internally)
@@ -271,12 +271,12 @@ func RunPingConnectivityTest(t *testing.T, project string, name string, srcEndpo
 	require.True(t, reachable)
 }
 
-// GCP naming conventions
+// GCP naming conventions.
 const (
 	paragliderPrefix = "para"
 )
 
-// Hashes values to lowercase hex string for use in naming GCP resources
+// Hashes values to lowercase hex string for use in naming GCP resources.
 func hash(values ...string) string {
 	hash := sha256.Sum256([]byte(strings.Join(values, "")))
 	return strings.ToLower(hex.EncodeToString(hash[:]))
@@ -314,14 +314,14 @@ func parseUrl(url string) map[string]string {
 	return parsedUrl
 }
 
-// Checks if GCP error response is a not found error
+// Checks if GCP error response is a not found error.
 func isErrorNotFound(err error) bool {
 	var e *googleapi.Error
 	ok := errors.As(err, &e)
 	return ok && e.Code == http.StatusNotFound
 }
 
-// Checks if GCP error response is a duplicate error
+// Checks if GCP error response is a duplicate error.
 func isErrorDuplicate(err error) bool {
 	var e *googleapi.Error
 	ok := errors.As(err, &e)

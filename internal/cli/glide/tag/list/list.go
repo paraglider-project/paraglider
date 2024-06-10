@@ -45,7 +45,6 @@ type executor struct {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	tagMappings, err := c.ListTags()
 	if err != nil {

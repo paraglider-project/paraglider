@@ -442,7 +442,6 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		}
 
 		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Num: &numAddressSpacesNeeded})
-
 		if err != nil {
 			return nil, fmt.Errorf("unable to find unused address space: %w", err)
 		}
@@ -451,7 +450,6 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	}
 
 	if !subnetExists {
-
 		insertSubnetworkRequest := &computepb.InsertSubnetworkRequest{
 			Project: project,
 			Region:  region,
@@ -474,7 +472,6 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 
 	// Read and provision the resource
 	url, ip, err := ReadAndProvisionResource(ctx, resourceDescription, subnetName, resourceInfo, instancesClient, clustersClient, firewallsClient, addressSpaces)
-
 	if err != nil {
 		return nil, fmt.Errorf("unable to read and provision resource: %w", err)
 	}

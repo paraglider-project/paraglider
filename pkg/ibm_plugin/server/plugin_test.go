@@ -231,14 +231,13 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 	// The handler should be written as minimally as possible to minimize maintenance overhead. Modifying requests (e.g. POST, DELETE)
 	// should generally not do anything other than return the operation response. Instead, initialize the fakeIBMServerState as necessary.
 	// Keep in mind these unit tests should rely as little as possible on the functionality of this fake server.
-
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
-			return
-		}
+		body, _ := io.ReadAll(r.Body)
+		// if err != nil {
+		// 	http.Error(w, fmt.Sprintf("unsupported request: %s %s", r.Method, path), http.StatusBadRequest)
+		// 	return
+		// }
 		switch {
 		case path == "/v3/resources/search":
 			if r.Method == http.MethodPost { // Search resources like VPC, Security-group, instance, etc
@@ -888,6 +887,8 @@ func TestAddPermitListRulesMissingSecurityGroup(t *testing.T) {
 }
 
 func TestAddPermitListRulesWrongNamespace(t *testing.T) {
+	var a int
+
 	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
 	if err != nil {
 		t.Fatal(err)

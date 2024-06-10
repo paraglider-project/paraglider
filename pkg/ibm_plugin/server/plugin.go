@@ -42,7 +42,7 @@ type IBMPluginServer struct {
 var defaultRegion = "us-east"
 
 // setupCloudClient fetches the cloud client for a resgroup and region from the map if cached, or creates a new one.
-// This function should be the only way the IBM plugin server to get a client
+// This function should be the only way the IBM plugin server to get a client.
 func (s *IBMPluginServer) setupCloudClient(resourceGroupID, region string) (*sdk.CloudClient, error) {
 	clientKey := getClientMapKey(resourceGroupID, region)
 	if client, ok := s.cloudClient[clientKey]; ok {
@@ -57,7 +57,7 @@ func (s *IBMPluginServer) setupCloudClient(resourceGroupID, region string) (*sdk
 	return client, nil
 }
 
-// getAllClientsForVPCs returns the paraglider VPC IDs and the corresponding clients that are present in all the regions
+// getAllClientsForVPCs returns the paraglider VPC IDs and the corresponding clients that are present in all the regions.
 func (s *IBMPluginServer) getAllClientsForVPCs(cloudClient *sdk.CloudClient, resourceGroupName string, resolveID bool) (map[string]*sdk.CloudClient, error) {
 	cloudClients := make(map[string]*sdk.CloudClient)
 	vpcsData, err := cloudClient.GetParagliderTaggedResources(sdk.VPC, []string{}, sdk.ResourceQuery{})
@@ -265,7 +265,7 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.G
 
 	// Get the permitlist names from the rule ID
 	for _, rule := range paragliderRules {
-		//IBM rule ID is transiently stored in rule name during translation
+		// IBM rule ID is transiently stored in rule name during translation
 		ruleName, err := getRuleValFromStore(ctx, client, rule.Name, req.Namespace)
 		if err != nil {
 			utils.Log.Printf("Failed to get value from KVstore for rule %s: %v.", ruleName, err)
@@ -278,7 +278,6 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.G
 
 // AddPermitListRules attaches security group rules to the specified resource in PermitList.AssociatedResource.
 func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paragliderpb.AddPermitListRulesRequest) (*paragliderpb.AddPermitListRulesResponse, error) {
-
 	utils.Log.Printf("Adding PermitListRules %v, %v. namespace :%s \n ", req.Resource, req.Rules, req.Namespace)
 	rInfo, err := getResourceMeta(req.Resource)
 	if err != nil {
@@ -343,7 +342,6 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 
 	gwID := "" // global transit gateway ID for vpc-peering.
 	for _, ibmRule := range ibmRulesToAdd {
-
 		// TODO @cohen-j-omer Connect clouds if needed:
 		// 1. use the orchestratorClient's GetUsedAddressSpaces to get used addresses.
 		// 2. if the rule's remote address resides in one of the clouds create a vpn gateway.
@@ -455,7 +453,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	return &paragliderpb.AddPermitListRulesResponse{}, nil
 }
 
-// DeletePermitListRules deletes security group rules matching the attributes of the rules contained in the relevant Security group
+// DeletePermitListRules deletes security group rules matching the attributes of the rules contained in the relevant Security group.
 func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragliderpb.DeletePermitListRulesRequest) (*paragliderpb.DeletePermitListRulesResponse, error) {
 	rInfo, err := getResourceMeta(req.Resource)
 	if err != nil {

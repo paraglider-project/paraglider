@@ -27,7 +27,7 @@ import (
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
-// TaggedResourceType indicates the type of tagged resource to fetch
+// TaggedResourceType indicates the type of tagged resource to fetch.
 type TaggedResourceType string
 
 const (
@@ -35,18 +35,18 @@ const (
 	SUBNET  TaggedResourceType = "subnet"
 	VM      TaggedResourceType = "instance"
 	CLUSTER TaggedResourceType = "k8-cluster"
-	// Security group of a specific instance
+	// Security group of a specific instance.
 	SG TaggedResourceType = "security-group"
-	// transit gateway for vpc-peering
+	// transit gateway for vpc-peering.
 	GATEWAY TaggedResourceType = "gateway"
 
 	credentialsPath = ".ibm/credentials.yaml"
 	publicSSHKey    = ".ibm/keys/paraglider-key.pub"
 	privateSSHKey   = ".ibm/keys/paraglider-key"
 
-	// ParagliderResourcePrefix is used to prefix a resource's name
+	// ParagliderResourcePrefix is used to prefix a resource's name.
 	ParagliderResourcePrefix = "paraglider"
-	// ParagliderTag is the default tag attached to all paraglider resources
+	// ParagliderTag is the default tag attached to all paraglider resources.
 	ParagliderTag = "pg"
 )
 
@@ -66,12 +66,12 @@ type ResourceData struct {
 	Zone   string
 }
 
-// returns url of IBM region
+// returns url of IBM region.
 func endpointURL(region string) string {
 	return fmt.Sprintf("https://%s.iaas.cloud.ibm.com/v1", region)
 }
 
-// CRN2ID returns ID of resource based on its CRN
+// CRN2ID returns ID of resource based on its CRN.
 func CRN2ID(crn string) string {
 	index := strings.LastIndex(crn, ":")
 	if index == -1 {
@@ -80,12 +80,12 @@ func CRN2ID(crn string) string {
 	return crn[index+1:]
 }
 
-// GenerateResourceName returns unique paraglider resource name
+// GenerateResourceName returns unique paraglider resource name.
 func GenerateResourceName(name string) string {
 	return fmt.Sprintf("%v-%v-%v", ParagliderResourcePrefix, name, uuid.New().String()[:8])
 }
 
-// IsParagliderResource returns if a given resource (e.g. permit list) belongs to paraglider
+// IsParagliderResource returns if a given resource (e.g. permit list) belongs to paraglider.
 func IsParagliderResource(name string) bool {
 	return strings.HasPrefix(name, ParagliderResourcePrefix)
 }
@@ -108,7 +108,7 @@ func DoCIDROverlap(cidr1, cidr2 string) (bool, error) {
 	return false, nil
 }
 
-// IsCIDRSubset returns true if cidr1 is a subset (including equal) to cidr2
+// IsCIDRSubset returns true if cidr1 is a subset (including equal) to cidr2.
 func IsCIDRSubset(cidr1, cidr2 string) (bool, error) {
 	firstIP1, netCidr1, err := net.ParseCIDR(cidr1)
 	// ParseCIDR() example from Docs: for CIDR="192.0.2.1/24"
