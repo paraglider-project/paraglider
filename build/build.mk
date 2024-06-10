@@ -115,5 +115,5 @@ clean: ## Cleans output directory.
 # Due to https://github.com/golangci/golangci-lint/issues/580, we need to add --fix for windows
 .PHONY: lint 
 lint: protoc ## Runs golangci-lint
-	$(GOLANGCI_LINT) run --fix --timeout 5m
+	$(GOLANGCI_LINT) run --config=./.golangci.yaml ./... --fix
 

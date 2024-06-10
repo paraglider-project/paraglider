@@ -1,19 +1,145 @@
-linters:
-  enable:
-  - goheader
-issues:
-  exclude-rules:
-    # Ignore test files which have unit/integration tags
-    - path: _test\.go
-      linters:
-        - goheader
-linters-settings:
-  # Settings for linter 'goheader'
-  #
-  # This is used to validate that all go files have the required copyright header.
-  goheader:
-    template-path: build/header.tmpl
+# Based on recommendations in https://olegk.dev/go-linters-configuration-the-right-version
+
 run:
-  build-tags:
-    - unit
-    - integration
+  # linter execution
+  timeout: 30m
+  issues-exit-code: 1
+  concurrency: 4
+  # check tests as well
+  tests: true
+  # fail if go.mod file is outdated.
+  modules-download-mode: readonly
+  # use the Go version from the go.mod file.
+  go: ""
+
+linters:
+  # set to true to run only fast linters (e.g., for pre-commit)
+  fast: false
+
+  disable-all: true
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - contextcheck
+    - durationcheck
+    - errcheck 
+    - errname
+    - errorlint
+    - exportloopref
+    - ginkgolinter
+    - gocritic
+    - godot
+    - gofumpt
+    - goimports
+    - gosec
+    - gosimple
+    - govet
+    - grouper
+    - lll
+    - loggercheck
+    - importas
+    - ineffassign
+    - makezero
+    - misspell
+    - nakedret
+    - nestif
+    - nilerr
+    - nolintlint
+    - nonamedreturns
+    - nosprintfhostport
+    - prealloc
+    - predeclared
+    - promlinter
+    - reassign
+    - revive
+    - staticcheck
+    - stylecheck
+    - tagliatelle
+    - tenv
+    - testableexamples
+    - thelper
+    - testpackage
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - varnamelen
+    - whitespace
+
+linters-settings:
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+
+  errcheck:
+    # change some error checks which are disabled by default
+    check-type-assertions: true
+    check-blank: true
+
+  nakedret:
+    # No naked returns (default: 30)
+    max-func-lines: 1
+
+  lll:
+    # max line length, lines longer will be reported. Default is 120.
+    line-length: 130
+
+  staticcheck:
+    checks:
+      - "all"
+
+  stylecheck:
+
+  varnamelen:
+    # The longest distance, in source lines, that is being considered a "small scope".
+    # Variables used in at most this many lines will be ignored (Default: 5)
+    max-distance: 20
+    # The minimum length of a variable's name that is considered "long".
+    # Variable names that are at least this long will be ignored (Default: 3)
+    min-name-length: 2
+    # Check type parameters (Default: false)
+    check-type-param: true
+    # Ignore "ok" variables that hold the bool return value of a type assertion,
+    # map index, or channel receive (default: false)
+    ignore-type-assert-ok: true
+    ignore-map-index-ok: true
+    ignore-chan-recv-ok: true
+    # Optional list of variable declarations that should be ignored completely.
+    ignore-decls:
+      - t *testing.T
+
+
+output:
+  # prefer the simplest output: `line-number` without saving to file
+  formats:
+    - format: colored-line-number
+  print-issued-lines: false
+  print-linter-name: true
+  # allow multiple reports per line
+  uniq-by-line: true
+  # easier to follow the results with a deterministic output
+  sort-results: true
+  sort-order:
+    - linter
+    - severity
+    - file # filepath, line, and column.
+  # Show statistics per linter.
+  # Default: false
+  show-stats: true
+
+issues:
+  # setting 0 to have all the results.
+  max-issues-per-linter: 0
+  # nothing should be skipped to not miss errors.
+  max-same-issues: 0
+  # analyze only new code (manually set to false to check existing code)
+  new: true
+  # do not automatically fix 
+  fix: false
