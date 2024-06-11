@@ -84,10 +84,12 @@ Follow these steps to ensure consistent structure and seamless integration.
          logger.Log.Printf("An error occurred while getting resource ID info: %+v", err)
          return nil, err
      }
-     err = s.setupAzureHandler(resourceIdInfo)
+     // the namespace parameter could be de different from req.Deployment.Namespace
+     handler, err = s.setupAzureHandler(resourceIdInfo, req.Deployment.Namespace)
      if err != nil {
          return nil, err
      }
+     // Use handler
      ```
 
 3. Handling ARM Requests:
