@@ -21,6 +21,7 @@ package azure
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -42,6 +43,83 @@ type dummyAzureCredentialGetter struct {
 
 func (d *dummyAzureCredentialGetter) GetAzureCredentials() (azcore.TokenCredential, error) {
 	return nil, nil
+}
+
+func TestRun(t *testing.T) {
+
+	subscriptionId := GetAzureSubscriptionId()
+	resourceGroupName := "juilant-rg"
+	resourceName := "vm-2"
+	namespace := "default"
+	server := InitializeServer("localhost:50051")
+	ctx := context.Background()
+
+	resourceInfo := ResourceIDInfo{SubscriptionID: subscriptionId, ResourceGroupName: resourceGroupName, ResourceName: resourceName}
+	handler, err := server.setupAzureHandler(resourceInfo, namespace)
+
+	// Call the function you want to test
+	if err != nil {
+		// Handle errors
+		fmt.Println("Error in setupAzureHandler ")
+	}
+
+	fmt.Println("Starting server")
+	fmt.Println("Subscription ID: ", subscriptionId)
+
+	rsc, err := GetResourceFromName(ctx, handler, resourceGroupName, resourceName)
+	if err != nil {
+		fmt.Println("Error in GetResourceFromName: ", err)
+	}
+
+	// fmt.Println("Resource is: ", rsc)
+	fmt.Println("Resource ID: ", rsc)
+
+	resourceID := getVmUri(subscriptionId, resourceGroupName, resourceName)
+	network_info, err := GetNetworkInfoFromResource(ctx, handler, resourceID)
+	if err != nil {
+		fmt.Println("Error in GetNetworkInfo: ", err)
+	}
+
+	state_info, err := GetAndCheckResourceState(ctx, handler, resourceID, resourceGroupName)
+	if err != nil {
+		fmt.Println("Error in GetAndCheckResourceState: ", err)
+		// return
+	}
+	fmt.Println("State Info: ", state_info)
+
+	vnet := getVnetFromSubnetId(network_info.SubnetID)
+	fmt.Println("Vnet: ", vnet)
+
+	// vnet address spaces
+	addressSpaces, err := handler.GetVNetsAddressSpaces(ctx, vnet)
+	if err != nil {
+		fmt.Println("Error in GetVnetAddressSpaces: ", err)
+	}
+	fmt.Println("Address Spaces: ", addressSpaces)
+	fmt.Println("Network Info: ", network_info)
+
+	vnet_details, err := handler.GetVirtualNetwork(ctx, vnet)
+	if err != nil {
+		fmt.Println("Error in GetVirtualNetwork: ", err)
+	}
+	fmt.Println("Vnet Details: ", *(vnet_details.Name))
+
+	// fmt.Println("res id: ", resourceID)
+	// req := &paragliderpb.GetUsedAddressSpacesRequest{
+	// 	Deployments: []*paragliderpb.ParagliderDeployment{
+	// 		{Id: resourceID, Namespace: resourceGroupName},
+	// 	},
+	// }
+	// response, err := server.GetUsedAddressSpaces(ctx, req)
+	// response.AddressSpaceMappings[0].AddressSpaces[0]
+
+	resp, err := DoesVnetOverlapWithParaglider(ctx, handler, vnet, server)
+	if err != nil {
+		fmt.Println("Error in GetUsedAddressSpaces: ", err)
+	}
+	fmt.Println("Boolean Response: ", resp)
+
+	fmt.Println("DONE")
 }
 
 func setupTestAzurePluginServer() (*azurePluginServer, context.Context) {

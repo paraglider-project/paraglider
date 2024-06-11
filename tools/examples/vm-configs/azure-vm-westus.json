@@ -5,9 +5,9 @@
             "vmSize": "Standard_B1s"
         },
         "osProfile": {
-            "adminPassword": "<your-password>",
-            "adminUsername": "<your-username>",
-            "computerName": "sample-compute"
+            "adminPassword": "juliantpass1!",
+            "adminUsername": "juliant",
+            "computerName": "sample-compute1"
         },
         "storageProfile": {
             "imageReference": {

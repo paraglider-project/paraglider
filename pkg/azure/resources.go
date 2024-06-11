@@ -55,6 +55,10 @@ func getClusterUri(subscriptionId string, resourceGroupName string, clusterName 
 	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", subscriptionId, resourceGroupName, managedClusterTypeName, clusterName)
 }
 
+func getDeploymentUri(subscriptionId string, resourceGroupName string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", subscriptionId, resourceGroupName)
+}
+
 func getDnsServiceCidr(serviceCidr string) string {
 	// Get the first three octets of the service CIDR
 	split := strings.Split(serviceCidr, ".")
@@ -137,6 +141,56 @@ func GetResourceInfoFromResourceDesc(ctx context.Context, resource *paragliderpb
 		return nil, err
 	}
 	return handler.getResourceInfoFromDescription(ctx, resource)
+}
+
+// Verify that resource is supported, and return the resource ID
+func GetResourceFromName(ctx context.Context, handler *AzureSDKHandler, resourceGroup string, resourceName string) (string, error) {
+	resourceID := getVmUri(handler.subscriptionID, resourceGroup, resourceName)
+
+	// Verify resource is supported
+	resourceHandler, err := getResourceHandler(resourceID)
+	if err != nil {
+		fmt.Println("Resource Handler not found")
+		return "", err
+	}
+	fmt.Println("resourceHandler is: ", resourceHandler)
+
+	// Assert that resource group is known to handler
+	if resourceGroup != handler.resourceGroupName {
+		return "", fmt.Errorf("resource group %s is not managed by the deployment", resourceGroup)
+	}
+	return resourceID, nil
+	// resource, err := handler.GetResource(ctx, resourceID)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return resource, nil
+}
+
+func DoesVnetOverlapWithParaglider(ctx context.Context, handler *AzureSDKHandler, vnetName string, server *azurePluginServer) (bool, error) {
+	// Get the address space of the VNet
+	// vnet, err := handler.GetVirtualNetwork(ctx, getVnetFromSubnetId(vnetID))
+	// if err != nil {
+	// 	return true, err
+	// }
+
+	vnetAddress, err := handler.GetVNetsAddressSpaces(ctx, vnetName)
+	if err != nil {
+		return true, err
+	}
+
+	req := &paragliderpb.GetUsedAddressSpacesRequest{
+		Deployments: []*paragliderpb.ParagliderDeployment{
+			{Id: getDeploymentUri(handler.subscriptionID, handler.resourceGroupName), Namespace: handler.paragliderNamespace},
+		},
+	}
+	response, err := server.GetUsedAddressSpaces(ctx, req)
+	if err != nil {
+		fmt.Println("Error in GetUsedAddressSpaces: ", err)
+	}
+	fmt.Println("Response: ", response)
+	fmt.Println("VNet address space:", vnetAddress)
+	return false, nil
 }
 
 // Reads the resource description and provisions the resource with the given subnet

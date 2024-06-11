@@ -406,3 +406,13 @@ func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress st
 
 	return false, nil
 }
+
+func isResourceInNamespace(resourceName string, namespace string) (bool) {
+	fmt.Println("resourceName: ", resourceName)
+	fmt.Println("namespace: ", namespace)
+	if strings.HasPrefix(resourceName, getParagliderNamespacePrefix(namespace)) {
+		return true                                  
+	}
+	
+	return false
+}
