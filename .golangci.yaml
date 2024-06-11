@@ -127,9 +127,9 @@ output:
   # easier to follow the results with a deterministic output
   sort-results: true
   sort-order:
+    - file # filepath, line, and column.
     - linter
     - severity
-    - file # filepath, line, and column.
   # Show statistics per linter.
   # Default: false
   show-stats: true
@@ -140,6 +140,6 @@ issues:
   # nothing should be skipped to not miss errors.
   max-same-issues: 0
   # analyze only new code (manually set to false to check existing code)
-  new: true
+  new: false
   # do not automatically fix 
   fix: false
