@@ -420,7 +420,7 @@ func IsRemoteInCIDR(remote, cidr string) (bool, error) {
 		}
 		return netCidr.Contains(netIP), nil
 	}
-	return IsCIDRSubset(remote, cidr)
+	return utils.IsCIDRSubset(remote, cidr)
 }
 
 // GetRemoteType returns IBM specific keyword returned by vpc1 SDK,

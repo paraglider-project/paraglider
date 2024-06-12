@@ -18,8 +18,6 @@ package ibm
 
 import (
 	"fmt"
-	"net"
-	"net/netip"
 	"os"
 	"strings"
 
@@ -91,46 +89,6 @@ func GenerateResourceName(name string) string {
 // IsParagliderResource returns if a given resource (e.g. permit list) belongs to paraglider
 func IsParagliderResource(name string) bool {
 	return strings.HasPrefix(name, ParagliderResourcePrefix)
-}
-
-// DoCIDROverlap returns false if cidr blocks don't share a single ip,
-// i.e. they don't overlap.
-func DoCIDROverlap(cidr1, cidr2 string) (bool, error) {
-	netCIDR1, err := netip.ParsePrefix(cidr1)
-	if err != nil {
-		return true, err
-	}
-	netCIDR2, err := netip.ParsePrefix(cidr2)
-	if err != nil {
-		return true, err
-	}
-	if netCIDR2.Overlaps(netCIDR1) {
-		return true, nil
-	}
-
-	return false, nil
-}
-
-// IsCIDRSubset returns true if cidr1 is a subset (including equal) to cidr2
-func IsCIDRSubset(cidr1, cidr2 string) (bool, error) {
-	firstIP1, netCidr1, err := net.ParseCIDR(cidr1)
-	// ParseCIDR() example from Docs: for CIDR="192.0.2.1/24"
-	// IP=192.0.2.1 and network mask 192.0.2.0/24 are returned
-	if err != nil {
-		return false, err
-	}
-
-	_, netCidr2, err := net.ParseCIDR(cidr2)
-	if err != nil {
-		return false, err
-	}
-	// number of significant bits in the subnet mask
-	maskSize1, _ := netCidr1.Mask.Size()
-	maskSize2, _ := netCidr2.Mask.Size()
-	// cidr1 is a subset of cidr2 if the first user ip of cidr1 within cidr2
-	// and the network mask of cidr1 is no smaller than that of cidr2, as
-	// fewer bits are left for user address space.
-	return netCidr2.Contains(firstIP1) && maskSize1 >= maskSize2, nil
 }
 
 // TODO cleanup k8s clusters

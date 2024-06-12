@@ -134,7 +134,7 @@ func (c *CloudClient) DoSubnetsInVPCOverlapCIDR(vpcID string,
 	}
 
 	for _, subnet := range subnets {
-		doesOverlap, err := DoCIDROverlap(*subnet.Ipv4CIDRBlock, CIDR)
+		doesOverlap, err := utils.DoCIDROverlap(*subnet.Ipv4CIDRBlock, CIDR)
 		if err != nil {
 			return true, err
 		}
