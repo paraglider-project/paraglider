@@ -1,20 +1,23 @@
-server:
+server: 
   host: "localhost"
   port: 8080
   rpcPort: 8081
 
 cloudPlugins:
+  - name: "gcp"
+    host: "localhost"
+    port: 10001
   - name: "azure"
     host: "localhost"
-    port: 8082
-
-tagService:
-  host: "localhost"
-  port: 8083
-
-
+    port: 10002
 
 namespaces: 
   default:
     - name: "azure"
-      deployment: "/subscriptions/2051cdb8-80a4-48a4-840c-ac989eb486a2/resourceGroups/juilant-rg"
+      deployment: "/subscriptions/<sub-id>/resourceGroups/<rg-name>"
+    - name: "gcp"
+      deployment: "projects/<project-name>"
+
+tagService:
+  host: "localhost"
+  port: 6000

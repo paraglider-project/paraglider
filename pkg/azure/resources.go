@@ -144,37 +144,36 @@ func GetResourceInfoFromResourceDesc(ctx context.Context, resource *paragliderpb
 }
 
 // Verify that resource is supported, and return the resource ID
-func GetResourceFromName(ctx context.Context, handler *AzureSDKHandler, resourceGroup string, resourceName string) (string, error) {
+func GetResourceIDFromName(ctx context.Context, handler *AzureSDKHandler, resourceGroup string, resourceName string) (string, error) {
 	resourceID := getVmUri(handler.subscriptionID, resourceGroup, resourceName)
 
 	// Verify resource is supported
-	resourceHandler, err := getResourceHandler(resourceID)
+	_, err := getResourceHandler(resourceID)
 	if err != nil {
 		fmt.Println("Resource Handler not found")
 		return "", err
 	}
-	fmt.Println("resourceHandler is: ", resourceHandler)
 
-	// Assert that resource group is known to handler
-	if resourceGroup != handler.resourceGroupName {
-		return "", fmt.Errorf("resource group %s is not managed by the deployment", resourceGroup)
+	// Check if the constructed resource ID exists on the Azure
+	_, err = handler.GetResource(ctx, resourceID)
+	if err != nil {
+		return "", err
 	}
+
 	return resourceID, nil
-	// resource, err := handler.GetResource(ctx, resourceID)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return resource, nil
+}
+
+// Reads the resource description and provisions the resource with the given subnet
+func ReadAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+	handler, err := getResourceHandlerFromDescription(resource.Description)
+	if err != nil {
+		return "", err
+	}
+	return handler.readAndProvisionResource(ctx, resource, subnet, resourceInfo, sdkHandler, additionalAddressSpaces)
 }
 
 func DoesVnetOverlapWithParaglider(ctx context.Context, handler *AzureSDKHandler, vnetName string, server *azurePluginServer) (bool, error) {
-	// Get the address space of the VNet
-	// vnet, err := handler.GetVirtualNetwork(ctx, getVnetFromSubnetId(vnetID))
-	// if err != nil {
-	// 	return true, err
-	// }
-
-	vnetAddress, err := handler.GetVNetsAddressSpaces(ctx, vnetName)
+	vnetAddressMap, err := handler.GetVNetsAddressSpaces(ctx, vnetName)
 	if err != nil {
 		return true, err
 	}
@@ -186,20 +185,25 @@ func DoesVnetOverlapWithParaglider(ctx context.Context, handler *AzureSDKHandler
 	}
 	response, err := server.GetUsedAddressSpaces(ctx, req)
 	if err != nil {
-		fmt.Println("Error in GetUsedAddressSpaces: ", err)
+		return true, err
 	}
-	fmt.Println("Response: ", response)
-	fmt.Println("VNet address space:", vnetAddress)
-	return false, nil
-}
 
-// Reads the resource description and provisions the resource with the given subnet
-func ReadAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
-	handler, err := getResourceHandlerFromDescription(resource.Description)
-	if err != nil {
-		return "", err
+	var vnetAddress string
+	for _, val := range vnetAddressMap {
+		vnetAddress = val[0]
 	}
-	return handler.readAndProvisionResource(ctx, resource, subnet, resourceInfo, sdkHandler, additionalAddressSpaces)
+
+	// Check if the Vnet address space overlaps with any of the used address spaces
+	for _, mapping := range response.AddressSpaceMappings {
+		for _, addressSpace := range mapping.AddressSpaces {
+			doesOverlap, err := utils.DoesCIDROverlap(vnetAddress, addressSpace)
+			if doesOverlap || err != nil {
+				return true, err
+			}
+		}
+	}
+
+	return false, nil
 }
 
 // Interface that must be implemented for a resource to be supported
