@@ -30,6 +30,7 @@ service CloudPlugin {
     rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}
     rpc CreateVpnGateway(CreateVpnGatewayRequest) returns (CreateVpnGatewayResponse) {}
     rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (CreateVpnConnectionsResponse) {}
+    rpc GetResourceSubnetsAddress(GetResourceSubnetsAddressRequest) returns (GetResourceSubnetsAddressResponse) {}
 }
 
 service Controller {
@@ -144,7 +145,7 @@ message CreateVpnGatewayRequest {
     ParagliderDeployment deployment = 1;
     string cloud = 2;
     repeated string bgp_peering_ip_addresses = 3;
-    string address_space = 4;  // address space in this cloud, to be served by the VPN gateway. Used by IBM.
+    string address_space = 4;  // required by IBM to identify the VPN gateway referenced by this request 
 }
 
 message CreateVpnGatewayResponse {
@@ -159,9 +160,9 @@ message CreateVpnConnectionsRequest {
     repeated string gateway_ip_addresses = 4;
     repeated string bgp_ip_addresses = 5;
     string shared_key = 6;
-    repeated string remote_addresses = 7;    // addresses in remote cloud. Used to support non BGP VPNs
+    repeated string remote_addresses = 7;    // addresses in remote cloud. Used to support BGP disabled VPNs
     bool is_bgp_disabled = 8; // indicates whether BGP for peer VPN is disabled.
-    string address_space = 9;  // address space in this cloud, to be served by the VPN gateway. Used by IBM.
+    string address_space = 9;  // required by IBM to identify the VPN gateway referenced by this request
 }
 
 message CreateVpnConnectionsResponse {
@@ -235,4 +236,15 @@ message DeleteValueRequest {
 }
 
 message DeleteValueResponse {
+}
+
+
+// returns the subnets addresses of the VNet/VPC containing the address space provided by GetResourceSubnetsAddressRequest
+message GetResourceSubnetsAddressResponse {
+   repeated string address_spaces = 1;
+}
+
+message GetResourceSubnetsAddressRequest {
+    ParagliderDeployment deployment = 1;
+    string address_space = 2;
 }

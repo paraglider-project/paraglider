@@ -375,10 +375,10 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 				ruleTargetAddress := ibmRules[i].Remote
 				// Create VPN connections
 				connectCloudsReq := &paragliderpb.ConnectCloudsRequest{
-					CloudA:             utils.IBM,
-					CloudANamespace:    req.Namespace,
-					CloudB:             peeringCloudInfo.Cloud,
-					CloudBNamespace:    peeringCloudInfo.Namespace,
+					CloudA:              utils.IBM,
+					CloudANamespace:     req.Namespace,
+					CloudB:              peeringCloudInfo.Cloud,
+					CloudBNamespace:     peeringCloudInfo.Namespace,
 					AddressSpacesCloudA: vpcAddressSpaces,
 					AddressSpacesCloudB: []string{ruleTargetAddress},
 				}
@@ -608,6 +608,7 @@ func (s *IBMPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderp
 	if err != nil {
 		return nil, err
 	}
+	// deduce region of VPC containing the provided address space
 	region, err := s.getRegionOfAddressSpace(rInfo.ResourceGroup, req.Deployment.Namespace, req.AddressSpace)
 	if err != nil {
 		return nil, err
@@ -667,6 +668,7 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 		utils.Log.Printf("Failed to get ResourceIDInfo from deployment %v, while creating VPN connections, with error: %+v", req.Deployment.Id, err)
 		return nil, err
 	}
+	// deduce region of VPC containing the provided address space
 	region, err := s.getRegionOfAddressSpace(rInfo.ResourceGroup, req.Deployment.Namespace, req.AddressSpace)
 	if err != nil {
 		utils.Log.Printf("Failed to get region of address space %v, while creating VPN connections, with error: %+v", req.AddressSpace, err)
@@ -714,6 +716,46 @@ func (s *IBMPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req 
 // GetUsedAsns returns an empty response, since ASNs aren't exposed on IBM cloud
 func (s *IBMPluginServer) GetUsedAsns(ctx context.Context, req *paragliderpb.GetUsedAsnsRequest) (*paragliderpb.GetUsedAsnsResponse, error) {
 	return &paragliderpb.GetUsedAsnsResponse{}, nil
+}
+
+// GetResourceSubnetsAddress returns the subnets addresses of the VPC containing the specified address space
+func (s *IBMPluginServer) GetResourceSubnetsAddress(ctx context.Context, req *paragliderpb.GetResourceSubnetsAddressRequest) (*paragliderpb.GetResourceSubnetsAddressResponse, error) {
+	rInfo, err := getResourceMeta(req.Deployment.Id)
+	if err != nil {
+		utils.Log.Printf("Failed to get ResourceIDInfo from deployment %v, while fetching address spaces of VPC containing address space: %v, with error: %+v", req.Deployment.Id, req.AddressSpace, err)
+		return nil, err
+	}
+
+	client, err := s.setupCloudClient(rInfo.ResourceGroup, defaultRegion)
+	if err != nil {
+		utils.Log.Printf("Failed to setup cloud client with default region %v while fetching address spaces of VPC containing address space: %v with error: %+v", defaultRegion, req.AddressSpace, err)
+		return nil, err
+	}
+	vpcsData, err := client.GetParagliderTaggedResources(sdk.VPC, []string{req.Deployment.Namespace}, sdk.ResourceQuery{})
+	if err != nil {
+		utils.Log.Printf("Failed to fetch VPCs, while trying to get region of address space %v in namespace %v with error: %+v", req.AddressSpace, req.Deployment.Namespace, err)
+		return nil, err
+	}
+	for _, vpcData := range vpcsData {
+		client, err := s.setupCloudClient(rInfo.ResourceGroup, vpcData.Region)
+		if err != nil {
+			utils.Log.Printf("Failed to setup cloud client in region %v, while trying to get region of address space %v in namespace %v with error: %+v", vpcData.Region, req.AddressSpace, req.Deployment.Namespace, err)
+			return nil, err
+		}
+		VPCFound, err := client.IsRemoteInVPC(vpcData.ID, req.AddressSpace)
+		if err != nil {
+			utils.Log.Printf("Error occurred while checking whether VPC %v contains address space %v, in region %v: %+v", vpcData.ID, vpcData.Region, req.AddressSpace, err)
+			return nil, err
+		}
+		if VPCFound {
+			vpcAddressSpaces, err := client.GetVpcCIDR(vpcData.ID)
+			if err != nil {
+				return nil, err
+			}
+			return &paragliderpb.GetResourceSubnetsAddressResponse{AddressSpaces: vpcAddressSpaces}, nil
+		}
+	}
+	return nil, fmt.Errorf("failed to locate VPC containing address space: %v", req.AddressSpace)
 }
 
 // Setup starts up the plugin server and stores the orchestrator server address.

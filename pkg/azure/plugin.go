@@ -149,27 +149,17 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 	// get the vnet to be able to get both the address space as well as the peering when needed
 	resourceVnet, err := azureHandler.GetVNet(ctx, getVnetName(netInfo.Location, req.Namespace))
 	if err != nil {
-		utils.Log.Printf("An error occured while getting resource vnet:%+v", err)
-		return nil, err
-	}
-
-	// Get subnet address space
-	subnetAddressPrefixes := []string{}
-	for _, subnet := range resourceVnet.Properties.Subnets {
-		if *subnet.Name == "default" {
-			if subnet.Properties.AddressPrefix != nil {
-				// Check to avoid nil pointer dereference
-				subnetAddressPrefixes = append(subnetAddressPrefixes, *subnet.Properties.AddressPrefix) 
-			}
-		}
-	}
-	if len(subnetAddressPrefixes) == 0 {
-		return nil, fmt.Errorf("unable to get subnet address prefix")
-	}
-
-	if err != nil {
 		utils.Log.Printf("An error occured while getting paraglider vnets address spaces:%+v", err)
 		return nil, err
+	}
+
+	// Get subnets address spaces
+	localVnetAddressSpaces := []string{}
+	for _, addressSpace := range resourceVnet.Properties.AddressSpace.AddressPrefixes {
+		localVnetAddressSpaces = append(localVnetAddressSpaces, *addressSpace)
+	}
+	if len(localVnetAddressSpaces) == 0 {
+		return nil, fmt.Errorf("unable to get subnet address prefix")
 	}
 
 	// Add the rules to the NSG
@@ -188,11 +178,11 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 			if peeringCloudInfo.Cloud != utils.AZURE {
 				// Create VPN connections
 				connectCloudsReq := &paragliderpb.ConnectCloudsRequest{
-					CloudA:             utils.AZURE,
-					CloudANamespace:    req.Namespace,
-					CloudB:             peeringCloudInfo.Cloud,
-					CloudBNamespace:    peeringCloudInfo.Namespace,
-					AddressSpacesCloudA: subnetAddressPrefixes,
+					CloudA:          utils.AZURE,
+					CloudANamespace: req.Namespace,
+					CloudB:          peeringCloudInfo.Cloud,
+					CloudBNamespace: peeringCloudInfo.Namespace,
+					AddressSpacesCloudA: localVnetAddressSpaces,
 					AddressSpacesCloudB: []string{address},
 				}
 				_, err := orchestratorClient.ConnectClouds(ctx, connectCloudsReq)
@@ -200,11 +190,6 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 					return nil, fmt.Errorf("unable to connect clouds : %w", err)
 				}
 			} else {
-				localVnetAddressSpaces := []string{}
-				for _, addressSpace := range resourceVnet.Properties.AddressSpace.AddressPrefixes {
-					localVnetAddressSpaces = append(localVnetAddressSpaces, *addressSpace)
-				}
-
 				isLocal, err := utils.IsPermitListRuleTagInAddressSpace(rule.Targets[i], localVnetAddressSpaces)
 				if err != nil {
 					return nil, fmt.Errorf("unable to determine if tag is in local vnet address space: %w", err)
@@ -736,7 +721,7 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 	if err != nil {
 		return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
 	}
-	
+
 	bgpStatus := !req.IsBgpDisabled
 	for i := 0; i < vpnNumConnections; i++ {
 		virtualNetworkGatewayconnectionName := getVirtualNetworkGatewayConnectionName(req.Deployment.Namespace, req.Cloud, i)
@@ -836,6 +821,25 @@ func getIPSecPolicy(cloud string) []*armnetwork.IPSecPolicy {
 		}
 	}
 	return ipSecPolicies
+}
+
+// GetResourceSubnetsAddress returns the subnets addresses of the VNet containing the specified address space
+func (s *azurePluginServer) GetResourceSubnetsAddress(ctx context.Context, req *paragliderpb.GetResourceSubnetsAddressRequest) (*paragliderpb.GetResourceSubnetsAddressResponse, error) {
+	// TODO Implement method
+	// This is a placeholder implementation, converting the VM's IP to a CIDR. Instead:
+	// 1. locate the VNet containing the IP of the provided VM.
+	// 2. return the address spaces of all subnets in the above VNet.
+	var resourceAddress string
+	ip := net.ParseIP(req.AddressSpace)
+	if ip != nil {
+		resourceAddress = req.AddressSpace + "/32"
+	} else if _, _, err := net.ParseCIDR(resourceAddress); err != nil {
+		resourceAddress = req.AddressSpace
+	} else {
+		return nil, fmt.Errorf("failed to get addresses of subnets in Azure's VNet containing %v", req.AddressSpace)
+	}
+
+	return &paragliderpb.GetResourceSubnetsAddressResponse{AddressSpaces: []string{resourceAddress}}, nil
 }
 
 func Setup(port int, orchestratorServerAddr string) *azurePluginServer {

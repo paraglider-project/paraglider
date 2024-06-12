@@ -826,7 +826,8 @@ func (s *ControllerServer) getCloudDeployment(cloud, namespace string) string {
 // Connects two clouds with VPN gateways
 func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.ConnectCloudsRequest) (*paragliderpb.ConnectCloudsResponse, error) {
 	var isBGPDisabledConnection bool
-	var addressSpaceCloudA, addressSpaceCloudB string
+	var addressSpaceCloudA, addressSpaceCloudB string  // address space of a resource to be served by a VPN created/fetched by this method.
+	var cloudBNetworkAddressSpaces []string  // VNet's/VPC's address spaces of remote cloud (cloudB) 
 	if req.CloudA == req.CloudB {
 		return nil, fmt.Errorf("must specify different clouds to connect")
 	}
@@ -872,28 +873,40 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 			cloudBBgpPeeringIpAddresses[i] = bgpPeeringIpAddresses[i*2+1]
 		}
 		if len(req.AddressSpacesCloudA) != 0 {
-			addressSpaceCloudA = req.AddressSpacesCloudA[0]
+			addressSpaceCloudA = req.AddressSpacesCloudA[0] // required by IBM to identify the VPN gateway that's being used
+		}
+		if len(req.AddressSpacesCloudB) != 0 {
+			addressSpaceCloudB = req.AddressSpacesCloudB[0] // required by IBM to identify the VPN gateway that's being used
 		}
 		cloudAParagliderDeployment := &paragliderpb.ParagliderDeployment{Id: s.getCloudDeployment(req.CloudA, req.CloudANamespace), Namespace: req.CloudANamespace}
 		cloudACreateVpnGatewayReq := &paragliderpb.CreateVpnGatewayRequest{
 			Deployment:            cloudAParagliderDeployment,
 			Cloud:                 req.CloudB,
 			BgpPeeringIpAddresses: cloudABgpPeeringIpAddresses,
-			AddressSpace:          addressSpaceCloudA, // address space that the VPN will serve
+			AddressSpace:          addressSpaceCloudA,
 		}
+
+		// get CIDR of VPC/VNet in remote cloud (cloudB) containing the resource's IP.
+		// network address spaces of cloud A was provided by cloud A when it issued the connect cloud request,
+		// hence accessible by req.AddressSpacesCloudA.
+		cloudBParagliderDeployment := &paragliderpb.ParagliderDeployment{Id: s.getCloudDeployment(req.CloudB, req.CloudBNamespace), Namespace: req.CloudBNamespace}
+		if isBGPDisabledConnection {
+			res, err := cloudBClient.GetResourceSubnetsAddress(ctx, &paragliderpb.GetResourceSubnetsAddressRequest{Deployment: cloudBParagliderDeployment, AddressSpace: addressSpaceCloudB})
+			if err != nil {
+				return nil, err
+			}
+			cloudBNetworkAddressSpaces = res.AddressSpaces
+		}
+
 		cloudACreateVpnGatewayResp, err := cloudAClient.CreateVpnGateway(ctx, cloudACreateVpnGatewayReq)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create vpn gateway in cloud %s: %w", req.CloudA, err)
 		}
-		if len(req.AddressSpacesCloudB) != 0 {
-			addressSpaceCloudB = req.AddressSpacesCloudB[0]
-		}
-		cloudBParagliderDeployment := &paragliderpb.ParagliderDeployment{Id: s.getCloudDeployment(req.CloudB, req.CloudBNamespace), Namespace: req.CloudBNamespace}
 		cloudBCreateVpnGatewayReq := &paragliderpb.CreateVpnGatewayRequest{
 			Deployment:            cloudBParagliderDeployment,
 			Cloud:                 req.CloudA,
 			BgpPeeringIpAddresses: cloudBBgpPeeringIpAddresses,
-			AddressSpace:          addressSpaceCloudB, // address space that the VPN will serve
+			AddressSpace:          addressSpaceCloudB,
 		}
 		cloudBCreateVpnGatewayResp, err := cloudBClient.CreateVpnGateway(ctx, cloudBCreateVpnGatewayReq)
 		if err != nil {
@@ -909,9 +922,9 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 			GatewayIpAddresses: cloudBCreateVpnGatewayResp.GatewayIpAddresses,
 			BgpIpAddresses:     cloudBBgpPeeringIpAddresses,
 			SharedKey:          sharedKey,
-			RemoteAddresses:    req.AddressSpacesCloudB,  // provides non BGP connections with remote address target
-			IsBgpDisabled:      isBGPDisabledConnection, // informs cloud A that BGP is disabled on peer cloud
-			AddressSpace:       addressSpaceCloudA,      // Address space vpn was deployed at
+			RemoteAddresses:    cloudBNetworkAddressSpaces, // provides non BGP connections with remote address target
+			IsBgpDisabled:      isBGPDisabledConnection,    // informs cloud A that BGP is disabled on peer cloud
+			AddressSpace:       addressSpaceCloudA,         // Address space of a subnet/resource's IP in cloud A.
 		}
 		_, err = cloudAClient.CreateVpnConnections(ctx, cloudACreateVpnConnectionsReq)
 		if err != nil {
@@ -924,9 +937,9 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 			GatewayIpAddresses: cloudACreateVpnGatewayResp.GatewayIpAddresses,
 			BgpIpAddresses:     cloudABgpPeeringIpAddresses,
 			SharedKey:          sharedKey,
-			RemoteAddresses:    req.AddressSpacesCloudA,  // provides non BGP connections with remote address target
+			RemoteAddresses:    req.AddressSpacesCloudA, // provides non BGP connections with remote address target
 			IsBgpDisabled:      isBGPDisabledConnection, // informs cloud B that BGP is disabled on peer cloud
-			AddressSpace:       addressSpaceCloudB,      // Address space vpn was deployed at
+			AddressSpace:       addressSpaceCloudB,      // Address space of a subnet/resource's IP in cloud B.
 		}
 		_, err = cloudBClient.CreateVpnConnections(ctx, cloudBCreateVpnConnectionsReq)
 		if err != nil {
