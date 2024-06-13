@@ -21,6 +21,7 @@ package azure
 import (
 	"context"
 	"testing"
+	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 
@@ -111,6 +112,39 @@ func TestGetNetworkInfoFromResource(t *testing.T) {
 	assert.Equal(t, aksInfo.Address, *getFakeSubnet().Properties.AddressPrefix)
 	assert.Equal(t, aksInfo.Location, *serverState.cluster.Location)
 	assert.Equal(t, *aksInfo.NSG.ID, *getFakeNSG().ID)
+}
+
+func TestGetResourceIDFromName(t *testing.T) {
+	serverState := &fakeServerState{
+		subId:   subID,
+		rgName:  rgName,
+		nsg:     getFakeNSG(),
+		nic:     getFakeInterface(),
+		subnet:  getFakeSubnet(),
+		vm:      to.Ptr(getFakeVirtualMachine(true)),
+		cluster: to.Ptr(getFakeCluster(true)),
+	}
+	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
+
+	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
+
+	vm := getFakeVirtualMachine(false)
+	fmt.Println(*(vm.ID))
+
+	// // Test for VM
+	// vmID, err := GetResourceIDFromName(context.Background(), handler, *getFakeVirtualMachine(true).Name)
+
+	// require.NoError(t, err)
+	// assert.Equal(t, vmID, *getFakeVirtualMachine(true).ID)
+
+	// // Test for AKS
+	// aksID, err := GetResourceIDFromName(context.Background(), handler, *getFakeCluster(true).Name)
+
+	// require.NoError(t, err)
+	// assert.Equal(t, aksID, *getFakeCluster(true).ID)
 }
 
 func TestReadAndProvisionResource(t *testing.T) {
