@@ -20,8 +20,8 @@ package azure
 
 import (
 	"context"
+	"net/http/httptest"
 	"testing"
-	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 
@@ -29,7 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetAndCheckResourceState(t *testing.T) {
+func setupFakeServerWithState(t *testing.T) (*httptest.Server, *fakeServerState) {
 	serverState := &fakeServerState{
 		subId:   subID,
 		rgName:  rgName,
@@ -39,7 +39,13 @@ func TestGetAndCheckResourceState(t *testing.T) {
 		vm:      to.Ptr(getFakeVirtualMachine(true)),
 		cluster: to.Ptr(getFakeCluster(true)),
 	}
+
 	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	return fakeServer, serverState
+}
+
+func TestGetAndCheckResourceState(t *testing.T) {
+	fakeServer, serverState := setupFakeServerWithState(t)
 	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
@@ -75,16 +81,7 @@ func TestGetAndCheckResourceState(t *testing.T) {
 }
 
 func TestGetNetworkInfoFromResource(t *testing.T) {
-	serverState := &fakeServerState{
-		subId:   subID,
-		rgName:  rgName,
-		nsg:     getFakeNSG(),
-		nic:     getFakeInterface(),
-		subnet:  getFakeSubnet(),
-		vm:      to.Ptr(getFakeVirtualMachine(true)),
-		cluster: to.Ptr(getFakeCluster(true)),
-	}
-	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	fakeServer, serverState := setupFakeServerWithState(t)
 	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
@@ -114,50 +111,27 @@ func TestGetNetworkInfoFromResource(t *testing.T) {
 	assert.Equal(t, *aksInfo.NSG.ID, *getFakeNSG().ID)
 }
 
-func TestGetResourceIDFromName(t *testing.T) {
-	serverState := &fakeServerState{
-		subId:   subID,
-		rgName:  rgName,
-		nsg:     getFakeNSG(),
-		nic:     getFakeInterface(),
-		subnet:  getFakeSubnet(),
-		vm:      to.Ptr(getFakeVirtualMachine(true)),
-		cluster: to.Ptr(getFakeCluster(true)),
-	}
-	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+func TestValidateResourceExists(t *testing.T) {
+	fakeServer, _ := setupFakeServerWithState(t)
 	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
 	err := handler.InitializeClients(nil)
 	require.NoError(t, err)
 
-	vm := getFakeVirtualMachine(false)
-	fmt.Println(*(vm.ID))
+	// Test for VM
+	isExistingResource, err := ValidateResourceExists(context.Background(), handler, vmURI)
+	require.NoError(t, err)
+	assert.Equal(t, isExistingResource, true)
 
-	// // Test for VM
-	// vmID, err := GetResourceIDFromName(context.Background(), handler, *getFakeVirtualMachine(true).Name)
-
-	// require.NoError(t, err)
-	// assert.Equal(t, vmID, *getFakeVirtualMachine(true).ID)
-
-	// // Test for AKS
-	// aksID, err := GetResourceIDFromName(context.Background(), handler, *getFakeCluster(true).Name)
-
-	// require.NoError(t, err)
-	// assert.Equal(t, aksID, *getFakeCluster(true).ID)
+	// Test for AKS
+	isExistingCluster, err := ValidateResourceExists(context.Background(), handler, aksURI)
+	require.NoError(t, err)
+	assert.Equal(t, isExistingCluster, true)
 }
 
 func TestReadAndProvisionResource(t *testing.T) {
-	serverState := &fakeServerState{
-		subId:   subID,
-		rgName:  rgName,
-		nsg:     getFakeNSG(),
-		nic:     getFakeInterface(),
-		subnet:  getFakeSubnet(),
-		vm:      to.Ptr(getFakeVirtualMachine(true)),
-		cluster: to.Ptr(getFakeCluster(true)),
-	}
-	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	fakeServer, _ := setupFakeServerWithState(t)
 	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
@@ -255,14 +229,7 @@ func TestAzureResourceHandlerVMReadAndProvisionResource(t *testing.T) {
 }
 
 func TestAzureVMGetNetworkInfo(t *testing.T) {
-	serverState := &fakeServerState{
-		subId:  subID,
-		rgName: rgName,
-		vm:     to.Ptr(getFakeVirtualMachine(true)),
-		nsg:    getFakeNSG(),
-		nic:    getFakeInterface(),
-	}
-	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	fakeServer, serverState := setupFakeServerWithState(t)
 	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
