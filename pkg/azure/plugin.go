@@ -813,3 +813,28 @@ func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 	}()
 	return azureServer
 }
+
+func DoesResourceComplyWithParagliderRequirements(ctx context.Context, resourceID string, azureHandler *AzureSDKHandler, server *azurePluginServer) (bool, error) {
+	_, err := ValidateResourceExists(ctx, azureHandler, resourceID)
+	if err != nil {
+		return false, err
+	}
+
+	network_info, err := GetNetworkInfoFromResource(ctx, azureHandler, resourceID)
+	if err != nil {
+		return false, fmt.Errorf("Error in getting resource %s network info: %w", resourceID, err)
+	}
+
+	vnetName := getVnetFromSubnetId(network_info.SubnetID)
+
+	isOverlapping, err := DoesVnetOverlapWithParaglider(ctx, azureHandler, vnetName, server)
+	if err != nil {
+		return false, err
+	}
+
+	if isOverlapping {
+		return false, fmt.Errorf("Resource %s Network Address Space overlaps with Paraglider Network Address Space. Not allowed", resourceID)
+	}
+
+	return true, nil
+}
