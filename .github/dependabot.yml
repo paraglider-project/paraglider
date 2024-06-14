@@ -10,7 +10,7 @@ updates:
     schedule:
       interval: "monthly"
     groups:
-      all:
+      gomod-all:
         patterns:
           - "*"
         update-types:
@@ -21,7 +21,7 @@ updates:
     schedule:
       interval: "monthly"
     groups:
-      all:
+      devcontainers-all:
         patterns:
           - "*"
         update-types:
@@ -32,7 +32,7 @@ updates:
     schedule:
       interval: "monthly"
     groups:
-      all:
+      pip-all:
         patterns:
           - "*"
         update-types:
@@ -43,7 +43,7 @@ updates:
     schedule:
       interval: "monthly"
     groups:
-      all:
+      github-actions-all:
         patterns:
           - "*"
         update-types:

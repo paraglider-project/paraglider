@@ -38,6 +38,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
 
+const namespaceTagKey = "paraglider-namespace"
+
 type AzureSDKHandler struct {
 	resourcesClientFactory                 *armresources.ClientFactory
 	computeClientFactory                   *armcompute.ClientFactory
@@ -59,6 +61,7 @@ type AzureSDKHandler struct {
 	localNetworkGatewaysClient             *armnetwork.LocalNetworkGatewaysClient
 	subscriptionID                         string
 	resourceGroupName                      string
+	paragliderNamespace                    string
 }
 
 type IAzureCredentialGetter interface {
@@ -467,7 +470,7 @@ func (h *AzureSDKHandler) GetParagliderVnet(ctx context.Context, vnetName string
 		if isErrorNotFound(err) {
 			// Create the virtual network if it doesn't exist
 			// Get the address space from the orchestrator service
-			conn, err := grpc.Dial(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.NewClient(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
 				utils.Log.Printf("could not dial the orchestrator")
 				return nil, err
@@ -492,7 +495,7 @@ func (h *AzureSDKHandler) GetParagliderVnet(ctx context.Context, vnetName string
 // AddSubnetToParagliderVnet adds a subnet to an paraglider vnet
 func (h *AzureSDKHandler) AddSubnetToParagliderVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error) {
 	// Get a new address space
-	conn, err := grpc.Dial(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		utils.Log.Printf("could not dial the orchestrator")
 		return nil, err
@@ -548,6 +551,7 @@ func (h *AzureSDKHandler) CreateParagliderVirtualNetwork(ctx context.Context, lo
 			},
 		},
 	}
+	h.createParagliderNamespaceTag(&parameters.Tags)
 
 	pollerResponse, err := h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vnetName, parameters, nil)
 	if err != nil {
@@ -563,6 +567,7 @@ func (h *AzureSDKHandler) CreateParagliderVirtualNetwork(ctx context.Context, lo
 }
 
 func (h *AzureSDKHandler) CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error) {
+	h.createParagliderNamespaceTag(&parameters.Tags)
 	pollerResponse, err := h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
 	if err != nil {
 		return nil, err
@@ -616,6 +621,7 @@ func (h *AzureSDKHandler) CreateSecurityGroup(ctx context.Context, resourceName 
 			},
 		},
 	}
+	h.createParagliderNamespaceTag(&nsgParameters.Tags)
 	i := 1
 	for name, cidr := range allowedCIDRs {
 		nsgParameters.Properties.SecurityRules = append(nsgParameters.Properties.SecurityRules, &armnetwork.SecurityRule{
@@ -684,6 +690,7 @@ func (h *AzureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 			},
 		},
 	}
+	h.createParagliderNamespaceTag(&parameters.Tags)
 
 	nicPollerResponse, err := h.interfacesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nicName, parameters, nil)
 	if err != nil {
@@ -700,6 +707,7 @@ func (h *AzureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 
 // CreateVirtualMachine creates a new virtual machine with the given parameters and name
 func (h *AzureSDKHandler) CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error) {
+	h.createParagliderNamespaceTag(&parameters.Tags)
 	pollerResponse, err := h.virtualMachinesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vmName, parameters, nil)
 	if err != nil {
 		return nil, err
@@ -714,6 +722,7 @@ func (h *AzureSDKHandler) CreateVirtualMachine(ctx context.Context, parameters a
 
 // CreateAKSCluster creates a new AKS cluster with the given parameters and name
 func (h *AzureSDKHandler) CreateAKSCluster(ctx context.Context, parameters armcontainerservice.ManagedCluster, clusterName string) (*armcontainerservice.ManagedCluster, error) {
+	h.createParagliderNamespaceTag(&parameters.Tags)
 	pollerResponse, err := h.managedClustersClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, clusterName, parameters, nil)
 	if err != nil {
 		return nil, err
@@ -736,6 +745,7 @@ func (h *AzureSDKHandler) GetVNet(ctx context.Context, vnetName string) (*armnet
 }
 
 func (h *AzureSDKHandler) CreateOrUpdateVirtualNetworkGateway(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGateway) (*armnetwork.VirtualNetworkGateway, error) {
+	h.createParagliderNamespaceTag(&parameters.Tags)
 	pollerResponse, err := h.virtualNetworkGatewaysClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
 	if err != nil {
 		return nil, err
@@ -756,6 +766,7 @@ func (h *AzureSDKHandler) GetVirtualNetworkGateway(ctx context.Context, name str
 }
 
 func (h *AzureSDKHandler) CreatePublicIPAddress(ctx context.Context, name string, parameters armnetwork.PublicIPAddress) (*armnetwork.PublicIPAddress, error) {
+	h.createParagliderNamespaceTag(&parameters.Tags)
 	pollerResponse, err := h.publicIPAddressesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
 	if err != nil {
 		return nil, err
@@ -808,6 +819,7 @@ func (h *AzureSDKHandler) GetSubnetByID(ctx context.Context, subnetID string) (*
 }
 
 func (h *AzureSDKHandler) CreateLocalNetworkGateway(ctx context.Context, name string, parameters armnetwork.LocalNetworkGateway) (*armnetwork.LocalNetworkGateway, error) {
+	h.createParagliderNamespaceTag(&parameters.Tags)
 	pollerResponse, err := h.localNetworkGatewaysClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
 	if err != nil {
 		return nil, err
@@ -828,6 +840,7 @@ func (h *AzureSDKHandler) GetLocalNetworkGateway(ctx context.Context, name strin
 }
 
 func (h *AzureSDKHandler) CreateVirtualNetworkGatewayConnection(ctx context.Context, name string, parameters armnetwork.VirtualNetworkGatewayConnection) (*armnetwork.VirtualNetworkGatewayConnection, error) {
+	h.createParagliderNamespaceTag(&parameters.Tags)
 	pollerResponse, err := h.virtualNetworkGatewayConnectionsClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
 	if err != nil {
 		return nil, err
@@ -845,6 +858,14 @@ func (h *AzureSDKHandler) GetVirtualNetworkGatewayConnection(ctx context.Context
 		return nil, err
 	}
 	return &resp.VirtualNetworkGatewayConnection, nil
+}
+
+// Creates a tag for the Paraglider namespace in the "Tag" field of various resource parameters
+func (h *AzureSDKHandler) createParagliderNamespaceTag(tags *map[string]*string) {
+	if *tags == nil {
+		*tags = make(map[string]*string)
+	}
+	(*tags)[namespaceTagKey] = &h.paragliderNamespace
 }
 
 func parseSubnetURI(subnetURI string) (string, string, error) {

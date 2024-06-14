@@ -154,7 +154,7 @@ func createTagName(namespace string, cloud string, tag string) string {
 
 // Get the URI of a tag
 func (s *ControllerServer) getTagUri(tag string) (string, error) {
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return "", fmt.Errorf("could not contact tag server: %s", err.Error())
 	}
@@ -208,7 +208,7 @@ func (s *ControllerServer) resolvePermitListRules(rules []*paragliderpb.PermitLi
 
 		for _, tag := range rule.Tags {
 			if !isIpAddrOrCidr(tag) {
-				conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+				conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 				if err != nil {
 					return nil, fmt.Errorf("could not contact tag server: %s", err.Error())
 				}
@@ -243,7 +243,7 @@ func (s *ControllerServer) resolvePermitListRules(rules []*paragliderpb.PermitLi
 // Get permit list with ID from plugin
 func (s *ControllerServer) _permitListGet(namespace string, resourceId string, pluginAddress string) (*paragliderpb.GetPermitListResponse, error) {
 	// Connect to the cloud plugin
-	conn, err := grpc.Dial(pluginAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(pluginAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +287,7 @@ func (s *ControllerServer) _permitListRulesAdd(req *paragliderpb.AddPermitListRu
 	}
 	req.Rules = rules
 	// Create connection to cloud plugin
-	conn, err := grpc.Dial(pluginAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(pluginAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -404,7 +404,7 @@ func (s *ControllerServer) checkAndUnsubscribe(resource *ResourceInfo, beforeLis
 	}
 
 	// Dial the tag service
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
@@ -438,7 +438,7 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	}
 
 	// Create connection to cloud plugin
-	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -493,7 +493,7 @@ func (s *ControllerServer) permitListRuleDelete(c *gin.Context) {
 	}
 
 	// Create connection to cloud plugin
-	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -541,7 +541,7 @@ func (s *ControllerServer) getAddressSpaces(cloud string) ([]*paragliderpb.Addre
 	}
 
 	// Connect to cloud plugin
-	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to cloud plugin: %s", err.Error())
 	}
@@ -633,7 +633,7 @@ func (s *ControllerServer) getUsedAsns(cloud string) (*paragliderpb.GetUsedAsnsR
 	}
 
 	// Connect to cloud plugin
-	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("Unable to connect to cloud plugin: %s", err.Error())
 	}
@@ -705,7 +705,7 @@ func (s *ControllerServer) getUsedBgpPeeringIpAddresses(cloud string) (*paraglid
 	}
 
 	// Connect to cloud plugin
-	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("Unable to connect to cloud plugin: %s", err.Error())
 	}
@@ -831,7 +831,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 		if !ok {
 			return nil, fmt.Errorf("invalid cloud name: %s", req.CloudA)
 		}
-		cloudAConn, err := grpc.Dial(cloudAClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		cloudAConn, err := grpc.NewClient(cloudAClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, fmt.Errorf("unable to connect to cloud plugin: %w", err)
 		}
@@ -842,7 +842,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 		if !ok {
 			return nil, fmt.Errorf("invalid cloud name: %s", req.CloudA)
 		}
-		cloudBconn, err := grpc.Dial(cloudBClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		cloudBconn, err := grpc.NewClient(cloudBClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, fmt.Errorf("unable to connect to cloud plugin: %w", err)
 		}
@@ -952,7 +952,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	}
 
 	// Create connection to cloud plugin
-	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -973,7 +973,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	}
 
 	// Automatically set tag (need the IP address, we have the name and URI)
-	conn, err = grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err = grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -996,7 +996,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 // List all tags from local tag service
 func (s *ControllerServer) listTags(c *gin.Context) {
 	// Call listTags locally
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1016,7 +1016,7 @@ func (s *ControllerServer) listTags(c *gin.Context) {
 // Get tag from local tag service
 func (s *ControllerServer) getTag(c *gin.Context) {
 	// Call getTag locally
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1038,7 +1038,7 @@ func (s *ControllerServer) getTag(c *gin.Context) {
 // Resolve tag down to IP/URI(s) from local tag service
 func (s *ControllerServer) resolveTag(c *gin.Context) {
 	// Call resolveTag locally
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1068,7 +1068,7 @@ func clearRuleTargets(rules []*paragliderpb.PermitListRule) []*paragliderpb.Perm
 // Update subscribers to a tag about membership changes
 func (s *ControllerServer) updateSubscribers(tag string) error {
 	// Get the subscribers to the tag
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
@@ -1115,7 +1115,7 @@ func (s *ControllerServer) setTag(c *gin.Context) {
 	}
 
 	// Call SetTag
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1142,7 +1142,7 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 	tagName := c.Param("tag")
 
 	// Call DeleteTag
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1173,7 +1173,7 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	tag := &tagservicepb.TagMapping{Name: parentTag, ChildTags: []string{memberTag}}
 
 	// Call DeleteTagMember
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1203,7 +1203,7 @@ func (s *ControllerServer) listNamespaces(c *gin.Context) {
 
 // Get a value from the KV store
 func (s *ControllerServer) GetValue(c context.Context, req *paragliderpb.GetValueRequest) (*paragliderpb.GetValueResponse, error) {
-	conn, err := grpc.Dial(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -1220,7 +1220,7 @@ func (s *ControllerServer) GetValue(c context.Context, req *paragliderpb.GetValu
 
 // Set a value in the KV store
 func (s *ControllerServer) SetValue(c context.Context, req *paragliderpb.SetValueRequest) (*paragliderpb.SetValueResponse, error) {
-	conn, err := grpc.Dial(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -1237,7 +1237,7 @@ func (s *ControllerServer) SetValue(c context.Context, req *paragliderpb.SetValu
 
 // Delete a value in the KV store
 func (s *ControllerServer) DeleteValue(c context.Context, req *paragliderpb.DeleteValueRequest) (*paragliderpb.DeleteValueResponse, error) {
-	conn, err := grpc.Dial(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}

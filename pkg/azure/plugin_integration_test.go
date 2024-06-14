@@ -53,9 +53,10 @@ func createVM(ctx context.Context, server *azurePluginServer, subscriptionId str
 // 4- Delete permit list rule
 // 5. Get the permit list and valdiates again
 func TestBasicPermitListOps(t *testing.T) {
+	namespace := "default"
 	subscriptionId := GetAzureSubscriptionId()
-	resourceGroupName := SetupAzureTesting(subscriptionId, "integration")
-	defer TeardownAzureTesting(subscriptionId, resourceGroupName)
+	resourceGroupName := SetupAzureTesting(subscriptionId, "integration1")
+	defer TeardownAzureTesting(subscriptionId, resourceGroupName, namespace)
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
@@ -72,7 +73,7 @@ func TestBasicPermitListOps(t *testing.T) {
 	vmName := vmNamePrefix + "-" + uuid.NewString()
 	vmID := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + vmName
 	createResourceResp, err := s.CreateResource(ctx, &paragliderpb.CreateResourceRequest{
-		Deployment:  &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: "default"},
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: namespace},
 		Name:        vmName,
 		Description: descriptionJson,
 	})
@@ -90,24 +91,24 @@ func TestBasicPermitListOps(t *testing.T) {
 			Protocol:  6,
 		},
 	}
-	addPermitListResp, err := s.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: rules, Namespace: "default", Resource: vmID})
+	addPermitListResp, err := s.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: rules, Namespace: namespace, Resource: vmID})
 	require.NoError(t, err)
 	require.NotNil(t, addPermitListResp)
 
 	// Assert the NSG created is equivalent to the pl rules by using the get permit list api
-	getPermitListResp, err := s.GetPermitList(ctx, &paragliderpb.GetPermitListRequest{Resource: vmID, Namespace: "default"})
+	getPermitListResp, err := s.GetPermitList(ctx, &paragliderpb.GetPermitListRequest{Resource: vmID, Namespace: namespace})
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListResp)
 
 	assert.ElementsMatch(t, getPermitListResp.Rules, rules)
 
 	// Delete permit list rule
-	deletePermitListResp, err := s.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: []string{rules[0].Name}, Namespace: "default", Resource: vmID})
+	deletePermitListResp, err := s.DeletePermitListRules(ctx, &paragliderpb.DeletePermitListRulesRequest{RuleNames: []string{rules[0].Name}, Namespace: namespace, Resource: vmID})
 	require.NoError(t, err)
 	require.NotNil(t, deletePermitListResp)
 
 	// Assert the rule is deleted by using the get permit list api
-	getPermitListResp, err = s.GetPermitList(ctx, &paragliderpb.GetPermitListRequest{Resource: vmID, Namespace: "default"})
+	getPermitListResp, err = s.GetPermitList(ctx, &paragliderpb.GetPermitListRequest{Resource: vmID, Namespace: namespace})
 	require.NoError(t, err)
 	require.NotNil(t, getPermitListResp)
 
@@ -115,19 +116,21 @@ func TestBasicPermitListOps(t *testing.T) {
 }
 
 func TestCrossNamespaces(t *testing.T) {
+	// Set namespaces
+	resourceGroup1Namespace := "rg1"
+	resourceGroup2Namespace := "rg2"
+
 	// Setup resource groups
 	subscriptionId := GetAzureSubscriptionId()
 	resourceGroup1Name := SetupAzureTesting(subscriptionId, "integration3")
-	defer TeardownAzureTesting(subscriptionId, resourceGroup1Name)
+	defer TeardownAzureTesting(subscriptionId, resourceGroup1Name, resourceGroup1Namespace)
 	resourceGroup2Name := SetupAzureTesting(subscriptionId, "integration4")
-	defer TeardownAzureTesting(subscriptionId, resourceGroup2Name)
+	defer TeardownAzureTesting(subscriptionId, resourceGroup2Name, resourceGroup2Namespace)
 
 	// Set Azure plugin port
 	azureServerPort := 7991
 
 	// Setup orchestrator server
-	resourceGroup1Namespace := "rg1"
-	resourceGroup2Namespace := "rg2"
 	orchestratorServerConfig := config.Config{
 		Server: config.Server{
 			Host:    "localhost",
@@ -233,10 +236,127 @@ func TestCrossNamespaces(t *testing.T) {
 	}
 
 	// Run connectivity checks on both directions between vm1 and vm2
-	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(vm1ResourceId, vm2Ip)
+	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(vm1ResourceId, vm2Ip, resourceGroup1Namespace)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM1toVM2)
-	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(vm2ResourceId, vm1Ip)
+	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(vm2ResourceId, vm1Ip, resourceGroup2Namespace)
+	require.Nil(t, err)
+	require.True(t, azureConnectivityCheckVM2toVM1)
+}
+
+func TestMultipleRegionsIntraNamespace(t *testing.T) {
+	// Setup
+	subscriptionId := GetAzureSubscriptionId()
+	resourceGroupName := SetupAzureTesting(subscriptionId, "integration5")
+	defaultNamespace := "default"
+	defer TeardownAzureTesting(subscriptionId, resourceGroupName, defaultNamespace)
+
+	// Set Azure plugin port
+	azureServerPort := 7992
+
+	// Setup orchestrator server
+	orchestratorServerConfig := config.Config{
+		Server: config.Server{
+			Host:    "localhost",
+			Port:    "8080",
+			RpcPort: "9091",
+		},
+		CloudPlugins: []config.CloudPlugin{
+			{
+				Name: utils.AZURE,
+				Host: "localhost",
+				Port: strconv.Itoa(azureServerPort),
+			},
+		},
+		Namespaces: map[string][]config.CloudDeployment{
+			defaultNamespace: {
+				{
+					Name:       utils.AZURE,
+					Deployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName),
+				},
+			},
+		},
+	}
+	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
+	orchestrator.Setup(orchestratorServerConfig, true)
+
+	// Setup Azure plugin server
+	azureServer := Setup(azureServerPort, orchestratorServerAddr)
+	ctx := context.Background()
+
+	// Create 2 VMs in different regions
+	vm1Name := "vm-paraglider-test-west"
+	vm1Location := "westus"
+	createVM1Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroupName, defaultNamespace, vm1Location, vm1Name)
+	require.NoError(t, err)
+	require.NotNil(t, createVM1Resp)
+	assert.Equal(t, createVM1Resp.Name, vm1Name)
+
+	vm2Name := "vm-paraglider-test-east"
+	vm2Location := "eastus"
+	createVM2Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroupName, defaultNamespace, vm2Location, vm2Name)
+	require.NoError(t, err)
+	require.NotNil(t, createVM2Resp)
+	assert.Equal(t, createVM2Resp.Name, vm2Name)
+
+	vm1ResourceId := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + vm1Name
+	vm2ResourceId := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + vm2Name
+	vm1Ip, err := GetVmIpAddress(vm1ResourceId)
+	require.NoError(t, err)
+	vm2Ip, err := GetVmIpAddress(vm2ResourceId)
+	require.NoError(t, err)
+
+	// Create and add permit list rules to vm1 and vm2 to ping each other
+	vm1Rules := []*paragliderpb.PermitListRule{
+		{
+			Name:      "vm2-ping-ingress",
+			Targets:   []string{vm2Ip},
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+		{
+			Name:      "vm2-ping-egress",
+			Targets:   []string{vm2Ip},
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+	}
+
+	vm2Rules := []*paragliderpb.PermitListRule{
+		{
+			Name:      "vm1-ping-ingress",
+			Targets:   []string{vm1Ip},
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+		{
+			Name:      "vm1-ping-egress",
+			Targets:   []string{vm1Ip},
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+	}
+	vmRules := [][]*paragliderpb.PermitListRule{vm1Rules, vm2Rules}
+	for i, vmResourceId := range []string{vm1ResourceId, vm2ResourceId} {
+		addPermitListRulesReq := &paragliderpb.AddPermitListRulesRequest{Rules: vmRules[i], Namespace: defaultNamespace, Resource: vmResourceId}
+		addPermitListRulesResp, err := azureServer.AddPermitListRules(ctx, addPermitListRulesReq)
+		require.NoError(t, err)
+		require.NotNil(t, addPermitListRulesResp)
+	}
+
+	// Run connectivity checks on both directions between vm1 and vm2
+	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(vm1ResourceId, vm2Ip, defaultNamespace)
+	require.Nil(t, err)
+	require.True(t, azureConnectivityCheckVM1toVM2)
+	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(vm2ResourceId, vm1Ip, defaultNamespace)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM2toVM1)
 }

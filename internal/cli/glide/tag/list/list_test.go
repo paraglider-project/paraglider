@@ -22,7 +22,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rest"
 	"github.com/stretchr/testify/assert"
 )
@@ -31,13 +31,16 @@ func TestTagListExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
-	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr}
+	executor.cliSettings = config.CliSettings{ServerAddr: serverAddr}
 	var output bytes.Buffer
 	executor.writer = &output
 
 	// list the tags
-	err := executor.Execute(cmd, nil)
+	err = executor.Execute(cmd, nil)
 
 	assert.Nil(t, err)
 	assert.Contains(t, output.String(), fake.ListFakeTagMapping()[0].Name)

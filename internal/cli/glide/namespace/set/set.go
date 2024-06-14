@@ -22,13 +22,13 @@ import (
 	"os"
 
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	"github.com/paraglider-project/paraglider/pkg/client"
 	"github.com/spf13/cobra"
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
+	executor := &executor{writer: os.Stdout, cliSettings: &config.ActiveConfig.Settings}
 	cmd := &cobra.Command{
 		Use:     "set",
 		Short:   "Set active namespace",
@@ -42,7 +42,7 @@ func NewCommand() (*cobra.Command, *executor) {
 type executor struct {
 	common.CommandExecutor
 	writer      io.Writer
-	cliSettings settings.CLISettings
+	cliSettings *config.CliSettings
 }
 
 func (e *executor) SetOutput(w io.Writer) {
@@ -51,7 +51,7 @@ func (e *executor) SetOutput(w io.Writer) {
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	// Get all namespaces from the orchestrator and confirm that the given string is one of them
-	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
+	c := &client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	namespaces, err := c.ListNamespaces()
 
 	if err != nil {
@@ -68,6 +68,9 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	e.cliSettings.ActiveNamespace = args[0]
-
+	err := config.SaveActiveConfig()
+	if err != nil {
+		return err
+	}
 	return nil
 }
