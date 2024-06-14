@@ -73,8 +73,8 @@ func TestRuleAddExecute(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Tag
-	args := []string{"tag"}
-	err := executor.Execute(cmd, args)
+	args = []string{"tag"}
+	err = executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
 }

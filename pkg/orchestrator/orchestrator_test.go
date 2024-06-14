@@ -369,11 +369,10 @@ func TestPermitListRuleTagAdd(t *testing.T) {
 	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST(RuleOnTagURL, orchestratorServer.permitListRuleTagAdd)
+	r.POST(RuleOnTagURL, orchestratorServer.permitListRuleAddTag)
 
 	// Well-formed request
-	name := faketagservice.ValidLastLevelTagName
-	tags := []string{faketagservice.ValidTagName}
+	tags := []string{"1.1.1.1"}
 	rule := &paragliderpb.PermitListRule{
 		Name:      "rulename",
 		Tags:      tags,
@@ -383,7 +382,7 @@ func TestPermitListRuleTagAdd(t *testing.T) {
 		Protocol:  1}
 	jsonValue, _ := json.Marshal(rule)
 
-	url := fmt.Sprintf(GetFormatterString(RuleOnTagURL), defaultNamespace+"."+exampleCloudName+"."+validTagName)
+	url := fmt.Sprintf(GetFormatterString(RuleOnTagURL), defaultNamespace+"."+exampleCloudName+"."+faketagservice.ValidTagName)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -413,12 +412,13 @@ func TestPermitListRuleTagDelete(t *testing.T) {
 	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST(RuleOnTagURL, orchestratorServer.permitListRuleTagAdd)
+	r.DELETE(RuleOnTagURL, orchestratorServer.permitListRuleDeleteTag)
 
 	// Well-formed request
-	rules = []string{"ruleName"}
+	rules := []string{"ruleName"}
+	jsonValue, _ := json.Marshal(rules)
 
-	url := fmt.Sprintf(GetFormatterString(RuleOnTagURL), defaultNamespace+"."+exampleCloudName+"."+validTagName)
+	url := fmt.Sprintf(GetFormatterString(RuleOnTagURL), defaultNamespace+"."+exampleCloudName+"."+faketagservice.ValidTagName)
 	req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
