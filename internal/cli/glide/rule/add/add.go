@@ -32,9 +32,9 @@ import (
 func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
 	cmd := &cobra.Command{
-		Use:     "add <cloud> <resource name> [--rulefile <path to rule json file>] [--ping <tag>] [--ssh <tag>]",
-		Short:   "Add a rule to a resource's permit list",
-		Args:    cobra.ExactArgs(2),
+		Use:     "add [<cloud> <resource name> | <tag>] [--rulefile <path to rule json file>] [--ping <tag>] [--ssh <tag>]",
+		Short:   "Add a rule to a resource's permit list or to the permit list of every resource within a tag",
+		Args:    cobra.RangeArgs(1, 2),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
@@ -107,7 +107,13 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	}
 
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
-	err := c.AddPermitListRules(e.cliSettings.ActiveNamespace, args[0], args[1], rules)
+
+	var err error
+	if len(args) == 1 {
+		err = c.AddPermitListRulesTag(args[0], rules)
+	} else {
+		err = c.AddPermitListRules(e.cliSettings.ActiveNamespace, args[0], args[1], rules)
+	}
 
 	return err
 }

@@ -370,8 +370,7 @@ func (s *ControllerServer) permitListRuleAdd(c *gin.Context) {
 	}
 }
 
-// TODO NOW: Create a helper function for this and delete
-// TODO NOW: Document
+// Add permit list rules to all resources within a tag
 func (s *ControllerServer) permitListRuleAddTag(c *gin.Context) {
 	tag := c.Param("tag")
 
@@ -430,6 +429,7 @@ func (s *ControllerServer) permitListRuleAddTag(c *gin.Context) {
 	}
 }
 
+// Delete permit list rules to from resources within a tag
 func (s *ControllerServer) permitListRuleDeleteTag(c *gin.Context) {
 	tag := c.Param("tag")
 
