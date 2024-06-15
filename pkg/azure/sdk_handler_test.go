@@ -87,7 +87,7 @@ func TestCreateSecurityRule(t *testing.T) {
 	// Subtest 1: Create security rule - Success Test
 	t.Run("CreateSecurityRule: Success", func(t *testing.T) {
 		resp, err := handler.CreateSecurityRule(context.Background(), &paragliderpb.PermitListRule{},
-			validSecurityGroupName, validSecurityRuleName, "10.1.0.5", 200)
+			validSecurityGroupName, validSecurityRuleName, "10.1.0.5", 200, allowRule)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 	})
