@@ -80,7 +80,8 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *paragliderpb
 		return nil, err
 	}
 
-	netInfo, err := GetAndCheckResourceState(ctx, azureHandler, resourceId, req.Namespace)
+	// netInfo, err := GetAndCheckResourceState(ctx, azureHandler, resourceId, req.Namespace)
+	netInfo, err := GetNetworkInfoFromResource(ctx, azureHandler, resourceId)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +92,8 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *paragliderpb
 
 	// get the NSG rules
 	for _, rule := range nsg.Properties.SecurityRules {
-		if !strings.HasPrefix(*rule.Name, denyAllNsgRulePrefix) && strings.HasPrefix(*rule.Name, paragliderPrefix) {
+		if true || !strings.HasPrefix(*rule.Name, denyAllNsgRulePrefix) && strings.HasPrefix(*rule.Name, paragliderPrefix) {
+			fmt.Println("rule is: ", *rule.Properties.Priority)
 			plRule, err := azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
 				utils.Log.Printf("An error occured while getting Paraglider rule from NSG rule: %+v", err)
