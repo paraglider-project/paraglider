@@ -866,9 +866,9 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *paragl
 	return &paragliderpb.CreateVpnConnectionsResponse{}, nil
 }
 
-// GetResourceSubnetsAddress returns the address spaces in the virtual network containing the provided address space 
-func (s *GCPPluginServer) GetResourceSubnetsAddress(ctx context.Context, req *paragliderpb.GetResourceSubnetsAddressRequest) (*paragliderpb.GetResourceSubnetsAddressResponse, error) {
-	return nil, fmt.Errorf("GetResourceSubnetsAddress is currently not implemented by GCP, implying plugin does not support BGP disabled VPN connections")
+// GetNetworkAddressSpaces returns the address spaces in the virtual network containing the provided address space
+func (s *GCPPluginServer) GetNetworkAddressSpaces(ctx context.Context, req *paragliderpb.GetNetworkAddressSpacesRequest) (*paragliderpb.GetNetworkAddressSpacesResponse, error) {
+	return nil, fmt.Errorf("GetNetworkAddressSpaces is currently not implemented by GCP, implying plugin does not support BGP disabled VPN connections")
 }
 
 func Setup(port int, orchestratorServerAddr string) *GCPPluginServer {

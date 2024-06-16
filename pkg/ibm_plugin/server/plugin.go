@@ -719,7 +719,7 @@ func (s *IBMPluginServer) GetUsedAsns(ctx context.Context, req *paragliderpb.Get
 }
 
 // GetResourceSubnetsAddress returns the subnets addresses of the VPC containing the specified address space
-func (s *IBMPluginServer) GetResourceSubnetsAddress(ctx context.Context, req *paragliderpb.GetResourceSubnetsAddressRequest) (*paragliderpb.GetResourceSubnetsAddressResponse, error) {
+func (s *IBMPluginServer) GetNetworkAddressSpaces(ctx context.Context, req *paragliderpb.GetNetworkAddressSpacesRequest) (*paragliderpb.GetNetworkAddressSpacesResponse, error) {
 	rInfo, err := getResourceMeta(req.Deployment.Id)
 	if err != nil {
 		utils.Log.Printf("Failed to get ResourceIDInfo from deployment %v, while fetching address spaces of VPC containing address space: %v, with error: %+v", req.Deployment.Id, req.AddressSpace, err)
@@ -752,7 +752,7 @@ func (s *IBMPluginServer) GetResourceSubnetsAddress(ctx context.Context, req *pa
 			if err != nil {
 				return nil, err
 			}
-			return &paragliderpb.GetResourceSubnetsAddressResponse{AddressSpaces: vpcAddressSpaces}, nil
+			return &paragliderpb.GetNetworkAddressSpacesResponse{AddressSpaces: vpcAddressSpaces}, nil
 		}
 	}
 	return nil, fmt.Errorf("failed to locate VPC containing address space: %v", req.AddressSpace)

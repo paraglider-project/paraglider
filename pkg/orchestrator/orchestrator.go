@@ -826,8 +826,8 @@ func (s *ControllerServer) getCloudDeployment(cloud, namespace string) string {
 // Connects two clouds with VPN gateways
 func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.ConnectCloudsRequest) (*paragliderpb.ConnectCloudsResponse, error) {
 	var isBGPDisabledConnection bool
-	var addressSpaceCloudA, addressSpaceCloudB string  // address space of a resource to be served by a VPN created/fetched by this method.
-	var cloudBNetworkAddressSpaces []string  // VNet's/VPC's address spaces of remote cloud (cloudB) 
+	var addressSpaceCloudA, addressSpaceCloudB string // address space of a resource to be served by a VPN created/fetched by this method.
+	var cloudBNetworkAddressSpaces []string           // VNet's/VPC's address spaces of remote cloud (cloudB)
 	if req.CloudA == req.CloudB {
 		return nil, fmt.Errorf("must specify different clouds to connect")
 	}
@@ -891,7 +891,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 		// hence accessible by req.AddressSpacesCloudA.
 		cloudBParagliderDeployment := &paragliderpb.ParagliderDeployment{Id: s.getCloudDeployment(req.CloudB, req.CloudBNamespace), Namespace: req.CloudBNamespace}
 		if isBGPDisabledConnection {
-			res, err := cloudBClient.GetResourceSubnetsAddress(ctx, &paragliderpb.GetResourceSubnetsAddressRequest{Deployment: cloudBParagliderDeployment, AddressSpace: addressSpaceCloudB})
+			res, err := cloudBClient.GetNetworkAddressSpaces(ctx, &paragliderpb.GetNetworkAddressSpacesRequest{Deployment: cloudBParagliderDeployment, AddressSpace: addressSpaceCloudB})
 			if err != nil {
 				return nil, err
 			}

@@ -41,7 +41,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var testDeployment, resourceGroupID string // // IBM test variables
+var testDeployment, resourceGroupID string // IBM test variables
 var testResourceIDUSEast1 string
 var testResourceIDUSEast2 string
 var testResourceIDUSEast3 string

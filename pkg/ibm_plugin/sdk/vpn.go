@@ -83,7 +83,7 @@ func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 			}
 			return ipAddresses, nil
 		}
-		utils.Log.Printf("Failed to create a VPN with Error:\n%+v", err)
+		utils.Log.Printf("Failed to create a VPN with Error: %+v", err)
 		return nil, err
 	}
 	vpnData := vpnInterface.(*vpcv1.VPNGateway)
