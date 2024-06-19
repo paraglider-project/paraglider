@@ -16,14 +16,18 @@ limitations under the License.
 package azure
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const (
-	allowRule = armnetwork.SecurityRuleAccessAllow
-	denyRule  = armnetwork.SecurityRuleAccessDeny
-	inboundDirectionRule = armnetwork.SecurityRuleDirectionInbound
+	allowRule             = armnetwork.SecurityRuleAccessAllow
+	denyRule              = armnetwork.SecurityRuleAccessDeny
+	inboundDirectionRule  = armnetwork.SecurityRuleDirectionInbound
 	outboundDirectionRule = armnetwork.SecurityRuleDirectionOutbound
 )
 
@@ -31,43 +35,98 @@ const (
 //  1. A deny all rule is present and has the lowest priority (i.e. highest priority number)
 //  2. All rules with higher priority (i.e. lower priority number) are allow rules
 //
-// Returns true if the rules conform to Paraglider's requirements, false otherwise.
-// If false, the returned priority number is used to create a deny all rule to ensure conformance.
+// Creates a deny all rule if there's none to ensure conformant rules for condition 1).
+func CheckSecurityRulesCompliance(ctx context.Context, azureHandler *AzureSDKHandler, networkInfo *resourceNetworkInfo, namespace string, server *azurePluginServer) (bool, error) {
+	reservedPrioritiesInbound := make(map[int32]*armnetwork.SecurityRule)
+	reservedPrioritiesOutbound := make(map[int32]*armnetwork.SecurityRule)
+	err := setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, nil, networkInfo.NSG)
+	if err != nil {
+		utils.Log.Printf("An error occured during setup: %+v", err)
+		return false, err
+	}
+
+	// For Inbound Rules
+	priority, err := validateSecurityRulesConform(reservedPrioritiesInbound)
+	if err != nil {
+		if priority == -1 {
+			return false, fmt.Errorf("Non-compliant: %v", err)
+		}
+
+		_, err := setupAndCreateDenyAllRule(ctx, priority, inboundDirectionRule, azureHandler, networkInfo)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	// For Outbound Rules
+	priority, err = validateSecurityRulesConform(reservedPrioritiesOutbound)
+	if err != nil {
+		if priority == -1 {
+			return false, fmt.Errorf("Non-compliant: %v", err)
+		}
+
+		_, err := setupAndCreateDenyAllRule(ctx, priority, outboundDirectionRule, azureHandler, networkInfo)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	return true, nil
+}
+
+// Checks that the NSG rules in a particular direction are conformant as per the description of (func) CheckSecurityRulesCompliance
 //
+// Returns the priority number of the deny all rule to be created if the rules are non-conformant (error)
 // Priority number of -1 represents an invalid rule order.
-func validatePermitRulesConform(reservedPriorities map[int32]*armnetwork.SecurityRule) (bool, int32) {
+func validateSecurityRulesConform(reservedPriorities map[int32]*armnetwork.SecurityRule) (int32, error) {
 	var lowestRule *armnetwork.SecurityRule
-	lowestPriority := int32(maxPriority)
+	lowestDenyPriorityNum := int32(maxPriority)
+	highestAllowPriorityNum := int32(minPriority)
 
 	for priority, rule := range reservedPriorities {
-		// An allow rule's priority number is higher than a deny rule's priority number
-		if priority < lowestPriority && *rule.Properties.Access == armnetwork.SecurityRuleAccessAllow {
-			return false, -1
+		if (*rule.Properties.Access == armnetwork.SecurityRuleAccessAllow) && (priority > highestAllowPriorityNum) {
+			highestAllowPriorityNum = priority
 		}
 
-		if priority <= lowestPriority && *rule.Properties.Access == armnetwork.SecurityRuleAccessDeny {
+		if (*rule.Properties.Access == armnetwork.SecurityRuleAccessDeny) && (priority <= lowestDenyPriorityNum) {
 			lowestRule = rule
-			lowestPriority = priority
+			lowestDenyPriorityNum = priority
 		}
+	}
+
+	// An allow rule's priority number is higher than a deny rule's priority number
+	if highestAllowPriorityNum > lowestDenyPriorityNum {
+		return -1, fmt.Errorf("Allow Rule with lower priority(%d) than Deny Rule(%d)", highestAllowPriorityNum, lowestDenyPriorityNum)
 	}
 
 	// No deny rule exists in the NSG, so non-conformant
 	if lowestRule == nil {
 		if reservedPriorities[maxPriority] != nil {
 			// The max priority number should not be associated to an allow rule
-			return false, -1
+			return -1, fmt.Errorf("Allow Rule at lowest priority(%d). Must be a deny all rule", maxPriority)
 		}
 
-		return false, maxPriority
+		return maxPriority, fmt.Errorf("No deny rule present ")
 	}
 
 	// If not a deny all rule, return priority to create a deny all rule
 	if !isDenyAllRule(lowestRule) {
 		lastPriority := getPriority(reservedPriorities, minPriority, maxPriority, false)
-		return false, lastPriority
+		return lastPriority, fmt.Errorf("Deny Rule not at lowest priority(%d) is not a Deny all rule", lowestDenyPriorityNum)
 	}
 
-	return true, lowestPriority
+	return lowestDenyPriorityNum, nil
+}
+
+func setupAndCreateDenyAllRule(ctx context.Context, priority int32, direction armnetwork.SecurityRuleDirection, handler *AzureSDKHandler, netInfo *resourceNetworkInfo) (*armnetwork.SecurityRule, error) {
+	denyAllRule := setupDenyAllRuleWithPriority(priority, direction)
+
+	rule, err := handler.CreateSecurityRule(ctx, *netInfo.NSG.Name, *denyAllRule.Name, denyAllRule)
+	if err != nil {
+		return nil, err
+	}
+
+	return rule, nil
 }
 
 func setupDenyAllRuleWithPriority(priority int32, direction armnetwork.SecurityRuleDirection) *armnetwork.SecurityRule {
@@ -93,12 +152,12 @@ func setupDenyAllRuleWithPriority(priority int32, direction armnetwork.SecurityR
 	}
 }
 
+// Returns true if the rule is a deny all rule, false otherwise
 func isDenyAllRule(rule *armnetwork.SecurityRule) bool {
 	return *rule.Properties.SourceAddressPrefix == azureSecurityRuleAsterisk &&
 		*rule.Properties.DestinationAddressPrefix == azureSecurityRuleAsterisk &&
 		*rule.Properties.SourcePortRange == azureSecurityRuleAsterisk &&
 		*rule.Properties.DestinationPortRange == azureSecurityRuleAsterisk &&
 		*rule.Properties.Protocol == armnetwork.SecurityRuleProtocolAsterisk &&
-		*rule.Properties.Direction == azureSecurityRuleAsterisk &&
 		*rule.Properties.Access == armnetwork.SecurityRuleAccessDeny
 }

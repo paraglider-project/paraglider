@@ -72,7 +72,7 @@ func TestGetVNetsAddressSpaces(t *testing.T) {
 	})
 }
 
-func TestCreateSecurityRule(t *testing.T) {
+func TestCreateSecurityRuleFromPermitList(t *testing.T) {
 	// Set up the fake Azure server
 	fakeServerState := &fakeServerState{
 		subId:  subID,
@@ -85,8 +85,8 @@ func TestCreateSecurityRule(t *testing.T) {
 	require.NoError(t, err)
 
 	// Subtest 1: Create security rule - Success Test
-	t.Run("CreateSecurityRule: Success", func(t *testing.T) {
-		resp, err := handler.CreateSecurityRule(context.Background(), &paragliderpb.PermitListRule{},
+	t.Run("CreateSecurityRuleFromPermitList: Success", func(t *testing.T) {
+		resp, err := handler.CreateSecurityRuleFromPermitList(context.Background(), &paragliderpb.PermitListRule{},
 			validSecurityGroupName, validSecurityRuleName, "10.1.0.5", 200, allowRule)
 		require.NoError(t, err)
 		require.NotNil(t, resp)

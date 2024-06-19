@@ -22,7 +22,6 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
-	"fmt"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -55,58 +54,6 @@ func setupTestAzurePluginServer() (*azurePluginServer, context.Context) {
 }
 
 /* ---- Tests ---- */
-
-func TestRun(t *testing.T) {
-	subscriptionId := GetAzureSubscriptionId()
-	resourceGroupName := "juilant-rg"
-	resourceName := "vm-2"
-	namespace := "default"
-	server := InitializeServer("localhost:50051")
-	ctx := context.Background()
-
-	resourceInfo := ResourceIDInfo{SubscriptionID: subscriptionId, ResourceGroupName: resourceGroupName, ResourceName: resourceName}
-	handler, err := server.setupAzureHandler(resourceInfo, namespace)
-
-	// Call the function you want to test
-	if err != nil {
-		// Handle errors
-		fmt.Println("Error in setupAzureHandler ")
-	}
-
-	fmt.Println("Starting server")
-	fmt.Println("Subscription ID: ", subscriptionId)
-
-	// rsc, err := GetResourceIDFromName(ctx, handler, resourceGroupName, resourceName)
-	// if err != nil {
-	// 	fmt.Println("Error in GetResourceFromName: ", err)
-	// 	return
-	// }
-	// fmt.Println("Resource ID: ", rsc)
-
-	resourceID := getVmUri(subscriptionId, resourceGroupName, resourceName)
-	network_info, err := GetNetworkInfoFromResource(ctx, handler, resourceID)
-	if err != nil {
-		fmt.Println("Error in GetNetworkInfo: ", err)
-		return
-	}
-
-	vnet := getVnetFromSubnetId(network_info.SubnetID)
-	fmt.Println("Vnet: ", vnet)
-
-	// resp, err := DoesVnetOverlapWithParaglider(ctx, handler, vnet, server)
-	// if err != nil {
-	// 	fmt.Println("Error in GetUsedAddressSpaces: ", err)
-	// }
-	// fmt.Println("Boolean Response: ", resp)
-	req := &paragliderpb.GetPermitListRequest{Resource: resourceID, Namespace: namespace}
-	getPermitListResp, err := server.GetPermitList(ctx, req)
-	if err != nil {
-		fmt.Println("Error in GetPermitList: ", err)
-	}
-	fmt.Println("Permit List: ", getPermitListResp) 
-
-	fmt.Println("DONE")
-}
 
 func TestCreateResource(t *testing.T) {
 	t.Run("TestCreateResource: Success", func(t *testing.T) {

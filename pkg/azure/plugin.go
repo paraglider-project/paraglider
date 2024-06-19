@@ -81,7 +81,6 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *paragliderpb
 	}
 
 	netInfo, err := GetAndCheckResourceState(ctx, azureHandler, resourceId, req.Namespace)
-	// netInfo, err := GetNetworkInfoFromResource(ctx, azureHandler, resourceId)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +217,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 		}
 
 		// Create the NSG rule
-		securityRule, err := azureHandler.CreateSecurityRule(ctx, rule, *netInfo.NSG.Name, getNSGRuleName(rule.Name), netInfo.Address, priority, allowRule)
+		securityRule, err := azureHandler.CreateSecurityRuleFromPermitList(ctx, rule, *netInfo.NSG.Name, getNSGRuleName(rule.Name), netInfo.Address, priority, allowRule)
 		if err != nil {
 			utils.Log.Printf("An error occured while creating security rule:%+v", err)
 			return nil, err
@@ -814,48 +813,4 @@ func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 		}
 	}()
 	return azureServer
-}
-
-func CheckPermitListCompliance(ctx context.Context, azureHandler *AzureSDKHandler, resourceID string, namespace string, server *azurePluginServer) (bool, error) {
-	netInfo, err := GetNetworkInfoFromResource(ctx, azureHandler, resourceID)
-	if err != nil {
-		return false, err
-	}
-
-	reservedPrioritiesInbound := make(map[int32]*armnetwork.SecurityRule)
-	reservedPrioritiesOutbound := make(map[int32]*armnetwork.SecurityRule)
-	
-	err = setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, nil, netInfo.NSG)
-
-	// For Inbound Rules
-	isValid, priority := validatePermitRulesConform(reservedPrioritiesInbound)
-	if !isValid {
-		denyAllRule := setupDenyAllRuleWithPriority(priority, inboundDirectionRule)
-		pbRule, err := azureHandler.GetPermitListRuleFromNSGRule(denyAllRule)
-		if err != nil {
-			return false, err
-		}
-
-		_, err = azureHandler.CreateSecurityRule(ctx, pbRule, *netInfo.NSG.Name, *denyAllRule.Name, netInfo.Address, priority, denyRule)
-		if err != nil {
-			return false, err
-		}
-	}
-
-	// For Outbound Rules
-	isValid, priority = validatePermitRulesConform(reservedPrioritiesOutbound)
-	if !isValid {
-		denyAllRule := setupDenyAllRuleWithPriority(priority, outboundDirectionRule)
-		pbRule, err := azureHandler.GetPermitListRuleFromNSGRule(denyAllRule)
-		if err != nil {
-			return false, err
-		}
-
-		_, err = azureHandler.CreateSecurityRule(ctx, pbRule, *netInfo.NSG.Name, *denyAllRule.Name, netInfo.Address, priority, denyRule)
-		if err != nil {
-			return false, err
-		}
-	}
-
-	return true, nil
 }
