@@ -76,8 +76,9 @@ func CheckSecurityRulesCompliance(ctx context.Context, azureHandler *AzureSDKHan
 
 // Checks that the NSG rules in a particular direction are conformant as per the description of (func) CheckSecurityRulesCompliance
 //
-// Returns the priority number of the deny all rule to be created if the rules are non-conformant (error)
-// Priority number of -1 represents an invalid rule order.
+// Returns the priority number of the deny all rule if it exists (with no error)
+// Or the priority number of the deny all rule to be created if the rules are non-conformant (with an error)
+// Or a priority number of -1 (with an error) to represent an invalid rule order.
 func validateSecurityRulesConform(reservedPriorities map[int32]*armnetwork.SecurityRule) (int32, error) {
 	var lowestRule *armnetwork.SecurityRule
 	lowestDenyPriorityNum := int32(maxPriority)
@@ -120,7 +121,6 @@ func validateSecurityRulesConform(reservedPriorities map[int32]*armnetwork.Secur
 
 func setupAndCreateDenyAllRule(ctx context.Context, priority int32, direction armnetwork.SecurityRuleDirection, handler *AzureSDKHandler, netInfo *resourceNetworkInfo) (*armnetwork.SecurityRule, error) {
 	denyAllRule := setupDenyAllRuleWithPriority(priority, direction)
-
 	rule, err := handler.CreateSecurityRule(ctx, *netInfo.NSG.Name, *denyAllRule.Name, denyAllRule)
 	if err != nil {
 		return nil, err
@@ -154,8 +154,32 @@ func setupDenyAllRuleWithPriority(priority int32, direction armnetwork.SecurityR
 
 // Returns true if the rule is a deny all rule, false otherwise
 func isDenyAllRule(rule *armnetwork.SecurityRule) bool {
-	return *rule.Properties.SourceAddressPrefix == azureSecurityRuleAsterisk &&
-		*rule.Properties.DestinationAddressPrefix == azureSecurityRuleAsterisk &&
+	var anyDestPrefix, anySourcePrefix bool
+	destPrefix := rule.Properties.DestinationAddressPrefix
+	if destPrefix != nil && *destPrefix == azureSecurityRuleAsterisk {
+		anyDestPrefix = true
+	} else if rule.Properties.DestinationAddressPrefixes != nil {
+		for _, destPrefix := range rule.Properties.DestinationAddressPrefixes {
+			if *destPrefix == azureSecurityRuleAsterisk {
+				anyDestPrefix = true
+				break
+			}
+		}
+	}
+
+	sourcePrefix := rule.Properties.SourceAddressPrefix
+	if sourcePrefix != nil && *sourcePrefix == azureSecurityRuleAsterisk {
+		anySourcePrefix = true
+	} else if rule.Properties.SourceAddressPrefixes != nil {
+		for _, sourcePrefix := range rule.Properties.SourceAddressPrefixes {
+			if *sourcePrefix == azureSecurityRuleAsterisk {
+				anySourcePrefix = true
+				break
+			}
+		}
+	}
+
+	return anyDestPrefix && anySourcePrefix &&
 		*rule.Properties.SourcePortRange == azureSecurityRuleAsterisk &&
 		*rule.Properties.DestinationPortRange == azureSecurityRuleAsterisk &&
 		*rule.Properties.Protocol == armnetwork.SecurityRuleProtocolAsterisk &&
