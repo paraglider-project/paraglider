@@ -805,7 +805,7 @@ func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 		azureCredentialGetter:  &AzureCredentialGetter{},
 	}
 	paragliderpb.RegisterCloudPluginServer(grpcServer, azureServer)
-	fmt.Println("Starting server on port :", port)
+	fmt.Println("Starting server on port: ", port)
 
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
