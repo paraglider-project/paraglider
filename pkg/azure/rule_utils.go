@@ -49,7 +49,7 @@ func CheckSecurityRulesCompliance(ctx context.Context, azureHandler *AzureSDKHan
 	priority, err := validateSecurityRulesConform(reservedPrioritiesInbound)
 	if err != nil {
 		if priority == -1 {
-			return false, fmt.Errorf("Non-compliant: %v", err)
+			return false, err
 		}
 
 		_, err := setupAndCreateDenyAllRule(ctx, azureHandler, priority, inboundDirectionRule, *nsg.Name)
