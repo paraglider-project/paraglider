@@ -85,11 +85,12 @@ func validateSecurityRulesConform(reservedPriorities map[int32]*armnetwork.Secur
 	highestAllowPriorityNum := int32(minPriority)
 
 	for priority, rule := range reservedPriorities {
-		if (*rule.Properties.Access == armnetwork.SecurityRuleAccessAllow) && (priority > highestAllowPriorityNum) {
+		access := *rule.Properties.Access
+		if (access == armnetwork.SecurityRuleAccessAllow) && (priority > highestAllowPriorityNum) {
 			highestAllowPriorityNum = priority
 		}
 
-		if (*rule.Properties.Access == armnetwork.SecurityRuleAccessDeny) && (priority <= lowestDenyPriorityNum) {
+		if (access == armnetwork.SecurityRuleAccessDeny) && (priority <= lowestDenyPriorityNum) {
 			lowestRule = rule
 			lowestDenyPriorityNum = priority
 		}
@@ -155,6 +156,7 @@ func setupDenyAllRuleWithPriority(priority int32, direction armnetwork.SecurityR
 // Returns true if the rule is a deny all rule, false otherwise
 func isDenyAllRule(rule *armnetwork.SecurityRule) bool {
 	var anyDestPrefix, anySourcePrefix bool
+
 	destPrefix := rule.Properties.DestinationAddressPrefix
 	if destPrefix != nil && *destPrefix == azureSecurityRuleAsterisk {
 		anyDestPrefix = true

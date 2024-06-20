@@ -93,6 +93,41 @@ func TestCreateSecurityRuleFromPermitList(t *testing.T) {
 	})
 }
 
+func TestCreateSecurityRule(t *testing.T) {
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		nsg:    getFakeNSG(),
+	}
+	fakeServer, _ := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
+
+	securityRule := &armnetwork.SecurityRule{
+		Name: to.Ptr(validSecurityRuleName),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			DestinationAddressPrefix: to.Ptr(azureSecurityRuleAsterisk),
+			DestinationPortRange:     to.Ptr("8080"),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+			Priority:                 to.Ptr(int32(100)),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
+		},
+	}
+
+	t.Run("CreateSecurityRule: Success", func(t *testing.T) {
+		resp, err := handler.CreateSecurityRule(context.Background(), validSecurityGroupName, validSecurityRuleName, securityRule)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, *resp.Name, validSecurityRuleName)
+		assert.Equal(t, *resp.Properties.Priority, int32(100))
+	})
+}
+
 func TestDeleteSecurityRule(t *testing.T) {
 	// Set up the fake Azure server
 	fakeServerState := &fakeServerState{

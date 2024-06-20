@@ -46,18 +46,17 @@ func setupMaps(reservedPrioritiesInbound map[int32]*armnetwork.SecurityRule, res
 // getPriority returns the next available priority number that is not used by other rules
 func getPriority(reservedPriorities map[int32]*armnetwork.SecurityRule, start int32, end int32, ascendingSearch bool) int32 {
 	if !ascendingSearch {
-		start *= -1
-		end *= -1
+		start, end = -end, -start
 	}
 
-	var i int32
-	for i = start; i < end; i++ {
-		i = int32(math.Abs(float64(i)))
-		if reservedPriorities[i] == nil {
-			reservedPriorities[i] = &armnetwork.SecurityRule{}
+	var idx int32
+	for i := start; i < end; i++ {
+		idx = int32(math.Abs(float64(i)))
+		if reservedPriorities[idx] == nil {
+			reservedPriorities[idx] = &armnetwork.SecurityRule{}
 			break
 		}
 	}
 
-	return i
+	return idx
 }
