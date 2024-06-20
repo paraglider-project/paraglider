@@ -35,9 +35,9 @@ env:
   GH_RUN_ATTEMPT: ${{ github.run_attempt }}
 
   # Cloud account fields
-  INVISINETS_GCP_PROJECT_PARENT: ${{ secrets.GCP_FOLDER_ID }}
-  INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME: ${{ secrets.GCP_BILLING_ACCOUNT_NAME }}
-  INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  PARAGLIDER_GCP_PROJECT_PARENT: ${{ secrets.GCP_FOLDER_ID }}
+  PARAGLIDER_GCP_PROJECT_BILLING_ACCOUNT_NAME: ${{ secrets.GCP_BILLING_ACCOUNT_NAME }}
+  PARAGLIDER_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
 jobs:
   build:
@@ -238,7 +238,7 @@ jobs:
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         with:
           workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/paraglider'
-          service_account: 'invisinets-cicd@invisinets-cicd.iam.gserviceaccount.com'
+          service_account: 'paraglider-cicd@paraglider-cicd.iam.gserviceaccount.com'
       - name: 'Az CLI login'
         uses: azure/login@v2
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
