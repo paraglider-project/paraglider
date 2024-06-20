@@ -1,11 +1,31 @@
+//go:build unit
+
+/*
+Copyright 2024 The Paraglider Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package azure
 
 import (
+	"context"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSetupDenyAllRuleWithPriority(t *testing.T) {
@@ -84,4 +104,26 @@ func TestValidateSecurityRulesConform(t *testing.T) {
 		// -1 is the priority returned when the rules are out of order
 		assert.Equal(t, int32(-1), priority)
 	})
+}
+
+func TestCheckSecurityRulesCompliance(t *testing.T) {
+	serverState := &fakeServerState{
+		subId:   subID,
+		rgName:  rgName,
+		nsg:     getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName),
+		nic:     getFakeInterface(),
+		subnet:  getFakeSubnet(),
+		vm:      to.Ptr(getFakeVirtualMachine(true)),
+		cluster: to.Ptr(getFakeCluster(true)),
+	}
+
+	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
+	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
+
+	resp, err := CheckSecurityRulesCompliance(context.Background(), handler, serverState.nsg)
+	assert.True(t, resp)
+	require.NoError(t, err)
 }

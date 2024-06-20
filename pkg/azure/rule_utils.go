@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Paraglider Authors.
+Copyright 2024 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,11 +35,11 @@ const (
 //  1. A deny all rule is present and has the lowest priority (i.e. highest priority number)
 //  2. All rules with higher priority (i.e. lower priority number) are allow rules
 //
-// Creates a deny all rule if there's none to ensure conformant rules for condition 1).
-func CheckSecurityRulesCompliance(ctx context.Context, azureHandler *AzureSDKHandler, networkInfo *resourceNetworkInfo, namespace string, server *azurePluginServer) (bool, error) {
+// Creates a deny all rule if there's none to ensure conformant rules for condition 1. (Given condition 2 is met)
+func CheckSecurityRulesCompliance(ctx context.Context, azureHandler *AzureSDKHandler, nsg *armnetwork.SecurityGroup) (bool, error) {
 	reservedPrioritiesInbound := make(map[int32]*armnetwork.SecurityRule)
 	reservedPrioritiesOutbound := make(map[int32]*armnetwork.SecurityRule)
-	err := setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, nil, networkInfo.NSG)
+	err := setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, nil, nsg)
 	if err != nil {
 		utils.Log.Printf("An error occured during setup: %+v", err)
 		return false, err
@@ -52,7 +52,7 @@ func CheckSecurityRulesCompliance(ctx context.Context, azureHandler *AzureSDKHan
 			return false, fmt.Errorf("Non-compliant: %v", err)
 		}
 
-		_, err := setupAndCreateDenyAllRule(ctx, priority, inboundDirectionRule, azureHandler, networkInfo)
+		_, err := setupAndCreateDenyAllRule(ctx, azureHandler, priority, inboundDirectionRule, *nsg.Name)
 		if err != nil {
 			return false, err
 		}
@@ -65,7 +65,7 @@ func CheckSecurityRulesCompliance(ctx context.Context, azureHandler *AzureSDKHan
 			return false, fmt.Errorf("Non-compliant: %v", err)
 		}
 
-		_, err := setupAndCreateDenyAllRule(ctx, priority, outboundDirectionRule, azureHandler, networkInfo)
+		_, err := setupAndCreateDenyAllRule(ctx, azureHandler, priority, outboundDirectionRule, *nsg.Name)
 		if err != nil {
 			return false, err
 		}
@@ -108,7 +108,7 @@ func validateSecurityRulesConform(reservedPriorities map[int32]*armnetwork.Secur
 			return -1, fmt.Errorf("Allow Rule at lowest priority(%d). Must be a deny all rule", maxPriority)
 		}
 
-		return maxPriority, fmt.Errorf("No deny rule present ")
+		return maxPriority, fmt.Errorf("No deny rule present")
 	}
 
 	// If not a deny all rule, return priority to create a deny all rule
@@ -120,9 +120,9 @@ func validateSecurityRulesConform(reservedPriorities map[int32]*armnetwork.Secur
 	return lowestDenyPriorityNum, nil
 }
 
-func setupAndCreateDenyAllRule(ctx context.Context, priority int32, direction armnetwork.SecurityRuleDirection, handler *AzureSDKHandler, netInfo *resourceNetworkInfo) (*armnetwork.SecurityRule, error) {
+func setupAndCreateDenyAllRule(ctx context.Context, handler *AzureSDKHandler, priority int32, direction armnetwork.SecurityRuleDirection, nsgName string) (*armnetwork.SecurityRule, error) {
 	denyAllRule := setupDenyAllRuleWithPriority(priority, direction)
-	rule, err := handler.CreateSecurityRule(ctx, *netInfo.NSG.Name, *denyAllRule.Name, denyAllRule)
+	rule, err := handler.CreateSecurityRule(ctx, nsgName, *denyAllRule.Name, denyAllRule)
 	if err != nil {
 		return nil, err
 	}
