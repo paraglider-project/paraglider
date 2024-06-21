@@ -151,6 +151,38 @@ func ReadAndProvisionResource(ctx context.Context, resource *paragliderpb.Create
 	return handler.readAndProvisionResource(ctx, resource, subnet, resourceInfo, sdkHandler, additionalAddressSpaces)
 }
 
+func DoesResourceComplyWithParagliderRequirements(ctx context.Context, resourceID string, azureHandler *AzureSDKHandler, server *azurePluginServer) (bool, error) {
+	// Ensure the resource exists
+	_, err := ValidateResourceExists(ctx, azureHandler, resourceID)
+	if err != nil {
+		return false, err
+	}
+
+	networkInfo, err := GetNetworkInfoFromResource(ctx, azureHandler, resourceID)
+	if err != nil {
+		return false, fmt.Errorf("Error in getting resource %s network info: %w", resourceID, err)
+	}
+
+	// Ensure the Vnet address space doesn't overlap with paraglider's address space
+	vnetName := getVnetFromSubnetId(networkInfo.SubnetID)
+	isOverlapping, err := DoesVnetOverlapWithParaglider(ctx, azureHandler, vnetName, server)
+	if err != nil {
+		return false, err
+	}
+
+	if isOverlapping {
+		return false, fmt.Errorf("Resource %s Network Address Space overlaps with Paraglider Network Address Space. Not allowed", resourceID)
+	}
+
+	// Ensure the resource's security rules are compliant. Make compliant if possible
+	isNSGCompliant, err := CheckSecurityRulesCompliance(ctx, azureHandler, networkInfo.NSG)
+	if err != nil || !isNSGCompliant {
+		return false, fmt.Errorf("NSG rules are not compliant: %w", err)
+	}
+
+	return true, nil
+}
+
 // Interface that must be implemented for a resource to be supported
 type AzureResourceHandler interface {
 	// Gets the network information for the resource
