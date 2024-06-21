@@ -758,3 +758,32 @@ func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 	}()
 	return azureServer
 }
+
+func (s *azurePluginServer) AttachExistingResource(ctx context.Context, azureHandler *AzureSDKHandler, resourceId string, namespace string) (string, error) {
+	networkInfo, err := GetNetworkInfoFromResource(ctx, azureHandler, resourceId)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting network info:%+v", err)
+		return "nil", err
+	}
+	vnetName := getVnetFromSubnetId(networkInfo.SubnetID)
+
+	// Create VPN gateway vnet if not already created
+	// The vnet is created even if there's no multicloud connections at the moment for ease of connection in the future.
+	// Note that vnets are free, so this is not a problem.
+	vpnGwVnet, err := GetOrCreateVpnGatewayVNet(ctx, azureHandler, namespace)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting or creating VPN gateway vnet:%+v", err)
+		return "nil", err
+	}
+
+	// Create peering VPN gateway vnet and VM vnet. If the VPN gateway already exists, then establish a VPN gateway transit relationship where the vnet can use the gatewayVnet's VPN gateway.
+	// - This peering is created even if there's no multicloud connections at the moment for ease of connection in the future.
+	// - Peerings are only charged based on amount of data transferred, so this will not incur extra charge until the VPN gateway is created.
+	// - VPN gateway transit relationship cannot be established before the VPN gateway creation.
+	// - If the VPN gateway hasn't been created, then the gateway transit relationship will be established on VPN gateway creation.
+	err = CreateGatewayVnetPeering(ctx, azureHandler, vnetName, *vpnGwVnet.Name, namespace)
+	if err != nil {
+		utils.Log.Printf("An error occured while creating VPN gateway vnet peering:%+v", err)
+		return "nil", err
+	}
+}
