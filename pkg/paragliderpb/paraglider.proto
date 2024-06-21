@@ -98,6 +98,17 @@ message CreateResourceResponse {
     string ip = 3;
 }
 
+message AttachResourceRequest {
+    string namespace = 1;
+    string resource = 2;
+}
+
+message AttachResourceResponse {
+    string name = 1;
+    string uri = 2;
+    string ip = 3;
+}
+
 message AddPermitListRulesRequest {
     string namespace = 1;
     string resource = 2;
