@@ -120,14 +120,16 @@ func TestValidateResourceExists(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test for VM
-	isExistingResource, err := ValidateResourceExists(context.Background(), handler, vmURI)
+	existingResource, err := ValidateResourceExists(context.Background(), handler, vmURI)
 	require.NoError(t, err)
-	assert.Equal(t, isExistingResource, true)
+	require.NotNil(t, existingResource)
+	assert.Equal(t, vmURI, *existingResource.ID)
 
 	// Test for AKS
-	isExistingCluster, err := ValidateResourceExists(context.Background(), handler, aksURI)
+	existingCluster, err := ValidateResourceExists(context.Background(), handler, aksURI)
 	require.NoError(t, err)
-	assert.Equal(t, isExistingCluster, true)
+	require.NotNil(t, existingCluster)
+	assert.Equal(t, aksURI, *existingCluster.ID)
 }
 
 func TestReadAndProvisionResource(t *testing.T) {
