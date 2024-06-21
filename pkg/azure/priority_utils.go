@@ -50,8 +50,8 @@ func getNextAvailablePriority(reservedPriorities map[int32]*armnetwork.SecurityR
 		increment = -1
 	}
 
-	var i int32
-	for i := start; i < end; i += increment {
+	i := start
+	for ; i < end; i += increment {
 		if reservedPriorities[i] == nil {
 			reservedPriorities[i] = &armnetwork.SecurityRule{}
 			break

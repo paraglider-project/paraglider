@@ -34,11 +34,11 @@ func TestGetNextAvailabilityPriority(t *testing.T) {
 
 	t.Run("TestGetNextLowestAvailabilityPriority", func(t *testing.T) {
 		priority = getNextAvailablePriority(reservedPriorities, start, end, lowestPriority)
-		assert.Equal(t, priority, int32(minPriority))
+		assert.Equal(t, int32(minPriority), priority)
 	})
 
 	t.Run("TestGetNextHighestAvailabilityPriority", func(t *testing.T) {
 		priority = getNextAvailablePriority(reservedPriorities, start, end, !lowestPriority)
-		assert.Equal(t, priority, int32(maxPriority))
+		assert.Equal(t, int32(maxPriority), priority)
 	})
 }
