@@ -208,10 +208,10 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 		priority, ok := existingRulePriorities[getNSGRuleName(rule.Name)]
 		if !ok {
 			if rule.Direction == paragliderpb.Direction_INBOUND {
-				priority = getPriority(reservedPrioritiesInbound, inboundPriority, maxPriority, true)
+				priority = getNextAvailablePriority(reservedPrioritiesInbound, inboundPriority, maxPriority, true)
 				inboundPriority = priority + 1
 			} else if rule.Direction == paragliderpb.Direction_OUTBOUND {
-				priority = getPriority(reservedPrioritiesOutbound, outboundPriority, maxPriority, true)
+				priority = getNextAvailablePriority(reservedPrioritiesOutbound, outboundPriority, maxPriority, true)
 				outboundPriority = priority + 1
 			}
 		}

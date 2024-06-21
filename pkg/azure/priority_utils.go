@@ -17,8 +17,6 @@ limitations under the License.
 package azure
 
 import (
-	"math"
-
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
 )
 
@@ -43,20 +41,22 @@ func setupMaps(reservedPrioritiesInbound map[int32]*armnetwork.SecurityRule, res
 	return nil
 }
 
-// getPriority returns the next available priority number that is not used by other rules
-func getPriority(reservedPriorities map[int32]*armnetwork.SecurityRule, start int32, end int32, ascendingSearch bool) int32 {
-	if !ascendingSearch {
-		start, end = -end, -start
+// getNextAvailablePriority returns the next available priority number that is not used by other rules
+// If lowestAvailable is true, function returns the lowest available priority number; Otherwise it returns the highest available priority number.
+func getNextAvailablePriority(reservedPriorities map[int32]*armnetwork.SecurityRule, start int32, end int32, lowestAvailable bool) int32 {
+	increment := int32(1)
+	if !lowestAvailable {
+		start, end = end, start
+		increment = -1
 	}
 
-	var idx int32
-	for i := start; i < end; i++ {
-		idx = int32(math.Abs(float64(i)))
-		if reservedPriorities[idx] == nil {
-			reservedPriorities[idx] = &armnetwork.SecurityRule{}
+	var i int32
+	for i := start; i < end; i += increment {
+		if reservedPriorities[i] == nil {
+			reservedPriorities[i] = &armnetwork.SecurityRule{}
 			break
 		}
 	}
 
-	return idx
+	return i
 }
