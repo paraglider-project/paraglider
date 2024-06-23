@@ -28,6 +28,7 @@ import (
 )
 
 func (c *CloudClient) attachTag(CRN *string, tags []string) error {
+	var xCorrelationId string          // keeping unique transaction ID to identify possible recurring errors related to the tagging service.
 	tags = append(tags, ParagliderTag) // add universal tag for paraglider' resources
 	userTypeTag := globaltaggingv1.AttachTagOptionsTagTypeUserConst
 	resourceModel := &globaltaggingv1.Resource{
@@ -45,8 +46,9 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 	maxAttempts := 30 // retries number to tag a resource
 	for attempt := 1; attempt <= maxAttempts; attempt += 1 {
 		result, response, err := c.taggingService.AttachTag(attachTagOptions)
-		// keeping unique transaction ID to identify possible recurring errors related to the tagging service.
-		xCorrelationId := response.Headers["X-Correlation-Id"][0]
+		if _, doesHeaderExist := response.Headers["X-Correlation-Id"]; doesHeaderExist {
+			xCorrelationId = response.Headers["X-Correlation-Id"][0]
+		}
 		utils.Log.Printf("Tagging attempt %v on resource CRN: %v with transaction ID: %v and err: %+v\n", attempt, *CRN, xCorrelationId, err)
 		if !*result.Results[0].IsError {
 			utils.Log.Printf("Successfully tagged resource CRN: %v on attempt %v\n", attempt, *CRN)
