@@ -21,25 +21,10 @@ package ibm
 import (
 	"testing"
 
-	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 	"github.com/stretchr/testify/require"
 )
 
-var resourceGroupID = ibmCommon.GetIBMResourceGroupID()
-
-const (
-	testRegion = "us-east"
-)
-
 // TODO @praveingk: Expand tests of SDK functions
-
-// run via: go test --tags=unit -run TestCleanup
-// deletes all Paraglider's resources on IBM cloud
-// Note: env var INVISINETS_TEST_PERSIST must be set to 1 for deployments to be terminated
-func TestCleanup(t *testing.T) {
-	err := TerminateParagliderDeployments(resourceGroupID, testRegion)
-	require.NoError(t, err)
-}
 
 // Testing a function that returns true if cidr1 is a subset of cidr2,
 // i.e. all ips in cidr1 exist within cidr2
