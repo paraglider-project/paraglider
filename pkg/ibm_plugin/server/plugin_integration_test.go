@@ -1,4 +1,4 @@
-//go:build integration
+//go:build ibm
 
 /*
 Copyright 2023 The Paraglider Authors.

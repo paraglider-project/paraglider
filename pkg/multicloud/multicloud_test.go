@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -355,6 +356,11 @@ func TestMulticloud(t *testing.T) {
 // -timeout 0 removes limit of 10 minutes runtime, which is necessary due to long deployment time of Azure's VPN.
 // Note: if user doesn't have resource group privileges, set env PARAGLIDER_AZURE_RESOURCE_GROUP with an existing resource group
 func TestMulticloudIBMAzure(t *testing.T) {
+	// TODO remove condition after an IBM account is integrated to a git workflow.
+	// skip test if it runs on a git-action.
+	if os.Getenv("GH_RUN_NUMBER") != "" {
+		t.Skip("test temporarily disabled from git-actions until an IBM account is integrated to a git workflow")
+	}
 	dbPort := 6379
 	kvstorePort := 7993
 	taggingPort := 7994
