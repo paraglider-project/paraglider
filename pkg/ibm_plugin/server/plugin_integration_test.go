@@ -130,7 +130,7 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	defer func() {
-		err := sdk.TerminateParagliderDeployments(resourceGroupID, region)
+		err := sdk.TerminateParagliderDeployments(region)
 		require.NoError(t, err)
 	}()
 
@@ -233,7 +233,7 @@ func TestCreateVpnGateway(t *testing.T) {
 	require.NoError(t, err)
 	// removes all of paraglider's deployments on IBM when test ends (if INVISINETS_TEST_PERSIST=1)
 	defer func() {
-		err := sdk.TerminateParagliderDeployments(resourceGroupID, region)
+		err := sdk.TerminateParagliderDeployments(region)
 		require.NoError(t, err)
 	}()
 
