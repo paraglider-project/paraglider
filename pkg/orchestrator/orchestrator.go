@@ -417,7 +417,7 @@ func (s *ControllerServer) permitListRuleAddTag(c *gin.Context) {
 				return
 			}
 
-			conn, err := grpc.NewClient(cloudClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err = grpc.NewClient(cloudClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
 				c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 				return
