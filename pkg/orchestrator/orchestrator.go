@@ -397,6 +397,8 @@ func (s *ControllerServer) permitListRuleAddTag(c *gin.Context) {
 		return
 	}
 
+	initializedClientConns := make(map[string]*grpc.ClientConn)
+
 	// Add rule to each URI in the resolved tag
 	for _, mapping := range resolvedTag.Tags {
 		// Get the cloud and namespace from the tag
@@ -406,18 +408,24 @@ func (s *ControllerServer) permitListRuleAddTag(c *gin.Context) {
 			return
 		}
 
-		// Create connection to cloud plugin
-		cloudClient, ok := s.pluginAddresses[cloud]
+		// Create  or get connection to cloud plugin
+		conn, ok := initializedClientConns[cloud]
 		if !ok {
-			c.AbortWithStatusJSON(400, createErrorResponse("invalid cloud name"))
-			return
+			cloudClientAddress, ok := s.pluginAddresses[cloud]
+			if !ok {
+				c.AbortWithStatusJSON(400, createErrorResponse("invalid cloud name"))
+				return
+			}
+
+			conn, err := grpc.NewClient(cloudClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+				return
+			}
+			defer conn.Close()
+
+			initializedClientConns[cloud] = conn
 		}
-		conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-			return
-		}
-		defer conn.Close()
 
 		// Send RPC to add rule
 		client := paragliderpb.NewCloudPluginClient(conn)
