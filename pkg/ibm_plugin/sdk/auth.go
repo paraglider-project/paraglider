@@ -29,17 +29,11 @@ import (
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"golang.org/x/crypto/ssh"
-	"gopkg.in/yaml.v3"
 
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const keyType = "key"
-
-// Credentials extracted from local credential file
-type Credentials struct {
-	APIKey string `yaml:"iam_api_key"`
-}
 
 // creates ssh keys and registers them if absent.
 // returns key id of registered public key.
@@ -103,33 +97,22 @@ func (c *CloudClient) getKeyByPublicKey(publicKeyData string) (string, error) {
 			 key was found`)
 }
 
-// returns "Credentials" object loaded from "credentialsPath"
-func getIBMCred() (Credentials, error) {
-	var credentials Credentials
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return credentials, fmt.Errorf("failed to generate home path: \n%v", err)
+// GetAPIKey returns API KEY ID defined in environment variable
+func getAPIKey() (string, error) {
+	apiKey := os.Getenv("PARAGLIDER_IBM_API_KEY")
+	if apiKey == "" {
+		return "", fmt.Errorf("environment variable 'PARAGLIDER_IBM_API_KEY' is required for authentication")
 	}
-	data, err := os.ReadFile(filepath.Join(homeDir, credentialsPath))
-	if err != nil {
-		return credentials, fmt.Errorf("failed to read credential file:\n%v", err)
-	}
-	err = yaml.Unmarshal(data, &credentials)
-	if err != nil {
-		return credentials, fmt.Errorf("failed to unmarshal credential file:\n%v", err)
-	}
-
-	return credentials, nil
+	return apiKey, nil
 }
 
 // returns a user authenticator object to authorize IBM cloud services
 func getAuthenticator() (*core.IamAuthenticator, error) {
-	creds, err := getIBMCred()
+	apiKey, err := getAPIKey()
 	if err != nil {
 		return nil, err
 	}
-	return &core.IamAuthenticator{ApiKey: creds.APIKey}, err
+	return &core.IamAuthenticator{ApiKey: apiKey}, err
 }
 
 // returns local public key contents if exists, else
