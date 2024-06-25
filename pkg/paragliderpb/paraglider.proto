@@ -187,7 +187,7 @@ message GetUsedBgpPeeringIpAddressesResponse {
 }
 
 message FindUnusedAddressSpacesRequest {
-    optional int32 num = 2;
+    repeated int32 sizes = 1;
 }
 
 message FindUnusedAddressSpacesResponse {

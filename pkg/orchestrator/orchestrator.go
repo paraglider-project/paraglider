@@ -26,12 +26,13 @@ import (
 	"net/http"
 	"net/netip"
 	"os"
-	"strconv"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v2"
 
 	"github.com/gin-gonic/gin"
+	"github.com/seancfoley/ipaddress-go/ipaddr"
 
 	grpc "google.golang.org/grpc"
 	insecure "google.golang.org/grpc/credentials/insecure"
@@ -60,6 +61,8 @@ const (
 	DeleteTagURL             string = "/tags/:tag"
 	DeleteTagMemberURL       string = "/tags/:tag/members/:member"
 	ListNamespacesURL        string = "/namespaces"
+	defaultAddressSpace      string = "10.0.0.0/8"
+	defaultSpaceRequest      int    = 65534
 )
 
 type Warning struct {
@@ -76,6 +79,7 @@ type ControllerServer struct {
 	localKVStoreService       string
 	config                    config.Config
 	namespace                 string
+	addressRequest            sync.Mutex
 }
 
 type ResourceInfo struct {
@@ -571,44 +575,50 @@ func (s *ControllerServer) updateUsedAddressSpaces() error {
 }
 
 // Get a new address block for a new virtual network
-// TODO @smcclure20: Later, this should allocate more efficiently and with different size address blocks (eg, GCP needs larger than Azure since a VPC will span all regions)
 func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *paragliderpb.FindUnusedAddressSpacesRequest) (*paragliderpb.FindUnusedAddressSpacesResponse, error) {
+	s.addressRequest.Lock()
+	defer s.addressRequest.Unlock()
 	err := s.updateUsedAddressSpaces()
 	if err != nil {
 		return nil, err
 	}
 
-	var requestedAddressSpaces int
-	if req.Num != nil {
-		requestedAddressSpaces = int(*req.Num)
+	var requestedAddressSpaces []int32
+	if req.Sizes != nil {
+		requestedAddressSpaces = req.Sizes
 	} else {
-		requestedAddressSpaces = 1
+		requestedAddressSpaces = []int32{int32(defaultSpaceRequest)}
 	}
-
-	addressSpaces := make([]string, requestedAddressSpaces)
-	highestBlockUsed := -1
-
-	for _, addressSpaceMapping := range s.usedAddressSpaces {
-		for _, address := range addressSpaceMapping.AddressSpaces {
-			blockNumber, err := strconv.Atoi(strings.Split(address, ".")[1])
-			if err != nil {
-				return nil, err
-			}
-			if blockNumber > highestBlockUsed {
-				highestBlockUsed = blockNumber
+	respAddressSpaces := make([]string, len(requestedAddressSpaces))
+	// Calculate the list of unused address space blocks available to be allocated
+	unusedBlocks := findUnusedBlocks(s.config.AddressSpace, s.usedAddressSpaces)
+	for i := 0; i < len(requestedAddressSpaces); i++ {
+		reqSize := int64(defaultSpaceRequest)
+		if requestedAddressSpaces[i] != 0 {
+			reqSize = int64(requestedAddressSpaces[i])
+		}
+		var aBlock *ipaddr.IPAddress
+		// Iterate to allocate the first usunsed block that can accomodate
+		for _, block := range unusedBlocks {
+			if reqSize < block.GetCount().Int64() {
+				aBlock = allocBlock(block, reqSize)
+				if aBlock == nil {
+					continue
+				}
+				respAddressSpaces[i] = aBlock.String()
+				break
 			}
 		}
+		if aBlock == nil {
+			return nil, fmt.Errorf("unable to find free address space")
+		}
+		// Remove the allocated block from the set of available spaces
+		unusedBlocks = removeBlock(unusedBlocks, aBlock)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	if highestBlockUsed >= 255 {
-		return nil, errors.New("all address blocks used")
-	}
-
-	for i := 0; i < requestedAddressSpaces; i++ {
-		addressSpaces[i] = fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+i+1)
-	}
-
-	return &paragliderpb.FindUnusedAddressSpacesResponse{AddressSpaces: addressSpaces}, nil
+	return &paragliderpb.FindUnusedAddressSpacesResponse{AddressSpaces: respAddressSpaces}, nil
 }
 
 // Gets unused address spaces across all clouds
@@ -1286,6 +1296,11 @@ func Setup(cfg config.Config, background bool) {
 
 	for _, c := range cfg.CloudPlugins {
 		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port
+	}
+
+	// If address space isn't declared in config, fall back to default private address space
+	if cfg.AddressSpace == nil {
+		server.config.AddressSpace = []string{defaultAddressSpace}
 	}
 
 	// Setup GRPC server

@@ -16,6 +16,12 @@ limitations under the License.
 
 package orchestrator
 
+import (
+	"github.com/seancfoley/ipaddress-go/ipaddr"
+
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
+)
+
 // Private ASN ranges (RFC 6996)
 const (
 	MIN_PRIVATE_ASN_2BYTE uint32 = 64512
@@ -23,3 +29,37 @@ const (
 	MIN_PRIVATE_ASN_4BYTE uint32 = 4200000000
 	MAX_PRIVATE_ASN_4BYTE uint32 = 4294967294
 )
+
+func allocBlock(addressSpace *ipaddr.IPAddress, blockSize int64) *ipaddr.IPAddress {
+	var allocator ipaddr.PrefixBlockAllocator[*ipaddr.IPAddress]
+	allocator.AddAvailable(addressSpace)
+	allocator.SetReserved(2) // 2 reserved per block
+	return allocator.AllocateSize(uint64(blockSize))
+}
+
+func removeBlock(addressSpaces []*ipaddr.IPAddress, block *ipaddr.IPAddress) []*ipaddr.IPAddress {
+	var blockList []*ipaddr.IPAddress
+	for _, availSpace := range addressSpaces {
+		result := availSpace.Subtract(block)
+		for _, addr := range result {
+			blockList = append(blockList, addr.SpanWithPrefixBlocks()...)
+		}
+	}
+	return blockList
+}
+
+func findUnusedBlocks(addressSpace []string, usedAddressSpaces []*paragliderpb.AddressSpaceMapping) []*ipaddr.IPAddress {
+	availBlocks := make([]*ipaddr.IPAddress, 0)
+	for _, availSpace := range addressSpace {
+		availBlocks = append(availBlocks, ipaddr.NewIPAddressString(availSpace).GetAddress())
+	}
+	// Decode the used subnets from usedAddressSpaces mappings
+	for _, usedAddress := range usedAddressSpaces {
+		for _, block := range usedAddress.AddressSpaces {
+			usedBlock := ipaddr.NewIPAddressString(block).GetAddress()
+			availBlocks = removeBlock(availBlocks, usedBlock)
+		}
+	}
+
+	return availBlocks
+}

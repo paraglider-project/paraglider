@@ -147,7 +147,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 		}
 		defer conn.Close()
 		client := paragliderpb.NewControllerClient(conn)
-		resp, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
+		resp, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: []int32{0}})
 		if err != nil {
 			return nil, err
 		}

@@ -29,7 +29,6 @@ import (
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -311,7 +310,8 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 		}
 		defer conn.Close()
 		client := paragliderpb.NewControllerClient(conn)
-		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Num: proto.Int32(int32(resourceDescInfo.NumAdditionalAddressSpaces))})
+		reqAddressSpaces := make([]int32, resourceDescInfo.NumAdditionalAddressSpaces)
+		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: reqAddressSpaces})
 		if err != nil {
 			utils.Log.Printf("Failed to find unused address spaces: %v", err)
 			return nil, err
