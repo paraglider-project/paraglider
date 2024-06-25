@@ -383,7 +383,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	require.NoError(t, err)
 	// removes all of paraglider's deployments on IBM when test ends (if INVISINETS_TEST_PERSIST=1)
 	defer func() {
-		err := ibmSdk.TerminateParagliderDeployments(resourceGroupID, region)
+		err := ibmSdk.TerminateParagliderDeployments(region)
 		require.NoError(t, err)
 	}()
 
