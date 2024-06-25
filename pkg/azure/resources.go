@@ -105,7 +105,7 @@ func GetNetworkInfoFromResource(ctx context.Context, handler *AzureSDKHandler, r
 	resourceHandler, err := getResourceHandler(resourceID)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the resource handler for resource %s: %+v", resourceID, err)
-		return nil, err
+		return nil, fmt.Errorf("Getting Resource Handler error: %w", err)
 	}
 	networkInfo, err := resourceHandler.getNetworkInfo(ctx, resource, handler)
 	if err != nil {
@@ -225,6 +225,7 @@ func (r *azureResourceHandlerVM) getNetworkInfo(ctx context.Context, resource *a
 	}
 	nsg, err := sdkHandler.GetSecurityGroup(ctx, nsgName)
 	if err != nil {
+		fmt.Println("bbb")
 		utils.Log.Printf("An error occured while getting the network security group:%+v", err)
 		return nil, err
 	}

@@ -433,6 +433,7 @@ func GetOrCreateVpnGatewayVNet(ctx context.Context, azureHandler *AzureSDKHandle
 					},
 				},
 			}
+			// todo: investigate this line for the tests
 			vnet, err := azureHandler.CreateVirtualNetwork(ctx, getVpnGatewayVnetName(namespace), virtualNetworkParameters)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create VPN gateway vnet: %w", err)
@@ -451,6 +452,7 @@ func GetOrCreateVpnGatewayVNet(ctx context.Context, azureHandler *AzureSDKHandle
 // - VPN gateway transit relationship cannot be established before the VPN gateway creation.
 // - If the VPN gateway hasn't been created, then the gateway transit relationship will be established on VPN gateway creation.
 func CreateGatewayVnetPeering(ctx context.Context, azureHandler *AzureSDKHandler, vnetName string, vpnGwVnetName string, namespace string) error {
+	fmt.Println("aaaaa")
 	_, err := azureHandler.GetVirtualNetworkPeering(ctx, vnetName, vpnGwVnetName)
 	var peeringExists bool
 	if err != nil {

@@ -760,14 +760,32 @@ func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 }
 
 // Add an existing Azure resource to a paraglider deployment
-func (s *azurePluginServer) AttachResource(ctx context.Context, azureHandler *AzureSDKHandler, attachResourceReq *paragliderpb.AttachResourceRequest) (*paragliderpb.AttachResourceResponse, error) {
+func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceReq *paragliderpb.AttachResourceRequest) (*paragliderpb.AttachResourceResponse, error) {
+	resourceId := attachResourceReq.GetResource()
+	resourceIdInfo, err := getResourceIDInfo(resourceId)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting resource id info:%+v", err)
+		return nil, err
+	}
+
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo, attachResourceReq.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
+	// resource, networkInfo, err := ValidateResourceCompliesWithParagliderRequirements(ctx, resourceId, azureHandler, s)
+	// if err != nil {
+	// 	utils.Log.Printf("An error occured while validating resource:%+v", err)
+	// 	return nil, err
+	// }
+
 	networkInfo, err := GetNetworkInfoFromResource(ctx, azureHandler, attachResourceReq.GetResource())
 	if err != nil {
 		utils.Log.Printf("An error occured while getting network info:%+v", err)
 		return nil, err
 	}
 	vnetName := getVnetFromSubnetId(networkInfo.SubnetID)
-
+	fmt.Println("vnetName: ", vnetName)
 	// Create VPN gateway vnet if not already created
 	// The vnet is created even if there's no multicloud connections at the moment for ease of connection in the future.
 	// Note that vnets are free, so this is not a problem.
@@ -776,6 +794,7 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, azureHandler *Az
 		utils.Log.Printf("An error occured while getting or creating VPN gateway vnet:%+v", err)
 		return nil, err
 	}
+	fmt.Println("vpnGwVnet: ", vpnGwVnet)
 
 	// Create peering VPN gateway vnet and VM vnet. If the VPN gateway already exists, then establish a VPN gateway transit relationship where the vnet can use the gatewayVnet's VPN gateway.
 	// - This peering is created even if there's no multicloud connections at the moment for ease of connection in the future.
@@ -789,5 +808,5 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, azureHandler *Az
 	}
 
 	return nil, nil
-	// return &paragliderpb.AttachResourceResponse{Name: resourceDescInfo.ResourceName, Uri: resourceDescInfo.ResourceID, Ip: ip}, nil
+	// return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: ip}, nil
 }

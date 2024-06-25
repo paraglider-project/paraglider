@@ -401,6 +401,7 @@ func (h *AzureSDKHandler) CreateOrUpdateVirtualNetworkPeering(ctx context.Contex
 }
 
 func (h *AzureSDKHandler) GetVirtualNetworkPeering(ctx context.Context, virtualNetworkName string, virtualNetworkPeeringName string) (*armnetwork.VirtualNetworkPeering, error) {
+	fmt.Println("yyy")
 	resp, err := h.networkPeeringClient.Get(ctx, h.resourceGroupName, virtualNetworkName, virtualNetworkPeeringName, nil)
 	if err != nil {
 		return nil, err
