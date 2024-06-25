@@ -55,6 +55,7 @@ type executor struct {
 	ibmPort          int
 	orchestratorAddr string
 	clearKeys        bool
+	addressSpace     []string
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
