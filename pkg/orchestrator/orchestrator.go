@@ -602,6 +602,7 @@ func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *parag
 			if reqSize < block.GetCount().Int64() {
 				aBlock = allocBlock(block, reqSize)
 				if aBlock == nil {
+					// Allocation failed, move on to next available block
 					continue
 				}
 				respAddressSpaces[i] = aBlock.String()
