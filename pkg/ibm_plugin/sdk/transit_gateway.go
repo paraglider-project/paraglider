@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/IBM/go-sdk-core/core"
+	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/networking-go-sdk/transitgatewayapisv1"
 	"github.com/google/uuid"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"

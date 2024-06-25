@@ -762,7 +762,7 @@ func TestAddPermitListRules(t *testing.T) {
 		Instance:      createFakeInstance(),
 		SecurityGroup: createFakeSecurityGroup(false),
 		subnetVPC: map[string]string{
-			fakeID: fakeSubnet1,
+			fakeID: fakeSubnet2,
 		},
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
@@ -778,7 +778,7 @@ func TestAddPermitListRules(t *testing.T) {
 	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
-		Rules:     fakePermitList1,
+		Rules:     fakePermitList2,
 	}
 
 	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
@@ -801,7 +801,7 @@ func TestAddPermitListRulesExisting(t *testing.T) {
 		Instance:      createFakeInstance(),
 		SecurityGroup: createFakeSecurityGroup(true),
 		subnetVPC: map[string]string{
-			fakeID: fakeSubnet1,
+			fakeID: fakeSubnet2,
 		},
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
@@ -817,7 +817,7 @@ func TestAddPermitListRulesExisting(t *testing.T) {
 	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
-		Rules:     fakePermitList1,
+		Rules:     fakePermitList2,
 	}
 
 	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
@@ -845,7 +845,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
-		Rules:     fakePermitList1,
+		Rules:     fakePermitList2,
 	}
 
 	resp, err := s.AddPermitListRules(ctx, addRulesRequest)

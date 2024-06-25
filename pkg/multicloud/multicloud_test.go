@@ -19,19 +19,33 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
+	"strings"
 	"testing"
 
 	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
+	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/vpc-go-sdk/vpcv1"
+	"github.com/google/uuid"
 	azure "github.com/paraglider-project/paraglider/pkg/azure"
 	gcp "github.com/paraglider-project/paraglider/pkg/gcp"
+	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
+	ibmSdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
+	ibmServer "github.com/paraglider-project/paraglider/pkg/ibm_plugin/server"
+	"github.com/paraglider-project/paraglider/pkg/kvstore"
 	orchestrator "github.com/paraglider-project/paraglider/pkg/orchestrator"
 	config "github.com/paraglider-project/paraglider/pkg/orchestrator/config"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	tagging "github.com/paraglider-project/paraglider/pkg/tag_service"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// NOTE: set isAzureNetworkWatcherDeployed to false if AzureNetworkWatcher isn't deployed on the test's region.
+// required to test connectivity initiated from Azure's VM to a remote VM launched during testing.
+const isAzureNetworkWatcherDeployed = true
 
 // TODO @seankimkdy: should this be turned into a system test where we actually call the cloud plugins through the orchestrator GRPC?
 func TestMulticloud(t *testing.T) {
@@ -336,4 +350,244 @@ func TestMulticloud(t *testing.T) {
 	azureConnectivityCheck2, err := azure.RunPingConnectivityCheck(azureVm2ResourceId, gcpVmIpAddress, "default")
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck2)
+}
+
+// usage: go test --tags=multicloud -run TestMulticloudIBMAzure -timeout 0
+// -timeout 0 removes limit of 10 minutes runtime, which is necessary due to long deployment time of Azure's VPN.
+// Note: if user doesn't have resource group privileges, set env PARAGLIDER_AZURE_RESOURCE_GROUP with an existing resource group
+func TestMulticloudIBMAzure(t *testing.T) {
+	// TODO remove condition after an IBM account is integrated to a git workflow.
+	// skip test if it runs on a git-action.
+	if os.Getenv("GH_RUN_NUMBER") != "" {
+		t.Skip("test temporarily disabled from git-actions until an IBM account is integrated to a git workflow")
+	}
+	dbPort := 6379
+	kvstorePort := 7993
+	taggingPort := 7994
+	// ibm config
+	IBMServerPort := 7992
+	resourceGroupID := ibmCommon.GetIBMResourceGroupID()
+	ibmResourceIDPrefix := "/resourcegroup/" + resourceGroupID + "/zone/us-east-1" + "/instance/"
+	image, zone, instanceName := "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb", "us-east-1", "pg-vm-east-1" // IBM VM vars
+	ibmNamespace := "pg-multicloud-ibm"
+	ibmDeploymentId := "/resourcegroup/" + resourceGroupID
+	vmProfile := "bx2-2x8"
+	// azure config
+	azureServerPort := 7991
+	azureSubscriptionId := azure.GetAzureSubscriptionId()
+	azureResourceGroupName := azure.SetupAzureTesting(azureSubscriptionId, "ibmazure")
+	azureNamespace := "multicloud"
+	defer azure.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName, azureNamespace)
+
+	region, err := ibmCommon.ZoneToRegion(zone)
+	require.NoError(t, err)
+	// removes all of paraglider's deployments on IBM when test ends (if INVISINETS_TEST_PERSIST=1)
+	defer func() {
+		err := ibmSdk.TerminateParagliderDeployments(resourceGroupID, region)
+		require.NoError(t, err)
+	}()
+
+	azureDeploymentId := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", azureSubscriptionId, azureResourceGroupName)
+	azureVmName := "pg-vm-test-" + uuid.NewString()[:4]
+	// temporary print due to possible issue with Azure's log visibility
+	fmt.Printf("\nAzure's testing namespace: %v.\nAzure's testing VM: %v\n", azureNamespace, azureVmName)
+
+	orchestratorServerConfig := config.Config{
+		Server: config.Server{
+			Host:    "localhost",
+			Port:    "8080",
+			RpcPort: "8081",
+		},
+		TagService: config.TagService{
+			Port: strconv.Itoa(taggingPort),
+			Host: "localhost",
+		},
+		KVStore: config.TagService{
+			Port: strconv.Itoa(kvstorePort),
+			Host: "localhost",
+		},
+		CloudPlugins: []config.CloudPlugin{
+			{
+				Name: utils.IBM,
+				Host: "localhost",
+				Port: strconv.Itoa(IBMServerPort),
+			},
+
+			{
+				Name: utils.AZURE,
+				Host: "localhost",
+				Port: strconv.Itoa(azureServerPort),
+			},
+		},
+		Namespaces: map[string][]config.CloudDeployment{
+			ibmNamespace: {
+				{
+					Name:       utils.IBM,
+					Deployment: ibmDeploymentId,
+				},
+			},
+			azureNamespace: {
+				{
+					Name:       utils.AZURE,
+					Deployment: azureDeploymentId,
+				},
+			},
+		},
+	}
+
+	// start controller server
+	fmt.Println("Setting up controller server")
+	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
+	orchestrator.Setup(orchestratorServerConfig, true)
+
+	// start ibm plugin server
+	fmt.Println("Setting up IBM server")
+	ibmServer := ibmServer.Setup(IBMServerPort, orchestratorServerAddr)
+
+	// start azure plugin server
+	fmt.Println("Setting up Azure server")
+	azureServer := azure.Setup(azureServerPort, orchestratorServerAddr)
+
+	// start kv store server
+	fmt.Println("Setting up kv store server")
+	tagging.Setup(dbPort, taggingPort, true)
+
+	// start tagging server
+	fmt.Println("Setting up kv tagging server")
+	kvstore.Setup(dbPort, kvstorePort, true)
+
+	ctx := context.Background()
+
+	// Create Azure VM
+	fmt.Println("\nCreating Azure VM...")
+	azureVm1Location := "westus"
+	azureVm1Parameters := azure.GetTestVmParameters(azureVm1Location)
+	azureVm1Description, err := json.Marshal(azureVm1Parameters)
+	require.NoError(t, err)
+	azureVmResourceId := "/subscriptions/" + azureSubscriptionId + "/resourceGroups/" + azureResourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + azureVmName
+	azureCreateResourceResp1, err := azureServer.CreateResource(
+		ctx,
+		&paragliderpb.CreateResourceRequest{
+			Deployment:  &paragliderpb.ParagliderDeployment{Id: azureDeploymentId, Namespace: azureNamespace},
+			Name:        azureVmName,
+			Description: azureVm1Description,
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, azureCreateResourceResp1)
+	assert.Equal(t, azureCreateResourceResp1.Uri, azureVmResourceId)
+
+	// Create IBM VM
+	fmt.Println("Creating IBM VM...")
+	ibmVMPrototype := &vpcv1.InstancePrototypeInstanceByImage{
+		Image:   &vpcv1.ImageIdentityByID{ID: &image},
+		Zone:    &vpcv1.ZoneIdentityByName{Name: &zone},
+		Name:    core.StringPtr(instanceName),
+		Profile: &vpcv1.InstanceProfileIdentityByName{Name: core.StringPtr(vmProfile)},
+	}
+
+	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(ibmVMPrototype)})
+	require.NoError(t, err)
+
+	resource := &paragliderpb.CreateResourceRequest{Name: instanceName, Deployment: &paragliderpb.ParagliderDeployment{Id: ibmDeploymentId, Namespace: ibmNamespace}, Description: description}
+	createResourceResponse, err := ibmServer.CreateResource(ctx, resource)
+	require.NoError(t, err)
+	require.NotNil(t, createResourceResponse)
+	URIParts := strings.Split(createResourceResponse.Uri, "/")
+	IBMResourceID := ibmResourceIDPrefix + URIParts[len(URIParts)-1]
+
+	// Add permit list for IBM VM
+	fmt.Println("Adding IBM permit list rules...")
+	azureVmIpAddress, err := azure.GetVmIpAddress(azureVmResourceId)
+	require.NoError(t, err)
+
+	ibmPermitList := []*paragliderpb.PermitListRule{
+		// inbound ICMP protocol rule to accept & respond to pings
+		{
+			Name:      "inboundICMPAzure",
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{azureVmIpAddress},
+		},
+		// outbound ICMP protocol rule to initiate pings
+		{
+			Name:      "outboundICMPAzure",
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{azureVmIpAddress},
+		},
+		// allow inbound ssh connection
+		{
+			Name:      "inboundSSH",
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   22,
+			DstPort:   22,
+			Protocol:  6,
+			Targets:   []string{"0.0.0.0/0"},
+		},
+	}
+
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
+		Namespace: ibmNamespace,
+		Resource:  IBMResourceID,
+		Rules:     ibmPermitList,
+	}
+
+	respAddRules, err := ibmServer.AddPermitListRules(ctx, addRulesRequest)
+	require.NoError(t, err)
+	require.NotNil(t, respAddRules)
+
+	// Create Azure VM permit list
+	ibmVmIpAddress := createResourceResponse.Ip
+	fmt.Println("Adding Azure permit list rules...")
+	azureVm1PermitListReq := &paragliderpb.AddPermitListRulesRequest{
+		Resource: azureVmResourceId,
+		Rules: []*paragliderpb.PermitListRule{
+			// allow all inbound traffic from ibmVmIpAddress
+			{
+				Name:      "ibm-inbound-rule",
+				Direction: paragliderpb.Direction_INBOUND,
+				SrcPort:   -1,
+				DstPort:   -1,
+				Protocol:  1,
+				Targets:   []string{ibmVmIpAddress},
+			},
+			// allow all outbound traffic to ibmVmIpAddress
+			{
+				Name:      "ibm-outbound-rule",
+				Direction: paragliderpb.Direction_OUTBOUND,
+				SrcPort:   -1,
+				DstPort:   -1,
+				Protocol:  1,
+				Targets:   []string{ibmVmIpAddress},
+			},
+			{ // SSH rule for debugging
+				Name:      "ssh-inbound-rule",
+				Direction: paragliderpb.Direction_INBOUND,
+				SrcPort:   -1,
+				DstPort:   22,
+				Protocol:  6,
+				Targets:   []string{"0.0.0.0/0"},
+			},
+		},
+		Namespace: azureNamespace,
+	}
+	azureAddPermitListRules1Resp, err := azureServer.AddPermitListRules(ctx, azureVm1PermitListReq)
+	require.NoError(t, err)
+	require.NotNil(t, azureAddPermitListRules1Resp)
+
+	// Run Azure connectivity check (ping from Azure VM to IBM VM)
+	// requires Azure Network Watcher to be deployed in the test's region.
+	if isAzureNetworkWatcherDeployed {
+		fmt.Println("running Azure connectivity test...")
+		azureConnectivityCheck1, err := azure.RunPingConnectivityCheck(azureVmResourceId, ibmVmIpAddress, azureNamespace)
+		require.Nil(t, err)
+		require.True(t, azureConnectivityCheck1)
+	}
+
+	fmt.Println("Running cleanup functions...")
 }

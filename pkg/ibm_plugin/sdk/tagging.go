@@ -28,6 +28,7 @@ import (
 )
 
 func (c *CloudClient) attachTag(CRN *string, tags []string) error {
+	var xCorrelationId string          // keeping unique transaction ID to identify possible recurring errors related to the tagging service.
 	tags = append(tags, ParagliderTag) // add universal tag for paraglider' resources
 	userTypeTag := globaltaggingv1.AttachTagOptionsTagTypeUserConst
 	resourceModel := &globaltaggingv1.Resource{
@@ -42,20 +43,22 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 
 	// attach tags with retires.
 	// retry mechanism improves stability and is needed due to possible temporary unavailability of resources, e.g. at time of creation.
-	maxAttempts := 10 // retries number to tag a resource
-	var err error
-	var result *globaltaggingv1.TagResults
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		result, _, err = c.taggingService.AttachTag(attachTagOptions)
-		// tracking all responses from error prone tagging service
-		utils.Log.Printf("Tagging attempt %v: Error: %v", attempt, err)
+	maxAttempts := 30 // retries number to tag a resource
+	for attempt := 1; attempt <= maxAttempts; attempt += 1 {
+		result, response, err := c.taggingService.AttachTag(attachTagOptions)
+		if _, doesHeaderExist := response.Headers["X-Correlation-Id"]; doesHeaderExist {
+			xCorrelationId = response.Headers["X-Correlation-Id"][0]
+		}
+		utils.Log.Printf("Tagging attempt %v on resource CRN: %v with transaction ID: %v and err: %+v\n", attempt, *CRN, xCorrelationId, err)
 		if !*result.Results[0].IsError {
+			utils.Log.Printf("Successfully tagged resource CRN: %v on attempt %v\n", attempt, *CRN)
 			return nil
 		}
 		// sleep to avoid busy waiting
 		time.Sleep(5 * time.Second)
 	}
-	return fmt.Errorf("failed to tag resource : %v", err)
+	utils.Log.Println("Failed to tag resource CRN", *CRN)
+	return fmt.Errorf("failed to tag resource CRN %v", *CRN)
 }
 
 // GetParagliderTaggedResources returns slice of IDs of tagged resources
@@ -145,17 +148,18 @@ func (c *CloudClient) getTaggedResources(query string) (*globalsearchv2.ScanResu
 
 	// search tags with retries.
 	// retry mechanism improves stability and is needed due to possible temporary unavailability of resources, e.g. at time of creation.
-	maxAttempts := 10    // retries number to fetch a tagged resource
-	latestResponse := "" // record latest response from inner scope
+	maxAttempts := 10 // retries number to fetch a tagged resource
 	for attempt := 1; attempt <= maxAttempts; attempt += 1 {
-		res, response, err := c.globalSearch.Search(searchOptions)
+		res, _, err := c.globalSearch.Search(searchOptions)
 		if err != nil {
-			utils.Log.Printf("Tags search was invalid at attempt %v.\nResponse:%+v\nErr%+v\n", attempt, response, err)
+			// keeping unique transaction ID to identify possible recurring errors related to the tagging service.
+			utils.Log.Printf("Tags search with query %v was invalid at attempt %v with error:%+v\n", query, attempt, err)
 		} else {
 			return res, nil
 		}
 		// sleep to avoid busy waiting
 		time.Sleep(5 * time.Second)
 	}
-	return nil, fmt.Errorf("Failed to tag resource with response:\n %+v", latestResponse)
+	utils.Log.Printf("Failed to fetch tagged resource with with query %v", query)
+	return nil, fmt.Errorf("Failed to fetch tagged resource")
 }

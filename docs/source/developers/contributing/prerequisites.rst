@@ -111,8 +111,12 @@ If you'd like to persist resources after a test (i.e., not teardown project/reso
 
 **IBM** 
 
-.. note:: 
-    IBM integration tests are not currently supported. We plan to add some soon.
+#. Set environment variable ``PARAGLIDER_IBM_API_KEY`` with an ``IAM API`` key. Create a key on `IBM's web console <https://cloud.ibm.com/iam/apikeys>`_. 
+#. Set environment variable ``PARAGLIDER_IBM_RESOURCE_GROUP_ID`` with a resource group ID. 
+   Pick a resource group from `IBM's web console <https://cloud.ibm.com/account/resource-groups>`__.
+
+| Cleanup function, terminating all Paraglider resources on IBM, is executed automatically when tests end, unless ``INVISINETS_TEST_PERSIST`` is set to ``1``.
+| Manually terminate resources by running ``go test --tags=unit -run TestCleanup`` at ``pkg/ibm_plugin/sdk/sdk_test.go``.
 
 Editor
 --------------------

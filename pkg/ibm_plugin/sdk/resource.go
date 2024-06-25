@@ -511,3 +511,4 @@ func (c *CloudClient) GetResourceHandlerFromID(deploymentID string) (ResourceInt
 
 	return nil, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}/zone/{zone}/{resource}/{resource_id}', got '%s'", deploymentID)
 }
+

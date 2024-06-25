@@ -22,6 +22,7 @@ import (
 	"hash/fnv"
 	"io"
 	"net/http"
+	"os"
 	"reflect"
 	"strings"
 )
@@ -157,4 +158,13 @@ func GetStructHash(s interface{}, fieldsToExclude []string) (uint64, error) {
 		}
 	}
 	return h.Sum64(), nil
+}
+
+// GetIBMResourceGroupID returns resource group ID defined in environment variable PARAGLIDER_IBM_RESOURCE_GROUP_ID
+func GetIBMResourceGroupID() string {
+	resourceGroupID := os.Getenv("PARAGLIDER_IBM_RESOURCE_GROUP_ID")
+	if resourceGroupID == "" {
+		panic("Environment variable 'PARAGLIDER_IBM_RESOURCE_GROUP_ID' is required for testing")
+	}
+	return resourceGroupID
 }
