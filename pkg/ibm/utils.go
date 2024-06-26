@@ -47,12 +47,12 @@ const (
 	// transit gateway for vpc-peering
 	GATEWAY TaggedResourceType = "gateway"
 	VPN     TaggedResourceType = "vpn"
-	
+	ANY     TaggedResourceType = "*"
+
 	credentialsPath = ".ibm/credentials.yaml"
 	endpointsURL    = "https://control.cloud-object-storage.cloud.ibm.com/v2/endpoints" // url containing constantly updated endpoints of regions.
 	publicSSHKey    = ".ibm/keys/paraglider-key.pub"
 	privateSSHKey   = ".ibm/keys/paraglider-key"
-	
 	// ParagliderResourcePrefix is used to prefix a resource's name
 	ParagliderResourcePrefix = "paraglider"
 	// ParagliderTag is the default tag attached to all paraglider resources

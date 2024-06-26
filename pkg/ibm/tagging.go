@@ -51,14 +51,38 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 		}
 		utils.Log.Printf("Tagging attempt %v on resource CRN: %v with transaction ID: %v and err: %+v\n", attempt, *CRN, xCorrelationId, err)
 		if !*result.Results[0].IsError {
-			utils.Log.Printf("Successfully tagged resource CRN: %v on attempt %v\n", attempt, *CRN)
-			return nil
+			// verify whether resource's tags are updated
+			if err := c.areTagsAttached(CRN, tags); err == nil {
+				utils.Log.Printf("Successfully tagged resource CRN: %v on attempt %v\n", attempt, *CRN)
+				return nil
+			} else {
+				utils.Log.Printf("Tags were created successfully, but failed to be associated with resource CRN in the alloted time-span: %v\n", *CRN)
+				return err
+			}
 		}
 		// sleep to avoid busy waiting
 		time.Sleep(5 * time.Second)
 	}
 	utils.Log.Println("Failed to tag resource CRN", *CRN)
 	return fmt.Errorf("failed to tag resource CRN %v", *CRN)
+}
+
+// areTagsAttached returns an error if resource's tags aren't updated (visible to global search service) in the alloted time
+func (c *CloudClient) areTagsAttached(CRN *string, tags []string) error {
+	maxAttempts := 30 // retries number to tag a resource
+	for attempt := 1; attempt <= maxAttempts; attempt += 1 {
+		// TODO REMOVE TESTING PRINT
+		if strings.Contains("vpn", *CRN) {
+			println("\nTAGGING VPN\n")
+		}
+		resource, err := c.GetParagliderTaggedResources(ANY, tags, ResourceQuery{CRN: *CRN})
+		if len(resource) == 1 && err == nil {
+			return nil
+		}
+		// sample status once each 5 sec. sleep to avoid busy waiting
+		time.Sleep(5 * time.Second)
+	}
+	return fmt.Errorf("failed to tag resource CRN %v within the alloted time", *CRN)
 }
 
 // GetParagliderTaggedResources returns slice of IDs of tagged resources
@@ -70,7 +94,9 @@ func (c *CloudClient) GetParagliderTaggedResources(resourceType TaggedResourceTy
 	var tagsStr string
 	var queryStr string
 	// append the paraglider tag to narrow the search scope to paraglider resources only.
-	tags = append(tags, ParagliderTag)
+	if !DoesSliceContain(tags, ParagliderTag) {
+		tags = append(tags, ParagliderTag)
+	}
 	for _, tag := range tags {
 		tagsStr += fmt.Sprintf("tags:%v AND ", tag)
 	}
