@@ -963,8 +963,7 @@ func (s *ControllerServer) getParagliderDeployments(cloud string) []*paragliderp
 	return pgDeployments
 }
 
-// Create resource in specified cloud region
-func (s *ControllerServer) resourceCreate(c *gin.Context) {
+func (s *ControllerServer) handleCreateOrAttachResource(c *gin.Context) {
 	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, false)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
@@ -978,11 +977,26 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 		return
 	}
 
-	// If POST method, name not given in the URL, so get it from the request body
-	if c.Request.Method == "POST" {
-		resourceInfo.name = resourceWithString.Name
-	}
+	if resourceWithString.Description != "" {
+		// call resourceCreate
+		if c.Request.Method == "POST" {
+			resourceInfo.name = resourceWithString.Name
+		}
+		s.resourceCreate(c, resourceInfo, cloudClient, &resourceWithString)
+	} else {
+		var resourceID paragliderpb.ResourceString
+		if err = c.BindJSON(&resourceID); err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+		resourceInfo.uri = resourceID.Id
 
+		s.resourceAttach(c, resourceInfo, cloudClient)
+	}
+}
+
+// Create resource in specified cloud region
+func (s *ControllerServer) resourceCreate(c *gin.Context, resourceInfo *ResourceInfo, cloudClient string, resourceWithString *paragliderpb.ResourceDescriptionString) {
 	// Create connection to cloud plugin
 	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -1023,6 +1037,50 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	resourceResp.Name = tagName
 
 	c.JSON(http.StatusOK, resourceResp)
+}
+
+func (s *ControllerServer) createTag(resourceInfo *ResourceInfo, )
+
+func (s *ControllerServer) resourceAttach(c *gin.Context, resourceInfo *ResourceInfo, cloudClient string) {
+	// Create connection to cloud plugin
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	// Send RPC to attach resource
+	attachResourceReq := paragliderpb.AttachResourceRequest{
+		Namespace: resourceInfo.namespace,
+		Resource:  resourceInfo.uri,
+	}
+
+	client := paragliderpb.NewCloudPluginClient(conn)
+	attachResourceResp, err := client.AttachResource(context.Background(), &attachResourceReq)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Set Paraglider tag (need the name, URI, and IP Address)
+	conn, err = grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	tagName := createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
+	tagClient := tagservicepb.NewTagServiceClient(conn)
+	_, err = tagClient.SetTag(context.Background(), &tagservicepb.SetTagRequest{Tag: &tagservicepb.TagMapping{Name: tagName, Uri: &attachResourceResp.Uri, Ip: &attachResourceResp.Ip}})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	attachResourceResp.Name = tagName
+	c.JSON(http.StatusOK, attachResourceResp)
 }
 
 // List all tags from local tag service
@@ -1347,8 +1405,8 @@ func Setup(cfg config.Config, background bool) {
 	router.PUT(PermitListRulePUTURL, server.permitListRuleAdd)
 	router.POST(DeletePermitListRulesURL, server.permitListRulesDelete)
 	router.DELETE(PermitListRulePUTURL, server.permitListRuleDelete)
-	router.PUT(CreateResourcePUTURL, server.resourceCreate)
-	router.POST(CreateResourcePOSTURL, server.resourceCreate)
+	router.PUT(CreateResourcePUTURL, server.handleCreateOrAttachResource)
+	router.POST(CreateResourcePOSTURL, server.handleCreateOrAttachResource)
 	router.GET(ListTagURL, server.listTags)
 	router.GET(GetTagURL, server.getTag)
 	router.POST(ResolveTagURL, server.resolveTag)
