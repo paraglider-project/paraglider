@@ -703,6 +703,8 @@ func TestAttachResource(t *testing.T) {
 		rgName: rgName,
 		nic:    getFakeNIC(),
 		nsg:    fakeNsg,
+		vnet:   getFakeVirtualNetwork(),
+		vpnGw:  &armnetwork.VirtualNetworkGateway{},
 		vm:     to.Ptr(getFakeVirtualMachine(true)),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, serverState)

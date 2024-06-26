@@ -225,7 +225,6 @@ func (r *azureResourceHandlerVM) getNetworkInfo(ctx context.Context, resource *a
 	}
 	nsg, err := sdkHandler.GetSecurityGroup(ctx, nsgName)
 	if err != nil {
-		fmt.Println("bbb")
 		utils.Log.Printf("An error occured while getting the network security group:%+v", err)
 		return nil, err
 	}

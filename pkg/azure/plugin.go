@@ -785,7 +785,6 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceRe
 		return nil, err
 	}
 	vnetName := getVnetFromSubnetId(networkInfo.SubnetID)
-	fmt.Println("vnetName: ", vnetName)
 	// Create VPN gateway vnet if not already created
 	// The vnet is created even if there's no multicloud connections at the moment for ease of connection in the future.
 	// Note that vnets are free, so this is not a problem.
@@ -794,7 +793,6 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceRe
 		utils.Log.Printf("An error occured while getting or creating VPN gateway vnet:%+v", err)
 		return nil, err
 	}
-	fmt.Println("vpnGwVnet: ", vpnGwVnet)
 
 	// Create peering VPN gateway vnet and VM vnet. If the VPN gateway already exists, then establish a VPN gateway transit relationship where the vnet can use the gatewayVnet's VPN gateway.
 	// - This peering is created even if there's no multicloud connections at the moment for ease of connection in the future.
