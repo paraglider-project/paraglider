@@ -166,7 +166,6 @@ func ValidateResourceCompliesWithParagliderRequirements(ctx context.Context, res
 
 	// Ensure the Vnet address space doesn't overlap with paraglider's address space
 	vnetName := getVnetFromSubnetId(networkInfo.SubnetID)
-	fmt.Println("Valdiate vnet name: ", vnetName)
 	isOverlapping, err := DoesVnetOverlapWithParaglider(ctx, azureHandler, vnetName, server)
 	if err != nil {
 		return nil, nil, err
