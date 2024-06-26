@@ -23,7 +23,6 @@ import (
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
-	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
@@ -452,7 +451,7 @@ func (c *CloudClient) GetUniqueSGRules(rules []SecurityGroupRule, rulesHashValue
 	var res []SecurityGroupRule
 	for _, rule := range rules {
 		// exclude unique field "ID" from hash calculation.
-		ruleHashValue, err := ibmCommon.GetStructHash(rule, []string{"ID"})
+		ruleHashValue, err := GetStructHash(rule, []string{"ID"})
 		if err != nil {
 			return nil, err
 		}
@@ -474,7 +473,7 @@ func (c *CloudClient) GetRulesIDs(rules []SecurityGroupRule, sgID string) ([]str
 	for _, sgRule := range sgRules {
 		for _, rule := range rules {
 			// aggregate rules matching the specified rules, based on all fields except their IDs and SG IDs.
-			if ibmCommon.AreStructsEqual(rule, sgRule, []string{"ID", "SgID"}) {
+			if AreStructsEqual(rule, sgRule, []string{"ID", "SgID"}) {
 				rulesIDs = append(rulesIDs, sgRule.ID)
 				// found matching rule, continue to the next sgRule
 				break
