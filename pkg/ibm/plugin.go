@@ -57,7 +57,7 @@ func (s *IBMPluginServer) setupCloudClient(resourceGroupID, region string) (*Clo
 }
 
 // getAllClientsForVPCs returns the paraglider VPC IDs and the corresponding clients that are present in all the regions
-func (s *IBMPluginServer) getAllClientsForVPCs(cloudClient *CloudClient, resourceGroupName string, resolveID bool) (map[string]*CloudClient, error) {
+func (s *IBMPluginServer) getAllClientsForVPCs(cloudClient *CloudClient, resourceGroupName string) (map[string]*CloudClient, error) {
 	cloudClients := make(map[string]*CloudClient)
 	vpcsData, err := cloudClient.GetParagliderTaggedResources(VPC, []string{}, ResourceQuery{})
 	if err != nil {
@@ -197,7 +197,7 @@ func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragli
 			return nil, err
 		}
 		// get all VPCs and corresponding clients to collect all address spaces
-		clients, err := s.getAllClientsForVPCs(cloudClient, rInfo.ResourceGroup, true)
+		clients, err := s.getAllClientsForVPCs(cloudClient, rInfo.ResourceGroup)
 		if err != nil {
 			utils.Log.Print("Failed to get paraglider tagged VPCs\n")
 			return nil, err
@@ -477,7 +477,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 func (s *IBMPluginServer) connectToTransitGatewayIfNeeded(cloudClient *CloudClient, ibmRule SecurityGroupRule, gwID, resourceGroup, vpcCRN, region string) error {
 
 	// get the VPCs and clients to search if the remote IP resides in any of them
-	clients, err := s.getAllClientsForVPCs(cloudClient, resourceGroup, true)
+	clients, err := s.getAllClientsForVPCs(cloudClient, resourceGroup)
 	if err != nil {
 		utils.Log.Printf("Failed to get cloud client for resource group %v, while connecting to transit gateway, with error: %+v", resourceGroup, err)
 		return err
