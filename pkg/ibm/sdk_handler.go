@@ -58,7 +58,7 @@ func (c *CloudClient) UpdateRegion(region string) error {
 // Note: This will be used by IBM plugin through setupCloudClient, and
 // should not be used directly to create a cloud client otherwise.
 func NewIBMCloudClient(resourceGroupID, region string) (*CloudClient, error) {
-	if isRegionValid, err := IsRegionValid(region); !isRegionValid || err != nil {
+	if isRegionValid, err := isRegionValid(region); !isRegionValid || err != nil {
 		return nil, fmt.Errorf("region %v isn't valid", region)
 	}
 

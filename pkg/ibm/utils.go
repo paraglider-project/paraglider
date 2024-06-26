@@ -38,51 +38,51 @@ import (
 )
 
 const (
-	VPC     TaggedResourceType = "vpc"
-	SUBNET  TaggedResourceType = "subnet"
-	VM      TaggedResourceType = "instance"
-	CLUSTER TaggedResourceType = "k8-cluster"
+	VPC     taggedResourceType = "vpc"
+	SUBNET  taggedResourceType = "subnet"
+	VM      taggedResourceType = "instance"
+	CLUSTER taggedResourceType = "k8-cluster"
 	// Security group of a specific instance
-	SG TaggedResourceType = "security-group"
+	SG taggedResourceType = "security-group"
 	// transit gateway for vpc-peering
-	GATEWAY TaggedResourceType = "gateway"
-	VPN     TaggedResourceType = "vpn"
-	ANY     TaggedResourceType = "*"
+	GATEWAY taggedResourceType = "gateway"
+	VPN     taggedResourceType = "vpn"
+	ANY     taggedResourceType = "*"
 
 	credentialsPath = ".ibm/credentials.yaml"
 	endpointsURL    = "https://control.cloud-object-storage.cloud.ibm.com/v2/endpoints" // url containing constantly updated endpoints of regions.
 	publicSSHKey    = ".ibm/keys/paraglider-key.pub"
 	privateSSHKey   = ".ibm/keys/paraglider-key"
-	// ParagliderResourcePrefix is used to prefix a resource's name
-	ParagliderResourcePrefix = "paraglider"
-	// ParagliderTag is the default tag attached to all paraglider resources
-	ParagliderTag = "pg"
+	// paragliderResourcePrefix is used to prefix a resource's name
+	paragliderResourcePrefix = "paraglider"
+	// paragliderTag is the default tag attached to all paraglider resources
+	paragliderTag = "pg"
 )
 
-// TaggedResourceType indicates the type of tagged resource to fetch
-type TaggedResourceType string
+// taggedResourceType indicates the type of tagged resource to fetch
+type taggedResourceType string
 
 // cache of regions, initialized by GetRegions(). Shouldn't be accessed directly outside of file.
 var regionCache []string
 
-// ResourceQuery represents attributes a user can filter tagged resources by.
-// Note: ResourceQuery isn't associated with resources' tags, but their attributes.
-type ResourceQuery struct {
+// resourceQuery represents attributes a user can filter tagged resources by.
+// Note: resourceQuery isn't associated with resources' tags, but their attributes.
+type resourceQuery struct {
 	Region string
 	Zone   string
 	CRN    string // cloud resource name globally identifying the resource
 }
 
-// ResourceData represents the fields retrieved from tagged resources.
-type ResourceData struct {
+// resourceData represents the fields retrieved from tagged resources.
+type resourceData struct {
 	ID     string
 	CRN    string
 	Region string
 	Zone   string
 }
 
-// ResourceIDInfo defines the necessary fields of a resource sent in a request
-type ResourceIDInfo struct {
+// resourceIDInfo defines the necessary fields of a resource sent in a request
+type resourceIDInfo struct {
 	ResourceGroup string `json:"resourcegroup"`
 	Zone          string `json:"zone"`
 	ResourceID    string `json:"resourceid"`
@@ -93,8 +93,8 @@ func endpointURL(region string) string {
 	return fmt.Sprintf("https://%s.iaas.cloud.ibm.com/v1", region)
 }
 
-// CRN2ID returns ID of resource based on its CRN
-func CRN2ID(crn string) string {
+// crn2Id returns ID of resource based on its CRN
+func crn2Id(crn string) string {
 	index := strings.LastIndex(crn, ":")
 	if index == -1 {
 		utils.Log.Fatalf("CRN: %v isn't of valid format", crn)
@@ -102,19 +102,19 @@ func CRN2ID(crn string) string {
 	return crn[index+1:]
 }
 
-// GenerateResourceName returns unique paraglider resource name
-func GenerateResourceName(name string) string {
-	return fmt.Sprintf("%v-%v-%v", ParagliderResourcePrefix, name, uuid.New().String()[:8])
+// generateResourceName returns unique paraglider resource name
+func generateResourceName(name string) string {
+	return fmt.Sprintf("%v-%v-%v", paragliderResourcePrefix, name, uuid.New().String()[:8])
 }
 
-// IsParagliderResource returns if a given resource (e.g. permit list) belongs to paraglider
-func IsParagliderResource(name string) bool {
-	return strings.HasPrefix(name, ParagliderResourcePrefix)
+// isParagliderResource returns if a given resource (e.g. permit list) belongs to paraglider
+func isParagliderResource(name string) bool {
+	return strings.HasPrefix(name, paragliderResourcePrefix)
 }
 
-// DoCIDROverlap returns false if cidr blocks don't share a single ip,
+// doCIDROverlap returns false if cidr blocks don't share a single ip,
 // i.e. they don't overlap.
-func DoCIDROverlap(cidr1, cidr2 string) (bool, error) {
+func doCIDROverlap(cidr1, cidr2 string) (bool, error) {
 	netCIDR1, err := netip.ParsePrefix(cidr1)
 	if err != nil {
 		return true, err
@@ -130,8 +130,8 @@ func DoCIDROverlap(cidr1, cidr2 string) (bool, error) {
 	return false, nil
 }
 
-// IsCIDRSubset returns true if cidr1 is a subset (including equal) to cidr2
-func IsCIDRSubset(cidr1, cidr2 string) (bool, error) {
+// isCIDRSubset returns true if cidr1 is a subset (including equal) to cidr2
+func isCIDRSubset(cidr1, cidr2 string) (bool, error) {
 	firstIP1, netCidr1, err := net.ParseCIDR(cidr1)
 	// ParseCIDR() example from Docs: for CIDR="192.0.2.1/24"
 	// IP=192.0.2.1 and network mask 192.0.2.0/24 are returned
@@ -164,7 +164,7 @@ func TerminateParagliderDeployments(region string) error {
 		return err
 	}
 
-	vpnsData, err := cloudClient.GetParagliderTaggedResources(VPN, []string{}, ResourceQuery{})
+	vpnsData, err := cloudClient.GetParagliderTaggedResources(VPN, []string{}, resourceQuery{})
 	if err != nil {
 		return err
 	}
@@ -181,7 +181,7 @@ func TerminateParagliderDeployments(region string) error {
 		}
 	}
 
-	vpcsData, err := cloudClient.GetParagliderTaggedResources(VPC, []string{}, ResourceQuery{})
+	vpcsData, err := cloudClient.GetParagliderTaggedResources(VPC, []string{}, resourceQuery{})
 	if err != nil {
 		return err
 	}
@@ -198,7 +198,7 @@ func TerminateParagliderDeployments(region string) error {
 		}
 	}
 	// terminate transit gateways and their connections
-	transitGWs, err := cloudClient.GetParagliderTaggedResources(GATEWAY, []string{}, ResourceQuery{})
+	transitGWs, err := cloudClient.GetParagliderTaggedResources(GATEWAY, []string{}, resourceQuery{})
 	if err != nil {
 		return err
 	}
@@ -217,20 +217,20 @@ func getClientMapKey(resGroup, region string) string {
 
 // returns ResourceIDInfo out of an agreed upon formatted string:
 // "/resourcegroup/{ResourceGroupName}/zone/{zone}/resourcetype/{ResourceID}"
-func getResourceMeta(deploymentID string) (ResourceIDInfo, error) {
+func getResourceMeta(deploymentID string) (resourceIDInfo, error) {
 	parts := strings.Split(deploymentID, "/")
 
 	if parts[0] != "" || parts[1] != "resourcegroup" {
-		return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}', got '%s'", deploymentID)
+		return resourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}', got '%s'", deploymentID)
 	}
 
-	info := ResourceIDInfo{
+	info := resourceIDInfo{
 		ResourceGroup: parts[2],
 	}
 
 	if len(parts) >= 4 {
 		if parts[3] != "zone" {
-			return ResourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}/zone/{zone}', got '%s'", deploymentID)
+			return resourceIDInfo{}, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}/zone/{zone}', got '%s'", deploymentID)
 		}
 		info.Zone = parts[4]
 	}
@@ -332,8 +332,8 @@ func getRegions() ([]string, error) {
 	return regionCache, nil
 }
 
-// DoesSliceContain returns true if a slice contains an item
-func DoesSliceContain[T comparable](slice []T, target T) bool {
+// doesSliceContain returns true if a slice contains an item
+func doesSliceContain[T comparable](slice []T, target T) bool {
 	for _, val := range slice {
 		if val == target {
 			return true
@@ -342,13 +342,13 @@ func DoesSliceContain[T comparable](slice []T, target T) bool {
 	return false
 }
 
-// IsRegionValid returns true if region is a valid IBM region
-func IsRegionValid(region string) (bool, error) {
+// isRegionValid returns true if region is a valid IBM region
+func isRegionValid(region string) (bool, error) {
 	regions, err := getRegions()
 	if err != nil {
 		return false, err
 	}
-	return DoesSliceContain(regions[:], region), nil
+	return doesSliceContain(regions[:], region), nil
 }
 
 // returns region of string with region validation
@@ -360,16 +360,16 @@ func ZoneToRegion(zone string) (string, error) {
 	}
 	region := zone[:lastIndex]
 
-	if ok, err := IsRegionValid(region); ok {
+	if ok, err := isRegionValid(region); ok {
 		return region, err
 	} else {
 		return "", err
 	}
 }
 
-// AreStructsEqual returns true if two given structs of the same type have matching fields values
+// areStructsEqual returns true if two given structs of the same type have matching fields values
 // on all types except those listed in fieldsToExclude
-func AreStructsEqual(s1, s2 interface{}, fieldsToExclude []string) bool {
+func areStructsEqual(s1, s2 interface{}, fieldsToExclude []string) bool {
 	v1 := reflect.ValueOf(s1)
 	v2 := reflect.ValueOf(s2)
 
@@ -379,7 +379,7 @@ func AreStructsEqual(s1, s2 interface{}, fieldsToExclude []string) bool {
 
 	for i := 0; i < v1.NumField(); i++ {
 		fieldName := v1.Type().Field(i).Name
-		if DoesSliceContain(fieldsToExclude, fieldName) {
+		if doesSliceContain(fieldsToExclude, fieldName) {
 			continue
 		}
 
@@ -394,13 +394,13 @@ func AreStructsEqual(s1, s2 interface{}, fieldsToExclude []string) bool {
 // or slices of primitives.
 // fieldsToExclude contains field names to be excluded
 // from hash calculation.
-func GetStructHash(s interface{}, fieldsToExclude []string) (uint64, error) {
+func getStructHash(s interface{}, fieldsToExclude []string) (uint64, error) {
 	h := fnv.New64a()
 	v := reflect.ValueOf(s)
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Field(i)
 		fieldName := v.Type().Field(i).Name
-		if DoesSliceContain(fieldsToExclude, fieldName) {
+		if doesSliceContain(fieldsToExclude, fieldName) {
 			// skip fields in fieldsToExclude from hash calculation
 			continue
 		}

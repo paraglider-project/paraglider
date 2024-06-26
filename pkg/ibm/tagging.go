@@ -29,7 +29,7 @@ import (
 
 func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 	var xCorrelationId string          // keeping unique transaction ID to identify possible recurring errors related to the tagging service.
-	tags = append(tags, ParagliderTag) // add universal tag for paraglider' resources
+	tags = append(tags, paragliderTag) // add universal tag for paraglider' resources
 	userTypeTag := globaltaggingv1.AttachTagOptionsTagTypeUserConst
 	resourceModel := &globaltaggingv1.Resource{
 		ResourceID:   CRN,
@@ -75,7 +75,7 @@ func (c *CloudClient) areTagsAttached(CRN *string, tags []string) error {
 		if strings.Contains("vpn", *CRN) {
 			println("\nTAGGING VPN\n")
 		}
-		resource, err := c.GetParagliderTaggedResources(ANY, tags, ResourceQuery{CRN: *CRN})
+		resource, err := c.GetParagliderTaggedResources(ANY, tags, resourceQuery{CRN: *CRN})
 		if len(resource) == 1 && err == nil {
 			return nil
 		}
@@ -89,13 +89,13 @@ func (c *CloudClient) areTagsAttached(CRN *string, tags []string) error {
 // Arg resourceType: type of VPC resource, e.g. subnet, security group, instance.
 // Arg tags: labels set by dev, e.g. {<vpcID>,<deploymentID>}
 // Args customQueryMap: map of attributes to filter by, e.g. {"region":"<regionName>"}
-func (c *CloudClient) GetParagliderTaggedResources(resourceType TaggedResourceType, tags []string, customQuery ResourceQuery) ([]ResourceData, error) {
+func (c *CloudClient) GetParagliderTaggedResources(resourceType taggedResourceType, tags []string, customQuery resourceQuery) ([]resourceData, error) {
 	// parse tags
 	var tagsStr string
 	var queryStr string
 	// append the paraglider tag to narrow the search scope to paraglider resources only.
-	if !DoesSliceContain(tags, ParagliderTag) {
-		tags = append(tags, ParagliderTag)
+	if !doesSliceContain(tags, paragliderTag) {
+		tags = append(tags, paragliderTag)
 	}
 	for _, tag := range tags {
 		tagsStr += fmt.Sprintf("tags:%v AND ", tag)
@@ -124,8 +124,8 @@ func (c *CloudClient) GetParagliderTaggedResources(resourceType TaggedResourceTy
 }
 
 // returns IDs of resources filtered by tags and query
-func (c *CloudClient) getParagliderResourceByTags(resourceType string, tags string, customQueryStr string) ([]ResourceData, error) {
-	var taggedResources []ResourceData
+func (c *CloudClient) getParagliderResourceByTags(resourceType string, tags string, customQueryStr string) ([]resourceData, error) {
+	var taggedResources []resourceData
 
 	query := fmt.Sprintf("type:%v AND %v ", resourceType, tags)
 	if customQueryStr != "" {
@@ -140,8 +140,8 @@ func (c *CloudClient) getParagliderResourceByTags(resourceType string, tags stri
 	items := result.Items
 	if len(items) != 0 {
 		for _, item := range items {
-			resData := ResourceData{CRN: *item.CRN}
-			id := CRN2ID(*item.CRN)
+			resData := resourceData{CRN: *item.CRN}
+			id := crn2Id(*item.CRN)
 			itemProperties := item.GetProperties()
 			if _, regionExists := itemProperties["region"]; regionExists {
 				region := itemProperties["region"].(string)

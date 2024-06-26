@@ -63,7 +63,6 @@ const (
 	fakeSubnet1    = "10.0.0.0/16"
 	fakeSubnet2    = "20.1.1.0/28"
 	fakeProfile    = "bx2-2x8"
-	paragliderTag  = "paraglider"
 	fakeWorkerPool = "fake"
 
 	fakeDeploymentID = "/resourcegroup/" + fakeID
@@ -261,7 +260,7 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 					}
 				}
 				// Search the corresponding resource
-				switch TaggedResourceType(res) {
+				switch taggedResourceType(res) {
 				case VM:
 					if fakeIBMServerState.Instance != nil {
 						wrongNS := false // Namespace is passed in as tags in the query
