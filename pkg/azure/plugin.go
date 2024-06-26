@@ -807,8 +807,8 @@ func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler Azur
 
 // returns an IPSec policy to configure a VPN connection that's compatible the specified cloud
 func getIPSecPolicy(cloud string) []*armnetwork.IPSecPolicy {
-	ipSecPolicies := make([]*armnetwork.IPSecPolicy, 1)
 	if cloud == utils.IBM {
+		ipSecPolicies := make([]*armnetwork.IPSecPolicy, 1)
 		ipSecPolicies[0] = &armnetwork.IPSecPolicy{
 			DhGroup:             to.Ptr(armnetwork.DhGroupDHGroup24),
 			IPSecEncryption:     to.Ptr(armnetwork.IPSecEncryptionAES256),
@@ -819,8 +819,9 @@ func getIPSecPolicy(cloud string) []*armnetwork.IPSecPolicy {
 			SaDataSizeKilobytes: to.Ptr(int32(0)),
 			SaLifeTimeSeconds:   to.Ptr(int32(27000)),
 		}
+		return ipSecPolicies
 	}
-	return ipSecPolicies
+	return nil
 }
 
 // GetNetworkAddressSpaces returns the subnets addresses of the VNet containing the specified address space
