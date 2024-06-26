@@ -33,6 +33,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+const minPriority = 100
 const maxPriority = 4096
 
 type azurePluginServer struct {
@@ -124,8 +125,8 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 	}
 
 	var existingRulePriorities map[string]int32 = make(map[string]int32)
-	var reservedPrioritiesInbound map[int32]bool = make(map[int32]bool)
-	var reservedPrioritiesOutbound map[int32]bool = make(map[int32]bool)
+	var reservedPrioritiesInbound map[int32]*armnetwork.SecurityRule = make(map[int32]*armnetwork.SecurityRule)
+	var reservedPrioritiesOutbound map[int32]*armnetwork.SecurityRule = make(map[int32]*armnetwork.SecurityRule)
 	err = setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, existingRulePriorities, netInfo.NSG)
 	if err != nil {
 		utils.Log.Printf("An error occured during setup: %+v", err)
@@ -209,16 +210,16 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 		priority, ok := existingRulePriorities[getNSGRuleName(rule.Name)]
 		if !ok {
 			if rule.Direction == paragliderpb.Direction_INBOUND {
-				priority = getPriority(reservedPrioritiesInbound, inboundPriority, maxPriority)
+				priority = getNextAvailablePriority(reservedPrioritiesInbound, inboundPriority, maxPriority, true)
 				inboundPriority = priority + 1
 			} else if rule.Direction == paragliderpb.Direction_OUTBOUND {
-				priority = getPriority(reservedPrioritiesOutbound, outboundPriority, maxPriority)
+				priority = getNextAvailablePriority(reservedPrioritiesOutbound, outboundPriority, maxPriority, true)
 				outboundPriority = priority + 1
 			}
 		}
 
 		// Create the NSG rule
-		securityRule, err := azureHandler.CreateSecurityRule(ctx, rule, *netInfo.NSG.Name, getNSGRuleName(rule.Name), netInfo.Address, priority)
+		securityRule, err := azureHandler.CreateSecurityRuleFromPermitList(ctx, rule, *netInfo.NSG.Name, getNSGRuleName(rule.Name), netInfo.Address, priority, allowRule)
 		if err != nil {
 			utils.Log.Printf("An error occured while creating security rule:%+v", err)
 			return nil, err
@@ -854,7 +855,7 @@ func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 		azureCredentialGetter:  &AzureCredentialGetter{},
 	}
 	paragliderpb.RegisterCloudPluginServer(grpcServer, azureServer)
-	fmt.Println("Starting server on port :", port)
+	fmt.Println("Starting server on port: ", port)
 
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {

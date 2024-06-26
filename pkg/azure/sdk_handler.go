@@ -194,40 +194,46 @@ func (h *AzureSDKHandler) GetNetworkInterface(ctx context.Context, nicName strin
 }
 
 // GetPermitListRuleFromNSGRulecurityRule creates a new security rule in a network security group (NSG).
-func (h *AzureSDKHandler) CreateSecurityRule(ctx context.Context, rule *paragliderpb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
-	sourceIP, destIP := getIPs(rule, resourceIpAddress)
-	var srcPort string
-	var dstPort string
-	if rule.SrcPort == permitListPortAny {
+func (h *AzureSDKHandler) CreateSecurityRuleFromPermitList(ctx context.Context, plRule *paragliderpb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32, accessType armnetwork.SecurityRuleAccess) (*armnetwork.SecurityRule, error) {
+	sourceIP, destIP := getIPs(plRule, resourceIpAddress)
+	var srcPort, dstPort string
+
+	if plRule.SrcPort == permitListPortAny {
 		srcPort = azureSecurityRuleAsterisk
 	} else {
-		srcPort = strconv.Itoa(int(rule.SrcPort))
+		srcPort = strconv.Itoa(int(plRule.SrcPort))
 	}
 
-	if rule.DstPort == permitListPortAny {
+	if plRule.DstPort == permitListPortAny {
 		dstPort = azureSecurityRuleAsterisk
 	} else {
-		dstPort = strconv.Itoa(int(rule.DstPort))
+		dstPort = strconv.Itoa(int(plRule.DstPort))
 	}
-	pollerResp, err := h.securityRulesClient.BeginCreateOrUpdate(ctx,
-		h.resourceGroupName,
-		nsgName,
-		ruleName,
-		armnetwork.SecurityRule{
-			Properties: &armnetwork.SecurityRulePropertiesFormat{
-				Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
-				DestinationAddressPrefixes: destIP,
-				DestinationPortRange:       to.Ptr(dstPort),
-				Direction:                  to.Ptr(paragliderToAzureDirection[rule.Direction]),
-				Priority:                   to.Ptr(priority),
-				Protocol:                   to.Ptr(paragliderToAzureprotocol[rule.Protocol]),
-				SourceAddressPrefixes:      sourceIP,
-				SourcePortRange:            to.Ptr(srcPort),
-				Description:                to.Ptr(getRuleDescription(rule.Tags)),
-			},
-		},
-		nil)
 
+	securityRule := &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Access:                     to.Ptr(accessType),
+			DestinationAddressPrefixes: destIP,
+			DestinationPortRange:       to.Ptr(dstPort),
+			Direction:                  to.Ptr(paragliderToAzureDirection[plRule.Direction]),
+			Priority:                   to.Ptr(priority),
+			Protocol:                   to.Ptr(paragliderToAzureprotocol[plRule.Protocol]),
+			SourceAddressPrefixes:      sourceIP,
+			SourcePortRange:            to.Ptr(srcPort),
+			Description:                to.Ptr(getRuleDescription(plRule.Tags)),
+		},
+	}
+
+	resp, err := h.CreateSecurityRule(ctx, nsgName, ruleName, securityRule)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func (h *AzureSDKHandler) CreateSecurityRule(ctx context.Context, nsgName string, ruleName string, rule *armnetwork.SecurityRule) (*armnetwork.SecurityRule, error) {
+	pollerResp, err := h.securityRulesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nsgName, ruleName, *rule, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create HTTP security rule: %v", err)
 	}
@@ -592,32 +598,8 @@ func (h *AzureSDKHandler) CreateSecurityGroup(ctx context.Context, resourceName 
 		Location: to.Ptr(location),
 		Properties: &armnetwork.SecurityGroupPropertiesFormat{
 			SecurityRules: []*armnetwork.SecurityRule{
-				{
-					Name: to.Ptr(denyAllNsgRulePrefix + "-inbound"),
-					Properties: &armnetwork.SecurityRulePropertiesFormat{
-						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
-						SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
-						DestinationAddressPrefix: to.Ptr(azureSecurityRuleAsterisk),
-						DestinationPortRange:     to.Ptr(azureSecurityRuleAsterisk),
-						Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
-						Priority:                 to.Ptr(int32(maxPriority)),
-						Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
-						SourcePortRange:          to.Ptr(azureSecurityRuleAsterisk),
-					},
-				},
-				{
-					Name: to.Ptr(denyAllNsgRulePrefix + "-outbound"),
-					Properties: &armnetwork.SecurityRulePropertiesFormat{
-						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
-						SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
-						DestinationAddressPrefix: to.Ptr(azureSecurityRuleAsterisk),
-						DestinationPortRange:     to.Ptr(azureSecurityRuleAsterisk),
-						Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
-						Priority:                 to.Ptr(int32(maxPriority)),
-						Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
-						SourcePortRange:          to.Ptr(azureSecurityRuleAsterisk),
-					},
-				},
+				setupDenyAllRuleWithPriority(int32(maxPriority), inboundDirectionRule),
+				setupDenyAllRuleWithPriority(int32(maxPriority), outboundDirectionRule),
 			},
 		},
 	}

@@ -172,3 +172,21 @@ func GetNumVpnConnections(cloud1, cloud2 string) int {
 	}
 	return 1
 }
+
+// DoCIDROverlap returns false if cidr blocks don't share a single ip,
+// i.e. they don't overlap.
+func DoesCIDROverlap(cidr1, cidr2 string) (bool, error) {
+	netCIDR1, err := netip.ParsePrefix(cidr1)
+	if err != nil {
+		return true, err
+	}
+	netCIDR2, err := netip.ParsePrefix(cidr2)
+	if err != nil {
+		return true, err
+	}
+	if netCIDR2.Overlaps(netCIDR1) {
+		return true, nil
+	}
+
+	return false, nil
+}

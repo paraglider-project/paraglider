@@ -27,6 +27,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -401,6 +403,45 @@ func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress st
 		// TODO @seankimkdy: Unclear why ConnectionStatus returns "Reachable" which is not a valid armnetwork.ConnectionStatus constant (https://github.com/Azure/azure-sdk-for-go/issues/21777)
 		if *resp.ConnectivityInformation.ConnectionStatus == armnetwork.ConnectionStatus("Reachable") {
 			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// Returns true if the specified Vnet's address space overlaps with any of the used address spaces. Otherwise, returns false.
+func DoesVnetOverlapWithParaglider(ctx context.Context, handler *AzureSDKHandler, vnetName string, server *azurePluginServer) (bool, error) {
+	vnetAddressMap, err := handler.GetVNetsAddressSpaces(ctx, vnetName)
+	if err != nil {
+		return true, err
+	}
+
+	req := &paragliderpb.GetUsedAddressSpacesRequest{
+		Deployments: []*paragliderpb.ParagliderDeployment{
+			{Id: getDeploymentUri(handler.subscriptionID, handler.resourceGroupName), Namespace: handler.paragliderNamespace},
+		},
+	}
+	response, err := server.GetUsedAddressSpaces(ctx, req)
+	if err != nil {
+		return true, err
+	}
+
+	var vnetAddress string
+	for _, val := range vnetAddressMap {
+		vnetAddress = val[0]
+	}
+
+	// Check if the Vnet address space overlaps with any of the used address spaces
+	for _, mapping := range response.AddressSpaceMappings {
+		for _, addressSpace := range mapping.AddressSpaces {
+			doesOverlap, err := utils.DoesCIDROverlap(vnetAddress, addressSpace)
+			if err != nil {
+				return true, err
+			}
+
+			if doesOverlap {
+				return true, nil
+			}
 		}
 	}
 
