@@ -16,7 +16,7 @@ on:
       - release/*
     paths-ignore:
       - 'docs/**'
-      
+
 # on:
 #   workflow_run:
 #     workflows: ['Functional Tests Approval']
@@ -45,6 +45,7 @@ jobs:
   functional-tests:
     name: Functional Tests
     runs-on: ubuntu-latest
+    environment: functional-tests
     permissions:
       checks: write
       contents: read
