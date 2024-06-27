@@ -43,15 +43,6 @@ If there's any question about how to style a piece of code, following the style 
 We also *mostly* agree with `Google's Go Style Guide <https://google.github.io/styleguide/go/>`_, but don't follow it strictly or enforce everything written there. 
 If you're new to working on a Go project, this is a great read that will get you thinking critically about the small decisions you will make when writing Go code. 
 
-Documentation
-^^^^^^^^^^^^^^^^^^^^
-One thing we do require is `godoc comments <https://tip.golang.org/doc/comment>`_ on **exported** packages, types, variables, constants, and functions. We like this because it has two good effects:
-
-- Encourages you to minimize the exported surface-area, thus simplifying the design.
-- Requires you to document clearly the purpose code you expect other parts of the codebase to call.
-
-Right now we don't have automated enforcement of this rule, so expect it to come up in code review if you forget.
-
 Linting
 ^^^^^^^^^^^^^^^^^^^^
 We run `golint-ci <https://github.com/golangci/golangci-lint>`_ as part of the pull-request process for static analysis. 
