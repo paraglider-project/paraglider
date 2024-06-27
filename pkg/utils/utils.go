@@ -167,7 +167,7 @@ func MatchCloudProviders(cloud1, cloud2, target1, target2 string) bool {
 
 // Returns the number of VPN connections needed between cloud1 and cloud2
 func GetNumVpnConnections(cloud1, cloud2 string) int {
-	if MatchCloudProviders(cloud1, cloud2, AZURE, GCP) {
+	if MatchCloudProviders(cloud1, cloud2, AZURE, GCP) || MatchCloudProviders(cloud1, cloud2, AZURE, IBM) {
 		return 2
 	}
 	return 1

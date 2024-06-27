@@ -189,3 +189,16 @@ func FakeIBMCloudClient(fakeURL, fakeResGroupID, fakeRegion string) (*CloudClien
 	}
 	return &client, nil
 }
+
+// GetZonesOfRegion returns zones of specified region
+func (c CloudClient) GetZonesOfRegion(region string) ([]string, error) {
+	zones := []string{}
+	zoneCollection, _, err := c.vpcService.ListRegionZones(&vpcv1.ListRegionZonesOptions{RegionName: core.StringPtr(region)})
+	if err != nil {
+		return nil, err
+	}
+	for _, zone := range zoneCollection.Zones {
+		zones = append(zones, *zone.Name)
+	}
+	return zones, nil
+}
