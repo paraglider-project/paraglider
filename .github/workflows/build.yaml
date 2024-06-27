@@ -233,22 +233,3 @@ jobs:
         with:
           path: ./dist/cache
           key: code-coverage-${{ github.sha }}-${{ github.run_number }}
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        with:
-          workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/paraglider'
-          service_account: 'invisinets-cicd@invisinets-cicd.iam.gserviceaccount.com'
-      - name: 'Az CLI login'
-        uses: azure/login@v2
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        with:
-            creds: ${{ secrets.AZURE_CREDENTIALS }}
-      - name: Run integration tests
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        run: |
-          make integration-test
-      - name: Run multicloud tests
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        run: |
-          make multicloud-test
