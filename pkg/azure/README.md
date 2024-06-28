@@ -29,19 +29,25 @@ If you're not working within the dev container, here are the steps to set up you
 2. **Valid Azure Subscription**: If you're testing the `azure` functions locally to ensure your code's functionality, make sure you have access to a valid Azure subscription. This subscription is necessary for authenticating your local testing with Azure services.
 It's important to note that most requests might require a valid resource ID, which typically includes a subscription ID and a resource group name. As the current assumption is that the resource group already exists, ensure that you have a valid subscription ID and that the necessary resource group has been created prior to running your testing code.
 
-For local testing purposes, consider adding a `main` function within the `plugin.go` file. This can be used to execute your server logic independently and validate its behavior. Here's an example of how you can do this:
+For local testing purposes, consider adding a temporary unit test to `plugin_test.go`. This can be used to execute your server logic independently and validate its behavior. Here's an example of how you can do this:
 
-1. Add a `main` function in `plugin.go`:
+1. Add a `TestRun` function in `plugin_test.go`:
    ```go
-   func main() {
-       c := context.Background()
-       s := azurePluginServer{
-           	orchestratorServerAddr: orchestratorServerAddr,
-		      azureCredentialGetter:  &AzureCredentialGetter{},
-       }
+   func TestRun() {
+       ctx := context.Background()
+       server := InitializeServer("localhost:50051") // Azure Plugin Server
+
+       subscriptionId := GetAzureSubscriptionId() // Initially set as an environment variable
+       resourceGroupName := "rg-name" // Replace
+       resourceName := "resource-name" // Replace
+       namespace := "default" // Replace as necessary
+
+       resourceInfo := ResourceIDInfo{SubscriptionID: subscriptionId, ResourceGroupName: resourceGroupName, ResourceName: resourceName}
+      
+       handler, err := server.setupAzureHandler(resourceInfo, namespace)
 
        // Call the function you want to test
-       resp, err := s.AddPermitListRules(c, &paragliderpb.PermitList{
+       resp, err := server.AddPermitListRules(c, &paragliderpb.PermitList{
            // Define the input parameters here
        })
 
@@ -52,9 +58,9 @@ For local testing purposes, consider adding a `main` function within the `plugin
        // Use resp as needed
    }
 
-2. Run the server:
-   ```bash
-   go run .\pkg\azure\plugin.go .\pkg\azure\sdk_handler.go
+2. Run the test:
+   ```go test -v ./pkg/azure/... -tags=unit -run TestRun```
+
 ## Package Structure
 The `azure` contains essential components and functionalities related to Azure integration. Within the `azure` package, you will find the following key files:
 

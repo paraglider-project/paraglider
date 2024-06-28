@@ -34,6 +34,10 @@ This is the list of core dependencies to install for the most common tasks. In g
     .. code-block:: console
     
         $ apt install build-essential
+
+      Then install ``make``:
+  
+        $ apt install make
   
   * Mac:
 
