@@ -52,6 +52,7 @@ const (
 	DeletePermitListRulesURL string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/deleteRules"
 	CreateResourcePUTURL     string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName"
 	CreateResourcePOSTURL    string = "/namespaces/:namespace/clouds/:cloud/resources"
+	RuleOnTagURL             string = "/tags/:tag/rules"
 	ListTagURL               string = "/tags"
 	GetTagURL                string = "/tags/:tag"
 	ResolveTagURL            string = "/tags/:tag/resolveMembers"
@@ -149,6 +150,14 @@ func parseSubscriberName(sub string) (string, string, string) {
 
 func createTagName(namespace string, cloud string, tag string) string {
 	return namespace + "." + cloud + "." + tag
+}
+
+func parseTag(tag string) (string, string, string, error) {
+	tokens := strings.Split(tag, ".")
+	if len(tokens) != 3 {
+		return "", "", "", errors.New("invalid tag format")
+	}
+	return tokens[0], tokens[1], tokens[2], nil
 }
 
 // Get the URI of a tag
@@ -357,6 +366,132 @@ func (s *ControllerServer) permitListRuleAdd(c *gin.Context) {
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
+	}
+}
+
+// Add permit list rules to all resources within a tag
+func (s *ControllerServer) permitListRuleAddTag(c *gin.Context) {
+	tag := c.Param("tag")
+
+	// Parse permit list rules to add
+	var rule *paragliderpb.PermitListRule
+	if err := c.BindJSON(&rule); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Resolve the tag to URIs
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	// Send RPC to resolve tag
+	client := tagservicepb.NewTagServiceClient(conn)
+	resolvedTag, err := client.ResolveTag(context.Background(), &tagservicepb.ResolveTagRequest{TagName: tag})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	initializedClientConns := make(map[string]*grpc.ClientConn)
+
+	// Add rule to each URI in the resolved tag
+	for _, mapping := range resolvedTag.Tags {
+		// Get the cloud and namespace from the tag
+		namespace, cloud, _, err := parseTag(mapping.Name)
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+
+		// Create  or get connection to cloud plugin
+		conn, ok := initializedClientConns[cloud]
+		if !ok {
+			cloudClientAddress, ok := s.pluginAddresses[cloud]
+			if !ok {
+				c.AbortWithStatusJSON(400, createErrorResponse("invalid cloud name"))
+				return
+			}
+
+			conn, err = grpc.NewClient(cloudClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+				return
+			}
+			defer conn.Close()
+
+			initializedClientConns[cloud] = conn
+		}
+
+		// Send RPC to add rule
+		client := paragliderpb.NewCloudPluginClient(conn)
+		_, err = client.AddPermitListRules(context.Background(), &paragliderpb.AddPermitListRulesRequest{Rules: []*paragliderpb.PermitListRule{rule}, Namespace: namespace, Resource: *mapping.Uri})
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+	}
+}
+
+// Delete permit list rules to from resources within a tag
+func (s *ControllerServer) permitListRuleDeleteTag(c *gin.Context) {
+	tag := c.Param("tag")
+
+	// Parse permit list rules to add
+	var rules []string
+	if err := c.BindJSON(&rules); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Resolve the tag to URIs
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	// Send RPC to resolve tag
+	client := tagservicepb.NewTagServiceClient(conn)
+	resolvedTag, err := client.ResolveTag(context.Background(), &tagservicepb.ResolveTagRequest{TagName: tag})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Add rule to each URI in the resolved tag
+	for _, mapping := range resolvedTag.Tags {
+		// Get the cloud and namespace from the tag
+		namespace, cloud, _, err := parseTag(mapping.Name)
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+
+		// Create connection to cloud plugin
+		cloudClient, ok := s.pluginAddresses[cloud]
+		if !ok {
+			c.AbortWithStatusJSON(400, createErrorResponse("invalid cloud name"))
+			return
+		}
+		conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+		defer conn.Close()
+
+		// Send RPC to add rule
+		client := paragliderpb.NewCloudPluginClient(conn)
+		_, err = client.DeletePermitListRules(context.Background(), &paragliderpb.DeletePermitListRulesRequest{RuleNames: rules, Namespace: namespace, Resource: *mapping.Uri})
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
 	}
 }
 
@@ -1349,6 +1484,8 @@ func Setup(cfg config.Config, background bool) {
 	router.DELETE(PermitListRulePUTURL, server.permitListRuleDelete)
 	router.PUT(CreateResourcePUTURL, server.resourceCreate)
 	router.POST(CreateResourcePOSTURL, server.resourceCreate)
+	router.POST(RuleOnTagURL, server.permitListRuleAddTag)
+	router.DELETE(RuleOnTagURL, server.permitListRuleDeleteTag)
 	router.GET(ListTagURL, server.listTags)
 	router.GET(GetTagURL, server.getTag)
 	router.POST(ResolveTagURL, server.resolveTag)

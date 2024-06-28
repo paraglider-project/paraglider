@@ -357,6 +357,85 @@ func TestPermitListRulePost(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
+func TestPermitListRuleTagAdd(t *testing.T) {
+	// Setup
+	orchestratorServer := newOrchestratorServer()
+	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	fakeplugin.SetupFakePluginServer(cloudPluginPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.POST(RuleOnTagURL, orchestratorServer.permitListRuleAddTag)
+
+	// Well-formed request
+	tags := []string{"1.1.1.1"}
+	rule := &paragliderpb.PermitListRule{
+		Name:      "rulename",
+		Tags:      tags,
+		Direction: paragliderpb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
+	jsonValue, _ := json.Marshal(rule)
+
+	url := fmt.Sprintf(GetFormatterString(RuleOnTagURL), defaultNamespace+"."+exampleCloudName+"."+faketagservice.ValidTagName)
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Bad tag name
+	url = fmt.Sprintf(GetFormatterString(RuleOnTagURL), "badtag")
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestPermitListRuleTagDelete(t *testing.T) {
+	// Setup
+	orchestratorServer := newOrchestratorServer()
+	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	fakeplugin.SetupFakePluginServer(cloudPluginPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.DELETE(RuleOnTagURL, orchestratorServer.permitListRuleDeleteTag)
+
+	// Well-formed request
+	rules := []string{"ruleName"}
+	jsonValue, _ := json.Marshal(rules)
+
+	url := fmt.Sprintf(GetFormatterString(RuleOnTagURL), defaultNamespace+"."+exampleCloudName+"."+faketagservice.ValidTagName)
+	req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Bad tag name
+	url = fmt.Sprintf(GetFormatterString(RuleOnTagURL), "badtag")
+	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestPermitListRulesDelete(t *testing.T) {
 	// Setup
 	orchestratorServer := newOrchestratorServer()
