@@ -36,8 +36,6 @@ import (
 )
 
 const (
-	fakeNsgName                              = "test-nsg-name"
-	fakeNsgID                                = "a/b/" + fakeNsgName
 	urlFormat                                = "/subscriptions/%s/resourceGroups/%s/providers"
 	testLocation                             = "eastus"
 	subID                                    = "subid-test"
@@ -54,7 +52,7 @@ const (
 	validParagliderVnetName                  = paragliderPrefix + "-" + validVnetName
 	validVnetId                              = uriPrefix + "Microsoft.Network/virtualNetworks/" + validParagliderVnetName
 	validAddressSpace                        = "10.0.0.0/16"
-	unusedValidAddressSpace                  = "40.0.0.0/16"
+	unusedAddressSpace                       = "40.0.0.0/16"
 	validVirtualNetworkGatewayName           = "valid-virtual-network-gateway"
 	validPublicIpAddressName                 = "valid-public-ip-address-name"
 	validPublicIpAddressId                   = uriPrefix + "Microsoft.Network/publicIPAddresses/" + validPublicIpAddressName
@@ -432,21 +430,6 @@ func getFakeParagliderSubnet() *armnetwork.Subnet {
 	}
 }
 
-// Does not have "paraglider-" prefix before the vnet name
-func getFakeSubnet() *armnetwork.Subnet {
-	return &armnetwork.Subnet{
-		Name: to.Ptr(validSubnetName),
-		ID:   to.Ptr(validSubnetId),
-		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr(unusedValidAddressSpace),
-			NetworkSecurityGroup: &armnetwork.SecurityGroup{
-				ID:   getFakeNSG().ID,
-				Name: getFakeNSG().Name,
-			},
-		},
-	}
-}
-
 func getFakeVirtualNetwork() *armnetwork.VirtualNetwork {
 	return &armnetwork.VirtualNetwork{
 		Name:     to.Ptr(validParagliderVnetName),
@@ -466,14 +449,14 @@ func getFakeVirtualNetwork() *armnetwork.VirtualNetwork {
 	}
 }
 
-func getFakeVirtualNetworkWithUnusedAddressSpace() *armnetwork.VirtualNetwork {
+func getFakeUnattachedVirtualNetwork() *armnetwork.VirtualNetwork {
 	return &armnetwork.VirtualNetwork{
 		Name:     to.Ptr(validVnetName),
 		ID:       to.Ptr(validVnetId),
 		Location: to.Ptr(testLocation),
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 			AddressSpace: &armnetwork.AddressSpace{
-				AddressPrefixes: []*string{to.Ptr(unusedValidAddressSpace)},
+				AddressPrefixes: []*string{to.Ptr(unusedAddressSpace)},
 			},
 			Subnets: []*armnetwork.Subnet{
 				{
@@ -651,8 +634,8 @@ func getFakeNIC() *armnetwork.Interface {
 				},
 			},
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
-				ID:   to.Ptr(fakeNsgID),
-				Name: to.Ptr(fakeNsgName),
+				ID:   to.Ptr(validSecurityGroupID),
+				Name: to.Ptr(validSecurityGroupName),
 			},
 		},
 	}

@@ -290,8 +290,12 @@ func (h *AzureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string
 	return nil
 }
 
-// Returns a map of location to address space for all virtual networks (VNets) with a given prefix.
-func (h *AzureSDKHandler) GetVnetsWithMatchingPrefixAddressSpaces(ctx context.Context, prefix string) (map[string][]string, error) {
+// GetAllVnetsAddressSpaces retrieves the address spaces of all virtual networks
+// that have a name starting with the specified prefix.
+//
+// Returns a map where the keys are the locations of the virtual networks
+// and the values are slices of address prefixes associated with each virtual network.
+func (h *AzureSDKHandler) GetAllVnetsAddressSpaces(ctx context.Context, prefix string) (map[string][]string, error) {
 	addressSpaces := make(map[string][]string)
 	pager := h.virtualNetworksClient.NewListPager(h.resourceGroupName, nil)
 	for pager.More() {

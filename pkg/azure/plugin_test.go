@@ -173,8 +173,8 @@ func TestGetPermitList(t *testing.T) {
 	}
 
 	fakeNic := getFakeNIC()
-	fakeNsgID := *fakeNic.Properties.NetworkSecurityGroup.ID
-	fakeNsg := getFakeNsgWithRules(fakeNsgID, fakeNsgName)
+	validSecurityGroupID := *fakeNic.Properties.NetworkSecurityGroup.ID
+	fakeNsg := getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName)
 
 	// Set up a  resource
 	fakeResourceId := vmURI
@@ -260,7 +260,7 @@ func TestAddPermitListRules(t *testing.T) {
 		t.Errorf("Error while getting fake permit list: %v", err)
 	}
 	fakeNic := getFakeNIC()
-	fakeNsg := getFakeNsgWithRules(fakeNsgID, fakeNsgName)
+	fakeNsg := getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName)
 	fakeVnet := getFakeVnetInLocation(fakeNic.Location, validAddressSpace)
 	fakeVnet.Properties = &armnetwork.VirtualNetworkPropertiesFormat{
 		AddressSpace: &armnetwork.AddressSpace{
@@ -402,7 +402,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 		fakeRuleNames = append(fakeRuleNames, rule.Name)
 	}
 	fakeNic := getFakeNIC()
-	fakeNsg := getFakeNsgWithRules(fakeNsgID, fakeNsgName)
+	fakeNsg := getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName)
 	fakeResource := vmURI
 
 	// successful
@@ -697,7 +697,7 @@ func TestCreateVpnConnections(t *testing.T) {
 }
 
 func TestAttachResource(t *testing.T) {
-	fakeNsg := getFakeNsgWithRules(fakeNsgID, fakeNsgName)
+	fakeNsg := getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName)
 	pluginServer, _ := setupTestAzurePluginServer()
 	fakeVm := getFakeVirtualMachine(true)
 	req := &paragliderpb.AttachResourceRequest{
@@ -711,7 +711,7 @@ func TestAttachResource(t *testing.T) {
 			rgName: rgName,
 			nic:    getFakeNIC(),
 			nsg:    fakeNsg,
-			vnet:   getFakeVirtualNetworkWithUnusedAddressSpace(),
+			vnet:   getFakeUnattachedVirtualNetwork(),
 			vpnGw:  &armnetwork.VirtualNetworkGateway{},
 			vm:     to.Ptr(fakeVm),
 		}

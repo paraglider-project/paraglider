@@ -376,7 +376,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *parag
 			return nil, err
 		}
 
-		addressSpaces, err := azureHandler.GetVnetsWithMatchingPrefixAddressSpaces(ctx, getParagliderNamespacePrefix(deployment.Namespace))
+		addressSpaces, err := azureHandler.GetAllVnetsAddressSpaces(ctx, getParagliderNamespacePrefix(deployment.Namespace))
 		if err != nil {
 			utils.Log.Printf("An error occured while getting address spaces:%+v", err)
 			return nil, err
@@ -723,7 +723,7 @@ func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler Azur
 	if err != nil {
 		return err
 	}
-	paragliderVnetsMap, err := peeringCloudAzureHandler.GetVnetsWithMatchingPrefixAddressSpaces(ctx, getParagliderNamespacePrefix(peeringCloudInfo.Namespace))
+	paragliderVnetsMap, err := peeringCloudAzureHandler.GetAllVnetsAddressSpaces(ctx, getParagliderNamespacePrefix(peeringCloudInfo.Namespace))
 	if err != nil {
 		return fmt.Errorf("unable to create vnets address spaces for peering cloud: %w", err)
 	}
@@ -793,27 +793,6 @@ func (s *azurePluginServer) GetNetworkAddressSpaces(ctx context.Context, req *pa
 	return &paragliderpb.GetNetworkAddressSpacesResponse{AddressSpaces: []string{resourceAddress}}, nil
 }
 
-func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
-	}
-	grpcServer := grpc.NewServer()
-	azureServer := &azurePluginServer{
-		orchestratorServerAddr: orchestratorServerAddr,
-		azureCredentialGetter:  &AzureCredentialGetter{},
-	}
-	paragliderpb.RegisterCloudPluginServer(grpcServer, azureServer)
-	fmt.Println("Starting server on port: ", port)
-
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			fmt.Println(err.Error())
-		}
-	}()
-	return azureServer
-}
-
 // Add an existing Azure resource to a paraglider deployment
 func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceReq *paragliderpb.AttachResourceRequest) (*paragliderpb.AttachResourceResponse, error) {
 	resourceId := attachResourceReq.GetResource()
@@ -850,4 +829,25 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceRe
 	}
 
 	return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: networkInfo.Address}, nil
+}
+
+func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to listen: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	azureServer := &azurePluginServer{
+		orchestratorServerAddr: orchestratorServerAddr,
+		azureCredentialGetter:  &AzureCredentialGetter{},
+	}
+	paragliderpb.RegisterCloudPluginServer(grpcServer, azureServer)
+	fmt.Println("Starting server on port: ", port)
+
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
+	return azureServer
 }
