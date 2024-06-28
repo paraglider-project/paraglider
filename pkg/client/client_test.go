@@ -58,6 +58,26 @@ func TestDeletePermitListRules(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestTagAddPermitListRules(t *testing.T) {
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
+	client := Client{ControllerAddress: controllerAddress}
+
+	err := client.AddPermitListRulesTag("tagName", fake.GetFakePermitListRules())
+
+	assert.Nil(t, err)
+}
+
+func TestTagDeletePermitListRules(t *testing.T) {
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
+	client := Client{ControllerAddress: controllerAddress}
+
+	err := client.DeletePermitListRulesTag("tagName", fake.GetFakePermitListRuleNames())
+
+	assert.Nil(t, err)
+}
+
 func TestCreateResource(t *testing.T) {
 	s := fake.FakeOrchestratorRESTServer{}
 	controllerAddress := s.SetupFakeOrchestratorRESTServer()
