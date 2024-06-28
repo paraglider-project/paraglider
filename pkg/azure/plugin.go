@@ -376,7 +376,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *parag
 			return nil, err
 		}
 
-		addressSpaces, err := azureHandler.GetVNetsAddressSpaces(ctx, getParagliderNamespacePrefix(deployment.Namespace))
+		addressSpaces, err := azureHandler.GetVnetsWithMatchingPrefixAddressSpaces(ctx, getParagliderNamespacePrefix(deployment.Namespace))
 		if err != nil {
 			utils.Log.Printf("An error occured while getting address spaces:%+v", err)
 			return nil, err
@@ -723,7 +723,7 @@ func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler Azur
 	if err != nil {
 		return err
 	}
-	paragliderVnetsMap, err := peeringCloudAzureHandler.GetVNetsAddressSpaces(ctx, getParagliderNamespacePrefix(peeringCloudInfo.Namespace))
+	paragliderVnetsMap, err := peeringCloudAzureHandler.GetVnetsWithMatchingPrefixAddressSpaces(ctx, getParagliderNamespacePrefix(peeringCloudInfo.Namespace))
 	if err != nil {
 		return fmt.Errorf("unable to create vnets address spaces for peering cloud: %w", err)
 	}
@@ -828,38 +828,26 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceRe
 		return nil, err
 	}
 
-	// resource, networkInfo, err := ValidateResourceCompliesWithParagliderRequirements(ctx, resourceId, azureHandler, s)
-	// if err != nil {
-	// 	utils.Log.Printf("An error occured while validating resource:%+v", err)
-	// 	return nil, err
-	// }
-
-	networkInfo, err := GetNetworkInfoFromResource(ctx, azureHandler, attachResourceReq.GetResource())
+	resource, networkInfo, err := ValidateResourceCompliesWithParagliderRequirements(ctx, resourceId, azureHandler, s)
 	if err != nil {
-		utils.Log.Printf("An error occured while getting network info:%+v", err)
+		utils.Log.Printf("An error occured while validating resource:%+v", err)
 		return nil, err
 	}
-	vnetName := getVnetFromSubnetId(networkInfo.SubnetID)
+
 	// Create VPN gateway vnet if not already created
-	// The vnet is created even if there's no multicloud connections at the moment for ease of connection in the future.
-	// Note that vnets are free, so this is not a problem.
 	vpnGwVnet, err := GetOrCreateVpnGatewayVNet(ctx, azureHandler, namespace)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting or creating VPN gateway vnet:%+v", err)
 		return nil, err
 	}
 
-	// Create peering VPN gateway vnet and VM vnet. If the VPN gateway already exists, then establish a VPN gateway transit relationship where the vnet can use the gatewayVnet's VPN gateway.
-	// - This peering is created even if there's no multicloud connections at the moment for ease of connection in the future.
-	// - Peerings are only charged based on amount of data transferred, so this will not incur extra charge until the VPN gateway is created.
-	// - VPN gateway transit relationship cannot be established before the VPN gateway creation.
-	// - If the VPN gateway hasn't been created, then the gateway transit relationship will be established on VPN gateway creation.
+	vnetName := getVnetFromSubnetId(networkInfo.SubnetID)
+	// Create peering between the VPN gateway vnet and VM vnet. If the VPN gateway already exists, then establish a VPN gateway transit relationship where the vnet can use the gatewayVnet's VPN gateway.
 	err = CreateGatewayVnetPeering(ctx, azureHandler, vnetName, *vpnGwVnet.Name, namespace)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating VPN gateway vnet peering:%+v", err)
 		return nil, err
 	}
 
-	return nil, nil
-	// return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: ip}, nil
+	return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: networkInfo.Address}, nil
 }

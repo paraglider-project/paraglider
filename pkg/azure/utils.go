@@ -416,7 +416,6 @@ func GetOrCreateVpnGatewayVNet(ctx context.Context, azureHandler *AzureSDKHandle
 	vpnGwVnetName := getVpnGatewayVnetName(namespace)
 	vnet, err := azureHandler.GetVirtualNetwork(ctx, vpnGwVnetName)
 	if err != nil {
-		fmt.Println("error")
 		if isErrorNotFound(err) {
 			virtualNetworkParameters := armnetwork.VirtualNetwork{
 				Location: to.Ptr(vpnLocation),
@@ -439,7 +438,7 @@ func GetOrCreateVpnGatewayVNet(ctx context.Context, azureHandler *AzureSDKHandle
 			if err != nil {
 				return nil, fmt.Errorf("unable to create VPN gateway vnet: %w", err)
 			}
-			fmt.Println("Creating VNettt because it doesn't exist: ", vnet)
+
 			return vnet, nil
 		} else {
 			return nil, fmt.Errorf("unable to get VPN gateway vnet: %w", err)
@@ -495,7 +494,7 @@ func CreateGatewayVnetPeering(ctx context.Context, azureHandler *AzureSDKHandler
 
 // Returns true if the specified Vnet's address space overlaps with any of the used address spaces. Otherwise, returns false.
 func DoesVnetOverlapWithParaglider(ctx context.Context, handler *AzureSDKHandler, vnetName string, server *azurePluginServer) (bool, error) {
-	vnetAddressMap, err := handler.GetVNetsAddressSpaces(ctx, vnetName)
+	vnetAddressSpace, err := handler.GetVnetAddressSpace(ctx, vnetName)
 	if err != nil {
 		return true, err
 	}
@@ -510,21 +509,18 @@ func DoesVnetOverlapWithParaglider(ctx context.Context, handler *AzureSDKHandler
 		return true, err
 	}
 
-	var vnetAddress string
-	for _, val := range vnetAddressMap {
-		vnetAddress = val[0]
-	}
-
 	// Check if the Vnet address space overlaps with any of the used address spaces
 	for _, mapping := range response.AddressSpaceMappings {
 		for _, addressSpace := range mapping.AddressSpaces {
-			doesOverlap, err := utils.DoesCIDROverlap(vnetAddress, addressSpace)
-			if err != nil {
-				return true, err
-			}
+			for _, vnetAddress := range vnetAddressSpace {
+				doesOverlap, err := utils.DoesCIDROverlap(vnetAddress, addressSpace)
+				if err != nil {
+					return true, err
+				}
 
-			if doesOverlap {
-				return true, nil
+				if doesOverlap {
+					return true, nil
+				}
 			}
 		}
 	}

@@ -142,7 +142,7 @@ func TestCreateResource(t *testing.T) {
 			subId:   subID,
 			rgName:  rgName,
 			vnet:    getFakeVirtualNetwork(),
-			subnet:  getFakeSubnet(),
+			subnet:  getFakeParagliderSubnet(),
 			nic:     getFakeNIC(),
 			nsg:     getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName),
 			vpnGw:   &armnetwork.VirtualNetworkGateway{},
@@ -370,7 +370,7 @@ func TestAddPermitListRules(t *testing.T) {
 
 	// Fail due to resource being in different namespace
 	t.Run("AddPermitListRules: Fail due to mismatching namespace", func(t *testing.T) {
-		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr(validSubnetId)
+		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr(validParagliderSubnetId)
 		serverState := &fakeServerState{
 			subId:  subID,
 			rgName: rgName,
@@ -486,7 +486,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 	// Test Case 7: Fail due to resource being in different namespace
 	t.Run("DeletePermitListRules: Fail due to mismatching namespace", func(t *testing.T) {
-		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr(validSubnetId)
+		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr(validParagliderSubnetId)
 		serverState := &fakeServerState{
 			subId:  subID,
 			rgName: rgName,
@@ -512,7 +512,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 		vnet: &armnetwork.VirtualNetwork{
-			Name:     to.Ptr(getParagliderNamespacePrefix(namespace) + validVnetName),
+			Name:     to.Ptr(getParagliderNamespacePrefix(namespace) + validParagliderVnetName),
 			Location: to.Ptr(testLocation),
 			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 				AddressSpace: &armnetwork.AddressSpace{
@@ -698,26 +698,46 @@ func TestCreateVpnConnections(t *testing.T) {
 
 func TestAttachResource(t *testing.T) {
 	fakeNsg := getFakeNsgWithRules(fakeNsgID, fakeNsgName)
-	serverState := &fakeServerState{
-		subId:  subID,
-		rgName: rgName,
-		nic:    getFakeNIC(),
-		nsg:    fakeNsg,
-		vnet:   getFakeVirtualNetwork(),
-		vpnGw:  &armnetwork.VirtualNetworkGateway{},
-		vm:     to.Ptr(getFakeVirtualMachine(true)),
-	}
-	fakeServer, ctx := SetupFakeAzureServer(t, serverState)
-	defer Teardown(fakeServer)
-
-	server, _ := setupTestAzurePluginServer()
-
+	pluginServer, _ := setupTestAzurePluginServer()
+	fakeVm := getFakeVirtualMachine(true)
 	req := &paragliderpb.AttachResourceRequest{
 		Namespace: namespace,
 		Resource:  vmURI,
 	}
 
-	resp, err := server.AttachResource(ctx, req)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
+	t.Run("AttachResource: Success", func(t *testing.T) {
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nic:    getFakeNIC(),
+			nsg:    fakeNsg,
+			vnet:   getFakeVirtualNetworkWithUnusedAddressSpace(),
+			vpnGw:  &armnetwork.VirtualNetworkGateway{},
+			vm:     to.Ptr(fakeVm),
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
+
+		resp, err := pluginServer.AttachResource(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+	})
+
+	t.Run("AttachResource: Failure - Overlapping Address spaces", func(t *testing.T) {
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nic:    getFakeNIC(),
+			nsg:    fakeNsg,
+			vnet:   getFakeVirtualNetwork(),
+			vpnGw:  &armnetwork.VirtualNetworkGateway{},
+			vm:     to.Ptr(fakeVm),
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
+
+		resp, err := pluginServer.AttachResource(ctx, req)
+		require.Error(t, err)
+		require.Nil(t, resp)
+	})
 }

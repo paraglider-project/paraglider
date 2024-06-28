@@ -290,8 +290,8 @@ func (h *AzureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string
 	return nil
 }
 
-// GetVnetAddressSpaces returns a map of location to address space for all virtual networks (VNets) with a given prefix.
-func (h *AzureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string][]string, error) {
+// Returns a map of location to address space for all virtual networks (VNets) with a given prefix.
+func (h *AzureSDKHandler) GetVnetsWithMatchingPrefixAddressSpaces(ctx context.Context, prefix string) (map[string][]string, error) {
 	addressSpaces := make(map[string][]string)
 	pager := h.virtualNetworksClient.NewListPager(h.resourceGroupName, nil)
 	for pager.More() {
@@ -310,6 +310,18 @@ func (h *AzureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix stri
 		}
 	}
 	return addressSpaces, nil
+}
+
+func (h *AzureSDKHandler) GetVnetAddressSpace(ctx context.Context, vnetName string) ([]string, error) {
+	vnet, err := h.GetVirtualNetwork(ctx, vnetName)
+	if err != nil {
+		return nil, err
+	}
+	addressSpace := make([]string, len(vnet.Properties.AddressSpace.AddressPrefixes))
+	for i, prefix := range vnet.Properties.AddressSpace.AddressPrefixes {
+		addressSpace[i] = *prefix
+	}
+	return addressSpace, nil
 }
 
 // Temporarily needed method to deal with the mess of AzureSDKHandlers

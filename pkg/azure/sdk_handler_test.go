@@ -34,7 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetVNetsAddressSpaces(t *testing.T) {
+func TestGetVnetsWithMatchingPrefixAddressSpaces(t *testing.T) {
 	// Set up the fake Azure server
 	fakeServerState := &fakeServerState{
 		subId:  subID,
@@ -47,28 +47,60 @@ func TestGetVNetsAddressSpaces(t *testing.T) {
 	err := handler.InitializeClients(nil)
 	require.NoError(t, err)
 
-	// Test case: Success
-	t.Run("GetVNetsAddressSpaces: Success", func(t *testing.T) {
-		addresses, err := handler.GetVNetsAddressSpaces(ctx, paragliderPrefix)
+	t.Run("GetVnetsWithMatchingPrefixAddressSpaces: Success", func(t *testing.T) {
+		addresses, err := handler.GetVnetsWithMatchingPrefixAddressSpaces(ctx, paragliderPrefix)
 		require.NoError(t, err)
 		require.NotNil(t, addresses)
 		require.Len(t, addresses, 1)
 		assert.Equal(t, addresses[testLocation], []string{validAddressSpace})
 	})
 
-	// Test case: Failure
-	t.Run("GetVNetsAddressSpaces: Failure", func(t *testing.T) {
+	t.Run("GetVnetsWithMatchingPrefixAddressSpaces: Failure - No Vnet", func(t *testing.T) {
 		fakeServerState.vnet = nil
-		addresses, err := handler.GetVNetsAddressSpaces(ctx, paragliderPrefix)
+		addresses, err := handler.GetVnetsWithMatchingPrefixAddressSpaces(ctx, paragliderPrefix)
 		require.Error(t, err)
 		require.Nil(t, addresses)
 	})
 
-	// Test case: Failure, wrong name
-	t.Run("GetVNetsAddressSpaces: Failure - wrong name", func(t *testing.T) {
-		addresses, err := handler.GetVNetsAddressSpaces(ctx, "otherprefix")
+	t.Run("GetVnetsWithMatchingPrefixAddressSpaces: Failure - wrong name", func(t *testing.T) {
+		addresses, err := handler.GetVnetsWithMatchingPrefixAddressSpaces(ctx, "otherprefix")
 		require.Error(t, err)
 		require.Nil(t, addresses)
+	})
+}
+
+func TestGetVnetAddressSpace(t *testing.T) {
+	// Set up the fake Azure server
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+		vnet:   getFakeVirtualNetwork(),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
+
+	t.Run("GetVnetAddressSpace: Success", func(t *testing.T) {
+		address, err := handler.GetVnetAddressSpace(ctx, validParagliderVnetName)
+		require.NoError(t, err)
+		require.NotNil(t, address)
+		require.Len(t, address, 1)
+		assert.Equal(t, address, []string{validAddressSpace})
+	})
+
+	t.Run("GetVnetAddressSpace: Failure - No Vnet", func(t *testing.T) {
+		fakeServerState.vnet = nil
+		address, err := handler.GetVnetAddressSpace(ctx, validParagliderVnetName)
+		require.Error(t, err)
+		require.Nil(t, address)
+	})
+
+	t.Run("GetVnetAddressSpace: Failure - wrong name", func(t *testing.T) {
+		address, err := handler.GetVnetAddressSpace(ctx, "invalidParagliderVnetName")
+		require.Error(t, err)
+		require.Nil(t, address)
 	})
 }
 
@@ -219,7 +251,7 @@ func TestAssociateNSGWithSubnet(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		subnet: getFakeSubnet(),
+		subnet: getFakeParagliderSubnet(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
@@ -228,13 +260,13 @@ func TestAssociateNSGWithSubnet(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("AssociateNSGWithSubnet: Success", func(t *testing.T) {
-		err := handler.AssociateNSGWithSubnet(ctx, validSubnetId, validSecurityGroupID)
+		err := handler.AssociateNSGWithSubnet(ctx, validParagliderSubnetId, validSecurityGroupID)
 		require.NoError(t, err)
 	})
 
 	t.Run("AssociateNSGWithSubnet: Failure - subnet does not exist", func(t *testing.T) {
 		fakeServerState.subnet = nil
-		err := handler.AssociateNSGWithSubnet(ctx, validSubnetId, validSecurityGroupID)
+		err := handler.AssociateNSGWithSubnet(ctx, validParagliderSubnetId, validSecurityGroupID)
 		require.Error(t, err)
 	})
 }
@@ -244,7 +276,7 @@ func TestGetSubnetById(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		subnet: getFakeSubnet(),
+		subnet: getFakeParagliderSubnet(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
@@ -253,7 +285,7 @@ func TestGetSubnetById(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("GetSubnetById: Success", func(t *testing.T) {
-		subnet, err := handler.GetSubnetByID(ctx, validSubnetId)
+		subnet, err := handler.GetSubnetByID(ctx, validParagliderSubnetId)
 
 		require.NoError(t, err)
 		require.NotNil(t, subnet)
@@ -261,7 +293,7 @@ func TestGetSubnetById(t *testing.T) {
 
 	t.Run("GetSubnetById: Failure", func(t *testing.T) {
 		fakeServerState.subnet = nil
-		subnet, err := handler.GetSubnetByID(ctx, validSubnetId)
+		subnet, err := handler.GetSubnetByID(ctx, validParagliderSubnetId)
 
 		require.Error(t, err)
 		require.Nil(t, subnet)
@@ -394,7 +426,7 @@ func TestGetParagliderVnet(t *testing.T) {
 
 	// Test case: Success, vnet already existed
 	t.Run("GetParagliderVnet: Success, vnet exists", func(t *testing.T) {
-		vnet, err := handler.GetParagliderVnet(ctx, validVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
+		vnet, err := handler.GetParagliderVnet(ctx, validParagliderVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
@@ -402,7 +434,7 @@ func TestGetParagliderVnet(t *testing.T) {
 	// Test case: Success, vnet doesn't exist, create new one
 	t.Run("GetParagliderVnet: Success, create new vnet", func(t *testing.T) {
 		fakeServerState.vnet = nil
-		vnet, err := handler.GetParagliderVnet(ctx, validVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
+		vnet, err := handler.GetParagliderVnet(ctx, validParagliderVnetName, testLocation, "namespace", fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
 	})
@@ -428,14 +460,14 @@ func TestAddSubnetToParagliderVnet(t *testing.T) {
 
 	// Test case: Success, subnet added
 	t.Run("AddSubnetParagliderVnet: Success", func(t *testing.T) {
-		subnet, err := handler.AddSubnetToParagliderVnet(ctx, "namespace", validVnetName, validSubnetName, fakeOrchestratorServerAddr)
+		subnet, err := handler.AddSubnetToParagliderVnet(ctx, "namespace", validParagliderVnetName, validSubnetName, fakeOrchestratorServerAddr)
 		require.NoError(t, err)
 		require.NotNil(t, subnet)
 	})
 
 	// Test case: Failure, error when getting new address space
 	t.Run("AddSubnetParagliderVnet: Failure, error when getting address spaces", func(t *testing.T) {
-		subnet, err := handler.AddSubnetToParagliderVnet(ctx, "namespace", validVnetName, validSubnetName, "bad address")
+		subnet, err := handler.AddSubnetToParagliderVnet(ctx, "namespace", validParagliderVnetName, validSubnetName, "bad address")
 		require.Error(t, err)
 		require.Nil(t, subnet)
 	})
@@ -480,7 +512,7 @@ func TestCreateParagliderVirtualNetwork(t *testing.T) {
 	// Test case: Success
 	t.Run("CreateParagliderVirtualNetwork: Success", func(t *testing.T) {
 		// Call the function to test
-		vnet, err := handler.CreateParagliderVirtualNetwork(ctx, testLocation, validVnetName, validAddressSpace)
+		vnet, err := handler.CreateParagliderVirtualNetwork(ctx, testLocation, validParagliderVnetName, validAddressSpace)
 
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
@@ -502,7 +534,7 @@ func TestGetVnet(t *testing.T) {
 
 	// Test case: Success
 	t.Run("GetVnet: Success", func(t *testing.T) {
-		vnet, err := handler.GetVNet(ctx, validVnetName)
+		vnet, err := handler.GetVNet(ctx, validParagliderVnetName)
 
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
@@ -511,7 +543,7 @@ func TestGetVnet(t *testing.T) {
 	// Test case: Failure
 	t.Run("GetVnet: Failure", func(t *testing.T) {
 		fakeServerState.vnet = nil
-		vnet, err := handler.GetVNet(ctx, validVnetName)
+		vnet, err := handler.GetVNet(ctx, validParagliderVnetName)
 
 		require.Error(t, err)
 		require.Nil(t, vnet)
@@ -535,7 +567,7 @@ func TestCreateVnetPeering(t *testing.T) {
 
 	// Test case: Success
 	t.Run("CreateVnetPeering: Success", func(t *testing.T) {
-		err := handler.CreateVnetPeering(ctx, validVnetName, validVnetName)
+		err := handler.CreateVnetPeering(ctx, validParagliderVnetName, validParagliderVnetName)
 
 		require.NoError(t, err)
 	})
@@ -761,7 +793,7 @@ func TestCreateSubnet(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		subnet: getFakeSubnet(),
+		subnet: getFakeParagliderSubnet(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
@@ -770,7 +802,7 @@ func TestCreateSubnet(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Success", func(t *testing.T) {
-		subnet, err := handler.CreateSubnet(ctx, validVnetName, validSubnetName, armnetwork.Subnet{})
+		subnet, err := handler.CreateSubnet(ctx, validParagliderVnetName, validSubnetName, armnetwork.Subnet{})
 		require.NoError(t, err)
 		require.NotNil(t, subnet)
 	})

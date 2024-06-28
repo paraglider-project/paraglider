@@ -50,13 +50,16 @@ const (
 	validSecurityRuleName                    = "valid-security-rule-name"
 	validSecurityGroupID                     = uriPrefix + "Microsoft.Network/networkSecurityGroups/" + validSecurityGroupName
 	validSecurityGroupName                   = validNicName + nsgNameSuffix
-	validVnetName                            = paragliderPrefix + "-" + namespace + "-valid-vnet-name"
-	validVnetId                              = uriPrefix + "Microsoft.Network/virtualNetworks/" + validVnetName
+	validVnetName                            = namespace + "-valid-vnet-name"
+	validParagliderVnetName                  = paragliderPrefix + "-" + validVnetName
+	validVnetId                              = uriPrefix + "Microsoft.Network/virtualNetworks/" + validParagliderVnetName
 	validAddressSpace                        = "10.0.0.0/16"
+	unusedValidAddressSpace                  = "40.0.0.0/16"
 	validVirtualNetworkGatewayName           = "valid-virtual-network-gateway"
 	validPublicIpAddressName                 = "valid-public-ip-address-name"
 	validPublicIpAddressId                   = uriPrefix + "Microsoft.Network/publicIPAddresses/" + validPublicIpAddressName
 	validSubnetName                          = "valid-subnet-name"
+	validParagliderSubnetId                  = uriPrefix + "Microsoft.Network/virtualNetworks/" + validParagliderVnetName + "/subnets/" + validSubnetName
 	validSubnetId                            = uriPrefix + "Microsoft.Network/virtualNetworks/" + validVnetName + "/subnets/" + validSubnetName
 	validLocalNetworkGatewayName             = "valid-local-network-gateway"
 	validVirtualNetworkGatewayConnectionName = "valid-virtual-network-gateway-connection"
@@ -387,7 +390,7 @@ func Teardown(fakeServer *httptest.Server) {
 }
 
 func getFakeInterface() *armnetwork.Interface {
-	subnet := getFakeSubnet()
+	subnet := getFakeParagliderSubnet()
 	nsg := getFakeNSG()
 	return &armnetwork.Interface{
 		Name: to.Ptr(validNicName),
@@ -414,10 +417,11 @@ func getFakeNSG() *armnetwork.SecurityGroup {
 	}
 }
 
-func getFakeSubnet() *armnetwork.Subnet {
+// Has "paraglider-" prefix before the vnet name
+func getFakeParagliderSubnet() *armnetwork.Subnet {
 	return &armnetwork.Subnet{
 		Name: to.Ptr(validSubnetName),
-		ID:   to.Ptr(validSubnetId),
+		ID:   to.Ptr(validParagliderSubnetId),
 		Properties: &armnetwork.SubnetPropertiesFormat{
 			AddressPrefix: to.Ptr(validAddressSpace),
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
@@ -428,14 +432,48 @@ func getFakeSubnet() *armnetwork.Subnet {
 	}
 }
 
+// Does not have "paraglider-" prefix before the vnet name
+func getFakeSubnet() *armnetwork.Subnet {
+	return &armnetwork.Subnet{
+		Name: to.Ptr(validSubnetName),
+		ID:   to.Ptr(validSubnetId),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: to.Ptr(unusedValidAddressSpace),
+			NetworkSecurityGroup: &armnetwork.SecurityGroup{
+				ID:   getFakeNSG().ID,
+				Name: getFakeNSG().Name,
+			},
+		},
+	}
+}
+
 func getFakeVirtualNetwork() *armnetwork.VirtualNetwork {
+	return &armnetwork.VirtualNetwork{
+		Name:     to.Ptr(validParagliderVnetName),
+		ID:       to.Ptr(validVnetId),
+		Location: to.Ptr(testLocation),
+		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+			AddressSpace: &armnetwork.AddressSpace{
+				AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+			},
+			Subnets: []*armnetwork.Subnet{
+				{
+					Name: to.Ptr(validSubnetName),
+					ID:   to.Ptr(validParagliderSubnetId),
+				},
+			},
+		},
+	}
+}
+
+func getFakeVirtualNetworkWithUnusedAddressSpace() *armnetwork.VirtualNetwork {
 	return &armnetwork.VirtualNetwork{
 		Name:     to.Ptr(validVnetName),
 		ID:       to.Ptr(validVnetId),
 		Location: to.Ptr(testLocation),
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 			AddressSpace: &armnetwork.AddressSpace{
-				AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+				AddressPrefixes: []*string{to.Ptr(unusedValidAddressSpace)},
 			},
 			Subnets: []*armnetwork.Subnet{
 				{
@@ -480,7 +518,7 @@ func getFakeCluster(networkInfo bool) armcontainerservice.ManagedCluster {
 	if networkInfo {
 		cluster.Properties.AgentPoolProfiles = []*armcontainerservice.ManagedClusterAgentPoolProfile{
 			{
-				VnetSubnetID: getFakeSubnet().ID,
+				VnetSubnetID: getFakeParagliderSubnet().ID,
 			},
 		}
 		cluster.Properties.NetworkProfile = &armcontainerservice.NetworkProfile{
@@ -514,7 +552,7 @@ func getFakeAKSGenericResource() armresources.GenericResource {
 		Type:     to.Ptr("Microsoft.ContainerService/managedClusters"),
 		Properties: map[string]interface{}{
 			"agentPoolProfiles": []interface{}{
-				map[string]interface{}{"vnetSubnetID": *getFakeSubnet().ID},
+				map[string]interface{}{"vnetSubnetID": *getFakeParagliderSubnet().ID},
 			},
 		},
 	}
@@ -523,7 +561,6 @@ func getFakeAKSGenericResource() armresources.GenericResource {
 func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*paragliderpb.CreateResourceRequest, error) {
 	desc, err := json.Marshal(vm)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	return &paragliderpb.CreateResourceRequest{
@@ -536,7 +573,6 @@ func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*paragliderpb.
 func getFakeClusterResourceDescription(cluster *armcontainerservice.ManagedCluster) (*paragliderpb.CreateResourceRequest, error) {
 	desc, err := json.Marshal(cluster)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	return &paragliderpb.CreateResourceRequest{
@@ -599,13 +635,11 @@ func getFakePermitList() ([]*paragliderpb.PermitListRule, error) {
 }
 
 func getFakeNIC() *armnetwork.Interface {
-	fakeLocation := "test-location"
-	namespace := namespace
 	fakeResourceAddress := ""
-	fakeSubnetId := "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/" + getVnetName(fakeLocation, namespace) + "/subnets/subnet123"
+	fakeSubnetId := "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/" + validParagliderVnetName + "/subnets/subnet123"
 	return &armnetwork.Interface{
 		ID:       to.Ptr(validNicId),
-		Location: to.Ptr(fakeLocation),
+		Location: to.Ptr(testLocation),
 		Name:     to.Ptr(validNicName),
 		Properties: &armnetwork.InterfacePropertiesFormat{
 			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
@@ -634,6 +668,7 @@ func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup
 					ID:   to.Ptr("test-rule-id-1"),
 					Name: to.Ptr("paraglider-Rule-1"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
 						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
 						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
@@ -648,6 +683,7 @@ func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup
 					ID:   to.Ptr("test-rule-id-2"),
 					Name: to.Ptr("paraglider-Rule-2"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
 						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
 						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
@@ -661,6 +697,7 @@ func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup
 					ID:   to.Ptr("test-rule-id-3"),
 					Name: to.Ptr("not-paraglider-Rule-1"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
 						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
 						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
@@ -674,6 +711,7 @@ func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup
 					ID:   to.Ptr("test-rule-id-4"),
 					Name: to.Ptr("not-paraglider-Rule-2"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
 						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
 						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
