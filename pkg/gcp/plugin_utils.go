@@ -82,7 +82,7 @@ func SetupGcpTesting(testName string) string {
 		projectId = generateProjectId(testName)
 		if os.Getenv("GH_RUN_NUMBER") != "" {
 			// Use run number in project display name since it's more human readable
-			projectDisplayName = fmt.Sprintf("paraglider-gh-%s-%s", os.Getenv("GH_RUN_NUMBER"), testName)
+			projectDisplayName = fmt.Sprintf("glide-gh-%s-%s", os.Getenv("GH_RUN_NUMBER"), testName)
 		} else {
 			projectDisplayName = projectId
 		}
@@ -95,7 +95,7 @@ func SetupGcpTesting(testName string) string {
 		createProjectReq := &resourcemanagerpb.CreateProjectRequest{
 			Project: &resourcemanagerpb.Project{
 				ProjectId:   projectId,
-				DisplayName: projectDisplayName[:30],
+				DisplayName: projectDisplayName,
 				Parent:      os.Getenv("PARAGLIDER_GCP_PROJECT_PARENT"),
 			},
 		}
