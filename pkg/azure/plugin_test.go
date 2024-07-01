@@ -784,6 +784,7 @@ func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup
 					ID:   to.Ptr("test-rule-id-1"),
 					Name: to.Ptr("paraglider-Rule-1"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
 						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
 						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
@@ -798,6 +799,7 @@ func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup
 					ID:   to.Ptr("test-rule-id-2"),
 					Name: to.Ptr("paraglider-Rule-2"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
 						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
 						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
@@ -811,6 +813,7 @@ func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup
 					ID:   to.Ptr("test-rule-id-3"),
 					Name: to.Ptr("not-paraglider-Rule-1"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
 						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
 						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
@@ -824,6 +827,7 @@ func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup
 					ID:   to.Ptr("test-rule-id-4"),
 					Name: to.Ptr("not-paraglider-Rule-2"),
 					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
 						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
 						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},

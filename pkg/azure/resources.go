@@ -47,20 +47,6 @@ type resourceInfo struct {
 	NumAdditionalAddressSpaces int
 }
 
-func getVmUri(subscriptionId string, resourceGroupName string, vmName string) string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", subscriptionId, resourceGroupName, virtualMachineTypeName, vmName)
-}
-
-func getClusterUri(subscriptionId string, resourceGroupName string, clusterName string) string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", subscriptionId, resourceGroupName, managedClusterTypeName, clusterName)
-}
-
-func getDnsServiceCidr(serviceCidr string) string {
-	// Get the first three octets of the service CIDR
-	split := strings.Split(serviceCidr, ".")
-	return fmt.Sprintf("%s.%s.%s.10", split[0], split[1], split[2])
-}
-
 // Determine type of resource based on ID and return the relevant full resource handler
 func getResourceHandler(resourceID string) (AzureResourceHandler, error) {
 	if strings.Contains(resourceID, virtualMachineTypeName) {
@@ -139,6 +125,23 @@ func GetResourceInfoFromResourceDesc(ctx context.Context, resource *paragliderpb
 	return handler.getResourceInfoFromDescription(ctx, resource)
 }
 
+// Verify that resourceID exists and is supported by paraglider. Returns the resource if it exists
+func ValidateResourceExists(ctx context.Context, handler *AzureSDKHandler, resourceID string) (*armresources.GenericResource, error) {
+	// Verify resource is supported
+	_, err := getResourceHandler(resourceID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if the constructed resource ID exists on the Azure
+	resource, err := handler.GetResource(ctx, resourceID)
+	if err != nil {
+		return nil, err
+	}
+
+	return resource, nil
+}
+
 // Reads the resource description and provisions the resource with the given subnet
 func ReadAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	handler, err := getResourceHandlerFromDescription(resource.Description)
@@ -146,6 +149,39 @@ func ReadAndProvisionResource(ctx context.Context, resource *paragliderpb.Create
 		return "", err
 	}
 	return handler.readAndProvisionResource(ctx, resource, subnet, resourceInfo, sdkHandler, additionalAddressSpaces)
+}
+
+// Returns the resource and network info if the resource complies with paraglider requirements. Otherwise, it returns an error
+func ValidateResourceCompliesWithParagliderRequirements(ctx context.Context, resourceID string, azureHandler *AzureSDKHandler, server *azurePluginServer) (*armresources.GenericResource, *resourceNetworkInfo, error) {
+	// Ensure the resource exists
+	resource, err := ValidateResourceExists(ctx, azureHandler, resourceID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	networkInfo, err := GetNetworkInfoFromResource(ctx, azureHandler, resourceID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error in getting resource %s network info: %w", resourceID, err)
+	}
+
+	// Ensure the Vnet address space doesn't overlap with paraglider's address space
+	vnetName := getVnetFromSubnetId(networkInfo.SubnetID)
+	isOverlapping, err := DoesVnetOverlapWithParaglider(ctx, azureHandler, vnetName, server)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if isOverlapping {
+		return nil, nil, fmt.Errorf("Resource %s Network Address Space overlaps with Paraglider Network Address Space. Not allowed", resourceID)
+	}
+
+	// Ensure the resource's security rules are compliant. Make compliant if possible
+	isNSGCompliant, err := CheckSecurityRulesCompliance(ctx, azureHandler, networkInfo.NSG)
+	if err != nil || !isNSGCompliant {
+		return nil, nil, fmt.Errorf("NSG rules are not compliant: %w", err)
+	}
+
+	return resource, networkInfo, nil
 }
 
 // Interface that must be implemented for a resource to be supported

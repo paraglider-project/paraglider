@@ -59,8 +59,10 @@ const (
 	validLocalNetworkGatewayName             = "valid-local-network-gateway"
 	validVirtualNetworkGatewayConnectionName = "valid-virtual-network-gateway-connection"
 	validClusterName                         = "valid-cluster-name"
+	invalidVmName                            = "invalid-vm-name"
 	validVmName                              = "valid-vm-name"
 	validResourceName                        = "valid-resource-name"
+	invalidVmURI                             = uriPrefix + "Microsoft.Compute/virtualMachines/" + invalidVmName
 	vmURI                                    = uriPrefix + "Microsoft.Compute/virtualMachines/" + validVmName
 	aksURI                                   = uriPrefix + "Microsoft.ContainerService/managedClusters/" + validClusterName
 )

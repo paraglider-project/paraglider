@@ -33,7 +33,7 @@ func (c *CloudClient) CreateSubnet(
 
 	zoneIdentity := vpcv1.ZoneIdentity{Name: &zone}
 	vpcIdentity := vpcv1.VPCIdentityByID{ID: &vpcID}
-	subnetName := GenerateResourceName(subnetType)
+	subnetName := generateResourceName(subnetType)
 
 	// Before creating a subnet, we must create an address prefix in the VPC
 	addressPrefixOptions := vpcv1.CreateVPCAddressPrefixOptions{
@@ -76,8 +76,8 @@ func (c *CloudClient) CreateSubnet(
 
 // GetSubnetsInVPC returns all paraglider subnets in the specified VPC.
 // NOTE: unlike GetSubnetsInVpcRegionBound isn't reliant on the vpcService's region.
-func (c *CloudClient) GetSubnetsInVPC(vpcID string) ([]ResourceData, error) {
-	subnets, err := c.GetParagliderTaggedResources(SUBNET, []string{vpcID}, ResourceQuery{})
+func (c *CloudClient) GetSubnetsInVPC(vpcID string) ([]resourceData, error) {
+	subnets, err := c.GetParagliderTaggedResources(SUBNET, []string{vpcID}, resourceQuery{})
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (c *CloudClient) DoSubnetsInVPCOverlapCIDR(vpcID string,
 	}
 
 	for _, subnet := range subnets {
-		doesOverlap, err := DoCIDROverlap(*subnet.Ipv4CIDRBlock, CIDR)
+		doesOverlap, err := doCIDROverlap(*subnet.Ipv4CIDRBlock, CIDR)
 		if err != nil {
 			return true, err
 		}

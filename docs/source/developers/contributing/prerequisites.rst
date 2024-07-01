@@ -80,15 +80,15 @@ If you would like to run these locally, you will need to be authenticated. The f
 #. `Install the gcloud CLI <https://cloud.google.com/sdk/docs/install>`_. If you're using the dev container, this will already be installed for you.
 #. `Set up your application default credentials <https://cloud.google.com/docs/authentication/provide-credentials-adc>`_.
 #. Set the active project with ``gcloud config set project <project-id>``.
-#. The tests will automatically create (and delete) new projects for each test run. You must set the environment variable ``INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME`` in the form of the ``billingAccount`` field of the `"ProjectBillingInfo" resource <https://cloud.google.com/billing/docs/reference/rest/v1/ProjectBillingInfo>`_.
+#. The tests will automatically create (and delete) new projects for each test run. You must set the environment variable ``PARAGLIDER_GCP_PROJECT_BILLING_ACCOUNT_NAME`` in the form of the ``billingAccount`` field of the `"ProjectBillingInfo" resource <https://cloud.google.com/billing/docs/reference/rest/v1/ProjectBillingInfo>`_.
 
-   * If you'd like them to be created in a certain parent, set the environment variable ``INVISINETS_GCP_PROJECT_PARENT`` in the form of the `parent` field of the `"Project" resource <https://cloud.google.com/resource-manager/reference/rest/v3/projects#resource:-project>`_.
+   * If you'd like them to be created in a certain parent, set the environment variable ``PARAGLIDER_GCP_PROJECT_PARENT`` in the form of the `parent` field of the `"Project" resource <https://cloud.google.com/resource-manager/reference/rest/v3/projects#resource:-project>`_.
    
      .. warning::
         
         This requires privileges of creating projects and linking billing accounts.
     
-   * If you want to use your own project, set the environment variable ``INVISINETS_GCP_PROJECT``. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.
+   * If you want to use your own project, set the environment variable ``PARAGLIDER_GCP_PROJECT``. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.
      
      .. warning::
         
@@ -98,16 +98,16 @@ If you would like to run these locally, you will need to be authenticated. The f
 
 #. `Install azure cli <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>`_. If you're using the dev container, this will already be installed for you.
 #. `Authenticate to your account with azure login <https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli>`_.
-#. The tests will automatically create (and delete) new resource groups for each test run. You must set the environment variable ``INVISINETS_AZURE_SUBSCRIPTION_ID`` with a valid subscription.
+#. The tests will automatically create (and delete) new resource groups for each test run. You must set the environment variable ``PARAGLIDER_AZURE_SUBSCRIPTION_ID`` with a valid subscription.
    
-   * If you want to use your own existing resource group, set the environment variable ``INVISINETS_AZURE_RESOURCE_GROUP``. The tests will not delete the resource group and instead only clean up the resources within it.
+   * If you want to use your own existing resource group, set the environment variable ``PARAGLIDER_AZURE_RESOURCE_GROUP``. The tests will not delete the resource group and instead only clean up the resources within it.
     
      .. warning::
           
           Resource group must be created before running the test.
 
 
-If you'd like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable ``INVISINETS_TEST_PERSIST`` to ``1``.
+If you'd like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable ``PARAGLIDER_TEST_PERSIST`` to ``1``.
 
 **IBM** 
 
@@ -116,7 +116,6 @@ If you'd like to persist resources after a test (i.e., not teardown project/reso
    Pick a resource group from `IBM's web console <https://cloud.ibm.com/account/resource-groups>`__.
 
 | Cleanup function, terminating all Paraglider resources on IBM, is executed automatically when tests end, unless ``INVISINETS_TEST_PERSIST`` is set to ``1``.
-| Manually terminate resources by running ``go test --tags=unit -run TestCleanup`` at ``pkg/ibm_plugin/sdk/sdk_test.go``.
 
 Editor
 --------------------

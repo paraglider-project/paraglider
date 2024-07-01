@@ -27,6 +27,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -46,9 +48,9 @@ const (
 
 // Gets subscription ID defined in environment variable
 func GetAzureSubscriptionId() string {
-	subscriptionId := os.Getenv("INVISINETS_AZURE_SUBSCRIPTION_ID")
+	subscriptionId := os.Getenv("PARAGLIDER_AZURE_SUBSCRIPTION_ID")
 	if subscriptionId == "" {
-		panic("Environment variable 'INVISINETS_AZURE_SUBSCRIPTION_ID' must be set")
+		panic("Environment variable 'PARAGLIDER_AZURE_SUBSCRIPTION_ID' must be set")
 	}
 	return subscriptionId
 }
@@ -70,7 +72,7 @@ func createResourceGroupsClient(subscriptionId string) *armresources.ResourceGro
 func SetupAzureTesting(subscriptionId string, testName string) string {
 	// Use set resource group
 	var resourceGroupName string
-	if resourceGroupName = os.Getenv("INVISINETS_AZURE_RESOURCE_GROUP"); resourceGroupName != "" {
+	if resourceGroupName = os.Getenv("PARAGLIDER_AZURE_RESOURCE_GROUP"); resourceGroupName != "" {
 		return resourceGroupName
 	}
 
@@ -90,8 +92,8 @@ func SetupAzureTesting(subscriptionId string, testName string) string {
 }
 
 func TeardownAzureTesting(subscriptionId string, resourceGroupName string, namespace string) {
-	if os.Getenv("INVISINETS_TEST_PERSIST") != "1" {
-		if os.Getenv("INVISINETS_AZURE_RESOURCE_GROUP") == "" {
+	if os.Getenv("PARAGLIDER_TEST_PERSIST") != "1" {
+		if os.Getenv("PARAGLIDER_AZURE_RESOURCE_GROUP") == "" {
 			// Delete resource group
 			ctx := context.Background()
 			resourceGroupsClient := createResourceGroupsClient(subscriptionId)
@@ -367,7 +369,7 @@ func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress st
 	// Hard coded resource group for CI pipeline (https://github.com/paraglider-project/paraglider/issues/217)
 	networkWatcherResourceGroup := "NetworkWatcherRG"
 	networkWatcherName := "NetworkWatcher_" + *vm.Location
-	if os.Getenv("INVISINETS_AZURE_RESOURCE_GROUP") != "" {
+	if os.Getenv("PARAGLIDER_AZURE_RESOURCE_GROUP") != "" {
 		// Check if network watcher already exists within the subscription since Azure limits network watchers to one per subscription for each region
 		networkWatcherResourceIDInfo, err := findNetworkWatcher(ctx, watchersClient, *vm.Location)
 		if err != nil {
@@ -379,7 +381,7 @@ func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress st
 			networkWatcherName = networkWatcherResourceIDInfo.ResourceName
 		} else {
 			// Create network watcher in provided resource group
-			networkWatcherResourceGroup = os.Getenv("INVISINETS_AZURE_RESOURCE_GROUP")
+			networkWatcherResourceGroup = os.Getenv("PARAGLIDER_AZURE_RESOURCE_GROUP")
 			// Tag it to make sure it gets deleted
 			_, err := watchersClient.CreateOrUpdate(ctx, networkWatcherResourceGroup, networkWatcherName, armnetwork.Watcher{Location: vm.Location, Tags: map[string]*string{namespaceTagKey: to.Ptr(sourceVmNamespace)}}, nil)
 			if err != nil {
@@ -401,6 +403,45 @@ func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress st
 		// TODO @seankimkdy: Unclear why ConnectionStatus returns "Reachable" which is not a valid armnetwork.ConnectionStatus constant (https://github.com/Azure/azure-sdk-for-go/issues/21777)
 		if *resp.ConnectivityInformation.ConnectionStatus == armnetwork.ConnectionStatus("Reachable") {
 			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// Returns true if the specified Vnet's address space overlaps with any of the used address spaces. Otherwise, returns false.
+func DoesVnetOverlapWithParaglider(ctx context.Context, handler *AzureSDKHandler, vnetName string, server *azurePluginServer) (bool, error) {
+	vnetAddressMap, err := handler.GetVNetsAddressSpaces(ctx, vnetName)
+	if err != nil {
+		return true, err
+	}
+
+	req := &paragliderpb.GetUsedAddressSpacesRequest{
+		Deployments: []*paragliderpb.ParagliderDeployment{
+			{Id: getDeploymentUri(handler.subscriptionID, handler.resourceGroupName), Namespace: handler.paragliderNamespace},
+		},
+	}
+	response, err := server.GetUsedAddressSpaces(ctx, req)
+	if err != nil {
+		return true, err
+	}
+
+	var vnetAddress string
+	for _, val := range vnetAddressMap {
+		vnetAddress = val[0]
+	}
+
+	// Check if the Vnet address space overlaps with any of the used address spaces
+	for _, mapping := range response.AddressSpaceMappings {
+		for _, addressSpace := range mapping.AddressSpaces {
+			doesOverlap, err := utils.DoesCIDROverlap(vnetAddress, addressSpace)
+			if err != nil {
+				return true, err
+			}
+
+			if doesOverlap {
+				return true, nil
+			}
 		}
 	}
 

@@ -75,8 +75,8 @@ func generateProjectId(testName string) string {
 
 func SetupGcpTesting(testName string) string {
 	var projectId string
-	if os.Getenv("INVISINETS_GCP_PROJECT") != "" {
-		projectId = os.Getenv("INVISINETS_GCP_PROJECT")
+	if os.Getenv("PARAGLIDER_GCP_PROJECT") != "" {
+		projectId = os.Getenv("PARAGLIDER_GCP_PROJECT")
 	} else {
 		var projectDisplayName string
 		projectId = generateProjectId(testName)
@@ -96,7 +96,7 @@ func SetupGcpTesting(testName string) string {
 			Project: &resourcemanagerpb.Project{
 				ProjectId:   projectId,
 				DisplayName: projectDisplayName,
-				Parent:      os.Getenv("INVISINETS_GCP_PROJECT_PARENT"),
+				Parent:      os.Getenv("PARAGLIDER_GCP_PROJECT_PARENT"),
 			},
 		}
 		createProjectOp, err := projectsClient.CreateProject(ctx, createProjectReq)
@@ -116,7 +116,7 @@ func SetupGcpTesting(testName string) string {
 		updateProjectBillingInfoReq := &billingpb.UpdateProjectBillingInfoRequest{
 			Name: "projects/" + projectId,
 			ProjectBillingInfo: &billingpb.ProjectBillingInfo{
-				BillingAccountName: os.Getenv("INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME"),
+				BillingAccountName: os.Getenv("PARAGLIDER_GCP_PROJECT_BILLING_ACCOUNT_NAME"),
 			},
 		}
 		_, err = cloudBillingClient.UpdateProjectBillingInfo(ctx, updateProjectBillingInfoReq)
@@ -146,7 +146,7 @@ func SetupGcpTesting(testName string) string {
 }
 
 func TeardownGcpTesting(projectId string) {
-	if projectId != os.Getenv("INVISINETS_GCP_PROJECT") && os.Getenv("INVISINETS_TEST_PERSIST") != "1" {
+	if projectId != os.Getenv("PARAGLIDER_GCP_PROJECT") && os.Getenv("PARAGLIDER_TEST_PERSIST") != "1" {
 		ctx := context.Background()
 		projectsClient, err := resourcemanager.NewProjectsClient(ctx)
 		if err != nil {
@@ -304,7 +304,7 @@ func parseUrl(url string) map[string]string {
 	for i := 0; i < len(pathComponents)-1; {
 		if pathComponents[i] == "global" {
 			// Global resources only have a "global" specification without a trailing value
-			// (e.g., projects/invisinets/global/networks/default)
+			// (e.g., projects/paraglider/global/networks/default)
 			i += 1
 		} else {
 			parsedUrl[pathComponents[i]] = pathComponents[i+1]
