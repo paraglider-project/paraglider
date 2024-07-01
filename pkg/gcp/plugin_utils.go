@@ -177,7 +177,7 @@ func GetTestVmParameters(project string, zone string, name string) *computepb.In
 				{
 					InitializeParams: &computepb.AttachedDiskInitializeParams{
 						DiskSizeGb:  proto.Int64(10),
-						SourceImage: proto.String("projects/debian-cloud/global/images/family/debian-10"),
+						SourceImage: proto.String("projects/debian-cloud/global/images/family/debian-11"),
 					},
 					AutoDelete: proto.Bool(true),
 					Boot:       proto.Bool(true),
