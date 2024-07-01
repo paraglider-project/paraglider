@@ -573,22 +573,16 @@ func (h *AzureSDKHandler) CreateParagliderVirtualNetwork(ctx context.Context, lo
 			},
 		},
 	}
-	h.createParagliderNamespaceTag(&parameters.Tags)
-
-	pollerResponse, err := h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vnetName, parameters, nil)
+	vnet, err := h.CreateOrUpdateVirtualNetwork(ctx, vnetName, parameters)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := pollerResponse.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return &resp.VirtualNetwork, nil
+	return vnet, nil
 }
 
-func (h *AzureSDKHandler) CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error) {
+// Updates properties of the virtual network (vnet) if it exists. Creates a new vnet if it doesn't exist.
+func (h *AzureSDKHandler) CreateOrUpdateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error) {
 	h.createParagliderNamespaceTag(&parameters.Tags)
 	pollerResponse, err := h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
 	if err != nil {
