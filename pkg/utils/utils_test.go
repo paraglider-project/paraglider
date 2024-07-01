@@ -32,13 +32,13 @@ func TestCIDRSubset(t *testing.T) {
 	cidr1 := "10.10.10.8/29"  // 10.10.10.8 - 10.10.10.151
 	cidr2 := "10.10.10.0/24"  // 10.10.10.0 - 10.10.10.255
 	cidr3 := "192.50.64.0/17" // 192.50.0.0 - 192.50.127.255
-	res1, err := isCIDRSubset(cidr1, cidr2)
+	res1, err := IsCIDRSubset(cidr1, cidr2)
 	require.NoError(t, err)
-	res2, err := isCIDRSubset(cidr2, cidr1)
+	res2, err := IsCIDRSubset(cidr2, cidr1)
 	require.NoError(t, err)
-	res3, err := isCIDRSubset(cidr1, cidr1)
+	res3, err := IsCIDRSubset(cidr1, cidr1)
 	require.NoError(t, err)
-	res4, err := isCIDRSubset(cidr3, cidr1)
+	res4, err := IsCIDRSubset(cidr3, cidr1)
 	require.NoError(t, err)
 	require.True(t, res1)
 	require.False(t, res2)
@@ -52,15 +52,15 @@ func TestCIDROverlap(t *testing.T) {
 	cidr1 := "10.10.10.8/29"  // 10.10.10.8 - 10.10.10.151
 	cidr2 := "10.10.10.0/24"  // 10.10.10.0 - 10.10.10.255
 	cidr3 := "192.50.64.0/17" // 192.50.0.0 - 192.50.127.255
-	res1, err := doCIDROverlap(cidr1, cidr2)
+	res1, err := DoCIDROverlap(cidr1, cidr2)
 	require.NoError(t, err)
-	res2, err := doCIDROverlap(cidr2, cidr1)
+	res2, err := DoCIDROverlap(cidr2, cidr1)
 	require.NoError(t, err)
-	res3, err := doCIDROverlap(cidr1, cidr1)
+	res3, err := DoCIDROverlap(cidr1, cidr1)
 	require.NoError(t, err)
-	res4, err := doCIDROverlap(cidr1, cidr3)
+	res4, err := DoCIDROverlap(cidr1, cidr3)
 	require.NoError(t, err)
-	res5, err := doCIDROverlap(cidr2, cidr3)
+	res5, err := DoCIDROverlap(cidr2, cidr3)
 	require.NoError(t, err)
 	require.True(t, res1)
 	require.True(t, res2)

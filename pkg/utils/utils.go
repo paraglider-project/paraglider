@@ -192,7 +192,7 @@ func DoCIDROverlap(cidr1, cidr2 string) (bool, error) {
 	return false, nil
 }
 
-// isCIDRSubset returns true if cidr1 is a subset (including equal) to cidr2
+// IsCIDRSubset returns true if cidr1 is a subset (including equal) to cidr2
 func IsCIDRSubset(cidr1, cidr2 string) (bool, error) {
 	firstIP1, netCidr1, err := net.ParseCIDR(cidr1)
 	// ParseCIDR() example from Docs: for CIDR="192.0.2.1/24"
