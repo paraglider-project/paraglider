@@ -434,7 +434,7 @@ func DoesVnetOverlapWithParaglider(ctx context.Context, handler *AzureSDKHandler
 	// Check if the Vnet address space overlaps with any of the used address spaces
 	for _, mapping := range response.AddressSpaceMappings {
 		for _, addressSpace := range mapping.AddressSpaces {
-			doesOverlap, err := utils.DoesCIDROverlap(vnetAddress, addressSpace)
+			doesOverlap, err := utils.DoCIDROverlap(vnetAddress, addressSpace)
 			if err != nil {
 				return true, err
 			}
