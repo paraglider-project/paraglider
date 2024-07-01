@@ -434,7 +434,7 @@ func GetOrCreateVpnGatewayVNet(ctx context.Context, azureHandler *AzureSDKHandle
 				},
 			}
 			// todo: investigate this line for the tests
-			vnet, err := azureHandler.CreateVirtualNetwork(ctx, getVpnGatewayVnetName(namespace), virtualNetworkParameters)
+			vnet, err := azureHandler.CreateOrUpdateVirtualNetwork(ctx, getVpnGatewayVnetName(namespace), virtualNetworkParameters)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create VPN gateway vnet: %w", err)
 			}
