@@ -33,7 +33,6 @@ const (
 func allocBlock(addressSpace *ipaddr.IPAddress, blockSize int64) *ipaddr.IPAddress {
 	var allocator ipaddr.PrefixBlockAllocator[*ipaddr.IPAddress]
 	allocator.AddAvailable(addressSpace)
-	allocator.SetReserved(2) // 2 reserved per block
 	return allocator.AllocateSize(uint64(blockSize))
 }
 
@@ -53,7 +52,6 @@ func findUnusedBlocks(addressSpace []string, usedAddressSpaces []*paragliderpb.A
 	for _, availSpace := range addressSpace {
 		availBlocks = append(availBlocks, ipaddr.NewIPAddressString(availSpace).GetAddress())
 	}
-	// Decode the used subnets from usedAddressSpaces mappings
 	for _, usedAddress := range usedAddressSpaces {
 		for _, block := range usedAddress.AddressSpaces {
 			usedBlock := ipaddr.NewIPAddressString(block).GetAddress()

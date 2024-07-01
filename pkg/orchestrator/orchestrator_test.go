@@ -651,7 +651,7 @@ func TestFindUnusedAddressSpaces(t *testing.T) {
 
 	// Multiple spaces
 	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{}
-	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: []int32{200, 1000, 2}})
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: []int32{200, 1000, 4}})
 	require.Nil(t, err)
 	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/24")
 	assert.Equal(t, resp.AddressSpaces[1], "10.1.0.0/22")
