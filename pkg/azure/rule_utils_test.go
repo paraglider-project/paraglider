@@ -112,7 +112,7 @@ func TestCheckSecurityRulesCompliance(t *testing.T) {
 		rgName:  rgName,
 		nsg:     getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName),
 		nic:     getFakeInterface(),
-		subnet:  getFakeSubnet(),
+		subnet:  getFakeParagliderSubnet(),
 		vm:      to.Ptr(getFakeVirtualMachine(true)),
 		cluster: to.Ptr(getFakeCluster(true)),
 	}

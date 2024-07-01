@@ -48,13 +48,16 @@ const (
 	validSecurityRuleName                    = "valid-security-rule-name"
 	validSecurityGroupID                     = uriPrefix + "Microsoft.Network/networkSecurityGroups/" + validSecurityGroupName
 	validSecurityGroupName                   = validNicName + nsgNameSuffix
-	validVnetName                            = paragliderPrefix + "-" + namespace + "-valid-vnet-name"
-	validVnetId                              = uriPrefix + "Microsoft.Network/virtualNetworks/" + validVnetName
+	validVnetName                            = namespace + "-valid-vnet-name"
+	validParagliderVnetName                  = paragliderPrefix + "-" + validVnetName
+	validVnetId                              = uriPrefix + "Microsoft.Network/virtualNetworks/" + validParagliderVnetName
 	validAddressSpace                        = "10.0.0.0/16"
+	unusedAddressSpace                       = "40.0.0.0/16"
 	validVirtualNetworkGatewayName           = "valid-virtual-network-gateway"
 	validPublicIpAddressName                 = "valid-public-ip-address-name"
 	validPublicIpAddressId                   = uriPrefix + "Microsoft.Network/publicIPAddresses/" + validPublicIpAddressName
 	validSubnetName                          = "valid-subnet-name"
+	validParagliderSubnetId                  = uriPrefix + "Microsoft.Network/virtualNetworks/" + validParagliderVnetName + "/subnets/" + validSubnetName
 	validSubnetId                            = uriPrefix + "Microsoft.Network/virtualNetworks/" + validVnetName + "/subnets/" + validSubnetName
 	validLocalNetworkGatewayName             = "valid-local-network-gateway"
 	validVirtualNetworkGatewayConnectionName = "valid-virtual-network-gateway-connection"
@@ -385,7 +388,7 @@ func Teardown(fakeServer *httptest.Server) {
 }
 
 func getFakeInterface() *armnetwork.Interface {
-	subnet := getFakeSubnet()
+	subnet := getFakeParagliderSubnet()
 	nsg := getFakeNSG()
 	return &armnetwork.Interface{
 		Name: to.Ptr(validNicName),
@@ -412,10 +415,11 @@ func getFakeNSG() *armnetwork.SecurityGroup {
 	}
 }
 
-func getFakeSubnet() *armnetwork.Subnet {
+// Has "paraglider-" prefix before the vnet name
+func getFakeParagliderSubnet() *armnetwork.Subnet {
 	return &armnetwork.Subnet{
 		Name: to.Ptr(validSubnetName),
-		ID:   to.Ptr(validSubnetId),
+		ID:   to.Ptr(validParagliderSubnetId),
 		Properties: &armnetwork.SubnetPropertiesFormat{
 			AddressPrefix: to.Ptr(validAddressSpace),
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
@@ -428,12 +432,31 @@ func getFakeSubnet() *armnetwork.Subnet {
 
 func getFakeVirtualNetwork() *armnetwork.VirtualNetwork {
 	return &armnetwork.VirtualNetwork{
-		Name:     to.Ptr(validVnetName),
+		Name:     to.Ptr(validParagliderVnetName),
 		ID:       to.Ptr(validVnetId),
 		Location: to.Ptr(testLocation),
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 			AddressSpace: &armnetwork.AddressSpace{
 				AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+			},
+			Subnets: []*armnetwork.Subnet{
+				{
+					Name: to.Ptr(validSubnetName),
+					ID:   to.Ptr(validParagliderSubnetId),
+				},
+			},
+		},
+	}
+}
+
+func getFakeUnattachedVirtualNetwork() *armnetwork.VirtualNetwork {
+	return &armnetwork.VirtualNetwork{
+		Name:     to.Ptr(validVnetName),
+		ID:       to.Ptr(validVnetId),
+		Location: to.Ptr(testLocation),
+		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+			AddressSpace: &armnetwork.AddressSpace{
+				AddressPrefixes: []*string{to.Ptr(unusedAddressSpace)},
 			},
 			Subnets: []*armnetwork.Subnet{
 				{
@@ -478,7 +501,7 @@ func getFakeCluster(networkInfo bool) armcontainerservice.ManagedCluster {
 	if networkInfo {
 		cluster.Properties.AgentPoolProfiles = []*armcontainerservice.ManagedClusterAgentPoolProfile{
 			{
-				VnetSubnetID: getFakeSubnet().ID,
+				VnetSubnetID: getFakeParagliderSubnet().ID,
 			},
 		}
 		cluster.Properties.NetworkProfile = &armcontainerservice.NetworkProfile{
@@ -512,7 +535,7 @@ func getFakeAKSGenericResource() armresources.GenericResource {
 		Type:     to.Ptr("Microsoft.ContainerService/managedClusters"),
 		Properties: map[string]interface{}{
 			"agentPoolProfiles": []interface{}{
-				map[string]interface{}{"vnetSubnetID": *getFakeSubnet().ID},
+				map[string]interface{}{"vnetSubnetID": *getFakeParagliderSubnet().ID},
 			},
 		},
 	}
@@ -521,7 +544,6 @@ func getFakeAKSGenericResource() armresources.GenericResource {
 func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*paragliderpb.CreateResourceRequest, error) {
 	desc, err := json.Marshal(vm)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	return &paragliderpb.CreateResourceRequest{
@@ -534,7 +556,6 @@ func getFakeVMResourceDescription(vm *armcompute.VirtualMachine) (*paragliderpb.
 func getFakeClusterResourceDescription(cluster *armcontainerservice.ManagedCluster) (*paragliderpb.CreateResourceRequest, error) {
 	desc, err := json.Marshal(cluster)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	return &paragliderpb.CreateResourceRequest{
@@ -550,5 +571,151 @@ func getFakeResourceInfo(name string) ResourceIDInfo {
 		ResourceName:      name,
 		ResourceGroupName: rgName,
 		SubscriptionID:    "00000000-0000-0000-0000-000000000000",
+	}
+}
+
+func getFakeNewPermitListRules() ([]*paragliderpb.PermitListRule, error) {
+	return []*paragliderpb.PermitListRule{
+		{
+			Name:      "test-rule-1",
+			Tags:      []string{"tag1", "tag2"},
+			Targets:   []string{validAddressSpace, validAddressSpace},
+			SrcPort:   8080,
+			DstPort:   8080,
+			Protocol:  1,
+			Direction: paragliderpb.Direction_OUTBOUND,
+		},
+		{
+			Name:      "test-rule-2",
+			Tags:      []string{"tag3", "tag4"},
+			Targets:   []string{validAddressSpace, validAddressSpace},
+			SrcPort:   8080,
+			DstPort:   8080,
+			Protocol:  1,
+			Direction: paragliderpb.Direction_OUTBOUND,
+		},
+	}, nil
+}
+
+func getFakePermitList() ([]*paragliderpb.PermitListRule, error) {
+	nsg := getFakeNsgWithRules("test", "test")
+	// initialize paraglider rules with the size of nsg rules
+	paragliderRules := []*paragliderpb.PermitListRule{}
+	// use real implementation to get actual mapping of nsg rules to paraglider rules
+	azureSDKHandler := &AzureSDKHandler{}
+	for i := range nsg.Properties.SecurityRules {
+		if strings.HasPrefix(*nsg.Properties.SecurityRules[i].Name, paragliderPrefix) {
+			rule, err := azureSDKHandler.GetPermitListRuleFromNSGRule(nsg.Properties.SecurityRules[i])
+			if err != nil {
+				return nil, err
+			}
+			rule.Name = getRuleNameFromNSGRuleName(*nsg.Properties.SecurityRules[i].Name)
+			paragliderRules = append(paragliderRules, rule)
+		}
+	}
+
+	return paragliderRules, nil
+}
+
+func getFakeNIC() *armnetwork.Interface {
+	fakeResourceAddress := ""
+	fakeSubnetId := "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/" + validParagliderVnetName + "/subnets/subnet123"
+	return &armnetwork.Interface{
+		ID:       to.Ptr(validNicId),
+		Location: to.Ptr(testLocation),
+		Name:     to.Ptr(validNicName),
+		Properties: &armnetwork.InterfacePropertiesFormat{
+			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
+				{
+					Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+						PrivateIPAddress: &fakeResourceAddress,
+						Subnet:           &armnetwork.Subnet{ID: to.Ptr(fakeSubnetId)},
+					},
+				},
+			},
+			NetworkSecurityGroup: &armnetwork.SecurityGroup{
+				ID:   to.Ptr(validSecurityGroupID),
+				Name: to.Ptr(validSecurityGroupName),
+			},
+		},
+	}
+}
+
+func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup {
+	return &armnetwork.SecurityGroup{
+		ID:   to.Ptr(nsgID),
+		Name: to.Ptr(nsgName),
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: []*armnetwork.SecurityRule{
+				{
+					ID:   to.Ptr("test-rule-id-1"),
+					Name: to.Ptr("paraglider-Rule-1"),
+					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
+						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
+						Priority:                   to.Ptr(int32(100)),
+						SourcePortRange:            to.Ptr("101"),
+						DestinationPortRange:       to.Ptr("8080"),
+						Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+						Description:                to.Ptr(getRuleDescription([]string{"tag1", "tag2"})),
+					},
+				},
+				{
+					ID:   to.Ptr("test-rule-id-2"),
+					Name: to.Ptr("paraglider-Rule-2"),
+					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
+						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
+						Priority:                   to.Ptr(int32(101)),
+						SourcePortRange:            to.Ptr("102"),
+						DestinationPortRange:       to.Ptr("8080"),
+						Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+					},
+				},
+				{
+					ID:   to.Ptr("test-rule-id-3"),
+					Name: to.Ptr("not-paraglider-Rule-1"),
+					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
+						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
+						Priority:                   to.Ptr(int32(102)),
+						SourcePortRange:            to.Ptr("5050"),
+						DestinationPortRange:       to.Ptr("8080"),
+						Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+					},
+				},
+				{
+					ID:   to.Ptr("test-rule-id-4"),
+					Name: to.Ptr("not-paraglider-Rule-2"),
+					Properties: &armnetwork.SecurityRulePropertiesFormat{
+						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
+						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
+						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
+						Priority:                   to.Ptr(int32(103)),
+						SourcePortRange:            to.Ptr("103"),
+						DestinationPortRange:       to.Ptr("8080"),
+						Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+					},
+				},
+			},
+		},
+	}
+}
+
+func getFakeVnetInLocation(location *string, addressSpace string) *armnetwork.VirtualNetwork {
+	return &armnetwork.VirtualNetwork{
+		Location: location,
+		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+			AddressSpace: &armnetwork.AddressSpace{
+				AddressPrefixes: []*string{to.Ptr(addressSpace)},
+			},
+		},
 	}
 }
