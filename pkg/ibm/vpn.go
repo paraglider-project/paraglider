@@ -33,7 +33,7 @@ const vpnConnectionType = "vpn-connection"
 func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 
 	// fetch the the specified namespace's VPC in the region
-	vpcData, err := c.GetParagliderTaggedResources(VPC, []string{namespace}, ResourceQuery{Region: c.region})
+	vpcData, err := c.GetParagliderTaggedResources(VPC, []string{namespace}, resourceQuery{Region: c.region})
 	if err != nil {
 		utils.Log.Printf("Failed to get VPC data for VPN deployment with error: %v", err)
 		return nil, err
@@ -54,7 +54,7 @@ func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 	subnetID := *subnets[0].ID
 
 	vpnPrototype := vpcv1.VPNGatewayPrototypeVPNGatewayRouteModePrototype{
-		Name:          core.StringPtr(GenerateResourceName(string(VPN))),
+		Name:          core.StringPtr(generateResourceName(string(VPN))),
 		ResourceGroup: c.resourceGroup,
 		Subnet:        &vpcv1.SubnetIdentity{ID: &subnetID},
 		Mode:          core.StringPtr(vpcv1.VPNGatewayPrototypeVPNGatewayRouteModePrototypeModeRouteConst),
@@ -189,7 +189,7 @@ func (c *CloudClient) createRoutes(routingTableID, vpcID, VPNConnectionID string
 					Name: &zone,
 				},
 				Action: core.StringPtr(vpcv1.CreateVPCRoutingTableRouteOptionsActionDeliverConst),
-				Name:   core.StringPtr(GenerateResourceName(string(routeType))),
+				Name:   core.StringPtr(generateResourceName(string(routeType))),
 				NextHop: &vpcv1.RoutePrototypeNextHop{
 					ID: &VPNConnectionID,
 				},
@@ -268,7 +268,7 @@ func (c *CloudClient) CreateVPNConnectionRouteBased(VPNGatewayID, peerGatewayIP,
 		VPNGatewayConnectionPrototype: &vpcv1.VPNGatewayConnectionPrototypeVPNGatewayConnectionStaticRouteModePrototype{
 			Peer:        &vpcv1.VPNGatewayConnectionStaticRouteModePeerPrototype{Address: &peerGatewayIP},
 			Psk:         &preSharedKey,
-			Name:        core.StringPtr(GenerateResourceName(string(vpnConnectionType))),
+			Name:        core.StringPtr(generateResourceName(string(vpnConnectionType))),
 			IkePolicy:   &vpcv1.VPNGatewayConnectionIkePolicyPrototypeIkePolicyIdentityByID{ID: IKEPolicyID},
 			IpsecPolicy: &vpcv1.VPNGatewayConnectionIPsecPolicyPrototypeIPsecPolicyIdentityByID{ID: IPSecPolicyID},
 		},
@@ -472,8 +472,8 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 
 // return ResourceData object of a VPN gateway matching the specified namespace and region.
 // if region value is empty avoid filtering results by region.
-func (c *CloudClient) GetVPNsInNamespaceRegion(namespace, region string) ([]ResourceData, error) {
-	queryFilter := ResourceQuery{Region: region}
+func (c *CloudClient) GetVPNsInNamespaceRegion(namespace, region string) ([]resourceData, error) {
+	queryFilter := resourceQuery{Region: region}
 	// fetch VPN of the specified namespace's region.
 	vpns, err := c.GetParagliderTaggedResources(VPN, []string{namespace}, queryFilter)
 	if err != nil {
@@ -502,7 +502,7 @@ func (c *CloudClient) getOrCreateIKEPolicy(peerCloud string) (*string, error) {
 
 	// create a new IKE policy for specified cloud
 	config := &vpcv1.CreateIkePolicyOptions{
-		Name:          core.StringPtr(GenerateResourceName("ike-" + peerCloud)),
+		Name:          core.StringPtr(generateResourceName("ike-" + peerCloud)),
 		IkeVersion:    core.Int64Ptr(2),
 		ResourceGroup: c.resourceGroup,
 	}
@@ -553,7 +553,7 @@ func (c *CloudClient) getOrCreateIPSecPolicy(peerCloud string) (*string, error) 
 
 	// create a new IPSec policy for specified cloud
 	config := &vpcv1.CreateIpsecPolicyOptions{
-		Name:          core.StringPtr(GenerateResourceName("ipsec-" + peerCloud)),
+		Name:          core.StringPtr(generateResourceName("ipsec-" + peerCloud)),
 		ResourceGroup: c.resourceGroup,
 	}
 	if peerCloud == utils.AZURE {

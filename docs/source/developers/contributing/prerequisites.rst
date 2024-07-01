@@ -116,7 +116,6 @@ If you'd like to persist resources after a test (i.e., not teardown project/reso
    Pick a resource group from `IBM's web console <https://cloud.ibm.com/account/resource-groups>`__.
 
 | Cleanup function, terminating all Paraglider resources on IBM, is executed automatically when tests end, unless ``INVISINETS_TEST_PERSIST`` is set to ``1``.
-| Manually terminate resources by running ``go test --tags=unit -run TestCleanup`` at ``pkg/ibm_plugin/sdk/sdk_test.go``.
 
 Editor
 --------------------
