@@ -63,6 +63,7 @@ func newOrchestratorServer() *ControllerServer {
 		pluginAddresses:           make(map[string]string),
 		usedBgpPeeringIpAddresses: make(map[string][]string),
 		namespace:                 defaultNamespace,
+		config:                    config.Config{AddressSpace: []string{defaultAddressSpace}},
 	}
 	return s
 }
@@ -693,7 +694,6 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 
 func TestFindUnusedAddressSpaces(t *testing.T) {
 	orchestratorServer := newOrchestratorServer()
-
 	// No entries in address space map
 	resp, err := orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
@@ -728,24 +728,24 @@ func TestFindUnusedAddressSpaces(t *testing.T) {
 	require.Nil(t, err)
 	assert.Equal(t, resp.AddressSpaces[0], "10.2.0.0/16")
 
+	// Multiple spaces
+	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{}
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: []int32{200, 1000, 4}})
+	require.Nil(t, err)
+	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/24")
+	assert.Equal(t, resp.AddressSpaces[1], "10.1.0.0/22")
+	assert.Equal(t, resp.AddressSpaces[2], "10.1.4.0/30")
+
 	// Out of addresses
 	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{
 		{
-			AddressSpaces: []string{"10.255.0.0/16"},
+			AddressSpaces: []string{"10.0.0.0/10", "10.64.0.0/10", "10.128.0.0/10", "10.192.0.0/10"},
 			Cloud:         exampleCloudName,
 			Namespace:     defaultNamespace,
 		},
 	}
 	_, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
-
 	require.NotNil(t, err)
-
-	// Multiple spaces
-	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{}
-	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Num: proto.Int32(2)})
-	require.Nil(t, err)
-	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
-	assert.Equal(t, resp.AddressSpaces[1], "10.1.0.0/16")
 }
 
 func TestGetUsedAsns(t *testing.T) {
