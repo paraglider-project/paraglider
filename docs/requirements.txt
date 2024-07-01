@@ -7,7 +7,7 @@ docutils==0.21.2
 furo==2024.5.6
 idna==3.7
 imagesize==1.4.1
-importlib_metadata==7.1.0
+importlib_metadata==8.0.0
 Jinja2==3.1.4
 MarkupSafe==2.1.5
 packaging==24.1
