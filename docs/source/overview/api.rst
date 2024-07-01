@@ -117,9 +117,9 @@ Note that a tag is automatically created for the resource with the name ``<names
                                         },
                                         \"storageProfile\": {
                                             \"imageReference\": {
-                                                \"offer\": \"debian-10\",
-                                                \"publisher\": \"Debian\",
-                                                \"sku\": \"10\",
+                                                \"offer\": \"0001-com-ubuntu-minimal-jammy\",
+                                                \"publisher\": \"canonical\",
+                                                \"sku\": \"minimal-22_04-lts-gen2\",
                                                 \"version\": \"latest\"
                                             }
                                         }
@@ -158,9 +158,9 @@ Note that a tag is automatically created for the resource with the name ``<names
                                         },
                                         \"storageProfile\": {
                                             \"imageReference\": {
-                                                \"offer\": \"debian-10\",
-                                                \"publisher\": \"Debian\",
-                                                \"sku\": \"10\",
+                                                \"offer\": \"0001-com-ubuntu-minimal-jammy\",
+                                                \"publisher\": \"canonical\",
+                                                \"sku\": \"minimal-22_04-lts-gen2\",
                                                 \"version\": \"latest\"
                                             }
                                         }
