@@ -1,0 +1,1021 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Quickstart" href="quickstart.html" /><link rel="prev" title="How It Works" href="howitworks.html" />
+
+    <link rel="shortcut icon" href="../_static/logo-square.png"/><!-- Generated with Sphinx 7.3.7 and Furo 2024.05.06 -->
+        <title>API - Paraglider documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=387cc868" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=87e54e7c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=36a5483c" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" /
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">Paraglider  documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo only-light" src="../_static/paraglider-color-lightmode.png" alt="Light Logo"/>
+    <img class="sidebar-logo only-dark" src="../_static/paraglider-color-darkmode.png" alt="Dark Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Overview</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="what-is-paraglider.html">What is Paraglider?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howitworks.html">How It Works</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples/controller-setup.html">Controller Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/tags.html">Tag Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/multicloud.html">Multicloud Example</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project Status</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../project/feature-status.html">Feature Status</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/roadmap.html">Roadmap</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developers</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developers/contributing.html">Contributing</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of Contributing</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/prerequisites.html">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/building.html">Building The Project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/contributing-issues.html">Contributing Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/writing-go.html">Writing Good Go Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developers/contributing/known-issues.html">Known Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../developers/plugin-interface.html">Plugin Interface</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/overview/api.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="api">
+<span id="id1"></span><h1>API<a class="headerlink" href="#api" title="Link to this heading">¶</a></h1>
+<section id="namespace-operations">
+<h2>Namespace Operations<a class="headerlink" href="#namespace-operations" title="Link to this heading">¶</a></h2>
+<p>Interact with the namespaces on the Paraglider Controller.
+The active namespace is a client-side CLI construct.
+All REST requests to the controller will be scoped on a namespace.</p>
+<section id="set">
+<h3>Set<a class="headerlink" href="#set" title="Link to this heading">¶</a></h3>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-0">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>namespace<span class="w"> </span><span class="nb">set</span><span class="w"> </span>&lt;namespace&gt;
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: namespace to set on the controller</p></li>
+</ul>
+</div>
+</div>
+</section>
+<section id="get">
+<h3>Get<a class="headerlink" href="#get" title="Link to this heading">¶</a></h3>
+<p>Gets the current active namespace in the CLI (Note: this is only a CLI feature).</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-1" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-1">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>namespace<span class="w"> </span>get
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="list">
+<h3>List<a class="headerlink" href="#list" title="Link to this heading">¶</a></h3>
+<p>Lists all namespaces configured on the controller.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-2" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-2">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>namespace<span class="w"> </span>list
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-3" name="sd-tab-set-2" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-3">
+REST</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>GET<span class="w"> </span>/namespaces/
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="resource-operations">
+<h2>Resource Operations<a class="headerlink" href="#resource-operations" title="Link to this heading">¶</a></h2>
+<section id="create">
+<h3>Create<a class="headerlink" href="#create" title="Link to this heading">¶</a></h3>
+<p>Creates a resource according to the description provided in the specified cloud.
+Note that a tag is automatically created for the resource with the name <code class="docutils literal notranslate"><span class="pre">&lt;namespace&gt;.&lt;cloud&gt;.&lt;name&gt;</span></code> (where <code class="docutils literal notranslate"><span class="pre">name</span></code> is the resource name provided – i.e., names inside the json description of the resource will be ignored).</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-4" name="sd-tab-set-3" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-4">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>resource<span class="w"> </span>create<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;<span class="w"> </span>&lt;path_to_json&gt;
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud to create the resource in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource_name</span></code> : name of the resource to be created in the Paraglider controller (note: this name will be scoped on cloud and namespace when stored)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">path_to_json</span></code>: path to JSON file describing the resource to be created (excluding networking details)</p></li>
+</ul>
+</div>
+<input id="sd-tab-item-5" name="sd-tab-set-3" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-5">
+REST</label><div class="sd-tab-content docutils">
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-6" name="sd-tab-set-4" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-6">
+POST</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Example request body:</p></li>
+</ul>
+<div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resourceName&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;{</span>
+<span class="s2">                \&quot;location\&quot;: \&quot;eastus\&quot;,</span>
+<span class="s2">                \&quot;properties\&quot;: {</span>
+<span class="s2">                    \&quot;hardwareProfile\&quot;: {</span>
+<span class="s2">                        \&quot;vmSize\&quot;: \&quot;Standard_B1s\&quot;</span>
+<span class="s2">                    },</span>
+<span class="s2">                    \&quot;osProfile\&quot;: {</span>
+<span class="s2">                        \&quot;adminPassword\&quot;: \&quot;\&quot;,</span>
+<span class="s2">                        \&quot;adminUsername\&quot;: \&quot;\&quot;,</span>
+<span class="s2">                        \&quot;computerName\&quot;: \&quot;sample-compute\&quot;</span>
+<span class="s2">                    },</span>
+<span class="s2">                    \&quot;storageProfile\&quot;: {</span>
+<span class="s2">                        \&quot;imageReference\&quot;: {</span>
+<span class="s2">                            \&quot;offer\&quot;: \&quot;0001-com-ubuntu-minimal-jammy\&quot;,</span>
+<span class="s2">                            \&quot;publisher\&quot;: \&quot;canonical\&quot;,</span>
+<span class="s2">                            \&quot;sku\&quot;: \&quot;minimal-22_04-lts-gen2\&quot;,</span>
+<span class="s2">                            \&quot;version\&quot;: \&quot;latest\&quot;</span>
+<span class="s2">                        }</span>
+<span class="s2">                    }</span>
+<span class="s2">                }</span>
+<span class="s2">            }&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Paraglider namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud to create the resource in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">name</span></code> : name of the resource to be created in the Paraglider controller (note: this name will be scoped on cloud and namespace when stored)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">description</span></code>: JSON string describing the resource to be created (excluding networking details)</p></li>
+</ul>
+</div>
+<input id="sd-tab-item-7" name="sd-tab-set-4" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-7">
+PUT</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>PUT<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Example request body:</p></li>
+</ul>
+<div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;{</span>
+<span class="s2">                \&quot;location\&quot;: \&quot;eastus\&quot;,</span>
+<span class="s2">                \&quot;properties\&quot;: {</span>
+<span class="s2">                    \&quot;hardwareProfile\&quot;: {</span>
+<span class="s2">                        \&quot;vmSize\&quot;: \&quot;Standard_B1s\&quot;</span>
+<span class="s2">                    },</span>
+<span class="s2">                    \&quot;osProfile\&quot;: {</span>
+<span class="s2">                        \&quot;adminPassword\&quot;: \&quot;\&quot;,</span>
+<span class="s2">                        \&quot;adminUsername\&quot;: \&quot;\&quot;,</span>
+<span class="s2">                        \&quot;computerName\&quot;: \&quot;sample-compute\&quot;</span>
+<span class="s2">                    },</span>
+<span class="s2">                    \&quot;storageProfile\&quot;: {</span>
+<span class="s2">                        \&quot;imageReference\&quot;: {</span>
+<span class="s2">                            \&quot;offer\&quot;: \&quot;0001-com-ubuntu-minimal-jammy\&quot;,</span>
+<span class="s2">                            \&quot;publisher\&quot;: \&quot;canonical\&quot;,</span>
+<span class="s2">                            \&quot;sku\&quot;: \&quot;minimal-22_04-lts-gen2\&quot;,</span>
+<span class="s2">                            \&quot;version\&quot;: \&quot;latest\&quot;</span>
+<span class="s2">                        }</span>
+<span class="s2">                    }</span>
+<span class="s2">                }</span>
+<span class="s2">            }&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Paraglider namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud to create the resource in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource_name</span></code> : name of the resource to be created in the Paraglider controller (note: this name will be scoped on cloud and namespace when stored)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">description</span></code>: JSON string describing the resource to be created (excluding networking details)</p></li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="permit-list-operations">
+<h2>Permit List Operations<a class="headerlink" href="#permit-list-operations" title="Link to this heading">¶</a></h2>
+<p>These operations interact with the permit list associated with a given resource by adding/deleting/getting rules.</p>
+<section id="id2">
+<h3>Get<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<p>Gets the rules associated with a resource.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-8" name="sd-tab-set-5" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-8">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>rule<span class="w"> </span>get<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource_name</span></code>: Paraglider name of the resource</p></li>
+</ul>
+</div>
+<input id="sd-tab-item-9" name="sd-tab-set-5" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-9">
+REST</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>GET<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/rules
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Paraglider namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resourceName</span></code>: Paraglider name of the resource</p></li>
+</ul>
+</div>
+</div>
+</section>
+<section id="add">
+<h3>Add<a class="headerlink" href="#add" title="Link to this heading">¶</a></h3>
+<p>Adds one or many rules to the permit list associated with a resource.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-10" name="sd-tab-set-6" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-10">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;<span class="w"> </span><span class="o">[</span>--ssh<span class="w"> </span>&lt;tag&gt;<span class="w"> </span>--ping<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="p">|</span><span class="w"> </span>--ruleFile<span class="w"> </span>&lt;path_to_file&gt;<span class="o">]</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource_name</span></code>: Paraglider name of the resource</p></li>
+<li><dl>
+<dt><code class="docutils literal notranslate"><span class="pre">path_to_file</span></code>: path to JSON file describing rules to add</dt><dd><ul class="simple">
+<li><p>The file should describe rules in the following format:</p></li>
+</ul>
+<div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rulename&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;id&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;tags&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;tagname&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;direction&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;src_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dst_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;protocol&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tag</span></code>: Paraglider tag or IP/CIDR to allow SSH/ICMP traffic to/from</p></li>
+</ul>
+</div>
+<input id="sd-tab-item-11" name="sd-tab-set-6" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-11">
+REST</label><div class="sd-tab-content docutils">
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-12" name="sd-tab-set-7" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-12">
+POST</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/rules
+</pre></div>
+</div>
+<p>Creates/updates one rule of a resource’s permit list.</p>
+<ul class="simple">
+<li><p>Example Request Body:</p></li>
+</ul>
+<div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rulename&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;id&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;tags&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;tagname&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;direction&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;src_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;dst_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;protocol&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Paraglider namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resourceName</span></code>: Paraglider name of the resource</p></li>
+</ul>
+</div>
+<input id="sd-tab-item-13" name="sd-tab-set-7" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-13">
+PUT</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>PUT<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/rules/<span class="o">{</span>ruleName<span class="o">}</span>
+</pre></div>
+</div>
+<p>Creates/updates one rule of a resource’s permit list.</p>
+<ul class="simple">
+<li><p>Example Request Body:</p></li>
+</ul>
+<div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rulename&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;id&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;tags&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;tagname&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;direction&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;src_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;dst_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;protocol&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Paraglider namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resourceName</span></code>: Paraglider name of the resource</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ruleName</span></code>: name of the rule</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the name is provided in the request body, it will be ignored</p>
+</div>
+</div>
+<input id="sd-tab-item-14" name="sd-tab-set-7" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-14">
+POST (bulk operation)</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/applyRules
+</pre></div>
+</div>
+<p>Creates/updates rules of resource in bulk.</p>
+<ul class="simple">
+<li><p>Example Request Body:</p></li>
+</ul>
+<div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rulename&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;id&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;tags&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;tagname&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;direction&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;src_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dst_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;protocol&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Paraglider namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resourceName</span></code>: Paraglider name of the resource</p></li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="delete">
+<h3>Delete<a class="headerlink" href="#delete" title="Link to this heading">¶</a></h3>
+<p>Deletes one or many rules from the permit list associated with the specified resource.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-15" name="sd-tab-set-8" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-15">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>rule<span class="w"> </span>delete<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;<span class="w"> </span>--rules<span class="w"> </span>&lt;rule_names&gt;
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource_name</span></code>: Paraglider name of the resource</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rule_names</span></code>: list of rule names to delete</p></li>
+</ul>
+</div>
+<input id="sd-tab-item-16" name="sd-tab-set-8" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-16">
+REST</label><div class="sd-tab-content docutils">
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-17" name="sd-tab-set-9" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-17">
+DELETE</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>DELETE<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/rules/<span class="o">{</span>ruleName<span class="o">}</span>
+</pre></div>
+</div>
+<p>Deletes one rule of a resource’s permit list.</p>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Paraglider namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resourceName</span></code>: Paraglider name of the resource</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ruleName</span></code>: name of the rule</p></li>
+</ul>
+</div>
+<input id="sd-tab-item-18" name="sd-tab-set-9" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-18">
+POST (bulk operation)</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/deleteRules
+</pre></div>
+</div>
+<p>Deletes rules of resource in bulk.</p>
+<ul class="simple">
+<li><p>Example Request Body:</p></li>
+</ul>
+<div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="p">[</span>
+<span class="w">        </span><span class="s2">&quot;rulename1&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;rulename2&quot;</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code>: Paraglider namespace to operate in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud that the resource is in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resourceName</span></code>: Paraglider name of the resource</p></li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="tag-operations">
+<h2>Tag Operations<a class="headerlink" href="#tag-operations" title="Link to this heading">¶</a></h2>
+<p>Operations on Paraglider tags.</p>
+<section id="id3">
+<h3>Get<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<p>Gets the children tags associated with a tag or resolves the tag down to last-level entries (IPs).</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-19" name="sd-tab-set-10" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-19">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--resolve<span class="o">]</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tag</span></code>: tag to get</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resolve</span></code>: true/false value indicating whether to resolve to last-level tags or not</p></li>
+</ul>
+</div>
+<input id="sd-tab-item-20" name="sd-tab-set-10" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-20">
+REST</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>GET<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</span>/
+</pre></div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</span>/resolve
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tag</span></code>: tag to get</p></li>
+</ul>
+</div>
+</div>
+</section>
+<section id="id4">
+<h3>Set<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<p>Adds children tags to a parent tag or creates a last-level tag that associates a names with an URI and/or IP.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-21" name="sd-tab-set-11" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-21">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--children<span class="w"> </span>&lt;child_tag_list&gt;<span class="o">]</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="o">[</span>--uri<span class="w"> </span>&lt;uri&gt;<span class="o">]</span><span class="w"> </span><span class="o">[</span>--ip<span class="w"> </span>&lt;ip&gt;<span class="o">]</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tag</span></code>: tag to set</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">children</span></code>: list of tags to add as children</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">uri</span></code>: uri to associate with tag</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ip</span></code>: ip to associate with tag</p></li>
+</ul>
+</div>
+<input id="sd-tab-item-22" name="sd-tab-set-11" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-22">
+REST</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</span>/applyMembers
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Example Request Body:</p></li>
+</ul>
+<div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;tag_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tag&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;uri&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uri&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;ip&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.1.1.1&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Example Request Body</p></li>
+</ul>
+<div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;tag_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tag&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;child_tags&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="s2">&quot;child1&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;child2&quot;</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Parameters:
+* <code class="docutils literal notranslate"><span class="pre">tag</span></code>: tag to set
+* <code class="docutils literal notranslate"><span class="pre">children</span></code>: list of tags to add as children
+* <code class="docutils literal notranslate"><span class="pre">uri</span></code>: uri to associate with tag
+* <code class="docutils literal notranslate"><span class="pre">ip</span></code>: ip to associate with tag”</p>
+</div>
+</div>
+</section>
+<section id="id5">
+<h3>Delete<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
+<p>Deletes a tag or the association of members tags to that tag.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-23" name="sd-tab-set-12" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-23">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>tag<span class="w"> </span>delete<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--member<span class="w"> </span>&lt;members_list&gt;<span class="o">]</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tag</span></code>: tag to delete</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">member</span></code>: child tag to remove membership</p></li>
+</ul>
+</div>
+<input id="sd-tab-item-24" name="sd-tab-set-12" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-24">
+REST</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>DELETE<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</span>/member/<span class="o">{</span>member<span class="o">}</span>
+</pre></div>
+</div>
+<p>Deletes a single member from a parent tag.</p>
+<p>Parameters:
+* <code class="docutils literal notranslate"><span class="pre">tag</span></code>: parent tag
+* <code class="docutils literal notranslate"><span class="pre">members</span></code>: child tag to remove membership</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>DELETE<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</span>
+</pre></div>
+</div>
+<p>Deletes an entire tag (and all its child associations).</p>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tag</span></code>: tag to delete</p></li>
+</ul>
+</div>
+</div>
+</section>
+</section>
+<section id="service-operations">
+<h2>Service Operations<a class="headerlink" href="#service-operations" title="Link to this heading">¶</a></h2>
+<p>Operations to interact with Paraglider services.</p>
+<section id="all-services">
+<h3>All Services<a class="headerlink" href="#all-services" title="Link to this heading">¶</a></h3>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-25" name="sd-tab-set-13" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-25">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>startup<span class="w"> </span>&lt;path_to_config&gt;
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="orchestrator">
+<h3>Orchestrator<a class="headerlink" href="#orchestrator" title="Link to this heading">¶</a></h3>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-26" name="sd-tab-set-14" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-26">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>orch<span class="w"> </span>&lt;path_to_config&gt;
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="azure">
+<h3>Azure<a class="headerlink" href="#azure" title="Link to this heading">¶</a></h3>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-27" name="sd-tab-set-15" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-27">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>az<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">central_controller_address</span></code> should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is “localhost:8081”.</p>
+</div>
+</div>
+</section>
+<section id="gcp">
+<h3>GCP<a class="headerlink" href="#gcp" title="Link to this heading">¶</a></h3>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-28" name="sd-tab-set-16" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-28">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>gcp<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">central_controller_address</span></code> should be the full host:port address where the central controller is hosted for RPC traffic. In the example config above, this is “localhost:8081”.</p>
+</div>
+</div>
+</section>
+<section id="tag-service">
+<h3>Tag Service<a class="headerlink" href="#tag-service" title="Link to this heading">¶</a></h3>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-29" name="sd-tab-set-17" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-29">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>tagserv<span class="w"> </span>&lt;redis_port&gt;<span class="w"> </span>&lt;server_port&gt;<span class="w"> </span>&lt;clear_keys&gt;
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">clear_keys</span></code> is a bool (“true” or “false”) which determines whether the database state should be cleared on startup or not.</p>
+</div>
+</div>
+</section>
+<section id="key-value-store-service">
+<h3>Key-Value Store Service<a class="headerlink" href="#key-value-store-service" title="Link to this heading">¶</a></h3>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-30" name="sd-tab-set-18" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-30">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>kvserv<span class="w"> </span>&lt;redis_port&gt;<span class="w"> </span>&lt;server_port&gt;<span class="w"> </span>&lt;clear_keys&gt;
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">clear_keys</span></code> is a bool (“true” or “false”) which determines whether the database state should be cleared on startup or not.</p>
+</div>
+</div>
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="quickstart.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Quickstart</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="howitworks.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">How It Works</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; Paraglider a Series of LF Projects, LLC. For web site terms of use, trademark policy and other project policies please see https://lfprojects.org/.
+            </div>
+            Made with 
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              <a class="muted-link " href="https://github.com/paraglider-project/paraglider" aria-label="GitHub">
+                <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path>
+                </svg>
+            </a>
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">API</a><ul>
+<li><a class="reference internal" href="#namespace-operations">Namespace Operations</a><ul>
+<li><a class="reference internal" href="#set">Set</a></li>
+<li><a class="reference internal" href="#get">Get</a></li>
+<li><a class="reference internal" href="#list">List</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#resource-operations">Resource Operations</a><ul>
+<li><a class="reference internal" href="#create">Create</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#permit-list-operations">Permit List Operations</a><ul>
+<li><a class="reference internal" href="#id2">Get</a></li>
+<li><a class="reference internal" href="#add">Add</a></li>
+<li><a class="reference internal" href="#delete">Delete</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#tag-operations">Tag Operations</a><ul>
+<li><a class="reference internal" href="#id3">Get</a></li>
+<li><a class="reference internal" href="#id4">Set</a></li>
+<li><a class="reference internal" href="#id5">Delete</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#service-operations">Service Operations</a><ul>
+<li><a class="reference internal" href="#all-services">All Services</a></li>
+<li><a class="reference internal" href="#orchestrator">Orchestrator</a></li>
+<li><a class="reference internal" href="#azure">Azure</a></li>
+<li><a class="reference internal" href="#gcp">GCP</a></li>
+<li><a class="reference internal" href="#tag-service">Tag Service</a></li>
+<li><a class="reference internal" href="#key-value-store-service">Key-Value Store Service</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=4e2eecee"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=a56c686a"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    </body>
+</html>
