@@ -1,0 +1,772 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="prev" title="Known Issues" href="contributing/known-issues.html" />
+
+    <link rel="shortcut icon" href="../_static/logo-square.png"/><!-- Generated with Sphinx 7.3.7 and Furo 2024.05.06 -->
+        <title>Plugin Interface - Paraglider documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=387cc868" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=87e54e7c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=36a5483c" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" /
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">Paraglider  documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo only-light" src="../_static/paraglider-color-lightmode.png" alt="Light Logo"/>
+    <img class="sidebar-logo only-dark" src="../_static/paraglider-color-darkmode.png" alt="Dark Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Overview</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/what-is-paraglider.html">What is Paraglider?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/concepts.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/howitworks.html">How It Works</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/quickstart.html">Quickstart</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples/controller-setup.html">Controller Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/tags.html">Tag Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/multicloud.html">Multicloud Example</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project Status</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../project/feature-status.html">Feature Status</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/roadmap.html">Roadmap</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developers</span></p>
+<ul class="current">
+<li class="toctree-l1 has-children"><a class="reference internal" href="contributing.html">Contributing</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of Contributing</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="contributing/prerequisites.html">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="contributing/building.html">Building The Project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="contributing/contributing-issues.html">Contributing Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="contributing/writing-go.html">Writing Good Go Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="contributing/known-issues.html">Known Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Plugin Interface</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/developers/plugin-interface.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="plugin-interface">
+<span id="id1"></span><h1>Plugin Interface<a class="headerlink" href="#plugin-interface" title="Link to this heading">¶</a></h1>
+<p>This page describes the interface that the cloud plugins must implement to be compatible with the orchestrator.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Each cloud API is different and may not be able to implement the features described below with their current parameters. In such cases, we can discuss the best way to proceed (potentially modifying the interface itself to be more cloud-agnostic).</p>
+</div>
+<section id="rpc-createresource-createresourcerequest-returns-createresourceresponse">
+<h2><strong>rpc CreateResource(CreateResourceRequest) returns (CreateResourceResponse) {}</strong><a class="headerlink" href="#rpc-createresource-createresourcerequest-returns-createresourceresponse" title="Link to this heading">¶</a></h2>
+<section id="tenant-level-description">
+<h3>Tenant-Level Description:<a class="headerlink" href="#tenant-level-description" title="Link to this heading">¶</a></h3>
+<p>Creates the provided resource as a Paraglider-enabled resource.The tenant should not provide any networking details in the resource description.</p>
+</section>
+<section id="implementation-level-description">
+<h3>Implementation-Level Description:<a class="headerlink" href="#implementation-level-description" title="Link to this heading">¶</a></h3>
+<p>Creates the provided resource in the designated Paraglider virtual network so that it can be easily connected to other Paraglider resources.</p>
+</section>
+<section id="input-details">
+<h3>Input Details:<a class="headerlink" href="#input-details" title="Link to this heading">¶</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">description</span></code> in the resource description should specify all required parameters for that cloud but the networking details of the resource. It is expected to be a JSON string that can be directly passed to the cloud API for resource creation.
+The <code class="docutils literal notranslate"><span class="pre">name</span></code> field in the resource description will be the name used when creating the resource. If it is specified within the resource description itself, that value will be ignored.
+An example of a resource description for an Azure VM is as follows:</p>
+<div class="highlight-go notranslate"><div class="highlight"><pre><span></span><span class="nx">vm</span><span class="o">-</span><span class="nx">a</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">CreateResourceRequest</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;vm-a&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">deployment</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="s">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/subscriptions/sub123/resourceGroups/rg123&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s">&quot;namespace&quot;</span><span class="p">:</span><span class="w"> </span><span class="k">default</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nx">description</span><span class="p">:</span><span class="w"> </span><span class="nx">bytes</span><span class="p">(</span><span class="s">`{</span>
+<span class="s">            &quot;location&quot;: &quot;us-east&quot;,</span>
+<span class="s">            &quot;properties&quot;: {</span>
+<span class="s">                &quot;hardwareProfile&quot;: {</span>
+<span class="s">                    &quot;vmSize&quot;: &quot;Standard_B1s&quot;</span>
+<span class="s">                },</span>
+<span class="s">                &quot;osProfile&quot;: {</span>
+<span class="s">                    &quot;adminPassword&quot;: &lt;password&gt;,</span>
+<span class="s">                    &quot;adminUsername&quot;: &lt;username&gt;,</span>
+<span class="s">                    &quot;computerName&quot;: &quot;sample-compute&quot;</span>
+<span class="s">                },</span>
+<span class="s">                &quot;storageProfile&quot;: {</span>
+<span class="s">                    &quot;imageReference&quot;: {</span>
+<span class="s">                        &quot;offer&quot;: &quot;0001-com-ubuntu-minimal-jammy&quot;,</span>
+<span class="s">                        &quot;publisher&quot;: &quot;canonical&quot;,</span>
+<span class="s">                        &quot;sku&quot;: &quot;minimal-22_04-lts-gen2&quot;,</span>
+<span class="s">                        &quot;version&quot;: &quot;latest&quot;</span>
+<span class="s">                    }</span>
+<span class="s">                }</span>
+<span class="s">            }</span>
+<span class="s">        }`</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="resources-to-create">
+<h3>Resources to Create:<a class="headerlink" href="#resources-to-create" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The provided resource</p></li>
+<li><p>A permit list for the resource (implementation varies by cloud) with all traffic denied by default</p></li>
+<li><p>A virtual network in the region of the resource if it does not yet exist</p></li>
+</ul>
+</section>
+<section id="high-level-logic">
+<h3>High-Level Logic:<a class="headerlink" href="#high-level-logic" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Check if there exists a Paraglider virtual network in the region of the new resource</p></li>
+<li><p>If there is not, create one</p></li>
+</ul>
+<ul class="simple">
+<li><p>If the vpc/subnet are provided, the rpc should return an error</p></li>
+<li><p>Create the resource, ensuring it is in the Paraglider virtual network</p></li>
+<li><p>Create the permit list for the resource with all traffic denied by default</p></li>
+</ul>
+</section>
+</section>
+<section id="rpc-getpermitlist-getpermitlistrequest-returns-getpermitlistresponse">
+<h2><strong>rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}</strong><a class="headerlink" href="#rpc-getpermitlist-getpermitlistrequest-returns-getpermitlistresponse" title="Link to this heading">¶</a></h2>
+<section id="id2">
+<h3>Tenant-Level Description:<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<p>Get the permit list associated with the resource.</p>
+</section>
+<section id="id3">
+<h3>Implementation-Level Description:<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<p>Gets the underlying security rules for the resource and returns them as permit list objects.</p>
+</section>
+<section id="id4">
+<h3>Input Details:<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">resource</span></code> contains the URI from which to get the associated permit list.</p>
+</section>
+<section id="id5">
+<h3>Resources to Create:<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>None</p></li>
+</ul>
+</section>
+<section id="id6">
+<h3>High-Level Logic:<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Check if the resource is a valid Paraglider resource</dt><dd><ul>
+<li><p>This often amounts to ensuring it is in the Paraglider virtual network</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Get the security rules associated with the resource</p></li>
+<li><p>Return as PermitList rules</p></li>
+</ul>
+</section>
+</section>
+<section id="rpc-addpermitlistrules-addpermitlistrulesrequest-returns-addpermitlistrulesresponse">
+<h2><strong>rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}</strong><a class="headerlink" href="#rpc-addpermitlistrules-addpermitlistrulesrequest-returns-addpermitlistrulesresponse" title="Link to this heading">¶</a></h2>
+<section id="id7">
+<h3>Tenant-Level Description:<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h3>
+<p>Add provided rules to a given resource.</p>
+</section>
+<section id="id8">
+<h3>Implementation-Level Description:<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h3>
+<p>Add the provided rules to the underlying security rules for the resource and setup any necessary infrastructure for the connections.</p>
+</section>
+<section id="id9">
+<h3>Input Details:<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code> is the namespace of the resource</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource</span></code> is the URI of the resource to which the rules should be added</p></li>
+<li><dl class="simple">
+<dt>Within the <code class="docutils literal notranslate"><span class="pre">rules</span></code>:</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">tags</span></code> are the tag(s) of the remote endpoint(s). This can be an IP in CIDR notation or a tag (string) that can be resolved by the tag service. This field is only read by the orchestrator to resolve the tags into the target fields, though the cloud plugin may read it to store which tags were referenced (this is useful to report to the user on gets).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">protocol</span></code> is an int determined by the IANA standard.</p></li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">targets</span></code> are the resolved tags of the remote endpoint(s) in CIDR notation.</dt><dd><ul>
+<li><p>The source and destination of the underlying ACL rules are inferred based on the direction (ie, if it is INBOUND, then the destination is the IP of the resource the rule is being applied to and the source is the provided target(s)).</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">destination</span></code> is the destination of the traffic</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="id10">
+<h3>Resources to Create:<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Per-endpoint access control list rules (implementation varies by cloud [NSG in Azure, Firewall Rules in GCP])</p></li>
+</ul>
+</section>
+<section id="id11">
+<h3>High-Level Logic:<a class="headerlink" href="#id11" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Check if the resource/rules are valid</p></li>
+<li><dl class="simple">
+<dt>If the given resource and the remote endpoint are in the same cloud but different virtual networks:</dt><dd><ul>
+<li><p>Update the security rules to allow the traffic</p></li>
+<li><p>Create the necessary connection infrastructure between the two virtual networks (ex. Vnet peering in Azure)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>If the given resource and the remote endpoint are not in the same cloud:</dt><dd><ul>
+<li><p>Update the security rules to allow the traffic</p></li>
+<li><p>Create the necessary connection infrastructure to connection across clouds (ex. a VPN gateway)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>In all cases (including the remote and the resource are in the same virtual network):</dt><dd><ul>
+<li><p>Update the security rules to allow the traffic</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+</section>
+<section id="rpc-deletepermitlistrules-deletepermitlistrulesrequest-returns-deletepermitlistrulesresponse">
+<h2>rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}<a class="headerlink" href="#rpc-deletepermitlistrules-deletepermitlistrulesrequest-returns-deletepermitlistrulesresponse" title="Link to this heading">¶</a></h2>
+<section id="id12">
+<h3>Tenant-Level Description:<a class="headerlink" href="#id12" title="Link to this heading">¶</a></h3>
+<p>Delete provided rules from the given resource.</p>
+</section>
+<section id="id13">
+<h3>Implementation-Level Description:<a class="headerlink" href="#id13" title="Link to this heading">¶</a></h3>
+<p>Delete the provided rules from the underlying security rules for the resource.</p>
+</section>
+<section id="id14">
+<h3>Input Details:<a class="headerlink" href="#id14" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">namespace</span></code> is the namespace of the resource</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource</span></code> is the URI of the resource to which the rules should be added</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rule_names</span></code> are the names of the rules to be deleted</p></li>
+</ul>
+</section>
+<section id="resources-to-delete">
+<h3>Resources to Delete:<a class="headerlink" href="#resources-to-delete" title="Link to this heading">¶</a></h3>
+<p>Per-endpoint access control list rules (implementation varies by cloud [NSG in Azure, Firewall Rules in GCP])</p>
+</section>
+<section id="id15">
+<h3>High-Level Logic:<a class="headerlink" href="#id15" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Delete the rules from the resource (if they exist)</p></li>
+</ul>
+</section>
+</section>
+<section id="rpc-getusedaddressspaces-getusedaddressspacesrequest-returns-getusedaddressspacesresponse">
+<h2><strong>rpc GetUsedAddressSpaces(GetUsedAddressSpacesRequest) returns (GetUsedAddressSpacesResponse) {}</strong><a class="headerlink" href="#rpc-getusedaddressspaces-getusedaddressspacesrequest-returns-getusedaddressspacesresponse" title="Link to this heading">¶</a></h2>
+<section id="id16">
+<h3>Tenant-Level Description:<a class="headerlink" href="#id16" title="Link to this heading">¶</a></h3>
+<p>This RPC should not be exposed directly to tenants.</p>
+</section>
+<section id="id17">
+<h3>Implementation-Level Description:<a class="headerlink" href="#id17" title="Link to this heading">¶</a></h3>
+<p>Find all the address spaces currently used by the Paraglider deployment in a given cloud.</p>
+</section>
+<section id="id18">
+<h3>Input Details:<a class="headerlink" href="#id18" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">deployments</span></code> is the list of Paraglider deployments in which to search for the address spaces.</p>
+</section>
+<section id="id19">
+<h3>Resources to Create:<a class="headerlink" href="#id19" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>None</p></li>
+</ul>
+</section>
+<section id="id20">
+<h3>High-Level Logic:<a class="headerlink" href="#id20" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Get address spaces of all vnets/subnets/vpcs created by Paraglider so far in the given deployments</p></li>
+<li><p>Return</p></li>
+</ul>
+</section>
+</section>
+<section id="rpc-createvpngateway-createvpngatewayrequest-returns-createvpngatewayresponse">
+<h2>rpc CreateVpnGateway(CreateVpnGatewayRequest) returns (CreateVpnGatewayResponse) {}<a class="headerlink" href="#rpc-createvpngateway-createvpngatewayrequest-returns-createvpngatewayresponse" title="Link to this heading">¶</a></h2>
+<section id="id21">
+<h3>Tenant-Level Description:<a class="headerlink" href="#id21" title="Link to this heading">¶</a></h3>
+<p>This RPC should not be exposed directly to tenants.</p>
+</section>
+<section id="id22">
+<h3>Implementation-Level Description:<a class="headerlink" href="#id22" title="Link to this heading">¶</a></h3>
+<p>Creates a VPN gateway in a given cloud.</p>
+</section>
+<section id="id23">
+<h3>Input Details:<a class="headerlink" href="#id23" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">deployment</span></code> is the of deployments in which to create the gateway.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code> is the remote cloud to connect to.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bgp_peering_ip_addresses</span></code> are the IP addresses to use for the BGP peering with the remote cloud.</p></li>
+</ul>
+</section>
+<section id="id24">
+<h3>Resources to Create:<a class="headerlink" href="#id24" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>VPN gateway</p></li>
+</ul>
+</section>
+<section id="id25">
+<h3>High-Level Logic:<a class="headerlink" href="#id25" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Create VPN gateway along with (manually) setting up public IP addresses for the gateway tunnels</p></li>
+</ul>
+</section>
+</section>
+<section id="rpc-getusedasns-getusedasnsrequest-returns-getusedasnsresponse">
+<h2>rpc GetUsedAsns(GetUsedAsnsRequest) returns (GetUsedAsnsResponse) {}<a class="headerlink" href="#rpc-getusedasns-getusedasnsrequest-returns-getusedasnsresponse" title="Link to this heading">¶</a></h2>
+<section id="id26">
+<h3>Implementation-Level Description:<a class="headerlink" href="#id26" title="Link to this heading">¶</a></h3>
+<p>Gets all used ASNs in a given cloud.</p>
+</section>
+<section id="id27">
+<h3>Input Details:<a class="headerlink" href="#id27" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">deployments</span></code> is a list of deployments in which to search for the ASNs</p></li>
+</ul>
+</section>
+<section id="id28">
+<h3>Resources to Create:<a class="headerlink" href="#id28" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>None</p></li>
+</ul>
+<p>High-Level Logic:
+* Get all ASNs used by Paraglider in the given deployments</p>
+</section>
+</section>
+<section id="rpc-getusedbgppeeringipaddresses-getusedbgppeeringipaddressesrequest-returns-getusedbgppeeringipaddressesresponse">
+<h2>rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}<a class="headerlink" href="#rpc-getusedbgppeeringipaddresses-getusedbgppeeringipaddressesrequest-returns-getusedbgppeeringipaddressesresponse" title="Link to this heading">¶</a></h2>
+<p>Implementation-Level Description:
+Gets all used BGP peering IP addresses in a given cloud.</p>
+<section id="id29">
+<h3>Input Details:<a class="headerlink" href="#id29" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">deployments</span></code> is a list of deployments in which to search for the ASNs</p></li>
+</ul>
+</section>
+<section id="id30">
+<h3>Resources to Create:<a class="headerlink" href="#id30" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>None</p></li>
+</ul>
+</section>
+<section id="id31">
+<h3>High-Level Logic:<a class="headerlink" href="#id31" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Get all BGP peering IP addresses used by Paraglider in the given deployments</p></li>
+</ul>
+</section>
+</section>
+<section id="rpc-createvpnconnections-createvpnconnectionsrequest-returns-createvpnconnectionsresponse">
+<h2>rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (CreateVpnConnectionsResponse) {}<a class="headerlink" href="#rpc-createvpnconnections-createvpnconnectionsrequest-returns-createvpnconnectionsresponse" title="Link to this heading">¶</a></h2>
+<section id="id32">
+<h3>Implementation-Level Description:<a class="headerlink" href="#id32" title="Link to this heading">¶</a></h3>
+<p>Creates VPN connections between two clouds.</p>
+</section>
+<section id="id33">
+<h3>Input Details:<a class="headerlink" href="#id33" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">deployment</span></code> is the deployment for the current cloud in which to create the VPN connection.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code> is the remote cloud to connect to.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">asn</span></code> is the ASN to use for the BGP peering with the remote cloud.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gateway_ip_addresses</span></code>: IP addresses of the VPN tunnels in remote cloud.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bgp_ip_addresses</span></code>: are the IP addresses to use for the BGP peering with the remote cloud.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">shared_key</span></code>: pre-shared key for IPSec</p></li>
+</ul>
+</section>
+<section id="id34">
+<h3>Resources to Create:<a class="headerlink" href="#id34" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>VPN tunnels</p></li>
+</ul>
+</section>
+<section id="id35">
+<h3>High-Level Logic:<a class="headerlink" href="#id35" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Create VPN tunnels on current cloud to connect to the remote cloud</p></li>
+<li><p>Setup BGP peering between the two clouds</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          <a class="prev-page" href="contributing/known-issues.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Known Issues</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; Paraglider a Series of LF Projects, LLC. For web site terms of use, trademark policy and other project policies please see https://lfprojects.org/.
+            </div>
+            Made with 
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              <a class="muted-link " href="https://github.com/paraglider-project/paraglider" aria-label="GitHub">
+                <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path>
+                </svg>
+            </a>
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Plugin Interface</a><ul>
+<li><a class="reference internal" href="#rpc-createresource-createresourcerequest-returns-createresourceresponse"><strong>rpc CreateResource(CreateResourceRequest) returns (CreateResourceResponse) {}</strong></a><ul>
+<li><a class="reference internal" href="#tenant-level-description">Tenant-Level Description:</a></li>
+<li><a class="reference internal" href="#implementation-level-description">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#input-details">Input Details:</a></li>
+<li><a class="reference internal" href="#resources-to-create">Resources to Create:</a></li>
+<li><a class="reference internal" href="#high-level-logic">High-Level Logic:</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#rpc-getpermitlist-getpermitlistrequest-returns-getpermitlistresponse"><strong>rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}</strong></a><ul>
+<li><a class="reference internal" href="#id2">Tenant-Level Description:</a></li>
+<li><a class="reference internal" href="#id3">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#id4">Input Details:</a></li>
+<li><a class="reference internal" href="#id5">Resources to Create:</a></li>
+<li><a class="reference internal" href="#id6">High-Level Logic:</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#rpc-addpermitlistrules-addpermitlistrulesrequest-returns-addpermitlistrulesresponse"><strong>rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}</strong></a><ul>
+<li><a class="reference internal" href="#id7">Tenant-Level Description:</a></li>
+<li><a class="reference internal" href="#id8">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#id9">Input Details:</a></li>
+<li><a class="reference internal" href="#id10">Resources to Create:</a></li>
+<li><a class="reference internal" href="#id11">High-Level Logic:</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#rpc-deletepermitlistrules-deletepermitlistrulesrequest-returns-deletepermitlistrulesresponse">rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}</a><ul>
+<li><a class="reference internal" href="#id12">Tenant-Level Description:</a></li>
+<li><a class="reference internal" href="#id13">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#id14">Input Details:</a></li>
+<li><a class="reference internal" href="#resources-to-delete">Resources to Delete:</a></li>
+<li><a class="reference internal" href="#id15">High-Level Logic:</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#rpc-getusedaddressspaces-getusedaddressspacesrequest-returns-getusedaddressspacesresponse"><strong>rpc GetUsedAddressSpaces(GetUsedAddressSpacesRequest) returns (GetUsedAddressSpacesResponse) {}</strong></a><ul>
+<li><a class="reference internal" href="#id16">Tenant-Level Description:</a></li>
+<li><a class="reference internal" href="#id17">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#id18">Input Details:</a></li>
+<li><a class="reference internal" href="#id19">Resources to Create:</a></li>
+<li><a class="reference internal" href="#id20">High-Level Logic:</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#rpc-createvpngateway-createvpngatewayrequest-returns-createvpngatewayresponse">rpc CreateVpnGateway(CreateVpnGatewayRequest) returns (CreateVpnGatewayResponse) {}</a><ul>
+<li><a class="reference internal" href="#id21">Tenant-Level Description:</a></li>
+<li><a class="reference internal" href="#id22">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#id23">Input Details:</a></li>
+<li><a class="reference internal" href="#id24">Resources to Create:</a></li>
+<li><a class="reference internal" href="#id25">High-Level Logic:</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#rpc-getusedasns-getusedasnsrequest-returns-getusedasnsresponse">rpc GetUsedAsns(GetUsedAsnsRequest) returns (GetUsedAsnsResponse) {}</a><ul>
+<li><a class="reference internal" href="#id26">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#id27">Input Details:</a></li>
+<li><a class="reference internal" href="#id28">Resources to Create:</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#rpc-getusedbgppeeringipaddresses-getusedbgppeeringipaddressesrequest-returns-getusedbgppeeringipaddressesresponse">rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}</a><ul>
+<li><a class="reference internal" href="#id29">Input Details:</a></li>
+<li><a class="reference internal" href="#id30">Resources to Create:</a></li>
+<li><a class="reference internal" href="#id31">High-Level Logic:</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#rpc-createvpnconnections-createvpnconnectionsrequest-returns-createvpnconnectionsresponse">rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (CreateVpnConnectionsResponse) {}</a><ul>
+<li><a class="reference internal" href="#id32">Implementation-Level Description:</a></li>
+<li><a class="reference internal" href="#id33">Input Details:</a></li>
+<li><a class="reference internal" href="#id34">Resources to Create:</a></li>
+<li><a class="reference internal" href="#id35">High-Level Logic:</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=4e2eecee"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=a56c686a"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    </body>
+</html>
