@@ -834,7 +834,8 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceRe
 		return nil, err
 	}
 
-	// Update Virtual Network to add the Paraglider namespace to vnet tags
+	// Add Paraglider namespace tag to the vnet
+	azureHandler.createParagliderNamespaceTag(&vnet.Tags)
 	_, err = azureHandler.CreateOrUpdateVirtualNetwork(ctx, vnetName, *vnet)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating vnet:%+v", err)

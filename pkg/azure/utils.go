@@ -433,6 +433,7 @@ func GetOrCreateVpnGatewayVNet(ctx context.Context, azureHandler *AzureSDKHandle
 					},
 				},
 			}
+			azureHandler.createParagliderNamespaceTag(&virtualNetworkParameters.Tags)
 			// todo: investigate this line for the tests
 			vnet, err := azureHandler.CreateOrUpdateVirtualNetwork(ctx, getVpnGatewayVnetName(namespace), virtualNetworkParameters)
 			if err != nil {

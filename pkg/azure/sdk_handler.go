@@ -572,6 +572,9 @@ func (h *AzureSDKHandler) CreateParagliderVirtualNetwork(ctx context.Context, lo
 				},
 			},
 		},
+		Tags: map[string]*string{
+			namespaceTagKey: to.Ptr(h.paragliderNamespace),
+		},
 	}
 	vnet, err := h.CreateOrUpdateVirtualNetwork(ctx, vnetName, parameters)
 	if err != nil {
@@ -583,7 +586,6 @@ func (h *AzureSDKHandler) CreateParagliderVirtualNetwork(ctx context.Context, lo
 
 // Updates properties of the virtual network (vnet) if it exists. Creates a new vnet if it doesn't exist.
 func (h *AzureSDKHandler) CreateOrUpdateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error) {
-	h.createParagliderNamespaceTag(&parameters.Tags)
 	pollerResponse, err := h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
 	if err != nil {
 		return nil, err
