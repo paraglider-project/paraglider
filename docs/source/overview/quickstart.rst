@@ -259,7 +259,7 @@ To create VMs in clouds, Paraglider requires a JSON file that describes the VM. 
                             "boot": true,
                             "initialize_params": {
                                 "disk_size_gb": 10,
-                                    "source_image": "projects/debian-cloud/global/images/family/debian-10"
+                                    "source_image": "projects/ubuntu-os-cloud/global/images/family/ubuntu-2204-lts"
                                 },
                             "type": "PERSISTENT"
                         }],

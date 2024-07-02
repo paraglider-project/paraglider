@@ -82,7 +82,7 @@ func SetupGcpTesting(testName string) string {
 		projectId = generateProjectId(testName)
 		if os.Getenv("GH_RUN_NUMBER") != "" {
 			// Use run number in project display name since it's more human readable
-			projectDisplayName = fmt.Sprintf("paraglider-gh-%s-%s", os.Getenv("GH_RUN_NUMBER"), testName)
+			projectDisplayName = fmt.Sprintf("glide-gh-%s-%s", os.Getenv("GH_RUN_NUMBER"), testName)
 		} else {
 			projectDisplayName = projectId
 		}
@@ -177,7 +177,7 @@ func GetTestVmParameters(project string, zone string, name string) *computepb.In
 				{
 					InitializeParams: &computepb.AttachedDiskInitializeParams{
 						DiskSizeGb:  proto.Int64(10),
-						SourceImage: proto.String("projects/debian-cloud/global/images/family/debian-10"),
+						SourceImage: proto.String("projects/ubuntu-os-cloud/global/images/family/ubuntu-2204-lts"),
 					},
 					AutoDelete: proto.Bool(true),
 					Boot:       proto.Bool(true),
