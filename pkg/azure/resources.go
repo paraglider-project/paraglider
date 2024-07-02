@@ -82,14 +82,21 @@ func GetAndCheckResourceState(ctx context.Context, handler *AzureSDKHandler, res
 		return nil, err
 	}
 
-	// Check its namespace
-	vnet := getVnetFromSubnetId(netInfo.SubnetID)
-	if !strings.HasPrefix(vnet, getParagliderNamespacePrefix(namespace)) {
-		return nil, fmt.Errorf("resource %s is not in the namespace %s (subnet ID: %s)", resourceID, namespace, netInfo.SubnetID)
+	// Check its namespace by first checking the vnet name prefix
+	vnetName := getVnetFromSubnetId(netInfo.SubnetID)
+	if strings.HasPrefix(vnetName, getParagliderNamespacePrefix(namespace)) {
+		return netInfo, nil
 	}
 
-	// Return the relevant NSG
-	return netInfo, nil
+	// Check the vnet tags for paraglider namespace
+	vnet, err := handler.GetVirtualNetwork(ctx, vnetName)
+	for _, tag := range vnet.Tags {
+		if *tag == namespace {
+			return netInfo, nil
+		}
+	}
+
+	return nil, fmt.Errorf("resource %s is not in the namespace %s (subnet ID: %s)", resourceID, namespace, netInfo.SubnetID)
 }
 
 // Gets the resource and returns relevant networking state
