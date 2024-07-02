@@ -25,6 +25,7 @@ service CloudPlugin {
     rpc GetUsedAsns(GetUsedAsnsRequest) returns (GetUsedAsnsResponse) {}
     rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}
     rpc CreateResource(CreateResourceRequest) returns (CreateResourceResponse) {}
+    rpc AttachResource(AttachResourceRequest) returns (AttachResourceResponse) {}
     rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}
     rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}
     rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}
