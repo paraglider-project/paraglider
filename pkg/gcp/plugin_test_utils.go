@@ -61,7 +61,7 @@ const (
 )
 
 // Fake tag for fake resource
-var fakeNetworkTag = getNetworkTag(fakeNamespace, instanceTypeName, convertInstanceIdToString(fakeInstanceId))
+var fakeNetworkTag = getNetworkTag(fakeNamespace, instanceTypeName, convertIntIdToString(fakeInstanceId))
 
 // Portions of GCP API URLs
 var (
@@ -90,7 +90,7 @@ var (
 			},
 		},
 		Direction:    proto.String(computepb.Firewall_INGRESS.String()),
-		Name:         proto.String(getFirewallName(fakeNamespace, fakePermitListRule1.Name, convertInstanceIdToString(fakeInstanceId))),
+		Name:         proto.String(getFirewallName(fakeNamespace, fakePermitListRule1.Name, convertIntIdToString(fakeInstanceId))),
 		Network:      proto.String(GetVpcUrl(fakeProject, fakeNamespace)),
 		SourceRanges: []string{"10.1.2.0/24"},
 		TargetTags:   []string{fakeNetworkTag},
@@ -113,7 +113,7 @@ var (
 		},
 		DestinationRanges: []string{"10.3.4.0/24"},
 		Direction:         proto.String(computepb.Firewall_EGRESS.String()),
-		Name:              proto.String(getFirewallName(fakeNamespace, fakePermitListRule2.Name, convertInstanceIdToString(fakeInstanceId))),
+		Name:              proto.String(getFirewallName(fakeNamespace, fakePermitListRule2.Name, convertIntIdToString(fakeInstanceId))),
 		Network:           proto.String(GetVpcUrl(fakeProject, fakeNamespace)),
 		TargetTags:        []string{fakeNetworkTag},
 	}
