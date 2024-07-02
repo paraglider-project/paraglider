@@ -28,15 +28,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
-	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 type IBMPluginServer struct {
 	paragliderpb.UnimplementedCloudPluginServer
-	cloudClient            map[string]*sdk.CloudClient
+	cloudClient            map[string]*CloudClient
 	orchestratorServerAddr string
 }
 
@@ -44,12 +42,12 @@ var defaultRegion = "us-east"
 
 // setupCloudClient fetches the cloud client for a resgroup and region from the map if cached, or creates a new one.
 // This function should be the only way the IBM plugin server to get a client
-func (s *IBMPluginServer) setupCloudClient(resourceGroupID, region string) (*sdk.CloudClient, error) {
+func (s *IBMPluginServer) setupCloudClient(resourceGroupID, region string) (*CloudClient, error) {
 	clientKey := getClientMapKey(resourceGroupID, region)
 	if client, ok := s.cloudClient[clientKey]; ok {
 		return client, nil
 	}
-	client, err := sdk.NewIBMCloudClient(resourceGroupID, region)
+	client, err := NewIBMCloudClient(resourceGroupID, region)
 	if err != nil {
 		utils.Log.Println("Failed to set up IBM clients with error:", err)
 		return nil, err
@@ -59,9 +57,9 @@ func (s *IBMPluginServer) setupCloudClient(resourceGroupID, region string) (*sdk
 }
 
 // getAllClientsForVPCs returns the paraglider VPC IDs and the corresponding clients that are present in all the regions
-func (s *IBMPluginServer) getAllClientsForVPCs(cloudClient *sdk.CloudClient, resourceGroupName string, resolveID bool) (map[string]*sdk.CloudClient, error) {
-	cloudClients := make(map[string]*sdk.CloudClient)
-	vpcsData, err := cloudClient.GetParagliderTaggedResources(sdk.VPC, []string{}, sdk.ResourceQuery{})
+func (s *IBMPluginServer) getAllClientsForVPCs(cloudClient *CloudClient, resourceGroupName string) (map[string]*CloudClient, error) {
+	cloudClients := make(map[string]*CloudClient)
+	vpcsData, err := cloudClient.GetParagliderTaggedResources(VPC, []string{}, resourceQuery{})
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +84,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 	if err != nil {
 		return nil, err
 	}
-	region, err := ibmCommon.ZoneToRegion(zone)
+	region, err := ZoneToRegion(zone)
 	if err != nil {
 		return nil, err
 	}
@@ -108,8 +106,8 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 	}
 
 	// get VPCs in the request's namespace which can be shared between resources created
-	vpcsData, err := cloudClient.GetParagliderTaggedResources(sdk.VPC, []string{resourceDesc.Deployment.Namespace, sdk.SharedVPC},
-		sdk.ResourceQuery{Region: region})
+	vpcsData, err := cloudClient.GetParagliderTaggedResources(VPC, []string{resourceDesc.Deployment.Namespace, SharedVPC},
+		resourceQuery{Region: region})
 	if err != nil {
 		return nil, err
 	}
@@ -133,8 +131,8 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 
 	// get subnets of VPC
 	requiredTags := []string{*vpcID, resourceDesc.Deployment.Namespace}
-	subnetsData, err := cloudClient.GetParagliderTaggedResources(sdk.SUBNET, requiredTags,
-		sdk.ResourceQuery{Zone: zone})
+	subnetsData, err := cloudClient.GetParagliderTaggedResources(SUBNET, requiredTags,
+		resourceQuery{Zone: zone})
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +147,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 		}
 		defer conn.Close()
 		client := paragliderpb.NewControllerClient(conn)
-		resp, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
+		resp, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: []int32{0}})
 		if err != nil {
 			return nil, err
 		}
@@ -188,7 +186,7 @@ func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragli
 		if err != nil {
 			return nil, err
 		}
-		region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
+		region, err := ZoneToRegion(rInfo.Zone)
 		if err != nil {
 			// No region specified, use default region
 			region = defaultRegion
@@ -199,7 +197,7 @@ func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragli
 			return nil, err
 		}
 		// get all VPCs and corresponding clients to collect all address spaces
-		clients, err := s.getAllClientsForVPCs(cloudClient, rInfo.ResourceGroup, true)
+		clients, err := s.getAllClientsForVPCs(cloudClient, rInfo.ResourceGroup)
 		if err != nil {
 			utils.Log.Print("Failed to get paraglider tagged VPCs\n")
 			return nil, err
@@ -224,7 +222,7 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.G
 	if err != nil {
 		return nil, err
 	}
-	region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
+	region, err := ZoneToRegion(rInfo.Zone)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +251,7 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.G
 	if err != nil {
 		return nil, err
 	}
-	paragliderRules, err := sdk.IBMToParagliderRules(sgRules)
+	paragliderRules, err := IBMToParagliderRules(sgRules)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +284,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	if err != nil {
 		return nil, err
 	}
-	region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
+	region, err := ZoneToRegion(rInfo.Zone)
 	if err != nil {
 		utils.Log.Printf("Failed to convert zone to region: %v\n", err)
 		return nil, err
@@ -309,7 +307,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	}
 
 	// get security group of the resource
-	paragliderSgsData, err := cloudClient.GetParagliderTaggedResources(sdk.SG, []string{res.GetID()}, sdk.ResourceQuery{Region: region})
+	paragliderSgsData, err := cloudClient.GetParagliderTaggedResources(SG, []string{res.GetID()}, resourceQuery{Region: region})
 	if err != nil {
 		utils.Log.Printf("Failed to get paraglider tagged resources %v: %v.\n", res.GetID(), err)
 		return nil, err
@@ -355,7 +353,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	for _, paragliderRule := range req.Rules {
 		// translate paraglider rule to IBM rules to compare hash values with current rules.
 		// multiple ibm rules can be returned due to multiple possible targets
-		ibmRules, err := sdk.ParagliderToIBMRule(requestSGID, paragliderRule)
+		ibmRules, err := ParagliderToIBMRule(requestSGID, paragliderRule)
 		if err != nil {
 			utils.Log.Printf("Failed to get remote vpc: %v.\n", err)
 			return nil, err
@@ -407,7 +405,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 				return nil, err
 			}
 			// compute hash value of rules, disregarding the ID field.
-			ruleHashValue, err := ibmCommon.GetStructHash(ibmRule, []string{"ID"})
+			ruleHashValue, err := getStructHash(ibmRule, []string{"ID"})
 			if err != nil {
 				utils.Log.Printf("Failed to compute hash: %v.\n", err)
 				return nil, err
@@ -476,16 +474,16 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 
 // connects the VPC matching the specified vpcCRN, and the remote VPC containing the address space in the specified ibmRule,
 // to the global transit gateway, if such a VPC exists
-func (s *IBMPluginServer) connectToTransitGatewayIfNeeded(cloudClient *sdk.CloudClient, ibmRule sdk.SecurityGroupRule, gwID, resourceGroup, vpcCRN, region string) error {
+func (s *IBMPluginServer) connectToTransitGatewayIfNeeded(cloudClient *CloudClient, ibmRule SecurityGroupRule, gwID, resourceGroup, vpcCRN, region string) error {
 
 	// get the VPCs and clients to search if the remote IP resides in any of them
-	clients, err := s.getAllClientsForVPCs(cloudClient, resourceGroup, true)
+	clients, err := s.getAllClientsForVPCs(cloudClient, resourceGroup)
 	if err != nil {
 		utils.Log.Printf("Failed to get cloud client for resource group %v, while connecting to transit gateway, with error: %+v", resourceGroup, err)
 		return err
 	}
 	remoteVPC := ""
-	var remoteVPCClient *sdk.CloudClient // client scoped to the region of the remote VPC
+	var remoteVPCClient *CloudClient // client scoped to the region of the remote VPC
 	for vpcID, client := range clients {
 		if isRemoteInVPC, _ := client.IsRemoteInVPC(vpcID, ibmRule.Remote); isRemoteInVPC {
 			remoteVPC = vpcID
@@ -493,7 +491,7 @@ func (s *IBMPluginServer) connectToTransitGatewayIfNeeded(cloudClient *sdk.Cloud
 			break
 		}
 	}
-	vpcID := sdk.CRN2ID(vpcCRN)
+	vpcID := crn2Id(vpcCRN)
 	// if the remote resides inside an paraglider VPC that isn't the request VM's VPC, connect them
 	if remoteVPC != "" && remoteVPC != vpcID {
 		utils.Log.Printf("The following rule's remote is targeting a different IBM VPC\nRule: %+v\nVPC:%+v", ibmRule, remoteVPC)
@@ -534,7 +532,7 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 	if err != nil {
 		return nil, err
 	}
-	region, err := ibmCommon.ZoneToRegion(rInfo.Zone)
+	region, err := ZoneToRegion(rInfo.Zone)
 	if err != nil {
 		return nil, err
 	}
@@ -555,7 +553,7 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 			rInfo.ResourceID, req.Namespace)
 	}
 
-	paragliderSgsData, err := cloudClient.GetParagliderTaggedResources(sdk.SG, []string{res.GetID()}, sdk.ResourceQuery{Region: region})
+	paragliderSgsData, err := cloudClient.GetParagliderTaggedResources(SG, []string{res.GetID()}, resourceQuery{Region: region})
 	if err != nil {
 		return nil, err
 	}
@@ -635,7 +633,7 @@ func (s *IBMPluginServer) getRegionOfAddressSpace(resourceGroup, namespace, addr
 		utils.Log.Printf("Failed to setup cloud client while trying to get region of address space %v in namespace %v with error: %+v", addressSpace, namespace, err)
 		return "", err
 	}
-	vpcsData, err := client.GetParagliderTaggedResources(sdk.VPC, []string{namespace}, sdk.ResourceQuery{})
+	vpcsData, err := client.GetParagliderTaggedResources(VPC, []string{namespace}, resourceQuery{})
 	if err != nil {
 		utils.Log.Printf("Failed to fetch VPCs while trying to get region of address space %v in namespace %v with error: %+v", addressSpace, namespace, err)
 		return "", err
@@ -731,7 +729,7 @@ func (s *IBMPluginServer) GetNetworkAddressSpaces(ctx context.Context, req *para
 		utils.Log.Printf("Failed to setup cloud client with default region %v while fetching address spaces of VPC containing address space: %v with error: %+v", defaultRegion, req.AddressSpace, err)
 		return nil, err
 	}
-	vpcsData, err := client.GetParagliderTaggedResources(sdk.VPC, []string{req.Deployment.Namespace}, sdk.ResourceQuery{})
+	vpcsData, err := client.GetParagliderTaggedResources(VPC, []string{req.Deployment.Namespace}, resourceQuery{})
 	if err != nil {
 		utils.Log.Printf("Failed to fetch VPCs, while trying to get region of address space %v in namespace %v with error: %+v", req.AddressSpace, req.Deployment.Namespace, err)
 		return nil, err
@@ -767,7 +765,7 @@ func Setup(port int, orchestratorServerAddr string) *IBMPluginServer {
 	}
 	grpcServer := grpc.NewServer()
 	ibmServer := &IBMPluginServer{
-		cloudClient:            make(map[string]*sdk.CloudClient),
+		cloudClient:            make(map[string]*CloudClient),
 		orchestratorServerAddr: orchestratorServerAddr,
 	}
 	paragliderpb.RegisterCloudPluginServer(grpcServer, ibmServer)

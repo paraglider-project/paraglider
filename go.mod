@@ -45,6 +45,8 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
+	github.com/seancfoley/bintree v1.3.1 // indirect
+	github.com/seancfoley/ipaddress-go v1.6.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
