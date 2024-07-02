@@ -102,9 +102,11 @@ Follow these steps to ensure consistent structure and seamless integration.
      }
      // Use handler
      ```
+     
+    - Ideally, only Paraglider plugin interface RPCs should be in `plugin.go`. All helper functions should be in their appropriate files, outside `plugin.go`.
 
 3. Handling ARM Requests:
-   - If your new API needs to make ARM requests, check if the required functionality is already implemented in `sdk_handler.go`. If not, add a new function in the handler that wraps the Azure request. Call this new function from the `plugin` file. Ideally, helper functionalities relevant to Paraglider and the server should be outside `plugin`.
+   - If your new API needs to make ARM requests, check if the required functionality is already implemented in `sdk_handler.go`. If not, add a new function in the handler that wraps the Azure request. Call this new function from the `plugin.go` file.
 
 4. Update Testing:
    - In `plugin_test.go`, add a unit test for the function added to `plugin.go`. For instance:
