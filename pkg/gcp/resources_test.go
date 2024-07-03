@@ -43,7 +43,7 @@ func getFakeInstanceResourceDescription() (*paragliderpb.CreateResourceRequest, 
 		return nil, nil, err
 	}
 
-	resource := &paragliderpb.CreateResourceRequest{Description: jsonReq}
+	resource := &paragliderpb.CreateResourceRequest{Name: fakeInstanceName, Description: jsonReq}
 	return resource, instanceRequest, nil
 }
 
@@ -58,7 +58,7 @@ func getFakeClusterResourceDescription() (*paragliderpb.CreateResourceRequest, *
 		return nil, nil, err
 	}
 
-	resource := &paragliderpb.CreateResourceRequest{Description: jsonReq}
+	resource := &paragliderpb.CreateResourceRequest{Name: fakeClusterName, Description: jsonReq}
 	return resource, clusterRequest, nil
 }
 
@@ -153,29 +153,52 @@ func TestGetResourceNetworkInfo(t *testing.T) {
 	assert.Equal(t, shortenClusterId(cluster.Id), netInfo.ResourceID)
 	assert.Equal(t, fakeSubnetId, netInfo.SubnetUrl)
 
-	// Test for service attachment TODO NOW
+	// Test for service attachment
+	rInfo = &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakeClusterName, ResourceType: serviceAttachmentTypeName, Namespace: fakeNamespace}
+
+	attachment := getFakeServiceAttachment()
+	address := getFakeAddress()
+	serverState = fakeServerState{serviceAttachment: attachment, address: address}
+	fakeServer, ctx, fakeClients, fakeGRPCServer = setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	netInfo, err = GetResourceNetworkInfo(ctx, rInfo, &fakeClients)
+
+	require.NoError(t, err)
+	assert.Equal(t, convertIntIdToString(*attachment.Id), netInfo.ResourceID)
+	assert.Equal(t, *address.Address, netInfo.Address)
 }
 
 func TestIsValidResource(t *testing.T) {
 	// Test for instance
-	resource, _, err := getFakeInstanceResourceDescription()
+	resource, fakeInstance, err := getFakeInstanceResourceDescription()
 	require.NoError(t, err)
 
 	resourceInfo, err := IsValidResource(context.Background(), resource)
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeZone, resourceInfo.Zone)
+	assert.Equal(t, *fakeInstance.InstanceResource.Name, resourceInfo.Name)
 
 	// Test for cluster
-	resource, _, err = getFakeClusterResourceDescription()
+	resource, fakeCluster, err := getFakeClusterResourceDescription()
 	require.NoError(t, err)
 
 	resourceInfo, err = IsValidResource(context.Background(), resource)
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeZone, resourceInfo.Zone)
+	assert.Equal(t, fakeCluster.Cluster.Name, resourceInfo.Name)
 
-	// Test for service attachment TODO NOW
+	// Test for service attachment
+	resource, fakeService, err := getFakePSCRequest()
+	require.NoError(t, err)
+
+	resourceInfo, err = IsValidResource(context.Background(), resource)
+
+	require.NoError(t, err)
+	assert.Equal(t, fakeRegion, resourceInfo.Region)
+	assert.Contains(t, fakeService.Url, resourceInfo.Name)
 }
 
 func TestReadAndProvisionResource(t *testing.T) {
@@ -208,11 +231,23 @@ func TestReadAndProvisionResource(t *testing.T) {
 	assert.Equal(t, getClusterUrl(fakeProject, fakeZone, clusterRequest.Cluster.Name), url)
 	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
 
-	// Test for service attachment TODO NOW
+	// Test for service attachment
+	serverState.address = getFakeAddress()
+
+	resource, service, err := getFakePSCRequest()
+	require.NoError(t, err)
+
+	rInfo = &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakeServiceAttachmentName, ResourceType: serviceAttachmentTypeName}
+
+	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{}, &fakeClients)
+
+	require.NoError(t, err)
+	assert.Equal(t, service.Url, url)
+	assert.Equal(t, *getFakeAddress().Address, ip)
 }
 
 func TestInstanceReadAndProvisionResource(t *testing.T) {
-	instanceHandler := &gcpInstance{}
+	instanceHandler := &instanceHandler{}
 	subnet := "subnet-1"
 	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeInstanceName, ResourceType: instanceTypeName}
 	resource, _, err := getFakeInstanceResourceDescription()
@@ -233,7 +268,7 @@ func TestInstanceReadAndProvisionResource(t *testing.T) {
 }
 
 func TestInstanceGetResourceInfo(t *testing.T) {
-	instanceHandler := &gcpInstance{}
+	instanceHandler := &instanceHandler{}
 	resource, instanceRequest, err := getFakeInstanceResourceDescription()
 	require.NoError(t, err)
 
@@ -244,7 +279,7 @@ func TestInstanceGetResourceInfo(t *testing.T) {
 }
 
 func TestInstanceGetNetworkInfo(t *testing.T) {
-	instanceHandler := &gcpInstance{}
+	instanceHandler := &instanceHandler{}
 	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeInstanceName, ResourceType: instanceTypeName}
 	instance := getFakeInstance(true)
 	serverState := fakeServerState{instance: instance}
@@ -267,7 +302,7 @@ func TestInstanceFromResourceDecription(t *testing.T) {
 	resource, instanceRequest, err := getFakeInstanceResourceDescription()
 	require.NoError(t, err)
 
-	instanceHandler := &gcpInstance{}
+	instanceHandler := &instanceHandler{}
 	instanceParsed, err := instanceHandler.fromResourceDecription(resource.Description)
 
 	require.NoError(t, err)
@@ -276,7 +311,7 @@ func TestInstanceFromResourceDecription(t *testing.T) {
 }
 
 func TestInstanceCreateWithNetwork(t *testing.T) {
-	instanceHandler := &gcpInstance{}
+	instanceHandler := &instanceHandler{}
 	subnet := "subnet-1"
 	instanceRequest := &computepb.InsertInstanceRequest{
 		Project:          fakeProject,
@@ -299,8 +334,8 @@ func TestInstanceCreateWithNetwork(t *testing.T) {
 
 }
 
-func TestGKEReadAndProvisionResource(t *testing.T) {
-	clusterHandler := &gcpGKE{}
+func TestClusterReadAndProvisionResource(t *testing.T) {
+	clusterHandler := &clusterHandler{}
 	resource, clusterRequest, err := getFakeClusterResourceDescription()
 	require.NoError(t, err)
 
@@ -322,8 +357,8 @@ func TestGKEReadAndProvisionResource(t *testing.T) {
 	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
 }
 
-func TestGKEGetResourceInfo(t *testing.T) {
-	clusterHandler := &gcpGKE{}
+func TestClusterGetResourceInfo(t *testing.T) {
+	clusterHandler := &clusterHandler{}
 	resource, _, err := getFakeClusterResourceDescription()
 	require.NoError(t, err)
 
@@ -334,8 +369,8 @@ func TestGKEGetResourceInfo(t *testing.T) {
 	assert.Equal(t, clusterTypeName, resourceInfo.ResourceType)
 }
 
-func TestGKEGetNetworkInfo(t *testing.T) {
-	clusterHandler := &gcpGKE{}
+func TestClusterGetNetworkInfo(t *testing.T) {
+	clusterHandler := &clusterHandler{}
 	resourceInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName}
 	cluster := getFakeCluster(true)
 	serverState := fakeServerState{cluster: cluster}
@@ -352,19 +387,19 @@ func TestGKEGetNetworkInfo(t *testing.T) {
 	assert.Equal(t, fakeSubnetId, networkInfo.SubnetUrl)
 }
 
-func TestGKEFromResourceDecription(t *testing.T) {
+func TestClusterFromResourceDecription(t *testing.T) {
 	resource, clusterRequest, err := getFakeClusterResourceDescription()
 	require.NoError(t, err)
 
-	clusterHandler := &gcpGKE{}
+	clusterHandler := &clusterHandler{}
 	clusterParsed, err := clusterHandler.fromResourceDecription(resource.Description)
 
 	require.NoError(t, err)
 	assert.Equal(t, clusterRequest.Cluster.Id, clusterParsed.Cluster.Id)
 }
 
-func TestGKECreateWithNetwork(t *testing.T) {
-	clusterHandler := &gcpGKE{}
+func TestClusterCreateWithNetwork(t *testing.T) {
+	clusterHandler := &clusterHandler{}
 	subnet := "subnet-1"
 	clusterRequest := &containerpb.CreateClusterRequest{
 		Cluster: getFakeCluster(false),
@@ -386,8 +421,8 @@ func TestGKECreateWithNetwork(t *testing.T) {
 	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
 }
 
-func TestPSCReadAndProvisionResource(t *testing.T) {
-	pscHandler := &gcpPSC{}
+func TestPrivateServiceReadAndProvisionResource(t *testing.T) {
+	pscHandler := &privateServiceHandler{}
 	resource, service, err := getFakePSCRequest()
 	require.NoError(t, err)
 
@@ -407,8 +442,8 @@ func TestPSCReadAndProvisionResource(t *testing.T) {
 	assert.Equal(t, ip, *getFakeAddress().Address)
 }
 
-func TestPSCGetResourceInfo(t *testing.T) {
-	pscHandler := &gcpPSC{}
+func TestPrivateServiceGetResourceInfo(t *testing.T) {
+	pscHandler := &privateServiceHandler{}
 	resource, _, err := getFakePSCRequest()
 	require.NoError(t, err)
 
@@ -420,8 +455,8 @@ func TestPSCGetResourceInfo(t *testing.T) {
 	assert.Equal(t, fakeServiceAttachmentName, resourceInfo.Name)
 }
 
-func TestPSCGetNetworkInfo(t *testing.T) {
-	pscHandler := &gcpPSC{}
+func TestPrivateServiceGetNetworkInfo(t *testing.T) {
+	pscHandler := &privateServiceHandler{}
 	resourceInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Zone: fakeZone, Name: fakeServiceAttachmentName, ResourceType: serviceAttachmentTypeName}
 
 	attachment := getFakeServiceAttachment()
@@ -440,8 +475,8 @@ func TestPSCGetNetworkInfo(t *testing.T) {
 	assert.Equal(t, *address.Address, networkInfo.Address)
 }
 
-func TestPSCCreateWithNetwork(t *testing.T) {
-	pscHandler := &gcpPSC{}
+func TestPrivateServiceCreateWithNetwork(t *testing.T) {
+	pscHandler := &privateServiceHandler{}
 	subnet := "subnet-1"
 	serviceDescription := &ServiceAttachmentDescription{Url: fakeServiceAttachmentUrl}
 
