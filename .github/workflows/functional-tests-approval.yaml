@@ -19,7 +19,7 @@ on:
 
 jobs:
   functional-tests-approval:
-    name: 'Functional Tests Approval'
+    name: Functional Tests Approval
     runs-on: ubuntu-latest
     environment: functional-tests
     steps:

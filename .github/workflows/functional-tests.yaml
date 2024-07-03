@@ -2,7 +2,7 @@ name: Functional Tests
 
 on:
   workflow_run:
-    workflows: ['Functional Tests Approval']
+    workflows: [Functional Tests Approval]
     types:
       - completed
 
