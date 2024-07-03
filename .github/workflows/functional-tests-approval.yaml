@@ -23,5 +23,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: functional-tests
     steps:
-      - name: Approved Message
-        run: echo "Request to run functional tests approved."
+      - name: Save commit SHA
+        run: |
+          mkdir -p ./github_sha
+          echo $GITHUB_SHA > ./github_sha/github_sha
+      - uses: actions/upload-artifact@v4
+        with:
+          name: github_sha
+          path: github_sha/

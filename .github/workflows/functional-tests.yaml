@@ -28,7 +28,6 @@ jobs:
   functional-tests:
     name: Functional Tests
     runs-on: ubuntu-latest
-    environment: functional-tests
     permissions:
       checks: write
       contents: read
@@ -36,35 +35,48 @@ jobs:
     steps:
       - name: Test
         run: echo "Functional Tests"
-      # - name: Check out repo
-      #   uses: actions/checkout@v4
-      # - name: Set up Go ${{ env.GOVER }}
-      #   uses: actions/setup-go@v5
-      #   with:
-      #     go-version: ${{ env.GOVER }}
-      # - name: Get protoc
-      #   uses: arduino/setup-protoc@v3
-      #   with:
-      #     repo-token: ${{ secrets.GITHUB_TOKEN }}
-      # - name: Get protoc-gen-go
-      #   run: |
-      #     go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-      #     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-      # - name: Make build
-      #   run: |
-      #     make build
-      # - name: Authenticate to Google Cloud
-      #   uses: google-github-actions/auth@v2
-      #   with:
-      #     workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/paraglider'
-      #     service_account: 'invisinets-cicd@invisinets-cicd.iam.gserviceaccount.com'
-      # - name: 'Az CLI login'
-      #   uses: azure/login@v2
-      #   with:
-      #       creds: ${{ secrets.AZURE_CREDENTIALS }}
-      # - name: Run integration tests
-      #   run: |
-      #     make integration-test
-      # - name: Run multicloud tests
-      #   run: |
-      #     make multicloud-test
+      - name: Download commit SHA artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: github_sha
+          run_id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract commit SHA
+        id: extract-commit-sha
+        run: |
+          COMMIT_SHA=$(cat github_sha/github_sha)
+          echo "github_sha=$(cat github_sha/github_sha)" >> $GITHUB_OUTPUT
+      - name: Check out repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.extract-commit-sha.outputs.github_sha }}
+      - name: Set up Go ${{ env.GOVER }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GOVER }}
+      - name: Get protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get protoc-gen-go
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+      - name: Make build
+        run: |
+          make build
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/paraglider'
+          service_account: 'invisinets-cicd@invisinets-cicd.iam.gserviceaccount.com'
+      - name: 'Az CLI login'
+        uses: azure/login@v2
+        with:
+            creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Run integration tests
+        run: |
+          make integration-test
+      - name: Run multicloud tests
+        run: |
+          make multicloud-test
