@@ -21,7 +21,6 @@ package azure
 import (
 	"context"
 	"encoding/json"
-	"strings"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -143,7 +142,7 @@ func TestCreateResource(t *testing.T) {
 			subId:   subID,
 			rgName:  rgName,
 			vnet:    getFakeVirtualNetwork(),
-			subnet:  getFakeSubnet(),
+			subnet:  getFakeParagliderSubnet(),
 			nic:     getFakeNIC(),
 			nsg:     getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName),
 			vpnGw:   &armnetwork.VirtualNetworkGateway{},
@@ -172,10 +171,10 @@ func TestGetPermitList(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error while getting fake permit list: %v", err)
 	}
-	fakeNsgName := "test-nsg-name"
+
 	fakeNic := getFakeNIC()
-	fakeNsgID := *fakeNic.Properties.NetworkSecurityGroup.ID
-	fakeNsg := getFakeNsgWithRules(fakeNsgID, fakeNsgName)
+	validSecurityGroupID := *fakeNic.Properties.NetworkSecurityGroup.ID
+	fakeNsg := getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName)
 
 	// Set up a  resource
 	fakeResourceId := vmURI
@@ -260,10 +259,8 @@ func TestAddPermitListRules(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error while getting fake permit list: %v", err)
 	}
-	fakeNsgName := "test-nsg-name"
 	fakeNic := getFakeNIC()
-	fakeNsgID := *fakeNic.Properties.NetworkSecurityGroup.ID
-	fakeNsg := getFakeNsgWithRules(fakeNsgID, fakeNsgName)
+	fakeNsg := getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName)
 	fakeVnet := getFakeVnetInLocation(fakeNic.Location, validAddressSpace)
 	fakeVnet.Properties = &armnetwork.VirtualNetworkPropertiesFormat{
 		AddressSpace: &armnetwork.AddressSpace{
@@ -373,7 +370,7 @@ func TestAddPermitListRules(t *testing.T) {
 
 	// Fail due to resource being in different namespace
 	t.Run("AddPermitListRules: Fail due to mismatching namespace", func(t *testing.T) {
-		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr(validSubnetId)
+		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr(validParagliderSubnetId)
 		serverState := &fakeServerState{
 			subId:  subID,
 			rgName: rgName,
@@ -404,10 +401,8 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	for _, rule := range fakePlRules {
 		fakeRuleNames = append(fakeRuleNames, rule.Name)
 	}
-	fakeNsgName := "test-nsg-name"
 	fakeNic := getFakeNIC()
-	fakeNsgID := *fakeNic.Properties.NetworkSecurityGroup.ID
-	fakeNsg := getFakeNsgWithRules(fakeNsgID, fakeNsgName)
+	fakeNsg := getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName)
 	fakeResource := vmURI
 
 	// successful
@@ -491,7 +486,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 
 	// Test Case 7: Fail due to resource being in different namespace
 	t.Run("DeletePermitListRules: Fail due to mismatching namespace", func(t *testing.T) {
-		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr(validSubnetId)
+		fakeNic.Properties.IPConfigurations[0].Properties.Subnet.ID = to.Ptr(validParagliderSubnetId)
 		serverState := &fakeServerState{
 			subId:  subID,
 			rgName: rgName,
@@ -517,7 +512,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 		subId:  subID,
 		rgName: rgName,
 		vnet: &armnetwork.VirtualNetwork{
-			Name:     to.Ptr(getParagliderNamespacePrefix(namespace) + validVnetName),
+			Name:     to.Ptr(getParagliderNamespacePrefix(namespace) + validParagliderVnetName),
 			Location: to.Ptr(testLocation),
 			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 				AddressSpace: &armnetwork.AddressSpace{
@@ -701,154 +696,48 @@ func TestCreateVpnConnections(t *testing.T) {
 	require.NotNil(t, resp)
 }
 
-/* --- Helper Functions --- */
+func TestAttachResource(t *testing.T) {
+	fakeNsg := getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName)
+	pluginServer, _ := setupTestAzurePluginServer()
+	fakeVm := getFakeVirtualMachine(true)
+	req := &paragliderpb.AttachResourceRequest{
+		Namespace: namespace,
+		Resource:  vmURI,
+	}
 
-func getFakeNewPermitListRules() ([]*paragliderpb.PermitListRule, error) {
-	return []*paragliderpb.PermitListRule{
-		{
-			Name:      "test-rule-1",
-			Tags:      []string{"tag1", "tag2"},
-			Targets:   []string{validAddressSpace, validAddressSpace},
-			SrcPort:   8080,
-			DstPort:   8080,
-			Protocol:  1,
-			Direction: paragliderpb.Direction_OUTBOUND,
-		},
-		{
-			Name:      "test-rule-2",
-			Tags:      []string{"tag3", "tag4"},
-			Targets:   []string{validAddressSpace, validAddressSpace},
-			SrcPort:   8080,
-			DstPort:   8080,
-			Protocol:  1,
-			Direction: paragliderpb.Direction_OUTBOUND,
-		},
-	}, nil
-}
-
-func getFakePermitList() ([]*paragliderpb.PermitListRule, error) {
-	nsg := getFakeNsgWithRules("test", "test")
-	// initialize paraglider rules with the size of nsg rules
-	paragliderRules := []*paragliderpb.PermitListRule{}
-	// use real implementation to get actual mapping of nsg rules to paraglider rules
-	azureSDKHandler := &AzureSDKHandler{}
-	for i := range nsg.Properties.SecurityRules {
-		if strings.HasPrefix(*nsg.Properties.SecurityRules[i].Name, paragliderPrefix) {
-			rule, err := azureSDKHandler.GetPermitListRuleFromNSGRule(nsg.Properties.SecurityRules[i])
-			if err != nil {
-				return nil, err
-			}
-			rule.Name = getRuleNameFromNSGRuleName(*nsg.Properties.SecurityRules[i].Name)
-			paragliderRules = append(paragliderRules, rule)
+	t.Run("AttachResource: Success", func(t *testing.T) {
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nic:    getFakeNIC(),
+			nsg:    fakeNsg,
+			vnet:   getFakeUnattachedVirtualNetwork(),
+			vpnGw:  &armnetwork.VirtualNetworkGateway{},
+			vm:     to.Ptr(fakeVm),
 		}
-	}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-	return paragliderRules, nil
-}
+		resp, err := pluginServer.AttachResource(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+	})
 
-func getFakeNIC() *armnetwork.Interface {
-	fakeNsgName := "test-nsg-name"
-	fakeNsgID := "a/b/" + fakeNsgName
-	fakeLocation := "test-location"
-	namespace := namespace
-	fakeResourceAddress := ""
-	fakeSubnetId := "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/" + getVnetName(fakeLocation, namespace) + "/subnets/subnet123"
-	return &armnetwork.Interface{
-		ID:       to.Ptr(validNicId),
-		Location: to.Ptr(fakeLocation),
-		Name:     to.Ptr(validNicName),
-		Properties: &armnetwork.InterfacePropertiesFormat{
-			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
-				{
-					Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
-						PrivateIPAddress: &fakeResourceAddress,
-						Subnet:           &armnetwork.Subnet{ID: to.Ptr(fakeSubnetId)},
-					},
-				},
-			},
-			NetworkSecurityGroup: &armnetwork.SecurityGroup{
-				ID:   to.Ptr(fakeNsgID),
-				Name: to.Ptr(fakeNsgName),
-			},
-		},
-	}
-}
+	t.Run("AttachResource: Failure - Overlapping Address spaces", func(t *testing.T) {
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nic:    getFakeNIC(),
+			nsg:    fakeNsg,
+			vnet:   getFakeVirtualNetwork(),
+			vpnGw:  &armnetwork.VirtualNetworkGateway{},
+			vm:     to.Ptr(fakeVm),
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
 
-func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup {
-	return &armnetwork.SecurityGroup{
-		ID:   to.Ptr(nsgID),
-		Name: to.Ptr(nsgName),
-		Properties: &armnetwork.SecurityGroupPropertiesFormat{
-			SecurityRules: []*armnetwork.SecurityRule{
-				{
-					ID:   to.Ptr("test-rule-id-1"),
-					Name: to.Ptr("paraglider-Rule-1"),
-					Properties: &armnetwork.SecurityRulePropertiesFormat{
-						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
-						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
-						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
-						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
-						Priority:                   to.Ptr(int32(100)),
-						SourcePortRange:            to.Ptr("101"),
-						DestinationPortRange:       to.Ptr("8080"),
-						Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-						Description:                to.Ptr(getRuleDescription([]string{"tag1", "tag2"})),
-					},
-				},
-				{
-					ID:   to.Ptr("test-rule-id-2"),
-					Name: to.Ptr("paraglider-Rule-2"),
-					Properties: &armnetwork.SecurityRulePropertiesFormat{
-						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
-						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
-						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
-						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
-						Priority:                   to.Ptr(int32(101)),
-						SourcePortRange:            to.Ptr("102"),
-						DestinationPortRange:       to.Ptr("8080"),
-						Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-					},
-				},
-				{
-					ID:   to.Ptr("test-rule-id-3"),
-					Name: to.Ptr("not-paraglider-Rule-1"),
-					Properties: &armnetwork.SecurityRulePropertiesFormat{
-						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
-						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
-						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
-						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
-						Priority:                   to.Ptr(int32(102)),
-						SourcePortRange:            to.Ptr("5050"),
-						DestinationPortRange:       to.Ptr("8080"),
-						Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-					},
-				},
-				{
-					ID:   to.Ptr("test-rule-id-4"),
-					Name: to.Ptr("not-paraglider-Rule-2"),
-					Properties: &armnetwork.SecurityRulePropertiesFormat{
-						Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
-						Direction:                  to.Ptr(armnetwork.SecurityRuleDirectionInbound),
-						DestinationAddressPrefixes: []*string{to.Ptr(validAddressSpace)},
-						SourceAddressPrefixes:      []*string{to.Ptr(validAddressSpace)},
-						Priority:                   to.Ptr(int32(103)),
-						SourcePortRange:            to.Ptr("103"),
-						DestinationPortRange:       to.Ptr("8080"),
-						Protocol:                   to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-					},
-				},
-			},
-		},
-	}
-}
-
-func getFakeVnetInLocation(location *string, addressSpace string) *armnetwork.VirtualNetwork {
-	return &armnetwork.VirtualNetwork{
-		Location: location,
-		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
-			AddressSpace: &armnetwork.AddressSpace{
-				AddressPrefixes: []*string{to.Ptr(addressSpace)},
-			},
-		},
-	}
+		resp, err := pluginServer.AttachResource(ctx, req)
+		require.Error(t, err)
+		require.Nil(t, resp)
+	})
 }

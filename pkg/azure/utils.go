@@ -409,9 +409,92 @@ func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress st
 	return false, nil
 }
 
+// Create VPN gateway vnet if not already created
+// The vnet is created even if there's no multicloud connections at the moment for ease of connection in the future.
+// Note that vnets are free, so this is not a problem.
+func GetOrCreateVpnGatewayVNet(ctx context.Context, azureHandler *AzureSDKHandler, namespace string) (*armnetwork.VirtualNetwork, error) {
+	vpnGwVnetName := getVpnGatewayVnetName(namespace)
+	vnet, err := azureHandler.GetVirtualNetwork(ctx, vpnGwVnetName)
+	if err != nil {
+		if isErrorNotFound(err) {
+			virtualNetworkParameters := armnetwork.VirtualNetwork{
+				Location: to.Ptr(vpnLocation),
+				Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+					AddressSpace: &armnetwork.AddressSpace{
+						AddressPrefixes: []*string{to.Ptr(gatewaySubnetAddressPrefix)},
+					},
+					Subnets: []*armnetwork.Subnet{
+						{
+							Name: to.Ptr(gatewaySubnetName),
+							Properties: &armnetwork.SubnetPropertiesFormat{
+								AddressPrefix: to.Ptr(gatewaySubnetAddressPrefix),
+							},
+						},
+					},
+				},
+			}
+			// todo: investigate this line for the tests
+			vnet, err := azureHandler.CreateVirtualNetwork(ctx, getVpnGatewayVnetName(namespace), virtualNetworkParameters)
+			if err != nil {
+				return nil, fmt.Errorf("unable to create VPN gateway vnet: %w", err)
+			}
+
+			return vnet, nil
+		} else {
+			return nil, fmt.Errorf("unable to get VPN gateway vnet: %w", err)
+		}
+	}
+
+	return vnet, nil
+}
+
+// Create peering VPN gateway vnet and VM vnet. If the VPN gateway already exists, then establish a VPN gateway transit relationship where the vnet can use the gatewayVnet's VPN gateway.
+// - This peering is created even if there's no multicloud connections at the moment for ease of connection in the future.
+// - Peerings are only charged based on amount of data transferred, so this will not incur extra charge until the VPN gateway is created.
+// - VPN gateway transit relationship cannot be established before the VPN gateway creation.
+// - If the VPN gateway hasn't been created, then the gateway transit relationship will be established on VPN gateway creation.
+func CreateGatewayVnetPeering(ctx context.Context, azureHandler *AzureSDKHandler, vnetName string, vpnGwVnetName string, namespace string) error {
+	_, err := azureHandler.GetVirtualNetworkPeering(ctx, vnetName, vpnGwVnetName)
+	var peeringExists bool
+	if err != nil {
+		if isErrorNotFound(err) {
+			peeringExists = false
+		} else {
+			return fmt.Errorf("unable to get vnet peering between VM vnet and VPN gateway vnet: %w", err)
+		}
+	} else {
+		peeringExists = true
+	}
+
+	// Only add peering if it doesn't exist
+	if !peeringExists {
+		vpnGwName := getVpnGatewayName(namespace)
+		_, err = azureHandler.GetVirtualNetworkGateway(ctx, vpnGwName)
+		if err != nil {
+			if isErrorNotFound(err) {
+				// Create regular peering which will be augmented with gateway transit relationship later on VPN gateway creation
+				err = azureHandler.CreateVnetPeering(ctx, vnetName, vpnGwVnetName)
+				if err != nil {
+					return fmt.Errorf("unable to create vnet peerings between VM vnet and VPN gateway vnet: %w", err)
+				}
+			} else {
+				return fmt.Errorf("unable to get VPN gateway: %w", err)
+			}
+		} else {
+			// Create peering with gateway transit relationship if VPN gateway already exists
+			err = azureHandler.CreateOrUpdateVnetPeeringRemoteGateway(ctx, vnetName, vpnGwVnetName, nil, nil)
+			if err != nil {
+				return fmt.Errorf("unable to create vnet peerings (with gateway transit) between VM vnet and VPN gateway vnet: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
 // Returns true if the specified Vnet's address space overlaps with any of the used address spaces. Otherwise, returns false.
 func DoesVnetOverlapWithParaglider(ctx context.Context, handler *AzureSDKHandler, vnetName string, server *azurePluginServer) (bool, error) {
-	vnetAddressMap, err := handler.GetVNetsAddressSpaces(ctx, vnetName)
+	vnetAddressSpace, err := handler.GetVnetAddressSpace(ctx, vnetName)
 	if err != nil {
 		return true, err
 	}
@@ -426,21 +509,18 @@ func DoesVnetOverlapWithParaglider(ctx context.Context, handler *AzureSDKHandler
 		return true, err
 	}
 
-	var vnetAddress string
-	for _, val := range vnetAddressMap {
-		vnetAddress = val[0]
-	}
-
 	// Check if the Vnet address space overlaps with any of the used address spaces
 	for _, mapping := range response.AddressSpaceMappings {
 		for _, addressSpace := range mapping.AddressSpaces {
-			doesOverlap, err := utils.DoCIDROverlap(vnetAddress, addressSpace)
-			if err != nil {
-				return true, err
-			}
+			for _, vnetAddress := range vnetAddressSpace {
+				doesOverlap, err := utils.DoCIDROverlap(vnetAddress, addressSpace)
+				if err != nil {
+					return true, err
+				}
 
-			if doesOverlap {
-				return true, nil
+				if doesOverlap {
+					return true, nil
+				}
 			}
 		}
 	}

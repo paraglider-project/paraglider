@@ -101,9 +101,8 @@ message CreateResourceResponse {
 }
 
 message AttachResourceRequest {
-    ParagliderDeployment deployment = 1;
-    string name = 2;
-    string uri = 3;
+    string namespace = 1;
+    string resource = 2;
 }
 
 message AttachResourceResponse {

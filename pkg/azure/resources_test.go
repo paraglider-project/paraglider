@@ -35,7 +35,7 @@ func setupFakeServerWithState(t *testing.T) (*httptest.Server, *fakeServerState)
 		rgName:  rgName,
 		nsg:     getFakeNSG(),
 		nic:     getFakeInterface(),
-		subnet:  getFakeSubnet(),
+		subnet:  getFakeParagliderSubnet(),
 		vm:      to.Ptr(getFakeVirtualMachine(true)),
 		cluster: to.Ptr(getFakeCluster(true)),
 	}
@@ -60,7 +60,7 @@ func TestGetAndCheckResourceState(t *testing.T) {
 	vmInfo, err := GetAndCheckResourceState(context.Background(), handler, vmURI, namespace)
 
 	require.NoError(t, err)
-	assert.Equal(t, vmInfo.SubnetID, *getFakeSubnet().ID)
+	assert.Equal(t, vmInfo.SubnetID, *getFakeParagliderSubnet().ID)
 	assert.Equal(t, vmInfo.Address, *getFakeInterface().Properties.IPConfigurations[0].Properties.PrivateIPAddress)
 	assert.Equal(t, vmInfo.Location, *serverState.vm.Location)
 	assert.Equal(t, *vmInfo.NSG.ID, *getFakeNSG().ID)
@@ -74,8 +74,8 @@ func TestGetAndCheckResourceState(t *testing.T) {
 	aksInfo, err := GetAndCheckResourceState(context.Background(), handler, aksURI, namespace)
 
 	require.NoError(t, err)
-	assert.Equal(t, aksInfo.SubnetID, *getFakeSubnet().ID)
-	assert.Equal(t, aksInfo.Address, *getFakeSubnet().Properties.AddressPrefix)
+	assert.Equal(t, aksInfo.SubnetID, *getFakeParagliderSubnet().ID)
+	assert.Equal(t, aksInfo.Address, *getFakeParagliderSubnet().Properties.AddressPrefix)
 	assert.Equal(t, aksInfo.Location, *serverState.cluster.Location)
 	assert.Equal(t, *aksInfo.NSG.ID, *getFakeNSG().ID)
 }
@@ -96,7 +96,7 @@ func TestGetNetworkInfoFromResource(t *testing.T) {
 	vmInfo, err := GetNetworkInfoFromResource(context.Background(), handler, vmURI)
 
 	require.NoError(t, err)
-	assert.Equal(t, vmInfo.SubnetID, *getFakeSubnet().ID)
+	assert.Equal(t, vmInfo.SubnetID, *getFakeParagliderSubnet().ID)
 	assert.Equal(t, vmInfo.Address, *getFakeInterface().Properties.IPConfigurations[0].Properties.PrivateIPAddress)
 	assert.Equal(t, vmInfo.Location, *serverState.vm.Location)
 	assert.Equal(t, *vmInfo.NSG.ID, *getFakeNSG().ID)
@@ -105,8 +105,8 @@ func TestGetNetworkInfoFromResource(t *testing.T) {
 	aksInfo, err := GetNetworkInfoFromResource(context.Background(), handler, aksURI)
 
 	require.NoError(t, err)
-	assert.Equal(t, aksInfo.SubnetID, *getFakeSubnet().ID)
-	assert.Equal(t, aksInfo.Address, *getFakeSubnet().Properties.AddressPrefix)
+	assert.Equal(t, aksInfo.SubnetID, *getFakeParagliderSubnet().ID)
+	assert.Equal(t, aksInfo.Address, *getFakeParagliderSubnet().Properties.AddressPrefix)
 	assert.Equal(t, aksInfo.Location, *serverState.cluster.Location)
 	assert.Equal(t, *aksInfo.NSG.ID, *getFakeNSG().ID)
 }
@@ -147,7 +147,7 @@ func TestReadAndProvisionResource(t *testing.T) {
 	resourceDescription, err := getFakeVMResourceDescription(&vm)
 	require.NoError(t, err)
 
-	subnet := getFakeSubnet()
+	subnet := getFakeParagliderSubnet()
 	resourceInfo := getFakeResourceInfo(*vm.Name)
 	ip, err := ReadAndProvisionResource(context.Background(), resourceDescription, subnet, &resourceInfo, handler, []string{})
 
@@ -161,7 +161,7 @@ func TestReadAndProvisionResource(t *testing.T) {
 	ip, err = ReadAndProvisionResource(context.Background(), resourceDescriptionCluster, subnet, &resourceInfo, handler, []string{"1.1.1.1/1", "2.2.2.2/2"})
 
 	require.NoError(t, err)
-	assert.Equal(t, ip, *getFakeSubnet().Properties.AddressPrefix)
+	assert.Equal(t, ip, *getFakeParagliderSubnet().Properties.AddressPrefix)
 }
 
 func TestGetResourceInfoFromResourceDesc(t *testing.T) {
@@ -223,7 +223,7 @@ func TestAzureResourceHandlerVMReadAndProvisionResource(t *testing.T) {
 	require.NoError(t, err)
 
 	resourceInfo := getFakeResourceInfo(*vm.Name)
-	subnet := getFakeSubnet()
+	subnet := getFakeParagliderSubnet()
 	ip, err := vmHandler.readAndProvisionResource(context.Background(), resourceDescription, subnet, &resourceInfo, handler, []string{})
 
 	require.NoError(t, err)
@@ -244,7 +244,7 @@ func TestAzureVMGetNetworkInfo(t *testing.T) {
 	netInfo, err := vmHandler.getNetworkInfo(context.Background(), &resource, handler)
 
 	require.NoError(t, err)
-	assert.Equal(t, netInfo.SubnetID, *getFakeSubnet().ID)
+	assert.Equal(t, netInfo.SubnetID, *getFakeParagliderSubnet().ID)
 	assert.Equal(t, netInfo.Address, *getFakeInterface().Properties.IPConfigurations[0].Properties.PrivateIPAddress)
 	assert.Equal(t, netInfo.Location, *serverState.vm.Location)
 	assert.Equal(t, *netInfo.NSG.ID, *getFakeNSG().ID)
@@ -277,7 +277,7 @@ func TestAzureVMCreateWithNetwork(t *testing.T) {
 
 	vmHandler := &azureResourceHandlerVM{}
 
-	subnet := getFakeSubnet()
+	subnet := getFakeParagliderSubnet()
 	vm := getFakeVirtualMachine(false)
 	ip, err := vmHandler.createWithNetwork(context.Background(), &vm, subnet, *vm.Name, handler, []string{})
 
@@ -291,7 +291,7 @@ func TestAzureAKSGetNetworkInfo(t *testing.T) {
 		rgName:  rgName,
 		cluster: to.Ptr(getFakeCluster(true)),
 		nsg:     getFakeNSG(),
-		subnet:  getFakeSubnet(),
+		subnet:  getFakeParagliderSubnet(),
 	}
 	fakeServer, _ := SetupFakeAzureServer(t, serverState)
 	defer Teardown(fakeServer)
@@ -306,8 +306,8 @@ func TestAzureAKSGetNetworkInfo(t *testing.T) {
 	netInfo, err := aksHandler.getNetworkInfo(context.Background(), &resource, handler)
 
 	require.NoError(t, err)
-	assert.Equal(t, netInfo.SubnetID, *getFakeSubnet().ID)
-	assert.Equal(t, netInfo.Address, *getFakeSubnet().Properties.AddressPrefix)
+	assert.Equal(t, netInfo.SubnetID, *getFakeParagliderSubnet().ID)
+	assert.Equal(t, netInfo.Address, *getFakeParagliderSubnet().Properties.AddressPrefix)
 	assert.Equal(t, netInfo.Location, *serverState.cluster.Location)
 	assert.Equal(t, *netInfo.NSG.ID, *getFakeNSG().ID)
 }
@@ -328,7 +328,7 @@ func TestAzureAKSCreateWithNetwork(t *testing.T) {
 		subId:   subID,
 		rgName:  rgName,
 		cluster: to.Ptr(getFakeCluster(true)),
-		subnet:  getFakeSubnet(),
+		subnet:  getFakeParagliderSubnet(),
 		nsg:     getFakeNSG(),
 	}
 	fakeServer, _ := SetupFakeAzureServer(t, serverState)
@@ -340,12 +340,12 @@ func TestAzureAKSCreateWithNetwork(t *testing.T) {
 
 	aksHandler := &azureResourceHandlerAKS{}
 
-	subnet := getFakeSubnet()
+	subnet := getFakeParagliderSubnet()
 	cluster := getFakeCluster(false)
 	ip, err := aksHandler.createWithNetwork(context.Background(), &cluster, subnet, *cluster.Name, handler, []string{"1.1.1.1/1", "2.2.2.2/2"})
 
 	require.NoError(t, err)
-	assert.Equal(t, ip, *getFakeSubnet().Properties.AddressPrefix)
+	assert.Equal(t, ip, *getFakeParagliderSubnet().Properties.AddressPrefix)
 }
 
 func TestAzureResourceHandlerAKSGetResourceInfoFromDescription(t *testing.T) {
@@ -366,7 +366,7 @@ func TestAzureResourceHandlerAKSReadAndProvisionResource(t *testing.T) {
 		rgName:  rgName,
 		cluster: to.Ptr(getFakeCluster(true)),
 		nsg:     getFakeNSG(),
-		subnet:  getFakeSubnet(),
+		subnet:  getFakeParagliderSubnet(),
 	}
 	fakeServer, _ := SetupFakeAzureServer(t, serverState)
 	defer Teardown(fakeServer)
@@ -382,9 +382,9 @@ func TestAzureResourceHandlerAKSReadAndProvisionResource(t *testing.T) {
 	require.NoError(t, err)
 
 	resourceInfo := getFakeResourceInfo(*cluster.Name)
-	subnet := getFakeSubnet()
+	subnet := getFakeParagliderSubnet()
 	ip, err := aksHandler.readAndProvisionResource(context.Background(), resourceDescription, subnet, &resourceInfo, handler, []string{"1.1.1.1/1", "2.2.2.2/2"})
 
 	require.NoError(t, err)
-	assert.Equal(t, ip, *getFakeSubnet().Properties.AddressPrefix)
+	assert.Equal(t, ip, *getFakeParagliderSubnet().Properties.AddressPrefix)
 }
