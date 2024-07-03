@@ -26,6 +26,7 @@ jobs:
       - name: Save commit SHA
         run: |
           mkdir -p ./github_sha
+          echo "GITHUB_SHA = $GITHUB_SHA"
           echo $GITHUB_SHA > ./github_sha/github_sha
       - uses: actions/upload-artifact@v4
         with:
