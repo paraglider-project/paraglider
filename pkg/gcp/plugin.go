@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
@@ -293,14 +292,12 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		return nil, fmt.Errorf("unsupported resource description: %w", err)
 	}
 
-	// Set project, region, and namespace in resourceInfo
+	// Set project and namespace in resourceInfo
 	resourceInfo.Project = project
-	region := resourceInfo.Zone[:strings.LastIndex(resourceInfo.Zone, "-")]
-	resourceInfo.Region = region
 	resourceInfo.Namespace = resourceDescription.Deployment.Namespace
 
 	subnetExists := false
-	subnetName := getSubnetworkName(resourceDescription.Deployment.Namespace, region)
+	subnetName := getSubnetworkName(resourceDescription.Deployment.Namespace, resourceInfo.Region)
 
 	// Get the networks client
 	networksClient, err := clients.GetNetworksClient(ctx)
@@ -410,10 +407,10 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 
 		insertSubnetworkRequest := &computepb.InsertSubnetworkRequest{
 			Project: project,
-			Region:  region,
+			Region:  resourceInfo.Region,
 			SubnetworkResource: &computepb.Subnetwork{
 				Name:        proto.String(subnetName),
-				Description: proto.String("Paraglider subnetwork for " + region),
+				Description: proto.String("Paraglider subnetwork for " + resourceInfo.Region),
 				Network:     proto.String(GetVpcUrl(project, resourceDescription.Deployment.Namespace)),
 				IpCidrRange: proto.String(addressSpaces[0]),
 			},

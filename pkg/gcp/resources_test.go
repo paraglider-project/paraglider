@@ -137,7 +137,7 @@ func TestGetResourceNetworkInfo(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, convertIntIdToString(*instance.Id), netInfo.ResourceID)
-	assert.Equal(t, instance.NetworkInterfaces[0].Subnetwork, netInfo.SubnetUrl)
+	assert.Equal(t, *instance.NetworkInterfaces[0].Subnetwork, netInfo.SubnetUrl)
 
 	// Test for cluster
 	rInfo = &resourceInfo{Project: fakeProject, Region: fakeRegion, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName, Namespace: fakeNamespace}
@@ -222,6 +222,9 @@ func TestInstanceReadAndProvisionResource(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
+	err = instanceHandler.initClients(ctx, &fakeClients)
+	require.NoError(t, err)
+
 	url, ip, err := instanceHandler.readAndProvisionResource(ctx, resource, subnet, rInfo, make([]string, 0))
 
 	require.NoError(t, err)
@@ -247,6 +250,9 @@ func TestInstanceGetNetworkInfo(t *testing.T) {
 	serverState := fakeServerState{instance: instance}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	err := instanceHandler.initClients(ctx, &fakeClients)
+	require.NoError(t, err)
 
 	networkInfo, err := instanceHandler.getNetworkInfo(ctx, rInfo)
 
@@ -282,6 +288,9 @@ func TestInstanceCreateWithNetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
+	err := instanceHandler.initClients(ctx, &fakeClients)
+	require.NoError(t, err)
+
 	url, ip, err := instanceHandler.createWithNetwork(ctx, instanceRequest, subnet, rInfo)
 
 	require.NoError(t, err)
@@ -300,6 +309,9 @@ func TestGKEReadAndProvisionResource(t *testing.T) {
 	serverState := fakeServerState{}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	err = clusterHandler.initClients(ctx, &fakeClients)
+	require.NoError(t, err)
 
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
@@ -330,6 +342,9 @@ func TestGKEGetNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
+	err := clusterHandler.initClients(ctx, &fakeClients)
+	require.NoError(t, err)
+
 	networkInfo, err := clusterHandler.getNetworkInfo(ctx, resourceInfo)
 
 	require.NoError(t, err)
@@ -359,6 +374,9 @@ func TestGKECreateWithNetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
+	err := clusterHandler.initClients(ctx, &fakeClients)
+	require.NoError(t, err)
+
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
 	url, ip, err := clusterHandler.createWithNetwork(ctx, clusterRequest, subnet, rInfo, additionalAddressSpaces)
@@ -373,17 +391,20 @@ func TestPSCReadAndProvisionResource(t *testing.T) {
 	resource, service, err := getFakePSCRequest()
 	require.NoError(t, err)
 
-	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeServiceAttachmentName, ResourceType: serviceAttachmentTypeName}
+	rInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakeServiceAttachmentName, ResourceType: serviceAttachmentTypeName}
 
 	serverState := fakeServerState{address: getFakeAddress()}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
+	err = pscHandler.initClients(ctx, &fakeClients)
+	require.NoError(t, err)
+
 	url, ip, err := pscHandler.readAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{})
 
 	require.NoError(t, err)
 	assert.Equal(t, service.Url, url)
-	assert.Equal(t, ip, getFakeAddress().Address)
+	assert.Equal(t, ip, *getFakeAddress().Address)
 }
 
 func TestPSCGetResourceInfo(t *testing.T) {
@@ -394,7 +415,7 @@ func TestPSCGetResourceInfo(t *testing.T) {
 	resourceInfo, err := pscHandler.getResourceInfo(context.Background(), resource)
 
 	require.NoError(t, err)
-	assert.Equal(t, fakeZone, resourceInfo.Zone)
+	assert.Equal(t, fakeRegion, resourceInfo.Region)
 	assert.Equal(t, serviceAttachmentTypeName, resourceInfo.ResourceType)
 	assert.Equal(t, fakeServiceAttachmentName, resourceInfo.Name)
 }
@@ -409,26 +430,32 @@ func TestPSCGetNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
+	err := pscHandler.initClients(ctx, &fakeClients)
+	require.NoError(t, err)
+
 	networkInfo, err := pscHandler.getNetworkInfo(ctx, resourceInfo)
 
 	require.NoError(t, err)
 	assert.Equal(t, convertIntIdToString(*attachment.Id), networkInfo.ResourceID)
-	assert.Equal(t, address.Address, networkInfo.Address)
+	assert.Equal(t, *address.Address, networkInfo.Address)
 }
 
 func TestPSCCreateWithNetwork(t *testing.T) {
-	clusterHandler := &gcpPSC{}
+	pscHandler := &gcpPSC{}
 	subnet := "subnet-1"
 	serviceDescription := &ServiceAttachmentDescription{Url: fakeServiceAttachmentUrl}
 
-	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeServiceAttachmentName, ResourceType: serviceAttachmentTypeName}
-	serverState := fakeServerState{}
+	rInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakeServiceAttachmentName, ResourceType: serviceAttachmentTypeName}
+	serverState := fakeServerState{address: getFakeAddress()}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	url, ip, err := clusterHandler.createWithNetwork(ctx, *serviceDescription, subnet, rInfo)
+	err := pscHandler.initClients(ctx, &fakeClients)
+	require.NoError(t, err)
+
+	url, ip, err := pscHandler.createWithNetwork(ctx, *serviceDescription, subnet, rInfo)
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeServiceAttachmentUrl, url)
-	assert.Equal(t, getFakeAddress().Address, ip)
+	assert.Equal(t, *getFakeAddress().Address, ip)
 }

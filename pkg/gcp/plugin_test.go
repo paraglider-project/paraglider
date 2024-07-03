@@ -105,12 +105,6 @@ func TestAddPermitListRules(t *testing.T) {
 			Name: proto.String(getVpcName(fakeNamespace)),
 		},
 	}
-	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
-		{
-			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")),
-			Network:    proto.String(GetVpcUrl(fakeProject, fakeNamespace)),
-		},
-	}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
@@ -216,12 +210,6 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 		},
 		network: &computepb.Network{
 			Name: proto.String(getVpcName(fakeNamespace)),
-		},
-	}
-	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
-		{
-			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")),
-			Network:    proto.String(GetVpcUrl(fakeProject, fakeNamespace)),
 		},
 	}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)

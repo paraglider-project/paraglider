@@ -454,6 +454,21 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 		t.Fatal(err)
 	}
 
+	fakeClients.addressesClient, err = compute.NewAddressesRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fakeClients.forwardingClient, err = compute.NewForwardingRulesRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fakeClients.serviceAttachmentClient, err = compute.NewServiceAttachmentsRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	l, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)

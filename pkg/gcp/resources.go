@@ -253,7 +253,8 @@ func (r *gcpInstance) getResourceInfo(ctx context.Context, resource *paragliderp
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource description: %w", err)
 	}
-	return &resourceInfo{Name: resource.Name, Zone: insertInstanceRequest.Zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: instanceTypeName}, nil
+	region := getRegionFromZone(insertInstanceRequest.Zone)
+	return &resourceInfo{Name: resource.Name, Region: region, Zone: insertInstanceRequest.Zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: instanceTypeName}, nil
 }
 
 // Read and provision a GCP instance
@@ -407,7 +408,8 @@ func (r *gcpGKE) getResourceInfo(ctx context.Context, resource *paragliderpb.Cre
 		return nil, fmt.Errorf("unable to parse resource description: %w", err)
 	}
 	zone := strings.Split(createClusterRequest.Parent, "/")[3]
-	return &resourceInfo{Name: resource.Name, Zone: zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: clusterTypeName}, nil
+	region := getRegionFromZone(zone)
+	return &resourceInfo{Name: resource.Name, Region: region, Zone: zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: clusterTypeName}, nil
 }
 
 // Get the subnet requirements for a GCP instance
@@ -597,8 +599,8 @@ func (r *gcpPSC) getResourceInfo(ctx context.Context, resource *paragliderpb.Cre
 	}
 	urlParts := strings.Split(description.Url, "/")
 	serviceName := urlParts[len(urlParts)-1]
-	zone := urlParts[len(urlParts)-3] // todo now: this is a guess
-	return &resourceInfo{Zone: zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: serviceAttachmentTypeName, Name: serviceName}, nil
+	region := urlParts[len(urlParts)-3]
+	return &resourceInfo{Region: region, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: serviceAttachmentTypeName, Name: serviceName}, nil
 }
 
 // Get the subnet requirements for a GCP private service connect attachment
@@ -671,6 +673,7 @@ func (r *gcpPSC) createWithNetwork(ctx context.Context, service ServiceAttachmen
 	// Create a forwarding rule for the endpoint
 	forwardingRuleRequest := computepb.InsertForwardingRuleRequest{
 		Project: resourceInfo.Project,
+		Region:  resourceInfo.Region,
 		ForwardingRuleResource: &computepb.ForwardingRule{
 			Name:      proto.String("forwarding-rule-" + resourceInfo.Name),
 			IPAddress: proto.String(resourceInfo.Name + "-address"),
