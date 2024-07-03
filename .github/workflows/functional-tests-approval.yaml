@@ -1,0 +1,27 @@
+name: Functional Tests Approval
+
+on:
+  push:
+    branches:
+      - main
+      - release/*
+    tags:
+      - v*
+    paths-ignore:
+      - 'docs/**'
+  pull_request:
+    branches:
+      - main
+      - features/*
+      - release/*
+    paths-ignore:
+      - 'docs/**'
+
+jobs:
+  functional-tests-approval:
+    name: 'Functional Tests Approval'
+    runs-on: ubuntu-latest
+    environment: functional-tests
+    steps:
+      - name: Approved Message
+        run: echo "Request to run functional tests approved."

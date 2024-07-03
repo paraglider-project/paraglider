@@ -1,27 +1,10 @@
 name: Functional Tests
 
 on:
-  push:
-    branches:
-      - main
-      - release/*
-    tags:
-      - v*
-    paths-ignore:
-      - 'docs/**'
-  pull_request:
-    branches:
-      - main
-      - features/*
-      - release/*
-    paths-ignore:
-      - 'docs/**'
-
-# on:
-#   workflow_run:
-#     workflows: ['Functional Tests Approval']
-#     types:
-#       - completed
+  workflow_run:
+    workflows: ['Functional Tests Approval']
+    types:
+      - completed
 
 env:
   # Go version to install
