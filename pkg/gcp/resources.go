@@ -35,7 +35,7 @@ import (
 const (
 	clusterTypeName           = "cluster"
 	instanceTypeName          = "instance"
-	serviceAttachmentTypeName = "service-attachment" // TODO NOW: fix this
+	serviceAttachmentTypeName = "serviceAttachment" // TODO NOW: fix this
 	clusterNameFormat         = "projects/%s/locations/%s/clusters/%s"
 )
 
@@ -55,6 +55,10 @@ type resourceNetworkInfo struct {
 	ResourceID  string
 	NetworkName string
 	Address     string
+}
+
+type ServiceAttachmentDescription struct {
+	Url string `json:"url"`
 }
 
 func resourceIsInNamespace(network string, namespace string) bool {
@@ -88,7 +92,7 @@ func getClusterNodeTag(namespace string, clusterName string, clusterId string) s
 
 // Get the firewall rules associated with a resource following the naming convention
 func getFirewallRules(ctx context.Context, project string, resourceID string, clients *GCPClients) ([]*computepb.Firewall, error) {
-	client, err := clients.GetFirewallsClient()
+	client, err := clients.GetFirewallsClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get firewalls client: %w", err)
 	}
@@ -125,7 +129,6 @@ func parseResourceUrl(resourceUrl string) (*resourceInfo, error) {
 	return nil, fmt.Errorf("unable to parse resource URL")
 }
 
-// todo now: add firewalls client to these?
 // Get the resource handler for a given resource type TODO NOW: Update
 func getResourceHandler(ctx context.Context, resourceType string, clients *GCPClients) (GCPResourceHandler, error) {
 	var handler GCPResourceHandler
@@ -139,7 +142,10 @@ func getResourceHandler(ctx context.Context, resourceType string, clients *GCPCl
 		return nil, fmt.Errorf("unknown resource type")
 	}
 	if clients != nil {
-		handler.initClients(ctx, clients)
+		err := handler.initClients(ctx, clients)
+		if err != nil {
+			return nil, fmt.Errorf("unable to initialize clients: %w", err)
+		}
 	}
 	return handler, nil
 }
@@ -158,7 +164,6 @@ func getResourceHandlerFromDescription(resourceDesc []byte) (GCPResourceHandler,
 	}
 }
 
-// TODO NOW: rename and remove subnet return value since it is never used
 // Gets network information about a resource and confirms it is in the correct namespace
 // Returns the subnet URL and resource ID (instance ID or cluster ID, not URL since this is used for firewall rule naming)
 func GetResourceNetworkInfo(ctx context.Context, resourceInfo *resourceInfo, clients *GCPClients) (*resourceNetworkInfo, error) {
@@ -212,11 +217,6 @@ func GetFirewallTarget(ctx context.Context, resourceInfo *resourceInfo, netInfo 
 	return &target, nil
 }
 
-// Type defition for supported resources
-type supportedGCPResourceClient interface {
-	compute.InstancesClient | container.ClusterManagerClient
-}
-
 // Interface to implement to support a resource
 type GCPResourceHandler interface {
 	// Read and provision the resource with the provided subnet
@@ -253,7 +253,7 @@ func (r *gcpInstance) getResourceInfo(ctx context.Context, resource *paragliderp
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource description: %w", err)
 	}
-	return &resourceInfo{Zone: insertInstanceRequest.Zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: instanceTypeName}, nil
+	return &resourceInfo{Name: resource.Name, Zone: insertInstanceRequest.Zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: instanceTypeName}, nil
 }
 
 // Read and provision a GCP instance
@@ -381,7 +381,7 @@ func (r *gcpGKE) initClients(ctx context.Context, clients *GCPClients) error {
 	}
 	r.client = client
 
-	firewallsClient, err := clients.GetFirewallsClient()
+	firewallsClient, err := clients.GetFirewallsClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -407,7 +407,7 @@ func (r *gcpGKE) getResourceInfo(ctx context.Context, resource *paragliderpb.Cre
 		return nil, fmt.Errorf("unable to parse resource description: %w", err)
 	}
 	zone := strings.Split(createClusterRequest.Parent, "/")[3]
-	return &resourceInfo{Zone: zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: clusterTypeName}, nil
+	return &resourceInfo{Name: resource.Name, Zone: zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: clusterTypeName}, nil
 }
 
 // Get the subnet requirements for a GCP instance
@@ -580,12 +580,25 @@ func (r *gcpPSC) initClients(ctx context.Context, clients *GCPClients) error {
 
 // Read and provision a GCP private service connect attachment
 func (r *gcpPSC) readAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnetName string, resourceInfo *resourceInfo, additionalAddrSpaces []string) (string, string, error) {
-	return r.createWithNetwork(ctx, resource.Id, subnetName, resourceInfo, additionalAddrSpaces)
+	description := &ServiceAttachmentDescription{}
+	err := json.Unmarshal(resource.Description, description)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to parse resource description: %w", err)
+	}
+	return r.createWithNetwork(ctx, *description, subnetName, resourceInfo)
 }
 
 // Get the resource information for a private service connect attachment
 func (r *gcpPSC) getResourceInfo(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
-	return &resourceInfo{NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: serviceAttachmentTypeName}, nil
+	description := &ServiceAttachmentDescription{}
+	err := json.Unmarshal(resource.Description, description)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse resource description: %w", err)
+	}
+	urlParts := strings.Split(description.Url, "/")
+	serviceName := urlParts[len(urlParts)-1]
+	zone := urlParts[len(urlParts)-3] // todo now: this is a guess
+	return &resourceInfo{Zone: zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: serviceAttachmentTypeName, Name: serviceName}, nil
 }
 
 // Get the subnet requirements for a GCP private service connect attachment
@@ -623,7 +636,7 @@ func (r *gcpPSC) getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo)
 	return &resourceNetworkInfo{NetworkName: getVpcName(resourceInfo.Namespace), ResourceID: convertIntIdToString(*resp.Id), Address: *addr.Address}, nil
 }
 
-func (r *gcpPSC) createWithNetwork(ctx context.Context, serviceId string, subnetName string, resourceInfo *resourceInfo, additionalAddrSpaces []string) (string, string, error) {
+func (r *gcpPSC) createWithNetwork(ctx context.Context, service ServiceAttachmentDescription, subnetName string, resourceInfo *resourceInfo) (string, string, error) {
 	// Reserve an IP address to be the endpoint
 	addressName := getAddressName(resourceInfo.Name)
 	addrRequest := computepb.InsertAddressRequest{
@@ -659,9 +672,9 @@ func (r *gcpPSC) createWithNetwork(ctx context.Context, serviceId string, subnet
 	forwardingRuleRequest := computepb.InsertForwardingRuleRequest{
 		Project: resourceInfo.Project,
 		ForwardingRuleResource: &computepb.ForwardingRule{
-			Name:      proto.String("forwarding-rule-" + resourceInfo.Name + "-" + convertIntIdToString(*service.Id)),
+			Name:      proto.String("forwarding-rule-" + resourceInfo.Name),
 			IPAddress: proto.String(resourceInfo.Name + "-address"),
-			Target:    proto.String(serviceId),
+			Target:    proto.String(service.Url),
 			Network:   proto.String(GetVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
 		},
 	}
@@ -673,9 +686,7 @@ func (r *gcpPSC) createWithNetwork(ctx context.Context, serviceId string, subnet
 		return "", "", fmt.Errorf("unable to wait for the operation: %w", err)
 	}
 
-	// TODO NOW: Add the deny-all rule?
-
-	return serviceId, *addr.Address, nil
+	return service.Url, *addr.Address, nil
 }
 
 // getInstanceUrl returns a fully qualified URL for an instance

@@ -40,17 +40,22 @@ import (
 
 // Fake project and resource
 const (
-	fakeProject      = "paraglider-fake"
-	fakeRegion       = "us-fake1"
-	fakeZone         = fakeRegion + "-a"
-	fakeInstanceName = "vm-paraglider-fake"
-	fakeClusterName  = "cluster-paraglider-fake"
-	fakeClusterId    = "12345678910"
-	fakeInstanceId   = uint64(1234)
-	fakeResourceId   = computeUrlPrefix + "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
-	fakeNamespace    = "default"
-	fakeSubnetName   = "subnet-paraglider-fake"
-	fakeSubnetId     = computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/subnetworks/" + fakeSubnetName
+	fakeProject               = "paraglider-fake"
+	fakeRegion                = "us-fake1"
+	fakeZone                  = fakeRegion + "-a"
+	fakeInstanceName          = "vm-paraglider-fake"
+	fakeClusterName           = "cluster-paraglider-fake"
+	fakeServiceAttachmentName = "service-attachment-paraglider-fake"
+	fakeClusterId             = "12345678910"
+	fakeInstanceId            = uint64(1234)
+	fakeServiceAttachmentId   = uint64(5678)
+	fakeResourceId            = computeUrlPrefix + "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
+	fakeNamespace             = "default"
+	fakeSubnetName            = "subnet-paraglider-fake"
+	fakeSubnetId              = computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/subnetworks/" + fakeSubnetName
+	fakeServiceAttachmentUrl  = computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/serviceAttachments/" + fakeServiceAttachmentName
+
+	fakeIpAddress = "1.1.1.1"
 
 	// Missing resources not registered in fake server
 	fakeMissingInstance   = "vm-paraglider-missing"
@@ -157,6 +162,12 @@ func getFakeCluster(includeNetwork bool) *containerpb.Cluster {
 		cluster.Network = GetVpcUrl(fakeProject, fakeNamespace)
 	}
 	return cluster
+}
+
+func getFakeAddress() *computepb.Address {
+	return &computepb.Address{
+		Address: proto.String(fakeIpAddress),
+	}
 }
 
 func sendResponse(w http.ResponseWriter, resp any) {
@@ -274,6 +285,35 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponseFakeOperation(w)
 				return
 			}
+		// Addresses
+		case strings.HasPrefix(path, urlProject+urlRegion+"/addresses"):
+			if r.Method == "GET" {
+				if fakeServerState.address != nil {
+					sendResponse(w, fakeServerState.address)
+				} else {
+					http.Error(w, "no address found", http.StatusNotFound)
+				}
+				return
+			} else if r.Method == "POST" {
+				sendResponseFakeOperation(w)
+				return
+			}
+		// Forwarding Rules
+		case strings.HasPrefix(path, urlProject+urlRegion+"/forwardingRules"):
+			if r.Method == "POST" {
+				sendResponseFakeOperation(w)
+				return
+			}
+		// Service Attachments
+		case strings.HasPrefix(path, urlProject+urlRegion+"/serviceAttachments"):
+			if r.Method == "GET" {
+				if fakeServerState.serviceAttachment != nil {
+					sendResponse(w, fakeServerState.serviceAttachment)
+				} else {
+					http.Error(w, "no service attachment found", http.StatusNotFound)
+				}
+				return
+			}
 		// VPN Gateways
 		case strings.HasPrefix(path, urlProject+urlRegion+"/vpnGateways"):
 			if r.Method == "GET" {
@@ -355,30 +395,19 @@ func (f *fakeClusterManagerServer) UpdateCluster(ctx context.Context, req *conta
 
 // Struct to hold state for fake server
 type fakeServerState struct {
-	firewallMap map[string]*computepb.Firewall
-	instance    *computepb.Instance
-	network     *computepb.Network
-	router      *computepb.Router
-	subnetwork  *computepb.Subnetwork
-	vpnGateway  *computepb.VpnGateway
-	cluster     *containerpb.Cluster
-}
-
-// Struct to hold fake clients
-type fakeClients struct {
-	externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient
-	firewallsClient           *compute.FirewallsClient
-	instancesClient           *compute.InstancesClient
-	networksClient            *compute.NetworksClient
-	routersClient             *compute.RoutersClient
-	subnetworksClient         *compute.SubnetworksClient
-	vpnGatewaysClient         *compute.VpnGatewaysClient
-	vpnTunnelsClient          *compute.VpnTunnelsClient
-	clusterClient             *container.ClusterManagerClient
+	firewallMap       map[string]*computepb.Firewall
+	instance          *computepb.Instance
+	network           *computepb.Network
+	router            *computepb.Router
+	subnetwork        *computepb.Subnetwork
+	vpnGateway        *computepb.VpnGateway
+	cluster           *containerpb.Cluster
+	address           *computepb.Address
+	serviceAttachment *computepb.ServiceAttachment
 }
 
 // Sets up fake http server and fake GCP compute clients
-func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClients fakeClients, gsrv *grpc.Server) {
+func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClients GCPClients, gsrv *grpc.Server) {
 	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
 
 	ctx = context.Background()
@@ -440,7 +469,7 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 	}()
 
 	clusterClientOptions := []option.ClientOption{option.WithoutAuthentication(), option.WithEndpoint(serverAddr), option.WithGRPCDialOption(grpc.WithTransportCredentials(insecure.NewCredentials()))}
-	fakeClients.clusterClient, err = container.NewClusterManagerClient(ctx, clusterClientOptions...)
+	fakeClients.clustersClient, err = container.NewClusterManagerClient(ctx, clusterClientOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -449,23 +478,9 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 }
 
 // Cleans up fake http server and fake GCP compute clients
-func teardown(fakeServer *httptest.Server, fakeClients fakeClients, fakeGRPCServer *grpc.Server) {
+func teardown(fakeServer *httptest.Server, fakeClients GCPClients, fakeGRPCServer *grpc.Server) {
 	fakeServer.Close()
-	if fakeClients.firewallsClient != nil {
-		fakeClients.firewallsClient.Close()
-	}
-	if fakeClients.instancesClient != nil {
-		fakeClients.instancesClient.Close()
-	}
-	if fakeClients.networksClient != nil {
-		fakeClients.networksClient.Close()
-	}
-	if fakeClients.subnetworksClient != nil {
-		fakeClients.subnetworksClient.Close()
-	}
-	if fakeClients.clusterClient != nil {
-		fakeClients.clusterClient.Close()
-	}
+	fakeClients.Close()
 	if fakeGRPCServer != nil {
 		fakeGRPCServer.Stop()
 	}

@@ -293,10 +293,8 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		return nil, fmt.Errorf("unsupported resource description: %w", err)
 	}
 
-	// Set project and instance name
+	// Set project, region, and namespace in resourceInfo
 	resourceInfo.Project = project
-	resourceInfo.Name = resourceDescription.Name
-
 	region := resourceInfo.Zone[:strings.LastIndex(resourceInfo.Zone, "-")]
 	resourceInfo.Region = region
 	resourceInfo.Namespace = resourceDescription.Deployment.Namespace

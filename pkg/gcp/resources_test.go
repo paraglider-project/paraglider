@@ -30,6 +30,7 @@ import (
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func getFakeInstanceResourceDescription() (*paragliderpb.CreateResourceRequest, *computepb.InsertInstanceRequest, error) {
@@ -59,6 +60,24 @@ func getFakeClusterResourceDescription() (*paragliderpb.CreateResourceRequest, *
 
 	resource := &paragliderpb.CreateResourceRequest{Description: jsonReq}
 	return resource, clusterRequest, nil
+}
+
+func getFakeServiceAttachment() *computepb.ServiceAttachment {
+	return &computepb.ServiceAttachment{
+		Id:       proto.Uint64(fakeServiceAttachmentId),
+		SelfLink: proto.String(fakeServiceAttachmentUrl),
+	}
+}
+
+func getFakePSCRequest() (*paragliderpb.CreateResourceRequest, *ServiceAttachmentDescription, error) {
+	description := &ServiceAttachmentDescription{Url: fakeServiceAttachmentUrl}
+	jsonReq, err := json.Marshal(description)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	resource := &paragliderpb.CreateResourceRequest{Description: jsonReq}
+	return resource, description, nil
 }
 
 func TestParseResourceUrl(t *testing.T) {
@@ -93,11 +112,10 @@ func TestGetFirewallRules(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	client := fakeClients.firewallsClient
 	project := fakeProject
 	resourceID := "resource-1"
 
-	firewallRules, err := getFirewallRules(ctx, client, project, resourceID)
+	firewallRules, err := getFirewallRules(ctx, project, resourceID, &fakeClients)
 
 	expectedFwNames := []string{"firewall-1", "firewall-2"}
 
@@ -115,13 +133,11 @@ func TestGetResourceNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	client := fakeClients.instancesClient
-
-	subnet, resourceId, err := GetResourceNetworkInfo(ctx, client, nil, rInfo)
+	netInfo, err := GetResourceNetworkInfo(ctx, rInfo, &fakeClients)
 
 	require.NoError(t, err)
-	assert.Equal(t, convertInstanceIdToString(*instance.Id), *resourceId)
-	assert.Equal(t, instance.NetworkInterfaces[0].Subnetwork, subnet)
+	assert.Equal(t, convertIntIdToString(*instance.Id), netInfo.ResourceID)
+	assert.Equal(t, instance.NetworkInterfaces[0].Subnetwork, netInfo.SubnetUrl)
 
 	// Test for cluster
 	rInfo = &resourceInfo{Project: fakeProject, Region: fakeRegion, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName, Namespace: fakeNamespace}
@@ -131,13 +147,13 @@ func TestGetResourceNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer = setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	clusterClient := fakeClients.clusterClient
-
-	subnet, resourceId, err = GetResourceNetworkInfo(ctx, nil, clusterClient, rInfo)
+	netInfo, err = GetResourceNetworkInfo(ctx, rInfo, &fakeClients)
 
 	require.NoError(t, err)
-	assert.Equal(t, shortenClusterId(cluster.Id), *resourceId)
-	assert.Equal(t, fakeSubnetId, *subnet)
+	assert.Equal(t, shortenClusterId(cluster.Id), netInfo.ResourceID)
+	assert.Equal(t, fakeSubnetId, netInfo.SubnetUrl)
+
+	// Test for service attachment TODO NOW
 }
 
 func TestIsValidResource(t *testing.T) {
@@ -158,6 +174,8 @@ func TestIsValidResource(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeZone, resourceInfo.Zone)
+
+	// Test for service attachment TODO NOW
 }
 
 func TestReadAndProvisionResource(t *testing.T) {
@@ -170,9 +188,7 @@ func TestReadAndProvisionResource(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	client := fakeClients.instancesClient
-
-	url, ip, err := ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, client, nil, nil, make([]string, 0))
+	url, ip, err := ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, make([]string, 0), &fakeClients)
 
 	require.NoError(t, err)
 	assert.Contains(t, url, *instanceRequest.InstanceResource.Name)
@@ -184,15 +200,15 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	rInfo = &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName}
 
-	clusterClient := fakeClients.clusterClient
-	firewallClient := fakeClients.firewallsClient
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
-	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, nil, clusterClient, firewallClient, additionalAddressSpaces)
+	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, additionalAddressSpaces, &fakeClients)
 
 	require.NoError(t, err)
 	assert.Equal(t, getClusterUrl(fakeProject, fakeZone, clusterRequest.Cluster.Name), url)
 	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
+
+	// Test for service attachment TODO NOW
 }
 
 func TestInstanceReadAndProvisionResource(t *testing.T) {
@@ -206,9 +222,7 @@ func TestInstanceReadAndProvisionResource(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	instanceHandler.client = fakeClients.instancesClient
-
-	url, ip, err := instanceHandler.readAndProvisionResource(ctx, resource, subnet, rInfo, nil, make([]string, 0))
+	url, ip, err := instanceHandler.readAndProvisionResource(ctx, resource, subnet, rInfo, make([]string, 0))
 
 	require.NoError(t, err)
 	assert.Contains(t, url, *getFakeInstance(true).Name)
@@ -220,7 +234,6 @@ func TestInstanceGetResourceInfo(t *testing.T) {
 	resource, instanceRequest, err := getFakeInstanceResourceDescription()
 	require.NoError(t, err)
 
-	instanceHandler.client = nil
 	resourceInfo, err := instanceHandler.getResourceInfo(context.Background(), resource)
 
 	require.NoError(t, err)
@@ -235,14 +248,13 @@ func TestInstanceGetNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	instanceHandler.client = fakeClients.instancesClient
-
 	networkInfo, err := instanceHandler.getNetworkInfo(ctx, rInfo)
 
 	require.NoError(t, err)
-	assert.Equal(t, convertInstanceIdToString(*instance.Id), networkInfo.ResourceID)
+	assert.Equal(t, convertIntIdToString(*instance.Id), networkInfo.ResourceID)
 	assert.Contains(t, *instance.NetworkInterfaces[0].Network, networkInfo.NetworkName)
 	assert.Equal(t, *instance.NetworkInterfaces[0].Subnetwork, networkInfo.SubnetUrl)
+	assert.Equal(t, *instance.NetworkInterfaces[0].NetworkIP, networkInfo.Address)
 }
 
 func TestInstanceFromResourceDecription(t *testing.T) {
@@ -270,9 +282,7 @@ func TestInstanceCreateWithNetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	instanceHandler.client = fakeClients.instancesClient
-
-	url, ip, err := instanceHandler.createWithNetwork(ctx, instanceRequest, subnet, rInfo, nil)
+	url, ip, err := instanceHandler.createWithNetwork(ctx, instanceRequest, subnet, rInfo)
 
 	require.NoError(t, err)
 	assert.Contains(t, url, *instanceRequest.InstanceResource.Name)
@@ -280,22 +290,20 @@ func TestInstanceCreateWithNetwork(t *testing.T) {
 
 }
 
-func TestClusterReadAndProvisionResource(t *testing.T) {
+func TestGKEReadAndProvisionResource(t *testing.T) {
 	clusterHandler := &gcpGKE{}
 	resource, clusterRequest, err := getFakeClusterResourceDescription()
 	require.NoError(t, err)
 
 	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName}
 
-	serverState := fakeServerState{instance: getFakeInstance(true)}
+	serverState := fakeServerState{}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	clusterHandler.client = fakeClients.clusterClient
-	firewallClient := fakeClients.firewallsClient
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
-	url, ip, err := clusterHandler.readAndProvisionResource(ctx, resource, "subnet-1", rInfo, firewallClient, additionalAddressSpaces)
+	url, ip, err := clusterHandler.readAndProvisionResource(ctx, resource, "subnet-1", rInfo, additionalAddressSpaces)
 
 	require.NoError(t, err)
 	assert.Equal(t, getClusterUrl(fakeProject, fakeZone, clusterRequest.Cluster.Name), url)
@@ -307,7 +315,6 @@ func TestGKEGetResourceInfo(t *testing.T) {
 	resource, _, err := getFakeClusterResourceDescription()
 	require.NoError(t, err)
 
-	clusterHandler.client = nil
 	resourceInfo, err := clusterHandler.getResourceInfo(context.Background(), resource)
 
 	require.NoError(t, err)
@@ -322,8 +329,6 @@ func TestGKEGetNetworkInfo(t *testing.T) {
 	serverState := fakeServerState{cluster: cluster}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
-
-	clusterHandler.client = fakeClients.clusterClient
 
 	networkInfo, err := clusterHandler.getNetworkInfo(ctx, resourceInfo)
 
@@ -349,18 +354,81 @@ func TestGKECreateWithNetwork(t *testing.T) {
 	clusterRequest := &containerpb.CreateClusterRequest{
 		Cluster: getFakeCluster(false),
 	}
-	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: instanceTypeName}
+	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName}
 	serverState := fakeServerState{}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	clusterHandler.client = fakeClients.clusterClient
-	fwClient := fakeClients.firewallsClient
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
-	url, ip, err := clusterHandler.createWithNetwork(ctx, clusterRequest, subnet, rInfo, fwClient, additionalAddressSpaces)
+	url, ip, err := clusterHandler.createWithNetwork(ctx, clusterRequest, subnet, rInfo, additionalAddressSpaces)
 
 	require.NoError(t, err)
 	assert.Equal(t, getClusterUrl(fakeProject, fakeZone, fakeClusterName), url)
 	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
+}
+
+func TestPSCReadAndProvisionResource(t *testing.T) {
+	pscHandler := &gcpPSC{}
+	resource, service, err := getFakePSCRequest()
+	require.NoError(t, err)
+
+	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeServiceAttachmentName, ResourceType: serviceAttachmentTypeName}
+
+	serverState := fakeServerState{address: getFakeAddress()}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	url, ip, err := pscHandler.readAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{})
+
+	require.NoError(t, err)
+	assert.Equal(t, service.Url, url)
+	assert.Equal(t, ip, getFakeAddress().Address)
+}
+
+func TestPSCGetResourceInfo(t *testing.T) {
+	pscHandler := &gcpPSC{}
+	resource, _, err := getFakePSCRequest()
+	require.NoError(t, err)
+
+	resourceInfo, err := pscHandler.getResourceInfo(context.Background(), resource)
+
+	require.NoError(t, err)
+	assert.Equal(t, fakeZone, resourceInfo.Zone)
+	assert.Equal(t, serviceAttachmentTypeName, resourceInfo.ResourceType)
+	assert.Equal(t, fakeServiceAttachmentName, resourceInfo.Name)
+}
+
+func TestPSCGetNetworkInfo(t *testing.T) {
+	pscHandler := &gcpPSC{}
+	resourceInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Zone: fakeZone, Name: fakeServiceAttachmentName, ResourceType: serviceAttachmentTypeName}
+
+	attachment := getFakeServiceAttachment()
+	address := getFakeAddress()
+	serverState := fakeServerState{serviceAttachment: attachment, address: address}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	networkInfo, err := pscHandler.getNetworkInfo(ctx, resourceInfo)
+
+	require.NoError(t, err)
+	assert.Equal(t, convertIntIdToString(*attachment.Id), networkInfo.ResourceID)
+	assert.Equal(t, address.Address, networkInfo.Address)
+}
+
+func TestPSCCreateWithNetwork(t *testing.T) {
+	clusterHandler := &gcpPSC{}
+	subnet := "subnet-1"
+	serviceDescription := &ServiceAttachmentDescription{Url: fakeServiceAttachmentUrl}
+
+	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeServiceAttachmentName, ResourceType: serviceAttachmentTypeName}
+	serverState := fakeServerState{}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	url, ip, err := clusterHandler.createWithNetwork(ctx, *serviceDescription, subnet, rInfo)
+
+	require.NoError(t, err)
+	assert.Equal(t, fakeServiceAttachmentUrl, url)
+	assert.Equal(t, getFakeAddress().Address, ip)
 }

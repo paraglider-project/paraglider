@@ -25,187 +25,187 @@ import (
 )
 
 type GCPClients struct {
-	InstancesClient           *compute.InstancesClient
-	ClustersClient            *container.ClusterManagerClient
-	FirewallsClient           *compute.FirewallsClient
-	NetworksClient            *compute.NetworksClient
-	SubnetworksClient         *compute.SubnetworksClient
-	RoutersClient             *compute.RoutersClient
-	VpnGatewaysClient         *compute.VpnGatewaysClient
-	VpnTunnelsClient          *compute.VpnTunnelsClient
-	ExternalVpnGatewaysClient *compute.ExternalVpnGatewaysClient
-	AddressesClient           *compute.AddressesClient
-	ForwardingClient          *compute.ForwardingRulesClient
-	ServiceAttachmentClient   *compute.ServiceAttachmentsClient
+	instancesClient           *compute.InstancesClient
+	clustersClient            *container.ClusterManagerClient
+	firewallsClient           *compute.FirewallsClient
+	networksClient            *compute.NetworksClient
+	subnetworksClient         *compute.SubnetworksClient
+	routersClient             *compute.RoutersClient
+	vpnGatewaysClient         *compute.VpnGatewaysClient
+	vpnTunnelsClient          *compute.VpnTunnelsClient
+	externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient
+	addressesClient           *compute.AddressesClient
+	forwardingClient          *compute.ForwardingRulesClient
+	serviceAttachmentClient   *compute.ServiceAttachmentsClient
 }
 
 func (c *GCPClients) GetInstancesClient(ctx context.Context) (*compute.InstancesClient, error) {
-	if c.InstancesClient == nil {
+	if c.instancesClient == nil {
 		instancesClient, err := compute.NewInstancesRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create InstancesClient: %w", err)
 		}
-		c.InstancesClient = instancesClient
+		c.instancesClient = instancesClient
 	}
-	return c.InstancesClient, nil
+	return c.instancesClient, nil
 }
 
 func (c *GCPClients) GetClustersClient(ctx context.Context) (*container.ClusterManagerClient, error) {
-	if c.ClustersClient == nil {
+	if c.clustersClient == nil {
 		clustersClient, err := container.NewClusterManagerClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create ClusterManagerClient: %w", err)
 		}
-		c.ClustersClient = clustersClient
+		c.clustersClient = clustersClient
 	}
-	return c.ClustersClient, nil
+	return c.clustersClient, nil
 }
 
 func (c *GCPClients) GetFirewallsClient(ctx context.Context) (*compute.FirewallsClient, error) {
-	if c.FirewallsClient == nil {
+	if c.firewallsClient == nil {
 		firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create FirewallsClient: %w", err)
 		}
-		c.FirewallsClient = firewallsClient
+		c.firewallsClient = firewallsClient
 	}
-	return c.FirewallsClient, nil
+	return c.firewallsClient, nil
 }
 
 func (c *GCPClients) GetNetworksClient(ctx context.Context) (*compute.NetworksClient, error) {
-	if c.NetworksClient == nil {
+	if c.networksClient == nil {
 		networksClient, err := compute.NewNetworksRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create NetworksClient: %w", err)
 		}
-		c.NetworksClient = networksClient
+		c.networksClient = networksClient
 	}
-	return c.NetworksClient, nil
+	return c.networksClient, nil
 }
 
 func (c *GCPClients) GetSubnetworksClient(ctx context.Context) (*compute.SubnetworksClient, error) {
-	if c.SubnetworksClient == nil {
+	if c.subnetworksClient == nil {
 		subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create SubnetworksClient: %w", err)
 		}
-		c.SubnetworksClient = subnetworksClient
+		c.subnetworksClient = subnetworksClient
 	}
-	return c.SubnetworksClient, nil
+	return c.subnetworksClient, nil
 }
 
 func (c *GCPClients) GetRoutersClient(ctx context.Context) (*compute.RoutersClient, error) {
-	if c.RoutersClient == nil {
+	if c.routersClient == nil {
 		routersClient, err := compute.NewRoutersRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create RoutersClient: %w", err)
 		}
-		c.RoutersClient = routersClient
+		c.routersClient = routersClient
 	}
-	return c.RoutersClient, nil
+	return c.routersClient, nil
 }
 
 func (c *GCPClients) GetVpnGatewaysClient(ctx context.Context) (*compute.VpnGatewaysClient, error) {
-	if c.VpnGatewaysClient == nil {
+	if c.vpnGatewaysClient == nil {
 		vpnGatewaysClient, err := compute.NewVpnGatewaysRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create VpnGatewaysClient: %w", err)
 		}
-		c.VpnGatewaysClient = vpnGatewaysClient
+		c.vpnGatewaysClient = vpnGatewaysClient
 	}
-	return c.VpnGatewaysClient, nil
+	return c.vpnGatewaysClient, nil
 }
 
 func (c *GCPClients) GetVpnTunnelsClient(ctx context.Context) (*compute.VpnTunnelsClient, error) {
-	if c.VpnTunnelsClient == nil {
+	if c.vpnTunnelsClient == nil {
 		vpnTunnelsClient, err := compute.NewVpnTunnelsRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create VpnTunnelsClient: %w", err)
 		}
-		c.VpnTunnelsClient = vpnTunnelsClient
+		c.vpnTunnelsClient = vpnTunnelsClient
 	}
-	return c.VpnTunnelsClient, nil
+	return c.vpnTunnelsClient, nil
 }
 
 func (c *GCPClients) GetExternalVpnGatewaysClient(ctx context.Context) (*compute.ExternalVpnGatewaysClient, error) {
-	if c.ExternalVpnGatewaysClient == nil {
+	if c.externalVpnGatewaysClient == nil {
 		externalVpnGatewaysClient, err := compute.NewExternalVpnGatewaysRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create ExternalVpnGatewaysClient: %w", err)
 		}
-		c.ExternalVpnGatewaysClient = externalVpnGatewaysClient
+		c.externalVpnGatewaysClient = externalVpnGatewaysClient
 	}
-	return c.ExternalVpnGatewaysClient, nil
+	return c.externalVpnGatewaysClient, nil
 }
 
 func (c *GCPClients) GetAddressesClient(ctx context.Context) (*compute.AddressesClient, error) {
-	if c.AddressesClient == nil {
+	if c.addressesClient == nil {
 		addressesClient, err := compute.NewAddressesRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create AddressesClient: %w", err)
 		}
-		c.AddressesClient = addressesClient
+		c.addressesClient = addressesClient
 	}
-	return c.AddressesClient, nil
+	return c.addressesClient, nil
 }
 
 func (c *GCPClients) GetForwardingClient(ctx context.Context) (*compute.ForwardingRulesClient, error) {
-	if c.ForwardingClient == nil {
+	if c.forwardingClient == nil {
 		forwardingClient, err := compute.NewForwardingRulesRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create ForwardingRulesClient: %w", err)
 		}
-		c.ForwardingClient = forwardingClient
+		c.forwardingClient = forwardingClient
 	}
-	return c.ForwardingClient, nil
+	return c.forwardingClient, nil
 }
 
 func (c *GCPClients) GetServiceAttachmentsClient(ctx context.Context) (*compute.ServiceAttachmentsClient, error) {
-	if c.ServiceAttachmentClient == nil {
+	if c.serviceAttachmentClient == nil {
 		serviceAttachmentClient, err := compute.NewServiceAttachmentsRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create ServiceAttachmentsClient: %w", err)
 		}
-		c.ServiceAttachmentClient = serviceAttachmentClient
+		c.serviceAttachmentClient = serviceAttachmentClient
 	}
-	return c.ServiceAttachmentClient, nil
+	return c.serviceAttachmentClient, nil
 }
 
 func (c *GCPClients) Close() {
-	if c.InstancesClient != nil {
-		c.InstancesClient.Close()
+	if c.instancesClient != nil {
+		c.instancesClient.Close()
 	}
-	if c.ClustersClient != nil {
-		c.ClustersClient.Close()
+	if c.clustersClient != nil {
+		c.clustersClient.Close()
 	}
-	if c.FirewallsClient != nil {
-		c.FirewallsClient.Close()
+	if c.firewallsClient != nil {
+		c.firewallsClient.Close()
 	}
-	if c.NetworksClient != nil {
-		c.NetworksClient.Close()
+	if c.networksClient != nil {
+		c.networksClient.Close()
 	}
-	if c.SubnetworksClient != nil {
-		c.SubnetworksClient.Close()
+	if c.subnetworksClient != nil {
+		c.subnetworksClient.Close()
 	}
-	if c.RoutersClient != nil {
-		c.RoutersClient.Close()
+	if c.routersClient != nil {
+		c.routersClient.Close()
 	}
-	if c.VpnGatewaysClient != nil {
-		c.VpnGatewaysClient.Close()
+	if c.vpnGatewaysClient != nil {
+		c.vpnGatewaysClient.Close()
 	}
-	if c.VpnTunnelsClient != nil {
-		c.VpnTunnelsClient.Close()
+	if c.vpnTunnelsClient != nil {
+		c.vpnTunnelsClient.Close()
 	}
-	if c.ExternalVpnGatewaysClient != nil {
-		c.ExternalVpnGatewaysClient.Close()
+	if c.externalVpnGatewaysClient != nil {
+		c.externalVpnGatewaysClient.Close()
 	}
-	if c.AddressesClient != nil {
-		c.AddressesClient.Close()
+	if c.addressesClient != nil {
+		c.addressesClient.Close()
 	}
-	if c.ForwardingClient != nil {
-		c.ForwardingClient.Close()
+	if c.forwardingClient != nil {
+		c.forwardingClient.Close()
 	}
-	if c.ServiceAttachmentClient != nil {
-		c.ServiceAttachmentClient.Close()
+	if c.serviceAttachmentClient != nil {
+		c.serviceAttachmentClient.Close()
 	}
 }
