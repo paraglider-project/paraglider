@@ -38,18 +38,18 @@ jobs:
       - name: Download commit SHA artifact
         uses: actions/download-artifact@v4
         with:
-          name: github_sha
+          name: commit_sha
           run_id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Extract commit SHA
         id: extract-commit-sha
         run: |
-          COMMIT_SHA=$(cat github_sha/github_sha)
-          echo "github_sha=$(cat github_sha/github_sha)" >> $GITHUB_OUTPUT
+          COMMIT_SHA=$(cat commit_sha/commit_sha)
+          echo "commit_sha=$(cat commit_sha/commit_sha)" >> $GITHUB_OUTPUT
       - name: Check out repo
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.extract-commit-sha.outputs.github_sha }}
+          ref: ${{ steps.extract-commit-sha.outputs.commit_sha }}
       - name: Set up Go ${{ env.GOVER }}
         uses: actions/setup-go@v5
         with:

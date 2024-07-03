@@ -25,12 +25,13 @@ jobs:
     steps:
       - name: Save commit SHA
         run: |
-          mkdir -p ./github_sha
-          echo "GITHUB_SHA = $GITHUB_SHA"
-          echo "github.event.pull_request.head.sha = ${{ github.event.pull_request.head.sha }}"
-          echo "github.event.pull_request.head.ref = ${{ github.event.pull_request.head.ref }}"
-          echo $GITHUB_SHA > ./github_sha/github_sha
+          mkdir -p ./commit_sha
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo ${{ github.event.pull_request.head.sha }} > ./commit_sha/commit_sha
+          elif [ "${{ github.event_name }}" == "push" ]; then
+            echo $GITHUB_SHA > ./commit_sha/commit_sha
+          fi
       - uses: actions/upload-artifact@v4
         with:
-          name: github_sha
-          path: github_sha/
+          name: commit_sha
+          path: commit_sha/
