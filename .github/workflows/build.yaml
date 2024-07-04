@@ -29,16 +29,6 @@ env:
   # gotestsum version - see: https://github.com/gotestyourself/gotestsum
   GOTESTSUMVERSION: 1.10.0
 
-  # github contexts
-  GH_RUN_ID: ${{ github.run_id }}
-  GH_RUN_NUMBER: ${{ github.run_number }}
-  GH_RUN_ATTEMPT: ${{ github.run_attempt }}
-
-  # Cloud account fields
-  INVISINETS_GCP_PROJECT_PARENT: ${{ secrets.GCP_FOLDER_ID }}
-  INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME: ${{ secrets.GCP_BILLING_ACCOUNT_NAME }}
-  INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
 jobs:
   build:
     name: Build ${{ matrix.target_os }}_${{ matrix.target_arch }} binaries
