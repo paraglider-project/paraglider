@@ -23,9 +23,5 @@ To maximize flexibility in the deployment's scale we recommend increasing the qu
 ### Testing
 Tests require setting environment variable `PARAGLIDER_IBM_RESOURCE_GROUP_ID`.
 The testing suit associates deployed resources with the specified resource ID.
-Users may choose a resource group from [IBM's web console](https://cloud.ibm.com/account/resource-groups).
-
-#### Resources Cleanup
-To manually remove paraglider resources on IBM cloud users are offered a cleanup function located at `pkg/ibm_plugin/sdk/sdk_test.go`.
-The function is automatically executed after integration tests, but can be manually run via `go test --tags=unit -run TestCleanup`.
-Note: cleanup function removes all paraglider resources on IBM cloud.
+Users may choose a resource group from [IBM's web console](https://cloud.ibm.com/account/resource-groups).  
+*Note* - all paraglider resources are automatically scheduled for removal post testing, unless `INVISINETS_TEST_PERSIST` is set to 1.

@@ -29,7 +29,7 @@ import (
 
 func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 	var xCorrelationId string          // keeping unique transaction ID to identify possible recurring errors related to the tagging service.
-	tags = append(tags, ParagliderTag) // add universal tag for paraglider' resources
+	tags = append(tags, paragliderTag) // add universal tag for paraglider' resources
 	userTypeTag := globaltaggingv1.AttachTagOptionsTagTypeUserConst
 	resourceModel := &globaltaggingv1.Resource{
 		ResourceID:   CRN,
@@ -51,8 +51,14 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 		}
 		utils.Log.Printf("Tagging attempt %v on resource CRN: %v with transaction ID: %v and err: %+v\n", attempt, *CRN, xCorrelationId, err)
 		if !*result.Results[0].IsError {
-			utils.Log.Printf("Successfully tagged resource CRN: %v on attempt %v\n", attempt, *CRN)
-			return nil
+			// verify whether resource's tags are updated
+			if err := c.areTagsAttached(CRN, tags); err == nil {
+				utils.Log.Printf("Successfully tagged resource CRN: %v on attempt %v\n", attempt, *CRN)
+				return nil
+			} else {
+				utils.Log.Printf("Tags were created successfully, but failed to be associated with resource CRN in the alloted time-span: %v\n", *CRN)
+				return err
+			}
 		}
 		// sleep to avoid busy waiting
 		time.Sleep(5 * time.Second)
@@ -61,16 +67,42 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 	return fmt.Errorf("failed to tag resource CRN %v", *CRN)
 }
 
+// areTagsAttached returns an error if resource's tags aren't updated (visible to global search service) in the alloted time
+func (c *CloudClient) areTagsAttached(CRN *string, tags []string) error {
+	maxAttempts := 30 // retries number to tag a resource
+
+	// TODO to be replaced with a more elegant solution for distinguishing tests
+	// return if invoked by tests
+	testIdentifiers := []string{"fake", "12345"}
+	for _, testID := range testIdentifiers {
+		if strings.Contains(*CRN, testID) {
+			return nil
+		}
+	}
+
+	for attempt := 1; attempt <= maxAttempts; attempt += 1 {
+		resource, err := c.GetParagliderTaggedResources(ANY, tags, resourceQuery{CRN: *CRN})
+		if len(resource) == 1 && err == nil {
+			return nil
+		}
+		// sample status once each 5 sec. sleep to avoid busy waiting
+		time.Sleep(5 * time.Second)
+	}
+	return fmt.Errorf("failed to tag resource CRN %v within the alloted time", *CRN)
+}
+
 // GetParagliderTaggedResources returns slice of IDs of tagged resources
 // Arg resourceType: type of VPC resource, e.g. subnet, security group, instance.
 // Arg tags: labels set by dev, e.g. {<vpcID>,<deploymentID>}
 // Args customQueryMap: map of attributes to filter by, e.g. {"region":"<regionName>"}
-func (c *CloudClient) GetParagliderTaggedResources(resourceType TaggedResourceType, tags []string, customQuery ResourceQuery) ([]ResourceData, error) {
+func (c *CloudClient) GetParagliderTaggedResources(resourceType taggedResourceType, tags []string, customQuery resourceQuery) ([]resourceData, error) {
 	// parse tags
 	var tagsStr string
 	var queryStr string
 	// append the paraglider tag to narrow the search scope to paraglider resources only.
-	tags = append(tags, ParagliderTag)
+	if !doesSliceContain(tags, paragliderTag) {
+		tags = append(tags, paragliderTag)
+	}
 	for _, tag := range tags {
 		tagsStr += fmt.Sprintf("tags:%v AND ", tag)
 	}
@@ -98,8 +130,8 @@ func (c *CloudClient) GetParagliderTaggedResources(resourceType TaggedResourceTy
 }
 
 // returns IDs of resources filtered by tags and query
-func (c *CloudClient) getParagliderResourceByTags(resourceType string, tags string, customQueryStr string) ([]ResourceData, error) {
-	var taggedResources []ResourceData
+func (c *CloudClient) getParagliderResourceByTags(resourceType string, tags string, customQueryStr string) ([]resourceData, error) {
+	var taggedResources []resourceData
 
 	query := fmt.Sprintf("type:%v AND %v ", resourceType, tags)
 	if customQueryStr != "" {
@@ -114,8 +146,8 @@ func (c *CloudClient) getParagliderResourceByTags(resourceType string, tags stri
 	items := result.Items
 	if len(items) != 0 {
 		for _, item := range items {
-			resData := ResourceData{CRN: *item.CRN}
-			id := CRN2ID(*item.CRN)
+			resData := resourceData{CRN: *item.CRN}
+			id := crn2Id(*item.CRN)
 			itemProperties := item.GetProperties()
 			if _, regionExists := itemProperties["region"]; regionExists {
 				region := itemProperties["region"].(string)

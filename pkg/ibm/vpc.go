@@ -32,7 +32,7 @@ const SharedVPC = "shared"
 func (c *CloudClient) CreateVPC(tags []string, exclusive bool) (*vpcv1.VPC, error) {
 	var prefixManagement string
 
-	vpcName := GenerateResourceName(vpcType)
+	vpcName := generateResourceName(vpcType)
 
 	if !exclusive {
 		tags = append(tags, SharedVPC)
