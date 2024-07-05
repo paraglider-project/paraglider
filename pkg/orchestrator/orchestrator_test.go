@@ -63,6 +63,7 @@ func newOrchestratorServer() *ControllerServer {
 		pluginAddresses:           make(map[string]string),
 		usedBgpPeeringIpAddresses: make(map[string][]string),
 		namespace:                 defaultNamespace,
+		config:                    config.Config{AddressSpace: []string{defaultAddressSpace}},
 	}
 	return s
 }
@@ -357,6 +358,85 @@ func TestPermitListRulePost(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
+func TestPermitListRuleTagAdd(t *testing.T) {
+	// Setup
+	orchestratorServer := newOrchestratorServer()
+	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	fakeplugin.SetupFakePluginServer(cloudPluginPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.POST(RuleOnTagURL, orchestratorServer.permitListRuleAddTag)
+
+	// Well-formed request
+	tags := []string{"1.1.1.1"}
+	rule := &paragliderpb.PermitListRule{
+		Name:      "rulename",
+		Tags:      tags,
+		Direction: paragliderpb.Direction_INBOUND,
+		SrcPort:   1,
+		DstPort:   2,
+		Protocol:  1}
+	jsonValue, _ := json.Marshal(rule)
+
+	url := fmt.Sprintf(GetFormatterString(RuleOnTagURL), defaultNamespace+"."+exampleCloudName+"."+faketagservice.ValidTagName)
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Bad tag name
+	url = fmt.Sprintf(GetFormatterString(RuleOnTagURL), "badtag")
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestPermitListRuleTagDelete(t *testing.T) {
+	// Setup
+	orchestratorServer := newOrchestratorServer()
+	tagServerPort := getNewPortNumber()
+	cloudPluginPort := getNewPortNumber()
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", cloudPluginPort)
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+
+	fakeplugin.SetupFakePluginServer(cloudPluginPort)
+	faketagservice.SetupFakeTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.DELETE(RuleOnTagURL, orchestratorServer.permitListRuleDeleteTag)
+
+	// Well-formed request
+	rules := []string{"ruleName"}
+	jsonValue, _ := json.Marshal(rules)
+
+	url := fmt.Sprintf(GetFormatterString(RuleOnTagURL), defaultNamespace+"."+exampleCloudName+"."+faketagservice.ValidTagName)
+	req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Bad tag name
+	url = fmt.Sprintf(GetFormatterString(RuleOnTagURL), "badtag")
+	req, _ = http.NewRequest("DELETE", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestPermitListRulesDelete(t *testing.T) {
 	// Setup
 	orchestratorServer := newOrchestratorServer()
@@ -614,7 +694,6 @@ func TestUpdateUsedAddressSpacesMap(t *testing.T) {
 
 func TestFindUnusedAddressSpaces(t *testing.T) {
 	orchestratorServer := newOrchestratorServer()
-
 	// No entries in address space map
 	resp, err := orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
 	require.Nil(t, err)
@@ -649,24 +728,24 @@ func TestFindUnusedAddressSpaces(t *testing.T) {
 	require.Nil(t, err)
 	assert.Equal(t, resp.AddressSpaces[0], "10.2.0.0/16")
 
+	// Multiple spaces
+	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{}
+	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: []int32{200, 1000, 4}})
+	require.Nil(t, err)
+	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/24")
+	assert.Equal(t, resp.AddressSpaces[1], "10.1.0.0/22")
+	assert.Equal(t, resp.AddressSpaces[2], "10.1.4.0/30")
+
 	// Out of addresses
 	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{
 		{
-			AddressSpaces: []string{"10.255.0.0/16"},
+			AddressSpaces: []string{"10.0.0.0/10", "10.64.0.0/10", "10.128.0.0/10", "10.192.0.0/10"},
 			Cloud:         exampleCloudName,
 			Namespace:     defaultNamespace,
 		},
 	}
 	_, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
-
 	require.NotNil(t, err)
-
-	// Multiple spaces
-	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{}
-	resp, err = orchestratorServer.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Num: proto.Int32(2)})
-	require.Nil(t, err)
-	assert.Equal(t, resp.AddressSpaces[0], "10.0.0.0/16")
-	assert.Equal(t, resp.AddressSpaces[1], "10.1.0.0/16")
 }
 
 func TestGetUsedAsns(t *testing.T) {

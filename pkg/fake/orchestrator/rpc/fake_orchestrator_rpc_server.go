@@ -40,8 +40,8 @@ type FakeOrchestratorRPCServer struct {
 
 func (f *FakeOrchestratorRPCServer) FindUnusedAddressSpaces(ctx context.Context, req *paragliderpb.FindUnusedAddressSpacesRequest) (*paragliderpb.FindUnusedAddressSpacesResponse, error) {
 	numAddresses := 1
-	if req.Num != nil {
-		numAddresses = int(*req.Num)
+	if req.Sizes != nil {
+		numAddresses = len(req.Sizes)
 	}
 	addresses := make([]string, numAddresses)
 	for i := 0; i < numAddresses; i++ {

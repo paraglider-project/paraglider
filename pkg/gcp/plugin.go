@@ -441,7 +441,9 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 			numAddressSpacesNeeded += 1
 		}
 
-		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Num: &numAddressSpacesNeeded})
+		reqAddressSpaces := make([]int32, numAddressSpacesNeeded)
+
+		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: reqAddressSpaces})
 
 		if err != nil {
 			return nil, fmt.Errorf("unable to find unused address space: %w", err)

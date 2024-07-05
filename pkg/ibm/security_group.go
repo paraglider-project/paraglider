@@ -23,7 +23,6 @@ import (
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
-	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
@@ -88,7 +87,7 @@ func (c *CloudClient) createSecurityGroup(
 	sgTags := []string{vpcID}
 
 	vpcIdentity := vpcv1.VPCIdentityByID{ID: &vpcID}
-	sgName := GenerateResourceName(sgResType)
+	sgName := generateResourceName(sgResType)
 	options := vpcv1.CreateSecurityGroupOptions{
 		VPC:           &vpcIdentity,
 		ResourceGroup: c.resourceGroup,
@@ -420,7 +419,7 @@ func IsRemoteInCIDR(remote, cidr string) (bool, error) {
 		}
 		return netCidr.Contains(netIP), nil
 	}
-	return IsCIDRSubset(remote, cidr)
+	return utils.IsCIDRSubset(remote, cidr)
 }
 
 // GetRemoteType returns IBM specific keyword returned by vpc1 SDK,
@@ -452,7 +451,7 @@ func (c *CloudClient) GetUniqueSGRules(rules []SecurityGroupRule, rulesHashValue
 	var res []SecurityGroupRule
 	for _, rule := range rules {
 		// exclude unique field "ID" from hash calculation.
-		ruleHashValue, err := ibmCommon.GetStructHash(rule, []string{"ID"})
+		ruleHashValue, err := getStructHash(rule, []string{"ID"})
 		if err != nil {
 			return nil, err
 		}
@@ -474,7 +473,7 @@ func (c *CloudClient) GetRulesIDs(rules []SecurityGroupRule, sgID string) ([]str
 	for _, sgRule := range sgRules {
 		for _, rule := range rules {
 			// aggregate rules matching the specified rules, based on all fields except their IDs and SG IDs.
-			if ibmCommon.AreStructsEqual(rule, sgRule, []string{"ID", "SgID"}) {
+			if areStructsEqual(rule, sgRule, []string{"ID", "SgID"}) {
 				rulesIDs = append(rulesIDs, sgRule.ID)
 				// found matching rule, continue to the next sgRule
 				break
