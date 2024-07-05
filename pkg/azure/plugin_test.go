@@ -64,7 +64,7 @@ func TestCreateResource(t *testing.T) {
 		serverState := &fakeServerState{
 			subId:  subID,
 			rgName: rgName,
-			vnet:   getFakeVirtualNetwork(),
+			vnet:   getFakeParagliderVirtualNetwork(),
 			nic:    getFakeNIC(),
 			vpnGw:  &armnetwork.VirtualNetworkGateway{},
 			vm:     &vm,
@@ -141,7 +141,7 @@ func TestCreateResource(t *testing.T) {
 		serverState := &fakeServerState{
 			subId:   subID,
 			rgName:  rgName,
-			vnet:    getFakeVirtualNetwork(),
+			vnet:    getFakeParagliderVirtualNetwork(),
 			subnet:  getFakeParagliderSubnet(),
 			nic:     getFakeNIC(),
 			nsg:     getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName),
@@ -729,7 +729,7 @@ func TestAttachResource(t *testing.T) {
 			rgName: rgName,
 			nic:    getFakeNIC(),
 			nsg:    fakeNsg,
-			vnet:   getFakeVirtualNetwork(),
+			vnet:   getFakeParagliderVirtualNetwork(),
 			vpnGw:  &armnetwork.VirtualNetworkGateway{},
 			vm:     to.Ptr(fakeVm),
 		}

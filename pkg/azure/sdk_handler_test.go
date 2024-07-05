@@ -39,7 +39,7 @@ func TestGetVnetsWithMatchingPrefixAddressSpaces(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		vnet:   getFakeVirtualNetwork(),
+		vnet:   getFakeParagliderVirtualNetwork(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
@@ -74,7 +74,7 @@ func TestGetVnetAddressSpace(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		vnet:   getFakeVirtualNetwork(),
+		vnet:   getFakeParagliderVirtualNetwork(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
@@ -411,7 +411,7 @@ func TestGetParagliderVnet(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		vnet:   getFakeVirtualNetwork(),
+		vnet:   getFakeParagliderVirtualNetwork(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
@@ -445,7 +445,7 @@ func TestAddSubnetToParagliderVnet(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		vnet:   getFakeVirtualNetwork(),
+		vnet:   getFakeParagliderVirtualNetwork(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
@@ -501,7 +501,7 @@ func TestCreateParagliderVirtualNetwork(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		vnet:   getFakeVirtualNetwork(),
+		vnet:   getFakeParagliderVirtualNetwork(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
@@ -524,7 +524,7 @@ func TestGetVnet(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		vnet:   getFakeVirtualNetwork(),
+		vnet:   getFakeParagliderVirtualNetwork(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)

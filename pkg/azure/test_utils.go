@@ -408,22 +408,22 @@ func getFakeParagliderInterface() *armnetwork.Interface {
 	}
 }
 
-func getFakeInterface() *armnetwork.Interface {
-	nsg := getFakeNSG()
+func getFakeNIC() *armnetwork.Interface {
+	fakeResourceAddress := ""
 	return &armnetwork.Interface{
-		Name: to.Ptr(validNicName),
-		ID:   to.Ptr(validNicId),
+		ID:       to.Ptr(validNicId),
+		Location: to.Ptr(testLocation),
+		Name:     to.Ptr(validNicName),
 		Properties: &armnetwork.InterfacePropertiesFormat{
 			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
 				{
-					Name: to.Ptr("ip-config-name"),
 					Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
-						PrivateIPAddress: to.Ptr("1.1.1.1"),
+						PrivateIPAddress: &fakeResourceAddress,
 						Subnet:           getFakeSubnet(),
 					},
 				},
 			},
-			NetworkSecurityGroup: nsg,
+			NetworkSecurityGroup: getFakeNSG(),
 		},
 	}
 }
@@ -464,7 +464,7 @@ func getFakeSubnet() *armnetwork.Subnet {
 	}
 }
 
-func getFakeVirtualNetwork() *armnetwork.VirtualNetwork {
+func getFakeParagliderVirtualNetwork() *armnetwork.VirtualNetwork {
 	return &armnetwork.VirtualNetwork{
 		Name:     to.Ptr(validParagliderVnetName),
 		ID:       to.Ptr(validVnetId),
@@ -671,54 +671,6 @@ func getFakePermitList() ([]*paragliderpb.PermitListRule, error) {
 	}
 
 	return paragliderRules, nil
-}
-
-func getFakeNIC() *armnetwork.Interface {
-	fakeResourceAddress := ""
-	fakeSubnetId := "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/" + validParagliderVnetName + "/subnets/subnet123"
-	return &armnetwork.Interface{
-		ID:       to.Ptr(validNicId),
-		Location: to.Ptr(testLocation),
-		Name:     to.Ptr(validNicName),
-		Properties: &armnetwork.InterfacePropertiesFormat{
-			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
-				{
-					Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
-						PrivateIPAddress: &fakeResourceAddress,
-						Subnet:           &armnetwork.Subnet{ID: to.Ptr(fakeSubnetId)},
-					},
-				},
-			},
-			NetworkSecurityGroup: &armnetwork.SecurityGroup{
-				ID:   to.Ptr(validSecurityGroupID),
-				Name: to.Ptr(validSecurityGroupName),
-			},
-		},
-	}
-}
-
-func getFakeUnattachedNIC() *armnetwork.Interface {
-	fakeResourceAddress := ""
-	fakeSubnetId := "/subscriptions/sub123/resourceGroups/rg123/providers/Microsoft.Network/virtualNetworks/" + validVnetName + "/subnets/subnet123"
-	return &armnetwork.Interface{
-		ID:       to.Ptr(validNicId),
-		Location: to.Ptr(testLocation),
-		Name:     to.Ptr(validNicName),
-		Properties: &armnetwork.InterfacePropertiesFormat{
-			IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
-				{
-					Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
-						PrivateIPAddress: &fakeResourceAddress,
-						Subnet:           &armnetwork.Subnet{ID: to.Ptr(fakeSubnetId)},
-					},
-				},
-			},
-			NetworkSecurityGroup: &armnetwork.SecurityGroup{
-				ID:   to.Ptr(validSecurityGroupID),
-				Name: to.Ptr(validSecurityGroupName),
-			},
-		},
-	}
 }
 
 func getFakeNsgWithRules(nsgID string, nsgName string) *armnetwork.SecurityGroup {
