@@ -90,6 +90,10 @@ func GetAndCheckResourceState(ctx context.Context, handler *AzureSDKHandler, res
 
 	// Check the vnet tags for paraglider namespace
 	vnet, err := handler.GetVirtualNetwork(ctx, vnetName)
+	if err != nil {
+		return nil, fmt.Errorf("Error in getting vnet %s: %w", vnetName, err)
+	}
+
 	for _, tag := range vnet.Tags {
 		if *tag == namespace {
 			return netInfo, nil

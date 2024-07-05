@@ -133,6 +133,8 @@ func TestGetNetworkInfoFromResource(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, aksInfo.SubnetID, *getFakeParagliderSubnet().ID)
 	assert.Equal(t, aksInfo.Address, *getFakeParagliderSubnet().Properties.AddressPrefix)
+	assert.Equal(t, aksInfo.SubnetID, *getFakeParagliderSubnet().ID)
+	assert.Equal(t, aksInfo.Address, *getFakeParagliderSubnet().Properties.AddressPrefix)
 	assert.Equal(t, aksInfo.Location, *serverState.cluster.Location)
 	assert.Equal(t, *aksInfo.NSG.ID, *getFakeNSG().ID)
 }
