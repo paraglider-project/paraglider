@@ -305,7 +305,7 @@ func TestGetNetworkInterface(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		nic:    getFakeNIC(),
+		nic:    getFakeParagliderInterface(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)
@@ -478,7 +478,7 @@ func TestCreateNetworkInterface(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		subId:  subID,
 		rgName: rgName,
-		nic:    getFakeNIC(),
+		nic:    getFakeParagliderInterface(),
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
 	defer Teardown(fakeServer)

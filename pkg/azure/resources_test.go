@@ -86,7 +86,7 @@ func TestGetAndCheckResourceState(t *testing.T) {
 			rgName:  rgName,
 			nsg:     getFakeNSG(),
 			vnet:    getFakeAttachedVirtualNetwork(),
-			nic:     getFakeNIC(),
+			nic:     getFakeInterface(),
 			subnet:  getFakeSubnet(),
 			vm:      to.Ptr(getFakeVirtualMachine(true)),
 			cluster: to.Ptr(getFakeCluster(true)),
@@ -100,7 +100,7 @@ func TestGetAndCheckResourceState(t *testing.T) {
 		vmInfo, err := GetAndCheckResourceState(context.Background(), handler, vmURI, namespace)
 		require.NoError(t, err)
 		assert.Equal(t, vmInfo.SubnetID, *getFakeSubnet().ID)
-		assert.Equal(t, vmInfo.Address, *getFakeNIC().Properties.IPConfigurations[0].Properties.PrivateIPAddress)
+		assert.Equal(t, vmInfo.Address, *getFakeInterface().Properties.IPConfigurations[0].Properties.PrivateIPAddress)
 		assert.Equal(t, vmInfo.Location, *serverState.vm.Location)
 		assert.Equal(t, *vmInfo.NSG.ID, *getFakeNSG().ID)
 	})

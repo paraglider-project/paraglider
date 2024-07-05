@@ -408,7 +408,7 @@ func getFakeParagliderInterface() *armnetwork.Interface {
 	}
 }
 
-func getFakeNIC() *armnetwork.Interface {
+func getFakeInterface() *armnetwork.Interface {
 	fakeResourceAddress := ""
 	return &armnetwork.Interface{
 		ID:       to.Ptr(validNicId),
