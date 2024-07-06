@@ -36,8 +36,6 @@ import (
 )
 
 const (
-	fakeNsgName                              = "test-nsg-name"
-	fakeNsgID                                = "a/b/" + fakeNsgName
 	urlFormat                                = "/subscriptions/%s/resourceGroups/%s/providers"
 	testLocation                             = "eastus"
 	subID                                    = "subid-test"
@@ -424,21 +422,6 @@ func getFakeParagliderSubnet() *armnetwork.Subnet {
 		ID:   to.Ptr(validParagliderSubnetId),
 		Properties: &armnetwork.SubnetPropertiesFormat{
 			AddressPrefix: to.Ptr(validAddressSpace),
-			NetworkSecurityGroup: &armnetwork.SecurityGroup{
-				ID:   getFakeNSG().ID,
-				Name: getFakeNSG().Name,
-			},
-		},
-	}
-}
-
-// Does not have "paraglider-" prefix before the vnet name
-func getFakeSubnet() *armnetwork.Subnet {
-	return &armnetwork.Subnet{
-		Name: to.Ptr(validSubnetName),
-		ID:   to.Ptr(validSubnetId),
-		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr(unusedValidAddressSpace),
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
 				ID:   getFakeNSG().ID,
 				Name: getFakeNSG().Name,
