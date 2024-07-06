@@ -171,7 +171,7 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 			}
 			return
 		// Create Resources (POST)
-		case urlMatches(path, orchestrator.CreateResourcePOSTURL) && r.Method == http.MethodPost:
+		case urlMatches(path, orchestrator.CreateOrAttachResourcePOSTURL) && r.Method == http.MethodPost:
 			resource := &paragliderpb.ResourceDescriptionString{}
 			err := json.Unmarshal(body, resource)
 			if err != nil {
