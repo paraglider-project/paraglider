@@ -30,9 +30,7 @@ import (
 	"github.com/google/uuid"
 	azure "github.com/paraglider-project/paraglider/pkg/azure"
 	gcp "github.com/paraglider-project/paraglider/pkg/gcp"
-	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
-	ibmSdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
-	ibmServer "github.com/paraglider-project/paraglider/pkg/ibm_plugin/server"
+	ibm "github.com/paraglider-project/paraglider/pkg/ibm"
 	"github.com/paraglider-project/paraglider/pkg/kvstore"
 	orchestrator "github.com/paraglider-project/paraglider/pkg/orchestrator"
 	config "github.com/paraglider-project/paraglider/pkg/orchestrator/config"
@@ -366,7 +364,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	taggingPort := 7994
 	// ibm config
 	IBMServerPort := 7992
-	resourceGroupID := ibmCommon.GetIBMResourceGroupID()
+	resourceGroupID := ibm.GetIBMResourceGroupID()
 	ibmResourceIDPrefix := "/resourcegroup/" + resourceGroupID + "/zone/us-east-1" + "/instance/"
 	image, zone, instanceName := "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb", "us-east-1", "pg-vm-east-1" // IBM VM vars
 	ibmNamespace := "pg-multicloud-ibm"
@@ -379,11 +377,11 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	azureNamespace := "multicloud"
 	defer azure.TeardownAzureTesting(azureSubscriptionId, azureResourceGroupName, azureNamespace)
 
-	region, err := ibmCommon.ZoneToRegion(zone)
+	region, err := ibm.ZoneToRegion(zone)
 	require.NoError(t, err)
 	// removes all of paraglider's deployments on IBM when test ends (if INVISINETS_TEST_PERSIST=1)
 	defer func() {
-		err := ibmSdk.TerminateParagliderDeployments(region)
+		err := ibm.TerminateParagliderDeployments(region)
 		require.NoError(t, err)
 	}()
 
@@ -442,7 +440,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 
 	// start ibm plugin server
 	fmt.Println("Setting up IBM server")
-	ibmServer := ibmServer.Setup(IBMServerPort, orchestratorServerAddr)
+	ibmServer := ibm.Setup(IBMServerPort, orchestratorServerAddr)
 
 	// start azure plugin server
 	fmt.Println("Setting up Azure server")

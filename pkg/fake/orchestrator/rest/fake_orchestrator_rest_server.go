@@ -243,6 +243,24 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 				return
 			}
 			return
+		// Add Permit List Rules Tag
+		case urlMatches(path, orchestrator.RuleOnTagURL) && r.Method == http.MethodPost:
+			rules := []*paragliderpb.PermitListRule{}
+			err := json.Unmarshal(body, &rules)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+				return
+			}
+			return
+		// Delete Permit List Rules Tag
+		case urlMatches(path, orchestrator.RuleOnTagURL) && r.Method == http.MethodDelete:
+			rules := []string{}
+			err := json.Unmarshal(body, &rules)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+				return
+			}
+			return
 		// Tag List
 		case urlMatches(path, orchestrator.ListTagURL):
 			if r.Method == http.MethodGet {

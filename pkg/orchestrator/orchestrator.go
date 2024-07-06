@@ -25,12 +25,13 @@ import (
 	"net/http"
 	"net/netip"
 	"os"
-	"strconv"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v2"
 
 	"github.com/gin-gonic/gin"
+	"github.com/seancfoley/ipaddress-go/ipaddr"
 
 	grpc "google.golang.org/grpc"
 	insecure "google.golang.org/grpc/credentials/insecure"
@@ -52,6 +53,7 @@ const (
 	DeletePermitListRulesURL      string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/deleteRules"
 	CreateResourcePUTURL          string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName"
 	CreateOrAttachResourcePOSTURL string = "/namespaces/:namespace/clouds/:cloud/resources"
+	RuleOnTagURL                  string = "/tags/:tag/rules"
 	ListTagURL                    string = "/tags"
 	GetTagURL                     string = "/tags/:tag"
 	ResolveTagURL                 string = "/tags/:tag/resolveMembers"
@@ -59,6 +61,8 @@ const (
 	DeleteTagURL                  string = "/tags/:tag"
 	DeleteTagMemberURL            string = "/tags/:tag/members/:member"
 	ListNamespacesURL             string = "/namespaces"
+	defaultAddressSpace           string = "10.0.0.0/8"
+	defaultSpaceRequest           int    = 65534
 )
 
 type Warning struct {
@@ -75,6 +79,7 @@ type ControllerServer struct {
 	localKVStoreService       string
 	config                    config.Config
 	namespace                 string
+	addressRequest            sync.Mutex
 }
 
 type ResourceInfo struct {
@@ -149,6 +154,14 @@ func parseSubscriberName(sub string) (string, string, string) {
 
 func createTagName(namespace string, cloud string, tag string) string {
 	return namespace + "." + cloud + "." + tag
+}
+
+func parseTag(tag string) (string, string, string, error) {
+	tokens := strings.Split(tag, ".")
+	if len(tokens) != 3 {
+		return "", "", "", errors.New("invalid tag format")
+	}
+	return tokens[0], tokens[1], tokens[2], nil
 }
 
 // Get the URI of a tag
@@ -357,6 +370,132 @@ func (s *ControllerServer) permitListRuleAdd(c *gin.Context) {
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
+	}
+}
+
+// Add permit list rules to all resources within a tag
+func (s *ControllerServer) permitListRuleAddTag(c *gin.Context) {
+	tag := c.Param("tag")
+
+	// Parse permit list rules to add
+	var rule *paragliderpb.PermitListRule
+	if err := c.BindJSON(&rule); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Resolve the tag to URIs
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	// Send RPC to resolve tag
+	client := tagservicepb.NewTagServiceClient(conn)
+	resolvedTag, err := client.ResolveTag(context.Background(), &tagservicepb.ResolveTagRequest{TagName: tag})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	initializedClientConns := make(map[string]*grpc.ClientConn)
+
+	// Add rule to each URI in the resolved tag
+	for _, mapping := range resolvedTag.Tags {
+		// Get the cloud and namespace from the tag
+		namespace, cloud, _, err := parseTag(mapping.Name)
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+
+		// Create  or get connection to cloud plugin
+		conn, ok := initializedClientConns[cloud]
+		if !ok {
+			cloudClientAddress, ok := s.pluginAddresses[cloud]
+			if !ok {
+				c.AbortWithStatusJSON(400, createErrorResponse("invalid cloud name"))
+				return
+			}
+
+			conn, err = grpc.NewClient(cloudClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+				return
+			}
+			defer conn.Close()
+
+			initializedClientConns[cloud] = conn
+		}
+
+		// Send RPC to add rule
+		client := paragliderpb.NewCloudPluginClient(conn)
+		_, err = client.AddPermitListRules(context.Background(), &paragliderpb.AddPermitListRulesRequest{Rules: []*paragliderpb.PermitListRule{rule}, Namespace: namespace, Resource: *mapping.Uri})
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+	}
+}
+
+// Delete permit list rules to from resources within a tag
+func (s *ControllerServer) permitListRuleDeleteTag(c *gin.Context) {
+	tag := c.Param("tag")
+
+	// Parse permit list rules to add
+	var rules []string
+	if err := c.BindJSON(&rules); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Resolve the tag to URIs
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	// Send RPC to resolve tag
+	client := tagservicepb.NewTagServiceClient(conn)
+	resolvedTag, err := client.ResolveTag(context.Background(), &tagservicepb.ResolveTagRequest{TagName: tag})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Add rule to each URI in the resolved tag
+	for _, mapping := range resolvedTag.Tags {
+		// Get the cloud and namespace from the tag
+		namespace, cloud, _, err := parseTag(mapping.Name)
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+
+		// Create connection to cloud plugin
+		cloudClient, ok := s.pluginAddresses[cloud]
+		if !ok {
+			c.AbortWithStatusJSON(400, createErrorResponse("invalid cloud name"))
+			return
+		}
+		conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+		defer conn.Close()
+
+		// Send RPC to add rule
+		client := paragliderpb.NewCloudPluginClient(conn)
+		_, err = client.DeletePermitListRules(context.Background(), &paragliderpb.DeletePermitListRulesRequest{RuleNames: rules, Namespace: namespace, Resource: *mapping.Uri})
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
 	}
 }
 
@@ -570,44 +709,51 @@ func (s *ControllerServer) updateUsedAddressSpaces() error {
 }
 
 // Get a new address block for a new virtual network
-// TODO @smcclure20: Later, this should allocate more efficiently and with different size address blocks (eg, GCP needs larger than Azure since a VPC will span all regions)
 func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *paragliderpb.FindUnusedAddressSpacesRequest) (*paragliderpb.FindUnusedAddressSpacesResponse, error) {
+	s.addressRequest.Lock()
+	defer s.addressRequest.Unlock()
 	err := s.updateUsedAddressSpaces()
 	if err != nil {
 		return nil, err
 	}
 
-	var requestedAddressSpaces int
-	if req.Num != nil {
-		requestedAddressSpaces = int(*req.Num)
+	var requestedAddressSpaces []int32
+	if req.Sizes != nil {
+		requestedAddressSpaces = req.Sizes
 	} else {
-		requestedAddressSpaces = 1
+		requestedAddressSpaces = []int32{int32(defaultSpaceRequest)}
 	}
-
-	addressSpaces := make([]string, requestedAddressSpaces)
-	highestBlockUsed := -1
-
-	for _, addressSpaceMapping := range s.usedAddressSpaces {
-		for _, address := range addressSpaceMapping.AddressSpaces {
-			blockNumber, err := strconv.Atoi(strings.Split(address, ".")[1])
-			if err != nil {
-				return nil, err
-			}
-			if blockNumber > highestBlockUsed {
-				highestBlockUsed = blockNumber
+	respAddressSpaces := make([]string, len(requestedAddressSpaces))
+	// Calculate the list of unused address space blocks available to be allocated
+	unusedBlocks := findUnusedBlocks(s.config.AddressSpace, s.usedAddressSpaces)
+	for i := 0; i < len(requestedAddressSpaces); i++ {
+		reqSize := int64(defaultSpaceRequest)
+		if requestedAddressSpaces[i] != 0 {
+			reqSize = int64(requestedAddressSpaces[i])
+		}
+		var aBlock *ipaddr.IPAddress
+		// Iterate to allocate the first usunsed block that can accomodate
+		for _, block := range unusedBlocks {
+			if reqSize < block.GetCount().Int64() {
+				aBlock = allocBlock(block, reqSize)
+				if aBlock == nil {
+					// Allocation failed, move on to next available block
+					continue
+				}
+				respAddressSpaces[i] = aBlock.String()
+				break
 			}
 		}
+		if aBlock == nil {
+			return nil, fmt.Errorf("unable to find free address space")
+		}
+		// Remove the allocated block from the set of available spaces
+		unusedBlocks = removeBlock(unusedBlocks, aBlock)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	if highestBlockUsed >= 255 {
-		return nil, errors.New("all address blocks used")
-	}
-
-	for i := 0; i < requestedAddressSpaces; i++ {
-		addressSpaces[i] = fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+i+1)
-	}
-
-	return &paragliderpb.FindUnusedAddressSpacesResponse{AddressSpaces: addressSpaces}, nil
+	return &paragliderpb.FindUnusedAddressSpacesResponse{AddressSpaces: respAddressSpaces}, nil
 }
 
 // Gets unused address spaces across all clouds
@@ -1378,6 +1524,11 @@ func Setup(cfg config.Config, background bool) {
 		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port
 	}
 
+	// If address space isn't declared in config, fall back to default private address space
+	if cfg.AddressSpace == nil {
+		server.config.AddressSpace = []string{defaultAddressSpace}
+	}
+
 	// Setup GRPC server
 	lis, err := net.Listen("tcp", cfg.Server.Host+":"+cfg.Server.RpcPort)
 	if err != nil {
@@ -1407,6 +1558,8 @@ func Setup(cfg config.Config, background bool) {
 	router.DELETE(PermitListRulePUTURL, server.permitListRuleDelete)
 	router.PUT(CreateResourcePUTURL, server.handleCreateOrAttachResource)
 	router.POST(CreateOrAttachResourcePOSTURL, server.handleCreateOrAttachResource)
+	router.POST(RuleOnTagURL, server.permitListRuleAddTag)
+	router.DELETE(RuleOnTagURL, server.permitListRuleDeleteTag)
 	router.GET(ListTagURL, server.listTags)
 	router.GET(GetTagURL, server.getTag)
 	router.POST(ResolveTagURL, server.resolveTag)

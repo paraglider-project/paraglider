@@ -33,7 +33,8 @@ func TestRuleAddValidate(t *testing.T) {
 
 	cmd, executor := NewCommand()
 
-	args := []string{fake.CloudName, "uri"}
+	// Resource name
+	args := []string{fake.CloudName, "resourceName"}
 	ruleFile := "not-a-file.json"
 	tag := "tag"
 	err = cmd.Flags().Set("rulefile", ruleFile)
@@ -42,6 +43,15 @@ func TestRuleAddValidate(t *testing.T) {
 	require.Nil(t, err)
 	err = cmd.Flags().Set("ssh", tag)
 	require.Nil(t, err)
+	err = executor.Validate(cmd, args)
+
+	assert.Nil(t, err)
+	assert.Equal(t, executor.ruleFile, ruleFile)
+	assert.Equal(t, executor.pingTag, tag)
+	assert.Equal(t, executor.sshTag, tag)
+
+	// Tag
+	args = []string{tag}
 	err = executor.Validate(cmd, args)
 
 	assert.Nil(t, err)
@@ -62,7 +72,14 @@ func TestRuleAddExecute(t *testing.T) {
 	executor.pingTag = "pingTag"
 	executor.sshTag = "sshTag"
 
+	// Resource name
 	args := []string{fake.CloudName, "uri"}
+	err = executor.Execute(cmd, args)
+
+	assert.Nil(t, err)
+
+	// Tag
+	args = []string{"tag"}
 	err = executor.Execute(cmd, args)
 
 	assert.Nil(t, err)

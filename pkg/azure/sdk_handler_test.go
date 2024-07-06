@@ -47,23 +47,23 @@ func TestGetVnetsWithMatchingPrefixAddressSpaces(t *testing.T) {
 	err := handler.InitializeClients(nil)
 	require.NoError(t, err)
 
-	t.Run("GetVnetsWithMatchingPrefixAddressSpaces: Success", func(t *testing.T) {
-		addresses, err := handler.GetVnetsWithMatchingPrefixAddressSpaces(ctx, paragliderPrefix)
+	t.Run("GetAllVnetsAddressSpaces: Success", func(t *testing.T) {
+		addresses, err := handler.GetAllVnetsAddressSpaces(ctx, paragliderPrefix)
 		require.NoError(t, err)
 		require.NotNil(t, addresses)
 		require.Len(t, addresses, 1)
 		assert.Equal(t, addresses[testLocation], []string{validAddressSpace})
 	})
 
-	t.Run("GetVnetsWithMatchingPrefixAddressSpaces: Failure - No Vnet", func(t *testing.T) {
+	t.Run("GetAllVnetsAddressSpaces: Failure - No Vnet", func(t *testing.T) {
 		fakeServerState.vnet = nil
-		addresses, err := handler.GetVnetsWithMatchingPrefixAddressSpaces(ctx, paragliderPrefix)
+		addresses, err := handler.GetAllVnetsAddressSpaces(ctx, paragliderPrefix)
 		require.Error(t, err)
 		require.Nil(t, addresses)
 	})
 
-	t.Run("GetVnetsWithMatchingPrefixAddressSpaces: Failure - wrong name", func(t *testing.T) {
-		addresses, err := handler.GetVnetsWithMatchingPrefixAddressSpaces(ctx, "otherprefix")
+	t.Run("GetAllVnetsAddressSpaces: Failure - wrong name", func(t *testing.T) {
+		addresses, err := handler.GetAllVnetsAddressSpaces(ctx, "otherprefix")
 		require.Error(t, err)
 		require.Nil(t, addresses)
 	})

@@ -29,7 +29,6 @@ import (
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -319,7 +318,8 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 		}
 		defer conn.Close()
 		client := paragliderpb.NewControllerClient(conn)
-		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Num: proto.Int32(int32(resourceDescInfo.NumAdditionalAddressSpaces))})
+		reqAddressSpaces := make([]int32, resourceDescInfo.NumAdditionalAddressSpaces)
+		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: reqAddressSpaces})
 		if err != nil {
 			utils.Log.Printf("Failed to find unused address spaces: %v", err)
 			return nil, err
@@ -376,7 +376,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *parag
 			return nil, err
 		}
 
-		addressSpaces, err := azureHandler.GetVnetsWithMatchingPrefixAddressSpaces(ctx, getParagliderNamespacePrefix(deployment.Namespace))
+		addressSpaces, err := azureHandler.GetAllVnetsAddressSpaces(ctx, getParagliderNamespacePrefix(deployment.Namespace))
 		if err != nil {
 			utils.Log.Printf("An error occured while getting address spaces:%+v", err)
 			return nil, err
@@ -723,7 +723,7 @@ func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler Azur
 	if err != nil {
 		return err
 	}
-	paragliderVnetsMap, err := peeringCloudAzureHandler.GetVnetsWithMatchingPrefixAddressSpaces(ctx, getParagliderNamespacePrefix(peeringCloudInfo.Namespace))
+	paragliderVnetsMap, err := peeringCloudAzureHandler.GetAllVnetsAddressSpaces(ctx, getParagliderNamespacePrefix(peeringCloudInfo.Namespace))
 	if err != nil {
 		return fmt.Errorf("unable to create vnets address spaces for peering cloud: %w", err)
 	}
@@ -791,6 +791,44 @@ func (s *azurePluginServer) GetNetworkAddressSpaces(ctx context.Context, req *pa
 	}
 
 	return &paragliderpb.GetNetworkAddressSpacesResponse{AddressSpaces: []string{resourceAddress}}, nil
+}
+
+// Add an existing Azure resource to a paraglider deployment
+func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceReq *paragliderpb.AttachResourceRequest) (*paragliderpb.AttachResourceResponse, error) {
+	resourceId := attachResourceReq.GetResource()
+	resourceIdInfo, err := getResourceIDInfo(resourceId)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting resource id info:%+v", err)
+		return nil, err
+	}
+
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo, attachResourceReq.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
+	resource, networkInfo, err := ValidateResourceCompliesWithParagliderRequirements(ctx, resourceId, azureHandler, s)
+	if err != nil {
+		utils.Log.Printf("An error occured while validating resource:%+v", err)
+		return nil, err
+	}
+
+	// Create VPN gateway vnet if not already created
+	vpnGwVnet, err := GetOrCreateVpnGatewayVNet(ctx, azureHandler, namespace)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting or creating VPN gateway vnet:%+v", err)
+		return nil, err
+	}
+
+	vnetName := getVnetFromSubnetId(networkInfo.SubnetID)
+	// Create peering between the VPN gateway vnet and VM vnet. If the VPN gateway already exists, then establish a VPN gateway transit relationship where the vnet can use the gatewayVnet's VPN gateway.
+	err = CreateGatewayVnetPeering(ctx, azureHandler, vnetName, *vpnGwVnet.Name, namespace)
+	if err != nil {
+		utils.Log.Printf("An error occured while creating VPN gateway vnet peering:%+v", err)
+		return nil, err
+	}
+
+	return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: networkInfo.Address}, nil
 }
 
 func Setup(port int, orchestratorServerAddr string) *azurePluginServer {

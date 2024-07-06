@@ -30,8 +30,6 @@ import (
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
-	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
-	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
 	"github.com/paraglider-project/paraglider/pkg/kvstore"
 	"github.com/paraglider-project/paraglider/pkg/orchestrator"
 	"github.com/paraglider-project/paraglider/pkg/orchestrator/config"
@@ -103,7 +101,7 @@ var pingTestPermitList []*paragliderpb.PermitListRule = []*paragliderpb.PermitLi
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	resourceGroupID = ibmCommon.GetIBMResourceGroupID()
+	resourceGroupID = GetIBMResourceGroupID()
 	testResourceIDUSEast1 = "/resourcegroup/" + resourceGroupID + "/zone/" + testZoneUSEast1 + "/instance/"
 	testResourceIDUSEast2 = "/resourcegroup/" + resourceGroupID + "/zone/" + testZoneUSEast2 + "/instance/"
 	testResourceIDUSEast3 = "/resourcegroup/" + resourceGroupID + "/zone/" + testZoneUSEast3 + "/instance/"
@@ -126,11 +124,11 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	image, zone, instanceName := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1
 
 	// removes all of paraglide's deployments on IBM
-	region, err := ibmCommon.ZoneToRegion(zone)
+	region, err := ZoneToRegion(zone)
 	require.NoError(t, err)
 
 	defer func() {
-		err := sdk.TerminateParagliderDeployments(region)
+		err := TerminateParagliderDeployments(region)
 		require.NoError(t, err)
 	}()
 
@@ -229,11 +227,11 @@ func TestCreateVpnGateway(t *testing.T) {
 	taggingPort := 7994
 	image, zone, instanceName := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1
 
-	region, err := ibmCommon.ZoneToRegion(zone)
+	region, err := ZoneToRegion(zone)
 	require.NoError(t, err)
 	// removes all of paraglider's deployments on IBM when test ends (if INVISINETS_TEST_PERSIST=1)
 	defer func() {
-		err := sdk.TerminateParagliderDeployments(region)
+		err := TerminateParagliderDeployments(region)
 		require.NoError(t, err)
 	}()
 

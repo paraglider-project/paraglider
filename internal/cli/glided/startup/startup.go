@@ -25,7 +25,7 @@ import (
 
 	az "github.com/paraglider-project/paraglider/pkg/azure"
 	gcp "github.com/paraglider-project/paraglider/pkg/gcp"
-	ibm "github.com/paraglider-project/paraglider/pkg/ibm_plugin/server"
+	ibm "github.com/paraglider-project/paraglider/pkg/ibm"
 
 	kvservice "github.com/paraglider-project/paraglider/pkg/kvstore"
 	orchestrator "github.com/paraglider-project/paraglider/pkg/orchestrator"

@@ -39,7 +39,7 @@ const keyType = "key"
 // returns key id of registered public key.
 func (c *CloudClient) setupAuth() (string, error) {
 	var keyID string
-	keyNameToRegister := GenerateResourceName(keyType)
+	keyNameToRegister := generateResourceName(keyType)
 
 	publicKeyData, err := getLocalPubKey()
 	if err != nil {
