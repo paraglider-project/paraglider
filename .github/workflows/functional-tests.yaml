@@ -32,6 +32,7 @@ jobs:
       checks: write
       contents: read
       id-token: write
+      pull-requests: write
     steps:
       - name: Download commit SHA artifact
         uses: dawidd6/action-download-artifact@v6
@@ -43,6 +44,16 @@ jobs:
         id: extract-commit-sha
         run: |
           echo "commit_sha=$(cat commit_sha)" >> $GITHUB_OUTPUT
+      - name: Add to check run
+        uses: LouisBrunner/checks-action@v2.0.0
+        if: always()
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Functional Tests
+          status: ${{ job.status }}
+          repo: ${{ github.repository }}
+          sha: ${{ steps.extract-commit-sha.outputs.commit_sha }}
+          details_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       - name: Check out repo
         uses: actions/checkout@v4
         with:
@@ -77,3 +88,16 @@ jobs:
       - name: Run multicloud tests
         run: |
           make multicloud-test
+      - name: Update check run with result
+        uses: LouisBrunner/checks-action@v2.0.0
+        if: always()
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Functional Tests
+          repo: ${{ github.repository }}
+          sha: ${{ steps.extract-commit-sha.outputs.commit_sha }}
+          status: completed
+          conclusion: ${{ job.status }}
+          output: |
+            {"summary":"Functional tests completed. See links for more information.","title":"Functional Tests"}
+          details_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
