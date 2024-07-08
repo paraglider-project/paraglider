@@ -671,9 +671,7 @@ func TestAttachResourcePost(t *testing.T) {
 	r.POST(CreateResourcePOSTURL, orchestratorServer.handleCreateOrAttachResource)
 
 	// Well-formed request
-	resource := &paragliderpb.ResourceString{
-		Id: "",
-	}
+	resource := &paragliderpb.ResourceString{Id: "id"}
 	jsonValue, _ := json.Marshal(resource)
 
 	url := fmt.Sprintf(GetFormatterString(AttachResourcePOSTURL), defaultNamespace, exampleCloudName)
@@ -681,7 +679,22 @@ func TestAttachResourcePost(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
+
+	// todo: Just for CI debugging. Delete before merging
+	if w.Code != http.StatusOK {
+		fmt.Println("Error: ", w.Body.String())
+	}
 	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Invalid request body
+	resource = &paragliderpb.ResourceString{Id: ""}
+	jsonValue, _ = json.Marshal(resource)
+
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Bad cloud name
 	url = fmt.Sprintf(GetFormatterString(AttachResourcePOSTURL), defaultNamespace, "wrong")
