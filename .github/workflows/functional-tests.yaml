@@ -39,7 +39,7 @@ jobs:
         with:
           name: commit_sha
           run_id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Extract commit SHA
         id: extract-commit-sha
         run: |
