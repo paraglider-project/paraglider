@@ -50,7 +50,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: Functional Tests
-          status: ${{ job.status }}
+          status: in_progress
           repo: ${{ github.repository }}
           sha: ${{ steps.extract-commit-sha.outputs.commit_sha }}
           details_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
