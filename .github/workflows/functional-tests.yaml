@@ -33,8 +33,6 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - name: Test
-        run: echo "Functional Tests"
       - name: Download commit SHA artifact
         uses: dawidd6/action-download-artifact@v6
         with:
@@ -44,8 +42,7 @@ jobs:
       - name: Extract commit SHA
         id: extract-commit-sha
         run: |
-          COMMIT_SHA=$(cat commit_sha/commit_sha)
-          echo "commit_sha=$(cat commit_sha/commit_sha)" >> $GITHUB_OUTPUT
+          echo "commit_sha=$(cat commit_sha)" >> $GITHUB_OUTPUT
       - name: Check out repo
         uses: actions/checkout@v4
         with:
