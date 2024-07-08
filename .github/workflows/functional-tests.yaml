@@ -43,10 +43,10 @@ jobs:
       - name: Test
         run: echo "Functional Tests"
       - name: Download commit SHA artifact
-        uses: actions/download-artifact@v4
+        uses: dawidd6/action-download-artifact@v6
         with:
           name: commit_sha
-          run-id: ${{ github.event.workflow_run.id }}
+          run_id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Extract commit SHA
         id: extract-commit-sha
