@@ -139,6 +139,8 @@ func parseResourceUrl(resourceUrl string) (*resourceInfo, error) {
 		return &resourceInfo{Project: parsedResourceId["projects"], Zone: parsedResourceId["zones"], Region: getRegionFromZone(parsedResourceId["zones"]), Name: name, ResourceType: instanceTypeName}, nil
 	} else if name, ok := parsedResourceId["clusters"]; ok {
 		return &resourceInfo{Project: parsedResourceId["projects"], Zone: parsedResourceId["locations"], Region: getRegionFromZone(parsedResourceId["locations"]), Name: name, ResourceType: clusterTypeName}, nil
+	} else if name, ok := parsedResourceId["serviceAttachments"]; ok {
+		return &resourceInfo{Project: parsedResourceId["projects"], Region: parsedResourceId["regions"], Name: name, ResourceType: serviceAttachmentTypeName}, nil
 	}
 	return nil, fmt.Errorf("unable to parse resource URL")
 }
@@ -634,7 +636,7 @@ func (r *privateServiceHandler) getNumberAddressSpacesRequired() int {
 
 // Get the firewall target type and value for a specific service attachment
 func (r *privateServiceHandler) getFirewallTarget(resourceInfo *resourceInfo, netInfo *resourceNetworkInfo) firewallTarget {
-	return firewallTarget{TargetType: targetTypeTag, Target: netInfo.Address}
+	return firewallTarget{TargetType: targetTypeAddress, Target: netInfo.Address}
 }
 
 // Get network information about a service attachment
@@ -704,11 +706,12 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 		Region:  resourceInfo.Region,
 		ForwardingRuleResource: &computepb.ForwardingRule{
 			Name:      proto.String("forwarding-rule-" + resourceInfo.Name),
-			IPAddress: proto.String(resourceInfo.Name + "-address"),
-			Target:    proto.String(service.Url),
+			IPAddress: addr.SelfLink,
 			Network:   proto.String(GetVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
+			Target:    proto.String(service.Url),
 		},
 	}
+
 	forwardingRuleOp, err := r.forwardingClient.Insert(ctx, &forwardingRuleRequest)
 	if err != nil {
 		return "", "", fmt.Errorf("unable to insert forwarding rule: %w", err)
