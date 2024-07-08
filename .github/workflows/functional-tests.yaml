@@ -5,6 +5,13 @@ on:
     workflows: [Functional Tests Approval]
     types:
       - completed
+  pull_request:
+    branches:
+      - main
+      - features/*
+      - release/*
+    paths-ignore:
+      - 'docs/**'
 
 env:
   # Go version to install
@@ -39,7 +46,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: commit_sha
-          run_id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Extract commit SHA
         id: extract-commit-sha
