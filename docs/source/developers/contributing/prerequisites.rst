@@ -3,30 +3,20 @@
 Prerequisites
 =============
 
-Prerequisites for working with the repo
------------------------------------------
 This section lists the prerequisites for working with the repository. Most contributors should start with the basic prerequisites. 
 Depending on the task you need to perform, you may need to install more tools.
 
 We also provide a `Devcontainer <https://code.visualstudio.com/docs/devcontainers/containers>`_ for working with this repository without installing prerequisites. 
 Keep reading for instructions.
 
-Operating system
-^^^^^^^^^^^^^^^^^^^^
-We support developing on macOS, Linux and Windows with `WSL <https://docs.microsoft.com/windows/wsl/install>`_.
-
-Asking for help
-^^^^^^^^^^^^^^^^^^^^
-If you get stuck installing any of our dependencies, you can raise an issue or ask for help in our `discord <https://discordapp.com/channels/1116864463832891502/11168644638328915074>`_.
-
 Required tools
 ^^^^^^^^^^^^^^^^^^^^
 This is the list of core dependencies to install for the most common tasks. In general we expect all contributors to have all of these tools present:
 
-- `Git <https://git-scm.com>`_
 - `Go <https://golang.org/>`_
 - `golangci-lint <https://golangci-lint.run>`_
 - `protoc <https://grpc.io/docs/protoc-installation>`_
+
 - make
 
   * Linux: Install the ``build-essential`` package:
@@ -53,18 +43,11 @@ Testing Required Tools
 ^^^^^^^^^^^^^^^^^^^^^^^
 If you have not already done so, clone the repository and navigate there in your command shell.
 
-You can build the main outputs using ``make``:
-
-.. code-block:: console
-
-    $ make build lint
-
 Running these steps will run our build and lint steps and verify that the tools are installed correctly. 
-If you get stuck or suspect something is not working in these instructions please raise an issue or ask for help in our Discord linked on our homepage.
 
-**Integration/Multicloud Tests**
+**Functional Tests**
 
-Our integration/multicloud tests perform real requests to cloud providers. You can run these with the following commands
+Our functional tests perform real requests to cloud providers. You can run these with the following commands
 
 .. code-block:: console
 

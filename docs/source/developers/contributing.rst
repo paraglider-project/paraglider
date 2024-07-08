@@ -57,13 +57,11 @@ If you'd like to do this manually, git has a ``-s`` command line option to appen
 
     $ git commit -s -m 'This is my commit message'
 
-Visual Studio Code has a setting, git.alwaysSignOff to automatically add a Signed-off-by line to commit messages. Search for "sign-off" in VS Code settings to find it and enable it.
-
+VS Code has a setting, git.alwaysSignOff to automatically add a Signed-off-by line to commit messages. Search for "sign-off" in VS Code settings to find it and enable it.
 
 Creating issues
 --------------------
 Please create issues for needed work and bugs in the `repo <https://github.com/paraglider-project/paraglider/issues>`_.
-
 
 Sending pull requests
 ----------------------
@@ -75,10 +73,8 @@ Code of Conduct
 This project has adopted the code of conduct defined by the Contributor Covenant to clarify expected behavior in our community.
 For more information, see the `Contributor Covenant Code of Conduct 2.1 <https://www.contributor-covenant.org/version/2/1/code_of_conduct/>`_.
 
-
 Troubleshooting and getting help
 ---------------------------------
 * Have a question? - Visit our Discord (linked on our homepage) to post your question and we'll get back to you ASAP
 * Found an issue? - Refer to :ref:`contributingissues` on filing a bug report
 * Have a proposal? - Refer to :ref:`contributingissues` for instructions on filing a feature request
-
