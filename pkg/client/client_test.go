@@ -83,10 +83,23 @@ func TestCreateResource(t *testing.T) {
 	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
-	resource, err := client.CreateResource(fake.Namespace, fake.CloudName, "resourceName", &paragliderpb.ResourceDescriptionString{})
-
+	resource, err := client.CreateResource(fake.Namespace, fake.CloudName, "resourceName", &paragliderpb.ResourceDescriptionString{Name: "resourceName", Description: "resourceDescription"})
 	assert.Nil(t, err)
 	assert.Equal(t, "resourceName", resource["name"])
+	assert.Equal(t, "testUri", resource["uri"])
+	assert.Equal(t, "testIp", resource["ip"])
+}
+
+func TestAttachResource(t *testing.T) {
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
+	client := Client{ControllerAddress: controllerAddress}
+
+	resource, err := client.AttachResource(fake.Namespace, fake.CloudName, &paragliderpb.ResourceString{Id: "resourceId"})
+	assert.Nil(t, err)
+	assert.Equal(t, "resourceId", resource["uri"])
+	assert.Equal(t, "testIp", resource["ip"])
+	assert.Equal(t, "validResourceName", resource["name"])
 }
 
 func TestGetTag(t *testing.T) {

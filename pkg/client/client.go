@@ -165,6 +165,29 @@ func (c *Client) CreateResource(namespace string, cloud string, resourceName str
 	return resourceDict, nil
 }
 
+// Attach a resource
+func (c *Client) AttachResource(namespace string, cloud string, resource *paragliderpb.ResourceString) (map[string]string, error) {
+	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.AttachResourcePOSTURL), namespace, cloud)
+
+	reqBody, err := json.Marshal(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.sendRequest(path, http.MethodPost, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to attach resource: %w", err)
+	}
+
+	resourceDict := map[string]string{}
+	err = json.Unmarshal(response, &resourceDict)
+	if err != nil {
+		return nil, err
+	}
+
+	return resourceDict, nil
+}
+
 // Add permit list rules to a tag
 func (c *Client) AddPermitListRulesTag(tag string, rules []*paragliderpb.PermitListRule) error {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.RuleOnTagURL), tag)
