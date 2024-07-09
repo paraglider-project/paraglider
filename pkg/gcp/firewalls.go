@@ -198,8 +198,6 @@ func getFirewallName(namespace string, ruleName string, resourceId string) strin
 
 // Retrieve the name of the permit list rule from the GCP firewall name
 func parseFirewallName(namespace string, firewallName string) string {
-	fmt.Println(firewallName)
-	fmt.Println(strings.TrimPrefix(firewallName, getFirewallNamePrefix(namespace)+"-"))
 	return strings.SplitN(strings.TrimPrefix(firewallName, getFirewallNamePrefix(namespace)+"-"), "-", 2)[1]
 }
 

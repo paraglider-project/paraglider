@@ -295,7 +295,7 @@ func (r *instanceHandler) getNumberAddressSpacesRequired() int {
 
 // Get the firewall target type and value for a specific instance
 func (r *instanceHandler) getFirewallTarget(resourceInfo *resourceInfo, netInfo *resourceNetworkInfo) firewallTarget {
-	return firewallTarget{TargetType: targetTypeTag, Target: getNetworkTag(resourceInfo.Namespace, instanceTypeName, resourceInfo.Name)}
+	return firewallTarget{TargetType: targetTypeTag, Target: getNetworkTag(resourceInfo.Namespace, instanceTypeName, netInfo.ResourceID)}
 }
 
 // Get network information about an instance
@@ -443,7 +443,7 @@ func (r *clusterHandler) getNumberAddressSpacesRequired() int {
 
 // Get the firewall target type and value for a specific cluster
 func (r *clusterHandler) getFirewallTarget(resourceInfo *resourceInfo, netInfo *resourceNetworkInfo) firewallTarget {
-	return firewallTarget{TargetType: targetTypeTag, Target: getNetworkTag(resourceInfo.Namespace, clusterTypeName, resourceInfo.Name)}
+	return firewallTarget{TargetType: targetTypeTag, Target: getNetworkTag(resourceInfo.Namespace, clusterTypeName, netInfo.ResourceID)}
 }
 
 // Get network information about a cluster
@@ -631,7 +631,7 @@ func (r *privateServiceHandler) getResourceInfo(ctx context.Context, resource *p
 
 // Get the subnet requirements for a private service connect attachment
 func (r *privateServiceHandler) getNumberAddressSpacesRequired() int {
-	return 1
+	return 0
 }
 
 // Get the firewall target type and value for a specific service attachment
