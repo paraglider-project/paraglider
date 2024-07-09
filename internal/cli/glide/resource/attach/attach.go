@@ -24,7 +24,7 @@ import (
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	"github.com/paraglider-project/paraglider/pkg/client"
-	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator"
 	"github.com/spf13/cobra"
 )
 
@@ -58,7 +58,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	// fmt.Fprintf(e.writer, "Attaching resource %s to namespace %s in cloud %s\n", e.resourceID, args[1], args[0])
 	paragliderClient := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 
-	resource := &paragliderpb.ResourceString{Id: args[1]}
+	resource := &orchestrator.ResourceWithID{Id: args[1]}
 	resourceInfo, err := paragliderClient.AttachResource(e.cliSettings.ActiveNamespace, args[0], resource)
 	if err != nil {
 		fmt.Fprintf(e.writer, "Failed to attach resource: %v\n", err)
