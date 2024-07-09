@@ -671,7 +671,7 @@ func TestAttachResourcePost(t *testing.T) {
 	r.POST(CreateOrAttachResourcePOSTURL, orchestratorServer.handleCreateOrAttachResource)
 
 	// Invalid request body
-	resource := &ResourceWithID{Id: ""}
+	resource := &ResourceID{Id: ""}
 	jsonValue, _ := json.Marshal(resource)
 
 	url := fmt.Sprintf(GetFormatterString(CreateOrAttachResourcePOSTURL), defaultNamespace, exampleCloudName)
@@ -682,7 +682,7 @@ func TestAttachResourcePost(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Well-formed request
-	resource = &ResourceWithID{Id: "id"}
+	resource = &ResourceID{Id: "id"}
 	jsonValue, _ = json.Marshal(resource)
 
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
