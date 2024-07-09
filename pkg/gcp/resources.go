@@ -58,7 +58,9 @@ type resourceNetworkInfo struct {
 }
 
 type ServiceAttachmentDescription struct {
-	Url string `json:"url"`
+	Url    string `json:"url"`
+	Bundle string `json:"bundle"`
+	Region string `json:"region"`
 }
 
 func resourceIsInNamespace(network string, namespace string) bool {
@@ -613,7 +615,7 @@ func (r *privateServiceHandler) readAndProvisionResource(ctx context.Context, re
 	if err != nil {
 		return "", "", fmt.Errorf("unable to parse resource description: %w", err)
 	}
-	return r.createWithNetwork(ctx, *description, subnetName, resourceInfo)
+	return r.createWithNetwork(ctx, *description, subnetName, resourceInfo, additionalAddrSpaces[0])
 }
 
 // Get the resource information about a service attachment
@@ -623,15 +625,21 @@ func (r *privateServiceHandler) getResourceInfo(ctx context.Context, resource *p
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource description: %w", err)
 	}
-	urlParts := strings.Split(description.Url, "/")
-	serviceName := urlParts[len(urlParts)-1]
-	region := urlParts[len(urlParts)-3]
+	var serviceName, region string
+	if description.Url != "" {
+		urlParts := strings.Split(description.Url, "/")
+		serviceName = urlParts[len(urlParts)-1]
+		region = urlParts[len(urlParts)-3]
+	} else {
+		serviceName = description.Bundle
+		region = description.Region
+	}
 	return &resourceInfo{Region: region, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: serviceAttachmentTypeName, Name: serviceName}, nil
 }
 
 // Get the subnet requirements for a private service connect attachment
 func (r *privateServiceHandler) getNumberAddressSpacesRequired() int {
-	return 1
+	return 2
 }
 
 // Get the firewall target type and value for a specific service attachment
@@ -668,7 +676,7 @@ func (r *privateServiceHandler) getNetworkInfo(ctx context.Context, resourceInfo
 }
 
 // Create a private service connect endpoint with given network settings
-func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service ServiceAttachmentDescription, subnetName string, resourceInfo *resourceInfo) (string, string, error) {
+func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service ServiceAttachmentDescription, subnetName string, resourceInfo *resourceInfo, additionalAddress string) (string, string, error) {
 	// Reserve an IP address to be the endpoint
 	addressName := getAddressName(resourceInfo.Name)
 	addrRequest := computepb.InsertAddressRequest{
@@ -679,6 +687,8 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 			Subnetwork:  proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName)),
 			AddressType: proto.String("INTERNAL"),
 			IpVersion:   proto.String("IPV4"),
+			Purpose:     proto.String("PRIVATE_SERVICE_CONNECT"),
+			Labels:      map[string]string{"paraglider_ns": resourceInfo.Namespace},
 		},
 	}
 	addrOp, err := r.addressesClient.Insert(ctx, &addrRequest)
@@ -688,6 +698,12 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 	if err = addrOp.Wait(ctx); err != nil {
 		return "", "", fmt.Errorf("unable to wait for the operation: %w", err)
 	}
+
+	// if service.Url != "" {
+	// 	// Get an address from the orchestrator
+
+	// 	addrRequest.AddressResource.Address =
+	// }
 
 	// Get the allocated address
 	getAddressReq := computepb.GetAddressRequest{
@@ -710,6 +726,13 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 			Network:   proto.String(GetVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
 			Target:    proto.String(service.Url),
 		},
+	}
+	if service.Url != "" {
+		forwardingRuleRequest.ForwardingRuleResource.Target = proto.String(service.Url)
+	} else {
+		forwardingRuleRequest.ForwardingRuleResource.Target = proto.String(service.Bundle)
+		forwardingRuleRequest.ForwardingRuleResource.AllowPscGlobalAccess = proto.Bool(true)
+		forwardingRuleRequest.ForwardingRuleResource.AllowGlobalAccess = proto.Bool(true)
 	}
 
 	forwardingRuleOp, err := r.forwardingClient.Insert(ctx, &forwardingRuleRequest)
