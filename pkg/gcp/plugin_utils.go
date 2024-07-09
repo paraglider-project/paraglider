@@ -96,7 +96,7 @@ func SetupGcpTesting(testName string) string {
 			Project: &resourcemanagerpb.Project{
 				ProjectId:   projectId,
 				DisplayName: projectDisplayName,
-				Parent:      os.Getenv("INVISINETS_GCP_PROJECT_PARENT"),
+				Parent:      os.Getenv("PARAGLIDER_GCP_PROJECT_PARENT"),
 			},
 		}
 		createProjectOp, err := projectsClient.CreateProject(ctx, createProjectReq)
