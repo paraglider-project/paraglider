@@ -69,10 +69,6 @@ message ResourceDescriptionString {
     string description = 2;
 }
 
-message ResourceString {
-    string id = 1;
-}
-
 enum Direction {
     INBOUND = 0;
     OUTBOUND = 1;

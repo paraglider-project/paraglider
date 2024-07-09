@@ -89,6 +89,10 @@ type ResourceInfo struct {
 	namespace string
 }
 
+type ResourceWithID struct {
+	Id string `json:"id,omitempty"`
+}
+
 // Return a string usable with Sprintf for inserting URL params
 func GetFormatterString(url string) string {
 	new_tokens := []string{}
@@ -1124,7 +1128,7 @@ func (s *ControllerServer) handleCreateOrAttachResource(c *gin.Context) {
 	}
 
 	var resourceToCreate paragliderpb.ResourceDescriptionString
-	var resourceToAttach paragliderpb.ResourceString
+	var resourceToAttach ResourceWithID
 
 	// Create resource if req. body JSON contains "description"
 	if err := c.ShouldBindBodyWithJSON(&resourceToCreate); err == nil && resourceToCreate.Description != "" {
