@@ -48,9 +48,9 @@ An example of a resource description for an Azure VM is as follows:
                     },
                     "storageProfile": {
                         "imageReference": {
-                            "offer": "debian-10",
-                            "publisher": "Debian",
-                            "sku": "10",
+                            "offer": "0001-com-ubuntu-minimal-jammy",
+                            "publisher": "canonical",
+                            "sku": "minimal-22_04-lts-gen2",
                             "version": "latest"
                         }
                     }
@@ -257,7 +257,7 @@ High-Level Logic:
 * Get all BGP peering IP addresses used by Paraglider in the given deployments
 
 rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (CreateVpnConnectionsResponse) {}
------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------
 
 Implementation-Level Description:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

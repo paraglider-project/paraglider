@@ -15,20 +15,6 @@ For learning Go, we recommend the following resources:
 
 We're happy to accept pull-requests and give code review feedback aimed at newbies. If you have programmed in other languages before, we are confident you can pick up Go and start contributing easily.
 
-Asking for help
-^^^^^^^^^^^^^^^^^^^^
-Get stuck while working on a change? Want to get advice on coding style or existing code? Please raise an issue or ask for help in our Discord (linked on our homepage).
-
-Getting productive
-^^^^^^^^^^^^^^^^^^^^
-You'll want to run the following command often:
-
-.. code-block:: console
-
-    $ make build test lint
-
-This will build, run unit tests, and run linters to point out any problems. It's a good idea to run this if you're about to make a ``git commit``.
-
 Coding style
 ^^^^^^^^^^^^^^^^^^^^^^
 We enforce coding style through using `gofmt <https://pkg.go.dev/cmd/gofmt>`_.

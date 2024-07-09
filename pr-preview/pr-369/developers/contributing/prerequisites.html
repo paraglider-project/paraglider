@@ -240,9 +240,7 @@
 <li class="toctree-l1 current has-children"><a class="reference internal" href="../contributing.html">Contributing</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of Contributing</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
 <li class="toctree-l2 current current-page"><a class="current reference internal" href="#">Prerequisites</a></li>
 <li class="toctree-l2"><a class="reference internal" href="building.html">Building The Project</a></li>
-<li class="toctree-l2"><a class="reference internal" href="contributing-issues.html">Contributing Issues</a></li>
 <li class="toctree-l2"><a class="reference internal" href="writing-go.html">Writing Good Go Code</a></li>
-<li class="toctree-l2"><a class="reference internal" href="known-issues.html">Known Issues</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../plugin-interface.html">Plugin Interface</a></li>
@@ -288,80 +286,81 @@
         <article role="main" id="furo-main-content">
           <section id="prerequisites">
 <span id="id1"></span><h1>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">¶</a></h1>
-<section id="prerequisites-for-working-with-the-repo">
-<h2>Prerequisites for working with the repo<a class="headerlink" href="#prerequisites-for-working-with-the-repo" title="Link to this heading">¶</a></h2>
-<p>This section lists the prerequisites for working with the repository. Most contributors should start with the basic prerequisites.
+<p>This section lists the prerequisites for working with the repository.
+Most contributors should start with the basic prerequisites.
 Depending on the task you need to perform, you may need to install more tools.</p>
-<p>We also provide a <a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers">Devcontainer</a> for working with this repository without installing prerequisites.
-Keep reading for instructions.</p>
-<section id="operating-system">
-<h3>Operating system<a class="headerlink" href="#operating-system" title="Link to this heading">¶</a></h3>
-<p>We support developing on macOS, Linux and Windows with <a class="reference external" href="https://docs.microsoft.com/windows/wsl/install">WSL</a>.</p>
-</section>
-<section id="asking-for-help">
-<h3>Asking for help<a class="headerlink" href="#asking-for-help" title="Link to this heading">¶</a></h3>
-<p>If you get stuck installing any of our dependencies, you can raise an issue or ask for help in our <a class="reference external" href="https://discordapp.com/channels/1116864463832891502/11168644638328915074">discord</a>.</p>
+<p>We highly recommend using VS Code for development.
+We provide a <a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers">dev container</a> that will automatically install all of the prerequisites for you.
+It will take a while to download and install the first time you run it, but subsequent runs will be much faster.</p>
+<section id="vs-code-setup">
+<h2>VS Code Setup<a class="headerlink" href="#vs-code-setup" title="Link to this heading">¶</a></h2>
+<p>We recommend using VS Code for Paraglider development because we provide a <a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers">dev container</a> that will automatically install all of the prerequisites for you.</p>
+<ol class="arabic">
+<li><p><a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers#_getting-started">Get VS Code set up to use dev containers</a>.</p></li>
+<li><p><a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers#_quick-start-open-an-existing-folder-in-a-container">In VS Code, open the cloned repository in a container</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The first time you open the repository in a container, it will take a while to download and install the prerequisites.
+Subsequent opens will be much faster.</p>
+</div>
+</li>
+<li><p><a class="reference external" href="https://marketplace.visualstudio.com/items?itemName=golang.go">Install the Go extension</a>.</p></li>
+<li><p>Configure linter.</p>
+<p>You may see the following error from <code class="docutils literal notranslate"><span class="pre">gopls</span></code> in the <code class="docutils literal notranslate"><span class="pre">*_test.go</span></code> files.</p>
+<blockquote>
+<div><p>This file is within module “.”, which is not included in your workspace.
+To fix this problem, you can add a go.work file that uses this directory.
+See the documentation for more information on setting up your workspace:
+<a class="reference external" href="https://github.com/golang/tools/blob/master/gopls/doc/workspace.md">https://github.com/golang/tools/blob/master/gopls/doc/workspace.md</a>.</p>
+</div></blockquote>
+<p>Specify the following in your <code class="docutils literal notranslate"><span class="pre">settings.json</span></code>.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;go.buildTags&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;unit,integration,multicloud&quot;</span>
+</pre></div>
+</div>
+</li>
+</ol>
 </section>
 <section id="required-tools">
-<h3>Required tools<a class="headerlink" href="#required-tools" title="Link to this heading">¶</a></h3>
-<p>This is the list of core dependencies to install for the most common tasks. In general we expect all contributors to have all of these tools present:</p>
-<ul>
-<li><p><a class="reference external" href="https://git-scm.com">Git</a></p></li>
+<h2>Required Tools<a class="headerlink" href="#required-tools" title="Link to this heading">¶</a></h2>
+<p>This is the list of core dependencies to install for the most common tasks.
+In general we expect all contributors to have all of these tools present.</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://www.gnu.org/software/make/">make</a></p></li>
 <li><p><a class="reference external" href="https://golang.org/">Go</a></p></li>
-<li><p><a class="reference external" href="https://golangci-lint.run">golangci-lint</a></p></li>
 <li><p><a class="reference external" href="https://grpc.io/docs/protoc-installation">protoc</a></p></li>
-<li><p>make</p>
-<ul>
-<li><p>Linux: Install the <code class="docutils literal notranslate"><span class="pre">build-essential</span></code> package:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>apt<span class="w"> </span>install<span class="w"> </span>build-essential
-</pre></div>
-</div>
-</li>
-<li><p>Mac:</p>
-<p>Xcode</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>xcode-select<span class="w"> </span>--install
-</pre></div>
-</div>
-<p>Homebrew</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>brew<span class="w"> </span>install<span class="w"> </span>make
-</pre></div>
-</div>
-</li>
-</ul>
-</li>
+<li><p><a class="reference external" href="https://pkg.go.dev/google.golang.org/protobuf/cmd/protoc-gen-go">protoc-gen-go</a></p></li>
+<li><p><a class="reference external" href="https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc">protoc-gen-go-grpc</a></p></li>
+<li><p><a class="reference external" href="https://redis.io">redis</a></p></li>
+<li><p><a class="reference external" href="https://golangci-lint.run">golangci-lint</a></p></li>
 </ul>
 </section>
-<section id="testing-required-tools">
-<h3>Testing Required Tools<a class="headerlink" href="#testing-required-tools" title="Link to this heading">¶</a></h3>
-<p>If you have not already done so, clone the repository and navigate there in your command shell.</p>
-<p>You can build the main outputs using <code class="docutils literal notranslate"><span class="pre">make</span></code>:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>make<span class="w"> </span>build<span class="w"> </span>lint
-</pre></div>
-</div>
-<p>Running these steps will run our build and lint steps and verify that the tools are installed correctly.
-If you get stuck or suspect something is not working in these instructions please raise an issue or ask for help in our Discord linked on our homepage.</p>
-<p><strong>Integration/Multicloud Tests</strong></p>
-<p>Our integration/multicloud tests perform real requests to cloud providers. You can run these with the following commands</p>
+<section id="running-functional-tests">
+<h2>Running Functional Tests<a class="headerlink" href="#running-functional-tests" title="Link to this heading">¶</a></h2>
+<p>Paraglider uses both unit and functional tests.
+While unit tests use a fake cloud provider, functional tests make API calls to real cloud providers, which requires further setup.</p>
+<p>You can run these with the following commands</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>make<span class="w"> </span>integration-test
 <span class="gp">$ </span>make<span class="w"> </span>multicloud-test
 </pre></div>
 </div>
 <p>Note that the <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">test</span></code> command only runs unit tests.</p>
-<p>If you would like to run these locally, you will need to be authenticated. The following are the steps for each respective cloud provider.</p>
-<p><strong>Google Cloud</strong></p>
+<p>If you would like to run these locally, you will need to be authenticated.
+The following are the steps for each respective cloud provider.</p>
+<section id="google-cloud">
+<h3>Google Cloud<a class="headerlink" href="#google-cloud" title="Link to this heading">¶</a></h3>
 <ol class="arabic">
 <li><p><a class="reference external" href="https://cloud.google.com/sdk/docs/install">Install the gcloud CLI</a>. If you’re using the dev container, this will already be installed for you.</p></li>
 <li><p><a class="reference external" href="https://cloud.google.com/docs/authentication/provide-credentials-adc">Set up your application default credentials</a>.</p></li>
 <li><p>Set the active project with <code class="docutils literal notranslate"><span class="pre">gcloud</span> <span class="pre">config</span> <span class="pre">set</span> <span class="pre">project</span> <span class="pre">&lt;project-id&gt;</span></code>.</p></li>
-<li><p>The tests will automatically create (and delete) new projects for each test run. You must set the environment variable <code class="docutils literal notranslate"><span class="pre">INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME</span></code> in the form of the <code class="docutils literal notranslate"><span class="pre">billingAccount</span></code> field of the <a class="reference external" href="https://cloud.google.com/billing/docs/reference/rest/v1/ProjectBillingInfo">“ProjectBillingInfo” resource</a>.</p>
+<li><p>The tests will automatically create (and delete) new projects for each test run. You must set the environment variable <code class="docutils literal notranslate"><span class="pre">PARAGLIDER_GCP_PROJECT_BILLING_ACCOUNT_NAME</span></code> in the form of the <code class="docutils literal notranslate"><span class="pre">billingAccount</span></code> field of the <a class="reference external" href="https://cloud.google.com/billing/docs/reference/rest/v1/ProjectBillingInfo">“ProjectBillingInfo” resource</a>.</p>
 <ul>
-<li><p>If you’d like them to be created in a certain parent, set the environment variable <code class="docutils literal notranslate"><span class="pre">INVISINETS_GCP_PROJECT_PARENT</span></code> in the form of the <cite>parent</cite> field of the <a class="reference external" href="https://cloud.google.com/resource-manager/reference/rest/v3/projects#resource:-project">“Project” resource</a>.</p>
+<li><p>If you’d like them to be created in a certain parent, set the environment variable <code class="docutils literal notranslate"><span class="pre">PARAGLIDER_GCP_PROJECT_PARENT</span></code> in the form of the <cite>parent</cite> field of the <a class="reference external" href="https://cloud.google.com/resource-manager/reference/rest/v3/projects#resource:-project">“Project” resource</a>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>This requires privileges of creating projects and linking billing accounts.</p>
 </div>
 </li>
-<li><p>If you want to use your own project, set the environment variable <code class="docutils literal notranslate"><span class="pre">INVISINETS_GCP_PROJECT</span></code>. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.</p>
+<li><p>If you want to use your own project, set the environment variable <code class="docutils literal notranslate"><span class="pre">PARAGLIDER_GCP_PROJECT</span></code>. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>Resources will not automatically be cleaned up for you.</p>
@@ -370,13 +369,15 @@ If you get stuck or suspect something is not working in these instructions pleas
 </ul>
 </li>
 </ol>
-<p><strong>Azure</strong></p>
+</section>
+<section id="azure">
+<h3>Azure<a class="headerlink" href="#azure" title="Link to this heading">¶</a></h3>
 <ol class="arabic">
 <li><p><a class="reference external" href="https://learn.microsoft.com/en-us/cli/azure/install-azure-cli">Install azure cli</a>. If you’re using the dev container, this will already be installed for you.</p></li>
 <li><p><a class="reference external" href="https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli">Authenticate to your account with azure login</a>.</p></li>
-<li><p>The tests will automatically create (and delete) new resource groups for each test run. You must set the environment variable <code class="docutils literal notranslate"><span class="pre">INVISINETS_AZURE_SUBSCRIPTION_ID</span></code> with a valid subscription.</p>
+<li><p>The tests will automatically create (and delete) new resource groups for each test run. You must set the environment variable <code class="docutils literal notranslate"><span class="pre">PARAGLIDER_AZURE_SUBSCRIPTION_ID</span></code> with a valid subscription.</p>
 <ul>
-<li><p>If you want to use your own existing resource group, set the environment variable <code class="docutils literal notranslate"><span class="pre">INVISINETS_AZURE_RESOURCE_GROUP</span></code>. The tests will not delete the resource group and instead only clean up the resources within it.</p>
+<li><p>If you want to use your own existing resource group, set the environment variable <code class="docutils literal notranslate"><span class="pre">PARAGLIDER_AZURE_RESOURCE_GROUP</span></code>. The tests will not delete the resource group and instead only clean up the resources within it.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>Resource group must be created before running the test.</p>
@@ -385,35 +386,30 @@ If you get stuck or suspect something is not working in these instructions pleas
 </ul>
 </li>
 </ol>
-<p>If you’d like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable <code class="docutils literal notranslate"><span class="pre">INVISINETS_TEST_PERSIST</span></code> to <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
-<p><strong>IBM</strong></p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>IBM integration tests are not currently supported. We plan to add some soon.</p>
-</div>
+</section>
+<section id="ibm">
+<h3>IBM<a class="headerlink" href="#ibm" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>Set environment variable <code class="docutils literal notranslate"><span class="pre">PARAGLIDER_IBM_API_KEY</span></code> with an <code class="docutils literal notranslate"><span class="pre">IAM</span> <span class="pre">API</span></code> key. Create a key on <a class="reference external" href="https://cloud.ibm.com/iam/apikeys">IBM’s web console</a>.</p></li>
+<li><p>Set environment variable <code class="docutils literal notranslate"><span class="pre">PARAGLIDER_IBM_RESOURCE_GROUP_ID</span></code> with a resource group ID.
+Pick a resource group from <a class="reference external" href="https://cloud.ibm.com/account/resource-groups">IBM’s web console</a>.</p></li>
+</ol>
+</section>
+<section id="persisting-resources">
+<h3>Persisting Resources<a class="headerlink" href="#persisting-resources" title="Link to this heading">¶</a></h3>
+<p>The functional tests will automatically clean up any resources they create before completing the test run.
+If you’d like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable <code class="docutils literal notranslate"><span class="pre">PARAGLIDER_TEST_PERSIST</span></code> to <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
 </section>
 </section>
-<section id="using-the-dev-container">
-<h2>Using the Dev Container<a class="headerlink" href="#using-the-dev-container" title="Link to this heading">¶</a></h2>
-<p>Dev Containers allow you to run a development environment using VS Code inside a container. If you want to try this:</p>
-<ul class="simple">
-<li><p>Install <a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers#_system-requirements">Docker</a></p></li>
-<li><p>Install <a class="reference external" href="https://code.visualstudio.com/">VS Code</a></p></li>
-<li><p>Install the <a class="reference external" href="https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers">Dev Container extension</a></p></li>
+<section id="optional-tools">
+<h2>Optional Tools<a class="headerlink" href="#optional-tools" title="Link to this heading">¶</a></h2>
+<ul>
+<li><p><a class="reference external" href="https://github.com/gotestyourself/gotestsum#install">gotestsum</a> for better test summaries</p>
+<p>The default <code class="docutils literal notranslate"><span class="pre">go</span> <span class="pre">test</span></code> output can be hard to read when you have many tests.
+We recommend <code class="docutils literal notranslate"><span class="pre">gotestsum</span></code> as a tool to solve this.
+Our <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">test</span></code> command will automatically use <code class="docutils literal notranslate"><span class="pre">gotestsum</span></code> if available.</p>
+</li>
 </ul>
-<p>Now when you open the Paraglider repo, you will be prompted with the option to open in a Dev Container.
-This will take a few minutes the first time to download and build the container, but will be much faster on subsequent opens.</p>
-</section>
-<section id="additional-tools">
-<h2>Additional Tools<a class="headerlink" href="#additional-tools" title="Link to this heading">¶</a></h2>
-<section id="test-summaries">
-<h3>Test summaries<a class="headerlink" href="#test-summaries" title="Link to this heading">¶</a></h3>
-<p>The default <code class="docutils literal notranslate"><span class="pre">go</span> <span class="pre">test</span></code> output can be hard to read when you have many tests. We recommend <code class="docutils literal notranslate"><span class="pre">gotestsum</span></code> as a tool to solve this.
-Our <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">test</span></code> command will automatically use <code class="docutils literal notranslate"><span class="pre">gotestsum</span></code> if it is available.</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://github.com/gotestyourself/gotestsum#install">gotestsum</a></p></li>
-</ul>
-</section>
 </section>
 </section>
 
@@ -459,6 +455,11 @@ Our <code class="docutils literal notranslate"><span class="pre">make</span> <sp
                     <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path>
                 </svg>
             </a>
+              <a class="muted-link " href="https://discord.gg/KrZGbfZ7wm" aria-label="Discord">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-discord" viewBox="0 0 16 16">
+                    <path d="M13.545 2.907a13.2 13.2 0 0 0-3.257-1.011.05.05 0 0 0-.052.025c-.141.25-.297.577-.406.833a12.2 12.2 0 0 0-3.658 0 8 8 0 0 0-.412-.833.05.05 0 0 0-.052-.025c-1.125.194-2.22.534-3.257 1.011a.04.04 0 0 0-.021.018C.356 6.024-.213 9.047.066 12.032q.003.022.021.037a13.3 13.3 0 0 0 3.995 2.02.05.05 0 0 0 .056-.019q.463-.63.818-1.329a.05.05 0 0 0-.01-.059l-.018-.011a9 9 0 0 1-1.248-.595.05.05 0 0 1-.02-.066l.015-.019q.127-.095.248-.195a.05.05 0 0 1 .051-.007c2.619 1.196 5.454 1.196 8.041 0a.05.05 0 0 1 .053.007q.121.1.248.195a.05.05 0 0 1-.004.085 8 8 0 0 1-1.249.594.05.05 0 0 0-.03.03.05.05 0 0 0 .003.041c.24.465.515.909.817 1.329a.05.05 0 0 0 .056.019 13.2 13.2 0 0 0 4.001-2.02.05.05 0 0 0 .021-.037c.334-3.451-.559-6.449-2.366-9.106a.03.03 0 0 0-.02-.019m-8.198 7.307c-.789 0-1.438-.724-1.438-1.612s.637-1.613 1.438-1.613c.807 0 1.45.73 1.438 1.613 0 .888-.637 1.612-1.438 1.612m5.316 0c-.788 0-1.438-.724-1.438-1.612s.637-1.613 1.438-1.613c.807 0 1.451.73 1.438 1.613 0 .888-.631 1.612-1.438 1.612"/>
+                </svg>            
+            </a>
               
             </div>
           </div>
@@ -479,18 +480,16 @@ Our <code class="docutils literal notranslate"><span class="pre">make</span> <sp
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Prerequisites</a><ul>
-<li><a class="reference internal" href="#prerequisites-for-working-with-the-repo">Prerequisites for working with the repo</a><ul>
-<li><a class="reference internal" href="#operating-system">Operating system</a></li>
-<li><a class="reference internal" href="#asking-for-help">Asking for help</a></li>
-<li><a class="reference internal" href="#required-tools">Required tools</a></li>
-<li><a class="reference internal" href="#testing-required-tools">Testing Required Tools</a></li>
+<li><a class="reference internal" href="#vs-code-setup">VS Code Setup</a></li>
+<li><a class="reference internal" href="#required-tools">Required Tools</a></li>
+<li><a class="reference internal" href="#running-functional-tests">Running Functional Tests</a><ul>
+<li><a class="reference internal" href="#google-cloud">Google Cloud</a></li>
+<li><a class="reference internal" href="#azure">Azure</a></li>
+<li><a class="reference internal" href="#ibm">IBM</a></li>
+<li><a class="reference internal" href="#persisting-resources">Persisting Resources</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#using-the-dev-container">Using the Dev Container</a></li>
-<li><a class="reference internal" href="#additional-tools">Additional Tools</a><ul>
-<li><a class="reference internal" href="#test-summaries">Test summaries</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#optional-tools">Optional Tools</a></li>
 </ul>
 </li>
 </ul>
