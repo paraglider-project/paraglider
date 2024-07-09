@@ -240,7 +240,7 @@ func RunPingConnectivityTest(t *testing.T, project string, name string, sourceIp
 			Protocol: "ICMP",
 			Source: &networkmanagementpb.Endpoint{
 				IpAddress: sourceIpAddress,
-				Network:   GetVpcUrl(project, sourceNamespace),
+				Network:   getVpcUrl(project, sourceNamespace),
 				ProjectId: project,
 			},
 			Destination: &networkmanagementpb.Endpoint{
