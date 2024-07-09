@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package create
+package attach
 
 import (
 	"fmt"
@@ -31,13 +31,12 @@ import (
 func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{writer: os.Stdout, cliSettings: config.ActiveConfig.Settings}
 	cmd := &cobra.Command{
-		Use:     "create <cloud> <resource_name> <resource_description_file>",
-		Short:   "Create a resource in the active namespace",
-		Args:    cobra.ExactArgs(3),
+		Use:     "attach <cloud> <resource_id>",
+		Short:   "Attach a resource to active namespace",
+		Args:    cobra.ExactArgs(2),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
 	}
-	cmd.Flags().String("uri", "", "Resource URI if necessary for creation")
 	return cmd, executor
 }
 
@@ -45,8 +44,6 @@ type executor struct {
 	common.CommandExecutor
 	writer      io.Writer
 	cliSettings config.CliSettings
-	description []byte
-	uri         string
 }
 
 func (e *executor) SetOutput(w io.Writer) {
@@ -54,36 +51,21 @@ func (e *executor) SetOutput(w io.Writer) {
 }
 
 func (e *executor) Validate(cmd *cobra.Command, args []string) error {
-	descriptionFile, err := os.Open(args[2])
-	if err != nil {
-		return err
-	}
-	defer descriptionFile.Close()
-	e.description, err = io.ReadAll(descriptionFile)
-	if err != nil {
-		return err
-	}
-
-	e.uri, err = cmd.Flags().GetString("uri")
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	resource := &paragliderpb.ResourceDescriptionString{Description: string(e.description)}
+	// fmt.Fprintf(e.writer, "Attaching resource %s to namespace %s in cloud %s\n", e.resourceID, args[1], args[0])
+	paragliderClient := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 
-	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
-	resourceInfo, err := c.CreateResource(e.cliSettings.ActiveNamespace, args[0], args[1], resource)
-
+	resource := &paragliderpb.ResourceString{Id: args[1]}
+	resourceInfo, err := paragliderClient.AttachResource(e.cliSettings.ActiveNamespace, args[0], resource)
 	if err != nil {
-		fmt.Fprintf(e.writer, "Failed to create resource: %v\n", err)
+		fmt.Fprintf(e.writer, "Failed to attach resource: %v\n", err)
 		return err
 	}
 
-	fmt.Fprintf(e.writer, "Resource Created.\ntag: %s\nuri: %s\nip: %s\n", resourceInfo["name"], resourceInfo["uri"], resourceInfo["ip"])
+	fmt.Fprintf(e.writer, "Resource Attached.\ntag: %s\nuri: %s\nip: %s\n", resourceInfo["name"], resourceInfo["uri"], resourceInfo["ip"])
 
 	return nil
 }

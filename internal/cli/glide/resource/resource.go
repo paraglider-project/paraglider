@@ -17,6 +17,7 @@ limitations under the License.
 package resource
 
 import (
+	"github.com/paraglider-project/paraglider/internal/cli/glide/resource/attach"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/resource/create"
 	"github.com/spf13/cobra"
 )
@@ -29,6 +30,9 @@ func NewCommand() *cobra.Command {
 
 	createCmd, _ := create.NewCommand()
 	cmd.AddCommand(createCmd)
+
+	attachCmd, _ := attach.NewCommand()
+	cmd.AddCommand(attachCmd)
 
 	return cmd
 }
