@@ -96,7 +96,7 @@ func TestAttachResource(t *testing.T) {
 	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
-	resource, err := client.AttachResource(fake.Namespace, fake.CloudName, &orchestrator.ResourceWithID{Id: fake.Uri})
+	resource, err := client.AttachResource(fake.Namespace, fake.CloudName, &orchestrator.ResourceID{Id: fake.Uri})
 	assert.Nil(t, err)
 	assert.Equal(t, fake.Uri, resource["uri"])
 	assert.Equal(t, fake.Ip, resource["ip"])

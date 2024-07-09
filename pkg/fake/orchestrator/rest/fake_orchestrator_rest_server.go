@@ -212,7 +212,7 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 				}
 			} else {
 				// Attach Resource (POST)
-				resource := &orchestrator.ResourceWithID{}
+				resource := &orchestrator.ResourceID{}
 				err := json.Unmarshal(body, resource)
 				if err != nil {
 					http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
