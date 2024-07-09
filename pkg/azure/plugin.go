@@ -29,10 +29,10 @@ import (
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+const minPriority = 100
 const maxPriority = 4096
 
 type azurePluginServer struct {
@@ -124,8 +124,8 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 	}
 
 	var existingRulePriorities map[string]int32 = make(map[string]int32)
-	var reservedPrioritiesInbound map[int32]bool = make(map[int32]bool)
-	var reservedPrioritiesOutbound map[int32]bool = make(map[int32]bool)
+	var reservedPrioritiesInbound map[int32]*armnetwork.SecurityRule = make(map[int32]*armnetwork.SecurityRule)
+	var reservedPrioritiesOutbound map[int32]*armnetwork.SecurityRule = make(map[int32]*armnetwork.SecurityRule)
 	err = setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, existingRulePriorities, netInfo.NSG)
 	if err != nil {
 		utils.Log.Printf("An error occured during setup: %+v", err)
@@ -153,6 +153,15 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 		return nil, err
 	}
 
+	// Get subnets address spaces
+	localVnetAddressSpaces := []string{}
+	for _, addressSpace := range resourceVnet.Properties.AddressSpace.AddressPrefixes {
+		localVnetAddressSpaces = append(localVnetAddressSpaces, *addressSpace)
+	}
+	if len(localVnetAddressSpaces) == 0 {
+		return nil, fmt.Errorf("unable to get subnet address prefix")
+	}
+
 	// Add the rules to the NSG
 	for _, rule := range req.GetRules() {
 		// Get all peering cloud infos
@@ -165,24 +174,22 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 			if peeringCloudInfo == nil {
 				continue
 			}
+			address := rule.Targets[i]
 			if peeringCloudInfo.Cloud != utils.AZURE {
 				// Create VPN connections
 				connectCloudsReq := &paragliderpb.ConnectCloudsRequest{
-					CloudA:          utils.AZURE,
-					CloudANamespace: req.Namespace,
-					CloudB:          peeringCloudInfo.Cloud,
-					CloudBNamespace: peeringCloudInfo.Namespace,
+					CloudA:              utils.AZURE,
+					CloudANamespace:     req.Namespace,
+					CloudB:              peeringCloudInfo.Cloud,
+					CloudBNamespace:     peeringCloudInfo.Namespace,
+					AddressSpacesCloudA: localVnetAddressSpaces,
+					AddressSpacesCloudB: []string{address},
 				}
 				_, err := orchestratorClient.ConnectClouds(ctx, connectCloudsReq)
 				if err != nil {
 					return nil, fmt.Errorf("unable to connect clouds : %w", err)
 				}
 			} else {
-				localVnetAddressSpaces := []string{}
-				for _, addressSpace := range resourceVnet.Properties.AddressSpace.AddressPrefixes {
-					localVnetAddressSpaces = append(localVnetAddressSpaces, *addressSpace)
-				}
-
 				isLocal, err := utils.IsPermitListRuleTagInAddressSpace(rule.Targets[i], localVnetAddressSpaces)
 				if err != nil {
 					return nil, fmt.Errorf("unable to determine if tag is in local vnet address space: %w", err)
@@ -202,16 +209,16 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 		priority, ok := existingRulePriorities[getNSGRuleName(rule.Name)]
 		if !ok {
 			if rule.Direction == paragliderpb.Direction_INBOUND {
-				priority = getPriority(reservedPrioritiesInbound, inboundPriority, maxPriority)
+				priority = getNextAvailablePriority(reservedPrioritiesInbound, inboundPriority, maxPriority, true)
 				inboundPriority = priority + 1
 			} else if rule.Direction == paragliderpb.Direction_OUTBOUND {
-				priority = getPriority(reservedPrioritiesOutbound, outboundPriority, maxPriority)
+				priority = getNextAvailablePriority(reservedPrioritiesOutbound, outboundPriority, maxPriority, true)
 				outboundPriority = priority + 1
 			}
 		}
 
 		// Create the NSG rule
-		securityRule, err := azureHandler.CreateSecurityRule(ctx, rule, *netInfo.NSG.Name, getNSGRuleName(rule.Name), netInfo.Address, priority)
+		securityRule, err := azureHandler.CreateSecurityRuleFromPermitList(ctx, rule, *netInfo.NSG.Name, getNSGRuleName(rule.Name), netInfo.Address, priority, allowRule)
 		if err != nil {
 			utils.Log.Printf("An error occured while creating security rule:%+v", err)
 			return nil, err
@@ -311,7 +318,8 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 		}
 		defer conn.Close()
 		client := paragliderpb.NewControllerClient(conn)
-		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Num: proto.Int32(int32(resourceDescInfo.NumAdditionalAddressSpaces))})
+		reqAddressSpaces := make([]int32, resourceDescInfo.NumAdditionalAddressSpaces)
+		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: reqAddressSpaces})
 		if err != nil {
 			utils.Log.Printf("Failed to find unused address spaces: %v", err)
 			return nil, err
@@ -329,72 +337,21 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 	// Create VPN gateway vnet if not already created
 	// The vnet is created even if there's no multicloud connections at the moment for ease of connection in the future.
 	// Note that vnets are free, so this is not a problem.
-	vpnGwVnetName := getVpnGatewayVnetName(resourceDesc.Deployment.Namespace)
-	_, err = azureHandler.GetVirtualNetwork(ctx, vpnGwVnetName)
+	vpnGwVnet, err := GetOrCreateVpnGatewayVNet(ctx, azureHandler, resourceDesc.Deployment.Namespace)
 	if err != nil {
-		if isErrorNotFound(err) {
-			virtualNetworkParameters := armnetwork.VirtualNetwork{
-				Location: to.Ptr(vpnLocation),
-				Properties: &armnetwork.VirtualNetworkPropertiesFormat{
-					AddressSpace: &armnetwork.AddressSpace{
-						AddressPrefixes: []*string{to.Ptr(gatewaySubnetAddressPrefix)},
-					},
-					Subnets: []*armnetwork.Subnet{
-						{
-							Name: to.Ptr(gatewaySubnetName),
-							Properties: &armnetwork.SubnetPropertiesFormat{
-								AddressPrefix: to.Ptr(gatewaySubnetAddressPrefix),
-							},
-						},
-					},
-				},
-			}
-			_, err = azureHandler.CreateVirtualNetwork(ctx, getVpnGatewayVnetName(resourceDesc.Deployment.Namespace), virtualNetworkParameters)
-			if err != nil {
-				return nil, fmt.Errorf("unable to create VPN gateway vnet: %w", err)
-			}
-		} else {
-			return nil, fmt.Errorf("unable to get VPN gateway vnet: %w", err)
-		}
+		utils.Log.Printf("An error occured while getting or creating VPN gateway vnet:%+v", err)
+		return nil, err
 	}
 
 	// Create peering VPN gateway vnet and VM vnet. If the VPN gateway already exists, then establish a VPN gateway transit relationship where the vnet can use the gatewayVnet's VPN gateway.
 	// - This peering is created even if there's no multicloud connections at the moment for ease of connection in the future.
-	// - Peerings are only charge based on amount of data transferred, so this will not incur extra charge until the VPN gateway is created.
+	// - Peerings are only charged based on amount of data transferred, so this will not incur extra charge until the VPN gateway is created.
 	// - VPN gateway transit relationship cannot be established before the VPN gateway creation.
 	// - If the VPN gateway hasn't been created, then the gateway transit relationship will be established on VPN gateway creation.
-	_, err = azureHandler.GetVirtualNetworkPeering(ctx, vnetName, vpnGwVnetName)
-	var peeringExists bool
+	err = CreateGatewayVnetPeering(ctx, azureHandler, vnetName, *vpnGwVnet.Name, resourceDesc.Deployment.Namespace)
 	if err != nil {
-		if isErrorNotFound(err) {
-			peeringExists = false
-		} else {
-			return nil, fmt.Errorf("unable to get vnet peering between VM vnet and VPN gateway vnet: %w", err)
-		}
-	} else {
-		peeringExists = true
-	}
-	// Only add peering if it doesn't exist
-	if !peeringExists {
-		vpnGwName := getVpnGatewayName(resourceDesc.Deployment.Namespace)
-		_, err = azureHandler.GetVirtualNetworkGateway(ctx, vpnGwName)
-		if err != nil {
-			if isErrorNotFound(err) {
-				// Create regular peering which will be augmented with gateway transit relationship later on VPN gateway creation
-				err = azureHandler.CreateVnetPeering(ctx, vnetName, vpnGwVnetName)
-				if err != nil {
-					return nil, fmt.Errorf("unable to create vnet peerings between VM vnet and VPN gateway vnet: %w", err)
-				}
-			} else {
-				return nil, fmt.Errorf("unable to get VPN gateway: %w", err)
-			}
-		} else {
-			// Create peering with gateway transit relationship if VPN gateway already exists
-			err = azureHandler.CreateOrUpdateVnetPeeringRemoteGateway(ctx, vnetName, vpnGwVnetName, nil, nil)
-			if err != nil {
-				return nil, fmt.Errorf("unable to create vnet peerings (with gateway transit) between VM vnet and VPN gateway vnet: %w", err)
-			}
-		}
+		utils.Log.Printf("An error occured while creating VPN gateway vnet peering:%+v", err)
+		return nil, err
 	}
 
 	return &paragliderpb.CreateResourceResponse{Name: resourceDescInfo.ResourceName, Uri: resourceDescInfo.ResourceID, Ip: ip}, nil
@@ -419,7 +376,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *parag
 			return nil, err
 		}
 
-		addressSpaces, err := azureHandler.GetVNetsAddressSpaces(ctx, getParagliderNamespacePrefix(deployment.Namespace))
+		addressSpaces, err := azureHandler.GetAllVnetsAddressSpaces(ctx, getParagliderNamespacePrefix(deployment.Namespace))
 		if err != nil {
 			utils.Log.Printf("An error occured while getting address spaces:%+v", err)
 			return nil, err
@@ -682,14 +639,22 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 			if isErrorNotFound(err) {
 				localNetworkGatewayParameters := armnetwork.LocalNetworkGateway{
 					Properties: &armnetwork.LocalNetworkGatewayPropertiesFormat{
-						BgpSettings: &armnetwork.BgpSettings{
-							Asn:               to.Ptr(int64(req.Asn)),
-							BgpPeeringAddress: to.Ptr(req.BgpIpAddresses[i]),
-							PeerWeight:        to.Ptr(int32(0)),
-						},
 						GatewayIPAddress: to.Ptr(req.GatewayIpAddresses[i]),
 					},
 					Location: to.Ptr(vpnLocation),
+				}
+				if req.IsBgpDisabled {
+					addresses := make([]*string, len(req.RemoteAddresses))
+					for i, address := range req.RemoteAddresses {
+						addresses[i] = &address
+					}
+					localNetworkGatewayParameters.Properties.LocalNetworkAddressSpace = &armnetwork.AddressSpace{AddressPrefixes: addresses}
+				} else {
+					localNetworkGatewayParameters.Properties.BgpSettings = &armnetwork.BgpSettings{
+						Asn:               to.Ptr(int64(req.Asn)),
+						BgpPeeringAddress: to.Ptr(req.BgpIpAddresses[i]),
+						PeerWeight:        to.Ptr(int32(0)),
+					}
 				}
 				localNetworkGateway, err = azureHandler.CreateLocalNetworkGateway(ctx, localNetworkGatewayName, localNetworkGatewayParameters)
 				if err != nil {
@@ -706,6 +671,8 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 	if err != nil {
 		return nil, fmt.Errorf("unable to get virtual network gateway: %w", err)
 	}
+
+	bgpStatus := !req.IsBgpDisabled
 	for i := 0; i < vpnNumConnections; i++ {
 		virtualNetworkGatewayconnectionName := getVirtualNetworkGatewayConnectionName(req.Deployment.Namespace, req.Cloud, i)
 		_, err := azureHandler.GetVirtualNetworkGatewayConnection(ctx, virtualNetworkGatewayconnectionName)
@@ -722,8 +689,8 @@ func (s *azurePluginServer) CreateVpnConnections(ctx context.Context, req *parag
 						ConnectionMode:                 to.Ptr(armnetwork.VirtualNetworkGatewayConnectionModeDefault),
 						ConnectionProtocol:             to.Ptr(armnetwork.VirtualNetworkGatewayConnectionProtocolIKEv2),
 						DpdTimeoutSeconds:              to.Ptr(int32(45)),
-						EnableBgp:                      to.Ptr(true),
-						IPSecPolicies:                  []*armnetwork.IPSecPolicy{},
+						EnableBgp:                      to.Ptr(bgpStatus),
+						IPSecPolicies:                  getIPSecPolicy(req.Cloud),
 						LocalNetworkGateway2:           localNetworkGateways[i],
 						RoutingWeight:                  to.Ptr(int32(0)),
 						SharedKey:                      to.Ptr(req.SharedKey),
@@ -756,7 +723,7 @@ func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler Azur
 	if err != nil {
 		return err
 	}
-	paragliderVnetsMap, err := peeringCloudAzureHandler.GetVNetsAddressSpaces(ctx, getParagliderNamespacePrefix(peeringCloudInfo.Namespace))
+	paragliderVnetsMap, err := peeringCloudAzureHandler.GetAllVnetsAddressSpaces(ctx, getParagliderNamespacePrefix(peeringCloudInfo.Namespace))
 	if err != nil {
 		return fmt.Errorf("unable to create vnets address spaces for peering cloud: %w", err)
 	}
@@ -788,6 +755,96 @@ func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler Azur
 	return nil
 }
 
+// returns an IPSec policy to configure a VPN connection that's compatible the specified cloud
+func getIPSecPolicy(cloud string) []*armnetwork.IPSecPolicy {
+	if cloud == utils.IBM {
+		ipSecPolicies := make([]*armnetwork.IPSecPolicy, 1)
+		ipSecPolicies[0] = &armnetwork.IPSecPolicy{
+			DhGroup:             to.Ptr(armnetwork.DhGroupDHGroup24),
+			IPSecEncryption:     to.Ptr(armnetwork.IPSecEncryptionAES256),
+			IPSecIntegrity:      to.Ptr(armnetwork.IPSecIntegritySHA256),
+			IkeEncryption:       to.Ptr(armnetwork.IkeEncryptionAES256),
+			IkeIntegrity:        to.Ptr(armnetwork.IkeIntegritySHA384),
+			PfsGroup:            to.Ptr(armnetwork.PfsGroupNone),
+			SaDataSizeKilobytes: to.Ptr(int32(0)),
+			SaLifeTimeSeconds:   to.Ptr(int32(27000)),
+		}
+		return ipSecPolicies
+	}
+	return nil
+}
+
+// GetNetworkAddressSpaces returns the subnets addresses of the VNet containing the specified address space
+func (s *azurePluginServer) GetNetworkAddressSpaces(ctx context.Context, req *paragliderpb.GetNetworkAddressSpacesRequest) (*paragliderpb.GetNetworkAddressSpacesResponse, error) {
+	// TODO Implement method
+	// This is a placeholder implementation, that translates the specified address space to a CIDR, in case an IP is provided. Instead:
+	// 1. locate the VNet containing the address space provided via req.AddressSpace.
+	// 2. return the address spaces of all subnets in the above VNet.
+	var resourceAddress string
+	ip := net.ParseIP(req.AddressSpace)
+	if ip != nil {
+		resourceAddress = req.AddressSpace + "/32"
+	} else if _, _, err := net.ParseCIDR(resourceAddress); err != nil {
+		resourceAddress = req.AddressSpace
+	} else {
+		return nil, fmt.Errorf("failed to get addresses of subnets in Azure's VNet containing %v", req.AddressSpace)
+	}
+
+	return &paragliderpb.GetNetworkAddressSpacesResponse{AddressSpaces: []string{resourceAddress}}, nil
+}
+
+// Add an existing Azure resource to a paraglider deployment
+func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceReq *paragliderpb.AttachResourceRequest) (*paragliderpb.AttachResourceResponse, error) {
+	resourceId := attachResourceReq.GetResource()
+	resourceIdInfo, err := getResourceIDInfo(resourceId)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting resource id info:%+v", err)
+		return nil, err
+	}
+
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo, attachResourceReq.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
+	resource, networkInfo, err := ValidateResourceCompliesWithParagliderRequirements(ctx, resourceId, azureHandler, s)
+	if err != nil {
+		utils.Log.Printf("An error occured while validating resource:%+v", err)
+		return nil, err
+	}
+
+	// Create VPN gateway vnet if not already created
+	vpnGwVnet, err := GetOrCreateVpnGatewayVNet(ctx, azureHandler, namespace)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting or creating VPN gateway vnet:%+v", err)
+		return nil, err
+	}
+
+	vnetName := getVnetFromSubnetId(networkInfo.SubnetID)
+	// Create peering between the VPN gateway vnet and VM vnet. If the VPN gateway already exists, then establish a VPN gateway transit relationship where the vnet can use the gatewayVnet's VPN gateway.
+	err = CreateGatewayVnetPeering(ctx, azureHandler, vnetName, *vpnGwVnet.Name, namespace)
+	if err != nil {
+		utils.Log.Printf("An error occured while creating VPN gateway vnet peering:%+v", err)
+		return nil, err
+	}
+
+	vnet, err := azureHandler.GetVirtualNetwork(ctx, vnetName)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting vnet:%+v", err)
+		return nil, err
+	}
+
+	// Add Paraglider namespace tag to the vnet
+	azureHandler.createParagliderNamespaceTag(&vnet.Tags)
+	_, err = azureHandler.CreateOrUpdateVirtualNetwork(ctx, vnetName, *vnet)
+	if err != nil {
+		utils.Log.Printf("An error occured while creating vnet:%+v", err)
+		return nil, err
+	}
+
+	return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: networkInfo.Address}, nil
+}
+
 func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
@@ -799,7 +856,7 @@ func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 		azureCredentialGetter:  &AzureCredentialGetter{},
 	}
 	paragliderpb.RegisterCloudPluginServer(grpcServer, azureServer)
-	fmt.Println("Starting server on port :", port)
+	fmt.Println("Starting server on port: ", port)
 
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {

@@ -75,14 +75,14 @@ func generateProjectId(testName string) string {
 
 func SetupGcpTesting(testName string) string {
 	var projectId string
-	if os.Getenv("INVISINETS_GCP_PROJECT") != "" {
-		projectId = os.Getenv("INVISINETS_GCP_PROJECT")
+	if os.Getenv("PARAGLIDER_GCP_PROJECT") != "" {
+		projectId = os.Getenv("PARAGLIDER_GCP_PROJECT")
 	} else {
 		var projectDisplayName string
 		projectId = generateProjectId(testName)
 		if os.Getenv("GH_RUN_NUMBER") != "" {
 			// Use run number in project display name since it's more human readable
-			projectDisplayName = fmt.Sprintf("paraglider-gh-%s-%s", os.Getenv("GH_RUN_NUMBER"), testName)
+			projectDisplayName = fmt.Sprintf("glide-gh-%s-%s", os.Getenv("GH_RUN_NUMBER"), testName)
 		} else {
 			projectDisplayName = projectId
 		}
@@ -116,7 +116,7 @@ func SetupGcpTesting(testName string) string {
 		updateProjectBillingInfoReq := &billingpb.UpdateProjectBillingInfoRequest{
 			Name: "projects/" + projectId,
 			ProjectBillingInfo: &billingpb.ProjectBillingInfo{
-				BillingAccountName: os.Getenv("INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME"),
+				BillingAccountName: os.Getenv("PARAGLIDER_GCP_PROJECT_BILLING_ACCOUNT_NAME"),
 			},
 		}
 		_, err = cloudBillingClient.UpdateProjectBillingInfo(ctx, updateProjectBillingInfoReq)
@@ -146,7 +146,7 @@ func SetupGcpTesting(testName string) string {
 }
 
 func TeardownGcpTesting(projectId string) {
-	if projectId != os.Getenv("INVISINETS_GCP_PROJECT") && os.Getenv("INVISINETS_TEST_PERSIST") != "1" {
+	if projectId != os.Getenv("PARAGLIDER_GCP_PROJECT") && os.Getenv("PARAGLIDER_TEST_PERSIST") != "1" {
 		ctx := context.Background()
 		projectsClient, err := resourcemanager.NewProjectsClient(ctx)
 		if err != nil {
@@ -177,7 +177,7 @@ func GetTestVmParameters(project string, zone string, name string) *computepb.In
 				{
 					InitializeParams: &computepb.AttachedDiskInitializeParams{
 						DiskSizeGb:  proto.Int64(10),
-						SourceImage: proto.String("projects/debian-cloud/global/images/family/debian-10"),
+						SourceImage: proto.String("projects/ubuntu-os-cloud/global/images/family/ubuntu-2204-lts"),
 					},
 					AutoDelete: proto.Bool(true),
 					Boot:       proto.Bool(true),
@@ -304,7 +304,7 @@ func parseUrl(url string) map[string]string {
 	for i := 0; i < len(pathComponents)-1; {
 		if pathComponents[i] == "global" {
 			// Global resources only have a "global" specification without a trailing value
-			// (e.g., projects/invisinets/global/networks/default)
+			// (e.g., projects/paraglider/global/networks/default)
 			i += 1
 		} else {
 			parsedUrl[pathComponents[i]] = pathComponents[i+1]

@@ -194,40 +194,46 @@ func (h *AzureSDKHandler) GetNetworkInterface(ctx context.Context, nicName strin
 }
 
 // GetPermitListRuleFromNSGRulecurityRule creates a new security rule in a network security group (NSG).
-func (h *AzureSDKHandler) CreateSecurityRule(ctx context.Context, rule *paragliderpb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32) (*armnetwork.SecurityRule, error) {
-	sourceIP, destIP := getIPs(rule, resourceIpAddress)
-	var srcPort string
-	var dstPort string
-	if rule.SrcPort == permitListPortAny {
+func (h *AzureSDKHandler) CreateSecurityRuleFromPermitList(ctx context.Context, plRule *paragliderpb.PermitListRule, nsgName string, ruleName string, resourceIpAddress string, priority int32, accessType armnetwork.SecurityRuleAccess) (*armnetwork.SecurityRule, error) {
+	sourceIP, destIP := getIPs(plRule, resourceIpAddress)
+	var srcPort, dstPort string
+
+	if plRule.SrcPort == permitListPortAny {
 		srcPort = azureSecurityRuleAsterisk
 	} else {
-		srcPort = strconv.Itoa(int(rule.SrcPort))
+		srcPort = strconv.Itoa(int(plRule.SrcPort))
 	}
 
-	if rule.DstPort == permitListPortAny {
+	if plRule.DstPort == permitListPortAny {
 		dstPort = azureSecurityRuleAsterisk
 	} else {
-		dstPort = strconv.Itoa(int(rule.DstPort))
+		dstPort = strconv.Itoa(int(plRule.DstPort))
 	}
-	pollerResp, err := h.securityRulesClient.BeginCreateOrUpdate(ctx,
-		h.resourceGroupName,
-		nsgName,
-		ruleName,
-		armnetwork.SecurityRule{
-			Properties: &armnetwork.SecurityRulePropertiesFormat{
-				Access:                     to.Ptr(armnetwork.SecurityRuleAccessAllow),
-				DestinationAddressPrefixes: destIP,
-				DestinationPortRange:       to.Ptr(dstPort),
-				Direction:                  to.Ptr(paragliderToAzureDirection[rule.Direction]),
-				Priority:                   to.Ptr(priority),
-				Protocol:                   to.Ptr(paragliderToAzureprotocol[rule.Protocol]),
-				SourceAddressPrefixes:      sourceIP,
-				SourcePortRange:            to.Ptr(srcPort),
-				Description:                to.Ptr(getRuleDescription(rule.Tags)),
-			},
-		},
-		nil)
 
+	securityRule := &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Access:                     to.Ptr(accessType),
+			DestinationAddressPrefixes: destIP,
+			DestinationPortRange:       to.Ptr(dstPort),
+			Direction:                  to.Ptr(paragliderToAzureDirection[plRule.Direction]),
+			Priority:                   to.Ptr(priority),
+			Protocol:                   to.Ptr(paragliderToAzureprotocol[plRule.Protocol]),
+			SourceAddressPrefixes:      sourceIP,
+			SourcePortRange:            to.Ptr(srcPort),
+			Description:                to.Ptr(getRuleDescription(plRule.Tags)),
+		},
+	}
+
+	resp, err := h.CreateSecurityRule(ctx, nsgName, ruleName, securityRule)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func (h *AzureSDKHandler) CreateSecurityRule(ctx context.Context, nsgName string, ruleName string, rule *armnetwork.SecurityRule) (*armnetwork.SecurityRule, error) {
+	pollerResp, err := h.securityRulesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nsgName, ruleName, *rule, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create HTTP security rule: %v", err)
 	}
@@ -284,8 +290,12 @@ func (h *AzureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string
 	return nil
 }
 
-// GetVnetAddressSpaces returns a map of location to address space for all virtual networks (VNets) with a given prefix.
-func (h *AzureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix string) (map[string][]string, error) {
+// GetAllVnetsAddressSpaces retrieves the address spaces of all virtual networks
+// that have a name starting with the specified prefix.
+//
+// Returns a map where the keys are the locations of the virtual networks
+// and the values are slices of address prefixes associated with each virtual network.
+func (h *AzureSDKHandler) GetAllVnetsAddressSpaces(ctx context.Context, prefix string) (map[string][]string, error) {
 	addressSpaces := make(map[string][]string)
 	pager := h.virtualNetworksClient.NewListPager(h.resourceGroupName, nil)
 	for pager.More() {
@@ -304,6 +314,18 @@ func (h *AzureSDKHandler) GetVNetsAddressSpaces(ctx context.Context, prefix stri
 		}
 	}
 	return addressSpaces, nil
+}
+
+func (h *AzureSDKHandler) GetVnetAddressSpace(ctx context.Context, vnetName string) ([]string, error) {
+	vnet, err := h.GetVirtualNetwork(ctx, vnetName)
+	if err != nil {
+		return nil, err
+	}
+	addressSpace := make([]string, len(vnet.Properties.AddressSpace.AddressPrefixes))
+	for i, prefix := range vnet.Properties.AddressSpace.AddressPrefixes {
+		addressSpace[i] = *prefix
+	}
+	return addressSpace, nil
 }
 
 // Temporarily needed method to deal with the mess of AzureSDKHandlers
@@ -550,24 +572,20 @@ func (h *AzureSDKHandler) CreateParagliderVirtualNetwork(ctx context.Context, lo
 				},
 			},
 		},
+		Tags: map[string]*string{
+			namespaceTagKey: to.Ptr(h.paragliderNamespace),
+		},
 	}
-	h.createParagliderNamespaceTag(&parameters.Tags)
-
-	pollerResponse, err := h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vnetName, parameters, nil)
+	vnet, err := h.CreateOrUpdateVirtualNetwork(ctx, vnetName, parameters)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := pollerResponse.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return &resp.VirtualNetwork, nil
+	return vnet, nil
 }
 
-func (h *AzureSDKHandler) CreateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error) {
-	h.createParagliderNamespaceTag(&parameters.Tags)
+// Updates properties of the virtual network (vnet) if it exists. Creates a new vnet if it doesn't exist.
+func (h *AzureSDKHandler) CreateOrUpdateVirtualNetwork(ctx context.Context, name string, parameters armnetwork.VirtualNetwork) (*armnetwork.VirtualNetwork, error) {
 	pollerResponse, err := h.virtualNetworksClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
 	if err != nil {
 		return nil, err
@@ -592,32 +610,8 @@ func (h *AzureSDKHandler) CreateSecurityGroup(ctx context.Context, resourceName 
 		Location: to.Ptr(location),
 		Properties: &armnetwork.SecurityGroupPropertiesFormat{
 			SecurityRules: []*armnetwork.SecurityRule{
-				{
-					Name: to.Ptr(denyAllNsgRulePrefix + "-inbound"),
-					Properties: &armnetwork.SecurityRulePropertiesFormat{
-						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
-						SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
-						DestinationAddressPrefix: to.Ptr(azureSecurityRuleAsterisk),
-						DestinationPortRange:     to.Ptr(azureSecurityRuleAsterisk),
-						Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
-						Priority:                 to.Ptr(int32(maxPriority)),
-						Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
-						SourcePortRange:          to.Ptr(azureSecurityRuleAsterisk),
-					},
-				},
-				{
-					Name: to.Ptr(denyAllNsgRulePrefix + "-outbound"),
-					Properties: &armnetwork.SecurityRulePropertiesFormat{
-						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
-						SourceAddressPrefix:      to.Ptr(azureSecurityRuleAsterisk),
-						DestinationAddressPrefix: to.Ptr(azureSecurityRuleAsterisk),
-						DestinationPortRange:     to.Ptr(azureSecurityRuleAsterisk),
-						Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
-						Priority:                 to.Ptr(int32(maxPriority)),
-						Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
-						SourcePortRange:          to.Ptr(azureSecurityRuleAsterisk),
-					},
-				},
+				setupDenyAllRuleWithPriority(int32(maxPriority), inboundDirectionRule),
+				setupDenyAllRuleWithPriority(int32(maxPriority), outboundDirectionRule),
 			},
 		},
 	}

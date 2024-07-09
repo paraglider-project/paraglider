@@ -35,6 +35,8 @@ type ParagliderControllerClient interface {
 	AddPermitListRules(namespace string, cloud string, resourceName string, rules []*paragliderpb.PermitListRule) error
 	DeletePermitListRules(namespace string, cloud string, resourceName string, rules []string) error
 	CreateResource(namespace string, cloud string, resourceName string, resource *paragliderpb.ResourceDescriptionString) (map[string]string, error)
+	AddPermitListRulesTag(tag string, rules []*paragliderpb.PermitListRule) error
+	DeletePermitListRulesTag(tag string, rules []string) error
 	GetTag(tag string) (*tagservicepb.TagMapping, error)
 	ResolveTag(tag string) ([]*tagservicepb.TagMapping, error)
 	SetTag(tag string, tagMapping *tagservicepb.TagMapping) error
@@ -161,6 +163,40 @@ func (c *Client) CreateResource(namespace string, cloud string, resourceName str
 	}
 
 	return resourceDict, nil
+}
+
+// Add permit list rules to a tag
+func (c *Client) AddPermitListRulesTag(tag string, rules []*paragliderpb.PermitListRule) error {
+	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.RuleOnTagURL), tag)
+
+	reqBody, err := json.Marshal(rules)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.sendRequest(path, http.MethodPost, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Remove permit list rules to a tag
+func (c *Client) DeletePermitListRulesTag(tag string, rules []string) error {
+	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.RuleOnTagURL), tag)
+
+	reqBody, err := json.Marshal(rules)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.sendRequest(path, http.MethodDelete, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Get the members of a tag
