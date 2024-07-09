@@ -376,7 +376,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *parag
 			return nil, err
 		}
 
-		addressSpaces, err := azureHandler.GetAllVnetsAddressSpaces(ctx, getParagliderNamespacePrefix(deployment.Namespace))
+		addressSpaces, err := azureHandler.GetParagaliderVirtualNetworks(ctx, getParagliderNamespacePrefix(deployment.Namespace))
 		if err != nil {
 			utils.Log.Printf("An error occured while getting address spaces:%+v", err)
 			return nil, err

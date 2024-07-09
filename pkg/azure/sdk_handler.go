@@ -290,6 +290,33 @@ func (h *AzureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string
 	return nil
 }
 
+// GetParagaliderVirtualNetworks retrieves the address spaces of all virtual networks
+// that are managed by Paraglider
+//
+// Returns a map where the keys are the locations of the virtual networks
+// and the values are slices of address prefixes associated with each virtual network.
+func (h *AzureSDKHandler) GetParagaliderVirtualNetworks(ctx context.Context, prefix string) (map[string][]string, error) {
+	addressSpaces := make(map[string][]string)
+	pager := h.virtualNetworksClient.NewListPager(h.resourceGroupName, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, v := range page.Value {
+			if strings.HasPrefix(*v.Name, prefix) || (v.Tags != nil && *v.Tags[namespaceTagKey] == h.paragliderNamespace) {
+				prefixes := make([]string, len(v.Properties.AddressSpace.AddressPrefixes))
+				for i, prefix := range v.Properties.AddressSpace.AddressPrefixes {
+					prefixes[i] = *prefix
+				}
+				addressSpaces[*v.Location] = prefixes
+			}
+		}
+	}
+	return addressSpaces, nil
+}
+
 // GetAllVnetsAddressSpaces retrieves the address spaces of all virtual networks
 // that have a name starting with the specified prefix.
 //
