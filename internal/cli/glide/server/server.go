@@ -25,7 +25,7 @@ import (
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "server",
-		Short: "Configure server settings",
+		Short: "Configure server config",
 	}
 
 	getCmd, _ := get.NewCommand()

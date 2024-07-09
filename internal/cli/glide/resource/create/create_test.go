@@ -22,16 +22,19 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rest"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestResourceCreateValidate(t *testing.T) {
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
 
 	args := []string{fake.CloudName, "uri", "not-a-file.json"}
-	err := executor.Validate(cmd, args)
+	err = executor.Validate(cmd, args)
 
 	assert.NotNil(t, err)
 
@@ -42,15 +45,18 @@ func TestResourceCreateExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
-	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
+	executor.cliSettings = config.CliSettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
 
 	var output bytes.Buffer
 	executor.writer = &output
 	executor.description = []byte(`descriptionstring`)
 
 	args := []string{fake.CloudName, "resourceName"}
-	err := executor.Execute(cmd, args)
+	err = executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
 	assert.Contains(t, output.String(), "resourceName")

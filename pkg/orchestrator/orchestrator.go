@@ -18,20 +18,20 @@ package orchestrator
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/netip"
 	"os"
-	"strconv"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v2"
 
 	"github.com/gin-gonic/gin"
+	"github.com/seancfoley/ipaddress-go/ipaddr"
 
 	grpc "google.golang.org/grpc"
 	insecure "google.golang.org/grpc/credentials/insecure"
@@ -53,6 +53,7 @@ const (
 	DeletePermitListRulesURL string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/deleteRules"
 	CreateResourcePUTURL     string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName"
 	CreateResourcePOSTURL    string = "/namespaces/:namespace/clouds/:cloud/resources"
+	RuleOnTagURL             string = "/tags/:tag/rules"
 	ListTagURL               string = "/tags"
 	GetTagURL                string = "/tags/:tag"
 	ResolveTagURL            string = "/tags/:tag/resolveMembers"
@@ -60,6 +61,8 @@ const (
 	DeleteTagURL             string = "/tags/:tag"
 	DeleteTagMemberURL       string = "/tags/:tag/members/:member"
 	ListNamespacesURL        string = "/namespaces"
+	defaultAddressSpace      string = "10.0.0.0/8"
+	defaultSpaceRequest      int    = 65534
 )
 
 type Warning struct {
@@ -76,6 +79,7 @@ type ControllerServer struct {
 	localKVStoreService       string
 	config                    config.Config
 	namespace                 string
+	addressRequest            sync.Mutex
 }
 
 type ResourceInfo struct {
@@ -152,9 +156,17 @@ func createTagName(namespace string, cloud string, tag string) string {
 	return namespace + "." + cloud + "." + tag
 }
 
+func parseTag(tag string) (string, string, string, error) {
+	tokens := strings.Split(tag, ".")
+	if len(tokens) != 3 {
+		return "", "", "", errors.New("invalid tag format")
+	}
+	return tokens[0], tokens[1], tokens[2], nil
+}
+
 // Get the URI of a tag
 func (s *ControllerServer) getTagUri(tag string) (string, error) {
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return "", fmt.Errorf("could not contact tag server: %s", err.Error())
 	}
@@ -208,7 +220,7 @@ func (s *ControllerServer) resolvePermitListRules(rules []*paragliderpb.PermitLi
 
 		for _, tag := range rule.Tags {
 			if !isIpAddrOrCidr(tag) {
-				conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+				conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 				if err != nil {
 					return nil, fmt.Errorf("could not contact tag server: %s", err.Error())
 				}
@@ -243,7 +255,7 @@ func (s *ControllerServer) resolvePermitListRules(rules []*paragliderpb.PermitLi
 // Get permit list with ID from plugin
 func (s *ControllerServer) _permitListGet(namespace string, resourceId string, pluginAddress string) (*paragliderpb.GetPermitListResponse, error) {
 	// Connect to the cloud plugin
-	conn, err := grpc.Dial(pluginAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(pluginAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +299,7 @@ func (s *ControllerServer) _permitListRulesAdd(req *paragliderpb.AddPermitListRu
 	}
 	req.Rules = rules
 	// Create connection to cloud plugin
-	conn, err := grpc.Dial(pluginAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(pluginAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -361,6 +373,132 @@ func (s *ControllerServer) permitListRuleAdd(c *gin.Context) {
 	}
 }
 
+// Add permit list rules to all resources within a tag
+func (s *ControllerServer) permitListRuleAddTag(c *gin.Context) {
+	tag := c.Param("tag")
+
+	// Parse permit list rules to add
+	var rule *paragliderpb.PermitListRule
+	if err := c.BindJSON(&rule); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Resolve the tag to URIs
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	// Send RPC to resolve tag
+	client := tagservicepb.NewTagServiceClient(conn)
+	resolvedTag, err := client.ResolveTag(context.Background(), &tagservicepb.ResolveTagRequest{TagName: tag})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	initializedClientConns := make(map[string]*grpc.ClientConn)
+
+	// Add rule to each URI in the resolved tag
+	for _, mapping := range resolvedTag.Tags {
+		// Get the cloud and namespace from the tag
+		namespace, cloud, _, err := parseTag(mapping.Name)
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+
+		// Create  or get connection to cloud plugin
+		conn, ok := initializedClientConns[cloud]
+		if !ok {
+			cloudClientAddress, ok := s.pluginAddresses[cloud]
+			if !ok {
+				c.AbortWithStatusJSON(400, createErrorResponse("invalid cloud name"))
+				return
+			}
+
+			conn, err = grpc.NewClient(cloudClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+				return
+			}
+			defer conn.Close()
+
+			initializedClientConns[cloud] = conn
+		}
+
+		// Send RPC to add rule
+		client := paragliderpb.NewCloudPluginClient(conn)
+		_, err = client.AddPermitListRules(context.Background(), &paragliderpb.AddPermitListRulesRequest{Rules: []*paragliderpb.PermitListRule{rule}, Namespace: namespace, Resource: *mapping.Uri})
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+	}
+}
+
+// Delete permit list rules to from resources within a tag
+func (s *ControllerServer) permitListRuleDeleteTag(c *gin.Context) {
+	tag := c.Param("tag")
+
+	// Parse permit list rules to add
+	var rules []string
+	if err := c.BindJSON(&rules); err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Resolve the tag to URIs
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	// Send RPC to resolve tag
+	client := tagservicepb.NewTagServiceClient(conn)
+	resolvedTag, err := client.ResolveTag(context.Background(), &tagservicepb.ResolveTagRequest{TagName: tag})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	// Add rule to each URI in the resolved tag
+	for _, mapping := range resolvedTag.Tags {
+		// Get the cloud and namespace from the tag
+		namespace, cloud, _, err := parseTag(mapping.Name)
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+
+		// Create connection to cloud plugin
+		cloudClient, ok := s.pluginAddresses[cloud]
+		if !ok {
+			c.AbortWithStatusJSON(400, createErrorResponse("invalid cloud name"))
+			return
+		}
+		conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+		defer conn.Close()
+
+		// Send RPC to add rule
+		client := paragliderpb.NewCloudPluginClient(conn)
+		_, err = client.DeletePermitListRules(context.Background(), &paragliderpb.DeletePermitListRulesRequest{RuleNames: rules, Namespace: namespace, Resource: *mapping.Uri})
+		if err != nil {
+			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+			return
+		}
+	}
+}
+
 // Find the tags dereferenced between two versions of a permit list
 func diffTagReferences(beforeList []*paragliderpb.PermitListRule, afterList []*paragliderpb.PermitListRule) []string {
 	beforeListSet := make(map[string]bool)
@@ -404,7 +542,7 @@ func (s *ControllerServer) checkAndUnsubscribe(resource *ResourceInfo, beforeLis
 	}
 
 	// Dial the tag service
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
@@ -438,7 +576,7 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	}
 
 	// Create connection to cloud plugin
-	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -493,7 +631,7 @@ func (s *ControllerServer) permitListRuleDelete(c *gin.Context) {
 	}
 
 	// Create connection to cloud plugin
-	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -541,7 +679,7 @@ func (s *ControllerServer) getAddressSpaces(cloud string) ([]*paragliderpb.Addre
 	}
 
 	// Connect to cloud plugin
-	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to cloud plugin: %s", err.Error())
 	}
@@ -571,44 +709,51 @@ func (s *ControllerServer) updateUsedAddressSpaces() error {
 }
 
 // Get a new address block for a new virtual network
-// TODO @smcclure20: Later, this should allocate more efficiently and with different size address blocks (eg, GCP needs larger than Azure since a VPC will span all regions)
 func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *paragliderpb.FindUnusedAddressSpacesRequest) (*paragliderpb.FindUnusedAddressSpacesResponse, error) {
+	s.addressRequest.Lock()
+	defer s.addressRequest.Unlock()
 	err := s.updateUsedAddressSpaces()
 	if err != nil {
 		return nil, err
 	}
 
-	var requestedAddressSpaces int
-	if req.Num != nil {
-		requestedAddressSpaces = int(*req.Num)
+	var requestedAddressSpaces []int32
+	if req.Sizes != nil {
+		requestedAddressSpaces = req.Sizes
 	} else {
-		requestedAddressSpaces = 1
+		requestedAddressSpaces = []int32{int32(defaultSpaceRequest)}
 	}
-
-	addressSpaces := make([]string, requestedAddressSpaces)
-	highestBlockUsed := -1
-
-	for _, addressSpaceMapping := range s.usedAddressSpaces {
-		for _, address := range addressSpaceMapping.AddressSpaces {
-			blockNumber, err := strconv.Atoi(strings.Split(address, ".")[1])
-			if err != nil {
-				return nil, err
-			}
-			if blockNumber > highestBlockUsed {
-				highestBlockUsed = blockNumber
+	respAddressSpaces := make([]string, len(requestedAddressSpaces))
+	// Calculate the list of unused address space blocks available to be allocated
+	unusedBlocks := findUnusedBlocks(s.config.AddressSpace, s.usedAddressSpaces)
+	for i := 0; i < len(requestedAddressSpaces); i++ {
+		reqSize := int64(defaultSpaceRequest)
+		if requestedAddressSpaces[i] != 0 {
+			reqSize = int64(requestedAddressSpaces[i])
+		}
+		var aBlock *ipaddr.IPAddress
+		// Iterate to allocate the first usunsed block that can accomodate
+		for _, block := range unusedBlocks {
+			if reqSize < block.GetCount().Int64() {
+				aBlock = allocBlock(block, reqSize)
+				if aBlock == nil {
+					// Allocation failed, move on to next available block
+					continue
+				}
+				respAddressSpaces[i] = aBlock.String()
+				break
 			}
 		}
+		if aBlock == nil {
+			return nil, fmt.Errorf("unable to find free address space")
+		}
+		// Remove the allocated block from the set of available spaces
+		unusedBlocks = removeBlock(unusedBlocks, aBlock)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	if highestBlockUsed >= 255 {
-		return nil, errors.New("all address blocks used")
-	}
-
-	for i := 0; i < requestedAddressSpaces; i++ {
-		addressSpaces[i] = fmt.Sprintf("10.%d.0.0/16", highestBlockUsed+i+1)
-	}
-
-	return &paragliderpb.FindUnusedAddressSpacesResponse{AddressSpaces: addressSpaces}, nil
+	return &paragliderpb.FindUnusedAddressSpacesResponse{AddressSpaces: respAddressSpaces}, nil
 }
 
 // Gets unused address spaces across all clouds
@@ -633,7 +778,7 @@ func (s *ControllerServer) getUsedAsns(cloud string) (*paragliderpb.GetUsedAsnsR
 	}
 
 	// Connect to cloud plugin
-	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("Unable to connect to cloud plugin: %s", err.Error())
 	}
@@ -705,7 +850,7 @@ func (s *ControllerServer) getUsedBgpPeeringIpAddresses(cloud string) (*paraglid
 	}
 
 	// Connect to cloud plugin
-	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("Unable to connect to cloud plugin: %s", err.Error())
 	}
@@ -794,14 +939,19 @@ func (s *ControllerServer) findUnusedBgpPeeringIpAddresses(ctx context.Context, 
 	return ips, nil
 }
 
-// Generates 32-byte shared key for VPN connections
-func generateSharedKey() (string, error) {
-	key := make([]byte, 24)
-	_, err := rand.Read(key)
-	if err != nil {
-		return "", fmt.Errorf("unable to get random bytes: %w", err)
+// Generates a shared key for VPN connections
+func generateSharedKey() string {
+	const length = 24
+	// characters allowed in the random string
+	// '/' is prohibited as part of the pre-shared key for IBM VPN connections
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()"
+	generatedRunes := make([]rune, length)
+
+	for i := range generatedRunes {
+		generatedRunes[i] = rune(charset[rand.Intn(len(charset))])
 	}
-	return base64.StdEncoding.EncodeToString(key), nil
+
+	return string(generatedRunes)
 }
 
 // Gets the Paraglider deployment field of a cloud
@@ -821,17 +971,23 @@ func (s *ControllerServer) getCloudDeployment(cloud, namespace string) string {
 
 // Connects two clouds with VPN gateways
 func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.ConnectCloudsRequest) (*paragliderpb.ConnectCloudsResponse, error) {
+	var isBGPDisabledConnection bool
+	var addressSpaceCloudA, addressSpaceCloudB string // address space of a resource to be served by a VPN created/fetched by this method.
+	var cloudBNetworkAddressSpaces []string           // VNet's/VPC's address spaces of remote cloud (cloudB)
 	if req.CloudA == req.CloudB {
 		return nil, fmt.Errorf("must specify different clouds to connect")
 	}
 
 	// TODO @seankimkdy: cloudA and cloudB naming seems to be very prone to typos, so perhaps use another naming scheme[?
-	if utils.MatchCloudProviders(req.CloudA, req.CloudB, utils.AZURE, utils.GCP) {
+	if utils.MatchCloudProviders(req.CloudA, req.CloudB, utils.AZURE, utils.GCP) || utils.MatchCloudProviders(req.CloudA, req.CloudB, utils.AZURE, utils.IBM) {
+		if req.CloudA == utils.IBM || req.CloudB == utils.IBM {
+			isBGPDisabledConnection = true
+		}
 		cloudAClientAddress, ok := s.pluginAddresses[req.CloudA]
 		if !ok {
 			return nil, fmt.Errorf("invalid cloud name: %s", req.CloudA)
 		}
-		cloudAConn, err := grpc.Dial(cloudAClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		cloudAConn, err := grpc.NewClient(cloudAClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, fmt.Errorf("unable to connect to cloud plugin: %w", err)
 		}
@@ -842,7 +998,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 		if !ok {
 			return nil, fmt.Errorf("invalid cloud name: %s", req.CloudA)
 		}
-		cloudBconn, err := grpc.Dial(cloudBClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		cloudBconn, err := grpc.NewClient(cloudBClientAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, fmt.Errorf("unable to connect to cloud plugin: %w", err)
 		}
@@ -862,32 +1018,48 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 			cloudABgpPeeringIpAddresses[i] = bgpPeeringIpAddresses[i*2]
 			cloudBBgpPeeringIpAddresses[i] = bgpPeeringIpAddresses[i*2+1]
 		}
-
+		if len(req.AddressSpacesCloudA) != 0 {
+			addressSpaceCloudA = req.AddressSpacesCloudA[0] // required by IBM to identify the VPN gateway that's being used
+		}
+		if len(req.AddressSpacesCloudB) != 0 {
+			addressSpaceCloudB = req.AddressSpacesCloudB[0] // required by IBM to identify the VPN gateway that's being used
+		}
 		cloudAParagliderDeployment := &paragliderpb.ParagliderDeployment{Id: s.getCloudDeployment(req.CloudA, req.CloudANamespace), Namespace: req.CloudANamespace}
 		cloudACreateVpnGatewayReq := &paragliderpb.CreateVpnGatewayRequest{
 			Deployment:            cloudAParagliderDeployment,
 			Cloud:                 req.CloudB,
 			BgpPeeringIpAddresses: cloudABgpPeeringIpAddresses,
+			AddressSpace:          addressSpaceCloudA,
 		}
+
+		// get CIDR of VPC/VNet in remote cloud (cloudB) containing the resource's IP.
+		// network address spaces of cloud A was provided by cloud A when it issued the connect cloud request,
+		// hence accessible by req.AddressSpacesCloudA.
+		cloudBParagliderDeployment := &paragliderpb.ParagliderDeployment{Id: s.getCloudDeployment(req.CloudB, req.CloudBNamespace), Namespace: req.CloudBNamespace}
+		if isBGPDisabledConnection {
+			res, err := cloudBClient.GetNetworkAddressSpaces(ctx, &paragliderpb.GetNetworkAddressSpacesRequest{Deployment: cloudBParagliderDeployment, AddressSpace: addressSpaceCloudB})
+			if err != nil {
+				return nil, err
+			}
+			cloudBNetworkAddressSpaces = res.AddressSpaces
+		}
+
 		cloudACreateVpnGatewayResp, err := cloudAClient.CreateVpnGateway(ctx, cloudACreateVpnGatewayReq)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create vpn gateway in cloud %s: %w", req.CloudA, err)
 		}
-		cloudBParagliderDeployment := &paragliderpb.ParagliderDeployment{Id: s.getCloudDeployment(req.CloudB, req.CloudBNamespace), Namespace: req.CloudBNamespace}
 		cloudBCreateVpnGatewayReq := &paragliderpb.CreateVpnGatewayRequest{
 			Deployment:            cloudBParagliderDeployment,
 			Cloud:                 req.CloudA,
 			BgpPeeringIpAddresses: cloudBBgpPeeringIpAddresses,
+			AddressSpace:          addressSpaceCloudB,
 		}
 		cloudBCreateVpnGatewayResp, err := cloudBClient.CreateVpnGateway(ctx, cloudBCreateVpnGatewayReq)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create vpn gateway in cloud %s: %w", req.CloudB, err)
 		}
 
-		sharedKey, err := generateSharedKey()
-		if err != nil {
-			return nil, fmt.Errorf("unable to generate shared key: %w", err)
-		}
+		sharedKey := generateSharedKey()
 
 		cloudACreateVpnConnectionsReq := &paragliderpb.CreateVpnConnectionsRequest{
 			Deployment:         cloudAParagliderDeployment,
@@ -896,6 +1068,9 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 			GatewayIpAddresses: cloudBCreateVpnGatewayResp.GatewayIpAddresses,
 			BgpIpAddresses:     cloudBBgpPeeringIpAddresses,
 			SharedKey:          sharedKey,
+			RemoteAddresses:    cloudBNetworkAddressSpaces, // provides non BGP connections with remote address target
+			IsBgpDisabled:      isBGPDisabledConnection,    // informs cloud A that BGP is disabled on peer cloud
+			AddressSpace:       addressSpaceCloudA,         // Address space of a subnet/resource's IP in cloud A.
 		}
 		_, err = cloudAClient.CreateVpnConnections(ctx, cloudACreateVpnConnectionsReq)
 		if err != nil {
@@ -908,6 +1083,9 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 			GatewayIpAddresses: cloudACreateVpnGatewayResp.GatewayIpAddresses,
 			BgpIpAddresses:     cloudABgpPeeringIpAddresses,
 			SharedKey:          sharedKey,
+			RemoteAddresses:    req.AddressSpacesCloudA, // provides non BGP connections with remote address target
+			IsBgpDisabled:      isBGPDisabledConnection, // informs cloud B that BGP is disabled on peer cloud
+			AddressSpace:       addressSpaceCloudB,      // Address space of a subnet/resource's IP in cloud B.
 		}
 		_, err = cloudBClient.CreateVpnConnections(ctx, cloudBCreateVpnConnectionsReq)
 		if err != nil {
@@ -952,7 +1130,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	}
 
 	// Create connection to cloud plugin
-	conn, err := grpc.Dial(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -973,7 +1151,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	}
 
 	// Automatically set tag (need the IP address, we have the name and URI)
-	conn, err = grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err = grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -996,7 +1174,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 // List all tags from local tag service
 func (s *ControllerServer) listTags(c *gin.Context) {
 	// Call listTags locally
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1016,7 +1194,7 @@ func (s *ControllerServer) listTags(c *gin.Context) {
 // Get tag from local tag service
 func (s *ControllerServer) getTag(c *gin.Context) {
 	// Call getTag locally
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1038,7 +1216,7 @@ func (s *ControllerServer) getTag(c *gin.Context) {
 // Resolve tag down to IP/URI(s) from local tag service
 func (s *ControllerServer) resolveTag(c *gin.Context) {
 	// Call resolveTag locally
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1068,7 +1246,7 @@ func clearRuleTargets(rules []*paragliderpb.PermitListRule) []*paragliderpb.Perm
 // Update subscribers to a tag about membership changes
 func (s *ControllerServer) updateSubscribers(tag string) error {
 	// Get the subscribers to the tag
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
@@ -1115,7 +1293,7 @@ func (s *ControllerServer) setTag(c *gin.Context) {
 	}
 
 	// Call SetTag
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1142,7 +1320,7 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 	tagName := c.Param("tag")
 
 	// Call DeleteTag
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1173,7 +1351,7 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	tag := &tagservicepb.TagMapping{Name: parentTag, ChildTags: []string{memberTag}}
 
 	// Call DeleteTagMember
-	conn, err := grpc.Dial(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1203,7 +1381,7 @@ func (s *ControllerServer) listNamespaces(c *gin.Context) {
 
 // Get a value from the KV store
 func (s *ControllerServer) GetValue(c context.Context, req *paragliderpb.GetValueRequest) (*paragliderpb.GetValueResponse, error) {
-	conn, err := grpc.Dial(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -1220,7 +1398,7 @@ func (s *ControllerServer) GetValue(c context.Context, req *paragliderpb.GetValu
 
 // Set a value in the KV store
 func (s *ControllerServer) SetValue(c context.Context, req *paragliderpb.SetValueRequest) (*paragliderpb.SetValueResponse, error) {
-	conn, err := grpc.Dial(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -1237,7 +1415,7 @@ func (s *ControllerServer) SetValue(c context.Context, req *paragliderpb.SetValu
 
 // Delete a value in the KV store
 func (s *ControllerServer) DeleteValue(c context.Context, req *paragliderpb.DeleteValueRequest) (*paragliderpb.DeleteValueResponse, error) {
-	conn, err := grpc.Dial(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -1288,6 +1466,11 @@ func Setup(cfg config.Config, background bool) {
 		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port
 	}
 
+	// If address space isn't declared in config, fall back to default private address space
+	if cfg.AddressSpace == nil {
+		server.config.AddressSpace = []string{defaultAddressSpace}
+	}
+
 	// Setup GRPC server
 	lis, err := net.Listen("tcp", cfg.Server.Host+":"+cfg.Server.RpcPort)
 	if err != nil {
@@ -1317,6 +1500,8 @@ func Setup(cfg config.Config, background bool) {
 	router.DELETE(PermitListRulePUTURL, server.permitListRuleDelete)
 	router.PUT(CreateResourcePUTURL, server.resourceCreate)
 	router.POST(CreateResourcePOSTURL, server.resourceCreate)
+	router.POST(RuleOnTagURL, server.permitListRuleAddTag)
+	router.DELETE(RuleOnTagURL, server.permitListRuleDeleteTag)
 	router.GET(ListTagURL, server.listTags)
 	router.GET(GetTagURL, server.getTag)
 	router.POST(ResolveTagURL, server.resolveTag)

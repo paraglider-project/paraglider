@@ -37,7 +37,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
-	sdk "github.com/paraglider-project/paraglider/pkg/ibm_plugin/sdk"
 	"github.com/paraglider-project/paraglider/pkg/kvstore"
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
@@ -64,7 +63,6 @@ const (
 	fakeSubnet1    = "10.0.0.0/16"
 	fakeSubnet2    = "20.1.1.0/28"
 	fakeProfile    = "bx2-2x8"
-	paragliderTag  = "paraglider"
 	fakeWorkerPool = "fake"
 
 	fakeDeploymentID = "/resourcegroup/" + fakeID
@@ -262,8 +260,8 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 					}
 				}
 				// Search the corresponding resource
-				switch sdk.TaggedResourceType(res) {
-				case sdk.VM:
+				switch taggedResourceType(res) {
+				case VM:
 					if fakeIBMServerState.Instance != nil {
 						wrongNS := false // Namespace is passed in as tags in the query
 						for _, tag := range tags {
@@ -277,13 +275,13 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 							searchResult.Items = append(searchResult.Items, resultItem)
 						}
 					}
-				case sdk.SG:
+				case SG:
 					if fakeIBMServerState.SecurityGroup != nil {
 						var resultItem globalsearchv2.ResultItem
 						resultItem.CRN = fakeIBMServerState.SecurityGroup.CRN
 						searchResult.Items = append(searchResult.Items, resultItem)
 					}
-				case sdk.VPC:
+				case VPC:
 					if fakeIBMServerState.VPCs != nil {
 						for i, fakeVPC := range fakeIBMServerState.VPCs {
 							var resultItem globalsearchv2.ResultItem
@@ -297,7 +295,7 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 							searchResult.Items = append(searchResult.Items, resultItem)
 						}
 					}
-				case sdk.SUBNET:
+				case SUBNET:
 					if fakeIBMServerState.subnetVPC != nil {
 						for _, subnet := range fakeIBMServerState.subnetVPC {
 							var resultItem globalsearchv2.ResultItem
@@ -306,7 +304,7 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 							searchResult.Items = append(searchResult.Items, resultItem)
 						}
 					}
-				case sdk.GATEWAY:
+				case GATEWAY:
 					// Not Implemented
 				}
 
@@ -495,7 +493,7 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 				cluster := k8sv1.GetClusterResponse{
 					ID:    core.StringPtr(fakeID),
 					Crn:   core.StringPtr(fakeCRN),
-					State: core.StringPtr(sdk.ClusterReadyState),
+					State: core.StringPtr(ClusterReadyState),
 				}
 				sendFakeResponse(w, cluster)
 				return
@@ -526,11 +524,11 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 }
 
 // Creates a http test server, and attaches the fake IBM SDK Handler to it
-func setup(t *testing.T, fakeIBMServerState *fakeIBMServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClient *sdk.CloudClient) {
+func setup(t *testing.T, fakeIBMServerState *fakeIBMServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClient *CloudClient) {
 	var err error
 	fakeServer = httptest.NewServer(getFakeIBMServerHandler(fakeIBMServerState))
 	ctx = context.Background()
-	fakeClient, err = sdk.FakeIBMCloudClient(fakeServer.URL, fakeID, fakeRegion)
+	fakeClient, err = FakeIBMCloudClient(fakeServer.URL, fakeID, fakeRegion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -549,7 +547,7 @@ func TestCreateResourceNewVPC(t *testing.T) {
 
 	s := &IBMPluginServer{
 		orchestratorServerAddr: fakeControllerServerAddr,
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
@@ -583,7 +581,7 @@ func TestCreateResourceExistingVPCSubnet(t *testing.T) {
 
 	s := &IBMPluginServer{
 		orchestratorServerAddr: fakeControllerServerAddr,
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
@@ -614,7 +612,7 @@ func TestCreateResourceExistingVPCMissingSubnet(t *testing.T) {
 
 	s := &IBMPluginServer{
 		orchestratorServerAddr: fakeControllerServerAddr,
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
@@ -645,7 +643,7 @@ func TestCreateResourceCluster(t *testing.T) {
 
 	s := &IBMPluginServer{
 		orchestratorServerAddr: fakeControllerServerAddr,
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
@@ -676,7 +674,7 @@ func TestCreateResourceClusterExistingVPC(t *testing.T) {
 
 	s := &IBMPluginServer{
 		orchestratorServerAddr: fakeControllerServerAddr,
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
@@ -705,7 +703,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	defer fakeServer.Close()
 
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
@@ -734,7 +732,7 @@ func TestGetUsedAddressSpacesMultipleVPC(t *testing.T) {
 	defer fakeServer.Close()
 
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion):    fakeClient,
 			getClientMapKey(fakeID, fakeConRegion): fakeClient,
 		}}
@@ -762,14 +760,14 @@ func TestAddPermitListRules(t *testing.T) {
 		Instance:      createFakeInstance(),
 		SecurityGroup: createFakeSecurityGroup(false),
 		subnetVPC: map[string]string{
-			fakeID: fakeSubnet1,
+			fakeID: fakeSubnet2,
 		},
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		},
 		orchestratorServerAddr: fakeControllerServerAddr,
@@ -778,7 +776,7 @@ func TestAddPermitListRules(t *testing.T) {
 	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
-		Rules:     fakePermitList1,
+		Rules:     fakePermitList2,
 	}
 
 	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
@@ -801,14 +799,14 @@ func TestAddPermitListRulesExisting(t *testing.T) {
 		Instance:      createFakeInstance(),
 		SecurityGroup: createFakeSecurityGroup(true),
 		subnetVPC: map[string]string{
-			fakeID: fakeSubnet1,
+			fakeID: fakeSubnet2,
 		},
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		},
 		orchestratorServerAddr: fakeControllerServerAddr,
@@ -817,7 +815,7 @@ func TestAddPermitListRulesExisting(t *testing.T) {
 	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
-		Rules:     fakePermitList1,
+		Rules:     fakePermitList2,
 	}
 
 	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
@@ -836,7 +834,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 	defer fakeServer.Close()
 
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		},
 		orchestratorServerAddr: fakeControllerServerAddr,
@@ -845,7 +843,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
-		Rules:     fakePermitList1,
+		Rules:     fakePermitList2,
 	}
 
 	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
@@ -870,7 +868,7 @@ func TestAddPermitListRulesMissingSecurityGroup(t *testing.T) {
 	defer fakeServer.Close()
 
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		},
 		orchestratorServerAddr: fakeControllerServerAddr,
@@ -906,7 +904,7 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 	defer fakeServer.Close()
 
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		},
 		orchestratorServerAddr: fakeControllerServerAddr,
@@ -940,7 +938,7 @@ func TestAddPermitListRulesTransitGateway(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion):    fakeClient,
 			getClientMapKey(fakeID, fakeConRegion): fakeClient,
 		},
@@ -978,7 +976,7 @@ func TestDeletePermitListRules(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		},
 		orchestratorServerAddr: fakeControllerServerAddr,
@@ -1005,7 +1003,7 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		},
 		orchestratorServerAddr: fakeControllerServerAddr,
@@ -1036,7 +1034,7 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		},
 		orchestratorServerAddr: fakeControllerServerAddr,
@@ -1069,7 +1067,7 @@ func TestGetPermitList(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		},
 		orchestratorServerAddr: fakeControllerServerAddr,
@@ -1101,7 +1099,7 @@ func TestGetPermitListEmpty(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		},
 		orchestratorServerAddr: fakeControllerServerAddr,
@@ -1127,7 +1125,7 @@ func TestGetPermitListMissingInstance(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		},
 		orchestratorServerAddr: fakeControllerServerAddr,
@@ -1156,7 +1154,7 @@ func TestGetPermitListWrongNamespace(t *testing.T) {
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
 	defer fakeServer.Close()
 	s := &IBMPluginServer{
-		cloudClient: map[string]*sdk.CloudClient{
+		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		},
 		orchestratorServerAddr: fakeControllerServerAddr,

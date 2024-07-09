@@ -22,14 +22,14 @@ import (
 	"os"
 
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	"github.com/paraglider-project/paraglider/pkg/client"
 	"github.com/paraglider-project/paraglider/pkg/tag_service/tagservicepb"
 	"github.com/spf13/cobra"
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
+	executor := &executor{writer: os.Stdout, cliSettings: config.ActiveConfig.Settings}
 	cmd := &cobra.Command{
 		Use:     "set <tag name> [--children <child tag list> | --uri <uri> | --ip <ip>]",
 		Short:   "Set a tag",
@@ -46,7 +46,7 @@ func NewCommand() (*cobra.Command, *executor) {
 type executor struct {
 	common.CommandExecutor
 	writer      io.Writer
-	cliSettings settings.CLISettings
+	cliSettings config.CliSettings
 	children    []string
 	uri         string
 	ip          string

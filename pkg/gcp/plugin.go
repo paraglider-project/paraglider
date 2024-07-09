@@ -154,7 +154,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 	networkTag := getNetworkTag(req.Namespace, resourceInfo.ResourceType, *resourceID)
 
 	// Get used address spaces of all clouds
-	orchestratorConn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	orchestratorConn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
@@ -430,7 +430,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	addressSpaces := []string{}
 	numAddressSpacesNeeded := int32(resourceInfo.NumAdditionalAddressSpaces)
 	if !subnetExists || resourceInfo.NumAdditionalAddressSpaces > 0 {
-		conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 		}
@@ -441,7 +441,9 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 			numAddressSpacesNeeded += 1
 		}
 
-		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Num: &numAddressSpacesNeeded})
+		reqAddressSpaces := make([]int32, numAddressSpacesNeeded)
+
+		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: reqAddressSpaces})
 
 		if err != nil {
 			return nil, fmt.Errorf("unable to find unused address space: %w", err)
@@ -646,7 +648,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 	}
 
 	// Find unused ASN
-	conn, err := grpc.Dial(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
@@ -864,6 +866,11 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *paragl
 	}
 
 	return &paragliderpb.CreateVpnConnectionsResponse{}, nil
+}
+
+// GetNetworkAddressSpaces returns the address spaces in the virtual network containing the provided address space
+func (s *GCPPluginServer) GetNetworkAddressSpaces(ctx context.Context, req *paragliderpb.GetNetworkAddressSpacesRequest) (*paragliderpb.GetNetworkAddressSpacesResponse, error) {
+	return nil, fmt.Errorf("GetNetworkAddressSpaces is currently not implemented by GCP, implying plugin does not support BGP disabled VPN connections")
 }
 
 func Setup(port int, orchestratorServerAddr string) *GCPPluginServer {

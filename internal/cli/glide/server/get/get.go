@@ -24,14 +24,14 @@ import (
 	"github.com/spf13/cobra"
 
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
+	executor := &executor{writer: os.Stdout, cliSettings: config.ActiveConfig.Settings}
 	cmd := &cobra.Command{
 		Use:     "get",
-		Short:   "Get current server settings",
+		Short:   "Get current server config",
 		Args:    cobra.ExactArgs(0),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
@@ -42,7 +42,7 @@ func NewCommand() (*cobra.Command, *executor) {
 type executor struct {
 	common.CommandExecutor
 	writer      io.Writer
-	cliSettings settings.CLISettings
+	cliSettings config.CliSettings
 }
 
 func (e *executor) SetOutput(w io.Writer) {

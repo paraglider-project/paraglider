@@ -206,7 +206,7 @@ func (i *ResourceInstanceType) CreateResource(name, vpcID, subnetID string, tags
 // IsInNamespace returns True if an instance resides inside the specified namespace
 // region is an optional argument used to increase effectiveness of resource search
 func (i *ResourceInstanceType) IsInNamespace(namespace, region string) (bool, error) {
-	resourceQuery := ResourceQuery{}
+	resourceQuery := resourceQuery{}
 	vmData, err := i.getCRN()
 	if err != nil {
 		return false, err
@@ -252,7 +252,7 @@ func (i *ResourceInstanceType) GetSecurityGroupID() (string, error) {
 	}
 	for _, nic := range nics.NetworkInterfaces {
 		for _, sg := range nic.SecurityGroups {
-			if IsParagliderResource(*sg.Name) {
+			if isParagliderResource(*sg.Name) {
 				// A VM is only ever associated with a single paraglider SG
 				return *sg.ID, nil
 			}
@@ -378,7 +378,7 @@ func (c *ResourceClusterType) CreateResource(name, vpcID, subnetID string, tags 
 
 // IsInNamespace checks if the cluster is in the namespace
 func (c *ResourceClusterType) IsInNamespace(namespace, region string) (bool, error) {
-	resourceQuery := ResourceQuery{}
+	resourceQuery := resourceQuery{}
 	clusterCRN, err := c.getCRN()
 	if err != nil {
 		return false, err
@@ -511,3 +511,4 @@ func (c *CloudClient) GetResourceHandlerFromID(deploymentID string) (ResourceInt
 
 	return nil, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}/zone/{zone}/{resource}/{resource_id}', got '%s'", deploymentID)
 }
+

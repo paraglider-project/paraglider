@@ -88,8 +88,10 @@ func Setup(dbPort int, serverPort int, clearKeys bool) {
 	grpcServer := grpc.NewServer(opts...)
 	storepb.RegisterKVStoreServer(grpcServer, NewKVStoreServer(client))
 	fmt.Printf("Serving KV Store at localhost:%d", serverPort)
-	err = grpcServer.Serve(lis)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	go func(){
+		err = grpcServer.Serve(lis)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
 }

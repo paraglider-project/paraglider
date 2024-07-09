@@ -22,7 +22,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rest"
 	"github.com/stretchr/testify/assert"
 )
@@ -31,13 +31,16 @@ func TestRuleGetExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
-	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
+	executor.cliSettings = config.CliSettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
 	var output bytes.Buffer
 	executor.writer = &output
 
 	args := []string{fake.CloudName, "uri"}
-	err := executor.Execute(cmd, args)
+	err = executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
 	assert.Contains(t, output.String(), fake.GetFakePermitListRules()[0].Name)

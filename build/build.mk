@@ -7,6 +7,7 @@ IMAGE_BASE ?= ghcr.io/$(IMAGE_ORG)
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 GOPATH := $(shell go env GOPATH)
+PLATFORMS ?= $(GOOS)/$(GOARCH)
 
 ifeq (,$(shell go env GOBIN))
 	GOBIN=$(shell go env GOPATH)/bin
@@ -35,6 +36,7 @@ endif
 LDFLAGS := "-s -w $(VERSION_LD_FLAGS)"
 GOARGS := -v -gcflags $(GCFLAGS) -ldflags $(LDFLAGS)
 
+export BUILDX_NO_DEFAULT_ATTESTATIONS := 1# Disable default attestations during Docker builds to prevent "unknown/unknown" image in ghcr.
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
 export GOSUMDB ?= sum.golang.org
@@ -105,7 +107,7 @@ BINARY_TARGETS:=$(foreach ITEM,$(BINARIES),build-$(ITEM))
 build-binaries: $(BINARY_TARGETS) ## Builds all go binaries.
 
 push-image: build-binaries
-	docker buildx build --platform $(GOOS)/$(GOARCH) --progress=plain --rm --tag $(IMAGE_BASE)/paraglider:$(IMAGE_VERSION) --push -f ./Dockerfile .
+	docker buildx build --platform $(PLATFORMS) --progress=plain --rm --tag $(IMAGE_BASE)/paraglider:$(IMAGE_VERSION) --push -f ./Dockerfile .
 
 .PHONY: clean
 clean: ## Cleans output directory.

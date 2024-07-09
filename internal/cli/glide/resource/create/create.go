@@ -22,14 +22,14 @@ import (
 	"os"
 
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	"github.com/paraglider-project/paraglider/pkg/client"
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/spf13/cobra"
 )
 
 func NewCommand() (*cobra.Command, *executor) {
-	executor := &executor{writer: os.Stdout, cliSettings: settings.Global}
+	executor := &executor{writer: os.Stdout, cliSettings: config.ActiveConfig.Settings}
 	cmd := &cobra.Command{
 		Use:     "create <cloud> <resource_name> <resource_description_file>",
 		Short:   "Create a resource",
@@ -44,7 +44,7 @@ func NewCommand() (*cobra.Command, *executor) {
 type executor struct {
 	common.CommandExecutor
 	writer      io.Writer
-	cliSettings settings.CLISettings
+	cliSettings config.CliSettings
 	description []byte
 	uri         string
 }

@@ -29,16 +29,6 @@ env:
   # gotestsum version - see: https://github.com/gotestyourself/gotestsum
   GOTESTSUMVERSION: 1.10.0
 
-  # github contexts
-  GH_RUN_ID: ${{ github.run_id }}
-  GH_RUN_NUMBER: ${{ github.run_number }}
-  GH_RUN_ATTEMPT: ${{ github.run_attempt }}
-
-  # Cloud account fields
-  INVISINETS_GCP_PROJECT_PARENT: ${{ secrets.GCP_FOLDER_ID }}
-  INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME: ${{ secrets.GCP_BILLING_ACCOUNT_NAME }}
-  INVISINETS_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
 jobs:
   build:
     name: Build ${{ matrix.target_os }}_${{ matrix.target_arch }} binaries
@@ -98,6 +88,8 @@ jobs:
         run: python ./.github/scripts/get_release_version.py
       - name: Get protoc
         uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Get protoc-gen-go
         run: |
           GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
@@ -231,22 +223,3 @@ jobs:
         with:
           path: ./dist/cache
           key: code-coverage-${{ github.sha }}-${{ github.run_number }}
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        with:
-          workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/paraglider'
-          service_account: 'invisinets-cicd@invisinets-cicd.iam.gserviceaccount.com'
-      - name: 'Az CLI login'
-        uses: azure/login@v2
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        with:
-            creds: ${{ secrets.AZURE_CREDENTIALS }}
-      - name: Run integration tests
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        run: |
-          make integration-test
-      - name: Run multicloud tests
-        if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
-        run: |
-          make multicloud-test
