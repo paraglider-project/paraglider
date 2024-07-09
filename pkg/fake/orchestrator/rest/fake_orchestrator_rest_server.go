@@ -34,6 +34,11 @@ import (
 const (
 	CloudName = "fakecloud"
 	Namespace = "fakenamespace"
+
+	ResourceName = "fakeName"
+	Ip           = "fakeIp"
+	Uri          = "fakeID"
+	ResourceDesc = "fakeResourceDescription"
 )
 
 type FakeOrchestratorRESTServer struct {
@@ -177,7 +182,7 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 			}
-			err = s.writeResponse(w, &paragliderpb.CreateResourceResponse{Name: strings.Split(path, "/")[len(strings.Split(path, "/"))-1], Uri: "testUri", Ip: "testIp"})
+			err = s.writeResponse(w, &paragliderpb.CreateResourceResponse{Name: strings.Split(path, "/")[len(strings.Split(path, "/"))-1], Uri: Uri, Ip: Ip})
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 			}
@@ -201,19 +206,19 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 					http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 				}
 
-				err = s.writeResponse(w, &paragliderpb.CreateResourceResponse{Name: resource.Name, Uri: "testUri", Ip: "testIp"})
+				err = s.writeResponse(w, &paragliderpb.CreateResourceResponse{Name: resource.Name, Uri: Uri, Ip: Ip})
 				if err != nil {
 					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 				}
 			} else {
 				// Attach Resource (POST)
-				resource := &paragliderpb.ResourceString{}
+				resource := &orchestrator.ResourceWithID{}
 				err := json.Unmarshal(body, resource)
 				if err != nil {
 					http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 				}
 
-				err = s.writeResponse(w, &paragliderpb.AttachResourceResponse{Name: "validResourceName", Uri: resource.Id, Ip: "testIp"})
+				err = s.writeResponse(w, &paragliderpb.AttachResourceResponse{Name: ResourceName, Uri: resource.Id, Ip: Ip})
 				if err != nil {
 					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 				}
