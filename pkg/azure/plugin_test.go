@@ -64,8 +64,8 @@ func TestCreateResource(t *testing.T) {
 		serverState := &fakeServerState{
 			subId:  subID,
 			rgName: rgName,
-			vnet:   getFakeVirtualNetwork(),
-			nic:    getFakeNIC(),
+			vnet:   getFakeParagliderVirtualNetwork(),
+			nic:    getFakeParagliderInterface(),
 			vpnGw:  &armnetwork.VirtualNetworkGateway{},
 			vm:     &vm,
 		}
@@ -141,9 +141,9 @@ func TestCreateResource(t *testing.T) {
 		serverState := &fakeServerState{
 			subId:   subID,
 			rgName:  rgName,
-			vnet:    getFakeVirtualNetwork(),
+			vnet:    getFakeParagliderVirtualNetwork(),
 			subnet:  getFakeParagliderSubnet(),
-			nic:     getFakeNIC(),
+			nic:     getFakeParagliderInterface(),
 			nsg:     getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName),
 			vpnGw:   &armnetwork.VirtualNetworkGateway{},
 			cluster: &cluster,
@@ -172,7 +172,7 @@ func TestGetPermitList(t *testing.T) {
 		t.Errorf("Error while getting fake permit list: %v", err)
 	}
 
-	fakeNic := getFakeNIC()
+	fakeNic := getFakeParagliderInterface()
 	validSecurityGroupID := *fakeNic.Properties.NetworkSecurityGroup.ID
 	fakeNsg := getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName)
 
@@ -259,7 +259,7 @@ func TestAddPermitListRules(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error while getting fake permit list: %v", err)
 	}
-	fakeNic := getFakeNIC()
+	fakeNic := getFakeParagliderInterface()
 	fakeNsg := getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName)
 	fakeVnet := getFakeVnetInLocation(fakeNic.Location, validAddressSpace)
 	fakeVnet.Properties = &armnetwork.VirtualNetworkPropertiesFormat{
@@ -401,7 +401,7 @@ func TestDeleteDeletePermitListRules(t *testing.T) {
 	for _, rule := range fakePlRules {
 		fakeRuleNames = append(fakeRuleNames, rule.Name)
 	}
-	fakeNic := getFakeNIC()
+	fakeNic := getFakeParagliderInterface()
 	fakeNsg := getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName)
 	fakeResource := vmURI
 
@@ -709,7 +709,7 @@ func TestAttachResource(t *testing.T) {
 		serverState := &fakeServerState{
 			subId:  subID,
 			rgName: rgName,
-			nic:    getFakeNIC(),
+			nic:    getFakeInterface(),
 			nsg:    fakeNsg,
 			vnet:   getFakeUnattachedVirtualNetwork(),
 			vpnGw:  &armnetwork.VirtualNetworkGateway{},
@@ -727,9 +727,9 @@ func TestAttachResource(t *testing.T) {
 		serverState := &fakeServerState{
 			subId:  subID,
 			rgName: rgName,
-			nic:    getFakeNIC(),
+			nic:    getFakeInterface(),
 			nsg:    fakeNsg,
-			vnet:   getFakeVirtualNetwork(),
+			vnet:   getFakeParagliderVirtualNetwork(),
 			vpnGw:  &armnetwork.VirtualNetworkGateway{},
 			vm:     to.Ptr(fakeVm),
 		}
