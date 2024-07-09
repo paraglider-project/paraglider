@@ -3,51 +3,64 @@
 Prerequisites
 =============
 
-This section lists the prerequisites for working with the repository. Most contributors should start with the basic prerequisites. 
+This section lists the prerequisites for working with the repository.
+Most contributors should start with the basic prerequisites. 
 Depending on the task you need to perform, you may need to install more tools.
 
-We also provide a `Devcontainer <https://code.visualstudio.com/docs/devcontainers/containers>`_ for working with this repository without installing prerequisites. 
-Keep reading for instructions.
+We highly recommend using VS Code for development.
+We provide a `dev container <https://code.visualstudio.com/docs/devcontainers/containers>`_ that will automatically install all of the prerequisites for you.
+It will take a while to download and install the first time you run it, but subsequent runs will be much faster.
 
-Required tools
-^^^^^^^^^^^^^^^^^^^^
-This is the list of core dependencies to install for the most common tasks. In general we expect all contributors to have all of these tools present:
+VS Code Setup
+-------------
 
-- `Go <https://golang.org/>`_
-- `golangci-lint <https://golangci-lint.run>`_
-- `protoc <https://grpc.io/docs/protoc-installation>`_
+We recommend using VS Code for Paraglider development because we provide a `dev container <https://code.visualstudio.com/docs/devcontainers/containers>`_ that will automatically install all of the prerequisites for you.
 
-- make
+#. `Get VS Code set up to use dev containers <https://code.visualstudio.com/docs/devcontainers/containers#_getting-started>`_.
+#. `In VS Code, open the cloned repository in a container <https://code.visualstudio.com/docs/devcontainers/containers#_quick-start-open-an-existing-folder-in-a-container>`_.
 
-  * Linux: Install the ``build-essential`` package:
-
-    .. code-block:: console
-    
-        $ apt install build-essential
+   .. note::
   
-  * Mac:
+        The first time you open the repository in a container, it will take a while to download and install the prerequisites.
+        Subsequent opens will be much faster.
 
-    Xcode
+#. `Install the Go extension <https://marketplace.visualstudio.com/items?itemName=golang.go>`_.
+#. Configure linter.
+   
+   You may see the following error from ``gopls`` in the ``*_test.go`` files.
 
-    .. code-block:: console  
-        
-        $ xcode-select --install
-    
-    Homebrew
+      This file is within module ".", which is not included in your workspace.
+      To fix this problem, you can add a go.work file that uses this directory.
+      See the documentation for more information on setting up your workspace:
+      https://github.com/golang/tools/blob/master/gopls/doc/workspace.md.
 
-    .. code-block:: console
+   Specify the following in your ``settings.json``.
 
-        $ brew install make
-    
-Testing Required Tools
-^^^^^^^^^^^^^^^^^^^^^^^
-If you have not already done so, clone the repository and navigate there in your command shell.
+   .. code-block:: json
 
-Running these steps will run our build and lint steps and verify that the tools are installed correctly. 
+      "go.buildTags": "unit,integration,multicloud"
 
-**Functional Tests**
+Required Tools
+--------------
 
-Our functional tests perform real requests to cloud providers. You can run these with the following commands
+This is the list of core dependencies to install for the most common tasks.
+In general we expect all contributors to have all of these tools present.
+
+- `make <https://www.gnu.org/software/make/>`_
+- `Go <https://golang.org/>`_
+- `protoc <https://grpc.io/docs/protoc-installation>`_
+- `protoc-gen-go <https://pkg.go.dev/google.golang.org/protobuf/cmd/protoc-gen-go>`_
+- `protoc-gen-go-grpc <https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc>`_
+- `redis <https://redis.io>`_
+- `golangci-lint <https://golangci-lint.run>`_
+
+Running Functional Tests
+------------------------
+
+Paraglider uses both unit and functional tests.
+While unit tests use a fake cloud provider, functional tests make API calls to real cloud providers, which requires further setup.
+
+You can run these with the following commands
 
 .. code-block:: console
 
@@ -56,64 +69,61 @@ Our functional tests perform real requests to cloud providers. You can run these
 
 Note that the ``make test`` command only runs unit tests.
 
-If you would like to run these locally, you will need to be authenticated. The following are the steps for each respective cloud provider.
+If you would like to run these locally, you will need to be authenticated.
+The following are the steps for each respective cloud provider.
 
-**Google Cloud**
+Google Cloud
+^^^^^^^^^^^^
 
 #. `Install the gcloud CLI <https://cloud.google.com/sdk/docs/install>`_. If you're using the dev container, this will already be installed for you.
 #. `Set up your application default credentials <https://cloud.google.com/docs/authentication/provide-credentials-adc>`_.
 #. Set the active project with ``gcloud config set project <project-id>``.
-#. The tests will automatically create (and delete) new projects for each test run. You must set the environment variable ``INVISINETS_GCP_PROJECT_BILLING_ACCOUNT_NAME`` in the form of the ``billingAccount`` field of the `"ProjectBillingInfo" resource <https://cloud.google.com/billing/docs/reference/rest/v1/ProjectBillingInfo>`_.
+#. The tests will automatically create (and delete) new projects for each test run. You must set the environment variable ``PARAGLIDER_GCP_PROJECT_BILLING_ACCOUNT_NAME`` in the form of the ``billingAccount`` field of the `"ProjectBillingInfo" resource <https://cloud.google.com/billing/docs/reference/rest/v1/ProjectBillingInfo>`_.
 
-   * If you'd like them to be created in a certain parent, set the environment variable ``INVISINETS_GCP_PROJECT_PARENT`` in the form of the `parent` field of the `"Project" resource <https://cloud.google.com/resource-manager/reference/rest/v3/projects#resource:-project>`_.
+   * If you'd like them to be created in a certain parent, set the environment variable ``PARAGLIDER_GCP_PROJECT_PARENT`` in the form of the `parent` field of the `"Project" resource <https://cloud.google.com/resource-manager/reference/rest/v3/projects#resource:-project>`_.
    
      .. warning::
         
         This requires privileges of creating projects and linking billing accounts.
     
-   * If you want to use your own project, set the environment variable ``INVISINETS_GCP_PROJECT``. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.
+   * If you want to use your own project, set the environment variable ``PARAGLIDER_GCP_PROJECT_PARENT``. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.
      
      .. warning::
         
         Resources will not automatically be cleaned up for you.
 
-**Azure**
+Azure
+^^^^^
 
 #. `Install azure cli <https://learn.microsoft.com/en-us/cli/azure/install-azure-cli>`_. If you're using the dev container, this will already be installed for you.
 #. `Authenticate to your account with azure login <https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli>`_.
-#. The tests will automatically create (and delete) new resource groups for each test run. You must set the environment variable ``INVISINETS_AZURE_SUBSCRIPTION_ID`` with a valid subscription.
+#. The tests will automatically create (and delete) new resource groups for each test run. You must set the environment variable ``PARAGLIDER_AZURE_SUBSCRIPTION_ID`` with a valid subscription.
    
-   * If you want to use your own existing resource group, set the environment variable ``INVISINETS_AZURE_RESOURCE_GROUP``. The tests will not delete the resource group and instead only clean up the resources within it.
+   * If you want to use your own existing resource group, set the environment variable ``PARAGLIDER_AZURE_RESOURCE_GROUP``. The tests will not delete the resource group and instead only clean up the resources within it.
     
      .. warning::
           
           Resource group must be created before running the test.
 
-
-If you'd like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable ``INVISINETS_TEST_PERSIST`` to ``1``.
-
-**IBM** 
+IBM
+^^^
 
 .. note:: 
-    IBM integration tests are not currently supported. We plan to add some soon.
+    IBM functional tests are not currently supported. We plan to add some soon.
 
-Using the Dev Container
-------------------------
-Dev Containers allow you to run a development environment using VS Code inside a container. If you want to try this:
-
-- Install `Docker <https://code.visualstudio.com/docs/devcontainers/containers#_system-requirements>`_
-- Install `VS Code <https://code.visualstudio.com/>`_
-- Install the `Dev Container extension <https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers>`_
-
-Now when you open the Paraglider repo, you will be prompted with the option to open in a Dev Container. 
-This will take a few minutes the first time to download and build the container, but will be much faster on subsequent opens.
-
-Additional Tools
---------------------
-
-Test summaries
+Persisting Resources
 ^^^^^^^^^^^^^^^^^^^^
-The default ``go test`` output can be hard to read when you have many tests. We recommend ``gotestsum`` as a tool to solve this. 
-Our ``make test`` command will automatically use ``gotestsum`` if it is available.
 
-- `gotestsum <https://github.com/gotestyourself/gotestsum#install>`_
+The functional tests will automatically clean up any resources they create before completing the test run.
+If you'd like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable ``PARAGLIDER_TEST_PERSIST`` to ``1``.
+
+
+Optional Tools
+--------------
+
+- `gotestsum <https://github.com/gotestyourself/gotestsum#install>`_ for better test summaries
+  
+  The default ``go test`` output can be hard to read when you have many tests.
+  We recommend ``gotestsum`` as a tool to solve this. 
+  Our ``make test`` command will automatically use ``gotestsum`` if available.
+
