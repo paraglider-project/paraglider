@@ -89,7 +89,7 @@ type ResourceInfo struct {
 	namespace string
 }
 
-type ResourceWithID struct {
+type ResourceID struct {
 	Id string `json:"id,omitempty"`
 }
 
@@ -1128,7 +1128,7 @@ func (s *ControllerServer) handleCreateOrAttachResource(c *gin.Context) {
 	}
 
 	var resourceToCreate paragliderpb.ResourceDescriptionString
-	var resourceToAttach ResourceWithID
+	var resourceToAttach ResourceID
 
 	// Create resource if req. body JSON contains "description"
 	if err := c.ShouldBindBodyWithJSON(&resourceToCreate); err == nil && resourceToCreate.Description != "" {
