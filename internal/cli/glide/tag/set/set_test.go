@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paraglider-project/paraglider/internal/cli/glide/settings"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,10 +31,13 @@ import (
 func TestTagSetValidate(t *testing.T) {
 	args := []string{"tag"}
 
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	// Just children specified
 	cmd, executor := NewCommand()
 	children := []string{"child1", "child2"}
-	err := cmd.Flags().Set("children", strings.Join(children, ","))
+	err = cmd.Flags().Set("children", strings.Join(children, ","))
 	require.Nil(t, err)
 
 	err = executor.Validate(cmd, args)
@@ -74,14 +77,17 @@ func TestTagSetExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
+	err := config.ReadOrCreateConfig()
+	assert.Nil(t, err)
+
 	cmd, executor := NewCommand()
-	executor.cliSettings = settings.CLISettings{ServerAddr: serverAddr}
+	executor.cliSettings = config.CliSettings{ServerAddr: serverAddr}
 
 	// Just children set
 	executor.children = []string{"child1", "child2"}
 	args := []string{"tag"}
 
-	err := executor.Execute(cmd, args)
+	err = executor.Execute(cmd, args)
 	assert.Nil(t, err)
 
 	// Just URI/IP set

@@ -86,7 +86,7 @@ Google Cloud
         
         This requires privileges of creating projects and linking billing accounts.
     
-   * If you want to use your own project, set the environment variable ``PARAGLIDER_GCP_PROJECT_PARENT``. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.
+   * If you want to use your own project, set the environment variable ``PARAGLIDER_GCP_PROJECT``. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.
      
      .. warning::
         
@@ -108,15 +108,15 @@ Azure
 IBM
 ^^^
 
-.. note:: 
-    IBM functional tests are not currently supported. We plan to add some soon.
+#. Set environment variable ``PARAGLIDER_IBM_API_KEY`` with an ``IAM API`` key. Create a key on `IBM's web console <https://cloud.ibm.com/iam/apikeys>`_. 
+#. Set environment variable ``PARAGLIDER_IBM_RESOURCE_GROUP_ID`` with a resource group ID. 
+   Pick a resource group from `IBM's web console <https://cloud.ibm.com/account/resource-groups>`__.
 
 Persisting Resources
 ^^^^^^^^^^^^^^^^^^^^
 
 The functional tests will automatically clean up any resources they create before completing the test run.
 If you'd like to persist resources after a test (i.e., not teardown project/resource group), you can set the environment variable ``PARAGLIDER_TEST_PERSIST`` to ``1``.
-
 
 Optional Tools
 --------------
@@ -126,4 +126,3 @@ Optional Tools
   The default ``go test`` output can be hard to read when you have many tests.
   We recommend ``gotestsum`` as a tool to solve this. 
   Our ``make test`` command will automatically use ``gotestsum`` if available.
-

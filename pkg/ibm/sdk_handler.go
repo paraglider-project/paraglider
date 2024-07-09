@@ -25,7 +25,6 @@ import (
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
-	ibmCommon "github.com/paraglider-project/paraglider/pkg/ibm_plugin"
 
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
@@ -59,7 +58,7 @@ func (c *CloudClient) UpdateRegion(region string) error {
 // Note: This will be used by IBM plugin through setupCloudClient, and
 // should not be used directly to create a cloud client otherwise.
 func NewIBMCloudClient(resourceGroupID, region string) (*CloudClient, error) {
-	if isRegionValid, err := ibmCommon.IsRegionValid(region); !isRegionValid || err != nil {
+	if isRegionValid, err := isRegionValid(region); !isRegionValid || err != nil {
 		return nil, fmt.Errorf("region %v isn't valid", region)
 	}
 
@@ -188,4 +187,17 @@ func FakeIBMCloudClient(fakeURL, fakeResGroupID, fakeRegion string) (*CloudClien
 		transitGW:      transitGatewayService,
 	}
 	return &client, nil
+}
+
+// GetZonesOfRegion returns zones of specified region
+func (c CloudClient) GetZonesOfRegion(region string) ([]string, error) {
+	zones := []string{}
+	zoneCollection, _, err := c.vpcService.ListRegionZones(&vpcv1.ListRegionZonesOptions{RegionName: core.StringPtr(region)})
+	if err != nil {
+		return nil, err
+	}
+	for _, zone := range zoneCollection.Zones {
+		zones = append(zones, *zone.Name)
+	}
+	return zones, nil
 }

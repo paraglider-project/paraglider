@@ -34,6 +34,24 @@ type ResourceIDInfo struct {
 	ResourceName      string
 }
 
+func getVmUri(subscriptionId string, resourceGroupName string, vmName string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", subscriptionId, resourceGroupName, virtualMachineTypeName, vmName)
+}
+
+func getClusterUri(subscriptionId string, resourceGroupName string, clusterName string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", subscriptionId, resourceGroupName, managedClusterTypeName, clusterName)
+}
+
+func getDeploymentUri(subscriptionId string, resourceGroupName string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", subscriptionId, resourceGroupName)
+}
+
+func getDnsServiceCidr(serviceCidr string) string {
+	// Get the first three octets of the service CIDR
+	split := strings.Split(serviceCidr, ".")
+	return fmt.Sprintf("%s.%s.%s.10", split[0], split[1], split[2])
+}
+
 // Extract the Vnet name from the subnet ID
 func getVnetFromSubnetId(subnetId string) string {
 	parts := strings.Split(subnetId, "/")

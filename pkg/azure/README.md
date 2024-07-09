@@ -125,7 +125,7 @@ Integration tests play a critical role in ensuring that the extended functionali
 #### Setup and Environment Variables
 
 1. **Isolated Resource Group**: Each integration test run creates a dedicated resource group to maintain an isolated environment. The resource group's name is prefixed by the GitHub run number when running in a GitHub Action workflow. For local testing, the run number is empty.
-2. **INVISINETS_AZURE_SUBSCRIPTION_ID**: When running tests locally, ensure that the environment variable `INVISINETS_AZURE_SUBSCRIPTION_ID` is set with your Azure subscription ID. For GitHub Actions, this subscription ID should be set as a secret in the repository.
+2. **PARAGLIDER_AZURE_SUBSCRIPTION_ID**: When running tests locally, ensure that the environment variable `PARAGLIDER_AZURE_SUBSCRIPTION_ID` is set with your Azure subscription ID. For GitHub Actions, this subscription ID should be set as a secret in the repository.
 
 #### Integration Test Function
 

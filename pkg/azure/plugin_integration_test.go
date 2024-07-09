@@ -243,3 +243,120 @@ func TestCrossNamespaces(t *testing.T) {
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM2toVM1)
 }
+
+func TestMultipleRegionsIntraNamespace(t *testing.T) {
+	// Setup
+	subscriptionId := GetAzureSubscriptionId()
+	resourceGroupName := SetupAzureTesting(subscriptionId, "integration5")
+	defaultNamespace := "default"
+	defer TeardownAzureTesting(subscriptionId, resourceGroupName, defaultNamespace)
+
+	// Set Azure plugin port
+	azureServerPort := 7992
+
+	// Setup orchestrator server
+	orchestratorServerConfig := config.Config{
+		Server: config.Server{
+			Host:    "localhost",
+			Port:    "8080",
+			RpcPort: "9091",
+		},
+		CloudPlugins: []config.CloudPlugin{
+			{
+				Name: utils.AZURE,
+				Host: "localhost",
+				Port: strconv.Itoa(azureServerPort),
+			},
+		},
+		Namespaces: map[string][]config.CloudDeployment{
+			defaultNamespace: {
+				{
+					Name:       utils.AZURE,
+					Deployment: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName),
+				},
+			},
+		},
+	}
+	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
+	orchestrator.Setup(orchestratorServerConfig, true)
+
+	// Setup Azure plugin server
+	azureServer := Setup(azureServerPort, orchestratorServerAddr)
+	ctx := context.Background()
+
+	// Create 2 VMs in different regions
+	vm1Name := "vm-paraglider-test-west"
+	vm1Location := "westus"
+	createVM1Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroupName, defaultNamespace, vm1Location, vm1Name)
+	require.NoError(t, err)
+	require.NotNil(t, createVM1Resp)
+	assert.Equal(t, createVM1Resp.Name, vm1Name)
+
+	vm2Name := "vm-paraglider-test-east"
+	vm2Location := "eastus"
+	createVM2Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroupName, defaultNamespace, vm2Location, vm2Name)
+	require.NoError(t, err)
+	require.NotNil(t, createVM2Resp)
+	assert.Equal(t, createVM2Resp.Name, vm2Name)
+
+	vm1ResourceId := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + vm1Name
+	vm2ResourceId := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + vm2Name
+	vm1Ip, err := GetVmIpAddress(vm1ResourceId)
+	require.NoError(t, err)
+	vm2Ip, err := GetVmIpAddress(vm2ResourceId)
+	require.NoError(t, err)
+
+	// Create and add permit list rules to vm1 and vm2 to ping each other
+	vm1Rules := []*paragliderpb.PermitListRule{
+		{
+			Name:      "vm2-ping-ingress",
+			Targets:   []string{vm2Ip},
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+		{
+			Name:      "vm2-ping-egress",
+			Targets:   []string{vm2Ip},
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+	}
+
+	vm2Rules := []*paragliderpb.PermitListRule{
+		{
+			Name:      "vm1-ping-ingress",
+			Targets:   []string{vm1Ip},
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+		{
+			Name:      "vm1-ping-egress",
+			Targets:   []string{vm1Ip},
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+	}
+	vmRules := [][]*paragliderpb.PermitListRule{vm1Rules, vm2Rules}
+	for i, vmResourceId := range []string{vm1ResourceId, vm2ResourceId} {
+		addPermitListRulesReq := &paragliderpb.AddPermitListRulesRequest{Rules: vmRules[i], Namespace: defaultNamespace, Resource: vmResourceId}
+		addPermitListRulesResp, err := azureServer.AddPermitListRules(ctx, addPermitListRulesReq)
+		require.NoError(t, err)
+		require.NotNil(t, addPermitListRulesResp)
+	}
+
+	// Run connectivity checks on both directions between vm1 and vm2
+	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(vm1ResourceId, vm2Ip, defaultNamespace)
+	require.Nil(t, err)
+	require.True(t, azureConnectivityCheckVM1toVM2)
+	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(vm2ResourceId, vm1Ip, defaultNamespace)
+	require.Nil(t, err)
+	require.True(t, azureConnectivityCheckVM2toVM1)
+}
