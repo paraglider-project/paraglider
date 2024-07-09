@@ -182,7 +182,7 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 			}
 			return
-		// Create Resources (POST)
+		// Create or Attach Resources (POST)
 		case urlMatches(path, orchestrator.CreateOrAttachResourcePOSTURL) && r.Method == http.MethodPost:
 			var bodyMap map[string]interface{}
 			err := json.Unmarshal(body, &bodyMap)
@@ -191,30 +191,32 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 				return
 			}
 
-			// Create and Attach with POST share the same URL. If the body has an "id" field, it is an Attach request. Otherwise, Create request.
+			// Create and Attach share the same URL with POST.
+			// If the body has an "id" field, it is an Attach request. Otherwise, Create request.
 			if bodyMap["id"] == nil {
+				// Create Resource (POST)
 				resource := &paragliderpb.ResourceDescriptionString{}
 				err = json.Unmarshal(body, resource)
 				if err != nil {
 					http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 				}
+
 				err = s.writeResponse(w, &paragliderpb.CreateResourceResponse{Name: resource.Name, Uri: "testUri", Ip: "testIp"})
 				if err != nil {
 					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
 				}
-				return
-			}
-			fallthrough
-		// Attach Resource (POST)
-		case urlMatches(path, orchestrator.CreateOrAttachResourcePOSTURL) && r.Method == http.MethodPost:
-			resource := &paragliderpb.ResourceString{}
-			err := json.Unmarshal(body, resource)
-			if err != nil {
-				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
-			}
-			err = s.writeResponse(w, &paragliderpb.AttachResourceResponse{Name: "validResourceName", Uri: resource.Id, Ip: "testIp"})
-			if err != nil {
-				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+			} else {
+				// Attach Resource (POST)
+				resource := &paragliderpb.ResourceString{}
+				err := json.Unmarshal(body, resource)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+				}
+
+				err = s.writeResponse(w, &paragliderpb.AttachResourceResponse{Name: "validResourceName", Uri: resource.Id, Ip: "testIp"})
+				if err != nil {
+					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+				}
 			}
 			return
 		// Add Permit List Rules
