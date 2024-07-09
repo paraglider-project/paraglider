@@ -46,24 +46,23 @@ import (
 )
 
 const (
-	GetPermitListRulesURL    string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules"
-	PermitListRulePOSTURL    string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules"
-	PermitListRulePUTURL     string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules/:ruleName"
-	AddPermitListRulesURL    string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/applyRules"
-	DeletePermitListRulesURL string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/deleteRules"
-	CreateResourcePUTURL     string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName"
-	CreateResourcePOSTURL    string = "/namespaces/:namespace/clouds/:cloud/resources"
-	AttachResourcePOSTURL    string = "/namespaces/:namespace/clouds/:cloud/resources"
-	RuleOnTagURL             string = "/tags/:tag/rules"
-	ListTagURL               string = "/tags"
-	GetTagURL                string = "/tags/:tag"
-	ResolveTagURL            string = "/tags/:tag/resolveMembers"
-	SetTagURL                string = "/tags/:tag/applyMembers"
-	DeleteTagURL             string = "/tags/:tag"
-	DeleteTagMemberURL       string = "/tags/:tag/members/:member"
-	ListNamespacesURL        string = "/namespaces"
-	defaultAddressSpace      string = "10.0.0.0/8"
-	defaultSpaceRequest      int    = 65534
+	GetPermitListRulesURL         string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules"
+	PermitListRulePOSTURL         string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules"
+	PermitListRulePUTURL          string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules/:ruleName"
+	AddPermitListRulesURL         string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/applyRules"
+	DeletePermitListRulesURL      string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/deleteRules"
+	CreateResourcePUTURL          string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName"
+	CreateOrAttachResourcePOSTURL string = "/namespaces/:namespace/clouds/:cloud/resources"
+	RuleOnTagURL                  string = "/tags/:tag/rules"
+	ListTagURL                    string = "/tags"
+	GetTagURL                     string = "/tags/:tag"
+	ResolveTagURL                 string = "/tags/:tag/resolveMembers"
+	SetTagURL                     string = "/tags/:tag/applyMembers"
+	DeleteTagURL                  string = "/tags/:tag"
+	DeleteTagMemberURL            string = "/tags/:tag/members/:member"
+	ListNamespacesURL             string = "/namespaces"
+	defaultAddressSpace           string = "10.0.0.0/8"
+	defaultSpaceRequest           int    = 65534
 )
 
 type Warning struct {
@@ -1202,6 +1201,7 @@ func (s *ControllerServer) resourceAttach(c *gin.Context, resourceInfo *Resource
 	}
 
 	// Set Paraglider tag
+	resourceInfo.name = attachResourceResp.Name
 	tagName := s.createTag(c, resourceInfo, attachResourceResp.Uri, attachResourceResp.Ip)
 	if tagName == "" {
 		return
@@ -1558,8 +1558,7 @@ func Setup(cfg config.Config, background bool) {
 	router.POST(DeletePermitListRulesURL, server.permitListRulesDelete)
 	router.DELETE(PermitListRulePUTURL, server.permitListRuleDelete)
 	router.PUT(CreateResourcePUTURL, server.handleCreateOrAttachResource)
-	router.POST(CreateResourcePOSTURL, server.handleCreateOrAttachResource)
-	router.POST(AttachResourcePOSTURL, server.handleCreateOrAttachResource)
+	router.POST(CreateOrAttachResourcePOSTURL, server.handleCreateOrAttachResource)
 	router.POST(RuleOnTagURL, server.permitListRuleAddTag)
 	router.DELETE(RuleOnTagURL, server.permitListRuleDeleteTag)
 	router.GET(ListTagURL, server.listTags)

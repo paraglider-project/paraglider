@@ -559,7 +559,7 @@ func TestCreateResourcePost(t *testing.T) {
 	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST(CreateResourcePOSTURL, orchestratorServer.handleCreateOrAttachResource)
+	r.POST(CreateOrAttachResourcePOSTURL, orchestratorServer.handleCreateOrAttachResource)
 
 	// Well-formed request
 	name := "resource-name"
@@ -569,7 +569,7 @@ func TestCreateResourcePost(t *testing.T) {
 	}
 	jsonValue, _ := json.Marshal(resource)
 
-	url := fmt.Sprintf(GetFormatterString(CreateResourcePOSTURL), defaultNamespace, exampleCloudName)
+	url := fmt.Sprintf(GetFormatterString(CreateOrAttachResourcePOSTURL), defaultNamespace, exampleCloudName)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -577,7 +577,7 @@ func TestCreateResourcePost(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf(GetFormatterString(CreateResourcePOSTURL), defaultNamespace, "wrong")
+	url = fmt.Sprintf(GetFormatterString(CreateOrAttachResourcePOSTURL), defaultNamespace, "wrong")
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -587,7 +587,7 @@ func TestCreateResourcePost(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf(GetFormatterString(CreateResourcePOSTURL), defaultNamespace, exampleCloudName)
+	url = fmt.Sprintf(GetFormatterString(CreateOrAttachResourcePOSTURL), defaultNamespace, exampleCloudName)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -668,22 +668,17 @@ func TestAttachResourcePost(t *testing.T) {
 	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST(CreateResourcePOSTURL, orchestratorServer.handleCreateOrAttachResource)
+	r.POST(CreateOrAttachResourcePOSTURL, orchestratorServer.handleCreateOrAttachResource)
 
 	// Well-formed request
 	resource := &paragliderpb.ResourceString{Id: "id"}
 	jsonValue, _ := json.Marshal(resource)
 
-	url := fmt.Sprintf(GetFormatterString(AttachResourcePOSTURL), defaultNamespace, exampleCloudName)
+	url := fmt.Sprintf(GetFormatterString(CreateOrAttachResourcePOSTURL), defaultNamespace, exampleCloudName)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
-
-	// todo: Just for CI debugging. Delete before merging
-	if w.Code != http.StatusOK {
-		fmt.Println("Error: ", w.Body.String())
-	}
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Invalid request body
@@ -697,7 +692,7 @@ func TestAttachResourcePost(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf(GetFormatterString(AttachResourcePOSTURL), defaultNamespace, "wrong")
+	url = fmt.Sprintf(GetFormatterString(CreateOrAttachResourcePOSTURL), defaultNamespace, "wrong")
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
