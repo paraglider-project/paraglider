@@ -559,7 +559,7 @@ func TestCreateResourcePost(t *testing.T) {
 	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST(CreateResourcePOSTURL, orchestratorServer.resourceCreate)
+	r.POST(CreateOrAttachResourcePOSTURL, orchestratorServer.handleCreateOrAttachResource)
 
 	// Well-formed request
 	name := "resource-name"
@@ -569,7 +569,7 @@ func TestCreateResourcePost(t *testing.T) {
 	}
 	jsonValue, _ := json.Marshal(resource)
 
-	url := fmt.Sprintf(GetFormatterString(CreateResourcePOSTURL), defaultNamespace, exampleCloudName)
+	url := fmt.Sprintf(GetFormatterString(CreateOrAttachResourcePOSTURL), defaultNamespace, exampleCloudName)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w := httptest.NewRecorder()
 
@@ -577,7 +577,7 @@ func TestCreateResourcePost(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Bad cloud name
-	url = fmt.Sprintf(GetFormatterString(CreateResourcePOSTURL), defaultNamespace, "wrong")
+	url = fmt.Sprintf(GetFormatterString(CreateOrAttachResourcePOSTURL), defaultNamespace, "wrong")
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -587,7 +587,7 @@ func TestCreateResourcePost(t *testing.T) {
 	badRequest := "{\"test\": 1}"
 	jsonValue, _ = json.Marshal(&badRequest)
 
-	url = fmt.Sprintf(GetFormatterString(CreateResourcePOSTURL), defaultNamespace, exampleCloudName)
+	url = fmt.Sprintf(GetFormatterString(CreateOrAttachResourcePOSTURL), defaultNamespace, exampleCloudName)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 
@@ -614,7 +614,7 @@ func TestCreateResourcePut(t *testing.T) {
 	faketagservice.SetupFakeTagServer(tagServerPort)
 
 	r := SetUpRouter()
-	r.POST(CreateResourcePUTURL, orchestratorServer.resourceCreate)
+	r.POST(CreateResourcePUTURL, orchestratorServer.handleCreateOrAttachResource)
 
 	// Well-formed request
 	name := "resource-name"
@@ -642,6 +642,57 @@ func TestCreateResourcePut(t *testing.T) {
 	jsonValue, _ = json.Marshal(&badRequest)
 
 	url = fmt.Sprintf(GetFormatterString(CreateResourcePUTURL), defaultNamespace, exampleCloudName, name)
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAttachResourcePost(t *testing.T) {
+	// Setup
+	orchestratorServer := newOrchestratorServer()
+	port := getNewPortNumber()
+	tagServerPort := getNewPortNumber()
+	orchestratorServer.localTagService = fmt.Sprintf("localhost:%d", tagServerPort)
+	orchestratorServer.pluginAddresses[exampleCloudName] = fmt.Sprintf("localhost:%d", port)
+	orchestratorServer.usedAddressSpaces = []*paragliderpb.AddressSpaceMapping{
+		{
+			AddressSpaces: []string{"10.1.0.0/24"},
+			Cloud:         exampleCloudName,
+			Namespace:     defaultNamespace,
+		},
+	}
+
+	fakeplugin.SetupFakePluginServer(port)
+	faketagservice.SetupFakeTagServer(tagServerPort)
+
+	r := SetUpRouter()
+	r.POST(CreateOrAttachResourcePOSTURL, orchestratorServer.handleCreateOrAttachResource)
+
+	// Invalid request body
+	resource := &ResourceID{Id: ""}
+	jsonValue, _ := json.Marshal(resource)
+
+	url := fmt.Sprintf(GetFormatterString(CreateOrAttachResourcePOSTURL), defaultNamespace, exampleCloudName)
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// Well-formed request
+	resource = &ResourceID{Id: "id"}
+	jsonValue, _ = json.Marshal(resource)
+
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Bad cloud name
+	url = fmt.Sprintf(GetFormatterString(CreateOrAttachResourcePOSTURL), defaultNamespace, "wrong")
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 

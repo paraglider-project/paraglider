@@ -350,7 +350,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 					DestinationRanges: []string{"0.0.0.0/0"},
 					Direction:         proto.String(computepb.Firewall_EGRESS.String()),
 					Name:              proto.String(getDenyAllIngressFirewallName(resourceDescription.Deployment.Namespace)),
-					Network:           proto.String(GetVpcUrl(project, resourceDescription.Deployment.Namespace)),
+					Network:           proto.String(getVpcUrl(project, resourceDescription.Deployment.Namespace)),
 					Priority:          proto.Int32(65534),
 				},
 			}
@@ -413,7 +413,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 			SubnetworkResource: &computepb.Subnetwork{
 				Name:        proto.String(subnetName),
 				Description: proto.String("Paraglider subnetwork for " + resourceInfo.Region),
-				Network:     proto.String(GetVpcUrl(project, resourceDescription.Deployment.Namespace)),
+				Network:     proto.String(getVpcUrl(project, resourceDescription.Deployment.Namespace)),
 				IpCidrRange: proto.String(addressSpaces[0]),
 			},
 		}
@@ -592,7 +592,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 		VpnGatewayResource: &computepb.VpnGateway{
 			Name:        proto.String(getVpnGwName(req.Deployment.Namespace)),
 			Description: proto.String("Paraglider VPN gateway for multicloud connections"),
-			Network:     proto.String(GetVpcUrl(project, req.Deployment.Namespace)),
+			Network:     proto.String(getVpcUrl(project, req.Deployment.Namespace)),
 		},
 	}
 	insertVpnGatewayOp, err := vpnGatewaysClient.Insert(ctx, insertVpnGatewayReq)
@@ -626,7 +626,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 		RouterResource: &computepb.Router{
 			Name:        proto.String(getRouterName(req.Deployment.Namespace)),
 			Description: proto.String("Paraglider router for multicloud connections"),
-			Network:     proto.String(GetVpcUrl(project, req.Deployment.Namespace)),
+			Network:     proto.String(getVpcUrl(project, req.Deployment.Namespace)),
 			Bgp: &computepb.RouterBgp{
 				Asn: proto.Uint32(asn),
 			},

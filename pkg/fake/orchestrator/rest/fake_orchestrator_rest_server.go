@@ -34,6 +34,11 @@ import (
 const (
 	CloudName = "fakecloud"
 	Namespace = "fakenamespace"
+
+	ResourceName = "fakeName"
+	Ip           = "fakeIp"
+	Uri          = "fakeID"
+	ResourceDesc = "fakeResourceDescription"
 )
 
 type FakeOrchestratorRESTServer struct {
@@ -170,18 +175,6 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 				return
 			}
 			return
-		// Create Resources (POST)
-		case urlMatches(path, orchestrator.CreateResourcePOSTURL) && r.Method == http.MethodPost:
-			resource := &paragliderpb.ResourceDescriptionString{}
-			err := json.Unmarshal(body, resource)
-			if err != nil {
-				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
-			}
-			err = s.writeResponse(w, map[string]string{"name": resource.Name})
-			if err != nil {
-				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
-			}
-			return
 		// Create Resources (PUT)
 		case urlMatches(path, orchestrator.CreateResourcePUTURL) && r.Method == http.MethodPut:
 			resource := &paragliderpb.ResourceDescriptionString{}
@@ -189,9 +182,46 @@ func (s *FakeOrchestratorRESTServer) SetupFakeOrchestratorRESTServer() string {
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
 			}
-			err = s.writeResponse(w, map[string]string{"name": strings.Split(path, "/")[len(strings.Split(path, "/"))-1]})
+			err = s.writeResponse(w, &paragliderpb.CreateResourceResponse{Name: strings.Split(path, "/")[len(strings.Split(path, "/"))-1], Uri: Uri, Ip: Ip})
 			if err != nil {
 				http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+			}
+			return
+		// Create or Attach Resources (POST)
+		case urlMatches(path, orchestrator.CreateOrAttachResourcePOSTURL) && r.Method == http.MethodPost:
+			var bodyMap map[string]interface{}
+			err := json.Unmarshal(body, &bodyMap)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+				return
+			}
+
+			// Create and Attach share the same URL with POST.
+			// If the body has an "id" field, it is an Attach request. Otherwise, Create request.
+			if bodyMap["id"] == nil {
+				// Create Resource (POST)
+				resource := &paragliderpb.ResourceDescriptionString{}
+				err = json.Unmarshal(body, resource)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+				}
+
+				err = s.writeResponse(w, &paragliderpb.CreateResourceResponse{Name: resource.Name, Uri: Uri, Ip: Ip})
+				if err != nil {
+					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+				}
+			} else {
+				// Attach Resource (POST)
+				resource := &orchestrator.ResourceID{}
+				err := json.Unmarshal(body, resource)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("error unmarshalling request body: %s", err), http.StatusBadRequest)
+				}
+
+				err = s.writeResponse(w, &paragliderpb.AttachResourceResponse{Name: ResourceName, Uri: resource.Id, Ip: Ip})
+				if err != nil {
+					http.Error(w, fmt.Sprintf("error writing response: %s", err), http.StatusInternalServerError)
+				}
 			}
 			return
 		// Add Permit List Rules

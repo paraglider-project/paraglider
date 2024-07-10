@@ -57,6 +57,10 @@ func (s *fakeCloudPluginServer) CreateResource(c context.Context, req *paraglide
 	return &paragliderpb.CreateResourceResponse{Name: "resource_name", Uri: "resource_uri"}, nil
 }
 
+func (s *fakeCloudPluginServer) AttachResource(c context.Context, req *paragliderpb.AttachResourceRequest) (*paragliderpb.AttachResourceResponse, error) {
+	return &paragliderpb.AttachResourceResponse{Name: "resource_name", Uri: "resource_uri", Ip: "1.1.1.1"}, nil
+}
+
 func (s *fakeCloudPluginServer) GetUsedAddressSpaces(c context.Context, req *paragliderpb.GetUsedAddressSpacesRequest) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
 	resp := &paragliderpb.GetUsedAddressSpacesResponse{
 		AddressSpaceMappings: []*paragliderpb.AddressSpaceMapping{

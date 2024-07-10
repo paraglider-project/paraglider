@@ -327,7 +327,7 @@ func (r *instanceHandler) createWithNetwork(ctx context.Context, instance *compu
 	// Configure network settings to Paraglider VPC and corresponding subnet
 	instance.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
-			Network:    proto.String(GetVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
+			Network:    proto.String(getVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
 			Subnetwork: proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName)),
 		},
 	}
@@ -508,7 +508,7 @@ func (r *clusterHandler) createWithNetwork(ctx context.Context, cluster *contain
 				Description: proto.String("Paraglider allow cluster egress traffic"),
 				Direction:   proto.String(direction),
 				Name:        proto.String("paraglider-allow-control-plane-" + strings.ToLower(direction) + "-" + resourceInfo.Name),
-				Network:     proto.String(GetVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
+				Network:     proto.String(getVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
 				Priority:    proto.Int32(65500),
 				TargetTags:  []string{getClusterNodeTag(resourceInfo.Namespace, getClusterResp.Name, getClusterResp.Id)},
 			},

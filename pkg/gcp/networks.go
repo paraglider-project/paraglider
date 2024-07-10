@@ -45,8 +45,8 @@ func getSubnetworkUrl(project string, region string, name string) string {
 	return computeUrlPrefix + fmt.Sprintf("projects/%s/regions/%s/subnetworks/%s", project, region, name)
 }
 
-// GetVpcUrl returns a fully qualified URL for a VPC network
-func GetVpcUrl(project string, namespace string) string {
+// getVpcUrl returns a fully qualified URL for a VPC network
+func getVpcUrl(project string, namespace string) string {
 	return computeUrlPrefix + fmt.Sprintf("projects/%s/global/networks/%s", project, getVpcName(namespace))
 }
 
@@ -70,7 +70,7 @@ func peerVpcNetwork(ctx context.Context, networksClient *compute.NetworksClient,
 	}
 
 	// Add peering
-	peerVpcUrl := GetVpcUrl(peerProject, peerNamespace)
+	peerVpcUrl := getVpcUrl(peerProject, peerNamespace)
 	addPeeringNetworkReq := &computepb.AddPeeringNetworkRequest{
 		Network: getVpcName(currentNamespace),
 		Project: currentProject,

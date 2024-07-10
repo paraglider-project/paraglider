@@ -225,7 +225,7 @@ func GetInstanceId(project string, zone string, instanceName string) (uint64, er
 }
 
 // Runs connectivity test between two endpoints
-func RunPingConnectivityTest(t *testing.T, project string, name string, srcEndpoint *networkmanagementpb.Endpoint, dstEndpoint *networkmanagementpb.Endpoint) {
+func RunPingConnectivityTest(t *testing.T, project string, name string, sourceIpAddress string, sourceNamespace string, destinationIpAddress string) {
 	ctx := context.Background()
 	reachabilityClient, err := networkmanagement.NewReachabilityClient(ctx) // Can't use REST client for some reason (filed as bug within Google internally)
 	if err != nil {
@@ -236,10 +236,17 @@ func RunPingConnectivityTest(t *testing.T, project string, name string, srcEndpo
 		Parent: "projects/" + project + "/locations/global",
 		TestId: connectivityTestId,
 		Resource: &networkmanagementpb.ConnectivityTest{
-			Name:        "projects/" + project + "/locations/global/connectivityTests" + connectivityTestId,
-			Protocol:    "ICMP",
-			Source:      srcEndpoint,
-			Destination: dstEndpoint,
+			Name:     "projects/" + project + "/locations/global/connectivityTests" + connectivityTestId,
+			Protocol: "ICMP",
+			Source: &networkmanagementpb.Endpoint{
+				IpAddress: sourceIpAddress,
+				Network:   getVpcUrl(project, sourceNamespace),
+				ProjectId: project,
+			},
+			Destination: &networkmanagementpb.Endpoint{
+				IpAddress:   destinationIpAddress,
+				NetworkType: networkmanagementpb.Endpoint_NON_GCP_NETWORK,
+			},
 		},
 	}
 	createConnectivityTestOp, err := reachabilityClient.CreateConnectivityTest(ctx, createConnectivityTestReq)

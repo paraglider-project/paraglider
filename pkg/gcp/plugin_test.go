@@ -49,7 +49,7 @@ func TestGetPermitList(t *testing.T) {
 				},
 				Direction:  proto.String(computepb.Firewall_INGRESS.String()),
 				Name:       proto.String("fw-allow-icmp"),
-				Network:    proto.String(GetVpcUrl(fakeProject, fakeNamespace)),
+				Network:    proto.String(getVpcUrl(fakeProject, fakeNamespace)),
 				TargetTags: []string{"0.0.0.0/0"},
 			},
 		},
