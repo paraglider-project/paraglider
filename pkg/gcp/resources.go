@@ -707,7 +707,7 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 		ForwardingRuleResource: &computepb.ForwardingRule{
 			Name:      proto.String("forwarding-rule-" + resourceInfo.Name),
 			IPAddress: addr.SelfLink,
-			Network:   proto.String(GetVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
+			Network:   proto.String(getVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
 			Target:    proto.String(service.Url),
 		},
 	}
