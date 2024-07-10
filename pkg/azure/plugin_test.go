@@ -519,6 +519,9 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 					AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
 				},
 			},
+			Tags: map[string]*string{
+				namespaceTagKey: to.Ptr(namespace),
+			},
 		},
 	}
 	fakeServer, ctx := SetupFakeAzureServer(t, serverState)

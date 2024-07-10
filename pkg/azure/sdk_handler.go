@@ -291,11 +291,11 @@ func (h *AzureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string
 }
 
 // GetAllVnetsAddressSpaces retrieves the address spaces of all virtual networks
-// that have a name starting with the specified prefix.
+// in the specified namespace that are managed by Paraglider. i.e. Has the namespace tag.
 //
 // Returns a map where the keys are the locations of the virtual networks
 // and the values are slices of address prefixes associated with each virtual network.
-func (h *AzureSDKHandler) GetAllVnetsAddressSpaces(ctx context.Context, prefix string) (map[string][]string, error) {
+func (h *AzureSDKHandler) GetAllVnetsAddressSpaces(ctx context.Context, namespace string) (map[string][]string, error) {
 	addressSpaces := make(map[string][]string)
 	pager := h.virtualNetworksClient.NewListPager(h.resourceGroupName, nil)
 	for pager.More() {
@@ -303,13 +303,14 @@ func (h *AzureSDKHandler) GetAllVnetsAddressSpaces(ctx context.Context, prefix s
 		if err != nil {
 			return nil, err
 		}
+
 		for _, v := range page.Value {
-			if strings.HasPrefix(*v.Name, prefix) {
-				prefixes := make([]string, len(v.Properties.AddressSpace.AddressPrefixes))
-				for i, prefix := range v.Properties.AddressSpace.AddressPrefixes {
-					prefixes[i] = *prefix
+			if v.Tags != nil && *v.Tags[namespaceTagKey] == namespace {
+				addressPrefixes := make([]string, len(v.Properties.AddressSpace.AddressPrefixes))
+				for i, addressPrefix := range v.Properties.AddressSpace.AddressPrefixes {
+					addressPrefixes[i] = *addressPrefix
 				}
-				addressSpaces[*v.Location] = prefixes
+				addressSpaces[*v.Location] = addressPrefixes
 			}
 		}
 	}

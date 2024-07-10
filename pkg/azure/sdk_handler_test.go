@@ -34,7 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetVnetsWithMatchingPrefixAddressSpaces(t *testing.T) {
+func TestGetAllVnetsAddressSpaces(t *testing.T) {
 	// Set up the fake Azure server
 	fakeServerState := &fakeServerState{
 		subId:  subID,
@@ -48,7 +48,7 @@ func TestGetVnetsWithMatchingPrefixAddressSpaces(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("GetAllVnetsAddressSpaces: Success", func(t *testing.T) {
-		addresses, err := handler.GetAllVnetsAddressSpaces(ctx, paragliderPrefix)
+		addresses, err := handler.GetAllVnetsAddressSpaces(ctx, namespace)
 		require.NoError(t, err)
 		require.NotNil(t, addresses)
 		require.Len(t, addresses, 1)
@@ -57,13 +57,13 @@ func TestGetVnetsWithMatchingPrefixAddressSpaces(t *testing.T) {
 
 	t.Run("GetAllVnetsAddressSpaces: Failure - No Vnet", func(t *testing.T) {
 		fakeServerState.vnet = nil
-		addresses, err := handler.GetAllVnetsAddressSpaces(ctx, paragliderPrefix)
+		addresses, err := handler.GetAllVnetsAddressSpaces(ctx, namespace)
 		require.Error(t, err)
 		require.Nil(t, addresses)
 	})
 
-	t.Run("GetAllVnetsAddressSpaces: Failure - wrong name", func(t *testing.T) {
-		addresses, err := handler.GetAllVnetsAddressSpaces(ctx, "otherprefix")
+	t.Run("GetAllVnetsAddressSpaces: Failure - wrong namespace", func(t *testing.T) {
+		addresses, err := handler.GetAllVnetsAddressSpaces(ctx, "wrongNamespace")
 		require.Error(t, err)
 		require.Nil(t, addresses)
 	})
