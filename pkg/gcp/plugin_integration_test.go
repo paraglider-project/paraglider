@@ -28,7 +28,6 @@ import (
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
-	networkmanagementpb "cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
 	"github.com/paraglider-project/paraglider/pkg/orchestrator"
 	"github.com/paraglider-project/paraglider/pkg/orchestrator/config"
@@ -202,21 +201,9 @@ func TestIntegration(t *testing.T) {
 		assert.ElementsMatch(t, rules, getPermitListAfterAddResp.Rules)
 	}
 
-	// Connectivity tests that ping the two VMs
-	vm1Endpoint := &networkmanagementpb.Endpoint{
-		IpAddress: vm1Ip,
-		Network:   GetVpcUrl(projectId, namespace),
-		ProjectId: projectId,
-	}
-	vm2Endpoint := &networkmanagementpb.Endpoint{
-		IpAddress: vm2Ip,
-		Network:   GetVpcUrl(projectId, namespace),
-		ProjectId: projectId,
-	}
-
 	// Run connectivity tests on both directions between vm1 and vm2
-	RunPingConnectivityTest(t, projectId, "1to2", vm1Endpoint, vm2Endpoint)
-	RunPingConnectivityTest(t, projectId, "2to1", vm2Endpoint, vm1Endpoint)
+	RunPingConnectivityTest(t, projectId, "1to2", vm1Ip, namespace, vm2Ip)
+	RunPingConnectivityTest(t, projectId, "2to1", vm2Ip, namespace, vm1Ip)
 
 	// Delete permit lists
 	for i, vmId := range vmUrls {
@@ -349,18 +336,7 @@ func TestCrossNamespace(t *testing.T) {
 		require.NotNil(t, addPermitListRulesResp)
 	}
 
-	// Run connectivity tests
-	vm1Endpoint := &networkmanagementpb.Endpoint{
-		IpAddress: vm1Ip,
-		Network:   GetVpcUrl(project1Id, project1Namespace),
-		ProjectId: project1Id,
-	}
-	vm2Endpoint := &networkmanagementpb.Endpoint{
-		IpAddress: vm2Ip,
-		Network:   GetVpcUrl(project2Id, project2Namespace),
-		ProjectId: project2Id,
-	}
 	// Run connectivity tests on both directions between vm1 and vm2
-	RunPingConnectivityTest(t, project1Id, "vm1-to-vm2", vm1Endpoint, vm2Endpoint)
-	RunPingConnectivityTest(t, project2Id, "vm2-to-vm1", vm2Endpoint, vm1Endpoint)
+	RunPingConnectivityTest(t, project1Id, "vm1-to-vm2", vm1Ip, project1Namespace, vm2Ip)
+	RunPingConnectivityTest(t, project2Id, "vm2-to-vm1", vm2Ip, project2Namespace, vm1Ip)
 }

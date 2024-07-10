@@ -1,0 +1,103 @@
+name: Functional Tests
+
+on:
+  workflow_run:
+    workflows: [Functional Tests Approval]
+    types:
+      - completed
+
+env:
+  # Go version to install
+  GOVER: '^1.22'
+  GOPROXY: https://proxy.golang.org
+  
+  # gotestsum version - see: https://github.com/gotestyourself/gotestsum
+  GOTESTSUMVERSION: 1.10.0
+
+  # github contexts
+  GH_RUN_ID: ${{ github.run_id }}
+  GH_RUN_NUMBER: ${{ github.run_number }}
+  GH_RUN_ATTEMPT: ${{ github.run_attempt }}
+
+  # Cloud account fields
+  PARAGLIDER_GCP_PROJECT_PARENT: ${{ secrets.GCP_FOLDER_ID }}
+  PARAGLIDER_GCP_PROJECT_BILLING_ACCOUNT_NAME: ${{ secrets.GCP_BILLING_ACCOUNT_NAME }}
+  PARAGLIDER_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+jobs:
+  functional-tests:
+    name: Functional Tests
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+      id-token: write
+      pull-requests: write
+    steps:
+      - name: Download commit SHA artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: commit_sha
+          run_id: ${{ github.event.workflow_run.id }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract commit SHA
+        id: extract-commit-sha
+        run: |
+          echo "commit_sha=$(cat commit_sha)" >> $GITHUB_OUTPUT
+      - name: Add to check run
+        uses: LouisBrunner/checks-action@v2.0.0
+        if: always()
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Functional Tests
+          status: in_progress
+          repo: ${{ github.repository }}
+          sha: ${{ steps.extract-commit-sha.outputs.commit_sha }}
+          details_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      - name: Check out repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.extract-commit-sha.outputs.commit_sha }}
+      - name: Set up Go ${{ env.GOVER }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GOVER }}
+      - name: Get protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get protoc-gen-go
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+      - name: Make build
+        run: |
+          make build
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/paraglider'
+          service_account: 'invisinets-cicd@invisinets-cicd.iam.gserviceaccount.com'
+      - name: 'Az CLI login'
+        uses: azure/login@v2
+        with:
+            creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Run integration tests
+        run: |
+          make integration-test
+      - name: Run multicloud tests
+        run: |
+          make multicloud-test
+      - name: Update check run with result
+        uses: LouisBrunner/checks-action@v2.0.0
+        if: always()
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Functional Tests
+          repo: ${{ github.repository }}
+          sha: ${{ steps.extract-commit-sha.outputs.commit_sha }}
+          status: completed
+          conclusion: ${{ job.status }}
+          output: |
+            {"summary":"Functional tests completed. See links for more information.","title":"Functional Tests"}
+          details_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

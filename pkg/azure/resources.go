@@ -61,9 +61,9 @@ func getResourceHandler(resourceID string) (AzureResourceHandler, error) {
 func getResourceHandlerFromDescription(resourceDesc []byte) (AzureResourceHandler, error) {
 	vm := &armcompute.VirtualMachine{}
 	aks := &armcontainerservice.ManagedCluster{}
-	if err := json.Unmarshal(resourceDesc, vm); err == nil && vm.Properties.HardwareProfile != nil {
+	if err := json.Unmarshal(resourceDesc, vm); err == nil && vm.Properties != nil && vm.Properties.HardwareProfile != nil {
 		return &azureResourceHandlerVM{}, nil
-	} else if err := json.Unmarshal(resourceDesc, aks); err == nil && len(aks.Properties.AgentPoolProfiles) > 0 {
+	} else if err := json.Unmarshal(resourceDesc, aks); err == nil && aks.Properties != nil && aks.Properties.AgentPoolProfiles != nil && len(aks.Properties.AgentPoolProfiles) > 0 {
 		return &azureResourceHandlerAKS{}, nil
 	}
 	return nil, fmt.Errorf("resource description contains unsupported resource type")
@@ -82,14 +82,25 @@ func GetAndCheckResourceState(ctx context.Context, handler *AzureSDKHandler, res
 		return nil, err
 	}
 
-	// Check its namespace
-	vnet := getVnetFromSubnetId(netInfo.SubnetID)
-	if !strings.HasPrefix(vnet, getParagliderNamespacePrefix(namespace)) {
-		return nil, fmt.Errorf("resource %s is not in the namespace %s (subnet ID: %s)", resourceID, namespace, netInfo.SubnetID)
+	// Check its namespace by first checking the vnet name prefix
+	vnetName := getVnetFromSubnetId(netInfo.SubnetID)
+	if strings.HasPrefix(vnetName, getParagliderNamespacePrefix(namespace)) {
+		return netInfo, nil
 	}
 
-	// Return the relevant NSG
-	return netInfo, nil
+	// Check the vnet tags for paraglider namespace
+	vnet, err := handler.GetVirtualNetwork(ctx, vnetName)
+	if err != nil {
+		return nil, fmt.Errorf("Error in getting vnet %s: %w", vnetName, err)
+	}
+
+	for _, tag := range vnet.Tags {
+		if *tag == namespace {
+			return netInfo, nil
+		}
+	}
+
+	return nil, fmt.Errorf("resource %s is not in the namespace %s (subnet ID: %s)", resourceID, namespace, netInfo.SubnetID)
 }
 
 // Gets the resource and returns relevant networking state

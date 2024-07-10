@@ -828,6 +828,20 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceRe
 		return nil, err
 	}
 
+	vnet, err := azureHandler.GetVirtualNetwork(ctx, vnetName)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting vnet:%+v", err)
+		return nil, err
+	}
+
+	// Add Paraglider namespace tag to the vnet
+	azureHandler.createParagliderNamespaceTag(&vnet.Tags)
+	_, err = azureHandler.CreateOrUpdateVirtualNetwork(ctx, vnetName, *vnet)
+	if err != nil {
+		utils.Log.Printf("An error occured while creating vnet:%+v", err)
+		return nil, err
+	}
+
 	return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: networkInfo.Address}, nil
 }
 
