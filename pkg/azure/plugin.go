@@ -376,7 +376,7 @@ func (s *azurePluginServer) GetUsedAddressSpaces(ctx context.Context, req *parag
 			return nil, err
 		}
 
-		addressSpaces, err := azureHandler.GetParagaliderVirtualNetworks(ctx, getParagliderNamespacePrefix(deployment.Namespace))
+		addressSpaces, err := azureHandler.GetAllVnetsAddressSpaces(ctx, deployment.Namespace)
 		if err != nil {
 			utils.Log.Printf("An error occured while getting address spaces:%+v", err)
 			return nil, err
@@ -723,7 +723,7 @@ func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler Azur
 	if err != nil {
 		return err
 	}
-	paragliderVnetsMap, err := peeringCloudAzureHandler.GetAllVnetsAddressSpaces(ctx, getParagliderNamespacePrefix(peeringCloudInfo.Namespace))
+	paragliderVnetsMap, err := peeringCloudAzureHandler.GetAllVnetsAddressSpaces(ctx, peeringCloudInfo.Namespace)
 	if err != nil {
 		return fmt.Errorf("unable to create vnets address spaces for peering cloud: %w", err)
 	}
