@@ -1,5 +1,8 @@
 # Paraglider
 
+![Discord](https://img.shields.io/discord/1116864463832891502?logo=discord&logoColor=white&logoSize=20&label=Discord&labelColor=7289DA&color=17cf48&link=https%3A%2F%2Fdiscord.gg%2FKrZGbfZ7wm)
+
+
 Paraglider is a cross-cloud control plane for configuring networking. 
 
 ![Paraglider Logo](logo.png)
