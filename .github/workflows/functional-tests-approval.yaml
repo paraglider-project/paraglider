@@ -8,14 +8,22 @@ on:
     tags:
       - v*
     paths-ignore:
+      - '.devcontainer/**'
+      - '.githooks/**'
       - 'docs/**'
+      - '**.md'
+      - '**.rst'
   pull_request:
     branches:
       - main
       - features/*
       - release/*
     paths-ignore:
+      - '.devcontainer/**'
+      - '.githooks/**'
       - 'docs/**'
+      - '**.md'
+      - '**.rst'
 
 jobs:
   functional-tests-approval:
