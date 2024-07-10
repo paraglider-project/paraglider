@@ -444,12 +444,15 @@ func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragli
 	if err != nil {
 		return nil, fmt.Errorf("unable to get subnetworks client: %w", err)
 	}
+	addressesClient, err := clients.GetAddressesClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get addresses client: %w", err)
+	}
 	defer clients.Close()
-
-	return s._GetUsedAddressSpaces(ctx, req, networksClient, subnetworksClient)
+	return s._GetUsedAddressSpaces(ctx, req, networksClient, subnetworksClient, addressesClient)
 }
 
-func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
+func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, addressesClient *compute.AddressesClient) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
 	resp := &paragliderpb.GetUsedAddressSpacesResponse{}
 	resp.AddressSpaceMappings = make([]*paragliderpb.AddressSpaceMapping, len(req.Deployments))
 	for i, deployment := range req.Deployments {
@@ -490,6 +493,26 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *paragl
 			for _, secondaryRange := range getSubnetworkResp.SecondaryIpRanges {
 				resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, *secondaryRange.IpCidrRange)
 			}
+		}
+
+		// Get addresses not associated with the vpc (might be used for PSCs)
+		listAddressesReq := &computepb.ListAddressesRequest{
+			Project: project,
+			Filter:  proto.String(fmt.Sprintf("labels.paraglider_ns eq %s", deployment.Namespace)), // TODO NOW: make the label name a constant
+		}
+		listAddressesResp := addressesClient.List(ctx, listAddressesReq)
+		if err != nil {
+			return nil, fmt.Errorf("unable to list addresses: %w", err)
+		}
+		for {
+			address, err := listAddressesResp.Next()
+			if address == nil {
+				break
+			}
+			if err != nil {
+				return nil, err
+			}
+			resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, *address.Address)
 		}
 	}
 	return resp, nil

@@ -639,7 +639,7 @@ func (r *privateServiceHandler) getResourceInfo(ctx context.Context, resource *p
 
 // Get the subnet requirements for a private service connect attachment
 func (r *privateServiceHandler) getNumberAddressSpacesRequired() int {
-	return 2
+	return 1
 }
 
 // Get the firewall target type and value for a specific service attachment
@@ -684,7 +684,6 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 		Region:  resourceInfo.Region,
 		AddressResource: &computepb.Address{
 			Name:        &addressName,
-			Subnetwork:  proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName)),
 			AddressType: proto.String("INTERNAL"),
 			IpVersion:   proto.String("IPV4"),
 			Purpose:     proto.String("PRIVATE_SERVICE_CONNECT"),
@@ -699,11 +698,13 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 		return "", "", fmt.Errorf("unable to wait for the operation: %w", err)
 	}
 
-	// if service.Url != "" {
-	// 	// Get an address from the orchestrator
+	// For GCP services, the address must be outside the range of the VPC
+	if service.Url != "" {
+		addrRequest.AddressResource.Address = &additionalAddress
+	} else {
+		addrRequest.AddressResource.Subnetwork = proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName))
 
-	// 	addrRequest.AddressResource.Address =
-	// }
+	}
 
 	// Get the allocated address
 	getAddressReq := computepb.GetAddressRequest{
