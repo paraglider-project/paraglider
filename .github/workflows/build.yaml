@@ -7,14 +7,22 @@ on:
     tags:
       - v*
     paths-ignore:
+      - '.devcontainer/**'
+      - '.githooks/**'
       - 'docs/**'
+      - '**.md'
+      - '**.rst'
   pull_request:
     branches:
       - main
       - features/*
       - release/*
     paths-ignore:
+      - '.devcontainer/**'
+      - '.githooks/**'
       - 'docs/**'
+      - '**.md'
+      - '**.rst'
 
 concurrency:
   # Cancel the previously triggered build for only PR build.
