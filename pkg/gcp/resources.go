@@ -297,7 +297,7 @@ func (r *instanceHandler) getNumberAddressSpacesRequired() int {
 
 // Get the firewall target type and value for a specific instance
 func (r *instanceHandler) getFirewallTarget(resourceInfo *resourceInfo, netInfo *resourceNetworkInfo) firewallTarget {
-	return firewallTarget{TargetType: targetTypeTag, Target: getNetworkTag(resourceInfo.Namespace, instanceTypeName, resourceInfo.Name)}
+	return firewallTarget{TargetType: targetTypeTag, Target: getNetworkTag(resourceInfo.Namespace, instanceTypeName, netInfo.ResourceID)}
 }
 
 // Get network information about an instance
@@ -329,7 +329,7 @@ func (r *instanceHandler) createWithNetwork(ctx context.Context, instance *compu
 	// Configure network settings to Paraglider VPC and corresponding subnet
 	instance.InstanceResource.NetworkInterfaces = []*computepb.NetworkInterface{
 		{
-			Network:    proto.String(GetVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
+			Network:    proto.String(getVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
 			Subnetwork: proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName)),
 		},
 	}
@@ -445,7 +445,7 @@ func (r *clusterHandler) getNumberAddressSpacesRequired() int {
 
 // Get the firewall target type and value for a specific cluster
 func (r *clusterHandler) getFirewallTarget(resourceInfo *resourceInfo, netInfo *resourceNetworkInfo) firewallTarget {
-	return firewallTarget{TargetType: targetTypeTag, Target: getNetworkTag(resourceInfo.Namespace, clusterTypeName, resourceInfo.Name)}
+	return firewallTarget{TargetType: targetTypeTag, Target: getNetworkTag(resourceInfo.Namespace, clusterTypeName, netInfo.ResourceID)}
 }
 
 // Get network information about a cluster
@@ -510,7 +510,7 @@ func (r *clusterHandler) createWithNetwork(ctx context.Context, cluster *contain
 				Description: proto.String("Paraglider allow cluster egress traffic"),
 				Direction:   proto.String(direction),
 				Name:        proto.String("paraglider-allow-control-plane-" + strings.ToLower(direction) + "-" + resourceInfo.Name),
-				Network:     proto.String(GetVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
+				Network:     proto.String(getVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
 				Priority:    proto.Int32(65500),
 				TargetTags:  []string{getClusterNodeTag(resourceInfo.Namespace, getClusterResp.Name, getClusterResp.Id)},
 			},
@@ -639,7 +639,7 @@ func (r *privateServiceHandler) getResourceInfo(ctx context.Context, resource *p
 
 // Get the subnet requirements for a private service connect attachment
 func (r *privateServiceHandler) getNumberAddressSpacesRequired() int {
-	return 1
+	return 0
 }
 
 // Get the firewall target type and value for a specific service attachment
@@ -724,7 +724,7 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 		ForwardingRuleResource: &computepb.ForwardingRule{
 			Name:      proto.String("forwarding-rule-" + resourceInfo.Name),
 			IPAddress: addr.SelfLink,
-			Network:   proto.String(GetVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
+			Network:   proto.String(getVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
 			Target:    proto.String(service.Url),
 		},
 	}

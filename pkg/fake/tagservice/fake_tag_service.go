@@ -59,7 +59,7 @@ func (s *FakeTagServiceServer) GetTag(c context.Context, req *tagservicepb.GetTa
 }
 
 func (s *FakeTagServiceServer) ResolveTag(c context.Context, req *tagservicepb.ResolveTagRequest) (*tagservicepb.ResolveTagResponse, error) {
-	if strings.HasPrefix(req.TagName, ValidTagName) {
+	if strings.HasPrefix(req.TagName, ValidTagName) || strings.HasSuffix(req.TagName, ValidTagName) {
 		newUri := "uri/" + req.TagName
 		return &tagservicepb.ResolveTagResponse{Tags: []*tagservicepb.TagMapping{{Name: req.TagName, Uri: &newUri, Ip: &ResolvedTagIp}}}, nil
 	}

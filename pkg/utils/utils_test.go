@@ -16,13 +16,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ibm
+package utils
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+// TODO @praveingk: Expand tests of SDK functions
 
 // Testing a function that returns true if cidr1 is a subset of cidr2,
 // i.e. all ips in cidr1 exist within cidr2

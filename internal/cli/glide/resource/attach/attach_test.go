@@ -16,51 +16,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package add
+package attach
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rest"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestRuleAddValidate(t *testing.T) {
-	err := config.ReadOrCreateConfig()
-	assert.Nil(t, err)
-
-	cmd, executor := NewCommand()
-
-	// Resource name
-	args := []string{fake.CloudName, "resourceName"}
-	ruleFile := "not-a-file.json"
-	tag := "tag"
-	err = cmd.Flags().Set("rulefile", ruleFile)
-	require.Nil(t, err)
-	err = cmd.Flags().Set("ping", tag)
-	require.Nil(t, err)
-	err = cmd.Flags().Set("ssh", tag)
-	require.Nil(t, err)
-	err = executor.Validate(cmd, args)
-
-	assert.Nil(t, err)
-	assert.Equal(t, executor.ruleFile, ruleFile)
-	assert.Equal(t, executor.pingTag, tag)
-	assert.Equal(t, executor.sshTag, tag)
-
-	// Tag
-	args = []string{tag}
-	err = executor.Validate(cmd, args)
-
-	assert.Nil(t, err)
-	assert.Equal(t, executor.ruleFile, ruleFile)
-	assert.Equal(t, executor.pingTag, tag)
-	assert.Equal(t, executor.sshTag, tag)
-}
-
-func TestRuleAddExecute(t *testing.T) {
+func TestResourceAttachExecute(t *testing.T) {
 	server := &fake.FakeOrchestratorRESTServer{}
 	serverAddr := server.SetupFakeOrchestratorRESTServer()
 
@@ -69,18 +36,13 @@ func TestRuleAddExecute(t *testing.T) {
 
 	cmd, executor := NewCommand()
 	executor.cliSettings = config.CliSettings{ServerAddr: serverAddr, ActiveNamespace: fake.Namespace}
-	executor.pingTag = "pingTag"
-	executor.sshTag = "sshTag"
 
-	// Resource name
-	args := []string{fake.CloudName, "uri"}
+	var output bytes.Buffer
+	executor.writer = &output
+
+	args := []string{fake.CloudName, "resourceID"}
 	err = executor.Execute(cmd, args)
 
 	assert.Nil(t, err)
-
-	// Tag
-	args = []string{"tag"}
-	err = executor.Execute(cmd, args)
-
-	assert.Nil(t, err)
+	assert.Contains(t, output.String(), "resourceID")
 }

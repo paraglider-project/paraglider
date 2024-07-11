@@ -124,7 +124,7 @@ func paragliderRuleToFirewallRule(namespace string, project string, firewallName
 		Description: proto.String(getRuleDescription(rule.Tags)),
 		Direction:   proto.String(firewallDirectionMapParagliderToGCP[rule.Direction]),
 		Name:        proto.String(firewallName),
-		Network:     proto.String(GetVpcUrl(project, namespace)),
+		Network:     proto.String(getVpcUrl(project, namespace)),
 	}
 
 	// Associate with a tag if possible, otherwise match on IP
@@ -198,8 +198,6 @@ func getFirewallName(namespace string, ruleName string, resourceId string) strin
 
 // Retrieve the name of the permit list rule from the GCP firewall name
 func parseFirewallName(namespace string, firewallName string) string {
-	fmt.Println(firewallName)
-	fmt.Println(strings.TrimPrefix(firewallName, getFirewallNamePrefix(namespace)+"-"))
 	return strings.SplitN(strings.TrimPrefix(firewallName, getFirewallNamePrefix(namespace)+"-"), "-", 2)[1]
 }
 

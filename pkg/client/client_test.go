@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rest"
+	"github.com/paraglider-project/paraglider/pkg/orchestrator"
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/stretchr/testify/assert"
 )
@@ -58,15 +59,48 @@ func TestDeletePermitListRules(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestTagAddPermitListRules(t *testing.T) {
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
+	client := Client{ControllerAddress: controllerAddress}
+
+	err := client.AddPermitListRulesTag("tagName", fake.GetFakePermitListRules())
+
+	assert.Nil(t, err)
+}
+
+func TestTagDeletePermitListRules(t *testing.T) {
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
+	client := Client{ControllerAddress: controllerAddress}
+
+	err := client.DeletePermitListRulesTag("tagName", fake.GetFakePermitListRuleNames())
+
+	assert.Nil(t, err)
+}
+
 func TestCreateResource(t *testing.T) {
 	s := fake.FakeOrchestratorRESTServer{}
 	controllerAddress := s.SetupFakeOrchestratorRESTServer()
 	client := Client{ControllerAddress: controllerAddress}
 
-	resource, err := client.CreateResource(fake.Namespace, fake.CloudName, "resourceName", &paragliderpb.ResourceDescriptionString{})
-
+	resource, err := client.CreateResource(fake.Namespace, fake.CloudName, fake.ResourceName, &paragliderpb.ResourceDescriptionString{Name: fake.ResourceName, Description: fake.ResourceDesc})
 	assert.Nil(t, err)
-	assert.Equal(t, "resourceName", resource["name"])
+	assert.Equal(t, fake.ResourceName, resource["name"])
+	assert.Equal(t, fake.Uri, resource["uri"])
+	assert.Equal(t, fake.Ip, resource["ip"])
+}
+
+func TestAttachResource(t *testing.T) {
+	s := fake.FakeOrchestratorRESTServer{}
+	controllerAddress := s.SetupFakeOrchestratorRESTServer()
+	client := Client{ControllerAddress: controllerAddress}
+
+	resource, err := client.AttachResource(fake.Namespace, fake.CloudName, &orchestrator.ResourceID{Id: fake.Uri})
+	assert.Nil(t, err)
+	assert.Equal(t, fake.Uri, resource["uri"])
+	assert.Equal(t, fake.Ip, resource["ip"])
+	assert.Equal(t, fake.ResourceName, resource["name"])
 }
 
 func TestGetTag(t *testing.T) {

@@ -48,5 +48,6 @@ type Config struct {
 	} `yaml:"kvStore"`
 
 	Namespaces   map[string][]CloudDeployment `yaml:"namespaces"`
+	AddressSpace []string                     `yaml:"addressSpace"`
 	CloudPlugins []CloudPlugin                `yaml:"cloudPlugins"`
 }

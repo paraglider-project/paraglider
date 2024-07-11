@@ -29,19 +29,25 @@ If you're not working within the dev container, here are the steps to set up you
 2. **Valid Azure Subscription**: If you're testing the `azure` functions locally to ensure your code's functionality, make sure you have access to a valid Azure subscription. This subscription is necessary for authenticating your local testing with Azure services.
 It's important to note that most requests might require a valid resource ID, which typically includes a subscription ID and a resource group name. As the current assumption is that the resource group already exists, ensure that you have a valid subscription ID and that the necessary resource group has been created prior to running your testing code.
 
-For local testing purposes, consider adding a `main` function within the `plugin.go` file. This can be used to execute your server logic independently and validate its behavior. Here's an example of how you can do this:
+For local testing purposes, consider adding a temporary unit test, `TestRun` to `plugin_test.go`. This can be used to execute your server logic independently and validate its behavior. Here's an example of how you can do this:
 
-1. Add a `main` function in `plugin.go`:
+1. Add a `TestRun` function in `plugin_test.go`:
    ```go
-   func main() {
-       c := context.Background()
-       s := azurePluginServer{
-           	orchestratorServerAddr: orchestratorServerAddr,
-		      azureCredentialGetter:  &AzureCredentialGetter{},
-       }
+   func TestRun() {
+       ctx := context.Background()
+       server := InitializeServer("localhost:50051") // Azure Plugin Server
+
+       subscriptionId := GetAzureSubscriptionId() // Initially set as an environment variable
+       resourceGroupName := "rg-name" // Replace
+       resourceName := "resource-name" // Replace
+       namespace := "default" // Replace as necessary
+
+       resourceInfo := ResourceIDInfo{SubscriptionID: subscriptionId, ResourceGroupName: resourceGroupName, ResourceName: resourceName}
+      
+       handler, err := server.setupAzureHandler(resourceInfo, namespace)
 
        // Call the function you want to test
-       resp, err := s.AddPermitListRules(c, &paragliderpb.PermitList{
+       resp, err := server.AddPermitListRules(c, &paragliderpb.PermitList{
            // Define the input parameters here
        })
 
@@ -52,9 +58,14 @@ For local testing purposes, consider adding a `main` function within the `plugin
        // Use resp as needed
    }
 
-2. Run the server:
-   ```bash
-   go run .\pkg\azure\plugin.go .\pkg\azure\sdk_handler.go
+2. Run the test:
+
+  ```bashgo
+    go test -v ./pkg/azure/... -tags=unit -run TestRun
+  ```
+
+Remember to remove the `TestRun` function before merging to the main branch.
+
 ## Package Structure
 The `azure` contains essential components and functionalities related to Azure integration. Within the `azure` package, you will find the following key files:
 
@@ -84,24 +95,26 @@ Follow these steps to ensure consistent structure and seamless integration.
          logger.Log.Printf("An error occurred while getting resource ID info: %+v", err)
          return nil, err
      }
-     err = s.setupAzureHandler(resourceIdInfo)
+     // the namespace parameter could be de different from req.Deployment.Namespace
+     handler, err = s.setupAzureHandler(resourceIdInfo, req.Deployment.Namespace)
      if err != nil {
          return nil, err
      }
+     // Use handler
      ```
+     
+    - Ideally, only Paraglider plugin interface RPCs should be in `plugin.go`. All helper functions should be in their appropriate files, outside `plugin.go`.
 
 3. Handling ARM Requests:
-   - If your new API needs to make ARM requests, check if the required functionality is already implemented in `sdk_handler.go`. If not, add a new function in the handler that wraps the Azure request. Call this new function from the `plugin` file. Any helper functionalities relevant only to Paraglider and the server can remain in `plugin`.
+   - If your new API needs to make ARM requests, check if the required functionality is already implemented in `sdk_handler.go`. If not, add a new function in the handler that wraps the Azure request. Call this new function from the `plugin.go` file.
 
 4. Update Testing:
-   - In `plugin_test.go`, provide a mocked implementation of your new handler function for testing purposes. For instance:
+   - In `plugin_test.go`, add a unit test for the function added to `plugin.go`. For instance:
      ```go
-     func (m *mockAzureSDKHandler) NewHandlerFunction(ctx context.Context, args ...) (*armType, error) {
-         // Mock implementation here
+     func TestGetPermitList(t *testing.T) {
+         // Test case(s)
      }
      ```
-   - Ensure that your mock function implements the corresponding `AzureSDKHandler` method signature.
-
 
 ## Testing
 
@@ -125,7 +138,7 @@ Integration tests play a critical role in ensuring that the extended functionali
 #### Setup and Environment Variables
 
 1. **Isolated Resource Group**: Each integration test run creates a dedicated resource group to maintain an isolated environment. The resource group's name is prefixed by the GitHub run number when running in a GitHub Action workflow. For local testing, the run number is empty.
-2. **INVISINETS_AZURE_SUBSCRIPTION_ID**: When running tests locally, ensure that the environment variable `INVISINETS_AZURE_SUBSCRIPTION_ID` is set with your Azure subscription ID. For GitHub Actions, this subscription ID should be set as a secret in the repository.
+2. **PARAGLIDER_AZURE_SUBSCRIPTION_ID**: When running tests locally, ensure that the environment variable `PARAGLIDER_AZURE_SUBSCRIPTION_ID` is set with your Azure subscription ID. For GitHub Actions, this subscription ID should be set as a secret in the repository.
 
 #### Integration Test Function
 
