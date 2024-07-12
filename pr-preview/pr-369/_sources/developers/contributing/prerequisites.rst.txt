@@ -7,14 +7,11 @@ This section lists the prerequisites for working with the repository.
 Most contributors should start with the basic prerequisites. 
 Depending on the task you need to perform, you may need to install more tools.
 
-We highly recommend using VS Code for development.
-We provide a `dev container <https://code.visualstudio.com/docs/devcontainers/containers>`_ that will automatically install all of the prerequisites for you.
-It will take a while to download and install the first time you run it, but subsequent runs will be much faster.
-
 VS Code Setup
 -------------
 
-We recommend using VS Code for Paraglider development because we provide a `dev container <https://code.visualstudio.com/docs/devcontainers/containers>`_ that will automatically install all of the prerequisites for you.
+We recommend using VS Code for Paraglider development because we provide a `dev container <https://code.visualstudio.com/docs/devcontainers/containers>`_.
+Dev containers allow you to run a development environment using VS Code inside a container, which means you don't need to install any dependencies on your local machine.
 
 #. `Get VS Code set up to use dev containers <https://code.visualstudio.com/docs/devcontainers/containers#_getting-started>`_.
 #. `In VS Code, open the cloned repository in a container <https://code.visualstudio.com/docs/devcontainers/containers#_quick-start-open-an-existing-folder-in-a-container>`_.
@@ -86,11 +83,11 @@ Google Cloud
         
         This requires privileges of creating projects and linking billing accounts.
     
-   * If you want to use your own project, set the environment variable ``PARAGLIDER_GCP_PROJECT``. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.
+   * If you want to use your own project instead of creating a new one, set the environment variable ``PARAGLIDER_GCP_PROJECT``. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.
      
      .. warning::
         
-        Resources will not automatically be cleaned up for you.
+        The project will not be deleted, and resources allocated by the tests will not automatically be cleaned up for you.
 
 Azure
 ^^^^^

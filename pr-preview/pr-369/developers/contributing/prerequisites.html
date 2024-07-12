@@ -264,12 +264,16 @@
         </a>
         <div class="content-icon-container">
           <div class="view-this-page">
-  <a class="muted-link" href="../../_sources/developers/contributing/prerequisites.rst.txt" title="View this page">
+  <a class="muted-link" href="https://github.com/paraglider-project/paraglider/blob/main/docs/source/developers/contributing/prerequisites.rst?plain=true" title="View this page">
     <svg><use href="#svg-eye"></use></svg>
     <span class="visually-hidden">View this page</span>
   </a>
-</div>
-<div class="theme-toggle-container theme-toggle-content">
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/paraglider-project/paraglider/edit/main/docs/source/developers/contributing/prerequisites.rst" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
             <button class="theme-toggle">
               <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
               <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
@@ -289,12 +293,10 @@
 <p>This section lists the prerequisites for working with the repository.
 Most contributors should start with the basic prerequisites.
 Depending on the task you need to perform, you may need to install more tools.</p>
-<p>We highly recommend using VS Code for development.
-We provide a <a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers">dev container</a> that will automatically install all of the prerequisites for you.
-It will take a while to download and install the first time you run it, but subsequent runs will be much faster.</p>
 <section id="vs-code-setup">
 <h2>VS Code Setup<a class="headerlink" href="#vs-code-setup" title="Link to this heading">¶</a></h2>
-<p>We recommend using VS Code for Paraglider development because we provide a <a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers">dev container</a> that will automatically install all of the prerequisites for you.</p>
+<p>We recommend using VS Code for Paraglider development because we provide a <a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers">dev container</a>.
+Dev containers allow you to run a development environment using VS Code inside a container, which means you don’t need to install any dependencies on your local machine.</p>
 <ol class="arabic">
 <li><p><a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers#_getting-started">Get VS Code set up to use dev containers</a>.</p></li>
 <li><p><a class="reference external" href="https://code.visualstudio.com/docs/devcontainers/containers#_quick-start-open-an-existing-folder-in-a-container">In VS Code, open the cloned repository in a container</a>.</p>
@@ -360,10 +362,10 @@ The following are the steps for each respective cloud provider.</p>
 <p>This requires privileges of creating projects and linking billing accounts.</p>
 </div>
 </li>
-<li><p>If you want to use your own project, set the environment variable <code class="docutils literal notranslate"><span class="pre">PARAGLIDER_GCP_PROJECT</span></code>. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.</p>
+<li><p>If you want to use your own project instead of creating a new one, set the environment variable <code class="docutils literal notranslate"><span class="pre">PARAGLIDER_GCP_PROJECT</span></code>. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>Resources will not automatically be cleaned up for you.</p>
+<p>The project will not be deleted, and resources allocated by the tests will not automatically be cleaned up for you.</p>
 </div>
 </li>
 </ul>
