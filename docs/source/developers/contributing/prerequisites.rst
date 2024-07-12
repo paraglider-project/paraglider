@@ -10,7 +10,8 @@ Depending on the task you need to perform, you may need to install more tools.
 VS Code Setup
 -------------
 
-We recommend using VS Code for Paraglider development because we provide a `dev container <https://code.visualstudio.com/docs/devcontainers/containers>`_ that will automatically install all of the prerequisites for you.
+We recommend using VS Code for Paraglider development because we provide a `dev container <https://code.visualstudio.com/docs/devcontainers/containers>`_.
+Dev containers allow you to run a development environment using VS Code inside a container, which means you don't need to install any dependencies on your local machine.
 
 #. `Get VS Code set up to use dev containers <https://code.visualstudio.com/docs/devcontainers/containers#_getting-started>`_.
 #. `In VS Code, open the cloned repository in a container <https://code.visualstudio.com/docs/devcontainers/containers#_quick-start-open-an-existing-folder-in-a-container>`_.
