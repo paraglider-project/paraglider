@@ -82,11 +82,11 @@ Google Cloud
         
         This requires privileges of creating projects and linking billing accounts.
     
-   * If you want to use your own project, set the environment variable ``PARAGLIDER_GCP_PROJECT``. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.
+   * If you want to use your own project instead of creating a new one, set the environment variable ``PARAGLIDER_GCP_PROJECT``. The order for deleting resources when deleting through the console: instances, VPN tunnels, VPN gateway + peer/external VPN gateways + router, VPC. The connectivity tests can be deleted at any time.
      
      .. warning::
         
-        Resources will not automatically be cleaned up for you.
+        The project will not be deleted, and resources allocated by the tests will not automatically be cleaned up for you.
 
 Azure
 ^^^^^
