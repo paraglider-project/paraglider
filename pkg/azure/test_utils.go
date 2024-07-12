@@ -480,6 +480,9 @@ func getFakeParagliderVirtualNetwork() *armnetwork.VirtualNetwork {
 				},
 			},
 		},
+		Tags: map[string]*string{
+			namespaceTagKey: to.Ptr(namespace),
+		},
 	}
 }
 

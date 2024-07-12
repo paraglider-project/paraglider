@@ -46,23 +46,23 @@ import (
 )
 
 const (
-	GetPermitListRulesURL    string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules"
-	PermitListRulePOSTURL    string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules"
-	PermitListRulePUTURL     string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules/:ruleName"
-	AddPermitListRulesURL    string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/applyRules"
-	DeletePermitListRulesURL string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/deleteRules"
-	CreateResourcePUTURL     string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName"
-	CreateResourcePOSTURL    string = "/namespaces/:namespace/clouds/:cloud/resources"
-	RuleOnTagURL             string = "/tags/:tag/rules"
-	ListTagURL               string = "/tags"
-	GetTagURL                string = "/tags/:tag"
-	ResolveTagURL            string = "/tags/:tag/resolveMembers"
-	SetTagURL                string = "/tags/:tag/applyMembers"
-	DeleteTagURL             string = "/tags/:tag"
-	DeleteTagMemberURL       string = "/tags/:tag/members/:member"
-	ListNamespacesURL        string = "/namespaces"
-	defaultAddressSpace      string = "10.0.0.0/8"
-	defaultSpaceRequest      int    = 65534
+	GetPermitListRulesURL         string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules"
+	PermitListRulePOSTURL         string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules"
+	PermitListRulePUTURL          string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/rules/:ruleName"
+	AddPermitListRulesURL         string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/applyRules"
+	DeletePermitListRulesURL      string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/deleteRules"
+	CreateResourcePUTURL          string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName"
+	CreateOrAttachResourcePOSTURL string = "/namespaces/:namespace/clouds/:cloud/resources"
+	RuleOnTagURL                  string = "/tags/:tag/rules"
+	ListTagURL                    string = "/tags"
+	GetTagURL                     string = "/tags/:tag"
+	ResolveTagURL                 string = "/tags/:tag/resolveMembers"
+	SetTagURL                     string = "/tags/:tag/applyMembers"
+	DeleteTagURL                  string = "/tags/:tag"
+	DeleteTagMemberURL            string = "/tags/:tag/members/:member"
+	ListNamespacesURL             string = "/namespaces"
+	defaultAddressSpace           string = "10.0.0.0/8"
+	defaultSpaceRequest           int    = 65534
 )
 
 type Warning struct {
@@ -87,6 +87,10 @@ type ResourceInfo struct {
 	uri       string
 	cloud     string
 	namespace string
+}
+
+type ResourceID struct {
+	Id string `json:"id,omitempty"`
 }
 
 // Return a string usable with Sprintf for inserting URL params
@@ -1109,26 +1113,45 @@ func (s *ControllerServer) getParagliderDeployments(cloud string) []*paragliderp
 	return pgDeployments
 }
 
-// Create resource in specified cloud region
-func (s *ControllerServer) resourceCreate(c *gin.Context) {
+// handleCreateOrAttachResource handles the creation or attachment of a resource.
+//
+// 1. Retrieves and validates the resource URL parameters.
+//
+// 2. Parses the request body JSON to determine whether to create or attach the resource.
+//
+// 3. If the req. body JSON contains "description", create the resource. Otherwise, attach the resource.
+func (s *ControllerServer) handleCreateOrAttachResource(c *gin.Context) {
 	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, false)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
-	// Parse the resource description provided
-	var resourceWithString paragliderpb.ResourceDescriptionString
-	if err := c.BindJSON(&resourceWithString); err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
+	var resourceToCreate paragliderpb.ResourceDescriptionString
+	var resourceToAttach ResourceID
 
-	// If POST method, name not given in the URL, so get it from the request body
-	if c.Request.Method == "POST" {
-		resourceInfo.name = resourceWithString.Name
-	}
+	// Create resource if req. body JSON contains "description"
+	if err := c.ShouldBindBodyWithJSON(&resourceToCreate); err == nil && resourceToCreate.Description != "" {
+		if c.Request.Method == "POST" {
+			resourceInfo.name = resourceToCreate.Name
+		}
 
+		s.resourceCreate(c, resourceInfo, cloudClient, &resourceToCreate)
+	} else if err := c.ShouldBindBodyWithJSON(&resourceToAttach); err == nil && resourceToAttach.Id != "" {
+		if c.Request.Method != "POST" {
+			c.AbortWithStatusJSON(400, createErrorResponse("Only POST method is allowed for attaching resources"))
+			return
+		}
+
+		resourceInfo.uri = resourceToAttach.Id
+		s.resourceAttach(c, resourceInfo, cloudClient)
+	} else {
+		c.AbortWithStatusJSON(400, createErrorResponse("Invalid request body"))
+	}
+}
+
+// Create resource in specified cloud region
+func (s *ControllerServer) resourceCreate(c *gin.Context, resourceInfo *ResourceInfo, cloudClient string, resourceToCreate *paragliderpb.ResourceDescriptionString) {
 	// Create connection to cloud plugin
 	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -1141,7 +1164,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 	resource := paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: s.getCloudDeployment(resourceInfo.cloud, resourceInfo.namespace), Namespace: resourceInfo.namespace},
 		Name:        resourceInfo.name,
-		Description: []byte(resourceWithString.Description),
+		Description: []byte(resourceToCreate.Description),
 	}
 	client := paragliderpb.NewCloudPluginClient(conn)
 	resourceResp, err := client.CreateResource(context.Background(), &resource)
@@ -1150,25 +1173,65 @@ func (s *ControllerServer) resourceCreate(c *gin.Context) {
 		return
 	}
 
-	// Automatically set tag (need the IP address, we have the name and URI)
-	conn, err = grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// Set Paraglider tag
+	tagName := s.createTag(c, resourceInfo, resourceResp.Uri, resourceResp.Ip)
+	if tagName == "" {
+		return
+	}
+
+	resourceResp.Name = tagName
+	c.JSON(http.StatusOK, resourceResp)
+}
+
+func (s *ControllerServer) resourceAttach(c *gin.Context, resourceInfo *ResourceInfo, cloudClient string) {
+	// Create connection to cloud plugin
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 	defer conn.Close()
 
-	tagName := createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
-	tagClient := tagservicepb.NewTagServiceClient(conn)
-	_, err = tagClient.SetTag(context.Background(), &tagservicepb.SetTagRequest{Tag: &tagservicepb.TagMapping{Name: tagName, Uri: &resourceResp.Uri, Ip: &resourceResp.Ip}})
+	// Send RPC to attach resource
+	attachResourceReq := paragliderpb.AttachResourceRequest{
+		Namespace: resourceInfo.namespace,
+		Resource:  resourceInfo.uri,
+	}
+	client := paragliderpb.NewCloudPluginClient(conn)
+	attachResourceResp, err := client.AttachResource(context.Background(), &attachResourceReq)
 	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error())) // TODO @smcclure20: change this to a warning?
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
-	resourceResp.Name = tagName
+	// Set Paraglider tag
+	resourceInfo.name = attachResourceResp.Name
+	tagName := s.createTag(c, resourceInfo, attachResourceResp.Uri, attachResourceResp.Ip)
+	if tagName == "" {
+		return
+	}
 
-	c.JSON(http.StatusOK, resourceResp)
+	attachResourceResp.Name = tagName
+	c.JSON(http.StatusOK, attachResourceResp)
+}
+
+func (s *ControllerServer) createTag(c *gin.Context, resourceInfo *ResourceInfo, uri string, ip string) string {
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return ""
+	}
+	defer conn.Close()
+
+	tagName := createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
+	tagClient := tagservicepb.NewTagServiceClient(conn)
+	_, err = tagClient.SetTag(context.Background(), &tagservicepb.SetTagRequest{Tag: &tagservicepb.TagMapping{Name: tagName, Uri: &uri, Ip: &ip}})
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error())) // TODO @smcclure20: change this to a warning?
+		return ""
+	}
+
+	return tagName
 }
 
 // List all tags from local tag service
@@ -1498,8 +1561,8 @@ func Setup(cfg config.Config, background bool) {
 	router.PUT(PermitListRulePUTURL, server.permitListRuleAdd)
 	router.POST(DeletePermitListRulesURL, server.permitListRulesDelete)
 	router.DELETE(PermitListRulePUTURL, server.permitListRuleDelete)
-	router.PUT(CreateResourcePUTURL, server.resourceCreate)
-	router.POST(CreateResourcePOSTURL, server.resourceCreate)
+	router.PUT(CreateResourcePUTURL, server.handleCreateOrAttachResource)
+	router.POST(CreateOrAttachResourcePOSTURL, server.handleCreateOrAttachResource)
 	router.POST(RuleOnTagURL, server.permitListRuleAddTag)
 	router.DELETE(RuleOnTagURL, server.permitListRuleDeleteTag)
 	router.GET(ListTagURL, server.listTags)

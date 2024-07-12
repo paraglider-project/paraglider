@@ -24,7 +24,6 @@ import (
 	"strings"
 	"testing"
 
-	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/google/uuid"
@@ -222,16 +221,7 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Added Azure permit list rules")
 
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
-	gcpConnectivityTest1GcpVmEndpoint := &networkmanagementpb.Endpoint{
-		IpAddress: gcpVmIpAddress,
-		Network:   gcp.GetVpcUrl(gcpProjectId, "other"),
-		ProjectId: gcpProjectId,
-	}
-	gcpConnectivityTest1AzureVmEndpoint := &networkmanagementpb.Endpoint{
-		IpAddress:   azureVm1IpAddress,
-		NetworkType: networkmanagementpb.Endpoint_NON_GCP_NETWORK,
-	}
-	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-1", gcpConnectivityTest1GcpVmEndpoint, gcpConnectivityTest1AzureVmEndpoint)
+	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-1", gcpVmIpAddress, "other", azureVm1IpAddress)
 
 	// Run Azure connectivity check (ping from Azure VM to GCP VM)
 	azureConnectivityCheck1, err := azure.RunPingConnectivityCheck(azureVm1ResourceId, gcpVmIpAddress, "default")
@@ -333,16 +323,7 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Added Azure permit list rules")
 
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
-	gcpConnectivityTest2GcpVmEndpoint := &networkmanagementpb.Endpoint{
-		IpAddress: gcpVmIpAddress,
-		Network:   gcp.GetVpcUrl(gcpProjectId, "other"),
-		ProjectId: gcpProjectId,
-	}
-	gcpConnectivityTest2AzureVmEndpoint := &networkmanagementpb.Endpoint{
-		IpAddress:   azureVm2IpAddress,
-		NetworkType: networkmanagementpb.Endpoint_NON_GCP_NETWORK,
-	}
-	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-2", gcpConnectivityTest2GcpVmEndpoint, gcpConnectivityTest2AzureVmEndpoint)
+	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-2", gcpVmIpAddress, "other", azureVm2IpAddress)
 
 	// Run Azure connectivity check (ping from Azure VM to GCP VM)
 	azureConnectivityCheck2, err := azure.RunPingConnectivityCheck(azureVm2ResourceId, gcpVmIpAddress, "default")
