@@ -739,17 +739,17 @@ func (s *azurePluginServer) createPeering(ctx context.Context, azureHandler Azur
 			// Create peering
 			err = azureHandler.CreateVnetPeeringOneWay(ctx, resourceVnetName, peeringVnetName, peeringCloudResourceIDInfo.SubscriptionID, peeringCloudResourceIDInfo.ResourceGroupName)
 			if err != nil {
-				return fmt.Errorf("C unable to create vnet peering: %w", err)
+				return fmt.Errorf("unable to create vnet peering: %w", err)
 			}
 			err = peeringCloudAzureHandler.CreateVnetPeeringOneWay(ctx, peeringVnetName, resourceVnetName, resourceIDInfo.SubscriptionID, resourceIDInfo.ResourceGroupName)
 			if err != nil {
-				return fmt.Errorf("B unable to create vnet peering: %w", err)
+				return fmt.Errorf("unable to create vnet peering: %w", err)
 			}
 			break
 		}
 	}
 	if !contained {
-		return fmt.Errorf("A unable to find vnet belonging to permit list rule target")
+		return fmt.Errorf("unable to find vnet belonging to permit list rule target")
 	}
 	return nil
 }
