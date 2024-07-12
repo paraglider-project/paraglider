@@ -7,10 +7,6 @@ This section lists the prerequisites for working with the repository.
 Most contributors should start with the basic prerequisites. 
 Depending on the task you need to perform, you may need to install more tools.
 
-We highly recommend using VS Code for development.
-We provide a `dev container <https://code.visualstudio.com/docs/devcontainers/containers>`_ that will automatically install all of the prerequisites for you.
-It will take a while to download and install the first time you run it, but subsequent runs will be much faster.
-
 VS Code Setup
 -------------
 
