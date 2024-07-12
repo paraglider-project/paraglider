@@ -344,7 +344,7 @@ func (h *AzureSDKHandler) CreateVnetPeeringOneWay(ctx context.Context, vnet1Name
 			UseRemoteGateways: to.Ptr(false),
 		},
 	}
-	utils.Log.Printf("Vnet ID: %s", fmt.Sprintf(virtualNetworkResourceID, vnet2SubscriptionID, vnet2ResourceGroupName, vnet2Name))
+
 	_, err := h.CreateOrUpdateVirtualNetworkPeering(ctx, vnet1Name, getPeeringName(vnet1Name, vnet2Name), vnet1ToVnet2PeeringParameters)
 	if err != nil {
 		return err
@@ -484,8 +484,8 @@ func (h *AzureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) 
 	return &nsgResp.SecurityGroup, nil
 }
 
-// GetParagliderVnet returns a valid paraglider vnet. A paraglider vnet is a vnet with a default subnet with the same
-// address space as the vnet and there is only one vnet per location
+// GetParagliderVnet returns a valid paraglider vnet. A paraglider vnet is a vnet created by Paraglider
+// with a default subnet with the same address space as the vnet and there is only one vnet per location
 func (h *AzureSDKHandler) GetParagliderVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
 	// Get the virtual network
 	res, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, &armnetwork.VirtualNetworksClientGetOptions{Expand: nil})
