@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/google/uuid"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
 	"github.com/paraglider-project/paraglider/pkg/orchestrator"
@@ -359,4 +361,82 @@ func TestMultipleRegionsIntraNamespace(t *testing.T) {
 	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(vm2ResourceId, vm1Ip, defaultNamespace)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM2toVM1)
+}
+
+func TestAttachResource(t *testing.T) {
+	namespace := "default"
+	subscriptionId := GetAzureSubscriptionId()
+	resourceGroupName := SetupAzureTesting(subscriptionId, "integration6")
+	defer TeardownAzureTesting(subscriptionId, resourceGroupName, namespace)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := InitializeServer(fakeOrchestratorServerAddr)
+	ctx := context.Background()
+
+	// Create Paraglider VM
+	vmNamePrefix := "sample-vm"
+	vmLocation := "westus"
+	parameters := GetTestVmParameters(vmLocation)
+	descriptionJson, err := json.Marshal(parameters)
+	require.NoError(t, err)
+	vmName := vmNamePrefix + "-" + uuid.NewString()
+	vmID := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + vmName
+	createResourceResp, err := s.CreateResource(ctx, &paragliderpb.CreateResourceRequest{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: namespace},
+		Name:        vmName,
+		Description: descriptionJson,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, createResourceResp)
+	assert.Equal(t, createResourceResp.Uri, vmID)
+	fmt.Println("aaaaaa")
+
+	// Create Non Paraglider VM
+	externalVmName := "external-vm"
+	externalVnetName := "external-vnet"
+	externalVmID := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + externalVmName
+	resourceIdInfo := &paragliderpb.ResourceIdInfo{
+		SubscriptionId:    subscriptionId,
+		ResourceGroupName: resourceGroupName,
+		ResourceId:        externalVmID,
+	}
+
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo, namespace)
+	require.NoError(t, err)
+
+	// Create Non Paraglider Vnet
+	externalVnet, err := CreateNonParagliderVirtualNetwork(ctx, azureHandler, vmLocation, externalVnetName, "10.9.0.0/24")
+	require.NotNil(t, externalVnet)
+	require.NoError(t, err)
+	fmt.Println("bbbbb")
+
+	resourceSubnet := externalVnet.Properties.Subnets[0]
+	// Create Non Paraglider VM
+	externalVm := &armcompute.VirtualMachine{
+		Name:     to.Ptr(externalVmName),
+		Location: to.Ptr(vmLocation),
+		ID:       to.Ptr(externalVmID),
+	}
+
+	resourceHandler := &azureResourceHandlerVM{}
+	// func (r *azureResourceHandlerVM) createWithNetwork(ctx context.Context, vm *armcompute.VirtualMachine, subnet *armnetwork.Subnet, resourceName string, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+	externalVmIp, err := resourceHandler.createWithNetwork(ctx, externalVm, resourceSubnet, externalVmName, azureHandler, []string{})
+	require.NoError(t, err)
+	require.NotNil(t, externalVmIp)
+	fmt.Println("ccccc")
+
+	// Attach resource
+	attachResourceReq := &paragliderpb.AttachResourceRequest{
+		Namespace: namespace,
+		Resource:  externalVmID,
+	}
+	attachResourceResp, err := s.AttachResource(ctx, attachResourceReq)
+	require.NoError(t, err)
+	require.NotNil(t, attachResourceResp)
+	assert.Equal(t, attachResourceResp.Uri, vmID)
+	fmt.Println("ddddd")
+
 }
