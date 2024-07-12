@@ -52,7 +52,7 @@ func TestGetAllVnetsAddressSpaces(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, addresses)
 		require.Len(t, addresses, 1)
-		assert.Equal(t, addresses[testLocation], []string{validAddressSpace})
+		assert.Equal(t, addresses[validParagliderVnetName], []string{validAddressSpace})
 	})
 
 	t.Run("GetAllVnetsAddressSpaces: Failure - No Vnet", func(t *testing.T) {
@@ -534,7 +534,7 @@ func TestGetVnet(t *testing.T) {
 
 	// Test case: Success
 	t.Run("GetVnet: Success", func(t *testing.T) {
-		vnet, err := handler.GetVNet(ctx, validParagliderVnetName)
+		vnet, err := handler.GetVnet(ctx, validParagliderVnetName)
 
 		require.NoError(t, err)
 		require.NotNil(t, vnet)
@@ -543,7 +543,7 @@ func TestGetVnet(t *testing.T) {
 	// Test case: Failure
 	t.Run("GetVnet: Failure", func(t *testing.T) {
 		fakeServerState.vnet = nil
-		vnet, err := handler.GetVNet(ctx, validParagliderVnetName)
+		vnet, err := handler.GetVnet(ctx, validParagliderVnetName)
 
 		require.Error(t, err)
 		require.Nil(t, vnet)
