@@ -22,8 +22,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/google/uuid"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
 	"github.com/paraglider-project/paraglider/pkg/orchestrator"
@@ -34,7 +32,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createVM(ctx context.Context, server *azurePluginServer, subscriptionId string, resourceGroupName string, namespace string, location string, name string) (*paragliderpb.CreateResourceResponse, error) {
+func createParagliderVM(ctx context.Context, server *azurePluginServer, subscriptionId string, resourceGroupName string, namespace string, location string, name string) (*paragliderpb.CreateResourceResponse, error) {
 	parameters := GetTestVmParameters(location)
 	parametersBytes, err := json.Marshal(parameters)
 	if err != nil {
@@ -171,7 +169,7 @@ func TestCrossNamespaces(t *testing.T) {
 	// Create vm1 in rg1
 	vm1Name := "vm-paraglider-test1"
 	vm1Location := "westus"
-	createVM1Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroup1Name, resourceGroup1Namespace, vm1Location, vm1Name)
+	createVM1Resp, err := createParagliderVM(ctx, azureServer, subscriptionId, resourceGroup1Name, resourceGroup1Namespace, vm1Location, vm1Name)
 	require.NoError(t, err)
 	require.NotNil(t, createVM1Resp)
 	assert.Equal(t, createVM1Resp.Name, vm1Name)
@@ -179,7 +177,7 @@ func TestCrossNamespaces(t *testing.T) {
 	// Create vm2 in rg2
 	vm2Name := "vm-paraglider-test2"
 	vm2Location := "westus"
-	createVM2Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroup2Name, resourceGroup2Namespace, vm2Location, vm2Name)
+	createVM2Resp, err := createParagliderVM(ctx, azureServer, subscriptionId, resourceGroup2Name, resourceGroup2Namespace, vm2Location, vm2Name)
 	require.NoError(t, err)
 	require.NotNil(t, createVM2Resp)
 	assert.Equal(t, createVM2Resp.Name, vm2Name)
@@ -289,14 +287,14 @@ func TestMultipleRegionsIntraNamespace(t *testing.T) {
 	// Create 2 VMs in different regions
 	vm1Name := "vm-paraglider-test-west"
 	vm1Location := "westus"
-	createVM1Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroupName, defaultNamespace, vm1Location, vm1Name)
+	createVM1Resp, err := createParagliderVM(ctx, azureServer, subscriptionId, resourceGroupName, defaultNamespace, vm1Location, vm1Name)
 	require.NoError(t, err)
 	require.NotNil(t, createVM1Resp)
 	assert.Equal(t, createVM1Resp.Name, vm1Name)
 
 	vm2Name := "vm-paraglider-test-east"
 	vm2Location := "eastus"
-	createVM2Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroupName, defaultNamespace, vm2Location, vm2Name)
+	createVM2Resp, err := createParagliderVM(ctx, azureServer, subscriptionId, resourceGroupName, defaultNamespace, vm2Location, vm2Name)
 	require.NoError(t, err)
 	require.NotNil(t, createVM2Resp)
 	assert.Equal(t, createVM2Resp.Name, vm2Name)
@@ -367,7 +365,7 @@ func TestAttachResource(t *testing.T) {
 	namespace := "default"
 	subscriptionId := GetAzureSubscriptionId()
 	resourceGroupName := SetupAzureTesting(subscriptionId, "integration6")
-	defer TeardownAzureTesting(subscriptionId, resourceGroupName, namespace)
+	// defer TeardownAzureTesting(subscriptionId, resourceGroupName, namespace)
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
 		t.Fatal(err)
@@ -375,60 +373,39 @@ func TestAttachResource(t *testing.T) {
 
 	s := InitializeServer(fakeOrchestratorServerAddr)
 	ctx := context.Background()
-
-	// Create Paraglider VM
-	vmNamePrefix := "sample-vm"
 	vmLocation := "westus"
-	parameters := GetTestVmParameters(vmLocation)
-	descriptionJson, err := json.Marshal(parameters)
-	require.NoError(t, err)
-	vmName := vmNamePrefix + "-" + uuid.NewString()
-	vmID := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + vmName
-	createResourceResp, err := s.CreateResource(ctx, &paragliderpb.CreateResourceRequest{
-		Deployment:  &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: namespace},
-		Name:        vmName,
-		Description: descriptionJson,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, createResourceResp)
-	assert.Equal(t, createResourceResp.Uri, vmID)
-	fmt.Println("aaaaaa")
-
-	// Create Non Paraglider VM
+	externalVmParameters := GetTestVmParameters(vmLocation)
 	externalVmName := "external-vm"
 	externalVnetName := "external-vnet"
-	externalVmID := "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName + "/providers/Microsoft.Compute/virtualMachines/" + externalVmName
-	resourceIdInfo := &paragliderpb.ResourceIdInfo{
-		SubscriptionId:    subscriptionId,
+	externalVmID := getVmUri(subscriptionId, resourceGroupName, externalVmName)
+	resourceIdInfo := ResourceIDInfo{
+		SubscriptionID:    subscriptionId,
 		ResourceGroupName: resourceGroupName,
-		ResourceId:        externalVmID,
+		ResourceName:      externalVmName,
 	}
-
+	externalVmIp := "10.9.0.0/24"
 	azureHandler, err := s.setupAzureHandler(resourceIdInfo, namespace)
 	require.NoError(t, err)
 
-	// Create Non Paraglider Vnet
-	externalVnet, err := CreateNonParagliderVirtualNetwork(ctx, azureHandler, vmLocation, externalVnetName, "10.9.0.0/24")
+	// Create Non-Paraglider Vnet
+	externalVnet, err := CreateNonParagliderVirtualNetwork(ctx, azureHandler, vmLocation, externalVnetName, externalVmIp)
 	require.NotNil(t, externalVnet)
 	require.NoError(t, err)
-	fmt.Println("bbbbb")
 
+	// Create Non-Paraglider VM
 	resourceSubnet := externalVnet.Properties.Subnets[0]
-	// Create Non Paraglider VM
-	externalVm := &armcompute.VirtualMachine{
-		Name:     to.Ptr(externalVmName),
-		Location: to.Ptr(vmLocation),
-		ID:       to.Ptr(externalVmID),
-	}
-
 	resourceHandler := &azureResourceHandlerVM{}
-	// func (r *azureResourceHandlerVM) createWithNetwork(ctx context.Context, vm *armcompute.VirtualMachine, subnet *armnetwork.Subnet, resourceName string, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
-	externalVmIp, err := resourceHandler.createWithNetwork(ctx, externalVm, resourceSubnet, externalVmName, azureHandler, []string{})
+	externalVmIp, err = resourceHandler.createWithNetwork(ctx, &externalVmParameters, resourceSubnet, externalVmName, azureHandler, []string{})
 	require.NoError(t, err)
 	require.NotNil(t, externalVmIp)
-	fmt.Println("ccccc")
 
-	// Attach resource
+	// todo: change after merging with fix create peerings PR
+	externalVnet, err = azureHandler.GetVNet(ctx, externalVnetName)
+	require.NoError(t, err)
+	require.Nil(t, externalVnet.Tags)
+	require.Empty(t, externalVnet.Properties.VirtualNetworkPeerings)
+
+	// Attach resource to Paraglider
 	attachResourceReq := &paragliderpb.AttachResourceRequest{
 		Namespace: namespace,
 		Resource:  externalVmID,
@@ -436,7 +413,89 @@ func TestAttachResource(t *testing.T) {
 	attachResourceResp, err := s.AttachResource(ctx, attachResourceReq)
 	require.NoError(t, err)
 	require.NotNil(t, attachResourceResp)
-	assert.Equal(t, attachResourceResp.Uri, vmID)
-	fmt.Println("ddddd")
+	assert.Equal(t, externalVmID, attachResourceResp.Uri)
 
+	// todo: change after merging with fix create peerings PR
+	externalVnet, err = azureHandler.GetVNet(ctx, externalVnetName)
+	require.NoError(t, err)
+
+	// Vnet tags and peerings should be created after attachment
+	require.NotNil(t, externalVnet.Tags)
+	assert.Equal(t, namespace, *externalVnet.Tags[namespaceTagKey])
+	require.NotEmpty(t, externalVnet.Properties.VirtualNetworkPeerings)
+
+	// Create Paraglider VM
+	vmNamePrefix := "sample-vm"
+	vmName := vmNamePrefix + "-" + uuid.NewString()
+	vmID := getVmUri(subscriptionId, resourceGroupName, vmName)
+	pgVmParameters := GetTestVmParameters(vmLocation)
+	descriptionJson, err := json.Marshal(&pgVmParameters)
+	require.NoError(t, err)
+	createResourceResp, err := s.CreateResource(ctx, &paragliderpb.CreateResourceRequest{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: getDeploymentUri(subscriptionId, resourceGroupName), Namespace: namespace},
+		Name:        vmName,
+		Description: descriptionJson,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, createResourceResp)
+	assert.Equal(t, createResourceResp.Uri, vmID)
+
+	// Add permit list rules to Paraglider VM
+	pgVmIp, err := GetVmIpAddress(vmID)
+	fmt.Println("vmIP: ", pgVmIp, "externalVmIP: ", externalVmIp)
+	pgVmRules := []*paragliderpb.PermitListRule{
+		{
+			Name:      "external-vm-ping-egress",
+			Targets:   []string{externalVmIp},
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+		{
+			Name:      "external-vm-ping-ingress",
+			Targets:   []string{externalVmIp},
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+	}
+
+	externalVmRules := []*paragliderpb.PermitListRule{
+		{
+			Name:      "paraglider-vm-ping-egress",
+			Targets:   []string{pgVmIp},
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+		{
+			Name:      "paraglider-vm-ping-ingress",
+			Targets:   []string{pgVmIp},
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+	}
+
+	// Add permit list rules to Paraglider VM
+	vmRules := [][]*paragliderpb.PermitListRule{externalVmRules, pgVmRules}
+	vmResourceIds := []string{externalVmID, vmID}
+	for i, vmResourceId := range vmResourceIds {
+		addPermitListRulesReq := &paragliderpb.AddPermitListRulesRequest{Rules: vmRules[i], Namespace: namespace, Resource: vmResourceId}
+		addPermitListRulesResp, err := s.AddPermitListRules(ctx, addPermitListRulesReq)
+		require.NoError(t, err)
+		require.NotNil(t, addPermitListRulesResp)
+	}
+
+	// Run connectivity checks on both directions between vm1 and vm2
+	azureConnectivityCheck1, err := RunPingConnectivityCheck(vmID, externalVmIp, namespace)
+	require.Nil(t, err)
+	require.True(t, azureConnectivityCheck1)
+	azureConnectivityCheck2, err := RunPingConnectivityCheck(externalVmID, pgVmIp, namespace)
+	require.Nil(t, err)
+	require.True(t, azureConnectivityCheck2)
 }

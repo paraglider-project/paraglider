@@ -130,6 +130,7 @@ func GetPermitListRulePeeringCloudInfo(permitListRule *paragliderpb.PermitListRu
 			contained := false
 		out: // Indentation is correct and can't be fixed
 			for _, usedAddressSpaceMapping := range usedAddressSpaceMappings {
+				fmt.Println("target: ", target, "usedAddressSpaceMapping.AddressSpaces: ", usedAddressSpaceMapping.AddressSpaces)
 				contained, err = IsPermitListRuleTagInAddressSpace(target, usedAddressSpaceMapping.AddressSpaces)
 				if err != nil {
 					return nil, fmt.Errorf("unable to determine if tag is in address space: %w", err)
