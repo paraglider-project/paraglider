@@ -361,7 +361,7 @@ func TestMultipleRegionsIntraNamespace(t *testing.T) {
 	require.True(t, azureConnectivityCheckVM2toVM1)
 }
 
-func TestAttachResource(t *testing.T) {
+func TestAttachResourceIntegration(t *testing.T) {
 	namespace := "default"
 	subscriptionId := GetAzureSubscriptionId()
 	resourceGroupName := SetupAzureTesting(subscriptionId, "integration6")
@@ -415,7 +415,8 @@ func TestAttachResource(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create Non-Paraglider Vnet
-	externalVnet, err := CreateNonParagliderVirtualNetwork(ctx, azureHandler, vmLocation, externalVnetName, externalAddressSpace)
+	externalVnetParams := CreateVirtualNetworkParameters(ctx, vmLocation, externalVnetName, externalAddressSpace)
+	externalVnet, err := azureHandler.CreateOrUpdateVirtualNetwork(ctx, externalVnetName, externalVnetParams)
 	require.NotNil(t, externalVnet)
 	require.NoError(t, err)
 
@@ -467,6 +468,7 @@ func TestAttachResource(t *testing.T) {
 
 	// Add permit list rules to Paraglider VM
 	pgVmIp, err := GetVmIpAddress(pgVmID)
+	require.NoError(t, err)
 	pgVmRules := []*paragliderpb.PermitListRule{
 		{
 			Name:      "external-vm-ping-egress",
