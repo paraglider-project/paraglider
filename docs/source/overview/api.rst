@@ -219,7 +219,8 @@ Note that a tag is automatically created for the resource with the name ``<names
 
                 * ``id``: Id of the resource as specified by the cloud provider
     
-Note: Create resource and Attach resource share the same API endpoint. The difference between the two POST requests is the request body. If the request body contains a ``description``, the request is considered as a create resource request. Otherwise, it is considered as an attach resource request. 
+..note:
+    Create resource and Attach resource share the same API endpoint. The difference between the two POST requests is the request body. If the request body contains a ``description``, the request is considered as a create resource request. Otherwise, it is considered as an attach resource request. 
 
 
 Permit List Operations
