@@ -1127,6 +1127,10 @@ func (s *ControllerServer) handleCreateOrAttachResource(c *gin.Context) {
 		return
 	}
 
+	if err := s.preCreateOrAttach(c, resourceInfo); err != nil {
+		return
+	}
+
 	var resourceToCreate paragliderpb.ResourceDescriptionString
 	var resourceToAttach ResourceID
 
@@ -1148,6 +1152,32 @@ func (s *ControllerServer) handleCreateOrAttachResource(c *gin.Context) {
 	} else {
 		c.AbortWithStatusJSON(400, createErrorResponse("Invalid request body"))
 	}
+}
+
+// Check the resource is valid to be created or attached at the orchestrator level
+func (s *ControllerServer) preCreateOrAttach(c *gin.Context, resourceInfo *ResourceInfo) error {
+	// Check if tag already exists
+	tagName := createTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
+	if tagName == "" {
+		c.AbortWithStatusJSON(400, createErrorResponse("unable to create tag name"))
+		return fmt.Errorf("unable to create tag name")
+	}
+
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return err
+	}
+	defer conn.Close()
+
+	client := tagservicepb.NewTagServiceClient(conn)
+	_, err = client.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tagName})
+	if err == nil {
+		c.AbortWithStatusJSON(400, createErrorResponse("Tag already exists"))
+		return err
+	}
+
+	return nil
 }
 
 // Create resource in specified cloud region
