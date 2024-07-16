@@ -193,7 +193,7 @@ Note that a tag is automatically created for the resource with the name ``<names
         Parameters:
 
         * ``cloud``: name of the cloud to create the resource in
-        * ``resource_id`` : ID of the resource as specified by the cloud provider
+        * ``resource_id`` : Id of the resource as specified by the cloud provider
 
 
     .. tab-item:: REST
@@ -212,14 +212,14 @@ Note that a tag is automatically created for the resource with the name ``<names
                 .. code-block:: JSON
 
                     {
-                        "id": "resourceId"
+                        "id": "resource-id"
                     }
 
                 Parameters:
 
-                * ``id``: ID of the resource as specified by the cloud provider
+                * ``id``: Id of the resource as specified by the cloud provider
     
-Note: Create resource and Attach resource share the same URL. The difference between the two POST requests is the request body. If the request body contains a ``description``, the request is treated as a Create resource request. Otherwise, it is considered as an Attach resource request. 
+Note: Create resource and Attach resource share the same API endpoint. The difference between the two POST requests is the request body. If the request body contains a ``description``, the request is considered as a create resource request. Otherwise, it is considered as an attach resource request. 
 
 
 Permit List Operations
