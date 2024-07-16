@@ -30,7 +30,6 @@ import (
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 )
 
 func getFakeInstanceResourceDescription() (*paragliderpb.CreateResourceRequest, *computepb.InsertInstanceRequest, error) {
@@ -62,21 +61,19 @@ func getFakeClusterResourceDescription() (*paragliderpb.CreateResourceRequest, *
 	return resource, clusterRequest, nil
 }
 
-func getFakeServiceAttachment() *computepb.ServiceAttachment {
-	return &computepb.ServiceAttachment{
-		Id:       proto.Uint64(fakeServiceAttachmentId),
-		SelfLink: proto.String(fakeServiceAttachmentUrl),
+func getFakePSCRequest(isGoogleService bool) (*paragliderpb.CreateResourceRequest, *ServiceAttachmentDescription, error) {
+	var description *ServiceAttachmentDescription
+	if isGoogleService {
+		description = &ServiceAttachmentDescription{Bundle: "all-apis", Region: fakeRegion}
+	} else {
+		description = &ServiceAttachmentDescription{Url: fakeServiceAttachmentUrl}
 	}
-}
-
-func getFakePSCRequest() (*paragliderpb.CreateResourceRequest, *ServiceAttachmentDescription, error) {
-	description := &ServiceAttachmentDescription{Url: fakeServiceAttachmentUrl}
 	jsonReq, err := json.Marshal(description)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	resource := &paragliderpb.CreateResourceRequest{Description: jsonReq}
+	resource := &paragliderpb.CreateResourceRequest{Description: jsonReq, Name: fakePscName}
 	return resource, description, nil
 }
 
@@ -115,7 +112,7 @@ func TestGetFirewallRules(t *testing.T) {
 	project := fakeProject
 	resourceID := "resource-1"
 
-	firewallRules, err := getFirewallRules(ctx, project, resourceID, &fakeClients)
+	firewallRules, err := getFirewallRules(ctx, project, resourceID, fakeClients)
 
 	expectedFwNames := []string{"firewall-1", "firewall-2"}
 
@@ -133,7 +130,7 @@ func TestGetResourceNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	netInfo, err := GetResourceNetworkInfo(ctx, rInfo, &fakeClients)
+	netInfo, err := GetResourceNetworkInfo(ctx, rInfo, fakeClients)
 
 	require.NoError(t, err)
 	assert.Equal(t, convertIntIdToString(*instance.Id), netInfo.ResourceID)
@@ -147,25 +144,25 @@ func TestGetResourceNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer = setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	netInfo, err = GetResourceNetworkInfo(ctx, rInfo, &fakeClients)
+	netInfo, err = GetResourceNetworkInfo(ctx, rInfo, fakeClients)
 
 	require.NoError(t, err)
 	assert.Equal(t, shortenClusterId(cluster.Id), netInfo.ResourceID)
 	assert.Equal(t, fakeSubnetId, netInfo.SubnetUrl)
 
-	// Test for service attachment
-	rInfo = &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakeClusterName, ResourceType: serviceAttachmentTypeName, Namespace: fakeNamespace}
+	// Test for private service connect
+	rInfo = &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakePscName, ResourceType: privateServiceConnectTypeName, Namespace: fakeNamespace}
 
-	attachment := getFakeServiceAttachment()
+	forwardingRule := getFakeForwardingRule()
 	address := getFakeAddress()
-	serverState = fakeServerState{serviceAttachment: attachment, address: address}
+	serverState = fakeServerState{forwardingRule: forwardingRule, address: address}
 	fakeServer, ctx, fakeClients, fakeGRPCServer = setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	netInfo, err = GetResourceNetworkInfo(ctx, rInfo, &fakeClients)
+	netInfo, err = GetResourceNetworkInfo(ctx, rInfo, fakeClients)
 
 	require.NoError(t, err)
-	assert.Equal(t, convertIntIdToString(*attachment.Id), netInfo.ResourceID)
+	assert.Equal(t, convertIntIdToString(*forwardingRule.Id), netInfo.ResourceID)
 	assert.Equal(t, *address.Address, netInfo.Address)
 }
 
@@ -190,15 +187,15 @@ func TestIsValidResource(t *testing.T) {
 	assert.Equal(t, fakeZone, resourceInfo.Zone)
 	assert.Equal(t, fakeCluster.Cluster.Name, resourceInfo.Name)
 
-	// Test for service attachment
-	resource, fakeService, err := getFakePSCRequest()
+	// Test for private service connect
+	resource, _, err = getFakePSCRequest(false)
 	require.NoError(t, err)
 
 	resourceInfo, err = IsValidResource(context.Background(), resource)
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeRegion, resourceInfo.Region)
-	assert.Contains(t, fakeService.Url, resourceInfo.Name)
+	assert.Equal(t, resource.Name, resourceInfo.Name)
 }
 
 func TestReadAndProvisionResource(t *testing.T) {
@@ -211,7 +208,7 @@ func TestReadAndProvisionResource(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	url, ip, err := ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, make([]string, 0), &fakeClients)
+	url, ip, err := ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, make([]string, 0), fakeClients)
 
 	require.NoError(t, err)
 	assert.Contains(t, url, *instanceRequest.InstanceResource.Name)
@@ -225,24 +222,25 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
-	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, additionalAddressSpaces, &fakeClients)
+	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, additionalAddressSpaces, fakeClients)
 
 	require.NoError(t, err)
 	assert.Equal(t, getClusterUrl(fakeProject, fakeZone, clusterRequest.Cluster.Name), url)
 	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
 
-	// Test for service attachment
+	// Test for Private Service Connect
 	serverState.address = getFakeAddress()
+	serverState.forwardingRule = getFakeForwardingRule()
 
-	resource, service, err := getFakePSCRequest()
+	resource, _, err = getFakePSCRequest(false)
 	require.NoError(t, err)
 
-	rInfo = &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakeServiceAttachmentName, ResourceType: serviceAttachmentTypeName}
+	rInfo = &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakePscName, ResourceType: privateServiceConnectTypeName}
 
-	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{}, &fakeClients)
+	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{}, fakeClients)
 
 	require.NoError(t, err)
-	assert.Equal(t, service.Url, url)
+	assert.Equal(t, getFakeForwardingRule().SelfLink, url)
 	assert.Equal(t, *getFakeAddress().Address, ip)
 }
 
@@ -257,7 +255,7 @@ func TestInstanceReadAndProvisionResource(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err = instanceHandler.initClients(ctx, &fakeClients)
+	err = instanceHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	url, ip, err := instanceHandler.readAndProvisionResource(ctx, resource, subnet, rInfo, make([]string, 0))
@@ -286,7 +284,7 @@ func TestInstanceGetNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err := instanceHandler.initClients(ctx, &fakeClients)
+	err := instanceHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	networkInfo, err := instanceHandler.getNetworkInfo(ctx, rInfo)
@@ -323,7 +321,7 @@ func TestInstanceCreateWithNetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err := instanceHandler.initClients(ctx, &fakeClients)
+	err := instanceHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	url, ip, err := instanceHandler.createWithNetwork(ctx, instanceRequest, subnet, rInfo)
@@ -345,7 +343,7 @@ func TestClusterReadAndProvisionResource(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err = clusterHandler.initClients(ctx, &fakeClients)
+	err = clusterHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
@@ -377,7 +375,7 @@ func TestClusterGetNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err := clusterHandler.initClients(ctx, &fakeClients)
+	err := clusterHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	networkInfo, err := clusterHandler.getNetworkInfo(ctx, resourceInfo)
@@ -409,7 +407,7 @@ func TestClusterCreateWithNetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err := clusterHandler.initClients(ctx, &fakeClients)
+	err := clusterHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
@@ -423,74 +421,84 @@ func TestClusterCreateWithNetwork(t *testing.T) {
 
 func TestPrivateServiceReadAndProvisionResource(t *testing.T) {
 	pscHandler := &privateServiceHandler{}
-	resource, service, err := getFakePSCRequest()
+	resource, _, err := getFakePSCRequest(false)
 	require.NoError(t, err)
 
-	rInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakeServiceAttachmentName, ResourceType: serviceAttachmentTypeName}
+	rInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakePscName, ResourceType: privateServiceConnectTypeName}
 
-	serverState := fakeServerState{address: getFakeAddress()}
+	serverState := fakeServerState{address: getFakeAddress(), forwardingRule: getFakeForwardingRule()}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err = pscHandler.initClients(ctx, &fakeClients)
+	err = pscHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	url, ip, err := pscHandler.readAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{})
 
 	require.NoError(t, err)
-	assert.Equal(t, service.Url, url)
+	assert.Equal(t, getFakeForwardingRule().SelfLink, url)
 	assert.Equal(t, ip, *getFakeAddress().Address)
 }
 
 func TestPrivateServiceGetResourceInfo(t *testing.T) {
 	pscHandler := &privateServiceHandler{}
-	resource, _, err := getFakePSCRequest()
+	resource, _, err := getFakePSCRequest(false)
 	require.NoError(t, err)
 
 	resourceInfo, err := pscHandler.getResourceInfo(context.Background(), resource)
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeRegion, resourceInfo.Region)
-	assert.Equal(t, serviceAttachmentTypeName, resourceInfo.ResourceType)
-	assert.Equal(t, fakeServiceAttachmentName, resourceInfo.Name)
+	assert.Equal(t, privateServiceConnectTypeName, resourceInfo.ResourceType)
+	assert.Equal(t, fakePscName, resourceInfo.Name)
 }
 
 func TestPrivateServiceGetNetworkInfo(t *testing.T) {
 	pscHandler := &privateServiceHandler{}
-	resourceInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Zone: fakeZone, Name: fakeServiceAttachmentName, ResourceType: serviceAttachmentTypeName}
+	resourceInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Zone: fakeZone, Name: fakePscName, ResourceType: privateServiceConnectTypeName}
 
-	attachment := getFakeServiceAttachment()
+	forwardingRule := getFakeForwardingRule()
 	address := getFakeAddress()
-	serverState := fakeServerState{serviceAttachment: attachment, address: address}
+	serverState := fakeServerState{forwardingRule: forwardingRule, address: address}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err := pscHandler.initClients(ctx, &fakeClients)
+	err := pscHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	networkInfo, err := pscHandler.getNetworkInfo(ctx, resourceInfo)
 
 	require.NoError(t, err)
-	assert.Equal(t, convertIntIdToString(*attachment.Id), networkInfo.ResourceID)
+	assert.Equal(t, convertIntIdToString(*forwardingRule.Id), networkInfo.ResourceID)
 	assert.Equal(t, *address.Address, networkInfo.Address)
 }
 
 func TestPrivateServiceCreateWithNetwork(t *testing.T) {
+	// Non-GCP service
 	pscHandler := &privateServiceHandler{}
 	subnet := "subnet-1"
 	serviceDescription := &ServiceAttachmentDescription{Url: fakeServiceAttachmentUrl}
 
-	rInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakeServiceAttachmentName, ResourceType: serviceAttachmentTypeName}
-	serverState := fakeServerState{address: getFakeAddress()}
+	rInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakePscName, ResourceType: privateServiceConnectTypeName}
+	serverState := fakeServerState{address: getFakeAddress(), forwardingRule: getFakeForwardingRule()}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err := pscHandler.initClients(ctx, &fakeClients)
+	err := pscHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
-	url, ip, err := pscHandler.createWithNetwork(ctx, *serviceDescription, subnet, rInfo)
+	url, ip, err := pscHandler.createWithNetwork(ctx, *serviceDescription, subnet, rInfo, "")
 
 	require.NoError(t, err)
-	assert.Equal(t, fakeServiceAttachmentUrl, url)
+	assert.Equal(t, getFakeForwardingRule().Id, url)
+	assert.Equal(t, *getFakeAddress().Address, ip)
+
+	// GCP Service
+	serviceDescription = &ServiceAttachmentDescription{Bundle: "all-apis", Region: "us-west"}
+
+	url, ip, err = pscHandler.createWithNetwork(ctx, *serviceDescription, subnet, rInfo, "1.1.1.1")
+
+	require.NoError(t, err)
+	assert.Equal(t, getFakeForwardingRule().Id, url)
 	assert.Equal(t, *getFakeAddress().Address, ip)
 }

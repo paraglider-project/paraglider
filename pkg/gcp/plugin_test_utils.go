@@ -40,20 +40,20 @@ import (
 
 // Fake project and resource
 const (
-	fakeProject               = "paraglider-fake"
-	fakeRegion                = "us-fake1"
-	fakeZone                  = fakeRegion + "-a"
-	fakeInstanceName          = "vm-paraglider-fake"
-	fakeClusterName           = "cluster-paraglider-fake"
-	fakeServiceAttachmentName = "service-attachment-paraglider-fake"
-	fakeClusterId             = "12345678910"
-	fakeInstanceId            = uint64(1234)
-	fakeServiceAttachmentId   = uint64(5678)
-	fakeResourceId            = computeUrlPrefix + "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
-	fakeNamespace             = "default"
-	fakeSubnetName            = "subnet-paraglider-fake"
-	fakeSubnetId              = computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/subnetworks/" + fakeSubnetName
-	fakeServiceAttachmentUrl  = computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/serviceAttachments/" + fakeServiceAttachmentName
+	fakeProject              = "paraglider-fake"
+	fakeRegion               = "us-fake1"
+	fakeZone                 = fakeRegion + "-a"
+	fakeInstanceName         = "vm-paraglider-fake"
+	fakeClusterName          = "cluster-paraglider-fake"
+	fakePscName              = "psc-paraglider-fake"
+	fakeClusterId            = "12345678910"
+	fakeInstanceId           = uint64(1234)
+	fakeResourceId           = computeUrlPrefix + "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
+	fakeNamespace            = "default"
+	fakeSubnetName           = "subnet-paraglider-fake"
+	fakeSubnetId             = computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/subnetworks/" + fakeSubnetName
+	fakeServiceAttachmentUrl = computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/serviceAttachments/fakeServiceAttachment"
+	forwardingRuleUrlPrefix  = computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/forwardingRules/"
 
 	fakeIpAddress = "1.1.1.1"
 
@@ -167,6 +167,14 @@ func getFakeCluster(includeNetwork bool) *containerpb.Cluster {
 func getFakeAddress() *computepb.Address {
 	return &computepb.Address{
 		Address: proto.String(fakeIpAddress),
+	}
+}
+
+func getFakeForwardingRule() *computepb.ForwardingRule {
+	return &computepb.ForwardingRule{
+		Name:     proto.String(getForwardingRuleName("serviceName")),
+		Id:       proto.Uint64(1234),
+		SelfLink: proto.String(forwardingRuleUrlPrefix + getForwardingRuleName("serviceName")),
 	}
 }
 
@@ -303,14 +311,11 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			if r.Method == "POST" {
 				sendResponseFakeOperation(w)
 				return
-			}
-		// Service Attachments
-		case strings.HasPrefix(path, urlProject+urlRegion+"/serviceAttachments"):
-			if r.Method == "GET" {
-				if fakeServerState.serviceAttachment != nil {
-					sendResponse(w, fakeServerState.serviceAttachment)
+			} else if r.Method == "GET" {
+				if fakeServerState.forwardingRule != nil {
+					sendResponse(w, fakeServerState.forwardingRule)
 				} else {
-					http.Error(w, "no service attachment found", http.StatusNotFound)
+					http.Error(w, "no forwarding rule found", http.StatusNotFound)
 				}
 				return
 			}
@@ -395,19 +400,19 @@ func (f *fakeClusterManagerServer) UpdateCluster(ctx context.Context, req *conta
 
 // Struct to hold state for fake server
 type fakeServerState struct {
-	firewallMap       map[string]*computepb.Firewall
-	instance          *computepb.Instance
-	network           *computepb.Network
-	router            *computepb.Router
-	subnetwork        *computepb.Subnetwork
-	vpnGateway        *computepb.VpnGateway
-	cluster           *containerpb.Cluster
-	address           *computepb.Address
-	serviceAttachment *computepb.ServiceAttachment
+	firewallMap    map[string]*computepb.Firewall
+	instance       *computepb.Instance
+	network        *computepb.Network
+	router         *computepb.Router
+	subnetwork     *computepb.Subnetwork
+	vpnGateway     *computepb.VpnGateway
+	cluster        *containerpb.Cluster
+	address        *computepb.Address
+	forwardingRule *computepb.ForwardingRule
 }
 
 // Sets up fake http server and fake GCP compute clients
-func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClients GCPClients, gsrv *grpc.Server) {
+func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClients *GCPClients, gsrv *grpc.Server) {
 	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
 
 	ctx = context.Background()
@@ -493,7 +498,7 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 }
 
 // Cleans up fake http server and fake GCP compute clients
-func teardown(fakeServer *httptest.Server, fakeClients GCPClients, fakeGRPCServer *grpc.Server) {
+func teardown(fakeServer *httptest.Server, fakeClients *GCPClients, fakeGRPCServer *grpc.Server) {
 	fakeServer.Close()
 	fakeClients.Close()
 	if fakeGRPCServer != nil {

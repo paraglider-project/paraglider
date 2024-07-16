@@ -173,7 +173,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 			} else {
 				if peeringCloudInfo.Namespace != req.Namespace {
 					// Create VPC network peering (in both directions) for different namespaces
-					networksClient, err := clients.GetNetworksClient(ctx)
+					networksClient, err := clients.GetOrCreateNetworksClient(ctx)
 					if err != nil {
 						return nil, fmt.Errorf("unable to get networks client: %w", err)
 					}
@@ -196,7 +196,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 			return nil, fmt.Errorf("unable to convert permit list rule to firewall rule: %w", err)
 		}
 
-		firewallsClient, err := clients.GetFirewallsClient(ctx)
+		firewallsClient, err := clients.GetOrCreateFirewallsClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get firewalls client: %w", err)
 		}
@@ -253,7 +253,7 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *parag
 	}
 
 	// Delete firewalls corresponding to provided permit list rules
-	firewallsClient, err := clients.GetFirewallsClient(ctx)
+	firewallsClient, err := clients.GetOrCreateFirewallsClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get firewalls client: %w", err)
 	}
@@ -300,7 +300,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	subnetName := getSubnetworkName(resourceDescription.Deployment.Namespace, resourceInfo.Region)
 
 	// Get the networks client
-	networksClient, err := clients.GetNetworksClient(ctx)
+	networksClient, err := clients.GetOrCreateNetworksClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get networks client: %w", err)
 	}
@@ -333,7 +333,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 			}
 			// Deny all egress traffic since GCP implicitly allows all egress traffic
-			firewallsClient, err := clients.GetFirewallsClient(ctx)
+			firewallsClient, err := clients.GetOrCreateFirewallsClient(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("unable to get firewalls client: %w", err)
 			}
@@ -402,7 +402,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	}
 
 	if !subnetExists {
-		subnetworksClient, err := clients.GetSubnetworksClient(ctx)
+		subnetworksClient, err := clients.GetOrCreateSubnetworksClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get subnetworks client: %w", err)
 		}
@@ -438,15 +438,15 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 
 func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
 	clients := &GCPClients{}
-	networksClient, err := clients.GetNetworksClient(ctx)
+	networksClient, err := clients.GetOrCreateNetworksClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get networks client: %w", err)
 	}
-	subnetworksClient, err := clients.GetSubnetworksClient(ctx)
+	subnetworksClient, err := clients.GetOrCreateSubnetworksClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get subnetworks client: %w", err)
 	}
-	addressesClient, err := clients.GetAddressesClient(ctx)
+	addressesClient, err := clients.GetOrCreateAddressesClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get addresses client: %w", err)
 	}
@@ -522,7 +522,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *paragl
 
 func (s *GCPPluginServer) GetUsedAsns(ctx context.Context, req *paragliderpb.GetUsedAsnsRequest) (*paragliderpb.GetUsedAsnsResponse, error) {
 	clients := &GCPClients{}
-	routersClient, err := clients.GetRoutersClient(ctx)
+	routersClient, err := clients.GetOrCreateRoutersClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get routers client: %w", err)
 	}
@@ -556,7 +556,7 @@ func (s *GCPPluginServer) _GetUsedAsns(ctx context.Context, req *paragliderpb.Ge
 
 func (s *GCPPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *paragliderpb.GetUsedBgpPeeringIpAddressesRequest) (*paragliderpb.GetUsedBgpPeeringIpAddressesResponse, error) {
 	clients := &GCPClients{}
-	routersClient, err := clients.GetRoutersClient(ctx)
+	routersClient, err := clients.GetOrCreateRoutersClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get routers client: %w", err)
 	}
@@ -592,11 +592,11 @@ func (s *GCPPluginServer) _GetUsedBgpPeeringIpAddresses(ctx context.Context, req
 func (s *GCPPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderpb.CreateVpnGatewayRequest) (*paragliderpb.CreateVpnGatewayResponse, error) {
 	clients := &GCPClients{}
 
-	vpnGatewaysClient, err := clients.GetVpnGatewaysClient(ctx)
+	vpnGatewaysClient, err := clients.GetOrCreateVpnGatewaysClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get vpn gateways client: %w", err)
 	}
-	routersClient, err := clients.GetRoutersClient(ctx)
+	routersClient, err := clients.GetOrCreateRoutersClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get routers client: %w", err)
 	}
@@ -729,15 +729,15 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 
 func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.CreateVpnConnectionsResponse, error) {
 	clients := &GCPClients{}
-	externalVpnGatewaysClient, err := clients.GetExternalVpnGatewaysClient(ctx)
+	externalVpnGatewaysClient, err := clients.GetOrCreateExternalVpnGatewaysClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get external vpn gateways client: %w", err)
 	}
-	vpnTunnelsClient, err := clients.GetVpnTunnelsClient(ctx)
+	vpnTunnelsClient, err := clients.GetOrCreateVpnTunnelsClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get vpn tunnels client: %w", err)
 	}
-	routersClient, err := clients.GetRoutersClient(ctx)
+	routersClient, err := clients.GetOrCreateRoutersClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get routers client: %w", err)
 	}
