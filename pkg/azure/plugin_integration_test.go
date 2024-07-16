@@ -410,7 +410,7 @@ func TestAttachResourceIntegration(t *testing.T) {
 		ResourceGroupName: resourceGroupName,
 		ResourceName:      externalVmName,
 	}
-	externalAddressSpace := "10.9.0.0/24"
+	externalAddressSpace := "20.9.0.0/24"
 	azureHandler, err := azureServer.setupAzureHandler(resourceIdInfo, namespace)
 	require.NoError(t, err)
 
