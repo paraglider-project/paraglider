@@ -44,6 +44,7 @@ const (
 	virtualNetworkGatewayTypeName = "Microsoft.Network/virtualNetworkGateways"
 	virtualNetworkTypeName        = "Microsoft.Network/virtualNetworks"
 	networkWatcherTypeName        = "Microsoft.Network/networkWatchers"
+	privateEndpointTypeName       = "Microsoft.Network/" // todo @J-467: update this
 )
 
 // Gets subscription ID defined in environment variable
@@ -550,6 +551,25 @@ func getVirtualNetworkParameters(location string, addressSpace string) armnetwor
 						AddressPrefix: to.Ptr(addressSpace),
 					},
 				},
+			},
+		},
+	}
+}
+
+func getPrivateEndpointParams(connectionName string, subnetID string, privateLinkServiceID string) armnetwork.PrivateEndpoint {
+	return armnetwork.PrivateEndpoint{
+		Properties: &armnetwork.PrivateEndpointProperties{
+			PrivateLinkServiceConnections: []*armnetwork.PrivateLinkServiceConnection{
+				{
+					Name: to.Ptr(connectionName),
+					Properties: &armnetwork.PrivateLinkServiceConnectionProperties{
+						PrivateLinkServiceID: to.Ptr(privateLinkServiceID),
+						GroupIDs:             []*string{to.Ptr("blob")},
+					},
+				},
+			},
+			Subnet: &armnetwork.Subnet{
+				ID: to.Ptr(subnetID),
 			},
 		},
 	}

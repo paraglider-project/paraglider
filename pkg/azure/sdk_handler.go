@@ -59,6 +59,7 @@ type AzureSDKHandler struct {
 	subnetsClient                          *armnetwork.SubnetsClient
 	virtualNetworkGatewayConnectionsClient *armnetwork.VirtualNetworkGatewayConnectionsClient
 	localNetworkGatewaysClient             *armnetwork.LocalNetworkGatewaysClient
+	privateEndpointClient                  *armnetwork.PrivateEndpointsClient
 	subscriptionID                         string
 	resourceGroupName                      string
 	paragliderNamespace                    string
@@ -147,6 +148,7 @@ func (h *AzureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
 	h.resourcesClient = h.resourcesClientFactory.NewClient()
 	h.virtualMachinesClient = h.computeClientFactory.NewVirtualMachinesClient()
 	h.managedClustersClient = h.containerServiceClientFactory.NewManagedClustersClient()
+	h.privateEndpointClient = h.networkClientFactory.NewPrivateEndpointsClient()
 
 	return nil
 }
@@ -605,6 +607,18 @@ func (h *AzureSDKHandler) GetVirtualNetwork(ctx context.Context, name string) (*
 		return nil, err
 	}
 	return &resp.VirtualNetwork, nil
+}
+
+func (h *AzureSDKHandler) CreatePrivateEndpoint(ctx context.Context, privateEndpointName string, parameters armnetwork.PrivateEndpoint) (*armnetwork.PrivateEndpoint, error) {
+	pollerResponse, err := h.privateEndpointClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, privateEndpointName, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.PrivateEndpoint, nil
 }
 
 func (h *AzureSDKHandler) CreateSecurityGroup(ctx context.Context, resourceName string, location string, allowedCIDRs map[string]string) (*armnetwork.SecurityGroup, error) {

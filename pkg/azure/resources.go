@@ -53,6 +53,8 @@ func getResourceHandler(resourceID string) (AzureResourceHandler, error) {
 		return &azureResourceHandlerVM{}, nil
 	} else if strings.Contains(resourceID, managedClusterTypeName) {
 		return &azureResourceHandlerAKS{}, nil
+	} else if strings.Contains(resourceID, privateEndpointTypeName) {
+		return &azureResourceHandlePrivateEndpoint{}, nil
 	} else {
 		return nil, fmt.Errorf("resource type %s is not supported", resourceID)
 	}
@@ -487,4 +489,13 @@ func (r *azureResourceHandlerAKS) fromResourceDecription(resourceDesc []byte) (*
 	}
 
 	return aks, nil
+}
+
+// Private Endpoint implementation of the NewAzureResourceHandler interface
+type azureResourceHandlePrivateEndpoint struct {
+	AzureResourceHandler
+}
+
+func getNetworkInfo(ctx context.Context, endpointUri string) {
+	
 }

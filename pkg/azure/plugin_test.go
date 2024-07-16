@@ -21,6 +21,7 @@ package azure
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -743,4 +744,58 @@ func TestAttachResource(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, resp)
 	})
+}
+
+func TestRun(t *testing.T) {
+	subscriptionId := GetAzureSubscriptionId()
+	resourceGroupName := "julian-rg"
+	resourceName := "juliant"
+	namespace := "default"
+	server := InitializeServer("localhost:50051")
+	ctx := context.Background()
+	storageAccountID := "/subscriptions/2051cdb8-80a4-48a4-840c-ac989eb486a2/resourceGroups/julian-rg/providers/Microsoft.Storage/storageAccounts/julianstorage1"
+
+	resourceInfo := ResourceIDInfo{SubscriptionID: subscriptionId, ResourceGroupName: resourceGroupName, ResourceName: resourceName}
+	handler, err := server.setupAzureHandler(resourceInfo, namespace)
+
+	// Call the function you want to test
+	if err != nil {
+		// Handle errors
+		fmt.Println("Error in setupAzureHandler ")
+	}
+
+	fmt.Println("Starting server")
+	fmt.Println("Subscription ID: ", subscriptionId)
+
+	// attach a resource
+	attachReq := &paragliderpb.AttachResourceRequest{
+		Namespace: namespace,
+		Resource:  getVmUri(subscriptionId, resourceGroupName, resourceName),
+	}
+
+	resp, err := server.AttachResource(ctx, attachReq)
+	if err != nil {
+		// Handle errors
+		fmt.Println("Error in AttachResource, ", err)
+		return
+	}
+
+	netInfo, err := GetNetworkInfoFromResource(ctx, handler, resp.Uri)
+	if err != nil {
+		// Handle errors
+		fmt.Println("Error in GetNetworkInfoFromResource")
+		return
+	}
+
+	// create a private endpoint
+	params := getPrivateEndpointParams("Storage-account-connection", netInfo.SubnetID, storageAccountID)
+	privEndpoint, err := handler.CreatePrivateEndpoint(ctx, "J_storage_account", params)
+	if err != nil {
+		// Handle errors
+		fmt.Println("Error in CreatePrivateEndpoint")
+		return
+	}
+	fmt.Println("Private Endpoint: ", privEndpoint)
+
+	fmt.Println("DONE")
 }
