@@ -237,10 +237,10 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	rInfo = &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakePscName, ResourceType: privateServiceConnectTypeName}
 
-	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{}, fakeClients)
+	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{""}, fakeClients)
 
 	require.NoError(t, err)
-	assert.Equal(t, getFakeForwardingRule().SelfLink, url)
+	assert.Equal(t, *getFakeForwardingRule().SelfLink, url)
 	assert.Equal(t, *getFakeAddress().Address, ip)
 }
 
@@ -433,10 +433,10 @@ func TestPrivateServiceReadAndProvisionResource(t *testing.T) {
 	err = pscHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
-	url, ip, err := pscHandler.readAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{})
+	url, ip, err := pscHandler.readAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{""})
 
 	require.NoError(t, err)
-	assert.Equal(t, getFakeForwardingRule().SelfLink, url)
+	assert.Equal(t, *getFakeForwardingRule().SelfLink, url)
 	assert.Equal(t, ip, *getFakeAddress().Address)
 }
 
@@ -490,7 +490,7 @@ func TestPrivateServiceCreateWithNetwork(t *testing.T) {
 	url, ip, err := pscHandler.createWithNetwork(ctx, *serviceDescription, subnet, rInfo, "")
 
 	require.NoError(t, err)
-	assert.Equal(t, getFakeForwardingRule().Id, url)
+	assert.Equal(t, *getFakeForwardingRule().SelfLink, url)
 	assert.Equal(t, *getFakeAddress().Address, ip)
 
 	// GCP Service
@@ -499,6 +499,6 @@ func TestPrivateServiceCreateWithNetwork(t *testing.T) {
 	url, ip, err = pscHandler.createWithNetwork(ctx, *serviceDescription, subnet, rInfo, "1.1.1.1")
 
 	require.NoError(t, err)
-	assert.Equal(t, getFakeForwardingRule().Id, url)
+	assert.Equal(t, *getFakeForwardingRule().SelfLink, url)
 	assert.Equal(t, *getFakeAddress().Address, ip)
 }
