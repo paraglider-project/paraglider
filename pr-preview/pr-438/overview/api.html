@@ -474,7 +474,7 @@ CLI</label><div class="sd-tab-content docutils">
 <p>Parameters:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud to create the resource in</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">resource_id</span></code> : ID of the resource as specified by the cloud provider</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource_id</span></code> : Id of the resource as specified by the cloud provider</p></li>
 </ul>
 </div>
 <input id="sd-tab-item-9" name="sd-tab-set-5" type="radio">
@@ -491,19 +491,19 @@ POST</label><div class="sd-tab-content docutils">
 <li><p>Example request body:</p></li>
 </ul>
 <div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resourceId&quot;</span>
+<span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resource-id&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>Parameters:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">id</span></code>: ID of the resource as specified by the cloud provider</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">id</span></code>: Id of the resource as specified by the cloud provider</p></li>
 </ul>
 </div>
 </div>
 </div>
 </div>
-<p>Note: Create resource and Attach resource share the same URL. The difference between the two POST requests is the request body. If the request body contains a <code class="docutils literal notranslate"><span class="pre">description</span></code>, the request is treated as a Create resource request. Otherwise, it is considered as an Attach resource request.</p>
+<p>Note: Create resource and Attach resource share the same API endpoint. The difference between the two POST requests is the request body. If the request body contains a <code class="docutils literal notranslate"><span class="pre">description</span></code>, the request is considered as a create resource request. Otherwise, it is considered as an attach resource request.</p>
 </section>
 </section>
 <section id="permit-list-operations">
