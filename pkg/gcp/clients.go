@@ -39,7 +39,7 @@ type GCPClients struct {
 	serviceAttachmentClient   *compute.ServiceAttachmentsClient
 }
 
-func (c *GCPClients) GetInstancesClient(ctx context.Context) (*compute.InstancesClient, error) {
+func (c *GCPClients) GetOrCreateInstancesClient(ctx context.Context) (*compute.InstancesClient, error) {
 	if c.instancesClient == nil {
 		instancesClient, err := compute.NewInstancesRESTClient(ctx)
 		if err != nil {
@@ -50,7 +50,7 @@ func (c *GCPClients) GetInstancesClient(ctx context.Context) (*compute.Instances
 	return c.instancesClient, nil
 }
 
-func (c *GCPClients) GetClustersClient(ctx context.Context) (*container.ClusterManagerClient, error) {
+func (c *GCPClients) GetOrCreateClustersClient(ctx context.Context) (*container.ClusterManagerClient, error) {
 	if c.clustersClient == nil {
 		clustersClient, err := container.NewClusterManagerClient(ctx)
 		if err != nil {
@@ -61,7 +61,7 @@ func (c *GCPClients) GetClustersClient(ctx context.Context) (*container.ClusterM
 	return c.clustersClient, nil
 }
 
-func (c *GCPClients) GetFirewallsClient(ctx context.Context) (*compute.FirewallsClient, error) {
+func (c *GCPClients) GetOrCreateFirewallsClient(ctx context.Context) (*compute.FirewallsClient, error) {
 	if c.firewallsClient == nil {
 		firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
 		if err != nil {
@@ -72,7 +72,7 @@ func (c *GCPClients) GetFirewallsClient(ctx context.Context) (*compute.Firewalls
 	return c.firewallsClient, nil
 }
 
-func (c *GCPClients) GetNetworksClient(ctx context.Context) (*compute.NetworksClient, error) {
+func (c *GCPClients) GetOrCreateNetworksClient(ctx context.Context) (*compute.NetworksClient, error) {
 	if c.networksClient == nil {
 		networksClient, err := compute.NewNetworksRESTClient(ctx)
 		if err != nil {
@@ -83,7 +83,7 @@ func (c *GCPClients) GetNetworksClient(ctx context.Context) (*compute.NetworksCl
 	return c.networksClient, nil
 }
 
-func (c *GCPClients) GetSubnetworksClient(ctx context.Context) (*compute.SubnetworksClient, error) {
+func (c *GCPClients) GetOrCreateSubnetworksClient(ctx context.Context) (*compute.SubnetworksClient, error) {
 	if c.subnetworksClient == nil {
 		subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
 		if err != nil {
@@ -94,7 +94,7 @@ func (c *GCPClients) GetSubnetworksClient(ctx context.Context) (*compute.Subnetw
 	return c.subnetworksClient, nil
 }
 
-func (c *GCPClients) GetRoutersClient(ctx context.Context) (*compute.RoutersClient, error) {
+func (c *GCPClients) GetOrCreateRoutersClient(ctx context.Context) (*compute.RoutersClient, error) {
 	if c.routersClient == nil {
 		routersClient, err := compute.NewRoutersRESTClient(ctx)
 		if err != nil {
@@ -105,7 +105,7 @@ func (c *GCPClients) GetRoutersClient(ctx context.Context) (*compute.RoutersClie
 	return c.routersClient, nil
 }
 
-func (c *GCPClients) GetVpnGatewaysClient(ctx context.Context) (*compute.VpnGatewaysClient, error) {
+func (c *GCPClients) GetOrCreateVpnGatewaysClient(ctx context.Context) (*compute.VpnGatewaysClient, error) {
 	if c.vpnGatewaysClient == nil {
 		vpnGatewaysClient, err := compute.NewVpnGatewaysRESTClient(ctx)
 		if err != nil {
@@ -116,7 +116,7 @@ func (c *GCPClients) GetVpnGatewaysClient(ctx context.Context) (*compute.VpnGate
 	return c.vpnGatewaysClient, nil
 }
 
-func (c *GCPClients) GetVpnTunnelsClient(ctx context.Context) (*compute.VpnTunnelsClient, error) {
+func (c *GCPClients) GetOrCreateVpnTunnelsClient(ctx context.Context) (*compute.VpnTunnelsClient, error) {
 	if c.vpnTunnelsClient == nil {
 		vpnTunnelsClient, err := compute.NewVpnTunnelsRESTClient(ctx)
 		if err != nil {
@@ -127,7 +127,7 @@ func (c *GCPClients) GetVpnTunnelsClient(ctx context.Context) (*compute.VpnTunne
 	return c.vpnTunnelsClient, nil
 }
 
-func (c *GCPClients) GetExternalVpnGatewaysClient(ctx context.Context) (*compute.ExternalVpnGatewaysClient, error) {
+func (c *GCPClients) GetOrCreateExternalVpnGatewaysClient(ctx context.Context) (*compute.ExternalVpnGatewaysClient, error) {
 	if c.externalVpnGatewaysClient == nil {
 		externalVpnGatewaysClient, err := compute.NewExternalVpnGatewaysRESTClient(ctx)
 		if err != nil {
@@ -138,7 +138,7 @@ func (c *GCPClients) GetExternalVpnGatewaysClient(ctx context.Context) (*compute
 	return c.externalVpnGatewaysClient, nil
 }
 
-func (c *GCPClients) GetAddressesClient(ctx context.Context) (*compute.AddressesClient, error) {
+func (c *GCPClients) GetOrCreateAddressesClient(ctx context.Context) (*compute.AddressesClient, error) {
 	if c.addressesClient == nil {
 		addressesClient, err := compute.NewAddressesRESTClient(ctx)
 		if err != nil {
@@ -149,7 +149,7 @@ func (c *GCPClients) GetAddressesClient(ctx context.Context) (*compute.Addresses
 	return c.addressesClient, nil
 }
 
-func (c *GCPClients) GetForwardingClient(ctx context.Context) (*compute.ForwardingRulesClient, error) {
+func (c *GCPClients) GetOrCreateForwardingClient(ctx context.Context) (*compute.ForwardingRulesClient, error) {
 	if c.forwardingClient == nil {
 		forwardingClient, err := compute.NewForwardingRulesRESTClient(ctx)
 		if err != nil {
@@ -160,7 +160,7 @@ func (c *GCPClients) GetForwardingClient(ctx context.Context) (*compute.Forwardi
 	return c.forwardingClient, nil
 }
 
-func (c *GCPClients) GetServiceAttachmentsClient(ctx context.Context) (*compute.ServiceAttachmentsClient, error) {
+func (c *GCPClients) GetOrCreateServiceAttachmentsClient(ctx context.Context) (*compute.ServiceAttachmentsClient, error) {
 	if c.serviceAttachmentClient == nil {
 		serviceAttachmentClient, err := compute.NewServiceAttachmentsRESTClient(ctx)
 		if err != nil {

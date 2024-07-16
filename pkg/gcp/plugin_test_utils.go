@@ -407,7 +407,7 @@ type fakeServerState struct {
 }
 
 // Sets up fake http server and fake GCP compute clients
-func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClients GCPClients, gsrv *grpc.Server) {
+func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClients *GCPClients, gsrv *grpc.Server) {
 	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
 
 	ctx = context.Background()
@@ -493,7 +493,7 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 }
 
 // Cleans up fake http server and fake GCP compute clients
-func teardown(fakeServer *httptest.Server, fakeClients GCPClients, fakeGRPCServer *grpc.Server) {
+func teardown(fakeServer *httptest.Server, fakeClients *GCPClients, fakeGRPCServer *grpc.Server) {
 	fakeServer.Close()
 	fakeClients.Close()
 	if fakeGRPCServer != nil {

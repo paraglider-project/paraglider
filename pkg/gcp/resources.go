@@ -37,6 +37,8 @@ const (
 	instanceTypeName          = "instance"
 	serviceAttachmentTypeName = "serviceAttachment"
 	clusterNameFormat         = "projects/%s/locations/%s/clusters/%s"
+	addressType               = "INTERNAL"
+	addressVersion            = "IPV4"
 )
 
 type resourceInfo struct {
@@ -72,7 +74,12 @@ func getNetworkTag(namespace string, resourceType string, resourceId string) str
 
 // Get name for an IP address resource
 func getAddressName(resourceName string) string {
-	return resourceName + "-address"
+	return paragliderPrefix + "-" + resourceName + "-address"
+}
+
+// Get name of a forwarding rule
+func getForwardingRuleName(resourceName string) string {
+	return paragliderPrefix + "-" + resourceName + "-forwarding-rule"
 }
 
 // Convert integer resource IDs to a string for naming
@@ -106,7 +113,7 @@ func getClusterUrl(project, zone, cluster string) string {
 
 // Get the firewall rules associated with a resource following the naming convention
 func getFirewallRules(ctx context.Context, project string, resourceID string, clients *GCPClients) ([]*computepb.Firewall, error) {
-	client, err := clients.GetFirewallsClient(ctx)
+	client, err := clients.GetOrCreateFirewallsClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get firewalls client: %w", err)
 	}
@@ -260,7 +267,7 @@ type instanceHandler struct {
 
 // Initialize necessary clients for the handler
 func (r *instanceHandler) initClients(ctx context.Context, clients *GCPClients) error {
-	client, err := clients.GetInstancesClient(ctx)
+	client, err := clients.GetOrCreateInstancesClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -400,13 +407,13 @@ type clusterHandler struct {
 
 // Initialize necessary clients for the handler
 func (r *clusterHandler) initClients(ctx context.Context, clients *GCPClients) error {
-	client, err := clients.GetClustersClient(ctx)
+	client, err := clients.GetOrCreateClustersClient(ctx)
 	if err != nil {
 		return err
 	}
 	r.client = client
 
-	firewallsClient, err := clients.GetFirewallsClient(ctx)
+	firewallsClient, err := clients.GetOrCreateFirewallsClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -585,19 +592,19 @@ type privateServiceHandler struct {
 
 // Initialize necessary clients for the handler
 func (r *privateServiceHandler) initClients(ctx context.Context, clients *GCPClients) error {
-	addressesClient, err := clients.GetAddressesClient(ctx)
+	addressesClient, err := clients.GetOrCreateAddressesClient(ctx)
 	if err != nil {
 		return err
 	}
 	r.addressesClient = addressesClient
 
-	forwardingClient, err := clients.GetForwardingClient(ctx)
+	forwardingClient, err := clients.GetOrCreateForwardingClient(ctx)
 	if err != nil {
 		return err
 	}
 	r.forwardingClient = forwardingClient
 
-	attachmentsClient, err := clients.GetServiceAttachmentsClient(ctx)
+	attachmentsClient, err := clients.GetOrCreateServiceAttachmentsClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -623,9 +630,15 @@ func (r *privateServiceHandler) getResourceInfo(ctx context.Context, resource *p
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource description: %w", err)
 	}
-	urlParts := strings.Split(description.Url, "/")
-	serviceName := urlParts[len(urlParts)-1]
-	region := urlParts[len(urlParts)-3]
+	urlParams := parseUrl(description.Url)
+	serviceName, ok := urlParams["serviceAttachments"]
+	if !ok {
+		return nil, fmt.Errorf("invalid service attachment URL")
+	}
+	region, ok := urlParams["regions"]
+	if !ok {
+		return nil, fmt.Errorf("invalid service attachment URL")
+	}
 	return &resourceInfo{Region: region, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: serviceAttachmentTypeName, Name: serviceName}, nil
 }
 
@@ -677,8 +690,8 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 		AddressResource: &computepb.Address{
 			Name:        &addressName,
 			Subnetwork:  proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName)),
-			AddressType: proto.String("INTERNAL"),
-			IpVersion:   proto.String("IPV4"),
+			AddressType: proto.String(addressType),
+			IpVersion:   proto.String(addressVersion),
 		},
 	}
 	addrOp, err := r.addressesClient.Insert(ctx, &addrRequest)
@@ -705,7 +718,7 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 		Project: resourceInfo.Project,
 		Region:  resourceInfo.Region,
 		ForwardingRuleResource: &computepb.ForwardingRule{
-			Name:      proto.String("forwarding-rule-" + resourceInfo.Name),
+			Name:      proto.String(getForwardingRuleName(resourceInfo.Name)),
 			IPAddress: addr.SelfLink,
 			Network:   proto.String(getVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
 			Target:    proto.String(service.Url),

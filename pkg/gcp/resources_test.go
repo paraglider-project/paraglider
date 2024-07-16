@@ -115,7 +115,7 @@ func TestGetFirewallRules(t *testing.T) {
 	project := fakeProject
 	resourceID := "resource-1"
 
-	firewallRules, err := getFirewallRules(ctx, project, resourceID, &fakeClients)
+	firewallRules, err := getFirewallRules(ctx, project, resourceID, fakeClients)
 
 	expectedFwNames := []string{"firewall-1", "firewall-2"}
 
@@ -133,7 +133,7 @@ func TestGetResourceNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	netInfo, err := GetResourceNetworkInfo(ctx, rInfo, &fakeClients)
+	netInfo, err := GetResourceNetworkInfo(ctx, rInfo, fakeClients)
 
 	require.NoError(t, err)
 	assert.Equal(t, convertIntIdToString(*instance.Id), netInfo.ResourceID)
@@ -147,7 +147,7 @@ func TestGetResourceNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer = setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	netInfo, err = GetResourceNetworkInfo(ctx, rInfo, &fakeClients)
+	netInfo, err = GetResourceNetworkInfo(ctx, rInfo, fakeClients)
 
 	require.NoError(t, err)
 	assert.Equal(t, shortenClusterId(cluster.Id), netInfo.ResourceID)
@@ -162,7 +162,7 @@ func TestGetResourceNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer = setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	netInfo, err = GetResourceNetworkInfo(ctx, rInfo, &fakeClients)
+	netInfo, err = GetResourceNetworkInfo(ctx, rInfo, fakeClients)
 
 	require.NoError(t, err)
 	assert.Equal(t, convertIntIdToString(*attachment.Id), netInfo.ResourceID)
@@ -211,7 +211,7 @@ func TestReadAndProvisionResource(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	url, ip, err := ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, make([]string, 0), &fakeClients)
+	url, ip, err := ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, make([]string, 0), fakeClients)
 
 	require.NoError(t, err)
 	assert.Contains(t, url, *instanceRequest.InstanceResource.Name)
@@ -225,7 +225,7 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
-	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, additionalAddressSpaces, &fakeClients)
+	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, additionalAddressSpaces, fakeClients)
 
 	require.NoError(t, err)
 	assert.Equal(t, getClusterUrl(fakeProject, fakeZone, clusterRequest.Cluster.Name), url)
@@ -239,7 +239,7 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	rInfo = &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakeServiceAttachmentName, ResourceType: serviceAttachmentTypeName}
 
-	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{}, &fakeClients)
+	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{}, fakeClients)
 
 	require.NoError(t, err)
 	assert.Equal(t, service.Url, url)
@@ -257,7 +257,7 @@ func TestInstanceReadAndProvisionResource(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err = instanceHandler.initClients(ctx, &fakeClients)
+	err = instanceHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	url, ip, err := instanceHandler.readAndProvisionResource(ctx, resource, subnet, rInfo, make([]string, 0))
@@ -286,7 +286,7 @@ func TestInstanceGetNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err := instanceHandler.initClients(ctx, &fakeClients)
+	err := instanceHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	networkInfo, err := instanceHandler.getNetworkInfo(ctx, rInfo)
@@ -323,7 +323,7 @@ func TestInstanceCreateWithNetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err := instanceHandler.initClients(ctx, &fakeClients)
+	err := instanceHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	url, ip, err := instanceHandler.createWithNetwork(ctx, instanceRequest, subnet, rInfo)
@@ -345,7 +345,7 @@ func TestClusterReadAndProvisionResource(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err = clusterHandler.initClients(ctx, &fakeClients)
+	err = clusterHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
@@ -377,7 +377,7 @@ func TestClusterGetNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err := clusterHandler.initClients(ctx, &fakeClients)
+	err := clusterHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	networkInfo, err := clusterHandler.getNetworkInfo(ctx, resourceInfo)
@@ -409,7 +409,7 @@ func TestClusterCreateWithNetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err := clusterHandler.initClients(ctx, &fakeClients)
+	err := clusterHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
@@ -432,7 +432,7 @@ func TestPrivateServiceReadAndProvisionResource(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err = pscHandler.initClients(ctx, &fakeClients)
+	err = pscHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	url, ip, err := pscHandler.readAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{})
@@ -465,7 +465,7 @@ func TestPrivateServiceGetNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err := pscHandler.initClients(ctx, &fakeClients)
+	err := pscHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	networkInfo, err := pscHandler.getNetworkInfo(ctx, resourceInfo)
@@ -485,7 +485,7 @@ func TestPrivateServiceCreateWithNetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	err := pscHandler.initClients(ctx, &fakeClients)
+	err := pscHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	url, ip, err := pscHandler.createWithNetwork(ctx, *serviceDescription, subnet, rInfo)
