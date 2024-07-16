@@ -530,11 +530,11 @@ func DoesVnetOverlapWithParaglider(ctx context.Context, handler *AzureSDKHandler
 	return false, nil
 }
 
-// CreateVirtualNetworkParameters creates and returns an instance of armnetwork.VirtualNetwork
+// getVirtualNetworkParameters creates and returns an instance of armnetwork.VirtualNetwork
 // with the specified parameters.
 //
 // Subnet address space is the same as the Vnet address space.
-func CreateVirtualNetworkParameters(ctx context.Context, location string, vnetName string, addressSpace string) armnetwork.VirtualNetwork {
+func getVirtualNetworkParameters(location string, addressSpace string) armnetwork.VirtualNetwork {
 	return armnetwork.VirtualNetwork{
 		Location: to.Ptr(location),
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{

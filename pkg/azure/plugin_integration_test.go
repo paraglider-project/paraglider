@@ -30,9 +30,11 @@ import (
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-func createParagliderVM(ctx context.Context, server *azurePluginServer, subscriptionId string, resourceGroupName string, namespace string, location string, name string) (*paragliderpb.CreateResourceResponse, error) {
+func createVM(ctx context.Context, server *azurePluginServer, subscriptionId string, resourceGroupName string, namespace string, location string, name string) (*paragliderpb.CreateResourceResponse, error) {
 	parameters := GetTestVmParameters(location)
 	parametersBytes, err := json.Marshal(parameters)
 	if err != nil {
@@ -169,7 +171,7 @@ func TestCrossNamespaces(t *testing.T) {
 	// Create vm1 in rg1
 	vm1Name := "vm-paraglider-test1"
 	vm1Location := "westus"
-	createVM1Resp, err := createParagliderVM(ctx, azureServer, subscriptionId, resourceGroup1Name, resourceGroup1Namespace, vm1Location, vm1Name)
+	createVM1Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroup1Name, resourceGroup1Namespace, vm1Location, vm1Name)
 	require.NoError(t, err)
 	require.NotNil(t, createVM1Resp)
 	assert.Equal(t, createVM1Resp.Name, vm1Name)
@@ -177,7 +179,7 @@ func TestCrossNamespaces(t *testing.T) {
 	// Create vm2 in rg2
 	vm2Name := "vm-paraglider-test2"
 	vm2Location := "westus"
-	createVM2Resp, err := createParagliderVM(ctx, azureServer, subscriptionId, resourceGroup2Name, resourceGroup2Namespace, vm2Location, vm2Name)
+	createVM2Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroup2Name, resourceGroup2Namespace, vm2Location, vm2Name)
 	require.NoError(t, err)
 	require.NotNil(t, createVM2Resp)
 	assert.Equal(t, createVM2Resp.Name, vm2Name)
@@ -287,14 +289,14 @@ func TestMultipleRegionsIntraNamespace(t *testing.T) {
 	// Create 2 VMs in different regions
 	vm1Name := "vm-paraglider-test-west"
 	vm1Location := "westus"
-	createVM1Resp, err := createParagliderVM(ctx, azureServer, subscriptionId, resourceGroupName, defaultNamespace, vm1Location, vm1Name)
+	createVM1Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroupName, defaultNamespace, vm1Location, vm1Name)
 	require.NoError(t, err)
 	require.NotNil(t, createVM1Resp)
 	assert.Equal(t, createVM1Resp.Name, vm1Name)
 
 	vm2Name := "vm-paraglider-test-east"
 	vm2Location := "eastus"
-	createVM2Resp, err := createParagliderVM(ctx, azureServer, subscriptionId, resourceGroupName, defaultNamespace, vm2Location, vm2Name)
+	createVM2Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroupName, defaultNamespace, vm2Location, vm2Name)
 	require.NoError(t, err)
 	require.NotNil(t, createVM2Resp)
 	assert.Equal(t, createVM2Resp.Name, vm2Name)
@@ -410,12 +412,28 @@ func TestAttachResourceIntegration(t *testing.T) {
 		ResourceGroupName: resourceGroupName,
 		ResourceName:      externalVmName,
 	}
-	externalAddressSpace := "20.9.0.0/24"
+
+	// Find unused address spaces for external address
+	conn, err := grpc.NewClient(azureServer.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		utils.Log.Printf("Azure Integration test: Could not dial the orchestrator")
+		return
+	}
+	defer conn.Close()
+	client := paragliderpb.NewControllerClient(conn)
+	reqAddressSpaces := make([]int32, 2)
+	response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: reqAddressSpaces})
+	if err != nil {
+		utils.Log.Printf("Failed to find unused address spaces: %v", err)
+		return
+	}
+	assert.Greater(t, len(response.AddressSpaces), 0)
+	externalAddressSpace := response.AddressSpaces[0]
 	azureHandler, err := azureServer.setupAzureHandler(resourceIdInfo, namespace)
 	require.NoError(t, err)
 
 	// Create Non-Paraglider Vnet
-	externalVnetParams := CreateVirtualNetworkParameters(ctx, vmLocation, externalVnetName, externalAddressSpace)
+	externalVnetParams := getVirtualNetworkParameters(vmLocation, externalAddressSpace)
 	externalVnet, err := azureHandler.CreateOrUpdateVirtualNetwork(ctx, externalVnetName, externalVnetParams)
 	require.NotNil(t, externalVnet)
 	require.NoError(t, err)
