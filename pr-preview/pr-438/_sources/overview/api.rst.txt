@@ -178,8 +178,8 @@ Note that a tag is automatically created for the resource with the name ``<names
 Attach
 ^^^^^^
 
-Attaches a resource to Paraglider according to the resource ID and the specified cloud. 
-Note that a tag is automatically created for the resource with the name ``<namespace>.<cloud>.<name>`` after attachment (where ``name`` is the resource name provided).
+Attaches an exisiting resource to Paraglider according to the resource ID and the specified cloud. The resource should exist within a deployment assocaited with a namespace in Paraglider.
+Note that a tag is automatically created for the resource with the name ``<namespace>.<cloud>.<name>`` after attachment (where ``name`` is the resource name).
 
 .. tab-set::
 
