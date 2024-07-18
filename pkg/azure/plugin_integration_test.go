@@ -421,7 +421,7 @@ func TestAttachResourceIntegration(t *testing.T) {
 	}
 	defer conn.Close()
 	client := paragliderpb.NewControllerClient(conn)
-	reqAddressSpaces := make([]int32, 2)
+	reqAddressSpaces := make([]int32, 1)
 	response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: reqAddressSpaces})
 	if err != nil {
 		utils.Log.Printf("Failed to find unused address spaces: %v", err)
