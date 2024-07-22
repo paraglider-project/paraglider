@@ -182,7 +182,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 					if isErrorNotFound(err) {
 						// Allocate public IP address
 						publicIPAddressParameters := armnetwork.PublicIPAddress{
-							Location: to.Ptr(vpnLocation),
+							Location: to.Ptr(natGatewayLocation),
 							Properties: &armnetwork.PublicIPAddressPropertiesFormat{
 								PublicIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv4),
 								PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
