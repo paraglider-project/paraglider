@@ -500,7 +500,7 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *paragl
 		// Get addresses not associated with the vpc (might be used for PSCs)
 		listAddressesReq := &computepb.ListAddressesRequest{
 			Project: project,
-			Filter:  proto.String(fmt.Sprintf("labels.paraglider_ns eq %s", deployment.Namespace)), // TODO NOW: make the label name a constant
+			Filter:  proto.String(fmt.Sprintf("labels.%s eq %s", paragliderLabel, deployment.Namespace)),
 		}
 		listAddressesResp := addressesClient.List(ctx, listAddressesReq)
 		if err != nil {

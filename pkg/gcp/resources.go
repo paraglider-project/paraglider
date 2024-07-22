@@ -40,6 +40,7 @@ const (
 	addressType                   = "INTERNAL"
 	addressVersion                = "IPV4"
 	addressPurpose                = "PRIVATE_SERVICE_CONNECT"
+	paragliderLabel               = "paraglider_ns"
 )
 
 type resourceInfo struct {
@@ -701,7 +702,7 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 		AddressResource: &computepb.Address{
 			Name:        &addressName,
 			Purpose:     proto.String(addressPurpose),
-			Labels:      map[string]string{"paraglider_ns": resourceInfo.Namespace},
+			Labels:      map[string]string{paragliderLabel: resourceInfo.Namespace},
 			Subnetwork:  proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName)),
 			AddressType: proto.String(addressType),
 			IpVersion:   proto.String(addressVersion),
@@ -720,7 +721,6 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 		addrRequest.AddressResource.Address = &additionalAddress
 	} else {
 		addrRequest.AddressResource.Subnetwork = proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName))
-
 	}
 
 	// Get the allocated address
