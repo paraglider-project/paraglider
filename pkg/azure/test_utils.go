@@ -62,6 +62,7 @@ const (
 	validLocalNetworkGatewayName             = "valid-local-network-gateway"
 	validVirtualNetworkGatewayConnectionName = "valid-virtual-network-gateway-connection"
 	validClusterName                         = "valid-cluster-name"
+	validNatGatewayName                      = "valid-nat-gateway"
 	invalidVmName                            = "invalid-vm-name"
 	validVmName                              = "valid-vm-name"
 	validResourceName                        = "valid-resource-name"
@@ -344,6 +345,26 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponse(w, fakeServerState.cluster) // Return server state cluster so that it can have server-side fields in it
 				return
 			}
+		// NatGateways
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/natGateways/"):
+			if r.Method == "GET" {
+				if fakeServerState.natGateway == nil {
+					http.Error(w, "nat gateway not found", http.StatusNotFound)
+					return
+				}
+				sendResponse(w, fakeServerState.natGateway)
+				return
+			}
+			if r.Method == "PUT" {
+				natGateway := &armnetwork.NatGateway{}
+				err = json.Unmarshal(body, natGateway)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("unable to marshal request: %s", err.Error()), http.StatusBadRequest)
+					return
+				}
+				sendResponse(w, fakeServerState.natGateway)
+				return
+			}
 		}
 		fmt.Printf("unsupported request: %s %s\n", r.Method, path)
 	})
@@ -364,6 +385,7 @@ type fakeServerState struct {
 	vpnConnection *armnetwork.VirtualNetworkGatewayConnection
 	vnetPeering   *armnetwork.VirtualNetworkPeering
 	cluster       *armcontainerservice.ManagedCluster
+	natGateway    *armnetwork.NatGateway
 }
 
 // Sets up fake http server
@@ -753,4 +775,8 @@ func getFakeVnetInLocation(location *string, addressSpace string) *armnetwork.Vi
 			},
 		},
 	}
+}
+
+func getFakeNatGateway() *armnetwork.NatGateway {
+	return &armnetwork.NatGateway{}
 }

@@ -310,7 +310,8 @@ func findNetworkWatcher(ctx context.Context, watchersClient *armnetwork.Watchers
 	return nil, nil
 }
 
-func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress string, sourceVmNamespace string) (bool, error) {
+func runConnectivityCheck(ctx context.Context, sourceVmNamespace string, connectivityParameters *armnetwork.ConnectivityParameters, numRetries int) (bool, error) {
+	sourceVmResourceID := *connectivityParameters.Source.ResourceID
 	resourceIDInfo, err := getResourceIDInfo(sourceVmResourceID)
 	if err != nil {
 		return false, fmt.Errorf("unable to parse resource ID: %w", err)
@@ -319,7 +320,6 @@ func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress st
 	if err != nil {
 		return false, fmt.Errorf("unable to get azure credentials: %w", err)
 	}
-	ctx := context.Background()
 
 	// Fetch source virtual machine for location
 	virtualMachinesClient, err := armcompute.NewVirtualMachinesClient(resourceIDInfo.SubscriptionID, cred, nil)
@@ -353,20 +353,12 @@ func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress st
 		return false, fmt.Errorf("unable to poll create or update virtual machine extension: %w", err)
 	}
 
-	// Run connectivity check
+	// Configure network watcher
+	// Hard coded resource group for CI pipeline (https://github.com/paraglider-project/paraglider/issues/217)
 	watchersClient, err := armnetwork.NewWatchersClient(resourceIDInfo.SubscriptionID, cred, nil)
 	if err != nil {
 		return false, fmt.Errorf("unable to create watchers client: %w", err)
 	}
-	connectivityParameters := armnetwork.ConnectivityParameters{
-		Destination:        &armnetwork.ConnectivityDestination{Address: to.Ptr(destinationIPAddress)},
-		Source:             &armnetwork.ConnectivitySource{ResourceID: to.Ptr(sourceVmResourceID)},
-		PreferredIPVersion: to.Ptr(armnetwork.IPVersionIPv4),
-		Protocol:           to.Ptr(armnetwork.ProtocolIcmp),
-	}
-
-	// Configure network watcher
-	// Hard coded resource group for CI pipeline (https://github.com/paraglider-project/paraglider/issues/217)
 	networkWatcherResourceGroup := "NetworkWatcherRG"
 	networkWatcherName := "NetworkWatcher_" + *vm.Location
 	if os.Getenv("PARAGLIDER_AZURE_RESOURCE_GROUP") != "" {
@@ -390,9 +382,9 @@ func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress st
 		}
 	}
 
-	// Retries up to 5 times
-	for i := 0; i < 5; i++ {
-		checkConnectivityPollerResponse, err := watchersClient.BeginCheckConnectivity(ctx, networkWatcherResourceGroup, networkWatcherName, connectivityParameters, nil)
+	// Retry
+	for i := 0; i < numRetries; i++ {
+		checkConnectivityPollerResponse, err := watchersClient.BeginCheckConnectivity(ctx, networkWatcherResourceGroup, networkWatcherName, *connectivityParameters, nil)
 		if err != nil {
 			return false, err
 		}
@@ -407,6 +399,28 @@ func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress st
 	}
 
 	return false, nil
+}
+
+func RunPingConnectivityCheck(ctx context.Context, subscriptionId string, resourceGroupName string, sourceVmName string, sourceVmNamespace string, destinationIPAddress string) (bool, error) {
+	sourceVmResourceID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s", subscriptionId, resourceGroupName, sourceVmName)
+	connectivityParameters := armnetwork.ConnectivityParameters{
+		Destination:        &armnetwork.ConnectivityDestination{Address: to.Ptr(destinationIPAddress)},
+		Source:             &armnetwork.ConnectivitySource{ResourceID: to.Ptr(sourceVmResourceID)},
+		PreferredIPVersion: to.Ptr(armnetwork.IPVersionIPv4),
+		Protocol:           to.Ptr(armnetwork.ProtocolIcmp),
+	}
+	return runConnectivityCheck(ctx, sourceVmNamespace, &connectivityParameters, 5)
+}
+
+func RunTCPConnectivityCheck(ctx context.Context, subscriptionId string, resourceGroupName string, sourceVmName string, sourceVmNamespace string, destinationIPAddress string, destinationPort int32) (bool, error) {
+	sourceVmResourceID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s", subscriptionId, resourceGroupName, sourceVmName)
+	connectivityParameters := armnetwork.ConnectivityParameters{
+		Destination:        &armnetwork.ConnectivityDestination{Address: to.Ptr(destinationIPAddress), Port: to.Ptr(destinationPort)},
+		Source:             &armnetwork.ConnectivitySource{ResourceID: to.Ptr(sourceVmResourceID)},
+		PreferredIPVersion: to.Ptr(armnetwork.IPVersionIPv4),
+		Protocol:           to.Ptr(armnetwork.ProtocolTCP),
+	}
+	return runConnectivityCheck(ctx, sourceVmNamespace, &connectivityParameters, 3)
 }
 
 // Create VPN gateway vnet if not already created
@@ -433,7 +447,7 @@ func GetOrCreateVpnGatewayVNet(ctx context.Context, azureHandler *AzureSDKHandle
 					},
 				},
 			}
- 
+
 			azureHandler.createParagliderNamespaceTag(&virtualNetworkParameters.Tags)
 			// todo: investigate this line for the tests
 			vnet, err := azureHandler.CreateOrUpdateVirtualNetwork(ctx, getVpnGatewayVnetName(namespace), virtualNetworkParameters)
