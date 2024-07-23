@@ -21,11 +21,9 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
-	container "cloud.google.com/go/container/apiv1"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"google.golang.org/grpc"
@@ -40,41 +38,27 @@ type GCPPluginServer struct {
 }
 
 func (s *GCPPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest) (*paragliderpb.GetPermitListResponse, error) {
-	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewFirewallsRESTClient: %w", err)
-	}
-	defer firewallsClient.Close()
+	// Lazy client initialization since necessary clients vary depending on the resource
+	clients := &GCPClients{}
+	defer clients.Close()
 
-	instancesClient, err := compute.NewInstancesRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
-	}
-	defer instancesClient.Close()
-
-	clustersClient, err := container.NewClusterManagerClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewClusterManagerClient: %w", err)
-	}
-	defer clustersClient.Close()
-
-	return s._GetPermitList(ctx, req, firewallsClient, instancesClient, clustersClient)
+	return s._GetPermitList(ctx, req, clients)
 }
 
-func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, clustersClient *container.ClusterManagerClient) (*paragliderpb.GetPermitListResponse, error) {
+func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest, clients *GCPClients) (*paragliderpb.GetPermitListResponse, error) {
 	resourceInfo, err := parseResourceUrl(req.Resource)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource URL: %w", err)
 	}
 	resourceInfo.Namespace = req.Namespace
 
-	_, resourceID, err := GetResourceNetworkInfo(ctx, instancesClient, clustersClient, resourceInfo)
+	netInfo, err := GetResourceNetworkInfo(ctx, resourceInfo, clients)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get firewalls for the resource
-	firewalls, err := getFirewallRules(ctx, firewallsClient, resourceInfo.Project, *resourceID)
+	firewalls, err := getFirewallRules(ctx, resourceInfo.Project, netInfo.ResourceID, clients)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get firewalls: %w", err)
 	}
@@ -96,51 +80,27 @@ func (s *GCPPluginServer) _GetPermitList(ctx context.Context, req *paragliderpb.
 }
 
 func (s *GCPPluginServer) AddPermitListRules(ctx context.Context, req *paragliderpb.AddPermitListRulesRequest) (*paragliderpb.AddPermitListRulesResponse, error) {
-	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewFirewallsRESTClient: %w", err)
-	}
-	defer firewallsClient.Close()
-	instancesClient, err := compute.NewInstancesRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
-	}
-	defer instancesClient.Close()
+	// Lazy client initialization since necessary clients vary depending on the resource
+	clients := &GCPClients{}
+	defer clients.Close()
 
-	clustersClient, err := container.NewClusterManagerClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewClusterManagerClient: %w", err)
-	}
-	defer clustersClient.Close()
-
-	subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewSubnetworksRESTClient: %w", err)
-	}
-	defer subnetworksClient.Close()
-	networksClient, err := compute.NewNetworksRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewNetworksRESTClient: %w", err)
-	}
-	defer networksClient.Close()
-
-	return s._AddPermitListRules(ctx, req, firewallsClient, instancesClient, subnetworksClient, networksClient, clustersClient)
+	return s._AddPermitListRules(ctx, req, clients)
 }
 
-func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paragliderpb.AddPermitListRulesRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, subnetworksClient *compute.SubnetworksClient, networksClient *compute.NetworksClient, clustersClient *container.ClusterManagerClient) (*paragliderpb.AddPermitListRulesResponse, error) {
+func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paragliderpb.AddPermitListRulesRequest, clients *GCPClients) (*paragliderpb.AddPermitListRulesResponse, error) {
 	resourceInfo, err := parseResourceUrl(req.Resource)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource URL: %w", err)
 	}
 	resourceInfo.Namespace = req.Namespace
 
-	_, resourceID, err := GetResourceNetworkInfo(ctx, instancesClient, clustersClient, resourceInfo)
+	netInfo, err := GetResourceNetworkInfo(ctx, resourceInfo, clients)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get existing firewalls
-	firewalls, err := getFirewallRules(ctx, firewallsClient, resourceInfo.Project, *resourceID)
+	firewalls, err := getFirewallRules(ctx, resourceInfo.Project, netInfo.ResourceID, clients)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get existing firewalls: %w", err)
 	}
@@ -150,8 +110,11 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 		existingFirewalls[*firewall.Name] = firewall
 	}
 
-	// Get the network tag
-	networkTag := getNetworkTag(req.Namespace, resourceInfo.ResourceType, *resourceID)
+	// Get the firewall target (tag or IP depending on the resource)
+	target, err := GetFirewallTarget(ctx, resourceInfo, netInfo)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get firewall target: %w", err)
+	}
 
 	// Get used address spaces of all clouds
 	orchestratorConn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -167,7 +130,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 
 	for _, permitListRule := range req.Rules {
 		// TODO @seankimkdy: should we throw an error/warning if user specifies a srcport since GCP doesn't support srcport based firewalls?
-		firewallName := getFirewallName(req.Namespace, permitListRule.Name, *resourceID)
+		firewallName := getFirewallName(req.Namespace, permitListRule.Name, netInfo.ResourceID)
 
 		patchRequired := false
 		if existingFw, ok := existingFirewalls[firewallName]; ok {
@@ -210,6 +173,11 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 			} else {
 				if peeringCloudInfo.Namespace != req.Namespace {
 					// Create VPC network peering (in both directions) for different namespaces
+					networksClient, err := clients.GetOrCreateNetworksClient(ctx)
+					if err != nil {
+						return nil, fmt.Errorf("unable to get networks client: %w", err)
+					}
+
 					peerProject := parseUrl(peeringCloudInfo.Deployment)["projects"]
 					err = peerVpcNetwork(ctx, networksClient, resourceInfo.Project, req.Namespace, peerProject, peeringCloudInfo.Namespace)
 					if err != nil {
@@ -223,9 +191,14 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 			}
 		}
 
-		firewall, err := paragliderRuleToFirewallRule(req.Namespace, resourceInfo.Project, firewallName, networkTag, permitListRule)
+		firewall, err := paragliderRuleToFirewallRule(req.Namespace, resourceInfo.Project, firewallName, *target, permitListRule)
 		if err != nil {
 			return nil, fmt.Errorf("unable to convert permit list rule to firewall rule: %w", err)
+		}
+
+		firewallsClient, err := clients.GetOrCreateFirewallsClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get firewalls client: %w", err)
 		}
 
 		if patchRequired {
@@ -260,43 +233,34 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 }
 
 func (s *GCPPluginServer) DeletePermitListRules(ctx context.Context, req *paragliderpb.DeletePermitListRulesRequest) (*paragliderpb.DeletePermitListRulesResponse, error) {
-	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewFirewallsRESTClient: %w", err)
-	}
-	defer firewallsClient.Close()
+	// Lazy client initialization since necessary clients vary depending on the resource
+	clients := &GCPClients{}
+	defer clients.Close()
 
-	instancesClient, err := compute.NewInstancesRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
-	}
-	defer instancesClient.Close()
-
-	clustersClient, err := container.NewClusterManagerClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewClusterManagerClient: %w", err)
-	}
-	defer clustersClient.Close()
-
-	return s._DeletePermitListRules(ctx, req, firewallsClient, instancesClient, clustersClient)
+	return s._DeletePermitListRules(ctx, req, clients)
 }
 
-func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *paragliderpb.DeletePermitListRulesRequest, firewallsClient *compute.FirewallsClient, instancesClient *compute.InstancesClient, clustersClient *container.ClusterManagerClient) (*paragliderpb.DeletePermitListRulesResponse, error) {
+func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *paragliderpb.DeletePermitListRulesRequest, clients *GCPClients) (*paragliderpb.DeletePermitListRulesResponse, error) {
 	resourceInfo, err := parseResourceUrl(req.Resource)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource URL: %w", err)
 	}
 	resourceInfo.Namespace = req.Namespace
 
-	_, resourceID, err := GetResourceNetworkInfo(ctx, instancesClient, clustersClient, resourceInfo)
+	netInfo, err := GetResourceNetworkInfo(ctx, resourceInfo, clients)
 	if err != nil {
 		return nil, err
 	}
 
 	// Delete firewalls corresponding to provided permit list rules
+	firewallsClient, err := clients.GetOrCreateFirewallsClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get firewalls client: %w", err)
+	}
+
 	for _, ruleName := range req.RuleNames {
 		deleteFirewallReq := &computepb.DeleteFirewallRequest{
-			Firewall: getFirewallName(req.Namespace, ruleName, *resourceID),
+			Firewall: getFirewallName(req.Namespace, ruleName, netInfo.ResourceID),
 			Project:  resourceInfo.Project,
 		}
 		deleteFirewallOp, err := firewallsClient.Delete(ctx, deleteFirewallReq)
@@ -312,36 +276,14 @@ func (s *GCPPluginServer) _DeletePermitListRules(ctx context.Context, req *parag
 }
 
 func (s *GCPPluginServer) CreateResource(ctx context.Context, resourceDescription *paragliderpb.CreateResourceRequest) (*paragliderpb.CreateResourceResponse, error) {
-	instancesClient, err := compute.NewInstancesRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewInstancesRESTClient: %w", err)
-	}
-	defer instancesClient.Close()
-	networksClient, err := compute.NewNetworksRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewNetworksRESTClient: %w", err)
-	}
-	defer networksClient.Close()
-	subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewSubnetworksRESTClient: %w", err)
-	}
-	defer subnetworksClient.Close()
-	firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewFirewallsRESTClient: %w", err)
-	}
-	defer firewallsClient.Close()
-	clustersClient, err := container.NewClusterManagerClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("NewClusterManagerClient: %w", err)
-	}
-	defer clustersClient.Close()
+	// Lazy client initialization since necessary clients vary depending on the resource
+	clients := &GCPClients{}
+	defer clients.Close()
 
-	return s._CreateResource(ctx, resourceDescription, instancesClient, networksClient, subnetworksClient, firewallsClient, clustersClient)
+	return s._CreateResource(ctx, resourceDescription, clients)
 }
 
-func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *paragliderpb.CreateResourceRequest, instancesClient *compute.InstancesClient, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, firewallsClient *compute.FirewallsClient, clustersClient *container.ClusterManagerClient) (*paragliderpb.CreateResourceResponse, error) {
+func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescription *paragliderpb.CreateResourceRequest, clients *GCPClients) (*paragliderpb.CreateResourceResponse, error) {
 	project := parseUrl(resourceDescription.Deployment.Id)["projects"]
 
 	// Read and validate user-provided description
@@ -350,16 +292,18 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		return nil, fmt.Errorf("unsupported resource description: %w", err)
 	}
 
-	// Set project and instance name
+	// Set project and namespace in resourceInfo
 	resourceInfo.Project = project
-	resourceInfo.Name = resourceDescription.Name
-
-	region := resourceInfo.Zone[:strings.LastIndex(resourceInfo.Zone, "-")]
-	resourceInfo.Region = region
 	resourceInfo.Namespace = resourceDescription.Deployment.Namespace
 
 	subnetExists := false
-	subnetName := getSubnetworkName(resourceDescription.Deployment.Namespace, region)
+	subnetName := getSubnetworkName(resourceDescription.Deployment.Namespace, resourceInfo.Region)
+
+	// Get the networks client
+	networksClient, err := clients.GetOrCreateNetworksClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get networks client: %w", err)
+	}
 
 	// Check if Paraglider specific VPC already exists
 	nsVpcName := getVpcName(resourceDescription.Deployment.Namespace)
@@ -389,6 +333,11 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 				return nil, fmt.Errorf("unable to wait for the operation: %w", err)
 			}
 			// Deny all egress traffic since GCP implicitly allows all egress traffic
+			firewallsClient, err := clients.GetOrCreateFirewallsClient(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("unable to get firewalls client: %w", err)
+			}
+
 			insertFirewallReq := &computepb.InsertFirewallRequest{
 				Project: project,
 				FirewallResource: &computepb.Firewall{
@@ -453,13 +402,17 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	}
 
 	if !subnetExists {
+		subnetworksClient, err := clients.GetOrCreateSubnetworksClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get subnetworks client: %w", err)
+		}
 
 		insertSubnetworkRequest := &computepb.InsertSubnetworkRequest{
 			Project: project,
-			Region:  region,
+			Region:  resourceInfo.Region,
 			SubnetworkResource: &computepb.Subnetwork{
 				Name:        proto.String(subnetName),
-				Description: proto.String("Paraglider subnetwork for " + region),
+				Description: proto.String("Paraglider subnetwork for " + resourceInfo.Region),
 				Network:     proto.String(getVpcUrl(project, resourceDescription.Deployment.Namespace)),
 				IpCidrRange: proto.String(addressSpaces[0]),
 			},
@@ -475,7 +428,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	}
 
 	// Read and provision the resource
-	url, ip, err := ReadAndProvisionResource(ctx, resourceDescription, subnetName, resourceInfo, instancesClient, clustersClient, firewallsClient, addressSpaces)
+	url, ip, err := ReadAndProvisionResource(ctx, resourceDescription, subnetName, resourceInfo, addressSpaces, clients)
 
 	if err != nil {
 		return nil, fmt.Errorf("unable to read and provision resource: %w", err)
@@ -484,22 +437,24 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 }
 
 func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
-	networksClient, err := compute.NewNetworksRESTClient(ctx)
+	clients := &GCPClients{}
+	networksClient, err := clients.GetOrCreateNetworksClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("NewNetworksRESTClient: %w", err)
+		return nil, fmt.Errorf("unable to get networks client: %w", err)
 	}
-	defer networksClient.Close()
-
-	subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
+	subnetworksClient, err := clients.GetOrCreateSubnetworksClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("NewSubnetworksRESTClient: %w", err)
+		return nil, fmt.Errorf("unable to get subnetworks client: %w", err)
 	}
-	defer subnetworksClient.Close()
-
-	return s._GetUsedAddressSpaces(ctx, req, networksClient, subnetworksClient)
+	addressesClient, err := clients.GetOrCreateAddressesClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get addresses client: %w", err)
+	}
+	defer clients.Close()
+	return s._GetUsedAddressSpaces(ctx, req, networksClient, subnetworksClient, addressesClient)
 }
 
-func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
+func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest, networksClient *compute.NetworksClient, subnetworksClient *compute.SubnetworksClient, addressesClient *compute.AddressesClient) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
 	resp := &paragliderpb.GetUsedAddressSpacesResponse{}
 	resp.AddressSpaceMappings = make([]*paragliderpb.AddressSpaceMapping, len(req.Deployments))
 	for i, deployment := range req.Deployments {
@@ -541,15 +496,38 @@ func (s *GCPPluginServer) _GetUsedAddressSpaces(ctx context.Context, req *paragl
 				resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, *secondaryRange.IpCidrRange)
 			}
 		}
+
+		// Get addresses not associated with the vpc (might be used for PSCs)
+		listAddressesReq := &computepb.ListAddressesRequest{
+			Project: project,
+			Filter:  proto.String(fmt.Sprintf("labels.%s eq %s", paragliderLabel, deployment.Namespace)),
+		}
+		listAddressesResp := addressesClient.List(ctx, listAddressesReq)
+		if err != nil {
+			return nil, fmt.Errorf("unable to list addresses: %w", err)
+		}
+		for {
+			address, err := listAddressesResp.Next()
+			if address == nil {
+				break
+			}
+			if err != nil {
+				return nil, err
+			}
+			resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, *address.Address)
+		}
 	}
 	return resp, nil
 }
 
 func (s *GCPPluginServer) GetUsedAsns(ctx context.Context, req *paragliderpb.GetUsedAsnsRequest) (*paragliderpb.GetUsedAsnsResponse, error) {
-	routersClient, err := compute.NewRoutersRESTClient(ctx)
+	clients := &GCPClients{}
+	routersClient, err := clients.GetOrCreateRoutersClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("NewRoutersRESTClient: %w", err)
+		return nil, fmt.Errorf("unable to get routers client: %w", err)
 	}
+	defer clients.Close()
+
 	return s._GetUsedAsns(ctx, req, routersClient)
 }
 
@@ -577,10 +555,12 @@ func (s *GCPPluginServer) _GetUsedAsns(ctx context.Context, req *paragliderpb.Ge
 }
 
 func (s *GCPPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *paragliderpb.GetUsedBgpPeeringIpAddressesRequest) (*paragliderpb.GetUsedBgpPeeringIpAddressesResponse, error) {
-	routersClient, err := compute.NewRoutersRESTClient(ctx)
+	clients := &GCPClients{}
+	routersClient, err := clients.GetOrCreateRoutersClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("NewRoutersRESTClient: %w", err)
+		return nil, fmt.Errorf("unable to get routers client: %w", err)
 	}
+	defer clients.Close()
 	return s._GetUsedBgpPeeringIpAddresses(ctx, req, routersClient)
 }
 
@@ -610,16 +590,18 @@ func (s *GCPPluginServer) _GetUsedBgpPeeringIpAddresses(ctx context.Context, req
 }
 
 func (s *GCPPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderpb.CreateVpnGatewayRequest) (*paragliderpb.CreateVpnGatewayResponse, error) {
-	vpnGatewaysClient, err := compute.NewVpnGatewaysRESTClient(ctx)
+	clients := &GCPClients{}
+
+	vpnGatewaysClient, err := clients.GetOrCreateVpnGatewaysClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("NewVpnGatewaysRESTClient: %w", err)
+		return nil, fmt.Errorf("unable to get vpn gateways client: %w", err)
 	}
-	defer vpnGatewaysClient.Close()
-	routersClient, err := compute.NewRoutersRESTClient(ctx)
+	routersClient, err := clients.GetOrCreateRoutersClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("NewRoutersRESTClient: %w", err)
+		return nil, fmt.Errorf("unable to get routers client: %w", err)
 	}
-	defer routersClient.Close()
+	defer clients.Close()
+
 	return s._CreateVpnGateway(ctx, req, vpnGatewaysClient, routersClient)
 }
 
@@ -746,21 +728,20 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 }
 
 func (s *GCPPluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.CreateVpnConnectionsResponse, error) {
-	externalVpnGatewaysClient, err := compute.NewExternalVpnGatewaysRESTClient(ctx)
+	clients := &GCPClients{}
+	externalVpnGatewaysClient, err := clients.GetOrCreateExternalVpnGatewaysClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("NewExternalVpnGatewaysClient: %w", err)
+		return nil, fmt.Errorf("unable to get external vpn gateways client: %w", err)
 	}
-	defer externalVpnGatewaysClient.Close()
-	vpnTunnelsClient, err := compute.NewVpnTunnelsRESTClient(ctx)
+	vpnTunnelsClient, err := clients.GetOrCreateVpnTunnelsClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("NewVpnTunnelsRESTClient: %w", err)
+		return nil, fmt.Errorf("unable to get vpn tunnels client: %w", err)
 	}
-	defer vpnTunnelsClient.Close()
-	routersClient, err := compute.NewRoutersRESTClient(ctx)
+	routersClient, err := clients.GetOrCreateRoutersClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("NewRoutersRESTClient: %w", err)
+		return nil, fmt.Errorf("unable to get routers client: %w", err)
 	}
-	defer routersClient.Close()
+	defer clients.Close()
 	return s._CreateVpnConnections(ctx, req, externalVpnGatewaysClient, vpnTunnelsClient, routersClient)
 }
 
