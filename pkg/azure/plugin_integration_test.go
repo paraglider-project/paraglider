@@ -238,10 +238,10 @@ func TestCrossNamespaces(t *testing.T) {
 	}
 
 	// Run connectivity checks on both directions between vm1 and vm2
-	azureConnectivityCheckVM1toVM2, err := RunICMPConnectivityCheck(ctx, subscriptionId, resourceGroup1Name, vm1Name, resourceGroup1Namespace, vm2Ip)
+	azureConnectivityCheckVM1toVM2, err := RunICMPConnectivityCheck(ctx, resourceGroup1Namespace, subscriptionId, resourceGroup1Name, vm1Name, vm2Ip, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM1toVM2)
-	azureConnectivityCheckVM2toVM1, err := RunICMPConnectivityCheck(ctx, subscriptionId, resourceGroup2Name, vm2Name, resourceGroup1Name, vm1Ip)
+	azureConnectivityCheckVM2toVM1, err := RunICMPConnectivityCheck(ctx, resourceGroup2Namespace, subscriptionId, resourceGroup2Name, vm2Name, vm1Ip, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM2toVM1)
 }
@@ -355,10 +355,10 @@ func TestMultipleRegionsIntraNamespace(t *testing.T) {
 	}
 
 	// Run connectivity checks on both directions between vm1 and vm2
-	azureConnectivityCheckVM1toVM2, err := RunICMPConnectivityCheck(ctx, subscriptionId, resourceGroupName, vm1Name, defaultNamespace, vm2Ip)
+	azureConnectivityCheckVM1toVM2, err := RunICMPConnectivityCheck(ctx, defaultNamespace, subscriptionId, resourceGroupName, vm1Name, vm2Ip, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM1toVM2)
-	azureConnectivityCheckVM2toVM1, err := RunICMPConnectivityCheck(ctx, subscriptionId, resourceGroupName, vm2Name, defaultNamespace, vm1Ip)
+	azureConnectivityCheckVM2toVM1, err := RunICMPConnectivityCheck(ctx, defaultNamespace, subscriptionId, resourceGroupName, vm2Name, vm1Ip, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM2toVM1)
 }
@@ -537,10 +537,10 @@ func TestAttachResourceIntegration(t *testing.T) {
 	}
 
 	// Run connectivity checks on both directions between vm1 and vm2
-	azureConnectivityCheck1, err := RunICMPConnectivityCheck(ctx, subscriptionId, resourceGroupName, pgVmName, namespace, externalVmIp)
+	azureConnectivityCheck1, err := RunICMPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, pgVmName, externalVmIp, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck1)
-	azureConnectivityCheck2, err := RunICMPConnectivityCheck(ctx, subscriptionId, resourceGroupName, externalVmName, namespace, pgVmIp)
+	azureConnectivityCheck2, err := RunICMPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, externalVmName, pgVmIp, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck2)
 }
@@ -583,19 +583,19 @@ func TestPublicIPAddressTarget(t *testing.T) {
 	permitListRules := []*paragliderpb.PermitListRule{
 		{
 			Name:      "cloudflare-dns-tcp-outbound",
+			Targets:   []string{"1.1.1.1"},
 			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   80,
 			Protocol:  6,
-			Targets:   []string{"1.1.1.1"},
 		},
 		{
-			Name:      "cloudflare-dns-icmp-outbound",
-			Targets:   []string{"1.1.1.1"},
+			Name:      "google-dns-tcp-outbound",
+			Targets:   []string{"8.8.8.8"},
 			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
-			DstPort:   -1,
-			Protocol:  1,
+			DstPort:   80,
+			Protocol:  6,
 		},
 	}
 	addPermitListRulesReq := &paragliderpb.AddPermitListRulesRequest{Rules: permitListRules, Namespace: namespace, Resource: vmID}
@@ -604,10 +604,10 @@ func TestPublicIPAddressTarget(t *testing.T) {
 	require.NotNil(t, addPermitListRulesResp)
 
 	// Run connectivity checks
-	tcpTestResult, err := RunTCPConnectivityCheck(ctx, subscriptionId, resourceGroupName, vmName, namespace, "1.1.1.1", 80)
+	cloudflareTestResult, err := RunTCPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, vmName, "1.1.1.1", 80, 3)
 	require.Nil(t, err)
-	require.True(t, tcpTestResult)
-	icmpTestResult, err := RunICMPConnectivityCheck(ctx, subscriptionId, resourceGroupName, vmName, namespace, "1.1.1.1")
+	require.True(t, cloudflareTestResult)
+	gcpTestResult, err := RunTCPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, vmName, "8.8.8.8", 80, 3)
 	require.Nil(t, err)
-	require.True(t, icmpTestResult)
+	require.True(t, gcpTestResult)
 }

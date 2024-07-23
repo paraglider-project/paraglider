@@ -224,7 +224,7 @@ func TestMulticloud(t *testing.T) {
 	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-1", gcpVmIpAddress, "other", azureVm1IpAddress)
 
 	// Run Azure connectivity check (ping from Azure VM to GCP VM)
-	azureConnectivityCheck1, err := azure.RunICMPConnectivityCheck(ctx, azureSubscriptionId, azureResourceGroupName, azureVm1Name, "default", gcpVmIpAddress)
+	azureConnectivityCheck1, err := azure.RunICMPConnectivityCheck(ctx, "default", azureSubscriptionId, azureResourceGroupName, azureVm1Name, gcpVmIpAddress, 5)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck1)
 
@@ -326,7 +326,7 @@ func TestMulticloud(t *testing.T) {
 	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-2", gcpVmIpAddress, "other", azureVm2IpAddress)
 
 	// Run Azure connectivity check (ping from Azure VM to GCP VM)
-	azureConnectivityCheck2, err := azure.RunICMPConnectivityCheck(ctx, azureSubscriptionId, azureResourceGroupName, azureVm2Name, "default", gcpVmIpAddress)
+	azureConnectivityCheck2, err := azure.RunICMPConnectivityCheck(ctx, "default", azureSubscriptionId, azureResourceGroupName, azureVm2Name, gcpVmIpAddress, 5)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck2)
 }
@@ -563,7 +563,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	// requires Azure Network Watcher to be deployed in the test's region.
 	if isAzureNetworkWatcherDeployed {
 		fmt.Println("running Azure connectivity test...")
-		azureConnectivityCheck1, err := azure.RunICMPConnectivityCheck(ctx, azureSubscriptionId, azureResourceGroupName, azureVmName, azureNamespace, ibmVmIpAddress)
+		azureConnectivityCheck1, err := azure.RunICMPConnectivityCheck(ctx, azureNamespace, azureSubscriptionId, azureResourceGroupName, azureVmName, ibmVmIpAddress, 5)
 		require.Nil(t, err)
 		require.True(t, azureConnectivityCheck1)
 	}
