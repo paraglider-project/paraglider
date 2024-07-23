@@ -590,8 +590,8 @@ func TestPublicIPAddressTarget(t *testing.T) {
 			Protocol:  6,
 		},
 		{
-			Name:      "google-dns-tcp-outbound",
-			Targets:   []string{"8.8.8.8"},
+			Name:      "opendns-tcp-outbound",
+			Targets:   []string{"208.67.222.222"},
 			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   80,
@@ -607,7 +607,7 @@ func TestPublicIPAddressTarget(t *testing.T) {
 	cloudflareTestResult, err := RunTCPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, vmName, "1.1.1.1", 80, 3)
 	require.Nil(t, err)
 	require.True(t, cloudflareTestResult)
-	gcpTestResult, err := RunTCPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, vmName, "8.8.8.8", 80, 3)
+	opendnsTestresult, err := RunTCPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, vmName, "208.67.222.222", 80, 3)
 	require.Nil(t, err)
-	require.True(t, gcpTestResult)
+	require.True(t, opendnsTestresult)
 }
