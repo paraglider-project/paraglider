@@ -156,9 +156,74 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 
 		for _, peeringCloudInfo := range peeringCloudInfos {
 			if peeringCloudInfo == nil {
-				continue
-			}
-			if peeringCloudInfo.Cloud != utils.GCP {
+				// Setup NAT gateways for public IP address targets
+				routersClient, err := clients.GetOrCreateRoutersClient(ctx)
+				if err != nil {
+					return nil, fmt.Errorf("unable to get routers client: %w", err)
+				}
+				getRouterReq := &computepb.GetRouterRequest{
+					Project: resourceInfo.Project,
+					Region:  vpnRegion,
+					Router:  getRouterName(req.Namespace),
+				}
+				router, err := routersClient.Get(ctx, getRouterReq)
+				nat := &computepb.RouterNat{
+					Name:                          proto.String(getNatName(req.Namespace)),
+					NatIpAllocateOption:           proto.String(computepb.RouterNat_AUTO_ONLY.String()),
+					SourceSubnetworkIpRangesToNat: proto.String(computepb.RouterNat_ALL_SUBNETWORKS_ALL_IP_RANGES.String()),
+				}
+				if err != nil {
+					if isErrorNotFound(err) {
+						// Create router if it doesn't already exist
+						insertRouterReq := &computepb.InsertRouterRequest{
+							Project: resourceInfo.Project,
+							Region:  vpnRegion, // Same router with router that manages BGP for VPN gateways
+							RouterResource: &computepb.Router{
+								Name:        proto.String(getRouterName(req.Namespace)),
+								Description: proto.String("Paraglider router for BGP peering"),
+								Network:     proto.String(getVpcUrl(resourceInfo.Project, req.Namespace)),
+								Nats:        []*computepb.RouterNat{nat},
+							},
+						}
+						insertRouterOp, err := routersClient.Insert(ctx, insertRouterReq)
+						if err != nil {
+							return nil, fmt.Errorf("unable to insert router: %w", err)
+						}
+						if err = insertRouterOp.Wait(ctx); err != nil {
+							return nil, fmt.Errorf("unable to wait for the operation: %w", err)
+						}
+					} else {
+						return nil, fmt.Errorf("unable to get router: %w", err)
+					}
+				} else {
+					// Router already exists
+					if router.Nats == nil || len(router.Nats) == 0 {
+						// NAT doesn't exist
+						patchRouterReq := &computepb.PatchRouterRequest{
+							Project:        resourceInfo.Project,
+							Router:         getRouterName(req.Namespace),
+							RouterResource: router,
+						}
+						patchRouterReq.RouterResource.Nats = []*computepb.RouterNat{
+							{
+								Name:                proto.String(getNatName(req.Namespace)),
+								NatIpAllocateOption: proto.String(computepb.RouterNat_AUTO_ONLY.String()),
+							},
+						}
+						patchRouterOp, err := routersClient.Patch(ctx, patchRouterReq)
+						if err != nil {
+							return nil, fmt.Errorf("unable to modify router: %w", err)
+						}
+						if err = patchRouterOp.Wait(ctx); err != nil {
+							return nil, fmt.Errorf("unable to wait for the operation: %w", err)
+						}
+					} else if len(router.Nats) == 1 && *router.Nats[0].Name == getNatName(req.Namespace) {
+						// NAT already exists
+					} else {
+						return nil, fmt.Errorf("unexpected NAT configuration")
+					}
+				}
+			} else if peeringCloudInfo.Cloud != utils.GCP {
 				// Create VPN connections
 				connectCloudsReq := &paragliderpb.ConnectCloudsRequest{
 					CloudA:          utils.GCP,
@@ -673,19 +738,19 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 		Region:  vpnRegion,
 		Router:  getRouterName(req.Deployment.Namespace),
 	}
-	getRouterResp, err := routersClient.Get(ctx, getRouterReq)
+	router, err := routersClient.Get(ctx, getRouterReq)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get router: %w", err)
 	}
 	existingInterfaces := make(map[string]bool)
-	for _, interface_ := range getRouterResp.Interfaces {
+	for _, interface_ := range router.Interfaces {
 		existingInterfaces[*interface_.Name] = true
 	}
 	patchRouterRequest := &computepb.PatchRouterRequest{
 		Project:        project,
 		Region:         vpnRegion,
 		Router:         getRouterName(req.Deployment.Namespace),
-		RouterResource: getRouterResp, // Necessary for PATCH to work correctly on arrays
+		RouterResource: router, // Necessary for PATCH to work correctly on arrays
 	}
 	for i := 0; i < vpnNumConnections; i++ {
 		interfaceName := getVpnTunnelInterfaceName(req.Deployment.Namespace, req.Cloud, i, i)

@@ -221,7 +221,9 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Added Azure permit list rules")
 
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
-	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-1", gcpVmIpAddress, "other", azureVm1IpAddress)
+	gcpIcmpTestResult1, err := gcp.RunIcmpConnectivityTest("gcp-azure-1", gcpProjectId, "other", gcpVmName, gcpVmZone, azureVm1IpAddress, 5)
+	require.NoError(t, err)
+	require.True(t, gcpIcmpTestResult1)
 
 	// Run Azure connectivity check (ping from Azure VM to GCP VM)
 	azureConnectivityCheck1, err := azure.RunPingConnectivityCheck(azureVm1ResourceId, gcpVmIpAddress, "default")
@@ -323,7 +325,9 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Added Azure permit list rules")
 
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
-	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-2", gcpVmIpAddress, "other", azureVm2IpAddress)
+	gcpIcmpTestResult2, err := gcp.RunIcmpConnectivityTest("gcp-azure-2", gcpProjectId, "other", gcpVmName, gcpVmZone, azureVm2IpAddress, 5)
+	require.NoError(t, err)
+	require.True(t, gcpIcmpTestResult2)
 
 	// Run Azure connectivity check (ping from Azure VM to GCP VM)
 	azureConnectivityCheck2, err := azure.RunPingConnectivityCheck(azureVm2ResourceId, gcpVmIpAddress, "default")
