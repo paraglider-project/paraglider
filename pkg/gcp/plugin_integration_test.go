@@ -202,10 +202,10 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// Run connectivity tests on both directions between vm1 and vm2
-	vm1ToVm2TestResult, err := RunIcmpConnectivityTest("vm1-to-vm2", projectId, namespace, vm1Name, vm1Zone, vm2Ip, 5)
+	vm1ToVm2TestResult, err := RunIcmpConnectivityTest("vm1-to-vm2", namespace, projectId, vm1Name, vm1Zone, vm2Ip, 5)
 	require.NoError(t, err)
 	require.True(t, vm1ToVm2TestResult)
-	vm2toVm1TestResult, err := RunIcmpConnectivityTest("vm2-to-vm1", projectId, namespace, vm2Name, vm2Zone, vm1Ip, 5)
+	vm2toVm1TestResult, err := RunIcmpConnectivityTest("vm2-to-vm1", namespace, projectId, vm2Name, vm2Zone, vm1Ip, 5)
 	require.NoError(t, err)
 	require.True(t, vm2toVm1TestResult)
 
@@ -341,10 +341,10 @@ func TestCrossNamespace(t *testing.T) {
 	}
 
 	// Run connectivity tests on both directions between vm1 and vm2
-	vm1ToVm2TestResult, err := RunIcmpConnectivityTest("vm1-to-vm2", project1Id, project1Namespace, vm1Name, vm1Zone, vm2Ip, 5)
+	vm1ToVm2TestResult, err := RunIcmpConnectivityTest("vm1-to-vm2", project1Namespace, project1Id, vm1Name, vm1Zone, vm2Ip, 5)
 	require.NoError(t, err)
 	require.True(t, vm1ToVm2TestResult)
-	vm2toVm1TestResult, err := RunIcmpConnectivityTest("vm2-to-vm1", project2Id, project2Namespace, vm2Name, vm2Zone, vm1Ip, 5)
+	vm2toVm1TestResult, err := RunIcmpConnectivityTest("vm2-to-vm1", project2Namespace, project2Id, vm2Name, vm2Zone, vm1Ip, 5)
 	require.NoError(t, err)
 	require.True(t, vm2toVm1TestResult)
 }
@@ -381,6 +381,7 @@ func TestPublicIpAddressTarget(t *testing.T) {
 
 	// Create permit list rules to Cloudflare DNS
 	// Multiple permit list rules are tested to ensure that duplicate NAT gateway creations are avoided
+	// Don't use any Google related IPs (e.g., 8.8.8.8) as they don't seem to be routed through the NAT gateway
 	permitListRules := []*paragliderpb.PermitListRule{
 		{
 			Name:      "cloudflare-dns-tcp-outbound",
@@ -406,10 +407,10 @@ func TestPublicIpAddressTarget(t *testing.T) {
 	require.NotNil(t, addPermitListResp)
 
 	// Run connectivity tests
-	cloudflareDnsTcpTestResult, err := RunTcpConnectivityTest("cloudflare-dns-tcp", projectId, namespace, vmName, vmZone, "1.1.1.1", 80, 5)
+	tcpTestResult, err := RunTcpConnectivityTest("cloudflare-dns-tcp", namespace, projectId, vmName, vmZone, "1.1.1.1", 80, 5)
 	require.NoError(t, err)
-	require.True(t, cloudflareDnsTcpTestResult)
-	cloudflareDnsIcmpTestResult, err := RunIcmpConnectivityTest("cloudflare-dns-icmp", projectId, namespace, vmName, vmZone, "1.1.1.1", 5)
+	require.True(t, tcpTestResult)
+	icmpTestresult, err := RunIcmpConnectivityTest("cloudflare-dns-icmp", namespace, projectId, vmName, vmZone, "1.1.1.1", 5)
 	require.NoError(t, err)
-	require.True(t, cloudflareDnsIcmpTestResult)
+	require.True(t, icmpTestresult)
 }

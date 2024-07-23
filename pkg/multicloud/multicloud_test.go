@@ -221,7 +221,7 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Added Azure permit list rules")
 
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
-	gcpIcmpTestResult1, err := gcp.RunIcmpConnectivityTest("gcp-azure-1", gcpProjectId, "other", gcpVmName, gcpVmZone, azureVm1IpAddress, 5)
+	gcpIcmpTestResult1, err := gcp.RunIcmpConnectivityTest("gcp-azure-1", "other", gcpProjectId, gcpVmName, gcpVmZone, azureVm1IpAddress, 5)
 	require.NoError(t, err)
 	require.True(t, gcpIcmpTestResult1)
 
@@ -325,7 +325,7 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Added Azure permit list rules")
 
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
-	gcpIcmpTestResult2, err := gcp.RunIcmpConnectivityTest("gcp-azure-2", gcpProjectId, "other", gcpVmName, gcpVmZone, azureVm2IpAddress, 5)
+	gcpIcmpTestResult2, err := gcp.RunIcmpConnectivityTest("gcp-azure-2", "other", gcpProjectId, gcpVmName, gcpVmZone, azureVm2IpAddress, 5)
 	require.NoError(t, err)
 	require.True(t, gcpIcmpTestResult2)
 

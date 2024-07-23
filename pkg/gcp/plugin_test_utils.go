@@ -510,17 +510,17 @@ func teardown(fakeServer *httptest.Server, fakeClients *GCPClients, fakeGRPCServ
 }
 
 // RunIcmpConnectivityTest runs a ICMP connectivity test from sourceInstanceName to destinationIpAddress
-func RunIcmpConnectivityTest(testName string, project string, namespace string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, tries int) (bool, error) {
-	return runConnectivityTest(testName, project, namespace, sourceInstanceName, sourceInstanceZone, destinationIpAddress, 0, "ICMP", tries)
+func RunIcmpConnectivityTest(testName string, namespace string, project string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, tries int) (bool, error) {
+	return runConnectivityTest(testName, namespace, project, sourceInstanceName, sourceInstanceZone, destinationIpAddress, 0, "ICMP", tries)
 }
 
 // RunTcpConnectivityTest runs a TCP connectivity test from sourceInstanceName to destinationIpAddress:destinationPort
-func RunTcpConnectivityTest(testName string, project string, namespace string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, destinationPort int, tries int) (bool, error) {
-	return runConnectivityTest(testName, project, namespace, sourceInstanceName, sourceInstanceZone, destinationIpAddress, destinationPort, "TCP", tries)
+func RunTcpConnectivityTest(testName string, namespace string, project string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, destinationPort int, tries int) (bool, error) {
+	return runConnectivityTest(testName, namespace, project, sourceInstanceName, sourceInstanceZone, destinationIpAddress, destinationPort, "TCP", tries)
 }
 
 // runConnectivityTest runs a connectivity test from sourceInstanceName to destinationIpAddress:destinationPort with the specified protocol
-func runConnectivityTest(testName string, project string, namespace string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, destinationPort int, protocol string, tries int) (bool, error) {
+func runConnectivityTest(testName string, namespace string, project string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, destinationPort int, protocol string, tries int) (bool, error) {
 	ctx := context.Background()
 	reachabilityClient, err := networkmanagement.NewReachabilityClient(ctx) // Can't use REST client for some reason (filed as bug within Google internally)
 	if err != nil {
