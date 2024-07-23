@@ -361,7 +361,7 @@ func TestMultipleRegionsIntraNamespace(t *testing.T) {
 	require.True(t, azureConnectivityCheckVM2toVM1)
 }
 
-func TestPublicIPAddressPermitListRule(t *testing.T) {
+func TestPublicIPAddressTarget(t *testing.T) {
 	// Setup
 	subscriptionId := GetAzureSubscriptionId()
 	resourceGroupName := SetupAzureTesting(subscriptionId, "integration-public-ip")
