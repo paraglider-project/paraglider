@@ -401,7 +401,7 @@ func runConnectivityCheck(ctx context.Context, sourceVmNamespace string, connect
 	return false, nil
 }
 
-func RunPingConnectivityCheck(ctx context.Context, subscriptionId string, resourceGroupName string, sourceVmName string, sourceVmNamespace string, destinationIPAddress string) (bool, error) {
+func RunICMPConnectivityCheck(ctx context.Context, subscriptionId string, resourceGroupName string, sourceVmName string, sourceVmNamespace string, destinationIPAddress string) (bool, error) {
 	sourceVmResourceID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s", subscriptionId, resourceGroupName, sourceVmName)
 	connectivityParameters := armnetwork.ConnectivityParameters{
 		Destination:        &armnetwork.ConnectivityDestination{Address: to.Ptr(destinationIPAddress)},

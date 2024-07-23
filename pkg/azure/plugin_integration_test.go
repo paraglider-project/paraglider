@@ -236,10 +236,10 @@ func TestCrossNamespaces(t *testing.T) {
 	}
 
 	// Run connectivity checks on both directions between vm1 and vm2
-	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(ctx, subscriptionId, resourceGroup1Name, vm1Name, resourceGroup1Namespace, vm2Ip)
+	azureConnectivityCheckVM1toVM2, err := RunICMPConnectivityCheck(ctx, subscriptionId, resourceGroup1Name, vm1Name, resourceGroup1Namespace, vm2Ip)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM1toVM2)
-	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(ctx, subscriptionId, resourceGroup2Name, vm2Name, resourceGroup1Name, vm1Ip)
+	azureConnectivityCheckVM2toVM1, err := RunICMPConnectivityCheck(ctx, subscriptionId, resourceGroup2Name, vm2Name, resourceGroup1Name, vm1Ip)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM2toVM1)
 }
@@ -353,10 +353,10 @@ func TestMultipleRegionsIntraNamespace(t *testing.T) {
 	}
 
 	// Run connectivity checks on both directions between vm1 and vm2
-	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(ctx, subscriptionId, resourceGroupName, vm1Name, defaultNamespace, vm2Ip)
+	azureConnectivityCheckVM1toVM2, err := RunICMPConnectivityCheck(ctx, subscriptionId, resourceGroupName, vm1Name, defaultNamespace, vm2Ip)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM1toVM2)
-	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(ctx, subscriptionId, resourceGroupName, vm2Name, defaultNamespace, vm1Ip)
+	azureConnectivityCheckVM2toVM1, err := RunICMPConnectivityCheck(ctx, subscriptionId, resourceGroupName, vm2Name, defaultNamespace, vm1Ip)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM2toVM1)
 }
@@ -395,22 +395,35 @@ func TestPublicIPAddressTarget(t *testing.T) {
 	assert.Equal(t, createResourceResp.Uri, vmID)
 
 	// Create permit list rule to Cloudflare DNS
+	// Multiple permit list rules are tested to ensure that duplicate NAT gateway creations are avoided
 	permitListRules := []*paragliderpb.PermitListRule{
 		{
-			Name:      "cloudflare-tcp-egress",
+			Name:      "cloudflare-dns-tcp-outbound",
 			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   80,
 			Protocol:  6,
 			Targets:   []string{"1.1.1.1"},
 		},
+		{
+			Name:      "cloudflare-dns-icmp-outbound",
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{"1.1.1.1"},
+		},
 	}
-	addPermitListResp, err := azureServer.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: permitListRules, Namespace: namespace, Resource: vmID})
+	addPermitListRulesReq := &paragliderpb.AddPermitListRulesRequest{Rules: permitListRules, Namespace: namespace, Resource: vmID}
+	addPermitListRulesResp, err := azureServer.AddPermitListRules(ctx, addPermitListRulesReq)
 	require.NoError(t, err)
-	require.NotNil(t, addPermitListResp)
+	require.NotNil(t, addPermitListRulesResp)
 
-	// Run TCP connectivity check to cloudflare
-	connectivityCheck, err := RunTCPConnectivityCheck(ctx, subscriptionId, resourceGroupName, vmName, namespace, "1.1.1.1", 80)
+	// Run connectivity checks
+	tcpTestResult, err := RunTCPConnectivityCheck(ctx, subscriptionId, resourceGroupName, vmName, namespace, "1.1.1.1", 80)
 	require.Nil(t, err)
-	require.True(t, connectivityCheck)
+	require.True(t, tcpTestResult)
+	icmpTestResult, err := RunICMPConnectivityCheck(ctx, subscriptionId, resourceGroupName, vmName, namespace, "1.1.1.1")
+	require.Nil(t, err)
+	require.True(t, icmpTestResult)
 }
