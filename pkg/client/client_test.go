@@ -27,10 +27,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGetPermitList(t *testing.T) {
+func setupClientWithFakeOrchestratorServer() Client {
 	s := fake.FakeOrchestratorRESTServer{}
 	controllerAddress := s.SetupFakeOrchestratorRESTServer()
-	client := Client{ControllerAddress: controllerAddress}
+	return Client{ControllerAddress: controllerAddress}
+}
+
+func TestGetPermitList(t *testing.T) {
+	client := setupClientWithFakeOrchestratorServer()
 
 	resourceName := "resourceName"
 	rules, err := client.GetPermitList(fake.Namespace, fake.CloudName, resourceName)
@@ -40,9 +44,7 @@ func TestGetPermitList(t *testing.T) {
 }
 
 func TestAddPermitListRules(t *testing.T) {
-	s := fake.FakeOrchestratorRESTServer{}
-	controllerAddress := s.SetupFakeOrchestratorRESTServer()
-	client := Client{ControllerAddress: controllerAddress}
+	client := setupClientWithFakeOrchestratorServer()
 
 	err := client.AddPermitListRules(fake.Namespace, fake.CloudName, "resourceName", fake.GetFakePermitListRules())
 
@@ -50,9 +52,7 @@ func TestAddPermitListRules(t *testing.T) {
 }
 
 func TestDeletePermitListRules(t *testing.T) {
-	s := fake.FakeOrchestratorRESTServer{}
-	controllerAddress := s.SetupFakeOrchestratorRESTServer()
-	client := Client{ControllerAddress: controllerAddress}
+	client := setupClientWithFakeOrchestratorServer()
 
 	err := client.DeletePermitListRules(fake.Namespace, fake.CloudName, "resourceName", fake.GetFakePermitListRuleNames())
 
@@ -60,9 +60,7 @@ func TestDeletePermitListRules(t *testing.T) {
 }
 
 func TestTagAddPermitListRules(t *testing.T) {
-	s := fake.FakeOrchestratorRESTServer{}
-	controllerAddress := s.SetupFakeOrchestratorRESTServer()
-	client := Client{ControllerAddress: controllerAddress}
+	client := setupClientWithFakeOrchestratorServer()
 
 	err := client.AddPermitListRulesTag("tagName", fake.GetFakePermitListRules())
 
@@ -70,9 +68,7 @@ func TestTagAddPermitListRules(t *testing.T) {
 }
 
 func TestTagDeletePermitListRules(t *testing.T) {
-	s := fake.FakeOrchestratorRESTServer{}
-	controllerAddress := s.SetupFakeOrchestratorRESTServer()
-	client := Client{ControllerAddress: controllerAddress}
+	client := setupClientWithFakeOrchestratorServer()
 
 	err := client.DeletePermitListRulesTag("tagName", fake.GetFakePermitListRuleNames())
 
@@ -80,9 +76,7 @@ func TestTagDeletePermitListRules(t *testing.T) {
 }
 
 func TestCreateResource(t *testing.T) {
-	s := fake.FakeOrchestratorRESTServer{}
-	controllerAddress := s.SetupFakeOrchestratorRESTServer()
-	client := Client{ControllerAddress: controllerAddress}
+	client := setupClientWithFakeOrchestratorServer()
 
 	resource, err := client.CreateResource(fake.Namespace, fake.CloudName, fake.ResourceName, &paragliderpb.ResourceDescriptionString{Name: fake.ResourceName, Description: fake.ResourceDesc})
 	assert.Nil(t, err)
@@ -92,9 +86,7 @@ func TestCreateResource(t *testing.T) {
 }
 
 func TestAttachResource(t *testing.T) {
-	s := fake.FakeOrchestratorRESTServer{}
-	controllerAddress := s.SetupFakeOrchestratorRESTServer()
-	client := Client{ControllerAddress: controllerAddress}
+	client := setupClientWithFakeOrchestratorServer()
 
 	resource, err := client.AttachResource(fake.Namespace, fake.CloudName, &orchestrator.ResourceID{Id: fake.Uri})
 	assert.Nil(t, err)
@@ -104,9 +96,7 @@ func TestAttachResource(t *testing.T) {
 }
 
 func TestGetTag(t *testing.T) {
-	s := fake.FakeOrchestratorRESTServer{}
-	controllerAddress := s.SetupFakeOrchestratorRESTServer()
-	client := Client{ControllerAddress: controllerAddress}
+	client := setupClientWithFakeOrchestratorServer()
 
 	tagName := "tag"
 	tag, err := client.GetTag(tagName)
@@ -116,9 +106,7 @@ func TestGetTag(t *testing.T) {
 }
 
 func TestResolveTag(t *testing.T) {
-	s := fake.FakeOrchestratorRESTServer{}
-	controllerAddress := s.SetupFakeOrchestratorRESTServer()
-	client := Client{ControllerAddress: controllerAddress}
+	client := setupClientWithFakeOrchestratorServer()
 
 	tagName := "tag"
 	tags, err := client.ResolveTag(tagName)
@@ -129,9 +117,7 @@ func TestResolveTag(t *testing.T) {
 }
 
 func TestSetTag(t *testing.T) {
-	s := fake.FakeOrchestratorRESTServer{}
-	controllerAddress := s.SetupFakeOrchestratorRESTServer()
-	client := Client{ControllerAddress: controllerAddress}
+	client := setupClientWithFakeOrchestratorServer()
 
 	tagName := "tag"
 	tagMapping := fake.GetFakeTagMapping(tagName)
@@ -141,9 +127,7 @@ func TestSetTag(t *testing.T) {
 }
 
 func TestDeleteTag(t *testing.T) {
-	s := fake.FakeOrchestratorRESTServer{}
-	controllerAddress := s.SetupFakeOrchestratorRESTServer()
-	client := Client{ControllerAddress: controllerAddress}
+	client := setupClientWithFakeOrchestratorServer()
 
 	tagName := "tag"
 	err := client.DeleteTag(tagName)
@@ -152,9 +136,7 @@ func TestDeleteTag(t *testing.T) {
 }
 
 func TestDeleteTagMembers(t *testing.T) {
-	s := fake.FakeOrchestratorRESTServer{}
-	controllerAddress := s.SetupFakeOrchestratorRESTServer()
-	client := Client{ControllerAddress: controllerAddress}
+	client := setupClientWithFakeOrchestratorServer()
 
 	tagName := "tag"
 	err := client.DeleteTagMembers(tagName, "member1")
@@ -163,9 +145,7 @@ func TestDeleteTagMembers(t *testing.T) {
 }
 
 func TestSetNamespace(t *testing.T) {
-	s := fake.FakeOrchestratorRESTServer{}
-	controllerAddress := s.SetupFakeOrchestratorRESTServer()
-	client := Client{ControllerAddress: controllerAddress}
+	client := setupClientWithFakeOrchestratorServer()
 
 	namespaces, err := client.ListNamespaces()
 

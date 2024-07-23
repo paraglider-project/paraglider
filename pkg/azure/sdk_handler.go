@@ -291,11 +291,11 @@ func (h *AzureSDKHandler) DeleteSecurityRule(ctx context.Context, nsgName string
 }
 
 // GetAllVnetsAddressSpaces retrieves the address spaces of all virtual networks
-// that have a name starting with the specified prefix.
+// in the specified namespace that are managed by Paraglider. i.e. Has the namespace tag.
 //
-// Returns a map where the keys are the locations of the virtual networks
+// Returns a map where the keys are the names of the virtual networks
 // and the values are slices of address prefixes associated with each virtual network.
-func (h *AzureSDKHandler) GetAllVnetsAddressSpaces(ctx context.Context, prefix string) (map[string][]string, error) {
+func (h *AzureSDKHandler) GetAllVnetsAddressSpaces(ctx context.Context, namespace string) (map[string][]string, error) {
 	addressSpaces := make(map[string][]string)
 	pager := h.virtualNetworksClient.NewListPager(h.resourceGroupName, nil)
 	for pager.More() {
@@ -303,13 +303,14 @@ func (h *AzureSDKHandler) GetAllVnetsAddressSpaces(ctx context.Context, prefix s
 		if err != nil {
 			return nil, err
 		}
+
 		for _, v := range page.Value {
-			if strings.HasPrefix(*v.Name, prefix) {
-				prefixes := make([]string, len(v.Properties.AddressSpace.AddressPrefixes))
-				for i, prefix := range v.Properties.AddressSpace.AddressPrefixes {
-					prefixes[i] = *prefix
+			if v.Tags != nil && *v.Tags[namespaceTagKey] == namespace {
+				addressPrefixes := make([]string, len(v.Properties.AddressSpace.AddressPrefixes))
+				for i, addressPrefix := range v.Properties.AddressSpace.AddressPrefixes {
+					addressPrefixes[i] = *addressPrefix
 				}
-				addressSpaces[*v.Location] = prefixes
+				addressSpaces[*v.Name] = addressPrefixes
 			}
 		}
 	}
@@ -343,6 +344,7 @@ func (h *AzureSDKHandler) CreateVnetPeeringOneWay(ctx context.Context, vnet1Name
 			UseRemoteGateways: to.Ptr(false),
 		},
 	}
+
 	_, err := h.CreateOrUpdateVirtualNetworkPeering(ctx, vnet1Name, getPeeringName(vnet1Name, vnet2Name), vnet1ToVnet2PeeringParameters)
 	if err != nil {
 		return err
@@ -482,8 +484,8 @@ func (h *AzureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) 
 	return &nsgResp.SecurityGroup, nil
 }
 
-// GetParagliderVnet returns a valid paraglider vnet, a paraglider vnet is a vnet with a default subnet with the same
-// address space as the vnet and there is only one vnet per location
+// GetParagliderVnet returns a valid paraglider vnet. A paraglider vnet is a vnet created by Paraglider
+// with a default subnet with the same address space as the vnet and there is only one vnet per location
 func (h *AzureSDKHandler) GetParagliderVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
 	// Get the virtual network
 	res, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, &armnetwork.VirtualNetworksClientGetOptions{Expand: nil})
@@ -729,8 +731,8 @@ func (h *AzureSDKHandler) CreateAKSCluster(ctx context.Context, parameters armco
 	return &resp.ManagedCluster, nil
 }
 
-// GetVNet returns the virtual network with the given name
-func (h *AzureSDKHandler) GetVNet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error) {
+// GetVnet returns the virtual network with the given name
+func (h *AzureSDKHandler) GetVnet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error) {
 	vnet, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, nil)
 	if err != nil {
 		return nil, err
