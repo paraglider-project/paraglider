@@ -42,7 +42,7 @@ func getFakeInstanceResourceDescription() (*paragliderpb.CreateResourceRequest, 
 		return nil, nil, err
 	}
 
-	resource := &paragliderpb.CreateResourceRequest{Description: jsonReq}
+	resource := &paragliderpb.CreateResourceRequest{Name: fakeInstanceName, Description: jsonReq}
 	return resource, instanceRequest, nil
 }
 
@@ -57,8 +57,24 @@ func getFakeClusterResourceDescription() (*paragliderpb.CreateResourceRequest, *
 		return nil, nil, err
 	}
 
-	resource := &paragliderpb.CreateResourceRequest{Description: jsonReq}
+	resource := &paragliderpb.CreateResourceRequest{Name: fakeClusterName, Description: jsonReq}
 	return resource, clusterRequest, nil
+}
+
+func getFakePSCRequest(isGoogleService bool) (*paragliderpb.CreateResourceRequest, *ServiceAttachmentDescription, error) {
+	var description *ServiceAttachmentDescription
+	if isGoogleService {
+		description = &ServiceAttachmentDescription{Bundle: "all-apis", Region: fakeRegion}
+	} else {
+		description = &ServiceAttachmentDescription{Url: fakeServiceAttachmentUrl}
+	}
+	jsonReq, err := json.Marshal(description)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	resource := &paragliderpb.CreateResourceRequest{Description: jsonReq, Name: fakePscName}
+	return resource, description, nil
 }
 
 func TestParseResourceUrl(t *testing.T) {
@@ -93,11 +109,10 @@ func TestGetFirewallRules(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	client := fakeClients.firewallsClient
 	project := fakeProject
 	resourceID := "resource-1"
 
-	firewallRules, err := getFirewallRules(ctx, client, project, resourceID)
+	firewallRules, err := getFirewallRules(ctx, project, resourceID, fakeClients)
 
 	expectedFwNames := []string{"firewall-1", "firewall-2"}
 
@@ -115,13 +130,11 @@ func TestGetResourceNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	client := fakeClients.instancesClient
-
-	subnet, resourceId, err := GetResourceNetworkInfo(ctx, client, nil, rInfo)
+	netInfo, err := GetResourceNetworkInfo(ctx, rInfo, fakeClients)
 
 	require.NoError(t, err)
-	assert.Equal(t, convertInstanceIdToString(*instance.Id), *resourceId)
-	assert.Equal(t, instance.NetworkInterfaces[0].Subnetwork, subnet)
+	assert.Equal(t, convertIntIdToString(*instance.Id), netInfo.ResourceID)
+	assert.Equal(t, *instance.NetworkInterfaces[0].Subnetwork, netInfo.SubnetUrl)
 
 	// Test for cluster
 	rInfo = &resourceInfo{Project: fakeProject, Region: fakeRegion, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName, Namespace: fakeNamespace}
@@ -131,33 +144,58 @@ func TestGetResourceNetworkInfo(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer = setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	clusterClient := fakeClients.clusterClient
-
-	subnet, resourceId, err = GetResourceNetworkInfo(ctx, nil, clusterClient, rInfo)
+	netInfo, err = GetResourceNetworkInfo(ctx, rInfo, fakeClients)
 
 	require.NoError(t, err)
-	assert.Equal(t, shortenClusterId(cluster.Id), *resourceId)
-	assert.Equal(t, fakeSubnetId, *subnet)
+	assert.Equal(t, shortenClusterId(cluster.Id), netInfo.ResourceID)
+	assert.Equal(t, fakeSubnetId, netInfo.SubnetUrl)
+
+	// Test for private service connect
+	rInfo = &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakePscName, ResourceType: privateServiceConnectTypeName, Namespace: fakeNamespace}
+
+	forwardingRule := getFakeForwardingRule()
+	address := getFakeAddress()
+	serverState = fakeServerState{forwardingRule: forwardingRule, address: address}
+	fakeServer, ctx, fakeClients, fakeGRPCServer = setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	netInfo, err = GetResourceNetworkInfo(ctx, rInfo, fakeClients)
+
+	require.NoError(t, err)
+	assert.Equal(t, convertIntIdToString(*forwardingRule.Id), netInfo.ResourceID)
+	assert.Equal(t, *address.Address, netInfo.Address)
 }
 
 func TestIsValidResource(t *testing.T) {
 	// Test for instance
-	resource, _, err := getFakeInstanceResourceDescription()
+	resource, fakeInstance, err := getFakeInstanceResourceDescription()
 	require.NoError(t, err)
 
 	resourceInfo, err := IsValidResource(context.Background(), resource)
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeZone, resourceInfo.Zone)
+	assert.Equal(t, *fakeInstance.InstanceResource.Name, resourceInfo.Name)
 
 	// Test for cluster
-	resource, _, err = getFakeClusterResourceDescription()
+	resource, fakeCluster, err := getFakeClusterResourceDescription()
 	require.NoError(t, err)
 
 	resourceInfo, err = IsValidResource(context.Background(), resource)
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeZone, resourceInfo.Zone)
+	assert.Equal(t, fakeCluster.Cluster.Name, resourceInfo.Name)
+
+	// Test for private service connect
+	resource, _, err = getFakePSCRequest(false)
+	require.NoError(t, err)
+
+	resourceInfo, err = IsValidResource(context.Background(), resource)
+
+	require.NoError(t, err)
+	assert.Equal(t, fakeRegion, resourceInfo.Region)
+	assert.Equal(t, resource.Name, resourceInfo.Name)
 }
 
 func TestReadAndProvisionResource(t *testing.T) {
@@ -170,9 +208,7 @@ func TestReadAndProvisionResource(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	client := fakeClients.instancesClient
-
-	url, ip, err := ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, client, nil, nil, make([]string, 0))
+	url, ip, err := ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, make([]string, 0), fakeClients)
 
 	require.NoError(t, err)
 	assert.Contains(t, url, *instanceRequest.InstanceResource.Name)
@@ -184,19 +220,32 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	rInfo = &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName}
 
-	clusterClient := fakeClients.clusterClient
-	firewallClient := fakeClients.firewallsClient
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
-	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, nil, clusterClient, firewallClient, additionalAddressSpaces)
+	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, additionalAddressSpaces, fakeClients)
 
 	require.NoError(t, err)
 	assert.Equal(t, getClusterUrl(fakeProject, fakeZone, clusterRequest.Cluster.Name), url)
 	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
+
+	// Test for Private Service Connect
+	serverState.address = getFakeAddress()
+	serverState.forwardingRule = getFakeForwardingRule()
+
+	resource, _, err = getFakePSCRequest(false)
+	require.NoError(t, err)
+
+	rInfo = &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakePscName, ResourceType: privateServiceConnectTypeName}
+
+	url, ip, err = ReadAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{""}, fakeClients)
+
+	require.NoError(t, err)
+	assert.Equal(t, *getFakeForwardingRule().SelfLink, url)
+	assert.Equal(t, *getFakeAddress().Address, ip)
 }
 
 func TestInstanceReadAndProvisionResource(t *testing.T) {
-	instanceHandler := &gcpInstance{}
+	instanceHandler := &instanceHandler{}
 	subnet := "subnet-1"
 	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeInstanceName, ResourceType: instanceTypeName}
 	resource, _, err := getFakeInstanceResourceDescription()
@@ -206,9 +255,10 @@ func TestInstanceReadAndProvisionResource(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	instanceHandler.client = fakeClients.instancesClient
+	err = instanceHandler.initClients(ctx, fakeClients)
+	require.NoError(t, err)
 
-	url, ip, err := instanceHandler.readAndProvisionResource(ctx, resource, subnet, rInfo, nil, make([]string, 0))
+	url, ip, err := instanceHandler.readAndProvisionResource(ctx, resource, subnet, rInfo, make([]string, 0))
 
 	require.NoError(t, err)
 	assert.Contains(t, url, *getFakeInstance(true).Name)
@@ -216,11 +266,10 @@ func TestInstanceReadAndProvisionResource(t *testing.T) {
 }
 
 func TestInstanceGetResourceInfo(t *testing.T) {
-	instanceHandler := &gcpInstance{}
+	instanceHandler := &instanceHandler{}
 	resource, instanceRequest, err := getFakeInstanceResourceDescription()
 	require.NoError(t, err)
 
-	instanceHandler.client = nil
 	resourceInfo, err := instanceHandler.getResourceInfo(context.Background(), resource)
 
 	require.NoError(t, err)
@@ -228,28 +277,30 @@ func TestInstanceGetResourceInfo(t *testing.T) {
 }
 
 func TestInstanceGetNetworkInfo(t *testing.T) {
-	instanceHandler := &gcpInstance{}
+	instanceHandler := &instanceHandler{}
 	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeInstanceName, ResourceType: instanceTypeName}
 	instance := getFakeInstance(true)
 	serverState := fakeServerState{instance: instance}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	instanceHandler.client = fakeClients.instancesClient
+	err := instanceHandler.initClients(ctx, fakeClients)
+	require.NoError(t, err)
 
 	networkInfo, err := instanceHandler.getNetworkInfo(ctx, rInfo)
 
 	require.NoError(t, err)
-	assert.Equal(t, convertInstanceIdToString(*instance.Id), networkInfo.ResourceID)
+	assert.Equal(t, convertIntIdToString(*instance.Id), networkInfo.ResourceID)
 	assert.Contains(t, *instance.NetworkInterfaces[0].Network, networkInfo.NetworkName)
 	assert.Equal(t, *instance.NetworkInterfaces[0].Subnetwork, networkInfo.SubnetUrl)
+	assert.Equal(t, *instance.NetworkInterfaces[0].NetworkIP, networkInfo.Address)
 }
 
 func TestInstanceFromResourceDecription(t *testing.T) {
 	resource, instanceRequest, err := getFakeInstanceResourceDescription()
 	require.NoError(t, err)
 
-	instanceHandler := &gcpInstance{}
+	instanceHandler := &instanceHandler{}
 	instanceParsed, err := instanceHandler.fromResourceDecription(resource.Description)
 
 	require.NoError(t, err)
@@ -258,7 +309,7 @@ func TestInstanceFromResourceDecription(t *testing.T) {
 }
 
 func TestInstanceCreateWithNetwork(t *testing.T) {
-	instanceHandler := &gcpInstance{}
+	instanceHandler := &instanceHandler{}
 	subnet := "subnet-1"
 	instanceRequest := &computepb.InsertInstanceRequest{
 		Project:          fakeProject,
@@ -270,9 +321,10 @@ func TestInstanceCreateWithNetwork(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	instanceHandler.client = fakeClients.instancesClient
+	err := instanceHandler.initClients(ctx, fakeClients)
+	require.NoError(t, err)
 
-	url, ip, err := instanceHandler.createWithNetwork(ctx, instanceRequest, subnet, rInfo, nil)
+	url, ip, err := instanceHandler.createWithNetwork(ctx, instanceRequest, subnet, rInfo)
 
 	require.NoError(t, err)
 	assert.Contains(t, url, *instanceRequest.InstanceResource.Name)
@@ -281,33 +333,33 @@ func TestInstanceCreateWithNetwork(t *testing.T) {
 }
 
 func TestClusterReadAndProvisionResource(t *testing.T) {
-	clusterHandler := &gcpGKE{}
+	clusterHandler := &clusterHandler{}
 	resource, clusterRequest, err := getFakeClusterResourceDescription()
 	require.NoError(t, err)
 
 	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName}
 
-	serverState := fakeServerState{instance: getFakeInstance(true)}
+	serverState := fakeServerState{}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	clusterHandler.client = fakeClients.clusterClient
-	firewallClient := fakeClients.firewallsClient
+	err = clusterHandler.initClients(ctx, fakeClients)
+	require.NoError(t, err)
+
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
-	url, ip, err := clusterHandler.readAndProvisionResource(ctx, resource, "subnet-1", rInfo, firewallClient, additionalAddressSpaces)
+	url, ip, err := clusterHandler.readAndProvisionResource(ctx, resource, "subnet-1", rInfo, additionalAddressSpaces)
 
 	require.NoError(t, err)
 	assert.Equal(t, getClusterUrl(fakeProject, fakeZone, clusterRequest.Cluster.Name), url)
 	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
 }
 
-func TestGKEGetResourceInfo(t *testing.T) {
-	clusterHandler := &gcpGKE{}
+func TestClusterGetResourceInfo(t *testing.T) {
+	clusterHandler := &clusterHandler{}
 	resource, _, err := getFakeClusterResourceDescription()
 	require.NoError(t, err)
 
-	clusterHandler.client = nil
 	resourceInfo, err := clusterHandler.getResourceInfo(context.Background(), resource)
 
 	require.NoError(t, err)
@@ -315,15 +367,16 @@ func TestGKEGetResourceInfo(t *testing.T) {
 	assert.Equal(t, clusterTypeName, resourceInfo.ResourceType)
 }
 
-func TestGKEGetNetworkInfo(t *testing.T) {
-	clusterHandler := &gcpGKE{}
+func TestClusterGetNetworkInfo(t *testing.T) {
+	clusterHandler := &clusterHandler{}
 	resourceInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName}
 	cluster := getFakeCluster(true)
 	serverState := fakeServerState{cluster: cluster}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	clusterHandler.client = fakeClients.clusterClient
+	err := clusterHandler.initClients(ctx, fakeClients)
+	require.NoError(t, err)
 
 	networkInfo, err := clusterHandler.getNetworkInfo(ctx, resourceInfo)
 
@@ -332,35 +385,120 @@ func TestGKEGetNetworkInfo(t *testing.T) {
 	assert.Equal(t, fakeSubnetId, networkInfo.SubnetUrl)
 }
 
-func TestGKEFromResourceDecription(t *testing.T) {
+func TestClusterFromResourceDecription(t *testing.T) {
 	resource, clusterRequest, err := getFakeClusterResourceDescription()
 	require.NoError(t, err)
 
-	clusterHandler := &gcpGKE{}
+	clusterHandler := &clusterHandler{}
 	clusterParsed, err := clusterHandler.fromResourceDecription(resource.Description)
 
 	require.NoError(t, err)
 	assert.Equal(t, clusterRequest.Cluster.Id, clusterParsed.Cluster.Id)
 }
 
-func TestGKECreateWithNetwork(t *testing.T) {
-	clusterHandler := &gcpGKE{}
+func TestClusterCreateWithNetwork(t *testing.T) {
+	clusterHandler := &clusterHandler{}
 	subnet := "subnet-1"
 	clusterRequest := &containerpb.CreateClusterRequest{
 		Cluster: getFakeCluster(false),
 	}
-	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: instanceTypeName}
+	rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeClusterName, ResourceType: clusterTypeName}
 	serverState := fakeServerState{}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-	clusterHandler.client = fakeClients.clusterClient
-	fwClient := fakeClients.firewallsClient
+	err := clusterHandler.initClients(ctx, fakeClients)
+	require.NoError(t, err)
+
 	additionalAddressSpaces := []string{"10.10.0.0/16", "10.11.0.0/16", "10.12.0.0/16"}
 
-	url, ip, err := clusterHandler.createWithNetwork(ctx, clusterRequest, subnet, rInfo, fwClient, additionalAddressSpaces)
+	url, ip, err := clusterHandler.createWithNetwork(ctx, clusterRequest, subnet, rInfo, additionalAddressSpaces)
 
 	require.NoError(t, err)
 	assert.Equal(t, getClusterUrl(fakeProject, fakeZone, fakeClusterName), url)
 	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
+}
+
+func TestPrivateServiceReadAndProvisionResource(t *testing.T) {
+	pscHandler := &privateServiceHandler{}
+	resource, _, err := getFakePSCRequest(false)
+	require.NoError(t, err)
+
+	rInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakePscName, ResourceType: privateServiceConnectTypeName}
+
+	serverState := fakeServerState{address: getFakeAddress(), forwardingRule: getFakeForwardingRule()}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	err = pscHandler.initClients(ctx, fakeClients)
+	require.NoError(t, err)
+
+	url, ip, err := pscHandler.readAndProvisionResource(ctx, resource, "subnet-1", rInfo, []string{""})
+
+	require.NoError(t, err)
+	assert.Equal(t, *getFakeForwardingRule().SelfLink, url)
+	assert.Equal(t, ip, *getFakeAddress().Address)
+}
+
+func TestPrivateServiceGetResourceInfo(t *testing.T) {
+	pscHandler := &privateServiceHandler{}
+	resource, _, err := getFakePSCRequest(false)
+	require.NoError(t, err)
+
+	resourceInfo, err := pscHandler.getResourceInfo(context.Background(), resource)
+
+	require.NoError(t, err)
+	assert.Equal(t, fakeRegion, resourceInfo.Region)
+	assert.Equal(t, privateServiceConnectTypeName, resourceInfo.ResourceType)
+	assert.Equal(t, fakePscName, resourceInfo.Name)
+}
+
+func TestPrivateServiceGetNetworkInfo(t *testing.T) {
+	pscHandler := &privateServiceHandler{}
+	resourceInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Zone: fakeZone, Name: fakePscName, ResourceType: privateServiceConnectTypeName}
+
+	forwardingRule := getFakeForwardingRule()
+	address := getFakeAddress()
+	serverState := fakeServerState{forwardingRule: forwardingRule, address: address}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	err := pscHandler.initClients(ctx, fakeClients)
+	require.NoError(t, err)
+
+	networkInfo, err := pscHandler.getNetworkInfo(ctx, resourceInfo)
+
+	require.NoError(t, err)
+	assert.Equal(t, convertIntIdToString(*forwardingRule.Id), networkInfo.ResourceID)
+	assert.Equal(t, *address.Address, networkInfo.Address)
+}
+
+func TestPrivateServiceCreateWithNetwork(t *testing.T) {
+	// Non-GCP service
+	pscHandler := &privateServiceHandler{}
+	subnet := "subnet-1"
+	serviceDescription := &ServiceAttachmentDescription{Url: fakeServiceAttachmentUrl}
+
+	rInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakePscName, ResourceType: privateServiceConnectTypeName}
+	serverState := fakeServerState{address: getFakeAddress(), forwardingRule: getFakeForwardingRule()}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	err := pscHandler.initClients(ctx, fakeClients)
+	require.NoError(t, err)
+
+	url, ip, err := pscHandler.createWithNetwork(ctx, *serviceDescription, subnet, rInfo, "")
+
+	require.NoError(t, err)
+	assert.Equal(t, *getFakeForwardingRule().SelfLink, url)
+	assert.Equal(t, *getFakeAddress().Address, ip)
+
+	// GCP Service
+	serviceDescription = &ServiceAttachmentDescription{Bundle: "all-apis", Region: "us-west"}
+
+	url, ip, err = pscHandler.createWithNetwork(ctx, *serviceDescription, subnet, rInfo, "1.1.1.1")
+
+	require.NoError(t, err)
+	assert.Equal(t, *getFakeForwardingRule().SelfLink, url)
+	assert.Equal(t, *getFakeAddress().Address, ip)
 }

@@ -33,9 +33,14 @@ import (
 )
 
 const (
-	clusterTypeName   = "cluster"
-	instanceTypeName  = "instance"
-	clusterNameFormat = "projects/%s/locations/%s/clusters/%s"
+	clusterTypeName               = "cluster"
+	instanceTypeName              = "instance"
+	privateServiceConnectTypeName = "privateServiceConnect"
+	clusterNameFormat             = "projects/%s/locations/%s/clusters/%s"
+	addressType                   = "INTERNAL"
+	addressVersion                = "IPV4"
+	addressPurpose                = "PRIVATE_SERVICE_CONNECT"
+	paragliderLabel               = "paraglider_ns"
 )
 
 type resourceInfo struct {
@@ -53,35 +58,74 @@ type resourceNetworkInfo struct {
 	SubnetUrl   string
 	ResourceID  string
 	NetworkName string
+	Address     string
+}
+
+type ServiceAttachmentDescription struct {
+	Url    string `json:"url"`
+	Bundle string `json:"bundle"`
+	Region string `json:"region"`
 }
 
 func resourceIsInNamespace(network string, namespace string) bool {
 	return strings.HasSuffix(network, getVpcName(namespace))
 }
 
-// Gets a GCP network tag for a GCP instance
+// Gets a network tag for a resource
 func getNetworkTag(namespace string, resourceType string, resourceId string) string {
 	return getParagliderNamespacePrefix(namespace) + "-" + resourceType + "-" + resourceId
 }
 
-func convertInstanceIdToString(instanceId uint64) string {
-	id := strconv.FormatUint(instanceId, 16)
-	if len(id) > 8 {
-		return id[:8]
-	}
-	return id
+// Get name for an IP address resource
+func getAddressName(resourceName string) string {
+	return paragliderPrefix + "-" + resourceName + "-address"
 }
 
+// Get name of a forwarding rule
+func getForwardingRuleName(resourceName string) string {
+	return paragliderPrefix + "-" + resourceName
+}
+
+func parseForwardingRuleName(name string) string {
+	return strings.TrimPrefix(name, paragliderPrefix+"-")
+}
+
+// Convert integer resource IDs to a string for naming
+func convertIntIdToString(id uint64) string {
+	stringId := strconv.FormatUint(id, 16)
+	if len(stringId) > 8 {
+		return stringId[:8]
+	}
+	return stringId
+}
+
+// Shorten cluster IDs for use in associated resource names
 func shortenClusterId(clusterId string) string {
 	return clusterId[:8]
 }
 
+// Get a network tag for a cluster
 func getClusterNodeTag(namespace string, clusterName string, clusterId string) string {
 	return getParagliderNamespacePrefix(namespace) + "-gke-" + clusterName + "-" + shortenClusterId(clusterId) + "-node"
 }
 
+// getInstanceUrl returns a fully qualified URL for an instance
+func getInstanceUrl(project, zone, instance string) string {
+	return computeUrlPrefix + fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instance)
+}
+
+// getClusterUrl returns a fully qualified URL for a cluster
+func getClusterUrl(project, zone, cluster string) string {
+	return containerUrlPrefix + fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, zone, cluster)
+}
+
 // Get the firewall rules associated with a resource following the naming convention
-func getFirewallRules(ctx context.Context, client *compute.FirewallsClient, project string, resourceID string) ([]*computepb.Firewall, error) {
+func getFirewallRules(ctx context.Context, project string, resourceID string, clients *GCPClients) ([]*computepb.Firewall, error) {
+	client, err := clients.GetOrCreateFirewallsClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get firewalls client: %w", err)
+	}
+
 	firewallRules := []*computepb.Firewall{}
 	filter := fmt.Sprintf("name eq \".*%s.*\"", resourceID)
 	listFirewallsRequest := &computepb.ListFirewallsRequest{
@@ -110,34 +154,46 @@ func parseResourceUrl(resourceUrl string) (*resourceInfo, error) {
 		return &resourceInfo{Project: parsedResourceId["projects"], Zone: parsedResourceId["zones"], Region: getRegionFromZone(parsedResourceId["zones"]), Name: name, ResourceType: instanceTypeName}, nil
 	} else if name, ok := parsedResourceId["clusters"]; ok {
 		return &resourceInfo{Project: parsedResourceId["projects"], Zone: parsedResourceId["locations"], Region: getRegionFromZone(parsedResourceId["locations"]), Name: name, ResourceType: clusterTypeName}, nil
+	} else if name, ok := parsedResourceId["forwardingRules"]; ok {
+		return &resourceInfo{Project: parsedResourceId["projects"], Region: parsedResourceId["regions"], Name: parseForwardingRuleName(name), ResourceType: privateServiceConnectTypeName}, nil
 	}
 	return nil, fmt.Errorf("unable to parse resource URL")
 }
 
-// Get the resource handler for a given resource type with the client field set
-func getResourceHandlerWithClient(resourceType string, instancesClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient) (iGCPResourceHandler, error) {
+// Get the resource handler for a given resource type with necessary clients initialized if provided
+func getResourceHandler(ctx context.Context, resourceType string, clients *GCPClients) (GCPResourceHandler, error) {
+	var handler GCPResourceHandler
 	if resourceType == instanceTypeName {
-		handler := &gcpInstance{}
-		handler.client = instancesClient
-		return handler, nil
+		handler = &instanceHandler{}
 	} else if resourceType == clusterTypeName {
-		handler := &gcpGKE{}
-		handler.client = clusterClient
-		return handler, nil
+		handler = &clusterHandler{}
+	} else if resourceType == privateServiceConnectTypeName {
+		handler = &privateServiceHandler{}
 	} else {
 		return nil, fmt.Errorf("unknown resource type")
 	}
+	if clients != nil {
+		err := handler.initClients(ctx, clients)
+		if err != nil {
+			return nil, fmt.Errorf("unable to initialize clients: %w", err)
+		}
+	}
+	return handler, nil
 }
 
-// Get the resource handler for a given resource description, the handler will not have a client
-func getResourceHandlerFromDescription(resourceDesc []byte) (iGCPResourceHandler, error) {
+// Get the resource handler for a given resource description
+// The handler will not have clients initialized
+func getResourceHandlerFromDescription(resourceDesc []byte) (GCPResourceHandler, error) {
 	insertInstanceRequest := &computepb.InsertInstanceRequest{}
 	createClusterRequest := &containerpb.CreateClusterRequest{}
+	serviceAttachment := &ServiceAttachmentDescription{}
 	err := json.Unmarshal(resourceDesc, insertInstanceRequest)
 	if err == nil && insertInstanceRequest.InstanceResource != nil {
-		return &gcpInstance{}, nil
+		return &instanceHandler{}, nil
 	} else if err := json.Unmarshal(resourceDesc, createClusterRequest); err == nil && createClusterRequest.Cluster != nil {
-		return &gcpGKE{}, nil
+		return &clusterHandler{}, nil
+	} else if err := json.Unmarshal(resourceDesc, serviceAttachment); err == nil {
+		return &privateServiceHandler{}, nil
 	} else {
 		return nil, fmt.Errorf("resource description contains unknown GCP resource")
 	}
@@ -145,27 +201,27 @@ func getResourceHandlerFromDescription(resourceDesc []byte) (iGCPResourceHandler
 
 // Gets network information about a resource and confirms it is in the correct namespace
 // Returns the subnet URL and resource ID (instance ID or cluster ID, not URL since this is used for firewall rule naming)
-func GetResourceNetworkInfo(ctx context.Context, instancesClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient, resourceInfo *resourceInfo) (*string, *string, error) {
+func GetResourceNetworkInfo(ctx context.Context, resourceInfo *resourceInfo, clients *GCPClients) (*resourceNetworkInfo, error) {
 	if resourceInfo.Namespace == "" {
-		return nil, nil, fmt.Errorf("namespace is empty")
+		return nil, fmt.Errorf("namespace is empty")
 	}
 
-	handler, err := getResourceHandlerWithClient(resourceInfo.ResourceType, instancesClient, clusterClient)
+	handler, err := getResourceHandler(ctx, resourceInfo.ResourceType, clients)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to get resource handler: %w", err)
+		return nil, fmt.Errorf("unable to get resource handler: %w", err)
 	}
 	netInfo, err := handler.getNetworkInfo(ctx, resourceInfo)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to get network info: %w", err)
+		return nil, fmt.Errorf("unable to get network info: %w", err)
 	}
 
 	if !resourceIsInNamespace(netInfo.NetworkName, resourceInfo.Namespace) {
-		return nil, nil, fmt.Errorf("resource is not in namespace")
+		return nil, fmt.Errorf("resource is not in namespace")
 	}
-	return &netInfo.SubnetUrl, &netInfo.ResourceID, nil
+	return netInfo, nil
 }
 
-// Determine whether the provided resource description is supported
+// Read parameters from within the resource description and ensure it is a valid resource
 func IsValidResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
 	handler, err := getResourceHandlerFromDescription(resource.Description)
 	if err != nil {
@@ -179,67 +235,87 @@ func IsValidResource(ctx context.Context, resource *paragliderpb.CreateResourceR
 }
 
 // Read the resource description and provision the resource
-func ReadAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnetName string, resourceInfo *resourceInfo, instanceClient *compute.InstancesClient, clusterClient *container.ClusterManagerClient, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
-	handler, err := getResourceHandlerWithClient(resourceInfo.ResourceType, instanceClient, clusterClient)
+func ReadAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnetName string, resourceInfo *resourceInfo, additionalAddrSpaces []string, clients *GCPClients) (string, string, error) {
+	handler, err := getResourceHandler(ctx, resourceInfo.ResourceType, clients)
 	if err != nil {
 		return "", "", fmt.Errorf("unable to get resource handler: %w", err)
 	}
-	return handler.readAndProvisionResource(ctx, resource, subnetName, resourceInfo, firewallsClient, additionalAddrSpaces)
+	return handler.readAndProvisionResource(ctx, resource, subnetName, resourceInfo, additionalAddrSpaces)
 }
 
-// Type defition for supported resources
-type supportedGCPResourceClient interface {
-	compute.InstancesClient | container.ClusterManagerClient
+// Get the type and value of the firewall target for a resource
+func GetFirewallTarget(ctx context.Context, resourceInfo *resourceInfo, netInfo *resourceNetworkInfo) (*firewallTarget, error) {
+	handler, err := getResourceHandler(ctx, resourceInfo.ResourceType, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get resource handler: %w", err)
+	}
+	target := handler.getFirewallTarget(resourceInfo, netInfo)
+	return &target, nil
 }
 
 // Interface to implement to support a resource
-type iGCPResourceHandler interface {
+type GCPResourceHandler interface {
 	// Read and provision the resource with the provided subnet
-	readAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error)
+	readAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnetName string, resourceInfo *resourceInfo, additionalAddrSpaces []string) (string, string, error)
 	// Get network information about the resource
 	getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo) (*resourceNetworkInfo, error)
 	// Get information about the reosurce from the resource description
 	getResourceInfo(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error)
-}
-
-// Generic GCP resource handler
-type gcpResourceHandler[T supportedGCPResourceClient] struct {
-	iGCPResourceHandler
-	client *T
+	// Initialize necessary clients
+	initClients(ctx context.Context, clients *GCPClients) error
+	// Get target for firewall rules
+	getFirewallTarget(resourceInfo *resourceInfo, netInfo *resourceNetworkInfo) firewallTarget
 }
 
 // GCP instance resource handler
-type gcpInstance struct {
-	gcpResourceHandler[compute.InstancesClient]
+type instanceHandler struct {
+	GCPResourceHandler
+	client *compute.InstancesClient
 }
 
-// Get the resource information for a GCP instance
-func (r *gcpInstance) getResourceInfo(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
+// Initialize necessary clients for the handler
+func (r *instanceHandler) initClients(ctx context.Context, clients *GCPClients) error {
+	client, err := clients.GetOrCreateInstancesClient(ctx)
+	if err != nil {
+		return err
+	}
+	r.client = client
+	return nil
+}
+
+// Get the resource information for an instance
+func (r *instanceHandler) getResourceInfo(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
 	insertInstanceRequest := &computepb.InsertInstanceRequest{}
 	err := json.Unmarshal(resource.Description, insertInstanceRequest)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource description: %w", err)
 	}
-	return &resourceInfo{Zone: insertInstanceRequest.Zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: instanceTypeName}, nil
+	region := getRegionFromZone(insertInstanceRequest.Zone)
+	return &resourceInfo{Name: resource.Name, Region: region, Zone: insertInstanceRequest.Zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: instanceTypeName}, nil
 }
 
-// Read and provision a GCP instance
-func (r *gcpInstance) readAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
+// Read and provision an instance
+func (r *instanceHandler) readAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnetName string, resourceInfo *resourceInfo, additionalAddrSpaces []string) (string, string, error) {
 	vm, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
 		return "", "", err
 	}
-	return r.createWithNetwork(ctx, vm, subnetName, resourceInfo, firewallsClient)
+	return r.createWithNetwork(ctx, vm, subnetName, resourceInfo)
 }
 
-// Get the subnet requirements for a GCP instance
-func (r *gcpInstance) getNumberAddressSpacesRequired() int {
+// Get the subnet requirements for an instance
+func (r *instanceHandler) getNumberAddressSpacesRequired() int {
 	return 0
 }
 
-// Get network information about a GCP instance
-// Returns the network name, subnet URL, and instance ID converted to a string for rule naming
-func (r *gcpInstance) getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo) (*resourceNetworkInfo, error) {
+// Get the firewall target type and value for a specific instance
+func (r *instanceHandler) getFirewallTarget(resourceInfo *resourceInfo, netInfo *resourceNetworkInfo) firewallTarget {
+	return firewallTarget{TargetType: targetTypeTag, Target: getNetworkTag(resourceInfo.Namespace, instanceTypeName, netInfo.ResourceID)}
+}
+
+// Get network information about an instance
+// Returns the network name, subnet URL, IP, and instance ID converted to a string for rule naming
+func (r *instanceHandler) getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo) (*resourceNetworkInfo, error) {
 	instanceRequest := &computepb.GetInstanceRequest{
 		Instance: resourceInfo.Name,
 		Project:  resourceInfo.Project,
@@ -251,13 +327,14 @@ func (r *gcpInstance) getNetworkInfo(ctx context.Context, resourceInfo *resource
 	}
 	networkName := *instanceResponse.NetworkInterfaces[0].Network
 	subnetUrl := *instanceResponse.NetworkInterfaces[0].Subnetwork
-	resourceID := convertInstanceIdToString(*instanceResponse.Id)
-	return &resourceNetworkInfo{NetworkName: networkName, SubnetUrl: subnetUrl, ResourceID: resourceID}, nil
+	resourceID := convertIntIdToString(*instanceResponse.Id)
+	ip := *instanceResponse.NetworkInterfaces[0].NetworkIP
+	return &resourceNetworkInfo{NetworkName: networkName, SubnetUrl: subnetUrl, ResourceID: resourceID, Address: ip}, nil
 }
 
-// Create a GCP instance with network settings
+// Create an instance with given network settings
 // Returns the instance URL and instance IP
-func (r *gcpInstance) createWithNetwork(ctx context.Context, instance *computepb.InsertInstanceRequest, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient) (string, string, error) {
+func (r *instanceHandler) createWithNetwork(ctx context.Context, instance *computepb.InsertInstanceRequest, subnetName string, resourceInfo *resourceInfo) (string, string, error) {
 	// Set project and name
 	instance.Project = resourceInfo.Project
 	instance.InstanceResource.Name = proto.String(resourceInfo.Name)
@@ -301,7 +378,7 @@ func (r *gcpInstance) createWithNetwork(ctx context.Context, instance *computepb
 		Project:  resourceInfo.Project,
 		Zone:     resourceInfo.Zone,
 		TagsResource: &computepb.Tags{
-			Items:       append(existingTags, getNetworkTag(resourceInfo.Namespace, instanceTypeName, convertInstanceIdToString(*getInstanceResp.Id))),
+			Items:       append(existingTags, getNetworkTag(resourceInfo.Namespace, instanceTypeName, convertIntIdToString(*getInstanceResp.Id))),
 			Fingerprint: getInstanceResp.Tags.Fingerprint,
 		},
 	}
@@ -317,7 +394,7 @@ func (r *gcpInstance) createWithNetwork(ctx context.Context, instance *computepb
 }
 
 // Parse the resource description and return the instance request
-func (r *gcpInstance) fromResourceDecription(resourceDesc []byte) (*computepb.InsertInstanceRequest, error) {
+func (r *instanceHandler) fromResourceDecription(resourceDesc []byte) (*computepb.InsertInstanceRequest, error) {
 	insertInstanceRequest := &computepb.InsertInstanceRequest{}
 	err := json.Unmarshal(resourceDesc, insertInstanceRequest)
 	if err != nil {
@@ -330,38 +407,63 @@ func (r *gcpInstance) fromResourceDecription(resourceDesc []byte) (*computepb.In
 }
 
 // GCP cluster resource handler
-type gcpGKE struct {
-	gcpResourceHandler[container.ClusterManagerClient]
+type clusterHandler struct {
+	GCPResourceHandler
+	client          *container.ClusterManagerClient
+	firewallsClient *compute.FirewallsClient
 }
 
-// Read and provision a GCP cluster
-func (r *gcpGKE) readAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
+// Initialize necessary clients for the handler
+func (r *clusterHandler) initClients(ctx context.Context, clients *GCPClients) error {
+	client, err := clients.GetOrCreateClustersClient(ctx)
+	if err != nil {
+		return err
+	}
+	r.client = client
+
+	firewallsClient, err := clients.GetOrCreateFirewallsClient(ctx)
+	if err != nil {
+		return err
+	}
+	r.firewallsClient = firewallsClient
+
+	return nil
+}
+
+// Read and provision a cluster
+func (r *clusterHandler) readAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnetName string, resourceInfo *resourceInfo, additionalAddrSpaces []string) (string, string, error) {
 	gke, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
 		return "", "", err
 	}
-	return r.createWithNetwork(ctx, gke, subnetName, resourceInfo, firewallsClient, additionalAddrSpaces)
+	return r.createWithNetwork(ctx, gke, subnetName, resourceInfo, additionalAddrSpaces)
 }
 
-// Get the resource information for a GCP cluster
-func (r *gcpGKE) getResourceInfo(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
+// Get the resource information for a cluster
+func (r *clusterHandler) getResourceInfo(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
 	createClusterRequest := &containerpb.CreateClusterRequest{}
 	err := json.Unmarshal(resource.Description, createClusterRequest)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse resource description: %w", err)
 	}
 	zone := strings.Split(createClusterRequest.Parent, "/")[3]
-	return &resourceInfo{Zone: zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: clusterTypeName}, nil
+	region := getRegionFromZone(zone)
+	return &resourceInfo{Name: resource.Name, Region: region, Zone: zone, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: clusterTypeName}, nil
 }
 
-// Get the subnet requirements for a GCP instance
-func (r *gcpGKE) getNumberAddressSpacesRequired() int {
+// Get the subnet requirements for a cluster
+func (r *clusterHandler) getNumberAddressSpacesRequired() int {
 	return 3
 }
 
-// Get network information about a GCP cluster
-// Returns the subnet URL and resource ID (cluster ID, not URL since this is used for firewall rule naming)
-func (r *gcpGKE) getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo) (*resourceNetworkInfo, error) {
+// Get the firewall target type and value for a specific cluster
+func (r *clusterHandler) getFirewallTarget(resourceInfo *resourceInfo, netInfo *resourceNetworkInfo) firewallTarget {
+	return firewallTarget{TargetType: targetTypeTag, Target: getNetworkTag(resourceInfo.Namespace, clusterTypeName, netInfo.ResourceID)}
+}
+
+// Get network information about a cluster
+// Returns the network name, subnet URL, and resource ID (cluster ID, not URL since this is used for firewall rule naming)
+func (r *clusterHandler) getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo) (*resourceNetworkInfo, error) {
 	clusterRequest := &containerpb.GetClusterRequest{
 		Name: fmt.Sprintf(clusterNameFormat, resourceInfo.Project, resourceInfo.Zone, resourceInfo.Name),
 	}
@@ -372,9 +474,9 @@ func (r *gcpGKE) getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo)
 	return &resourceNetworkInfo{SubnetUrl: getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, clusterResponse.Subnetwork), NetworkName: clusterResponse.Network, ResourceID: shortenClusterId(clusterResponse.Id)}, nil
 }
 
-// Create a GCP cluster with network settings
+// Create a cluster with given network settings
 // Returns the cluster URL and cluster CIDR
-func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.CreateClusterRequest, subnetName string, resourceInfo *resourceInfo, firewallsClient *compute.FirewallsClient, additionalAddrSpaces []string) (string, string, error) {
+func (r *clusterHandler) createWithNetwork(ctx context.Context, cluster *containerpb.CreateClusterRequest, subnetName string, resourceInfo *resourceInfo, additionalAddrSpaces []string) (string, string, error) {
 	// Set project and name
 	cluster.Parent = fmt.Sprintf("projects/%s/locations/%s", resourceInfo.Project, resourceInfo.Zone)
 	cluster.Cluster.Name = resourceInfo.Name
@@ -432,7 +534,7 @@ func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.Cre
 			insertFirewallReq.FirewallResource.SourceRanges = []string{cluster.Cluster.PrivateClusterConfig.MasterIpv4CidrBlock}
 		}
 
-		insertFirewallOp, err := firewallsClient.Insert(ctx, insertFirewallReq)
+		insertFirewallOp, err := r.firewallsClient.Insert(ctx, insertFirewallReq)
 		if err != nil {
 			return "", "", fmt.Errorf("unable to create firewall rule: %w", err)
 		}
@@ -468,7 +570,7 @@ func (r *gcpGKE) createWithNetwork(ctx context.Context, cluster *containerpb.Cre
 }
 
 // Parse the resource description and return the cluster request
-func (r *gcpGKE) fromResourceDecription(resourceDesc []byte) (*containerpb.CreateClusterRequest, error) {
+func (r *clusterHandler) fromResourceDecription(resourceDesc []byte) (*containerpb.CreateClusterRequest, error) {
 	createClusterRequest := &containerpb.CreateClusterRequest{}
 	err := json.Unmarshal(resourceDesc, createClusterRequest)
 	if err != nil {
@@ -488,12 +590,185 @@ func (r *gcpGKE) fromResourceDecription(resourceDesc []byte) (*containerpb.Creat
 	return createClusterRequest, nil
 }
 
-// getInstanceUrl returns a fully qualified URL for an instance
-func getInstanceUrl(project, zone, instance string) string {
-	return computeUrlPrefix + fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instance)
+// GCP private service connect
+type privateServiceHandler struct {
+	GCPResourceHandler
+	addressesClient   *compute.AddressesClient
+	forwardingClient  *compute.ForwardingRulesClient
+	attachmentsClient *compute.ServiceAttachmentsClient
 }
 
-// getClusterUrl returns a fully qualified URL for a cluster
-func getClusterUrl(project, zone, cluster string) string {
-	return containerUrlPrefix + fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, zone, cluster)
+// Initialize necessary clients for the handler
+func (r *privateServiceHandler) initClients(ctx context.Context, clients *GCPClients) error {
+	addressesClient, err := clients.GetOrCreateAddressesClient(ctx)
+	if err != nil {
+		return err
+	}
+	r.addressesClient = addressesClient
+
+	forwardingClient, err := clients.GetOrCreateForwardingClient(ctx)
+	if err != nil {
+		return err
+	}
+	r.forwardingClient = forwardingClient
+
+	attachmentsClient, err := clients.GetOrCreateServiceAttachmentsClient(ctx)
+	if err != nil {
+		return err
+	}
+	r.attachmentsClient = attachmentsClient
+
+	return nil
+}
+
+// Read and provision a private service connect endpoint to associate with a service attachment
+func (r *privateServiceHandler) readAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnetName string, resourceInfo *resourceInfo, additionalAddrSpaces []string) (string, string, error) {
+	description := &ServiceAttachmentDescription{}
+	err := json.Unmarshal(resource.Description, description)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to parse resource description: %w", err)
+	}
+	return r.createWithNetwork(ctx, *description, subnetName, resourceInfo, additionalAddrSpaces[0])
+}
+
+// Get the resource information about a service attachment
+func (r *privateServiceHandler) getResourceInfo(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
+	description := &ServiceAttachmentDescription{}
+	err := json.Unmarshal(resource.Description, description)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse resource description: %w", err)
+	}
+	var region string
+	if description.Url != "" {
+		urlParams := parseUrl(description.Url)
+		if _, ok := urlParams["serviceAttachments"]; !ok {
+			return nil, fmt.Errorf("invalid service attachment URL")
+		}
+		if _, ok := urlParams["regions"]; !ok {
+			return nil, fmt.Errorf("invalid service attachment URL")
+		}
+		region = urlParams["regions"]
+	} else {
+		region = description.Region
+	}
+
+	return &resourceInfo{Region: region, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: privateServiceConnectTypeName, Name: resource.Name}, nil
+}
+
+// Get the subnet requirements for a private service connect attachment
+func (r *privateServiceHandler) getNumberAddressSpacesRequired() int {
+	return 0
+}
+
+// Get the firewall target type and value for a specific service attachment
+func (r *privateServiceHandler) getFirewallTarget(resourceInfo *resourceInfo, netInfo *resourceNetworkInfo) firewallTarget {
+	return firewallTarget{TargetType: targetTypeAddress, Target: netInfo.Address}
+}
+
+// Get network information about a service attachment
+// Returns the network name, resource ID (service attachment ID, not URL since this is used for firewall rule naming), and IP address
+func (r *privateServiceHandler) getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo) (*resourceNetworkInfo, error) {
+	// Get the forwarding rule
+	forwardingRule, err := r.forwardingClient.Get(ctx, &computepb.GetForwardingRuleRequest{
+		Project:        resourceInfo.Project,
+		Region:         resourceInfo.Region,
+		ForwardingRule: getForwardingRuleName(resourceInfo.Name),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get forwarding rule: %w", err)
+	}
+
+	// Get the address information
+	addressRequest := &computepb.GetAddressRequest{
+		Address: getAddressName(resourceInfo.Name),
+		Project: resourceInfo.Project,
+		Region:  resourceInfo.Region,
+	}
+	addr, err := r.addressesClient.Get(ctx, addressRequest)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get address: %w", err)
+	}
+
+	return &resourceNetworkInfo{NetworkName: getVpcName(resourceInfo.Namespace), ResourceID: convertIntIdToString(*forwardingRule.Id), Address: *addr.Address}, nil
+}
+
+// Create a private service connect endpoint with given network settings
+func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service ServiceAttachmentDescription, subnetName string, resourceInfo *resourceInfo, additionalAddress string) (string, string, error) {
+	// Reserve an IP address to be the endpoint
+	addressName := getAddressName(resourceInfo.Name)
+	addrRequest := computepb.InsertAddressRequest{
+		Project: resourceInfo.Project,
+		Region:  resourceInfo.Region,
+		AddressResource: &computepb.Address{
+			Name:        &addressName,
+			Purpose:     proto.String(addressPurpose),
+			Labels:      map[string]string{paragliderLabel: resourceInfo.Namespace},
+			Subnetwork:  proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName)),
+			AddressType: proto.String(addressType),
+			IpVersion:   proto.String(addressVersion),
+		},
+	}
+	addrOp, err := r.addressesClient.Insert(ctx, &addrRequest)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to insert address: %w", err)
+	}
+	if err = addrOp.Wait(ctx); err != nil {
+		return "", "", fmt.Errorf("unable to wait for the operation: %w", err)
+	}
+
+	// For GCP services, the address must be outside the range of the VPC
+	if service.Url != "" {
+		addrRequest.AddressResource.Address = &additionalAddress
+	} else {
+		addrRequest.AddressResource.Subnetwork = proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName))
+	}
+
+	// Get the allocated address
+	getAddressReq := computepb.GetAddressRequest{
+		Project: resourceInfo.Project,
+		Region:  resourceInfo.Region,
+		Address: addressName,
+	}
+	addr, err := r.addressesClient.Get(ctx, &getAddressReq)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to get address: %w", err)
+	}
+
+	// Create a forwarding rule for the endpoint
+	forwardingRuleRequest := computepb.InsertForwardingRuleRequest{
+		Project: resourceInfo.Project,
+		Region:  resourceInfo.Region,
+		ForwardingRuleResource: &computepb.ForwardingRule{
+			Name:      proto.String(getForwardingRuleName(resourceInfo.Name)),
+			IPAddress: addr.SelfLink,
+			Network:   proto.String(getVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
+		},
+	}
+	if service.Url != "" {
+		forwardingRuleRequest.ForwardingRuleResource.Target = proto.String(service.Url)
+	} else {
+		forwardingRuleRequest.ForwardingRuleResource.Target = proto.String(service.Bundle)
+		forwardingRuleRequest.ForwardingRuleResource.AllowPscGlobalAccess = proto.Bool(true)
+		forwardingRuleRequest.ForwardingRuleResource.AllowGlobalAccess = proto.Bool(true)
+	}
+
+	forwardingRuleOp, err := r.forwardingClient.Insert(ctx, &forwardingRuleRequest)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to insert forwarding rule: %w", err)
+	}
+	if err = forwardingRuleOp.Wait(ctx); err != nil {
+		return "", "", fmt.Errorf("unable to wait for the operation: %w", err)
+	}
+
+	// Get the URI of the forwarding rule created
+	forwardingRule, err := r.forwardingClient.Get(ctx, &computepb.GetForwardingRuleRequest{
+		Project:        resourceInfo.Project,
+		Region:         resourceInfo.Region,
+		ForwardingRule: getForwardingRuleName(resourceInfo.Name),
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("unable to get forwarding rule: %w", err)
+	}
+
+	return *forwardingRule.SelfLink, *addr.Address, nil
 }
