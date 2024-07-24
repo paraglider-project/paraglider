@@ -351,7 +351,7 @@ func TestCrossNamespace(t *testing.T) {
 
 func TestPublicIpAddressTarget(t *testing.T) {
 	// Setup
-	projectId := SetupGcpTesting("integration-public-ip")
+	projectId := SetupGcpTesting("integration-public")
 	defer TeardownGcpTesting(projectId)
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
 	if err != nil {
