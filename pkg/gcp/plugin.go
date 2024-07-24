@@ -201,15 +201,11 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 						// NAT doesn't exist
 						patchRouterReq := &computepb.PatchRouterRequest{
 							Project:        resourceInfo.Project,
+							Region:         vpnRegion,
 							Router:         getRouterName(req.Namespace),
 							RouterResource: router,
 						}
-						patchRouterReq.RouterResource.Nats = []*computepb.RouterNat{
-							{
-								Name:                proto.String(getNatName(req.Namespace)),
-								NatIpAllocateOption: proto.String(computepb.RouterNat_AUTO_ONLY.String()),
-							},
-						}
+						patchRouterReq.RouterResource.Nats = []*computepb.RouterNat{nat}
 						patchRouterOp, err := routersClient.Patch(ctx, patchRouterReq)
 						if err != nil {
 							return nil, fmt.Errorf("unable to modify router: %w", err)
