@@ -174,46 +174,10 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 		for i, peeringCloudInfo := range peeringCloudInfos {
 			if peeringCloudInfo == nil {
 				// Setup NAT gateway for public IP addresses
-				natGatewayLocation := *resourceVnet.Location
-				natGatewayName := getNatGatewayName(req.Namespace, natGatewayLocation)
-				_, err = azureHandler.GetNatGateway(ctx, natGatewayName)
+				_, err = getOrCreateNatGateway(ctx, azureHandler, req.Namespace, *resourceVnet.Location)
 				if err != nil {
-					// Only create NAT gateway if it doesn't exist
-					if isErrorNotFound(err) {
-						// Allocate public IP address
-						publicIPAddressParameters := armnetwork.PublicIPAddress{
-							Location: to.Ptr(natGatewayLocation),
-							Properties: &armnetwork.PublicIPAddressPropertiesFormat{
-								PublicIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv4),
-								PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
-							},
-							SKU: &armnetwork.PublicIPAddressSKU{
-								Name: to.Ptr(armnetwork.PublicIPAddressSKUNameStandard),
-							},
-						}
-						publicIPAddress, err := azureHandler.CreatePublicIPAddress(ctx, getNatGatewayIPAddressName(req.Namespace, natGatewayLocation), publicIPAddressParameters)
-						if err != nil {
-							return nil, fmt.Errorf("unable to create public IP address: %w", err)
-						}
-						// Create NAT gateway
-						natGatewayParameters := armnetwork.NatGateway{
-							Location: resourceVnet.Location,
-							Properties: &armnetwork.NatGatewayPropertiesFormat{
-								PublicIPAddresses: []*armnetwork.SubResource{{ID: publicIPAddress.ID}},
-							},
-							SKU: &armnetwork.NatGatewaySKU{
-								Name: to.Ptr(armnetwork.NatGatewaySKUNameStandard),
-							},
-						}
-						_, err = azureHandler.CreateNatGateway(ctx, natGatewayName, natGatewayParameters)
-						if err != nil {
-							return nil, fmt.Errorf("unable to create NAT gateway: %w", err)
-						}
-					} else {
-						return nil, fmt.Errorf("unable to get NAT gateway: %w", err)
-					}
+					return nil, fmt.Errorf("unable to setup NAT gateway: %w", err)
 				}
-
 			} else if peeringCloudInfo.Cloud != utils.AZURE {
 				address := rule.Targets[i]
 				// Create VPN connections

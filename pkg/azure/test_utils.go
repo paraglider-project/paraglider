@@ -886,7 +886,10 @@ func runConnectivityCheck(ctx context.Context, namespace string, subscriptionId 
 }
 
 func RunICMPConnectivityCheck(ctx context.Context, namespace string, subscriptionId string, resourceGroupName string, sourceVmName string, destinationIPAddress string, tries int) (bool, error) {
-	// Note that external ICMP
+	// Note that external ICMP connectivity checks are not permitted on Azure
+	// - https://learn.microsoft.com/en-us/azure/nat-gateway/troubleshoot-nat#how-to-validate-connectivity
+	// - https://learn.microsoft.com/en-us/azure/virtual-network/ip-services/default-outbound-access#constraints
+	// - https://learn.microsoft.com/nl-nl/archive/blogs/mast/use-port-pings-instead-of-icmp-to-test-azure-vm-connectivity
 	isPrivate, err := utils.IsIpAddressPrivate(destinationIPAddress)
 	if err != nil {
 		return false, fmt.Errorf("unable to check if destination IP address is private: %w", err)

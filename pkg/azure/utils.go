@@ -455,3 +455,47 @@ func getVirtualNetworkParameters(location string, addressSpace string) armnetwor
 		},
 	}
 }
+
+// getOrCreateNatGateway creates a NAT gateway if it doesn't already exist and returns the NAT gateway.
+func getOrCreateNatGateway(ctx context.Context, handler *AzureSDKHandler, namespace string, location string) (*armnetwork.NatGateway, error) {
+	natGatewayName := getNatGatewayName(namespace, location)
+	natGateway, err := handler.GetNatGateway(ctx, natGatewayName)
+	if err != nil {
+		// Only create NAT gateway if it doesn't exist
+		if isErrorNotFound(err) {
+			// Allocate public IP address
+			publicIPAddressParameters := armnetwork.PublicIPAddress{
+				Location: to.Ptr(location),
+				Properties: &armnetwork.PublicIPAddressPropertiesFormat{
+					PublicIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv4),
+					PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
+				},
+				SKU: &armnetwork.PublicIPAddressSKU{
+					Name: to.Ptr(armnetwork.PublicIPAddressSKUNameStandard),
+				},
+			}
+			publicIPAddress, err := handler.CreatePublicIPAddress(ctx, getNatGatewayIPAddressName(namespace, location), publicIPAddressParameters)
+			if err != nil {
+				return nil, fmt.Errorf("unable to create public IP address: %w", err)
+			}
+			// Create NAT gateway
+			natGatewayParameters := armnetwork.NatGateway{
+				Location: to.Ptr(location),
+				Properties: &armnetwork.NatGatewayPropertiesFormat{
+					PublicIPAddresses: []*armnetwork.SubResource{{ID: publicIPAddress.ID}},
+				},
+				SKU: &armnetwork.NatGatewaySKU{
+					Name: to.Ptr(armnetwork.NatGatewaySKUNameStandard),
+				},
+			}
+			natGateway, err = handler.CreateNatGateway(ctx, natGatewayName, natGatewayParameters)
+			if err != nil {
+				return nil, fmt.Errorf("unable to create NAT gateway: %w", err)
+			}
+			return natGateway, nil
+		} else {
+			return nil, fmt.Errorf("unable to get NAT gateway: %w", err)
+		}
+	}
+	return natGateway, nil
+}
