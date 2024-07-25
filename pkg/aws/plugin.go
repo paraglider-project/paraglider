@@ -15,3 +15,180 @@ limitations under the License.
 */
 
 package aws
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
+
+type AWSPluginServer struct {
+	paragliderpb.UnimplementedCloudPluginServer
+	orchestratorServerAddr string
+}
+
+func (s *AWSPluginServer) CreateResource(ctx context.Context, req *paragliderpb.CreateResourceRequest) (*paragliderpb.CreateResourceResponse, error) {
+	// Unmarshal resource description
+	runInstancesInput := &ec2.RunInstancesInput{}
+	err := json.Unmarshal(req.Description, runInstancesInput)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal resource description: %w", err)
+	}
+
+	// Ensure resource description does not contain networking information
+	if len(runInstancesInput.NetworkInterfaces) > 0 {
+		return nil, fmt.Errorf("resource description should not contain network interfaces")
+	}
+	if len(runInstancesInput.SecurityGroupIds) > 0 || len(runInstancesInput.SecurityGroups) > 0 {
+		return nil, fmt.Errorf("resource description should not contain security groups")
+	}
+	if runInstancesInput.SubnetId != nil {
+		return nil, fmt.Errorf("resource description should not contain subnet ID")
+	}
+	if runInstancesInput.PrivateIpAddress != nil || runInstancesInput.EnablePrimaryIpv6 != nil ||
+		runInstancesInput.Ipv6AddressCount != nil || len(runInstancesInput.Ipv6Addresses) > 0 {
+		return nil, fmt.Errorf("resource description should not contain IP address information")
+	}
+
+	// Get region
+	availabilityZone := *runInstancesInput.Placement.AvailabilityZone
+	region := availabilityZone[:len(availabilityZone)-1]
+
+	// Load config and setup clients
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+		fmt.Printf("unable to load config: %v\n", err)
+		return nil, fmt.Errorf("unable to load config: %w", err)
+	}
+	ec2Client := ec2.NewFromConfig(cfg)
+
+	// Get existing VPC
+	var vpc *types.Vpc
+	var subnet *types.Subnet
+	vpcName := getVpcName(req.Deployment.Namespace, region)
+	describeVpcsOutput, err := ec2Client.DescribeVpcs(context.TODO(), &ec2.DescribeVpcsInput{
+		Filters: getDescribeFilter(req.Deployment.Namespace, vpcName),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get VPCs: %w", err)
+	}
+	if len(describeVpcsOutput.Vpcs) <= 1 {
+		if len(describeVpcsOutput.Vpcs) == 1 {
+			vpc = &describeVpcsOutput.Vpcs[0]
+		} else {
+			// Find unused address spaces from orchestrator
+			orchestratorConn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
+			}
+			defer orchestratorConn.Close()
+			orchestratorClient := paragliderpb.NewControllerClient(orchestratorConn)
+			findUnusedAddressSpacesReq := &paragliderpb.FindUnusedAddressSpacesRequest{}
+			findUnusedAddressSpacesResp, err := orchestratorClient.FindUnusedAddressSpaces(context.TODO(), findUnusedAddressSpacesReq)
+			if err != nil {
+				return nil, fmt.Errorf("unable to find unused address spaces from orchestrator: %w", err)
+			}
+			vpcCidrBlock := findUnusedAddressSpacesResp.AddressSpaces[0]
+
+			// Create VPC
+			createVpcInput := &ec2.CreateVpcInput{
+				CidrBlock:         aws.String(vpcCidrBlock),
+				TagSpecifications: getCreateTagSpecifications(req.Deployment.Namespace, vpcName, types.ResourceTypeVpc),
+			}
+			createVpcOutput, err := ec2Client.CreateVpc(context.TODO(), createVpcInput)
+			if err != nil {
+				return nil, fmt.Errorf("unable to create VPC: %w", err)
+			}
+			vpc = createVpcOutput.Vpc
+		}
+
+		// Get existing subnet
+		subnetName := getSubnetName(req.Deployment.Namespace, region)
+		describeSubnetsOutput, err := ec2Client.DescribeSubnets(context.TODO(), &ec2.DescribeSubnetsInput{
+			Filters: getDescribeFilter(req.Deployment.Namespace, subnetName),
+		})
+		if err != nil {
+			fmt.Printf("error retrieving VPC: %v\n", err)
+			return nil, fmt.Errorf("unable to get subnets: %w", err)
+		}
+		if len(describeSubnetsOutput.Subnets) == 1 {
+			subnet = &describeSubnetsOutput.Subnets[0]
+			if subnet.AvailabilityZone != nil && *subnet.AvailabilityZone != availabilityZone {
+				return nil, fmt.Errorf("subnet is in a different availability zone than requested resource")
+			}
+		} else if len(describeSubnetsOutput.Subnets) == 0 {
+			// Create subnet
+			createSubnetInput := &ec2.CreateSubnetInput{
+				VpcId:             vpc.VpcId,
+				CidrBlock:         aws.String(*vpc.CidrBlock),
+				AvailabilityZone:  aws.String(availabilityZone),
+				TagSpecifications: getCreateTagSpecifications(req.Deployment.Namespace, subnetName, types.ResourceTypeSubnet),
+			}
+			createSubnetOutput, err := ec2Client.CreateSubnet(context.TODO(), createSubnetInput)
+			if err != nil {
+				return nil, fmt.Errorf("unable to create subnet: %w", err)
+			}
+			subnet = createSubnetOutput.Subnet
+		} else {
+			return nil, fmt.Errorf("found more than one subnet")
+		}
+
+		// Set subnet ID for resource
+		runInstancesInput.SubnetId = subnet.SubnetId
+	} else {
+		return nil, fmt.Errorf("found more than one VPC")
+	}
+
+	// Create security group
+	securityGroupName := getSecurityGroupName(req.Deployment.Namespace, req.Name)
+	createSecurityGroupInput := &ec2.CreateSecurityGroupInput{
+		VpcId:             vpc.VpcId,
+		GroupName:         aws.String(securityGroupName),
+		Description:       aws.String("Security group for Paraglider"),
+		TagSpecifications: getCreateTagSpecifications(req.Deployment.Namespace, securityGroupName, types.ResourceTypeSecurityGroup),
+	}
+	createSecurityGroupOutput, err := ec2Client.CreateSecurityGroup(context.TODO(), createSecurityGroupInput)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create security group: %w", err)
+	}
+	runInstancesInput.SecurityGroupIds = []string{*createSecurityGroupOutput.GroupId}
+
+	// Remove default outbound rule from security group
+	_, err = ec2Client.RevokeSecurityGroupEgress(context.TODO(), &ec2.RevokeSecurityGroupEgressInput{
+		GroupId: createSecurityGroupOutput.GroupId,
+		IpPermissions: []types.IpPermission{
+			{
+				IpProtocol: aws.String("-1"),                                   // All protocols
+				FromPort:   aws.Int32(-1),                                      // All ports
+				ToPort:     aws.Int32(-1),                                      // All ports
+				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}}, // All IPv4 addresses
+			},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to revoke default outbound security group rule: %w", err)
+	}
+
+	// Run instance
+	runInstancesInput.TagSpecifications = getCreateTagSpecifications(req.Deployment.Namespace, req.Name, types.ResourceTypeInstance)
+	runInstancesOutput, err := ec2Client.RunInstances(context.TODO(), runInstancesInput)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create instance: %w", err)
+	}
+	fmt.Printf("Created instance: %v\n", runInstancesOutput.Instances[0].InstanceId)
+
+	resp := &paragliderpb.CreateResourceResponse{
+		Name: req.Name,
+		Uri:  getInstanceArn(req.Deployment.Id, region, *runInstancesOutput.Instances[0].InstanceId),
+		Ip:   *runInstancesOutput.Instances[0].PrivateIpAddress,
+	}
+	return resp, nil
+}

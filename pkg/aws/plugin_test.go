@@ -17,3 +17,14 @@ limitations under the License.
 */
 
 package aws
+
+import (
+	"testing"
+)
+
+const (
+	fakeNamespace = "fake-namespace"
+)
+
+func TestCreateResource(t *testing.T) {
+}
