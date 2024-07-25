@@ -84,15 +84,20 @@ jobs:
       - name: Make build
         run: |
           make build
-      - name: Authenticate to Google Cloud
+      - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/paraglider'
           service_account: 'invisinets-cicd@invisinets-cicd.iam.gserviceaccount.com'
-      - name: 'Az CLI login'
+      - name: Authenticate to Azure
         uses: azure/login@v2
         with:
             creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Authenticate to AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-2
+          role-to-assume: arn:aws:iam::952501545072:role/github
       - name: Run integration tests
         run: |
           make integration-test
