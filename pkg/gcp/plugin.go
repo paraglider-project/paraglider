@@ -161,63 +161,9 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 				if err != nil {
 					return nil, fmt.Errorf("unable to get routers client: %w", err)
 				}
-				getRouterReq := &computepb.GetRouterRequest{
-					Project: resourceInfo.Project,
-					Region:  vpnRegion,
-					Router:  getRouterName(req.Namespace),
-				}
-				router, err := routersClient.Get(ctx, getRouterReq)
-				nat := &computepb.RouterNat{
-					Name:                          proto.String(getNatName(req.Namespace)),
-					NatIpAllocateOption:           proto.String(computepb.RouterNat_AUTO_ONLY.String()),
-					SourceSubnetworkIpRangesToNat: proto.String(computepb.RouterNat_ALL_SUBNETWORKS_ALL_IP_RANGES.String()),
-				}
+				err = setupNatGateway(ctx, routersClient, resourceInfo.Project, req.Namespace)
 				if err != nil {
-					if isErrorNotFound(err) {
-						// Create router if it doesn't already exist
-						insertRouterReq := &computepb.InsertRouterRequest{
-							Project: resourceInfo.Project,
-							Region:  vpnRegion, // Same router with router that manages BGP for VPN gateways
-							RouterResource: &computepb.Router{
-								Name:        proto.String(getRouterName(req.Namespace)),
-								Description: proto.String("Paraglider router for BGP peering"),
-								Network:     proto.String(getVpcUrl(resourceInfo.Project, req.Namespace)),
-								Nats:        []*computepb.RouterNat{nat},
-							},
-						}
-						insertRouterOp, err := routersClient.Insert(ctx, insertRouterReq)
-						if err != nil {
-							return nil, fmt.Errorf("unable to insert router: %w", err)
-						}
-						if err = insertRouterOp.Wait(ctx); err != nil {
-							return nil, fmt.Errorf("unable to wait for the operation: %w", err)
-						}
-					} else {
-						return nil, fmt.Errorf("unable to get router: %w", err)
-					}
-				} else {
-					// Router already exists
-					if router.Nats == nil || len(router.Nats) == 0 {
-						// NAT doesn't exist
-						patchRouterReq := &computepb.PatchRouterRequest{
-							Project:        resourceInfo.Project,
-							Region:         vpnRegion,
-							Router:         getRouterName(req.Namespace),
-							RouterResource: router,
-						}
-						patchRouterReq.RouterResource.Nats = []*computepb.RouterNat{nat}
-						patchRouterOp, err := routersClient.Patch(ctx, patchRouterReq)
-						if err != nil {
-							return nil, fmt.Errorf("unable to modify router: %w", err)
-						}
-						if err = patchRouterOp.Wait(ctx); err != nil {
-							return nil, fmt.Errorf("unable to wait for the operation: %w", err)
-						}
-					} else if len(router.Nats) == 1 && *router.Nats[0].Name == getNatName(req.Namespace) {
-						// NAT already exists
-					} else {
-						return nil, fmt.Errorf("unexpected NAT configuration")
-					}
+					return nil, fmt.Errorf("unable to setup NAT gateway: %w", err)
 				}
 			} else if peeringCloudInfo.Cloud != utils.GCP {
 				// Create VPN connections
