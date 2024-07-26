@@ -75,6 +75,10 @@ jobs:
       - name: Make build
         run: |
           make build
+      - name: Start Redis
+        uses: supercharge/redis-github-action@1.7.0
+        with:
+          redis-version: ${{ matrix.redis-version }}
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
