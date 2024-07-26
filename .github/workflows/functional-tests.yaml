@@ -1,6 +1,12 @@
 name: Functional Tests
 
 on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to pull the workflow and code file from"
+        required: true
+        default: "main"
   workflow_run:
     workflows: [Functional Tests Approval]
     types:
@@ -37,15 +43,20 @@ jobs:
       pull-requests: write
     steps:
       - name: Download commit SHA artifact
+        if: github.event_name == 'workflow_run'
         uses: dawidd6/action-download-artifact@v6
         with:
           name: commit_sha
           run_id: ${{ github.event.workflow_run.id }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Extract commit SHA
-        id: extract-commit-sha
+        if: github.event_name == 'workflow_run'
         run: |
-          echo "commit_sha=$(cat commit_sha)" >> $GITHUB_OUTPUT
+          echo "CHECKOUT_REF=$(cat commit_sha)" >> $GITHUB_ENV
+      - name: Get checkout ref from input
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "CHECKOUT_REF=${{ github.event.inputs.branch }}" >> $GITHUB_ENV
       - name: Add to check run
         uses: LouisBrunner/checks-action@v2.0.0
         if: always()
@@ -59,7 +70,7 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.extract-commit-sha.outputs.commit_sha }}
+          ref: ${{ env.CHECKOUT_REF }}
       - name: Set up Go ${{ env.GOVER }}
         uses: actions/setup-go@v5
         with:

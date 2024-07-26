@@ -60,7 +60,7 @@ func TestGetPermitList(t *testing.T) {
 	s := &GCPPluginServer{}
 	request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: fakeNamespace}
 
-	responseActual, err := s._GetPermitList(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
+	responseActual, err := s._GetPermitList(ctx, request, fakeClients)
 	require.NoError(t, err)
 	responseExpected := &paragliderpb.GetPermitListResponse{
 		Rules: []*paragliderpb.PermitListRule{fakePermitListRule1, fakePermitListRule2},
@@ -76,7 +76,7 @@ func TestGetPermitListMissingInstance(t *testing.T) {
 	s := &GCPPluginServer{}
 	request := &paragliderpb.GetPermitListRequest{Resource: fakeMissingResourceId, Namespace: fakeNamespace}
 
-	resp, err := s._GetPermitList(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
+	resp, err := s._GetPermitList(ctx, request, fakeClients)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -90,7 +90,7 @@ func TestGetPermitListWrongNamespace(t *testing.T) {
 	s := &GCPPluginServer{}
 	request := &paragliderpb.GetPermitListRequest{Resource: fakeResourceId, Namespace: "wrongnamespace"}
 
-	resp, err := s._GetPermitList(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
+	resp, err := s._GetPermitList(ctx, request, fakeClients)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -103,12 +103,6 @@ func TestAddPermitListRules(t *testing.T) {
 		},
 		network: &computepb.Network{
 			Name: proto.String(getVpcName(fakeNamespace)),
-		},
-	}
-	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
-		{
-			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")),
-			Network:    proto.String(getVpcUrl(fakeProject, fakeNamespace)),
 		},
 	}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
@@ -142,7 +136,7 @@ func TestAddPermitListRules(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient, fakeClients.networksClient, fakeClients.clusterClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
@@ -170,7 +164,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient, fakeClients.networksClient, fakeClients.clusterClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients)
 
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -198,7 +192,7 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 		Namespace: "wrongnamespace",
 	}
 
-	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient, fakeClients.networksClient, fakeClients.clusterClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients)
 
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -216,12 +210,6 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 		},
 		network: &computepb.Network{
 			Name: proto.String(getVpcName(fakeNamespace)),
-		},
-	}
-	fakeServerState.instance.NetworkInterfaces = []*computepb.NetworkInterface{
-		{
-			Subnetwork: proto.String(fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")),
-			Network:    proto.String(getVpcUrl(fakeProject, fakeNamespace)),
 		},
 	}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
@@ -248,7 +236,7 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._AddPermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.subnetworksClient, fakeClients.networksClient, fakeClients.clusterClient)
+	resp, err := s._AddPermitListRules(ctx, request, fakeClients)
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -265,7 +253,7 @@ func TestDeletePermitListRules(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._DeletePermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
+	resp, err := s._DeletePermitListRules(ctx, request, fakeClients)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
@@ -281,7 +269,7 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 		Namespace: fakeNamespace,
 	}
 
-	resp, err := s._DeletePermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
+	resp, err := s._DeletePermitListRules(ctx, request, fakeClients)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -300,7 +288,7 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 		Namespace: "wrongnamespace",
 	}
 
-	resp, err := s._DeletePermitListRules(ctx, request, fakeClients.firewallsClient, fakeClients.instancesClient, fakeClients.clusterClient)
+	resp, err := s._DeletePermitListRules(ctx, request, fakeClients)
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
@@ -335,7 +323,7 @@ func TestCreateResource(t *testing.T) {
 		Description: description,
 	}
 
-	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient, fakeClients.clusterClient)
+	resp, err := s._CreateResource(ctx, resource, fakeClients)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
@@ -369,7 +357,7 @@ func TestCreateResourceCluster(t *testing.T) {
 		Description: description,
 	}
 
-	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient, fakeClients.clusterClient)
+	resp, err := s._CreateResource(ctx, resource, fakeClients)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
@@ -398,7 +386,7 @@ func TestCreateResourceMissingNetwork(t *testing.T) {
 		Description: description,
 	}
 
-	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient, fakeClients.clusterClient)
+	resp, err := s._CreateResource(ctx, resource, fakeClients)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
@@ -431,7 +419,7 @@ func TestCreateResourceMissingSubnetwork(t *testing.T) {
 		Description: description,
 	}
 
-	resp, err := s._CreateResource(ctx, resource, fakeClients.instancesClient, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.firewallsClient, fakeClients.clusterClient)
+	resp, err := s._CreateResource(ctx, resource, fakeClients)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
@@ -465,7 +453,7 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 			{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
 		},
 	}
-	resp, err := s._GetUsedAddressSpaces(ctx, req, fakeClients.networksClient, fakeClients.subnetworksClient)
+	resp, err := s._GetUsedAddressSpaces(ctx, req, fakeClients.networksClient, fakeClients.subnetworksClient, fakeClients.addressesClient)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.ElementsMatch(t, expectedAddressSpaceMappings, resp.AddressSpaceMappings)

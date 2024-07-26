@@ -29,6 +29,8 @@ import (
 const (
 	firewallNameMaxLength         = 62                // GCP imposed max length for firewall name
 	firewallRuleDescriptionPrefix = "paraglider rule" // GCP firewall rule prefix for description
+	targetTypeTag                 = "TAG"
+	targetTypeAddress             = "ADDRESS"
 )
 
 // Maps between of GCP and Paraglider traffic direction terminologies
@@ -53,6 +55,11 @@ var gcpProtocolNumberMap = map[string]int{
 	"ah":   51,
 	"sctp": 132,
 	"ipip": 94,
+}
+
+type firewallTarget struct {
+	TargetType string
+	Target     string
 }
 
 // Checks if GCP firewall rule is a Paraglider permit list rule
@@ -107,7 +114,7 @@ func firewallRuleToParagliderRule(namespace string, fw *computepb.Firewall) (*pa
 }
 
 // Converts a Paraglider permit list rule to a GCP firewall rule
-func paragliderRuleToFirewallRule(namespace string, project string, firewallName string, networkTag string, rule *paragliderpb.PermitListRule) (*computepb.Firewall, error) {
+func paragliderRuleToFirewallRule(namespace string, project string, firewallName string, target firewallTarget, rule *paragliderpb.PermitListRule) (*computepb.Firewall, error) {
 	firewall := &computepb.Firewall{
 		Allowed: []*computepb.Allowed{
 			{
@@ -118,8 +125,19 @@ func paragliderRuleToFirewallRule(namespace string, project string, firewallName
 		Direction:   proto.String(firewallDirectionMapParagliderToGCP[rule.Direction]),
 		Name:        proto.String(firewallName),
 		Network:     proto.String(getVpcUrl(project, namespace)),
-		TargetTags:  []string{networkTag},
 	}
+
+	// Associate with a tag if possible, otherwise match on IP
+	if target.TargetType == targetTypeTag {
+		firewall.TargetTags = []string{target.Target}
+	} else {
+		if rule.Direction == paragliderpb.Direction_INBOUND {
+			firewall.DestinationRanges = []string{target.Target}
+		} else {
+			firewall.SourceRanges = []string{target.Target}
+		}
+	}
+
 	if rule.DstPort != -1 {
 		// Users must explicitly set DstPort to -1 if they want it to apply to all ports since proto can't
 		// differentiate between empty and 0 for an int field. Ports of 0 are valid for protocols like TCP/UDP.
@@ -180,8 +198,6 @@ func getFirewallName(namespace string, ruleName string, resourceId string) strin
 
 // Retrieve the name of the permit list rule from the GCP firewall name
 func parseFirewallName(namespace string, firewallName string) string {
-	fmt.Println(firewallName)
-	fmt.Println(strings.TrimPrefix(firewallName, getFirewallNamePrefix(namespace)+"-"))
 	return strings.SplitN(strings.TrimPrefix(firewallName, getFirewallNamePrefix(namespace)+"-"), "-", 2)[1]
 }
 
