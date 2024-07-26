@@ -36,10 +36,11 @@ import (
 )
 
 const (
-	VPC     taggedResourceType = "vpc"
-	SUBNET  taggedResourceType = "subnet"
-	VM      taggedResourceType = "instance"
-	CLUSTER taggedResourceType = "k8-cluster"
+	VPC      taggedResourceType = "vpc"
+	SUBNET   taggedResourceType = "subnet"
+	VM       taggedResourceType = "instance"
+	CLUSTER  taggedResourceType = "k8-cluster"
+	ENDPOINT taggedResourceType = "endpoint-gateway"
 	// Security group of a specific instance
 	SG taggedResourceType = "security-group"
 	// transit gateway for vpc-peering
@@ -207,7 +208,14 @@ func getZoneFromDesc(resourceDesc []byte) (string, error) {
 
 	clusterOptions := k8sv1.VpcCreateClusterOptions{}
 
-	err := json.Unmarshal(resourceDesc, &clusterOptions)
+	endpointGatewayOptions := vpcv1.CreateEndpointGatewayOptions{}
+
+	err := json.Unmarshal(resourceDesc, &endpointGatewayOptions)
+	if err == nil && endpointGatewayOptions.Target != nil {
+		return defaultZone, nil
+	}
+
+	err = json.Unmarshal(resourceDesc, &clusterOptions)
 	if err == nil && clusterOptions.WorkerPool != nil {
 		if len(clusterOptions.WorkerPool.Zones) == 0 {
 			return "", fmt.Errorf("unspecified zone definition in cluster description")
