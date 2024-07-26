@@ -208,14 +208,11 @@ func getZoneFromDesc(resourceDesc []byte) (string, error) {
 
 	clusterOptions := k8sv1.VpcCreateClusterOptions{}
 
-	endpointGatewayOptions := vpcv1.CreateEndpointGatewayOptions{}
-
-	err := json.Unmarshal(resourceDesc, &endpointGatewayOptions)
-	if err == nil && endpointGatewayOptions.Target != nil {
-		return defaultZone, nil
+	endpointGatewayOptions := vpcv1.CreateEndpointGatewayOptions{
+		Target: &vpcv1.EndpointGatewayTargetPrototype{},
 	}
 
-	err = json.Unmarshal(resourceDesc, &clusterOptions)
+	err := json.Unmarshal(resourceDesc, &clusterOptions)
 	if err == nil && clusterOptions.WorkerPool != nil {
 		if len(clusterOptions.WorkerPool.Zones) == 0 {
 			return "", fmt.Errorf("unspecified zone definition in cluster description")
@@ -224,13 +221,18 @@ func getZoneFromDesc(resourceDesc []byte) (string, error) {
 	}
 
 	err = json.Unmarshal(resourceDesc, &instanceOptions)
-	if err == nil && instanceOptions.InstancePrototype != nil {
+	if err == nil && instanceOptions.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Zone.(*vpcv1.ZoneIdentityByName).Name != nil {
 		zone := instanceOptions.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Zone
-		if zone.(*vpcv1.ZoneIdentityByName).Name == nil {
-			return "", fmt.Errorf("unspecified zone definition in instance description")
-		}
 		return *zone.(*vpcv1.ZoneIdentityByName).Name, nil
 	}
+
+	fmt.Printf("%+v\n", resourceDesc)
+	err = json.Unmarshal(resourceDesc, &endpointGatewayOptions)
+	fmt.Printf("%v", err)
+	if err == nil && endpointGatewayOptions.Target.(*vpcv1.EndpointGatewayTargetPrototype).ResourceType != nil {
+		return defaultZone, nil
+	}
+	fmt.Printf("%+v\n", endpointGatewayOptions)
 
 	return "", fmt.Errorf("failed to unmarshal resource description:%+v", err)
 
