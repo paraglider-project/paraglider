@@ -58,6 +58,7 @@ type AzureSDKHandler struct {
 	publicIPAddressesClient                *armnetwork.PublicIPAddressesClient
 	subnetsClient                          *armnetwork.SubnetsClient
 	virtualNetworkGatewayConnectionsClient *armnetwork.VirtualNetworkGatewayConnectionsClient
+	natGatewaysClient                      *armnetwork.NatGatewaysClient
 	localNetworkGatewaysClient             *armnetwork.LocalNetworkGatewaysClient
 	subscriptionID                         string
 	resourceGroupName                      string
@@ -147,6 +148,7 @@ func (h *AzureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
 	h.resourcesClient = h.resourcesClientFactory.NewClient()
 	h.virtualMachinesClient = h.computeClientFactory.NewVirtualMachinesClient()
 	h.managedClustersClient = h.containerServiceClientFactory.NewManagedClustersClient()
+	h.natGatewaysClient = h.networkClientFactory.NewNatGatewaysClient()
 
 	return nil
 }
@@ -854,6 +856,27 @@ func (h *AzureSDKHandler) GetVirtualNetworkGatewayConnection(ctx context.Context
 		return nil, err
 	}
 	return &resp.VirtualNetworkGatewayConnection, nil
+}
+
+func (h *AzureSDKHandler) CreateNatGateway(ctx context.Context, name string, parameters armnetwork.NatGateway) (*armnetwork.NatGateway, error) {
+	h.createParagliderNamespaceTag(&parameters.Tags)
+	pollerResponse, err := h.natGatewaysClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, name, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.NatGateway, nil
+}
+
+func (h *AzureSDKHandler) GetNatGateway(ctx context.Context, name string) (*armnetwork.NatGateway, error) {
+	resp, err := h.natGatewaysClient.Get(ctx, h.resourceGroupName, name, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.NatGateway, nil
 }
 
 // Creates a tag for the Paraglider namespace in the "Tag" field of various resource parameters

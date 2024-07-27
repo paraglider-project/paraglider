@@ -57,7 +57,7 @@ func createVM(ctx context.Context, server *azurePluginServer, subscriptionId str
 func TestBasicPermitListOps(t *testing.T) {
 	namespace := "default"
 	subscriptionId := GetAzureSubscriptionId()
-	resourceGroupName := SetupAzureTesting(subscriptionId, "integration1")
+	resourceGroupName := SetupAzureTesting(subscriptionId, "integration-basic-permit-list")
 	defer TeardownAzureTesting(subscriptionId, resourceGroupName, namespace)
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
@@ -86,7 +86,7 @@ func TestBasicPermitListOps(t *testing.T) {
 	rules := []*paragliderpb.PermitListRule{
 		{
 			Name:      "test-rule1",
-			Targets:   []string{"47.235.107.235"},
+			Targets:   []string{"10.0.0.1"}, // Must be a private address in the same vnet as the VM to avoid triggering NAT gateway or peering creations
 			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   80,
 			DstPort:   80,
@@ -124,9 +124,9 @@ func TestCrossNamespaces(t *testing.T) {
 
 	// Setup resource groups
 	subscriptionId := GetAzureSubscriptionId()
-	resourceGroup1Name := SetupAzureTesting(subscriptionId, "integration3")
+	resourceGroup1Name := SetupAzureTesting(subscriptionId, "integration-cross-namespace-1")
 	defer TeardownAzureTesting(subscriptionId, resourceGroup1Name, resourceGroup1Namespace)
-	resourceGroup2Name := SetupAzureTesting(subscriptionId, "integration4")
+	resourceGroup2Name := SetupAzureTesting(subscriptionId, "integration-cross-namespace-2")
 	defer TeardownAzureTesting(subscriptionId, resourceGroup2Name, resourceGroup2Namespace)
 
 	// Set Azure plugin port
@@ -238,10 +238,10 @@ func TestCrossNamespaces(t *testing.T) {
 	}
 
 	// Run connectivity checks on both directions between vm1 and vm2
-	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(vm1ResourceId, vm2Ip, resourceGroup1Namespace)
+	azureConnectivityCheckVM1toVM2, err := RunICMPConnectivityCheck(ctx, resourceGroup1Namespace, subscriptionId, resourceGroup1Name, vm1Name, vm2Ip, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM1toVM2)
-	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(vm2ResourceId, vm1Ip, resourceGroup2Namespace)
+	azureConnectivityCheckVM2toVM1, err := RunICMPConnectivityCheck(ctx, resourceGroup2Namespace, subscriptionId, resourceGroup2Name, vm2Name, vm1Ip, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM2toVM1)
 }
@@ -249,7 +249,7 @@ func TestCrossNamespaces(t *testing.T) {
 func TestMultipleRegionsIntraNamespace(t *testing.T) {
 	// Setup
 	subscriptionId := GetAzureSubscriptionId()
-	resourceGroupName := SetupAzureTesting(subscriptionId, "integration5")
+	resourceGroupName := SetupAzureTesting(subscriptionId, "integration-multi-region-intra-namespace")
 	defaultNamespace := "default"
 	defer TeardownAzureTesting(subscriptionId, resourceGroupName, defaultNamespace)
 
@@ -355,10 +355,10 @@ func TestMultipleRegionsIntraNamespace(t *testing.T) {
 	}
 
 	// Run connectivity checks on both directions between vm1 and vm2
-	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(vm1ResourceId, vm2Ip, defaultNamespace)
+	azureConnectivityCheckVM1toVM2, err := RunICMPConnectivityCheck(ctx, defaultNamespace, subscriptionId, resourceGroupName, vm1Name, vm2Ip, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM1toVM2)
-	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(vm2ResourceId, vm1Ip, defaultNamespace)
+	azureConnectivityCheckVM2toVM1, err := RunICMPConnectivityCheck(ctx, defaultNamespace, subscriptionId, resourceGroupName, vm2Name, vm1Ip, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM2toVM1)
 }
@@ -497,8 +497,9 @@ func TestAttachResourceIntegration(t *testing.T) {
 			Protocol:  1,
 		},
 		{
-			Name:      "external-vm-ping-ingress",
-			Targets:   []string{externalVmIp},
+			Name:    "external-vm-ping-ingress",
+			Targets: []string{externalVmIp},
+
 			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   -1,
 			DstPort:   -1,
@@ -536,10 +537,77 @@ func TestAttachResourceIntegration(t *testing.T) {
 	}
 
 	// Run connectivity checks on both directions between vm1 and vm2
-	azureConnectivityCheck1, err := RunPingConnectivityCheck(pgVmID, externalVmIp, namespace)
+	azureConnectivityCheck1, err := RunICMPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, pgVmName, externalVmIp, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck1)
-	azureConnectivityCheck2, err := RunPingConnectivityCheck(externalVmID, pgVmIp, namespace)
+	azureConnectivityCheck2, err := RunICMPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, externalVmName, pgVmIp, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck2)
+}
+
+func TestPublicIPAddressTarget(t *testing.T) {
+	// Setup
+	subscriptionId := GetAzureSubscriptionId()
+	resourceGroupName := SetupAzureTesting(subscriptionId, "integration-public-ip")
+	namespace := "default"
+	defer TeardownAzureTesting(subscriptionId, resourceGroupName, namespace)
+
+	// Setup fake orchestrator server
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Setup Azure plugin server
+	azureServer := InitializeServer(fakeOrchestratorServerAddr)
+	ctx := context.Background()
+
+	// Create VM
+	vmLocation := "westus"
+	vmParameters := GetTestVmParameters(vmLocation)
+	vmDescriptionJson, err := json.Marshal(vmParameters)
+	require.NoError(t, err)
+	vmName := "vm-test"
+	vmID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s", subscriptionId, resourceGroupName, vmName)
+	createResourceResp, err := azureServer.CreateResource(ctx, &paragliderpb.CreateResourceRequest{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: namespace},
+		Name:        vmName,
+		Description: vmDescriptionJson,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, createResourceResp)
+	assert.Equal(t, createResourceResp.Uri, vmID)
+
+	// Create permit list rule to Cloudflare DNS
+	// Multiple permit list rules are tested to ensure that duplicate NAT gateway creations are avoided
+	permitListRules := []*paragliderpb.PermitListRule{
+		{
+			Name:      "cloudflare-dns-tcp-outbound",
+			Targets:   []string{"1.1.1.1"},
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   80,
+			Protocol:  6,
+		},
+		{
+			Name:      "opendns-tcp-outbound",
+			Targets:   []string{"208.67.222.222"},
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   80,
+			Protocol:  6,
+		},
+	}
+	addPermitListRulesReq := &paragliderpb.AddPermitListRulesRequest{Rules: permitListRules, Namespace: namespace, Resource: vmID}
+	addPermitListRulesResp, err := azureServer.AddPermitListRules(ctx, addPermitListRulesReq)
+	require.NoError(t, err)
+	require.NotNil(t, addPermitListRulesResp)
+
+	// Run connectivity checks
+	cloudflareTestResult, err := RunTCPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, vmName, "1.1.1.1", 80, 3)
+	require.Nil(t, err)
+	require.True(t, cloudflareTestResult)
+	opendnsTestresult, err := RunTCPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, vmName, "208.67.222.222", 80, 3)
+	require.Nil(t, err)
+	require.True(t, opendnsTestresult)
 }

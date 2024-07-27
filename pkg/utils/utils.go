@@ -84,7 +84,7 @@ func IsPermitListRuleTagInAddressSpace(permitListRuleTag string, addressSpaces [
 }
 
 // Checks if an IP address is public
-func isIPAddressPrivate(addressString string) (bool, error) {
+func IsIpAddressPrivate(addressString string) (bool, error) {
 	var addr netip.Addr
 	var err error
 	if strings.Contains(addressString, "/") {
@@ -120,7 +120,7 @@ type PeeringCloudInfo struct {
 func GetPermitListRulePeeringCloudInfo(permitListRule *paragliderpb.PermitListRule, usedAddressSpaceMappings []*paragliderpb.AddressSpaceMapping) ([]*PeeringCloudInfo, error) {
 	peeringCloudInfos := make([]*PeeringCloudInfo, len(permitListRule.Targets))
 	for i, target := range permitListRule.Targets {
-		isPrivate, err := isIPAddressPrivate(target)
+		isPrivate, err := IsIpAddressPrivate(target)
 		if err != nil {
 			return nil, fmt.Errorf("unable to determine if address is private: %w", err)
 		}
