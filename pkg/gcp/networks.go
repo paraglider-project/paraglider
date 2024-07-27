@@ -92,3 +92,67 @@ func peerVpcNetwork(ctx context.Context, networksClient *compute.NetworksClient,
 	}
 	return nil
 }
+
+// setupNatGateway creates a NAT gateway if it doesn't already exist.
+func setupNatGateway(ctx context.Context, routersClient *compute.RoutersClient, project string, namespace string) error {
+	getRouterReq := &computepb.GetRouterRequest{
+		Project: project,
+		Region:  vpnRegion,
+		Router:  getRouterName(namespace),
+	}
+	router, err := routersClient.Get(ctx, getRouterReq)
+	nat := &computepb.RouterNat{
+		Name:                          proto.String(getNatName(namespace)),
+		NatIpAllocateOption:           proto.String(computepb.RouterNat_AUTO_ONLY.String()),
+		SourceSubnetworkIpRangesToNat: proto.String(computepb.RouterNat_ALL_SUBNETWORKS_ALL_IP_RANGES.String()),
+	}
+	if err != nil {
+		if isErrorNotFound(err) {
+			// Create router if it doesn't already exist
+			insertRouterReq := &computepb.InsertRouterRequest{
+				Project: project,
+				Region:  vpnRegion, // Same router with router that manages BGP for VPN gateways
+				RouterResource: &computepb.Router{
+					Name:        proto.String(getRouterName(namespace)),
+					Description: proto.String("Paraglider router for BGP peering"),
+					Network:     proto.String(getVpcUrl(project, namespace)),
+					Nats:        []*computepb.RouterNat{nat},
+				},
+			}
+			insertRouterOp, err := routersClient.Insert(ctx, insertRouterReq)
+			if err != nil {
+				return fmt.Errorf("unable to insert router: %w", err)
+			}
+			if err = insertRouterOp.Wait(ctx); err != nil {
+				return fmt.Errorf("unable to wait for the operation: %w", err)
+			}
+		} else {
+			return fmt.Errorf("unable to get router: %w", err)
+		}
+	} else {
+		// Router already exists
+		if router.Nats == nil || len(router.Nats) == 0 {
+			// NAT doesn't exist
+			patchRouterReq := &computepb.PatchRouterRequest{
+				Project:        project,
+				Region:         vpnRegion,
+				Router:         getRouterName(namespace),
+				RouterResource: router,
+			}
+			patchRouterReq.RouterResource.Nats = []*computepb.RouterNat{nat}
+			patchRouterOp, err := routersClient.Patch(ctx, patchRouterReq)
+			if err != nil {
+				return fmt.Errorf("unable to modify router: %w", err)
+			}
+			if err = patchRouterOp.Wait(ctx); err != nil {
+				return fmt.Errorf("unable to wait for the operation: %w", err)
+			}
+		} else if len(router.Nats) == 1 && *router.Nats[0].Name == getNatName(namespace) {
+			// NAT already exists
+			return nil
+		} else {
+			return fmt.Errorf("unexpected NAT configuration")
+		}
+	}
+	return nil
+}
