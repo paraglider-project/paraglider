@@ -31,6 +31,8 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
+	networkmanagement "cloud.google.com/go/networkmanagement/apiv1"
+	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
@@ -505,4 +507,78 @@ func teardown(fakeServer *httptest.Server, fakeClients *GCPClients, fakeGRPCServ
 	if fakeGRPCServer != nil {
 		fakeGRPCServer.Stop()
 	}
+}
+
+// RunIcmpConnectivityTest runs a ICMP connectivity test from sourceInstanceName to destinationIpAddress
+func RunIcmpConnectivityTest(testName string, namespace string, project string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, tries int) (bool, error) {
+	return runConnectivityTest(testName, namespace, project, sourceInstanceName, sourceInstanceZone, destinationIpAddress, 0, "ICMP", tries)
+}
+
+// RunTcpConnectivityTest runs a TCP connectivity test from sourceInstanceName to destinationIpAddress:destinationPort
+func RunTcpConnectivityTest(testName string, namespace string, project string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, destinationPort int, tries int) (bool, error) {
+	return runConnectivityTest(testName, namespace, project, sourceInstanceName, sourceInstanceZone, destinationIpAddress, destinationPort, "TCP", tries)
+}
+
+// runConnectivityTest runs a connectivity test from sourceInstanceName to destinationIpAddress:destinationPort with the specified protocol
+func runConnectivityTest(testName string, namespace string, project string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, destinationPort int, protocol string, tries int) (bool, error) {
+	ctx := context.Background()
+	reachabilityClient, err := networkmanagement.NewReachabilityClient(ctx) // Can't use REST client for some reason (filed as bug within Google internally)
+	if err != nil {
+		return false, err
+	}
+
+	connectivityTestId := getConnectivityTestId(namespace, testName)
+	createConnectivityTestReq := &networkmanagementpb.CreateConnectivityTestRequest{
+		Parent: "projects/" + project + "/locations/global",
+		TestId: connectivityTestId,
+		Resource: &networkmanagementpb.ConnectivityTest{
+			Name:     "projects/" + project + "/locations/global/connectivityTests" + connectivityTestId,
+			Protocol: protocol,
+			Source: &networkmanagementpb.Endpoint{
+				Instance:  getInstanceUrl(project, sourceInstanceZone, sourceInstanceName),
+				Network:   getVpcUrl(project, namespace),
+				ProjectId: project,
+			},
+			Destination: &networkmanagementpb.Endpoint{
+				IpAddress:   destinationIpAddress,
+				NetworkType: networkmanagementpb.Endpoint_NON_GCP_NETWORK,
+				Port:        int32(destinationPort),
+			},
+		},
+	}
+	createConnectivityTestOp, err := reachabilityClient.CreateConnectivityTest(ctx, createConnectivityTestReq)
+	if err != nil {
+		return false, err
+	}
+	connectivityTest, err := createConnectivityTestOp.Wait(ctx)
+	if err != nil {
+		return false, err
+	}
+	if connectivityTest.ReachabilityDetails.Result == networkmanagementpb.ReachabilityDetails_REACHABLE {
+		return true, nil
+	}
+
+	// Retry
+	for i := 0; i < tries-1; i++ {
+		rerunConnectivityReq := &networkmanagementpb.RerunConnectivityTestRequest{
+			Name: connectivityTest.Name,
+		}
+		rerunConnectivityTestOp, err := reachabilityClient.RerunConnectivityTest(ctx, rerunConnectivityReq)
+		if err != nil {
+			return false, err
+		}
+		connectivityTest, err = rerunConnectivityTestOp.Wait(ctx)
+		if err != nil {
+			return false, err
+		}
+		if connectivityTest.ReachabilityDetails.Result == networkmanagementpb.ReachabilityDetails_REACHABLE {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// Returns connectivity test ID
+func getConnectivityTestId(namespace string, name string) string {
+	return getParagliderNamespacePrefix(namespace) + "-" + name + "-connectivity-test"
 }

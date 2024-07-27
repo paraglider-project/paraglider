@@ -202,8 +202,12 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// Run connectivity tests on both directions between vm1 and vm2
-	RunPingConnectivityTest(t, projectId, "1to2", vm1Ip, namespace, vm2Ip)
-	RunPingConnectivityTest(t, projectId, "2to1", vm2Ip, namespace, vm1Ip)
+	vm1ToVm2TestResult, err := RunIcmpConnectivityTest("vm1-to-vm2", namespace, projectId, vm1Name, vm1Zone, vm2Ip, 5)
+	require.NoError(t, err)
+	require.True(t, vm1ToVm2TestResult)
+	vm2toVm1TestResult, err := RunIcmpConnectivityTest("vm2-to-vm1", namespace, projectId, vm2Name, vm2Zone, vm1Ip, 5)
+	require.NoError(t, err)
+	require.True(t, vm2toVm1TestResult)
 
 	// Delete permit lists
 	for i, vmId := range vmUrls {
@@ -337,6 +341,76 @@ func TestCrossNamespace(t *testing.T) {
 	}
 
 	// Run connectivity tests on both directions between vm1 and vm2
-	RunPingConnectivityTest(t, project1Id, "vm1-to-vm2", vm1Ip, project1Namespace, vm2Ip)
-	RunPingConnectivityTest(t, project2Id, "vm2-to-vm1", vm2Ip, project2Namespace, vm1Ip)
+	vm1ToVm2TestResult, err := RunIcmpConnectivityTest("vm1-to-vm2", project1Namespace, project1Id, vm1Name, vm1Zone, vm2Ip, 5)
+	require.NoError(t, err)
+	require.True(t, vm1ToVm2TestResult)
+	vm2toVm1TestResult, err := RunIcmpConnectivityTest("vm2-to-vm1", project2Namespace, project2Id, vm2Name, vm2Zone, vm1Ip, 5)
+	require.NoError(t, err)
+	require.True(t, vm2toVm1TestResult)
+}
+
+func TestPublicIpAddressTarget(t *testing.T) {
+	// Setup
+	projectId := SetupGcpTesting("integration-public")
+	defer TeardownGcpTesting(projectId)
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	namespace := "default"
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
+	ctx := context.Background()
+
+	// Create VM
+	vmName := "vm-paraglider-test-1"
+	vmZone := "us-west1-a"
+	insertInstanceReq := GetTestVmParameters(projectId, vmZone, vmName)
+	insertInstanceReqBytes, err := json.Marshal(insertInstanceReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	createResourceReq := &paragliderpb.CreateResourceRequest{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + projectId, Namespace: namespace},
+		Name:        vmName,
+		Description: insertInstanceReqBytes,
+	}
+	createResourceResp, err := s.CreateResource(ctx, createResourceReq)
+	require.NoError(t, err)
+	require.NotNil(t, createResourceResp)
+	assert.Equal(t, createResourceResp.Name, vmName)
+
+	// Create permit list rules to Cloudflare DNS
+	// Multiple permit list rules are tested to ensure that duplicate NAT gateway creations are avoided
+	// Don't use any Google related IPs (e.g., 8.8.8.8) as they don't seem to be routed through the NAT gateway
+	permitListRules := []*paragliderpb.PermitListRule{
+		{
+			Name:      "cloudflare-dns-tcp-outbound",
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   80,
+			Protocol:  6,
+			Targets:   []string{"1.1.1.1"},
+		},
+		{
+			Name:      "cloudflare-dns-icmp-outbound",
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+			Targets:   []string{"1.1.1.1"},
+		},
+	}
+	vmUrl := getInstanceUrl(projectId, vmZone, vmName)
+	addPermitListReq := &paragliderpb.AddPermitListRulesRequest{Rules: permitListRules, Namespace: namespace, Resource: vmUrl}
+	addPermitListResp, err := s.AddPermitListRules(ctx, addPermitListReq)
+	require.NoError(t, err)
+	require.NotNil(t, addPermitListResp)
+
+	// Run connectivity tests
+	tcpTestResult, err := RunTcpConnectivityTest("cloudflare-dns-tcp", namespace, projectId, vmName, vmZone, "1.1.1.1", 80, 5)
+	require.NoError(t, err)
+	require.True(t, tcpTestResult)
+	icmpTestresult, err := RunIcmpConnectivityTest("cloudflare-dns-icmp", namespace, projectId, vmName, vmZone, "1.1.1.1", 5)
+	require.NoError(t, err)
+	require.True(t, icmpTestresult)
 }
