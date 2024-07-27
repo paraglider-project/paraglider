@@ -23,16 +23,19 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 const (
@@ -62,6 +65,7 @@ const (
 	validLocalNetworkGatewayName             = "valid-local-network-gateway"
 	validVirtualNetworkGatewayConnectionName = "valid-virtual-network-gateway-connection"
 	validClusterName                         = "valid-cluster-name"
+	validNatGatewayName                      = "valid-nat-gateway"
 	invalidVmName                            = "invalid-vm-name"
 	validVmName                              = "valid-vm-name"
 	validResourceName                        = "valid-resource-name"
@@ -344,6 +348,26 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponse(w, fakeServerState.cluster) // Return server state cluster so that it can have server-side fields in it
 				return
 			}
+		// NatGateways
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/natGateways/"):
+			if r.Method == "GET" {
+				if fakeServerState.natGateway == nil {
+					http.Error(w, "nat gateway not found", http.StatusNotFound)
+					return
+				}
+				sendResponse(w, fakeServerState.natGateway)
+				return
+			}
+			if r.Method == "PUT" {
+				natGateway := &armnetwork.NatGateway{}
+				err = json.Unmarshal(body, natGateway)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("unable to marshal request: %s", err.Error()), http.StatusBadRequest)
+					return
+				}
+				sendResponse(w, fakeServerState.natGateway)
+				return
+			}
 		}
 		fmt.Printf("unsupported request: %s %s\n", r.Method, path)
 	})
@@ -364,6 +388,7 @@ type fakeServerState struct {
 	vpnConnection *armnetwork.VirtualNetworkGatewayConnection
 	vnetPeering   *armnetwork.VirtualNetworkPeering
 	cluster       *armcontainerservice.ManagedCluster
+	natGateway    *armnetwork.NatGateway
 }
 
 // Sets up fake http server
@@ -753,4 +778,127 @@ func getFakeVnetInLocation(location *string, addressSpace string) *armnetwork.Vi
 			},
 		},
 	}
+}
+
+func getFakeNatGateway() *armnetwork.NatGateway {
+	return &armnetwork.NatGateway{}
+}
+
+func runConnectivityCheck(ctx context.Context, namespace string, subscriptionId string, resourceGroupName string, sourceVmName string, destinationIPAddress string, destinationPort int32, protocol armnetwork.Protocol, tries int) (bool, error) {
+	if tries <= 0 {
+		return false, fmt.Errorf("tries must be greater than 0")
+	}
+
+	sourceVmResourceID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s", subscriptionId, resourceGroupName, sourceVmName)
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		return false, fmt.Errorf("unable to get azure credentials: %w", err)
+	}
+
+	// Fetch source virtual machine for location
+	virtualMachinesClient, err := armcompute.NewVirtualMachinesClient(subscriptionId, cred, nil)
+	if err != nil {
+		return false, fmt.Errorf("unable to create virtual machines client: %w", err)
+	}
+	vm, err := virtualMachinesClient.Get(ctx, resourceGroupName, sourceVmName, &armcompute.VirtualMachinesClientGetOptions{Expand: nil})
+	if err != nil {
+		return false, fmt.Errorf("unable to get virtual machine: %w", err)
+	}
+
+	// Install Network Watcher Agent VM extension
+	virtualMachineExtensionsClient, err := armcompute.NewVirtualMachineExtensionsClient(subscriptionId, cred, nil)
+	if err != nil {
+		return false, fmt.Errorf("unable to create virtual machine extensions client: %w", err)
+	}
+	extensionParameters := armcompute.VirtualMachineExtension{
+		Location: vm.Location,
+		Properties: &armcompute.VirtualMachineExtensionProperties{
+			Publisher:          to.Ptr("Microsoft.Azure.NetworkWatcher"),
+			Type:               to.Ptr("NetworkWatcherAgentLinux"),
+			TypeHandlerVersion: to.Ptr("1.4"),
+		},
+	}
+	vmExtensionPollerResponse, err := virtualMachineExtensionsClient.BeginCreateOrUpdate(ctx, resourceGroupName, sourceVmName, "network-watcher-agent-linux", extensionParameters, nil)
+	if err != nil {
+		return false, fmt.Errorf("unable to create or update virtual machine extension: %w", err)
+	}
+	_, err = vmExtensionPollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("unable to poll create or update virtual machine extension: %w", err)
+	}
+
+	// Configure network watcher
+	// Hard coded resource group for CI pipeline (https://github.com/paraglider-project/paraglider/issues/217)
+	watchersClient, err := armnetwork.NewWatchersClient(subscriptionId, cred, nil)
+	if err != nil {
+		return false, fmt.Errorf("unable to create watchers client: %w", err)
+	}
+	networkWatcherResourceGroup := "NetworkWatcherRG"
+	networkWatcherName := "NetworkWatcher_" + *vm.Location
+	if os.Getenv("PARAGLIDER_AZURE_RESOURCE_GROUP") != "" {
+		// Check if network watcher already exists within the subscription since Azure limits network watchers to one per subscription for each region
+		networkWatcherResourceIDInfo, err := findNetworkWatcher(ctx, watchersClient, *vm.Location)
+		if err != nil {
+			return false, fmt.Errorf("error when finding network watcher: %w", err)
+		}
+		if networkWatcherResourceIDInfo != nil {
+			// Use existing network watcher
+			networkWatcherResourceGroup = networkWatcherResourceIDInfo.ResourceGroupName
+			networkWatcherName = networkWatcherResourceIDInfo.ResourceName
+		} else {
+			// Create network watcher in provided resource group
+			networkWatcherResourceGroup = os.Getenv("PARAGLIDER_AZURE_RESOURCE_GROUP")
+			// Tag it to make sure it gets deleted
+			networkWatcher := armnetwork.Watcher{
+				Location: vm.Location,
+				Tags:     map[string]*string{namespaceTagKey: to.Ptr(namespace)},
+			}
+			_, err := watchersClient.CreateOrUpdate(ctx, networkWatcherResourceGroup, networkWatcherName, networkWatcher, nil)
+			if err != nil {
+				return false, fmt.Errorf("unable to create network watcher: %w", err)
+			}
+		}
+	}
+
+	// Run connectivity check
+	connectivityParameters := armnetwork.ConnectivityParameters{
+		Destination:        &armnetwork.ConnectivityDestination{Address: to.Ptr(destinationIPAddress), Port: to.Ptr(destinationPort)},
+		Source:             &armnetwork.ConnectivitySource{ResourceID: to.Ptr(sourceVmResourceID)},
+		PreferredIPVersion: to.Ptr(armnetwork.IPVersionIPv4),
+		Protocol:           to.Ptr(protocol),
+	}
+	for i := 0; i < tries; i++ {
+		checkConnectivityPollerResponse, err := watchersClient.BeginCheckConnectivity(ctx, networkWatcherResourceGroup, networkWatcherName, connectivityParameters, nil)
+		if err != nil {
+			return false, err
+		}
+		resp, err := checkConnectivityPollerResponse.PollUntilDone(ctx, nil)
+		if err != nil {
+			return false, err
+		}
+		// TODO @seankimkdy: Unclear why ConnectionStatus returns "Reachable" which is not a valid armnetwork.ConnectionStatus constant (https://github.com/Azure/azure-sdk-for-go/issues/21777)
+		if *resp.ConnectivityInformation.ConnectionStatus == armnetwork.ConnectionStatus("Reachable") {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func RunICMPConnectivityCheck(ctx context.Context, namespace string, subscriptionId string, resourceGroupName string, sourceVmName string, destinationIPAddress string, tries int) (bool, error) {
+	// Note that external ICMP connectivity checks are not permitted on Azure
+	// - https://learn.microsoft.com/en-us/azure/nat-gateway/troubleshoot-nat#how-to-validate-connectivity
+	// - https://learn.microsoft.com/en-us/azure/virtual-network/ip-services/default-outbound-access#constraints
+	// - https://learn.microsoft.com/nl-nl/archive/blogs/mast/use-port-pings-instead-of-icmp-to-test-azure-vm-connectivity
+	isPrivate, err := utils.IsIpAddressPrivate(destinationIPAddress)
+	if err != nil {
+		return false, fmt.Errorf("unable to check if destination IP address is private: %w", err)
+	} else if !isPrivate {
+		return false, fmt.Errorf("Azure does not support public destination IP address for ICMP")
+	}
+	return runConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, sourceVmName, destinationIPAddress, 0, armnetwork.ProtocolIcmp, tries)
+}
+
+func RunTCPConnectivityCheck(ctx context.Context, namespace string, subscriptionId string, resourceGroupName string, sourceVmName string, destinationIPAddress string, destinationPort int32, tries int) (bool, error) {
+	return runConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, sourceVmName, destinationIPAddress, destinationPort, armnetwork.ProtocolTCP, tries)
 }
