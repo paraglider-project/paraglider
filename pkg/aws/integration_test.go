@@ -20,7 +20,6 @@ package aws
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
@@ -38,19 +37,20 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	awsServer := &AWSPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
+	awsServer := &AwsPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	instanceName := "paraglider-test-vm"
 	instanceRegion := "us-east-2a"
-	runInstancesInput := getTestInstance(instanceRegion)
-	descriptionJson, err := json.Marshal(runInstancesInput)
-	require.NoError(t, err)
+	testInstanceJson, err := getTestInstanceInputJson(instanceRegion)
+	if err != nil {
+		t.Fatal(err)
+	}
 	req := &paragliderpb.CreateResourceRequest{
 		Deployment: &paragliderpb.ParagliderDeployment{
 			Id:        accountId,
 			Namespace: namespace,
 		},
 		Name:        instanceName,
-		Description: descriptionJson,
+		Description: testInstanceJson,
 	}
 	resp, err := awsServer.CreateResource(context.TODO(), req)
 	require.NoError(t, err)

@@ -49,6 +49,16 @@ func getCreateTagSpecifications(namespace string, name string, resourceType type
 	}
 }
 
+// getNameTag returns the value of the tag with key "Name" for a resource.
+func getNameTag(tags []types.Tag) string {
+	for _, tag := range tags {
+		if *tag.Key == "Name" {
+			return *tag.Value
+		}
+	}
+	return ""
+}
+
 // getNamespacePrefix returns the prefix for all resources within a specific namespace.
 func getNamespacePrefix(namespace string) string {
 	return paragliderPrefix + "-" + namespace
