@@ -242,6 +242,48 @@ func TestAddPermitListRulesExistingRule(t *testing.T) {
 	require.NotNil(t, resp)
 }
 
+func TestAddPermitListRulesPublicIp(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		instance: getFakeInstance(true),
+		subnetwork: &computepb.Subnetwork{
+			IpCidrRange: proto.String("10.0.0.0/16"),
+		},
+		network: &computepb.Network{
+			Name: proto.String(getVpcName(fakeNamespace)),
+		},
+	}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	vpnRegion = fakeRegion
+
+	fakeOrchestratorServer, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	fakeOrchestratorServer.Counter = 1
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
+
+	req := &paragliderpb.AddPermitListRulesRequest{
+		Resource: fakeResourceId,
+		Rules: []*paragliderpb.PermitListRule{
+			{
+				Name:      "cloudflare-icmp-egress",
+				Direction: paragliderpb.Direction_OUTBOUND,
+				SrcPort:   -1,
+				DstPort:   -1,
+				Protocol:  1,
+				Targets:   []string{"1.1.1.1"},
+			},
+		},
+		Namespace: fakeNamespace,
+	}
+
+	resp, err := s._AddPermitListRules(ctx, req, fakeClients)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+}
+
 func TestDeletePermitListRules(t *testing.T) {
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &fakeServerState{instance: getFakeInstance(true)})
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
