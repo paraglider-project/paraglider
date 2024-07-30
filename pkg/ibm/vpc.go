@@ -18,6 +18,7 @@ package ibm
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 
@@ -95,7 +96,14 @@ func (c *CloudClient) TerminateVPC(vpcID string) error {
 	if err != nil {
 		return err
 	}
-
+	// wait until all subnets are deleted
+	for {
+		subnets, _ := c.GetSubnetsInVpcRegionBound(vpcID)
+		if len(subnets) == 0 {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
 	// Delete VPC
 	_, err = c.vpcService.DeleteVPC(&vpcv1.DeleteVPCOptions{
 		ID: &vpcID,
