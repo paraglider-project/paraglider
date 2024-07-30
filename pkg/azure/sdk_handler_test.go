@@ -908,6 +908,49 @@ func TestGetVirtualNetworkGatewayConnection(t *testing.T) {
 	})
 }
 
+func TestCreateNatGateway(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		subId:  subID,
+		rgName: rgName,
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
+
+	t.Run("Success", func(t *testing.T) {
+		natGateway, err := handler.CreateNatGateway(ctx, validNatGatewayName, armnetwork.NatGateway{})
+		require.NoError(t, err)
+		require.NotNil(t, natGateway)
+	})
+}
+
+func TestGetNatGateway(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		subId:      subID,
+		rgName:     rgName,
+		natGateway: getFakeNatGateway(),
+	}
+	fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+	defer Teardown(fakeServer)
+	handler := AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
+
+	t.Run("Success", func(t *testing.T) {
+		natGateway, err := handler.GetNatGateway(ctx, validNatGatewayName)
+		require.NoError(t, err)
+		require.NotNil(t, natGateway)
+	})
+	t.Run("Failure", func(t *testing.T) {
+		fakeServerState.natGateway = nil
+		natGateway, err := handler.GetNatGateway(ctx, validNatGatewayName)
+		require.Error(t, err)
+		require.Nil(t, natGateway)
+	})
+}
+
 func TestGetIPs(t *testing.T) {
 	// Test case 1: Inbound rule
 	inboundRule := &paragliderpb.PermitListRule{

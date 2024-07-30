@@ -128,3 +128,11 @@ func getLocalNetworkGatewayName(namespace string, cloud string, idx int) string 
 func getVirtualNetworkGatewayConnectionName(namespace string, cloud string, idx int) string {
 	return getParagliderNamespacePrefix(namespace) + "-" + cloud + "-conn-" + strconv.Itoa(idx)
 }
+
+func getNatGatewayName(namespace string, location string) string {
+	return getParagliderNamespacePrefix(namespace) + "-" + location + "-nat-gw"
+}
+
+func getNatGatewayIPAddressName(namespace string, location string) string {
+	return getNatGatewayName(namespace, location) + "-ip"
+}

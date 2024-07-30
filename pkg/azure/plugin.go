@@ -173,10 +173,13 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 
 		for i, peeringCloudInfo := range peeringCloudInfos {
 			if peeringCloudInfo == nil {
-				continue
-			}
-			address := rule.Targets[i]
-			if peeringCloudInfo.Cloud != utils.AZURE {
+				// Setup NAT gateway for public IP addresses
+				_, err = getOrCreateNatGateway(ctx, azureHandler, req.Namespace, *resourceVnet.Location)
+				if err != nil {
+					return nil, fmt.Errorf("unable to setup NAT gateway: %w", err)
+				}
+			} else if peeringCloudInfo.Cloud != utils.AZURE {
+				address := rule.Targets[i]
 				// Create VPN connections
 				connectCloudsReq := &paragliderpb.ConnectCloudsRequest{
 					CloudA:              utils.AZURE,

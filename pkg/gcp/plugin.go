@@ -156,9 +156,16 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 
 		for _, peeringCloudInfo := range peeringCloudInfos {
 			if peeringCloudInfo == nil {
-				continue
-			}
-			if peeringCloudInfo.Cloud != utils.GCP {
+				// Setup NAT gateways for public IP address targets
+				routersClient, err := clients.GetOrCreateRoutersClient(ctx)
+				if err != nil {
+					return nil, fmt.Errorf("unable to get routers client: %w", err)
+				}
+				err = setupNatGateway(ctx, routersClient, resourceInfo.Project, req.Namespace)
+				if err != nil {
+					return nil, fmt.Errorf("unable to setup NAT gateway: %w", err)
+				}
+			} else if peeringCloudInfo.Cloud != utils.GCP {
 				// Create VPN connections
 				connectCloudsReq := &paragliderpb.ConnectCloudsRequest{
 					CloudA:          utils.GCP,
@@ -673,19 +680,19 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 		Region:  vpnRegion,
 		Router:  getRouterName(req.Deployment.Namespace),
 	}
-	getRouterResp, err := routersClient.Get(ctx, getRouterReq)
+	router, err := routersClient.Get(ctx, getRouterReq)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get router: %w", err)
 	}
 	existingInterfaces := make(map[string]bool)
-	for _, interface_ := range getRouterResp.Interfaces {
+	for _, interface_ := range router.Interfaces {
 		existingInterfaces[*interface_.Name] = true
 	}
 	patchRouterRequest := &computepb.PatchRouterRequest{
 		Project:        project,
 		Region:         vpnRegion,
 		Router:         getRouterName(req.Deployment.Namespace),
-		RouterResource: getRouterResp, // Necessary for PATCH to work correctly on arrays
+		RouterResource: router, // Necessary for PATCH to work correctly on arrays
 	}
 	for i := 0; i < vpnNumConnections; i++ {
 		interfaceName := getVpnTunnelInterfaceName(req.Deployment.Namespace, req.Cloud, i, i)
