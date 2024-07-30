@@ -761,7 +761,6 @@ func TestCreateResourceEndpointGatewayNewVPC(t *testing.T) {
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		}}
 
-	fmt.Printf("%+v\n", fakeEndpointGatewayOptions)
 	description, err := json.Marshal(fakeEndpointGatewayOptions)
 	require.NoError(t, err)
 

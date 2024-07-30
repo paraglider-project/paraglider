@@ -226,13 +226,10 @@ func getZoneFromDesc(resourceDesc []byte) (string, error) {
 		return *zone.(*vpcv1.ZoneIdentityByName).Name, nil
 	}
 
-	fmt.Printf("%+v\n", resourceDesc)
 	err = json.Unmarshal(resourceDesc, &endpointGatewayOptions)
-	fmt.Printf("%v", err)
 	if err == nil && endpointGatewayOptions.Target.(*vpcv1.EndpointGatewayTargetPrototype).ResourceType != nil {
 		return defaultZone, nil
 	}
-	fmt.Printf("%+v\n", endpointGatewayOptions)
 
 	return "", fmt.Errorf("failed to unmarshal resource description:%+v", err)
 

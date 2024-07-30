@@ -698,13 +698,10 @@ func (c *CloudClient) GetResourceHandlerFromDesc(resourceDesc []byte) (ResourceI
 		return &ResourceInstanceType{client: c}, nil
 	}
 
-	fmt.Printf("%+v\n", resourceDesc)
 	err = json.Unmarshal(resourceDesc, &endpointGatewayOptions)
-	fmt.Printf("%v", err)
 	if err == nil && endpointGatewayOptions.Target.(*vpcv1.EndpointGatewayTargetPrototype).ResourceType != nil {
 		return &ResourcePrivateEndpointType{client: c}, nil
 	}
-	fmt.Printf("%+v\n", endpointGatewayOptions)
 
 	return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
 
