@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -157,7 +158,7 @@ func getTestInstanceInput(availabilityZone string) *ec2.RunInstancesInput {
 		},
 		MinCount:     aws.Int32(1),
 		MaxCount:     aws.Int32(1),
-		ImageId:      aws.String("ami-00db8dadb36c9815e"),
+		ImageId:      aws.String("ami-00db8dadb36c9815e"), // Amazon Linux 2023 AMI
 		InstanceType: types.InstanceTypeT2Micro,
 	}
 }
@@ -169,4 +170,111 @@ func GetAwsAccountId() string {
 		panic("Environment variable 'PARAGLIDER_AWS_ACCOUNT_ID' must be set")
 	}
 	return accountId
+}
+
+// SetupAwsTesting returns a namespace to be used for testing.
+// Due to how teardown relies on the Paraglider namespace, the namespace should be unique between GitHub runs.
+func SetupAwsTesting(testName string) string {
+	ghRunNumber := testName + os.Getenv("GH_RUN_NUMBER")
+	if ghRunNumber != "" {
+		return testName + "-" + ghRunNumber
+	}
+	return testName
+}
+
+func TeardownAwsTesting(namespace string, region string) {
+	if os.Getenv("PARAGLIDER_TEST_PERSIST") == "1" {
+		return
+	}
+	ctx := context.TODO()
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
+	if err != nil {
+		panic(fmt.Errorf("unable to load config: %w", err))
+	}
+
+	ec2Client := ec2.NewFromConfig(cfg)
+	describeInstancesInput := &ec2.DescribeInstancesInput{
+		Filters: []types.Filter{{Name: aws.String("tag:Namespace"), Values: []string{namespace}}},
+	}
+	describeInstancesOutput, err := ec2Client.DescribeInstances(ctx, describeInstancesInput)
+	if err != nil {
+		panic(fmt.Errorf("Failed to describe instances: %w", err))
+	}
+
+	// Delete instances
+	instanceIds := make([]string, 0)
+	for _, reservation := range describeInstancesOutput.Reservations {
+		for _, instance := range reservation.Instances {
+			if instance.State.Name != types.InstanceStateNameTerminated {
+				instanceIds = append(instanceIds, *instance.InstanceId)
+			}
+		}
+	}
+	if len(instanceIds) > 0 {
+		terminateInstancesInput := &ec2.TerminateInstancesInput{
+			InstanceIds: instanceIds,
+		}
+		_, err := ec2Client.TerminateInstances(ctx, terminateInstancesInput)
+		if err != nil {
+			panic(fmt.Errorf("failed to terminate instances: %w", err))
+		}
+		// Wait
+		instanceTerminatedWaiter := ec2.NewInstanceTerminatedWaiter(ec2Client)
+		err = instanceTerminatedWaiter.Wait(ctx, &ec2.DescribeInstancesInput{
+			InstanceIds: instanceIds,
+		}, 3*time.Minute)
+		if err != nil {
+			panic(fmt.Errorf("failed to wait for instances to terminate: %w", err))
+		}
+	}
+
+	// Delete subnets
+	describeSubnetsInput := &ec2.DescribeSubnetsInput{
+		Filters: []types.Filter{{Name: aws.String("tag:Namespace"), Values: []string{namespace}}},
+	}
+	describeSubnetsOutput, err := ec2Client.DescribeSubnets(ctx, describeSubnetsInput)
+	if err != nil {
+		panic(fmt.Errorf("Failed to describe subnets: %w", err))
+	}
+	for _, subnet := range describeSubnetsOutput.Subnets {
+		deleteSubnetInput := &ec2.DeleteSubnetInput{SubnetId: subnet.SubnetId}
+		_, err := ec2Client.DeleteSubnet(ctx, deleteSubnetInput)
+		if err != nil {
+			panic(fmt.Errorf("Failed to delete subnet %s: %w", *subnet.SubnetId, err))
+		}
+	}
+
+	// Delete security groups
+	describeSecurityGroupsInput := &ec2.DescribeSecurityGroupsInput{
+		Filters: []types.Filter{{Name: aws.String("tag:Namespace"), Values: []string{namespace}}},
+	}
+	describeSecurityGroupsOutput, err := ec2Client.DescribeSecurityGroups(ctx, describeSecurityGroupsInput)
+	if err != nil {
+		panic(fmt.Errorf("Failed to describe security groups: %w", err))
+	}
+	for _, securityGroup := range describeSecurityGroupsOutput.SecurityGroups {
+		deleteSecurityGroupInput := &ec2.DeleteSecurityGroupInput{GroupId: securityGroup.GroupId}
+		_, err := ec2Client.DeleteSecurityGroup(ctx, deleteSecurityGroupInput)
+		if err != nil {
+			panic(fmt.Errorf("Failed to delete security group %s: %w", *securityGroup.GroupId, err))
+		}
+	}
+
+	// Delete VPCs
+	describeVpcsInput := &ec2.DescribeVpcsInput{
+		Filters: []types.Filter{{Name: aws.String("tag:Namespace"), Values: []string{namespace}}},
+	}
+	describeVpcsOutput, err := ec2Client.DescribeVpcs(ctx, describeVpcsInput)
+	if err != nil {
+		panic(fmt.Errorf("Failed to describe VPCs: %w", err))
+	}
+	for _, vpc := range describeVpcsOutput.Vpcs {
+		deleteVpcInput := &ec2.DeleteVpcInput{
+			VpcId: vpc.VpcId,
+		}
+		_, err := ec2Client.DeleteVpc(ctx, deleteVpcInput)
+		if err != nil {
+			panic(fmt.Errorf("Failed to delete VPC %s: %w", *vpc.VpcId, err))
+		}
+	}
 }

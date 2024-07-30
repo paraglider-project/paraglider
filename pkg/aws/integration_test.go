@@ -22,16 +22,17 @@ import (
 	"context"
 	"testing"
 
+	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/require"
-
-	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
 )
 
 func TestIntegration(t *testing.T) {
 	accountId := GetAwsAccountId()
-	namespace := "default"
+	namespace := SetupAwsTesting("test-integration")
+	region := "us-east-2"
+	defer TeardownAwsTesting(namespace, region)
 
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
@@ -39,8 +40,8 @@ func TestIntegration(t *testing.T) {
 	}
 	awsServer := &AwsPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 	instanceName := "paraglider-test-vm"
-	instanceRegion := "us-east-2a"
-	testInstanceJson, err := getTestInstanceInputJson(instanceRegion)
+	instanceAvailabilityZone := "us-east-2a"
+	testInstanceJson, err := getTestInstanceInputJson(instanceAvailabilityZone)
 	if err != nil {
 		t.Fatal(err)
 	}

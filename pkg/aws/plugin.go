@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -111,6 +112,60 @@ func (s *AwsPluginServer) _CreateResource(ctx context.Context, req *paragliderpb
 				return nil, fmt.Errorf("unable to create VPC: %w", err)
 			}
 			vpc = createVpcOutput.Vpc
+
+			// Wait until default security group is available
+			securityGroupExistsWaiter := ec2.NewSecurityGroupExistsWaiter(ec2Client)
+			err = securityGroupExistsWaiter.Wait(ctx, &ec2.DescribeSecurityGroupsInput{
+				Filters: []types.Filter{
+					{Name: aws.String("vpc-id"), Values: []string{*createVpcOutput.Vpc.VpcId}},
+				},
+			}, 10*time.Second)
+			if err != nil {
+				return nil, fmt.Errorf("unable to wait for default security group: %w", err)
+			}
+
+			// Remove default inbound and outbound rules from default security group
+			getSecurityGroupInput := &ec2.DescribeSecurityGroupsInput{
+				Filters: []types.Filter{
+					{Name: aws.String("vpc-id"), Values: []string{*vpc.VpcId}},
+				},
+			}
+			describeSecurityGroupsOutput, err := ec2Client.DescribeSecurityGroups(ctx, getSecurityGroupInput)
+			if err != nil {
+				return nil, fmt.Errorf("unable to get security groups: %w", err)
+			}
+			if len(describeSecurityGroupsOutput.SecurityGroups) == 1 {
+				securityGroup := describeSecurityGroupsOutput.SecurityGroups[0]
+				revokeSecurityGroupIngressInput := &ec2.RevokeSecurityGroupIngressInput{
+					GroupId: securityGroup.GroupId,
+					IpPermissions: []types.IpPermission{
+						{
+							IpProtocol: aws.String("-1"),
+							UserIdGroupPairs: []types.UserIdGroupPair{{
+								GroupId: securityGroup.GroupId,
+								UserId:  aws.String(req.Deployment.Id),
+							}},
+						},
+					},
+				}
+				_, err = ec2Client.RevokeSecurityGroupIngress(ctx, revokeSecurityGroupIngressInput)
+				if err != nil {
+					return nil, fmt.Errorf("unable to revoke default inbound security group rule: %w", err)
+				}
+				revokeSecurityGroupEgressInput := &ec2.RevokeSecurityGroupEgressInput{
+					GroupId: securityGroup.GroupId,
+					IpPermissions: []types.IpPermission{
+						{
+							IpProtocol: aws.String("-1"),
+							IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
+						},
+					},
+				}
+				_, err = ec2Client.RevokeSecurityGroupEgress(ctx, revokeSecurityGroupEgressInput)
+				if err != nil {
+					return nil, fmt.Errorf("unable to revoke default outbound security group rule: %w", err)
+				}
+			}
 		}
 
 		// Get existing subnet
@@ -168,10 +223,8 @@ func (s *AwsPluginServer) _CreateResource(ctx context.Context, req *paragliderpb
 		GroupId: createSecurityGroupOutput.GroupId,
 		IpPermissions: []types.IpPermission{
 			{
-				IpProtocol: aws.String("-1"),                                   // All protocols
-				FromPort:   aws.Int32(-1),                                      // All ports
-				ToPort:     aws.Int32(-1),                                      // All ports
-				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}}, // All IPv4 addresses
+				IpProtocol: aws.String("-1"),
+				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
 			},
 		},
 	}
@@ -186,8 +239,13 @@ func (s *AwsPluginServer) _CreateResource(ctx context.Context, req *paragliderpb
 	if err != nil {
 		return nil, fmt.Errorf("unable to create instance: %w", err)
 	}
-
+	// Wait until instance is running
 	instance := runInstancesOutput.Instances[0]
+	instanceRunningWaiter := ec2.NewInstanceRunningWaiter(ec2Client)
+	err = instanceRunningWaiter.Wait(ctx, &ec2.DescribeInstancesInput{
+		InstanceIds: []string{*instance.InstanceId},
+	}, 2*time.Minute)
+
 	resp := &paragliderpb.CreateResourceResponse{
 		Name: getNameTag(instance.Tags),
 		Uri:  getInstanceArn(req.Deployment.Id, region, *instance.InstanceId),
