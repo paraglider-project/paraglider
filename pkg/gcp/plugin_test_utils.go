@@ -31,6 +31,8 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
+	networkmanagement "cloud.google.com/go/networkmanagement/apiv1"
+	"cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
@@ -40,17 +42,22 @@ import (
 
 // Fake project and resource
 const (
-	fakeProject      = "paraglider-fake"
-	fakeRegion       = "us-fake1"
-	fakeZone         = fakeRegion + "-a"
-	fakeInstanceName = "vm-paraglider-fake"
-	fakeClusterName  = "cluster-paraglider-fake"
-	fakeClusterId    = "12345678910"
-	fakeInstanceId   = uint64(1234)
-	fakeResourceId   = computeUrlPrefix + "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
-	fakeNamespace    = "default"
-	fakeSubnetName   = "subnet-paraglider-fake"
-	fakeSubnetId     = computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/subnetworks/" + fakeSubnetName
+	fakeProject              = "paraglider-fake"
+	fakeRegion               = "us-fake1"
+	fakeZone                 = fakeRegion + "-a"
+	fakeInstanceName         = "vm-paraglider-fake"
+	fakeClusterName          = "cluster-paraglider-fake"
+	fakePscName              = "psc-paraglider-fake"
+	fakeClusterId            = "12345678910"
+	fakeInstanceId           = uint64(1234)
+	fakeResourceId           = computeUrlPrefix + "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeInstanceName
+	fakeNamespace            = "default"
+	fakeSubnetName           = "subnet-paraglider-fake"
+	fakeSubnetId             = computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/subnetworks/" + fakeSubnetName
+	fakeServiceAttachmentUrl = computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/serviceAttachments/fakeServiceAttachment"
+	forwardingRuleUrlPrefix  = computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/forwardingRules/"
+
+	fakeIpAddress = "1.1.1.1"
 
 	// Missing resources not registered in fake server
 	fakeMissingInstance   = "vm-paraglider-missing"
@@ -61,7 +68,7 @@ const (
 )
 
 // Fake tag for fake resource
-var fakeNetworkTag = getNetworkTag(fakeNamespace, instanceTypeName, convertInstanceIdToString(fakeInstanceId))
+var fakeNetworkTag = getNetworkTag(fakeNamespace, instanceTypeName, convertIntIdToString(fakeInstanceId))
 
 // Portions of GCP API URLs
 var (
@@ -90,7 +97,7 @@ var (
 			},
 		},
 		Direction:    proto.String(computepb.Firewall_INGRESS.String()),
-		Name:         proto.String(getFirewallName(fakeNamespace, fakePermitListRule1.Name, convertInstanceIdToString(fakeInstanceId))),
+		Name:         proto.String(getFirewallName(fakeNamespace, fakePermitListRule1.Name, convertIntIdToString(fakeInstanceId))),
 		Network:      proto.String(getVpcUrl(fakeProject, fakeNamespace)),
 		SourceRanges: []string{"10.1.2.0/24"},
 		TargetTags:   []string{fakeNetworkTag},
@@ -113,7 +120,7 @@ var (
 		},
 		DestinationRanges: []string{"10.3.4.0/24"},
 		Direction:         proto.String(computepb.Firewall_EGRESS.String()),
-		Name:              proto.String(getFirewallName(fakeNamespace, fakePermitListRule2.Name, convertInstanceIdToString(fakeInstanceId))),
+		Name:              proto.String(getFirewallName(fakeNamespace, fakePermitListRule2.Name, convertIntIdToString(fakeInstanceId))),
 		Network:           proto.String(getVpcUrl(fakeProject, fakeNamespace)),
 		TargetTags:        []string{fakeNetworkTag},
 	}
@@ -157,6 +164,20 @@ func getFakeCluster(includeNetwork bool) *containerpb.Cluster {
 		cluster.Network = getVpcUrl(fakeProject, fakeNamespace)
 	}
 	return cluster
+}
+
+func getFakeAddress() *computepb.Address {
+	return &computepb.Address{
+		Address: proto.String(fakeIpAddress),
+	}
+}
+
+func getFakeForwardingRule() *computepb.ForwardingRule {
+	return &computepb.ForwardingRule{
+		Name:     proto.String(getForwardingRuleName("serviceName")),
+		Id:       proto.Uint64(1234),
+		SelfLink: proto.String(forwardingRuleUrlPrefix + getForwardingRuleName("serviceName")),
+	}
 }
 
 func sendResponse(w http.ResponseWriter, resp any) {
@@ -274,6 +295,32 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponseFakeOperation(w)
 				return
 			}
+		// Addresses
+		case strings.HasPrefix(path, urlProject+urlRegion+"/addresses"):
+			if r.Method == "GET" {
+				if fakeServerState.address != nil {
+					sendResponse(w, fakeServerState.address)
+				} else {
+					http.Error(w, "no address found", http.StatusNotFound)
+				}
+				return
+			} else if r.Method == "POST" {
+				sendResponseFakeOperation(w)
+				return
+			}
+		// Forwarding Rules
+		case strings.HasPrefix(path, urlProject+urlRegion+"/forwardingRules"):
+			if r.Method == "POST" {
+				sendResponseFakeOperation(w)
+				return
+			} else if r.Method == "GET" {
+				if fakeServerState.forwardingRule != nil {
+					sendResponse(w, fakeServerState.forwardingRule)
+				} else {
+					http.Error(w, "no forwarding rule found", http.StatusNotFound)
+				}
+				return
+			}
 		// VPN Gateways
 		case strings.HasPrefix(path, urlProject+urlRegion+"/vpnGateways"):
 			if r.Method == "GET" {
@@ -355,31 +402,21 @@ func (f *fakeClusterManagerServer) UpdateCluster(ctx context.Context, req *conta
 
 // Struct to hold state for fake server
 type fakeServerState struct {
-	firewallMap map[string]*computepb.Firewall
-	instance    *computepb.Instance
-	network     *computepb.Network
-	router      *computepb.Router
-	subnetwork  *computepb.Subnetwork
-	vpnGateway  *computepb.VpnGateway
-	cluster     *containerpb.Cluster
-}
-
-// Struct to hold fake clients
-type fakeClients struct {
-	externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient
-	firewallsClient           *compute.FirewallsClient
-	instancesClient           *compute.InstancesClient
-	networksClient            *compute.NetworksClient
-	routersClient             *compute.RoutersClient
-	subnetworksClient         *compute.SubnetworksClient
-	vpnGatewaysClient         *compute.VpnGatewaysClient
-	vpnTunnelsClient          *compute.VpnTunnelsClient
-	clusterClient             *container.ClusterManagerClient
+	firewallMap    map[string]*computepb.Firewall
+	instance       *computepb.Instance
+	network        *computepb.Network
+	router         *computepb.Router
+	subnetwork     *computepb.Subnetwork
+	vpnGateway     *computepb.VpnGateway
+	cluster        *containerpb.Cluster
+	address        *computepb.Address
+	forwardingRule *computepb.ForwardingRule
 }
 
 // Sets up fake http server and fake GCP compute clients
-func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClients fakeClients, gsrv *grpc.Server) {
+func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClients *GCPClients, gsrv *grpc.Server) {
 	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
+	fakeClients = &GCPClients{}
 
 	ctx = context.Background()
 
@@ -425,6 +462,21 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 		t.Fatal(err)
 	}
 
+	fakeClients.addressesClient, err = compute.NewAddressesRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fakeClients.forwardingClient, err = compute.NewForwardingRulesRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fakeClients.serviceAttachmentClient, err = compute.NewServiceAttachmentsRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	l, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
@@ -440,7 +492,7 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 	}()
 
 	clusterClientOptions := []option.ClientOption{option.WithoutAuthentication(), option.WithEndpoint(serverAddr), option.WithGRPCDialOption(grpc.WithTransportCredentials(insecure.NewCredentials()))}
-	fakeClients.clusterClient, err = container.NewClusterManagerClient(ctx, clusterClientOptions...)
+	fakeClients.clustersClient, err = container.NewClusterManagerClient(ctx, clusterClientOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -449,24 +501,84 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 }
 
 // Cleans up fake http server and fake GCP compute clients
-func teardown(fakeServer *httptest.Server, fakeClients fakeClients, fakeGRPCServer *grpc.Server) {
+func teardown(fakeServer *httptest.Server, fakeClients *GCPClients, fakeGRPCServer *grpc.Server) {
 	fakeServer.Close()
-	if fakeClients.firewallsClient != nil {
-		fakeClients.firewallsClient.Close()
-	}
-	if fakeClients.instancesClient != nil {
-		fakeClients.instancesClient.Close()
-	}
-	if fakeClients.networksClient != nil {
-		fakeClients.networksClient.Close()
-	}
-	if fakeClients.subnetworksClient != nil {
-		fakeClients.subnetworksClient.Close()
-	}
-	if fakeClients.clusterClient != nil {
-		fakeClients.clusterClient.Close()
-	}
+	fakeClients.Close()
 	if fakeGRPCServer != nil {
 		fakeGRPCServer.Stop()
 	}
+}
+
+// RunIcmpConnectivityTest runs a ICMP connectivity test from sourceInstanceName to destinationIpAddress
+func RunIcmpConnectivityTest(testName string, namespace string, project string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, tries int) (bool, error) {
+	return runConnectivityTest(testName, namespace, project, sourceInstanceName, sourceInstanceZone, destinationIpAddress, 0, "ICMP", tries)
+}
+
+// RunTcpConnectivityTest runs a TCP connectivity test from sourceInstanceName to destinationIpAddress:destinationPort
+func RunTcpConnectivityTest(testName string, namespace string, project string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, destinationPort int, tries int) (bool, error) {
+	return runConnectivityTest(testName, namespace, project, sourceInstanceName, sourceInstanceZone, destinationIpAddress, destinationPort, "TCP", tries)
+}
+
+// runConnectivityTest runs a connectivity test from sourceInstanceName to destinationIpAddress:destinationPort with the specified protocol
+func runConnectivityTest(testName string, namespace string, project string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, destinationPort int, protocol string, tries int) (bool, error) {
+	ctx := context.Background()
+	reachabilityClient, err := networkmanagement.NewReachabilityClient(ctx) // Can't use REST client for some reason (filed as bug within Google internally)
+	if err != nil {
+		return false, err
+	}
+
+	connectivityTestId := getConnectivityTestId(namespace, testName)
+	createConnectivityTestReq := &networkmanagementpb.CreateConnectivityTestRequest{
+		Parent: "projects/" + project + "/locations/global",
+		TestId: connectivityTestId,
+		Resource: &networkmanagementpb.ConnectivityTest{
+			Name:     "projects/" + project + "/locations/global/connectivityTests" + connectivityTestId,
+			Protocol: protocol,
+			Source: &networkmanagementpb.Endpoint{
+				Instance:  getInstanceUrl(project, sourceInstanceZone, sourceInstanceName),
+				Network:   getVpcUrl(project, namespace),
+				ProjectId: project,
+			},
+			Destination: &networkmanagementpb.Endpoint{
+				IpAddress:   destinationIpAddress,
+				NetworkType: networkmanagementpb.Endpoint_NON_GCP_NETWORK,
+				Port:        int32(destinationPort),
+			},
+		},
+	}
+	createConnectivityTestOp, err := reachabilityClient.CreateConnectivityTest(ctx, createConnectivityTestReq)
+	if err != nil {
+		return false, err
+	}
+	connectivityTest, err := createConnectivityTestOp.Wait(ctx)
+	if err != nil {
+		return false, err
+	}
+	if connectivityTest.ReachabilityDetails.Result == networkmanagementpb.ReachabilityDetails_REACHABLE {
+		return true, nil
+	}
+
+	// Retry
+	for i := 0; i < tries-1; i++ {
+		rerunConnectivityReq := &networkmanagementpb.RerunConnectivityTestRequest{
+			Name: connectivityTest.Name,
+		}
+		rerunConnectivityTestOp, err := reachabilityClient.RerunConnectivityTest(ctx, rerunConnectivityReq)
+		if err != nil {
+			return false, err
+		}
+		connectivityTest, err = rerunConnectivityTestOp.Wait(ctx)
+		if err != nil {
+			return false, err
+		}
+		if connectivityTest.ReachabilityDetails.Result == networkmanagementpb.ReachabilityDetails_REACHABLE {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// Returns connectivity test ID
+func getConnectivityTestId(namespace string, name string) string {
+	return getParagliderNamespacePrefix(namespace) + "-" + name + "-connectivity-test"
 }

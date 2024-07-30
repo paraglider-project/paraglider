@@ -221,10 +221,12 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Added Azure permit list rules")
 
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
-	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-1", gcpVmIpAddress, "other", azureVm1IpAddress)
+	gcpIcmpTestResult1, err := gcp.RunIcmpConnectivityTest("gcp-azure-1", "other", gcpProjectId, gcpVmName, gcpVmZone, azureVm1IpAddress, 5)
+	require.NoError(t, err)
+	require.True(t, gcpIcmpTestResult1)
 
 	// Run Azure connectivity check (ping from Azure VM to GCP VM)
-	azureConnectivityCheck1, err := azure.RunPingConnectivityCheck(azureVm1ResourceId, gcpVmIpAddress, "default")
+	azureConnectivityCheck1, err := azure.RunICMPConnectivityCheck(ctx, "default", azureSubscriptionId, azureResourceGroupName, azureVm1Name, gcpVmIpAddress, 5)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck1)
 
@@ -323,10 +325,12 @@ func TestMulticloud(t *testing.T) {
 	fmt.Println("Added Azure permit list rules")
 
 	// Run GCP connectivity tests (ping from GCP VM to Azure VM)
-	gcp.RunPingConnectivityTest(t, gcpProjectId, "gcp-azure-2", gcpVmIpAddress, "other", azureVm2IpAddress)
+	gcpIcmpTestResult2, err := gcp.RunIcmpConnectivityTest("gcp-azure-2", "other", gcpProjectId, gcpVmName, gcpVmZone, azureVm2IpAddress, 5)
+	require.NoError(t, err)
+	require.True(t, gcpIcmpTestResult2)
 
 	// Run Azure connectivity check (ping from Azure VM to GCP VM)
-	azureConnectivityCheck2, err := azure.RunPingConnectivityCheck(azureVm2ResourceId, gcpVmIpAddress, "default")
+	azureConnectivityCheck2, err := azure.RunICMPConnectivityCheck(ctx, "default", azureSubscriptionId, azureResourceGroupName, azureVm2Name, gcpVmIpAddress, 5)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheck2)
 }
@@ -563,7 +567,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	// requires Azure Network Watcher to be deployed in the test's region.
 	if isAzureNetworkWatcherDeployed {
 		fmt.Println("running Azure connectivity test...")
-		azureConnectivityCheck1, err := azure.RunPingConnectivityCheck(azureVmResourceId, ibmVmIpAddress, azureNamespace)
+		azureConnectivityCheck1, err := azure.RunICMPConnectivityCheck(ctx, azureNamespace, azureSubscriptionId, azureResourceGroupName, azureVmName, ibmVmIpAddress, 5)
 		require.Nil(t, err)
 		require.True(t, azureConnectivityCheck1)
 	}

@@ -30,6 +30,8 @@ import (
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func createVM(ctx context.Context, server *azurePluginServer, subscriptionId string, resourceGroupName string, namespace string, location string, name string) (*paragliderpb.CreateResourceResponse, error) {
@@ -55,7 +57,7 @@ func createVM(ctx context.Context, server *azurePluginServer, subscriptionId str
 func TestBasicPermitListOps(t *testing.T) {
 	namespace := "default"
 	subscriptionId := GetAzureSubscriptionId()
-	resourceGroupName := SetupAzureTesting(subscriptionId, "integration1")
+	resourceGroupName := SetupAzureTesting(subscriptionId, "integration-basic-permit-list")
 	defer TeardownAzureTesting(subscriptionId, resourceGroupName, namespace)
 	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
 	if err != nil {
@@ -84,7 +86,7 @@ func TestBasicPermitListOps(t *testing.T) {
 	rules := []*paragliderpb.PermitListRule{
 		{
 			Name:      "test-rule1",
-			Targets:   []string{"47.235.107.235"},
+			Targets:   []string{"10.0.0.1"}, // Must be a private address in the same vnet as the VM to avoid triggering NAT gateway or peering creations
 			Direction: paragliderpb.Direction_OUTBOUND,
 			SrcPort:   80,
 			DstPort:   80,
@@ -122,9 +124,9 @@ func TestCrossNamespaces(t *testing.T) {
 
 	// Setup resource groups
 	subscriptionId := GetAzureSubscriptionId()
-	resourceGroup1Name := SetupAzureTesting(subscriptionId, "integration3")
+	resourceGroup1Name := SetupAzureTesting(subscriptionId, "integration-cross-namespace-1")
 	defer TeardownAzureTesting(subscriptionId, resourceGroup1Name, resourceGroup1Namespace)
-	resourceGroup2Name := SetupAzureTesting(subscriptionId, "integration4")
+	resourceGroup2Name := SetupAzureTesting(subscriptionId, "integration-cross-namespace-2")
 	defer TeardownAzureTesting(subscriptionId, resourceGroup2Name, resourceGroup2Namespace)
 
 	// Set Azure plugin port
@@ -236,10 +238,10 @@ func TestCrossNamespaces(t *testing.T) {
 	}
 
 	// Run connectivity checks on both directions between vm1 and vm2
-	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(vm1ResourceId, vm2Ip, resourceGroup1Namespace)
+	azureConnectivityCheckVM1toVM2, err := RunICMPConnectivityCheck(ctx, resourceGroup1Namespace, subscriptionId, resourceGroup1Name, vm1Name, vm2Ip, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM1toVM2)
-	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(vm2ResourceId, vm1Ip, resourceGroup2Namespace)
+	azureConnectivityCheckVM2toVM1, err := RunICMPConnectivityCheck(ctx, resourceGroup2Namespace, subscriptionId, resourceGroup2Name, vm2Name, vm1Ip, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM2toVM1)
 }
@@ -247,7 +249,7 @@ func TestCrossNamespaces(t *testing.T) {
 func TestMultipleRegionsIntraNamespace(t *testing.T) {
 	// Setup
 	subscriptionId := GetAzureSubscriptionId()
-	resourceGroupName := SetupAzureTesting(subscriptionId, "integration5")
+	resourceGroupName := SetupAzureTesting(subscriptionId, "integration-multi-region-intra-namespace")
 	defaultNamespace := "default"
 	defer TeardownAzureTesting(subscriptionId, resourceGroupName, defaultNamespace)
 
@@ -353,10 +355,259 @@ func TestMultipleRegionsIntraNamespace(t *testing.T) {
 	}
 
 	// Run connectivity checks on both directions between vm1 and vm2
-	azureConnectivityCheckVM1toVM2, err := RunPingConnectivityCheck(vm1ResourceId, vm2Ip, defaultNamespace)
+	azureConnectivityCheckVM1toVM2, err := RunICMPConnectivityCheck(ctx, defaultNamespace, subscriptionId, resourceGroupName, vm1Name, vm2Ip, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM1toVM2)
-	azureConnectivityCheckVM2toVM1, err := RunPingConnectivityCheck(vm2ResourceId, vm1Ip, defaultNamespace)
+	azureConnectivityCheckVM2toVM1, err := RunICMPConnectivityCheck(ctx, defaultNamespace, subscriptionId, resourceGroupName, vm2Name, vm1Ip, 3)
 	require.Nil(t, err)
 	require.True(t, azureConnectivityCheckVM2toVM1)
+}
+
+func TestAttachResourceIntegration(t *testing.T) {
+	namespace := "default"
+	subscriptionId := GetAzureSubscriptionId()
+	resourceGroupName := SetupAzureTesting(subscriptionId, "integration6")
+	defer TeardownAzureTesting(subscriptionId, resourceGroupName, namespace)
+	ctx := context.Background()
+
+	// Set Azure plugin port
+	azureServerPort := 7994
+
+	// Setup orchestrator server
+	orchestratorServerConfig := config.Config{
+		Server: config.Server{
+			Host:    "localhost",
+			Port:    "9092",
+			RpcPort: "9093",
+		},
+		CloudPlugins: []config.CloudPlugin{
+			{
+				Name: utils.AZURE,
+				Host: "localhost",
+				Port: strconv.Itoa(azureServerPort),
+			},
+		},
+		Namespaces: map[string][]config.CloudDeployment{
+			namespace: {
+				{
+					Name:       utils.AZURE,
+					Deployment: getDeploymentUri(subscriptionId, resourceGroupName),
+				},
+			},
+		},
+	}
+	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
+	orchestrator.Setup(orchestratorServerConfig, true)
+
+	// Setup Azure plugin server
+	azureServer := Setup(azureServerPort, orchestratorServerAddr)
+
+	vmLocation := "westus"
+	externalVmParameters := GetTestVmParameters(vmLocation)
+	externalVmName := "external-vm"
+	externalVnetName := "external-vnet"
+	externalVmID := getVmUri(subscriptionId, resourceGroupName, externalVmName)
+	resourceIdInfo := ResourceIDInfo{
+		SubscriptionID:    subscriptionId,
+		ResourceGroupName: resourceGroupName,
+		ResourceName:      externalVmName,
+	}
+
+	// Find unused address spaces for external address
+	conn, err := grpc.NewClient(azureServer.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		utils.Log.Printf("Azure Integration test: Could not dial the orchestrator")
+		return
+	}
+	defer conn.Close()
+	client := paragliderpb.NewControllerClient(conn)
+	reqAddressSpaces := make([]int32, 1)
+	response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: reqAddressSpaces})
+	if err != nil {
+		utils.Log.Printf("Failed to find unused address spaces: %v", err)
+		return
+	}
+	assert.Greater(t, len(response.AddressSpaces), 0)
+	externalAddressSpace := response.AddressSpaces[0]
+	azureHandler, err := azureServer.setupAzureHandler(resourceIdInfo, namespace)
+	require.NoError(t, err)
+
+	// Create Non-Paraglider Vnet
+	externalVnetParams := getVirtualNetworkParameters(vmLocation, externalAddressSpace)
+	externalVnet, err := azureHandler.CreateOrUpdateVirtualNetwork(ctx, externalVnetName, externalVnetParams)
+	require.NotNil(t, externalVnet)
+	require.NoError(t, err)
+
+	// Create Non-Paraglider VM
+	resourceSubnet := externalVnet.Properties.Subnets[0]
+	resourceHandler := &azureResourceHandlerVM{}
+	externalVmIp, err := resourceHandler.createWithNetwork(ctx, &externalVmParameters, resourceSubnet, externalVmName, azureHandler, []string{})
+	require.NoError(t, err)
+	require.NotNil(t, externalVmIp)
+
+	externalVnet, err = azureHandler.GetVnet(ctx, externalVnetName)
+	require.NoError(t, err)
+	require.Nil(t, externalVnet.Tags)
+	require.Empty(t, externalVnet.Properties.VirtualNetworkPeerings)
+
+	// Attach resource to Paraglider
+	attachResourceReq := &paragliderpb.AttachResourceRequest{
+		Namespace: namespace,
+		Resource:  externalVmID,
+	}
+	attachResourceResp, err := azureServer.AttachResource(ctx, attachResourceReq)
+	require.NoError(t, err)
+	require.NotNil(t, attachResourceResp)
+	assert.Equal(t, externalVmID, attachResourceResp.Uri)
+
+	externalVnet, err = azureHandler.GetVnet(ctx, externalVnetName)
+	require.NoError(t, err)
+
+	// Vnet tags and peerings should be created after attachment
+	require.NotNil(t, externalVnet.Tags)
+	assert.Equal(t, namespace, *externalVnet.Tags[namespaceTagKey])
+	require.NotEmpty(t, externalVnet.Properties.VirtualNetworkPeerings)
+
+	// Create Paraglider VM
+	vmNamePrefix := "sample-vm"
+	pgVmName := vmNamePrefix + "-" + uuid.NewString()
+	pgVmID := getVmUri(subscriptionId, resourceGroupName, pgVmName)
+	pgVmParameters := GetTestVmParameters(vmLocation)
+	descriptionJson, err := json.Marshal(&pgVmParameters)
+	require.NoError(t, err)
+	createResourceResp, err := azureServer.CreateResource(ctx, &paragliderpb.CreateResourceRequest{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: getDeploymentUri(subscriptionId, resourceGroupName), Namespace: namespace},
+		Name:        pgVmName,
+		Description: descriptionJson,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, createResourceResp)
+	assert.Equal(t, createResourceResp.Uri, pgVmID)
+
+	// Add permit list rules to Paraglider VM
+	pgVmIp, err := GetVmIpAddress(pgVmID)
+	require.NoError(t, err)
+	pgVmRules := []*paragliderpb.PermitListRule{
+		{
+			Name:      "external-vm-ping-egress",
+			Targets:   []string{externalVmIp},
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+		{
+			Name:    "external-vm-ping-ingress",
+			Targets: []string{externalVmIp},
+
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+	}
+
+	externalVmRules := []*paragliderpb.PermitListRule{
+		{
+			Name:      "paraglider-vm-ping-egress",
+			Targets:   []string{pgVmIp},
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+		{
+			Name:      "paraglider-vm-ping-ingress",
+			Targets:   []string{pgVmIp},
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   -1,
+			Protocol:  1,
+		},
+	}
+
+	// Add permit list rules to Paraglider VM
+	vmRules := [][]*paragliderpb.PermitListRule{pgVmRules, externalVmRules}
+	vmResourceIds := []string{pgVmID, externalVmID}
+	for i, vmResourceId := range vmResourceIds {
+		addPermitListRulesReq := &paragliderpb.AddPermitListRulesRequest{Rules: vmRules[i], Namespace: namespace, Resource: vmResourceId}
+		addPermitListRulesResp, err := azureServer.AddPermitListRules(ctx, addPermitListRulesReq)
+		require.NoError(t, err)
+		require.NotNil(t, addPermitListRulesResp)
+	}
+
+	// Run connectivity checks on both directions between vm1 and vm2
+	azureConnectivityCheck1, err := RunICMPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, pgVmName, externalVmIp, 3)
+	require.Nil(t, err)
+	require.True(t, azureConnectivityCheck1)
+	azureConnectivityCheck2, err := RunICMPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, externalVmName, pgVmIp, 3)
+	require.Nil(t, err)
+	require.True(t, azureConnectivityCheck2)
+}
+
+func TestPublicIPAddressTarget(t *testing.T) {
+	// Setup
+	subscriptionId := GetAzureSubscriptionId()
+	resourceGroupName := SetupAzureTesting(subscriptionId, "integration-public-ip")
+	namespace := "default"
+	defer TeardownAzureTesting(subscriptionId, resourceGroupName, namespace)
+
+	// Setup fake orchestrator server
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Setup Azure plugin server
+	azureServer := InitializeServer(fakeOrchestratorServerAddr)
+	ctx := context.Background()
+
+	// Create VM
+	vmLocation := "westus"
+	vmParameters := GetTestVmParameters(vmLocation)
+	vmDescriptionJson, err := json.Marshal(vmParameters)
+	require.NoError(t, err)
+	vmName := "vm-test"
+	vmID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s", subscriptionId, resourceGroupName, vmName)
+	createResourceResp, err := azureServer.CreateResource(ctx, &paragliderpb.CreateResourceRequest{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/...", subscriptionId, resourceGroupName), Namespace: namespace},
+		Name:        vmName,
+		Description: vmDescriptionJson,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, createResourceResp)
+	assert.Equal(t, createResourceResp.Uri, vmID)
+
+	// Create permit list rule to Cloudflare DNS
+	// Multiple permit list rules are tested to ensure that duplicate NAT gateway creations are avoided
+	permitListRules := []*paragliderpb.PermitListRule{
+		{
+			Name:      "cloudflare-dns-tcp-outbound",
+			Targets:   []string{"1.1.1.1"},
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   80,
+			Protocol:  6,
+		},
+		{
+			Name:      "opendns-tcp-outbound",
+			Targets:   []string{"208.67.222.222"},
+			Direction: paragliderpb.Direction_OUTBOUND,
+			SrcPort:   -1,
+			DstPort:   80,
+			Protocol:  6,
+		},
+	}
+	addPermitListRulesReq := &paragliderpb.AddPermitListRulesRequest{Rules: permitListRules, Namespace: namespace, Resource: vmID}
+	addPermitListRulesResp, err := azureServer.AddPermitListRules(ctx, addPermitListRulesReq)
+	require.NoError(t, err)
+	require.NotNil(t, addPermitListRulesResp)
+
+	// Run connectivity checks
+	cloudflareTestResult, err := RunTCPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, vmName, "1.1.1.1", 80, 3)
+	require.Nil(t, err)
+	require.True(t, cloudflareTestResult)
+	opendnsTestresult, err := RunTCPConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, vmName, "208.67.222.222", 80, 3)
+	require.Nil(t, err)
+	require.True(t, opendnsTestresult)
 }

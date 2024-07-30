@@ -261,7 +261,7 @@ func TestAddPermitListRules(t *testing.T) {
 	}
 	fakeNic := getFakeParagliderInterface()
 	fakeNsg := getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName)
-	fakeVnet := getFakeVnetInLocation(fakeNic.Location, validAddressSpace)
+	fakeVnet := getFakeVnetInLocation(to.Ptr(testLocation), validAddressSpace)
 	fakeVnet.Properties = &armnetwork.VirtualNetworkPropertiesFormat{
 		AddressSpace: &armnetwork.AddressSpace{
 			AddressPrefixes: []*string{to.Ptr("10.0.0.0/16")},
@@ -322,6 +322,39 @@ func TestAddPermitListRules(t *testing.T) {
 
 		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{Rules: fakeOldPlRules, Namespace: namespace, Resource: fakeResource})
 
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+	})
+
+	// Successful with public IP address
+	t.Run("Public IP Address", func(t *testing.T) {
+		fakeServerState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nsg:    fakeNsg,
+			nic:    fakeNic,
+			vnet:   fakeVnet,
+			vm:     to.Ptr(getFakeVirtualMachine(true)),
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, fakeServerState)
+		defer Teardown(fakeServer)
+
+		server, _ := setupTestAzurePluginServer()
+		server.orchestratorServerAddr = fakeOrchestratorServerAddr
+		resp, err := server.AddPermitListRules(ctx, &paragliderpb.AddPermitListRulesRequest{
+			Rules: []*paragliderpb.PermitListRule{
+				{
+					Name:      "cloudclare-tcp-outbound",
+					Targets:   []string{"1.1.1.1"},
+					SrcPort:   -1,
+					DstPort:   80,
+					Protocol:  6,
+					Direction: paragliderpb.Direction_OUTBOUND,
+				},
+			},
+			Namespace: namespace,
+			Resource:  fakeResource,
+		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 	})
@@ -518,6 +551,9 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 				AddressSpace: &armnetwork.AddressSpace{
 					AddressPrefixes: []*string{to.Ptr(validAddressSpace)},
 				},
+			},
+			Tags: map[string]*string{
+				namespaceTagKey: to.Ptr(namespace),
 			},
 		},
 	}

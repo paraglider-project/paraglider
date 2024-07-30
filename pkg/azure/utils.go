@@ -310,105 +310,6 @@ func findNetworkWatcher(ctx context.Context, watchersClient *armnetwork.Watchers
 	return nil, nil
 }
 
-func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress string, sourceVmNamespace string) (bool, error) {
-	resourceIDInfo, err := getResourceIDInfo(sourceVmResourceID)
-	if err != nil {
-		return false, fmt.Errorf("unable to parse resource ID: %w", err)
-	}
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
-	if err != nil {
-		return false, fmt.Errorf("unable to get azure credentials: %w", err)
-	}
-	ctx := context.Background()
-
-	// Fetch source virtual machine for location
-	virtualMachinesClient, err := armcompute.NewVirtualMachinesClient(resourceIDInfo.SubscriptionID, cred, nil)
-	if err != nil {
-		return false, fmt.Errorf("unable to create virtual machines client: %w", err)
-	}
-	vm, err := virtualMachinesClient.Get(ctx, resourceIDInfo.ResourceGroupName, resourceIDInfo.ResourceName, &armcompute.VirtualMachinesClientGetOptions{Expand: nil})
-	if err != nil {
-		return false, fmt.Errorf("unable to get virtual machine: %w", err)
-	}
-
-	// Install Network Watcher Agent VM extension
-	virtualMachineExtensionsClient, err := armcompute.NewVirtualMachineExtensionsClient(resourceIDInfo.SubscriptionID, cred, nil)
-	if err != nil {
-		return false, fmt.Errorf("unable to create virtual machine extensions client: %w", err)
-	}
-	extensionParameters := armcompute.VirtualMachineExtension{
-		Location: vm.Location,
-		Properties: &armcompute.VirtualMachineExtensionProperties{
-			Publisher:          to.Ptr("Microsoft.Azure.NetworkWatcher"),
-			Type:               to.Ptr("NetworkWatcherAgentLinux"),
-			TypeHandlerVersion: to.Ptr("1.4"),
-		},
-	}
-	vmExtensionPollerResponse, err := virtualMachineExtensionsClient.BeginCreateOrUpdate(ctx, resourceIDInfo.ResourceGroupName, resourceIDInfo.ResourceName, "network-watcher-agent-linux", extensionParameters, nil)
-	if err != nil {
-		return false, fmt.Errorf("unable to create or update virtual machine extension: %w", err)
-	}
-	_, err = vmExtensionPollerResponse.PollUntilDone(ctx, nil)
-	if err != nil {
-		return false, fmt.Errorf("unable to poll create or update virtual machine extension: %w", err)
-	}
-
-	// Run connectivity check
-	watchersClient, err := armnetwork.NewWatchersClient(resourceIDInfo.SubscriptionID, cred, nil)
-	if err != nil {
-		return false, fmt.Errorf("unable to create watchers client: %w", err)
-	}
-	connectivityParameters := armnetwork.ConnectivityParameters{
-		Destination:        &armnetwork.ConnectivityDestination{Address: to.Ptr(destinationIPAddress)},
-		Source:             &armnetwork.ConnectivitySource{ResourceID: to.Ptr(sourceVmResourceID)},
-		PreferredIPVersion: to.Ptr(armnetwork.IPVersionIPv4),
-		Protocol:           to.Ptr(armnetwork.ProtocolIcmp),
-	}
-
-	// Configure network watcher
-	// Hard coded resource group for CI pipeline (https://github.com/paraglider-project/paraglider/issues/217)
-	networkWatcherResourceGroup := "NetworkWatcherRG"
-	networkWatcherName := "NetworkWatcher_" + *vm.Location
-	if os.Getenv("PARAGLIDER_AZURE_RESOURCE_GROUP") != "" {
-		// Check if network watcher already exists within the subscription since Azure limits network watchers to one per subscription for each region
-		networkWatcherResourceIDInfo, err := findNetworkWatcher(ctx, watchersClient, *vm.Location)
-		if err != nil {
-			return false, fmt.Errorf("error when finding network watcher: %w", err)
-		}
-		if networkWatcherResourceIDInfo != nil {
-			// Use existing network watcher
-			networkWatcherResourceGroup = networkWatcherResourceIDInfo.ResourceGroupName
-			networkWatcherName = networkWatcherResourceIDInfo.ResourceName
-		} else {
-			// Create network watcher in provided resource group
-			networkWatcherResourceGroup = os.Getenv("PARAGLIDER_AZURE_RESOURCE_GROUP")
-			// Tag it to make sure it gets deleted
-			_, err := watchersClient.CreateOrUpdate(ctx, networkWatcherResourceGroup, networkWatcherName, armnetwork.Watcher{Location: vm.Location, Tags: map[string]*string{namespaceTagKey: to.Ptr(sourceVmNamespace)}}, nil)
-			if err != nil {
-				return false, fmt.Errorf("unable to create network watcher: %w", err)
-			}
-		}
-	}
-
-	// Retries up to 5 times
-	for i := 0; i < 5; i++ {
-		checkConnectivityPollerResponse, err := watchersClient.BeginCheckConnectivity(ctx, networkWatcherResourceGroup, networkWatcherName, connectivityParameters, nil)
-		if err != nil {
-			return false, err
-		}
-		resp, err := checkConnectivityPollerResponse.PollUntilDone(ctx, nil)
-		if err != nil {
-			return false, err
-		}
-		// TODO @seankimkdy: Unclear why ConnectionStatus returns "Reachable" which is not a valid armnetwork.ConnectionStatus constant (https://github.com/Azure/azure-sdk-for-go/issues/21777)
-		if *resp.ConnectivityInformation.ConnectionStatus == armnetwork.ConnectionStatus("Reachable") {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
 // Create VPN gateway vnet if not already created
 // The vnet is created even if there's no multicloud connections at the moment for ease of connection in the future.
 // Note that vnets are free, so this is not a problem.
@@ -433,7 +334,7 @@ func GetOrCreateVpnGatewayVNet(ctx context.Context, azureHandler *AzureSDKHandle
 					},
 				},
 			}
- 
+
 			azureHandler.createParagliderNamespaceTag(&virtualNetworkParameters.Tags)
 			// todo: investigate this line for the tests
 			vnet, err := azureHandler.CreateOrUpdateVirtualNetwork(ctx, getVpnGatewayVnetName(namespace), virtualNetworkParameters)
@@ -528,4 +429,73 @@ func DoesVnetOverlapWithParaglider(ctx context.Context, handler *AzureSDKHandler
 	}
 
 	return false, nil
+}
+
+// getVirtualNetworkParameters creates and returns an instance of armnetwork.VirtualNetwork
+// with the specified parameters.
+//
+// Subnet address space is the same as the Vnet address space.
+func getVirtualNetworkParameters(location string, addressSpace string) armnetwork.VirtualNetwork {
+	return armnetwork.VirtualNetwork{
+		Location: to.Ptr(location),
+		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+			AddressSpace: &armnetwork.AddressSpace{
+				AddressPrefixes: []*string{
+					to.Ptr(addressSpace),
+				},
+			},
+			Subnets: []*armnetwork.Subnet{
+				{
+					Name: to.Ptr("default"),
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						AddressPrefix: to.Ptr(addressSpace),
+					},
+				},
+			},
+		},
+	}
+}
+
+// getOrCreateNatGateway creates a NAT gateway if it doesn't already exist and returns the NAT gateway.
+func getOrCreateNatGateway(ctx context.Context, handler *AzureSDKHandler, namespace string, location string) (*armnetwork.NatGateway, error) {
+	natGatewayName := getNatGatewayName(namespace, location)
+	natGateway, err := handler.GetNatGateway(ctx, natGatewayName)
+	if err != nil {
+		// Only create NAT gateway if it doesn't exist
+		if isErrorNotFound(err) {
+			// Allocate public IP address
+			publicIPAddressParameters := armnetwork.PublicIPAddress{
+				Location: to.Ptr(location),
+				Properties: &armnetwork.PublicIPAddressPropertiesFormat{
+					PublicIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv4),
+					PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
+				},
+				SKU: &armnetwork.PublicIPAddressSKU{
+					Name: to.Ptr(armnetwork.PublicIPAddressSKUNameStandard),
+				},
+			}
+			publicIPAddress, err := handler.CreatePublicIPAddress(ctx, getNatGatewayIPAddressName(namespace, location), publicIPAddressParameters)
+			if err != nil {
+				return nil, fmt.Errorf("unable to create public IP address: %w", err)
+			}
+			// Create NAT gateway
+			natGatewayParameters := armnetwork.NatGateway{
+				Location: to.Ptr(location),
+				Properties: &armnetwork.NatGatewayPropertiesFormat{
+					PublicIPAddresses: []*armnetwork.SubResource{{ID: publicIPAddress.ID}},
+				},
+				SKU: &armnetwork.NatGatewaySKU{
+					Name: to.Ptr(armnetwork.NatGatewaySKUNameStandard),
+				},
+			}
+			natGateway, err = handler.CreateNatGateway(ctx, natGatewayName, natGatewayParameters)
+			if err != nil {
+				return nil, fmt.Errorf("unable to create NAT gateway: %w", err)
+			}
+			return natGateway, nil
+		} else {
+			return nil, fmt.Errorf("unable to get NAT gateway: %w", err)
+		}
+	}
+	return natGateway, nil
 }
