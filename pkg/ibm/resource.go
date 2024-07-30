@@ -45,6 +45,7 @@ const (
 	// ClusterReadyState is the ideal running state of a cluster
 	clusterType = "vpc-gen2"
 	defaultZone = "us-east-1"
+	ipResType   = "ip"
 )
 
 // ResourceResponse contains the required resource fields to be returned after creation of a resource
@@ -449,6 +450,57 @@ func (e *ResourcePrivateEndpointType) createURI(resGroup, zone, resName string) 
 	return fmt.Sprintf("/resourcegroup/%s/zone/%s/%s/%s", resGroup, zone, PrivateEndpointResourceType, resName)
 }
 
+func (i *ResourcePrivateEndpointType) getCRN() (string, error) {
+	options := &vpcv1.GetEndpointGatewayOptions{ID: &i.ID}
+	endpoint, _, err := i.client.vpcService.GetEndpointGateway(options)
+	if err != nil {
+		return "", err
+	}
+	return *endpoint.CRN, nil
+}
+
+func (e *ResourcePrivateEndpointType) getEndpointIP() (string, error) {
+	// in case the private endpoint recently launched, poll to wait for ip to be assigned to the private endpoint.
+	var err error
+	var isEndpointReady bool
+	if isEndpointReady, err = e.waitForReady(); isEndpointReady {
+		eData, _, err := e.client.vpcService.GetEndpointGateway(e.client.vpcService.NewGetEndpointGatewayOptions(e.ID))
+		if err != nil {
+			return "", err
+		}
+		privateIP := *eData.Ips[0].Address
+		return privateIP, nil
+	}
+	return "", err
+}
+
+func (e *ResourcePrivateEndpointType) getResourceOptions(resourceDesc []byte) (*vpcv1.CreateEndpointGatewayOptions, error) {
+	endpointGatewayOptions := vpcv1.CreateEndpointGatewayOptions{
+		Target: &vpcv1.EndpointGatewayTargetPrototype{},
+	}
+
+	err := json.Unmarshal(resourceDesc, &endpointGatewayOptions)
+	if err != nil {
+		return nil, err
+	}
+	return &endpointGatewayOptions, nil
+}
+
+func (e *ResourcePrivateEndpointType) waitForReady() (bool, error) {
+	sleepDuration := 10 * time.Second
+	for tries := 15; tries > 0; tries-- {
+		res, _, err := e.client.vpcService.GetEndpointGateway(e.client.vpcService.NewGetEndpointGatewayOptions(e.ID))
+		if err != nil {
+			return false, err
+		}
+		if *res.LifecycleState == endpointReadyState {
+			return true, nil
+		}
+		time.Sleep(sleepDuration)
+	}
+	return false, fmt.Errorf("endpoint gateway ID %v failed to launch within the alloted time", e.ID)
+}
+
 // CreateResource create an instance
 func (e *ResourcePrivateEndpointType) CreateResource(name, vpcID, subnetID string, tags []string, resourceDesc []byte) (*ResourceResponse, error) {
 	endpointGatewayOptions, err := e.getResourceOptions(resourceDesc)
@@ -468,16 +520,14 @@ func (e *ResourcePrivateEndpointType) CreateResource(name, vpcID, subnetID strin
 	endpointGatewayOptions.SecurityGroups = []vpcv1.SecurityGroupIdentityIntf{
 		&vpcv1.SecurityGroupIdentityByID{ID: securityGroup.ID}}
 
-	ipName := generateResourceName("ip")
-	// ip, err := e.client.vpcService.NewEndpointGatewayReservedIPReservedIPIdentityByID(ipName)
-	// if err != nil {
-	// 	utils.Log.Println("Failed to create new endpoint gateway reserved IP: ", err)
-	// 	return nil, err
-	// }
+	ipName := generateResourceName(ipResType)
+
 	createReservedIPOptions := e.client.vpcService.NewCreateSubnetReservedIPOptions(subnetID)
 	createReservedIPOptions.Name = &ipName
 	resIP, _, err := e.client.vpcService.CreateSubnetReservedIP(createReservedIPOptions)
-
+	if err != nil {
+		return nil, err
+	}
 	utils.Log.Printf("Created IP %s with id %s\n", ipName, *resIP.ID)
 	endpointGatewayOptions.Ips = []vpcv1.EndpointGatewayReservedIPIntf{
 		&vpcv1.EndpointGatewayReservedIPReservedIPIdentity{ID: resIP.ID}}
@@ -488,7 +538,9 @@ func (e *ResourcePrivateEndpointType) CreateResource(name, vpcID, subnetID strin
 	if err != nil {
 		return nil, err
 	}
+
 	utils.Log.Printf("Private Endpoint gateway %s was launched with ID: %v", *endpointGateway.Name, *endpointGateway.ID)
+
 	e.ID = *endpointGateway.ID
 	err = e.client.attachTag(endpointGateway.CRN, tags)
 	if err != nil {
@@ -504,12 +556,14 @@ func (e *ResourcePrivateEndpointType) CreateResource(name, vpcID, subnetID strin
 	}
 
 	reservedIP, err := e.getEndpointIP()
-
 	if err != nil {
 		return nil, err
 	}
 
 	subnets, err := e.client.GetSubnetsInVpcRegionBound(vpcID)
+	if err != nil {
+		return nil, err
+	}
 	zone := subnets[0].Zone.Name
 
 	resp := ResourceResponse{Name: *endpointGateway.Name, URI: e.createURI(*e.client.resourceGroup.ID, *zone, *endpointGateway.ID), IP: reservedIP}
@@ -579,57 +633,6 @@ func (e *ResourcePrivateEndpointType) GetVPC() (*vpcv1.VPCReference, error) {
 	}
 
 	return res.VPC, nil
-}
-
-func (i *ResourcePrivateEndpointType) getCRN() (string, error) {
-	options := &vpcv1.GetEndpointGatewayOptions{ID: &i.ID}
-	endpoint, _, err := i.client.vpcService.GetEndpointGateway(options)
-	if err != nil {
-		return "", err
-	}
-	return *endpoint.CRN, nil
-}
-
-func (e *ResourcePrivateEndpointType) getResourceOptions(resourceDesc []byte) (*vpcv1.CreateEndpointGatewayOptions, error) {
-	endpointGatewayOptions := vpcv1.CreateEndpointGatewayOptions{
-		Target: &vpcv1.EndpointGatewayTargetPrototype{},
-	}
-
-	err := json.Unmarshal(resourceDesc, &endpointGatewayOptions)
-	if err != nil {
-		return nil, err
-	}
-	return &endpointGatewayOptions, nil
-}
-
-func (e *ResourcePrivateEndpointType) getEndpointIP() (string, error) {
-	// in case the private endpoint recently launched, poll to wait for ip to be assigned to the private endpoint.
-	var err error
-	var isEndpointReady bool
-	if isEndpointReady, err = e.waitForReady(); isEndpointReady {
-		eData, _, err := e.client.vpcService.GetEndpointGateway(e.client.vpcService.NewGetEndpointGatewayOptions(e.ID))
-		if err != nil {
-			return "", err
-		}
-		privateIP := *eData.Ips[0].Address
-		return privateIP, nil
-	}
-	return "", err
-}
-
-func (e *ResourcePrivateEndpointType) waitForReady() (bool, error) {
-	sleepDuration := 10 * time.Second
-	for tries := 15; tries > 0; tries-- {
-		res, _, err := e.client.vpcService.GetEndpointGateway(e.client.vpcService.NewGetEndpointGatewayOptions(e.ID))
-		if err != nil {
-			return false, err
-		}
-		if *res.LifecycleState == endpointReadyState {
-			return true, nil
-		}
-		time.Sleep(sleepDuration)
-	}
-	return false, fmt.Errorf("endpoint gateway ID %v failed to launch within the alloted time", e.ID)
 }
 
 // NOTE: Currently not in use, as public ips are not provisioned.
