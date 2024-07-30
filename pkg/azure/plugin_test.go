@@ -748,13 +748,16 @@ func TestAttachResource(t *testing.T) {
 
 func TestRun(t *testing.T) {
 	subscriptionId := GetAzureSubscriptionId()
-	resourceGroupName := "julian-rg"
-	resourceName := "juliant"
+	resourceGroupName := "rg-2"
+	resourceName := "vm6"
 	namespace := "default"
+	location := "global"
 	server := InitializeServer("localhost:50051")
 	ctx := context.Background()
-	storageAccountID := "/subscriptions/2051cdb8-80a4-48a4-840c-ac989eb486a2/resourceGroups/julian-rg/providers/Microsoft.Storage/storageAccounts/julianstorage1"
-
+	// storageAccountID := "/subscriptions/2051cdb8-80a4-48a4-840c-ac989eb486a2/resourceGroups/julian-rg/providers/Microsoft.Storage/storageAccounts/julianstorage1"
+	storageAccountID := "/subscriptions/2051cdb8-80a4-48a4-840c-ac989eb486a2/resourceGroups/julian-rg/providers/Microsoft.Storage/storageAccounts/julianteststorage1"
+	storageAccountName := "julianteststorage1"
+	fmt.Println("Storage Account ID: ", storageAccountID)
 	resourceInfo := ResourceIDInfo{SubscriptionID: subscriptionId, ResourceGroupName: resourceGroupName, ResourceName: resourceName}
 	handler, err := server.setupAzureHandler(resourceInfo, namespace)
 
@@ -766,36 +769,86 @@ func TestRun(t *testing.T) {
 
 	fmt.Println("Starting server")
 	fmt.Println("Subscription ID: ", subscriptionId)
+	resourceID := getVmUri(subscriptionId, resourceGroupName, resourceName)
+	fmt.Println("Resource ID: ", resourceID)
 
-	// attach a resource
-	attachReq := &paragliderpb.AttachResourceRequest{
-		Namespace: namespace,
-		Resource:  getVmUri(subscriptionId, resourceGroupName, resourceName),
-	}
+	// // attach a resource
+	// attachReq := &paragliderpb.AttachResourceRequest{
+	// 	Namespace: namespace,
+	// 	Resource:  getVmUri(subscriptionId, resourceGroupName, resourceName),
+	// }
 
-	resp, err := server.AttachResource(ctx, attachReq)
+	// _, err = server.AttachResource(ctx, attachReq)
+	// if err != nil {
+	// 	// Handle errors
+	// 	fmt.Println("Error in AttachResource, ", err)
+	// 	return
+	// }
+
+	// Create dns zone
+	dnsZoneName := namespace + ".vnet.paraglider.com"
+	dnsZoneParams := getPrivateDNSZoneParams(location)
+	dnsZone, err := handler.CreatePrivateDNSZone(ctx, dnsZoneName, dnsZoneParams)
 	if err != nil {
 		// Handle errors
-		fmt.Println("Error in AttachResource, ", err)
+		fmt.Println("Error in CreatePrivateDNSZone: ", err)
 		return
 	}
+	fmt.Println("Private DNS Zone Name: ", *dnsZone.Name)
+	fmt.Println("Private DNS Zone ID: ", *dnsZone.ID)
 
-	netInfo, err := GetNetworkInfoFromResource(ctx, handler, resp.Uri)
+	netInfo, err := GetNetworkInfoFromResource(ctx, handler, resourceID)
 	if err != nil {
 		// Handle errors
 		fmt.Println("Error in GetNetworkInfoFromResource")
 		return
 	}
 
-	// create a private endpoint
-	params := getPrivateEndpointParams("Storage-account-connection", netInfo.SubnetID, storageAccountID)
-	privEndpoint, err := handler.CreatePrivateEndpoint(ctx, "J_storage_account", params)
+	vnetName := getVnetFromSubnetId(netInfo.SubnetID)
+	vnet, err := handler.GetVirtualNetwork(ctx, vnetName)
 	if err != nil {
 		// Handle errors
-		fmt.Println("Error in CreatePrivateEndpoint")
+		fmt.Println("Error in GetVirtualNetwork")
 		return
 	}
-	fmt.Println("Private Endpoint: ", privEndpoint)
+
+	// todo: assert that the state of the link created is completed
+	// Create virtual Network Link
+	vnetLinkParams := getVirtualNetworkLinkParams(*vnet.ID, location)
+	_, err = handler.CreateVirtualNetworkLink(ctx, dnsZoneName, "vnet-link", vnetLinkParams)
+	if err != nil {
+		fmt.Println("Error in CreateVirtualNetworkLink: ", err)
+		return
+	}
+
+	peName := getPrivateEndpointName(namespace, storageAccountName)
+	plName := getPrivateLinkConnectionName(namespace, storageAccountName)
+	// create a private endpoint
+	params := getPrivateEndpointParams(plName, netInfo.SubnetID, storageAccountID, "eastus", "blob")
+	privEndpoint, err := handler.CreatePrivateEndpoint(ctx, peName, params)
+	if err != nil {
+		fmt.Println("Error in CreatePrivateEndpoint: ", err)
+		return
+	}
+	fmt.Println("Private Endpoint ID: ", *privEndpoint.ID)
+	privEndpointIp := *privEndpoint.Properties.CustomDNSConfigs[0].IPAddresses[0]
+	if len(privEndpoint.Properties.IPConfigurations) > 0 {
+		fmt.Println("Private Endpoint IP: ", *privEndpoint.Properties.IPConfigurations[0].Properties.PrivateIPAddress)
+	}
+	if (len(privEndpoint.Properties.PrivateLinkServiceConnections)) > 0 {
+		fmt.Println("Private Link Service Connection ID: ", *privEndpoint.Properties.PrivateLinkServiceConnections[0].ID)
+	}
+	if (len(privEndpoint.Properties.CustomDNSConfigs)) > 0 {
+		fmt.Println("Custom DNS Config: ", *privEndpoint.Properties.CustomDNSConfigs[0].IPAddresses[0])
+	}
+	fqdn := *privEndpoint.Properties.CustomDNSConfigs[0].Fqdn
+	privateIps := []string{privEndpointIp}
+	recordSetParams := getDnsRecordSetParams(privateIps)
+	_, err = handler.CreateDnsRecordSet(ctx, dnsZoneName, fqdn, recordSetParams)
+	if err != nil {
+		fmt.Println("Error in CreateDnsRecordSet: ", err)
+		return
+	}
 
 	fmt.Println("DONE")
 }

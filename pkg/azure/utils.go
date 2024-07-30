@@ -26,6 +26,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
@@ -556,21 +557,59 @@ func getVirtualNetworkParameters(location string, addressSpace string) armnetwor
 	}
 }
 
-func getPrivateEndpointParams(connectionName string, subnetID string, privateLinkServiceID string) armnetwork.PrivateEndpoint {
+func getPrivateEndpointParams(connectionName string, subnetID string, privateLinkServiceID string, location string, subresource string) armnetwork.PrivateEndpoint {
 	return armnetwork.PrivateEndpoint{
+		Location: to.Ptr(location),
 		Properties: &armnetwork.PrivateEndpointProperties{
 			PrivateLinkServiceConnections: []*armnetwork.PrivateLinkServiceConnection{
 				{
 					Name: to.Ptr(connectionName),
 					Properties: &armnetwork.PrivateLinkServiceConnectionProperties{
 						PrivateLinkServiceID: to.Ptr(privateLinkServiceID),
-						GroupIDs:             []*string{to.Ptr("blob")},
+						GroupIDs:             []*string{to.Ptr(subresource)},
+						RequestMessage:       to.Ptr("Connection request from Paraglider"),
 					},
 				},
 			},
 			Subnet: &armnetwork.Subnet{
 				ID: to.Ptr(subnetID),
 			},
+		},
+	}
+}
+
+func getPrivateDNSZoneParams(location string) armprivatedns.PrivateZone {
+	return armprivatedns.PrivateZone{
+		Location: to.Ptr(location),
+	}
+}
+
+func getVirtualNetworkLinkParams(virtualNetworkID string, location string) armprivatedns.VirtualNetworkLink {
+	return armprivatedns.VirtualNetworkLink{
+		Location: to.Ptr(location),
+		Properties: &armprivatedns.VirtualNetworkLinkProperties{
+			RegistrationEnabled: to.Ptr(true),
+			VirtualNetwork: &armprivatedns.SubResource{
+				ID: to.Ptr(virtualNetworkID),
+			},
+		},
+	}
+}
+
+
+// Returns parameters for A record set with the specified IP address
+func getDnsRecordSetParams(ipAddresses []string) armprivatedns.RecordSet {
+	aRecordAddresses := make([]*armprivatedns.ARecord, len(ipAddresses))
+	for i, ipAddress := range ipAddresses {
+		aRecordAddresses[i] = &armprivatedns.ARecord{
+			IPv4Address: to.Ptr(ipAddress),
+		}
+	}
+
+	return armprivatedns.RecordSet{
+		Properties: &armprivatedns.RecordSetProperties{
+			ARecords: aRecordAddresses,
+			TTL:      to.Ptr[int64](3600), // 1 hour cache by clients
 		},
 	}
 }

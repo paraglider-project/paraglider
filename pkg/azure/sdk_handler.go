@@ -35,6 +35,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
 
@@ -45,6 +46,7 @@ type AzureSDKHandler struct {
 	computeClientFactory                   *armcompute.ClientFactory
 	networkClientFactory                   *armnetwork.ClientFactory
 	containerServiceClientFactory          *armcontainerservice.ClientFactory
+	dnsClientFactory                       *armprivatedns.ClientFactory
 	securityGroupsClient                   *armnetwork.SecurityGroupsClient
 	interfacesClient                       *armnetwork.InterfacesClient
 	securityRulesClient                    *armnetwork.SecurityRulesClient
@@ -60,6 +62,9 @@ type AzureSDKHandler struct {
 	virtualNetworkGatewayConnectionsClient *armnetwork.VirtualNetworkGatewayConnectionsClient
 	localNetworkGatewaysClient             *armnetwork.LocalNetworkGatewaysClient
 	privateEndpointClient                  *armnetwork.PrivateEndpointsClient
+	privateDNSZoneClient                   *armprivatedns.PrivateZonesClient
+	virtualNetworkLinkClient               *armprivatedns.VirtualNetworkLinksClient
+	recordSetClient                        *armprivatedns.RecordSetsClient
 	subscriptionID                         string
 	resourceGroupName                      string
 	paragliderNamespace                    string
@@ -134,6 +139,11 @@ func (h *AzureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
 		return err
 	}
 
+	h.dnsClientFactory, err = armprivatedns.NewClientFactory(h.subscriptionID, cred, nil)
+	if err != nil {
+		return err
+	}
+
 	h.securityGroupsClient = h.networkClientFactory.NewSecurityGroupsClient()
 	h.interfacesClient = h.networkClientFactory.NewInterfacesClient()
 	h.networkPeeringClient = h.networkClientFactory.NewVirtualNetworkPeeringsClient()
@@ -149,6 +159,9 @@ func (h *AzureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
 	h.virtualMachinesClient = h.computeClientFactory.NewVirtualMachinesClient()
 	h.managedClustersClient = h.containerServiceClientFactory.NewManagedClustersClient()
 	h.privateEndpointClient = h.networkClientFactory.NewPrivateEndpointsClient()
+	h.privateDNSZoneClient = h.dnsClientFactory.NewPrivateZonesClient()
+	h.virtualNetworkLinkClient = h.dnsClientFactory.NewVirtualNetworkLinksClient()
+	h.recordSetClient = h.dnsClientFactory.NewRecordSetsClient()
 
 	return nil
 }
@@ -619,6 +632,88 @@ func (h *AzureSDKHandler) CreatePrivateEndpoint(ctx context.Context, privateEndp
 		return nil, err
 	}
 	return &resp.PrivateEndpoint, nil
+}
+
+func (h *AzureSDKHandler) GetAllPrivateEndpoints(ctx context.Context) map[string]*armnetwork.PrivateEndpoint {
+	endpoints := make(map[string]*armnetwork.PrivateEndpoint)
+	pager := h.privateEndpointClient.NewListPager(h.resourceGroupName, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			utils.Log.Printf("Failed to get private endpoints: %v", err)
+			return nil
+		}
+		for _, v := range page.Value {
+			endpoints[*v.Name] = v
+		}
+	}
+
+	return endpoints
+}
+
+func (h *AzureSDKHandler) GetPrivateEndpoint(ctx context.Context, privateEndpointName string) (*armnetwork.PrivateEndpoint, error) {
+	resp, err := h.privateEndpointClient.Get(ctx, h.resourceGroupName, privateEndpointName, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.PrivateEndpoint, nil
+}
+
+func (h *AzureSDKHandler) CreatePrivateDNSZone(ctx context.Context, privateDNSZoneName string, parameters armprivatedns.PrivateZone) (*armprivatedns.PrivateZone, error) {
+	pollerResponse, err := h.privateDNSZoneClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, privateDNSZoneName, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.PrivateZone, nil
+}
+
+func (h AzureSDKHandler) GetPrivateDNSZone(ctx context.Context, privateDNSZoneName string) (*armprivatedns.PrivateZone, error) {
+	resp, err := h.privateDNSZoneClient.Get(ctx, h.resourceGroupName, privateDNSZoneName, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.PrivateZone, nil
+}
+
+func (h *AzureSDKHandler) CreateVirtualNetworkLink(ctx context.Context, privateZoneName, virtualNetworkLinkName string, parameters armprivatedns.VirtualNetworkLink) (*armprivatedns.VirtualNetworkLink, error) {
+	pollerResponse, err := h.virtualNetworkLinkClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, privateZoneName, virtualNetworkLinkName, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := pollerResponse.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.VirtualNetworkLink, nil
+}
+
+func (h *AzureSDKHandler) GetVirtualNetworkLink(ctx context.Context, privateZoneName, virtualNetworkLinkName string) (*armprivatedns.VirtualNetworkLink, error) {
+	resp, err := h.virtualNetworkLinkClient.Get(ctx, h.resourceGroupName, privateZoneName, virtualNetworkLinkName, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.VirtualNetworkLink, nil
+}
+
+func (h *AzureSDKHandler) CreateDnsRecordSet(ctx context.Context, privateZoneName string, recordSetName string, parameters armprivatedns.RecordSet) (*armprivatedns.RecordSet, error) {
+	// Record type "A" maps a name to an IPv4 address
+	resp, err := h.recordSetClient.CreateOrUpdate(ctx, h.resourceGroupName, privateZoneName, armprivatedns.RecordTypeA, recordSetName, parameters, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.RecordSet, nil
+}
+
+func (h *AzureSDKHandler) GetDnsRecordSet(ctx context.Context, privateZoneName string, recordType armprivatedns.RecordType, recordSetName string) (*armprivatedns.RecordSet, error) {
+	resp, err := h.recordSetClient.Get(ctx, h.resourceGroupName, privateZoneName, recordType, recordSetName, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.RecordSet, nil
 }
 
 func (h *AzureSDKHandler) CreateSecurityGroup(ctx context.Context, resourceName string, location string, allowedCIDRs map[string]string) (*armnetwork.SecurityGroup, error) {
