@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Paraglider Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -59,15 +59,20 @@ var (
 		InstanceId:       aws.String(fakeInstanceId),
 		PrivateIpAddress: aws.String(fakeInstancePrivateIpAddress),
 		Tags:             []types.Tag{{Key: aws.String("Name"), Value: aws.String(fakeInstanceName)}},
+		State:            &types.InstanceState{Name: types.InstanceStateNameRunning},
 	} // NOTE: this fakeInstance is only intended to be used as part of fakeServerState.
 )
 
 // fakeServerState represents the fake state of the AWS server during testing.
 type fakeServerState struct {
-	instance *types.Instance
-	vpc      *types.Vpc
-	subnet   *types.Subnet
+	vpc    *types.Vpc
+	subnet *types.Subnet
 }
+
+// fakeServerStateContextKey is an empty struct to be used as a key for context values.
+// See SA1029 (https://staticcheck.dev/docs/checks#SA1029) on why we shouldn't use string keys.
+type fakeServerStateContextKey struct{}
+type requestContextKey struct{}
 
 // fakeInitializeMiddleware is a middleware in the initialize step for faking AWS API calls during tests.
 var fakeInitializeMiddleware = middleware.InitializeMiddlewareFunc("FakeInput", func(
@@ -76,7 +81,7 @@ var fakeInitializeMiddleware = middleware.InitializeMiddlewareFunc("FakeInput", 
 	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
 ) {
 	// Pass request parameters as part of context for deserialize middleware
-	return next.HandleInitialize(context.WithValue(ctx, "request", in.Parameters), in)
+	return next.HandleInitialize(context.WithValue(ctx, &requestContextKey{}, in.Parameters), in)
 })
 
 // fakeDeserizliaeMiddle is a middleware in the deserialize step for faking AWS API calls during tests.
@@ -85,8 +90,8 @@ var fakeDeserializeMiddleware = middleware.DeserializeMiddlewareFunc("FakeOutput
 ) (
 	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
 ) {
-	fakeServerState := ctx.Value("fakeServerState").(fakeServerState)
-	switch ctx.Value("request").(type) {
+	fakeServerState := ctx.Value(&fakeServerStateContextKey{}).(fakeServerState)
+	switch ctx.Value(&requestContextKey{}).(type) {
 	// VPCs
 	case *ec2.CreateVpcInput:
 		out.Result = &ec2.CreateVpcOutput{Vpc: fakeVpc}
@@ -107,11 +112,17 @@ var fakeDeserializeMiddleware = middleware.DeserializeMiddlewareFunc("FakeOutput
 	// Security Groups
 	case *ec2.CreateSecurityGroupInput:
 		out.Result = &ec2.CreateSecurityGroupOutput{GroupId: aws.String(fakeSecurityGroupId)}
+	case *ec2.DescribeSecurityGroupsInput:
+		out.Result = &ec2.DescribeSecurityGroupsOutput{SecurityGroups: []types.SecurityGroup{{GroupId: aws.String(fakeSecurityGroupId)}}}
+	case *ec2.RevokeSecurityGroupIngressInput:
+		out.Result = &ec2.RevokeSecurityGroupIngressOutput{Return: aws.Bool(true)}
 	case *ec2.RevokeSecurityGroupEgressInput:
 		out.Result = &ec2.RevokeSecurityGroupEgressOutput{Return: aws.Bool(true)}
 	// Instances
 	case *ec2.RunInstancesInput:
 		out.Result = &ec2.RunInstancesOutput{Instances: []types.Instance{*fakeInstance}}
+	case *ec2.DescribeInstancesInput:
+		out.Result = &ec2.DescribeInstancesOutput{Reservations: []types.Reservation{{Instances: []types.Instance{*fakeInstance}}}}
 	}
 	return
 })
@@ -119,13 +130,19 @@ var fakeDeserializeMiddleware = middleware.DeserializeMiddlewareFunc("FakeOutput
 // setupTest sets up necessary fake components for a unit test.
 func setupTest(fakeServerState fakeServerState) (context.Context, *awsClients, error) {
 	// Load AWS config
-	ctx := context.WithValue(context.TODO(), "fakeServerState", fakeServerState)
+	ctx := context.WithValue(context.TODO(), &fakeServerStateContextKey{}, fakeServerState)
 	cfg, err := config.LoadDefaultConfig(
 		ctx,
 		config.WithRegion("us-east-2"),
 		config.WithAPIOptions([]func(*middleware.Stack) error{func(stack *middleware.Stack) error {
-			stack.Initialize.Add(fakeInitializeMiddleware, middleware.Before)
-			stack.Deserialize.Add(fakeDeserializeMiddleware, middleware.Before)
+			err := stack.Initialize.Add(fakeInitializeMiddleware, middleware.Before)
+			if err != nil {
+				return err
+			}
+			err = stack.Deserialize.Add(fakeDeserializeMiddleware, middleware.Before)
+			if err != nil {
+				return err
+			}
 			return nil
 		}}),
 	)

@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Paraglider Authors.
+Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -245,6 +245,9 @@ func (s *AwsPluginServer) _CreateResource(ctx context.Context, req *paragliderpb
 	err = instanceRunningWaiter.Wait(ctx, &ec2.DescribeInstancesInput{
 		InstanceIds: []string{*instance.InstanceId},
 	}, 2*time.Minute)
+	if err != nil {
+		return nil, fmt.Errorf("unable to wait for instance to be running: %w", err)
+	}
 
 	resp := &paragliderpb.CreateResourceResponse{
 		Name: getNameTag(instance.Tags),
