@@ -56,6 +56,11 @@ func getBgpPeerName(cloud string, peerIdx int) string {
 	return cloud + "-bgp-peer-" + strconv.Itoa(peerIdx)
 }
 
+// getNatName returns a NAT name
+func getNatName(namespace string) string {
+	return getParagliderNamespacePrefix(namespace) + "-nat"
+}
+
 // getVpnGatewayUrl returns a fully qualified URL for a VPN Gateway
 func getVpnGatewayUrl(project, region, vpnGatewayName string) string {
 	return computeUrlPrefix + fmt.Sprintf("projects/%s/regions/%s/vpnGateways/%s", project, region, vpnGatewayName)

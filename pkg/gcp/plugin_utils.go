@@ -26,19 +26,15 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"testing"
 
 	billing "cloud.google.com/go/billing/apiv1"
 	billingpb "cloud.google.com/go/billing/apiv1/billingpb"
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
-	networkmanagement "cloud.google.com/go/networkmanagement/apiv1"
-	networkmanagementpb "cloud.google.com/go/networkmanagement/apiv1/networkmanagementpb"
 	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 	resourcemanagerpb "cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
 	serviceusage "cloud.google.com/go/serviceusage/apiv1"
 	"cloud.google.com/go/serviceusage/apiv1/serviceusagepb"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/protobuf/proto"
 )
@@ -82,7 +78,7 @@ func SetupGcpTesting(testName string) string {
 		projectId = generateProjectId(testName)
 		if os.Getenv("GH_RUN_NUMBER") != "" {
 			// Use run number in project display name since it's more human readable
-			projectDisplayName = fmt.Sprintf("glide-gh-%s-%s", os.Getenv("GH_RUN_NUMBER"), testName)
+			projectDisplayName = fmt.Sprintf("%s-%s-%s", paragliderPrefix, os.Getenv("GH_RUN_NUMBER"), testName)
 		} else {
 			projectDisplayName = projectId
 		}
@@ -222,60 +218,6 @@ func GetInstanceId(project string, zone string, instanceName string) (uint64, er
 		return 0, fmt.Errorf("unable to get instance: %w", err)
 	}
 	return *instance.Id, nil
-}
-
-// Runs connectivity test between two endpoints
-func RunPingConnectivityTest(t *testing.T, project string, name string, sourceIpAddress string, sourceNamespace string, destinationIpAddress string) {
-	ctx := context.Background()
-	reachabilityClient, err := networkmanagement.NewReachabilityClient(ctx) // Can't use REST client for some reason (filed as bug within Google internally)
-	if err != nil {
-		t.Fatal(err)
-	}
-	connectivityTestId := "connectivity-test-" + name
-	createConnectivityTestReq := &networkmanagementpb.CreateConnectivityTestRequest{
-		Parent: "projects/" + project + "/locations/global",
-		TestId: connectivityTestId,
-		Resource: &networkmanagementpb.ConnectivityTest{
-			Name:     "projects/" + project + "/locations/global/connectivityTests" + connectivityTestId,
-			Protocol: "ICMP",
-			Source: &networkmanagementpb.Endpoint{
-				IpAddress: sourceIpAddress,
-				Network:   getVpcUrl(project, sourceNamespace),
-				ProjectId: project,
-			},
-			Destination: &networkmanagementpb.Endpoint{
-				IpAddress:   destinationIpAddress,
-				NetworkType: networkmanagementpb.Endpoint_NON_GCP_NETWORK,
-			},
-		},
-	}
-	createConnectivityTestOp, err := reachabilityClient.CreateConnectivityTest(ctx, createConnectivityTestReq)
-	if err != nil {
-		t.Fatal(err)
-	}
-	connectivityTest, err := createConnectivityTestOp.Wait(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	reachable := connectivityTest.ReachabilityDetails.Result == networkmanagementpb.ReachabilityDetails_REACHABLE
-	// Retry up to five times
-	for i := 0; i < 5 && !reachable; i++ {
-		rerunConnectivityReq := &networkmanagementpb.RerunConnectivityTestRequest{
-			Name: connectivityTest.Name,
-		}
-		rerunConnectivityTestOp, err := reachabilityClient.RerunConnectivityTest(ctx, rerunConnectivityReq)
-		if err != nil {
-			t.Fatal(err)
-		}
-		connectivityTest, err = rerunConnectivityTestOp.Wait(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		reachable = connectivityTest.ReachabilityDetails.Result == networkmanagementpb.ReachabilityDetails_REACHABLE
-	}
-
-	require.True(t, reachable)
 }
 
 // GCP naming conventions
