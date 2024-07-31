@@ -113,7 +113,7 @@ func TestMain(m *testing.M) {
 }
 
 // TODO(cohen-j-omer) will add verification for number of rules
-// usage: go test --tags=ibm -run TestAddPermitRulesIntegration -timeout 0
+// usage: go test --tags=integration -run TestAddPermitRulesIntegration -timeout 0
 // -timeout 0 removes limit of 10 min. runtime, which is necessary due to long deployment time of Azure's VPN.
 func TestAddPermitRulesIntegration(t *testing.T) {
 	dbPort := 6379
@@ -125,6 +125,9 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 
 	// removes all of paraglide's deployments on IBM
 	region, err := ZoneToRegion(zone)
+	require.NoError(t, err)
+
+	err = TerminateParagliderDeployments(region)
 	require.NoError(t, err)
 
 	defer func() {
