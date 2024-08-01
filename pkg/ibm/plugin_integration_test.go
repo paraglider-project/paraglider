@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
@@ -133,6 +134,7 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 
 	defer func() {
 		err := TerminateParagliderDeployments(region)
+		time.Sleep(10 * time.Second)
 		require.NoError(t, err)
 	}()
 
@@ -233,6 +235,11 @@ func TestCreateVpnGateway(t *testing.T) {
 
 	region, err := ZoneToRegion(zone)
 	require.NoError(t, err)
+
+	// Clear existing deployments
+	err = TerminateParagliderDeployments(region)
+	require.NoError(t, err)
+
 	// removes all of paraglider's deployments on IBM when test ends (if INVISINETS_TEST_PERSIST=1)
 	defer func() {
 		err := TerminateParagliderDeployments(region)
