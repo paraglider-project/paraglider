@@ -117,9 +117,9 @@ func TestMain(m *testing.M) {
 // -timeout 0 removes limit of 10 min. runtime, which is necessary due to long deployment time of Azure's VPN.
 func TestAddPermitRulesIntegration(t *testing.T) {
 	dbPort := 6379
-	IBMServerPort := 7992
-	kvstorePort := 7993
-	taggingPort := 7994
+	IBMServerPort := 7792
+	kvstorePort := 7793
+	taggingPort := 7794
 	IBMResourceIDPrefix := testResourceIDUSEast1
 	image, zone, instanceName := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1
 
@@ -139,8 +139,8 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	orchestratorServerConfig := config.Config{
 		Server: config.Server{
 			Host:    "localhost",
-			Port:    "8080",
-			RpcPort: "8081",
+			Port:    "9080",
+			RpcPort: "9081",
 		},
 		TagService: config.TagService{
 			Host: "localhost",
@@ -226,9 +226,9 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 // usage: go test --tags=integration -run TestCreateVpnGateway -timeout 0
 func TestCreateVpnGateway(t *testing.T) {
 	dbPort := 6379
-	IBMServerPort := 7992
-	kvstorePort := 7993
-	taggingPort := 7994
+	IBMServerPort := 7892
+	kvstorePort := 7893
+	taggingPort := 7894
 	image, zone, instanceName := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1
 
 	region, err := ZoneToRegion(zone)
@@ -242,8 +242,8 @@ func TestCreateVpnGateway(t *testing.T) {
 	orchestratorServerConfig := config.Config{
 		Server: config.Server{
 			Host:    "localhost",
-			Port:    "8080",
-			RpcPort: "8081",
+			Port:    "8090",
+			RpcPort: "8091",
 		},
 		TagService: config.TagService{
 			Host: "localhost",
