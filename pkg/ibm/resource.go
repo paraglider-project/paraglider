@@ -501,7 +501,7 @@ func (e *ResourcePrivateEndpointType) waitForReady() (bool, error) {
 	return false, fmt.Errorf("endpoint gateway ID %v failed to launch within the alloted time", e.ID)
 }
 
-// CreateResource create an instance
+// CreateResource create a private endpoint (VPE)
 func (e *ResourcePrivateEndpointType) CreateResource(name, vpcID, subnetID string, tags []string, resourceDesc []byte) (*ResourceResponse, error) {
 	endpointGatewayOptions, err := e.getResourceOptions(resourceDesc)
 	if err != nil {
@@ -574,18 +574,18 @@ func (e *ResourcePrivateEndpointType) CreateResource(name, vpcID, subnetID strin
 // IsInNamespace checks if the private endpoint is in the namespace
 func (e *ResourcePrivateEndpointType) IsInNamespace(namespace, region string) (bool, error) {
 	resourceQuery := resourceQuery{}
-	clusterCRN, err := e.getCRN()
+	endpointCRN, err := e.getCRN()
 	if err != nil {
 		return false, err
 	}
 
-	// add cluster's CRN and region to search attributes
-	resourceQuery.CRN = clusterCRN
+	// add endpoint's CRN and region to search attributes
+	resourceQuery.CRN = endpointCRN
 	if region != "" {
 		resourceQuery.Region = region
 	}
 
-	// look for cluster with the specified CRN in the specified namespace.
+	// look for endpoint with the specified CRN in the specified namespace.
 	taggedEPData, err := e.client.GetParagliderTaggedResources(ENDPOINT, []string{namespace},
 		resourceQuery)
 	if err != nil {

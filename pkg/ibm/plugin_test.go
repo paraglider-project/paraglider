@@ -380,7 +380,8 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 							},
 						}
 					}
-				} else {
+				}
+				if fakeIBMServerState.clusterState.subnetID == fakeID {
 					subnets.Subnets = []vpcv1.Subnet{
 						{
 							Zone: &vpcv1.ZoneReference{
