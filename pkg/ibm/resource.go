@@ -32,14 +32,20 @@ import (
 const (
 	// InstanceResourceType is an instance type of resource
 	InstanceResourceType = "instance"
+	instanceReadyState   = "running"
+
 	// ClusterResourceType is a cluster type of resource
 	ClusterResourceType = "cluster"
+	ClusterReadyState   = "normal"
 
-	instanceReadyState = "running"
+	// PrivateEndpointType is a private endpoint gateway type of resource
+	PrivateEndpointResourceType = "endpoint"
+	endpointReadyState          = "stable"
+
 	// ClusterReadyState is the ideal running state of a cluster
-	ClusterReadyState = "normal"
-
 	clusterType = "vpc-gen2"
+	defaultZone = "us-east-1"
+	ipResType   = "ip"
 )
 
 // ResourceResponse contains the required resource fields to be returned after creation of a resource
@@ -71,6 +77,13 @@ type ResourceInstanceType struct {
 
 // ResourceClusterType is the handler for cluster type resources
 type ResourceClusterType struct {
+	ResourceIntf
+	ID     string
+	client *CloudClient
+}
+
+// ResourcePrivateEndpointType is the handler for private endpoint resources
+type ResourcePrivateEndpointType struct {
 	ResourceIntf
 	ID     string
 	client *CloudClient
@@ -433,6 +446,195 @@ func (c *ResourceClusterType) GetVPC() (*vpcv1.VPCReference, error) {
 	return nil, fmt.Errorf("unable to find the VPC of cluster %s", c.ID)
 }
 
+func (e *ResourcePrivateEndpointType) createURI(resGroup, zone, resName string) string {
+	return fmt.Sprintf("/resourcegroup/%s/zone/%s/%s/%s", resGroup, zone, PrivateEndpointResourceType, resName)
+}
+
+func (i *ResourcePrivateEndpointType) getCRN() (string, error) {
+	options := &vpcv1.GetEndpointGatewayOptions{ID: &i.ID}
+	endpoint, _, err := i.client.vpcService.GetEndpointGateway(options)
+	if err != nil {
+		return "", err
+	}
+	return *endpoint.CRN, nil
+}
+
+func (e *ResourcePrivateEndpointType) getEndpointIP() (string, error) {
+	// in case the private endpoint recently launched, poll to wait for ip to be assigned to the private endpoint.
+	var err error
+	var isEndpointReady bool
+	if isEndpointReady, err = e.waitForReady(); isEndpointReady {
+		eData, _, err := e.client.vpcService.GetEndpointGateway(e.client.vpcService.NewGetEndpointGatewayOptions(e.ID))
+		if err != nil {
+			return "", err
+		}
+		privateIP := *eData.Ips[0].Address
+		return privateIP, nil
+	}
+	return "", err
+}
+
+func (e *ResourcePrivateEndpointType) getResourceOptions(resourceDesc []byte) (*vpcv1.CreateEndpointGatewayOptions, error) {
+	endpointGatewayOptions := vpcv1.CreateEndpointGatewayOptions{
+		Target: &vpcv1.EndpointGatewayTargetPrototype{},
+	}
+
+	err := json.Unmarshal(resourceDesc, &endpointGatewayOptions)
+	if err != nil {
+		return nil, err
+	}
+	return &endpointGatewayOptions, nil
+}
+
+func (e *ResourcePrivateEndpointType) waitForReady() (bool, error) {
+	sleepDuration := 10 * time.Second
+	for tries := 15; tries > 0; tries-- {
+		res, _, err := e.client.vpcService.GetEndpointGateway(e.client.vpcService.NewGetEndpointGatewayOptions(e.ID))
+		if err != nil {
+			return false, err
+		}
+		if *res.LifecycleState == endpointReadyState {
+			return true, nil
+		}
+		time.Sleep(sleepDuration)
+	}
+	return false, fmt.Errorf("endpoint gateway ID %v failed to launch within the alloted time", e.ID)
+}
+
+// CreateResource create a private endpoint (VPE)
+func (e *ResourcePrivateEndpointType) CreateResource(name, vpcID, subnetID string, tags []string, resourceDesc []byte) (*ResourceResponse, error) {
+	endpointGatewayOptions, err := e.getResourceOptions(resourceDesc)
+	if err != nil {
+		utils.Log.Println("failed to get create private endpoint gateway options: ", err)
+		return nil, err
+	}
+
+	securityGroup, err := e.client.createSecurityGroup(vpcID)
+	if err != nil {
+		utils.Log.Println("Failed to create security group for instance with error: ", err)
+		return nil, err
+	}
+	endpointGatewayOptions.Name = &name
+	endpointGatewayOptions.VPC = &vpcv1.VPCIdentityByID{ID: &vpcID}
+	endpointGatewayOptions.ResourceGroup = e.client.resourceGroup
+	endpointGatewayOptions.SecurityGroups = []vpcv1.SecurityGroupIdentityIntf{
+		&vpcv1.SecurityGroupIdentityByID{ID: securityGroup.ID}}
+
+	ipName := generateResourceName(ipResType)
+
+	createReservedIPOptions := e.client.vpcService.NewCreateSubnetReservedIPOptions(subnetID)
+	createReservedIPOptions.Name = &ipName
+	resIP, _, err := e.client.vpcService.CreateSubnetReservedIP(createReservedIPOptions)
+	if err != nil {
+		return nil, err
+	}
+	utils.Log.Printf("Created IP %s with id %s\n", ipName, *resIP.ID)
+	endpointGatewayOptions.Ips = []vpcv1.EndpointGatewayReservedIPIntf{
+		&vpcv1.EndpointGatewayReservedIPReservedIPIdentity{ID: resIP.ID}}
+
+	utils.Log.Printf("Creating private endpoint : %+v", endpointGatewayOptions.Target)
+
+	endpointGateway, _, err := e.client.vpcService.CreateEndpointGateway(endpointGatewayOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	utils.Log.Printf("Private Endpoint gateway %s was launched with ID: %v", *endpointGateway.Name, *endpointGateway.ID)
+
+	e.ID = *endpointGateway.ID
+	err = e.client.attachTag(endpointGateway.CRN, tags)
+	if err != nil {
+		utils.Log.Print("Failed to tag instance with error:", err)
+		return nil, err
+	}
+
+	// add endpoint gateway ID tag to security group
+	err = e.client.attachTag(securityGroup.CRN, []string{*endpointGateway.ID})
+	if err != nil {
+		utils.Log.Print("Failed to tag SG with error:", err)
+		return nil, err
+	}
+
+	reservedIP, err := e.getEndpointIP()
+	if err != nil {
+		return nil, err
+	}
+
+	subnets, err := e.client.GetSubnetsInVpcRegionBound(vpcID)
+	if err != nil {
+		return nil, err
+	}
+	zone := subnets[0].Zone.Name
+
+	resp := ResourceResponse{Name: *endpointGateway.Name, URI: e.createURI(*e.client.resourceGroup.ID, *zone, *endpointGateway.ID), IP: reservedIP}
+
+	return &resp, nil
+}
+
+// IsInNamespace checks if the private endpoint is in the namespace
+func (e *ResourcePrivateEndpointType) IsInNamespace(namespace, region string) (bool, error) {
+	resourceQuery := resourceQuery{}
+	endpointCRN, err := e.getCRN()
+	if err != nil {
+		return false, err
+	}
+
+	// add endpoint's CRN and region to search attributes
+	resourceQuery.CRN = endpointCRN
+	if region != "" {
+		resourceQuery.Region = region
+	}
+
+	// look for endpoint with the specified CRN in the specified namespace.
+	taggedEPData, err := e.client.GetParagliderTaggedResources(ENDPOINT, []string{namespace},
+		resourceQuery)
+	if err != nil {
+		return false, err
+	}
+	if len(taggedEPData) == 1 {
+		// should return True only if exactly 1 result was retrieved,
+		// since CRN is included in search.
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// IsExclusiveNetworkNeeded indicates if this resource needs an exclusive VPC to be provisioned
+func (e *ResourcePrivateEndpointType) IsExclusiveNetworkNeeded() bool {
+	return false
+}
+
+// GetID fetches the identifier of instance
+func (e *ResourcePrivateEndpointType) GetID() string {
+	return e.ID
+}
+
+// GetSecurityGroupID returns the security group ID that's associated with the instance's network interfaces
+func (e *ResourcePrivateEndpointType) GetSecurityGroupID() (string, error) {
+	res, _, err := e.client.vpcService.GetEndpointGateway(e.client.vpcService.NewGetEndpointGatewayOptions(e.ID))
+	if err != nil {
+		return "", err
+	}
+	for _, sg := range res.SecurityGroups {
+		if isParagliderResource(*sg.Name) {
+			return *sg.ID, nil
+		}
+	}
+
+	return "", fmt.Errorf("no paraglider SG is associated with the specified VPE")
+}
+
+// GetVPC returns VPC data of specified instance
+func (e *ResourcePrivateEndpointType) GetVPC() (*vpcv1.VPCReference, error) {
+	res, _, err := e.client.vpcService.GetEndpointGateway(e.client.vpcService.NewGetEndpointGatewayOptions(e.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.VPC, nil
+}
+
 // NOTE: Currently not in use, as public ips are not provisioned.
 // deletes floating ips marked recyclable, that are attached to
 // any interface associated with given VM
@@ -482,14 +684,23 @@ func (c *CloudClient) GetResourceHandlerFromDesc(resourceDesc []byte) (ResourceI
 
 	clusterOptions := k8sv1.VpcCreateClusterOptions{}
 
+	endpointGatewayOptions := vpcv1.CreateEndpointGatewayOptions{
+		Target: &vpcv1.EndpointGatewayTargetPrototype{},
+	}
+
 	err := json.Unmarshal(resourceDesc, &clusterOptions)
 	if err == nil && clusterOptions.WorkerPool != nil {
 		return &ResourceClusterType{client: c}, nil
 	}
 
 	err = json.Unmarshal(resourceDesc, &instanceOptions)
-	if err == nil && instanceOptions.InstancePrototype != nil {
+	if err == nil && instanceOptions.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Zone.(*vpcv1.ZoneIdentityByName).Name != nil {
 		return &ResourceInstanceType{client: c}, nil
+	}
+
+	err = json.Unmarshal(resourceDesc, &endpointGatewayOptions)
+	if err == nil && endpointGatewayOptions.Target.(*vpcv1.EndpointGatewayTargetPrototype).ResourceType != nil {
+		return &ResourcePrivateEndpointType{client: c}, nil
 	}
 
 	return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
@@ -506,9 +717,10 @@ func (c *CloudClient) GetResourceHandlerFromID(deploymentID string) (ResourceInt
 			return &ResourceInstanceType{ID: parts[6], client: c}, nil
 		case ClusterResourceType:
 			return &ResourceClusterType{ID: parts[6], client: c}, nil
+		case PrivateEndpointResourceType:
+			return &ResourcePrivateEndpointType{ID: parts[6], client: c}, nil
 		}
 	}
 
 	return nil, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}/zone/{zone}/{resource}/{resource_id}', got '%s'", deploymentID)
 }
-
