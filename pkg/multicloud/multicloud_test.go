@@ -339,10 +339,10 @@ func TestMulticloud(t *testing.T) {
 // Note: if user doesn't have resource group privileges, set env PARAGLIDER_AZURE_RESOURCE_GROUP with an existing resource group
 func TestMulticloudIBMAzure(t *testing.T) {
 	dbPort := 6379
-	kvstorePort := 7993
-	taggingPort := 7994
+	kvstorePort := 7893
+	taggingPort := 7894
 	// ibm config
-	IBMServerPort := 7992
+	IBMServerPort := 7892
 	resourceGroupID := ibm.GetIBMResourceGroupID()
 	ibmResourceIDPrefix := "/resourcegroup/" + resourceGroupID + "/zone/us-east-1" + "/instance/"
 	image, zone, instanceName := "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb", "us-east-1", "pg-vm-east-1" // IBM VM vars
@@ -350,7 +350,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	ibmDeploymentId := "/resourcegroup/" + resourceGroupID
 	vmProfile := "bx2-2x8"
 	// azure config
-	azureServerPort := 7991
+	azureServerPort := 7891
 	azureSubscriptionId := azure.GetAzureSubscriptionId()
 	azureResourceGroupName := azure.SetupAzureTesting(azureSubscriptionId, "ibmazure")
 	azureNamespace := "multicloud"
@@ -372,8 +372,8 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	orchestratorServerConfig := config.Config{
 		Server: config.Server{
 			Host:    "localhost",
-			Port:    "8080",
-			RpcPort: "8081",
+			Port:    "9080",
+			RpcPort: "9081",
 		},
 		TagService: config.TagService{
 			Port: strconv.Itoa(taggingPort),
