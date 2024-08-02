@@ -257,7 +257,7 @@ High-Level Logic:
 * Get all BGP peering IP addresses used by Paraglider in the given deployments
 
 rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (CreateVpnConnectionsResponse) {}
------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------
 
 Implementation-Level Description:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
