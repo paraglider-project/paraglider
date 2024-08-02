@@ -434,6 +434,7 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 			utils.Log.Printf("Failed to delete routes of VPN connection %v, during VPN deletion process, with error: %+v", *connection.ID, err)
 			return err
 		}
+		time.Sleep(10 * time.Second)
 		// set connection for deletion
 		_, err = c.vpcService.DeleteVPNGatewayConnection(
 			&vpcv1.DeleteVPNGatewayConnectionOptions{VPNGatewayID: &VPNGatewayID, ID: connection.ID})
