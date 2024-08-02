@@ -121,14 +121,14 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 	}
 
 	if vpcID == nil {
-		utils.Log.Printf("Creating a VPC (exclusive=%v).\n", res.IsExclusiveNetworkNeeded())
+		fmt.Printf("Creating a VPC (exclusive=%v).\n", res.IsExclusiveNetworkNeeded())
 		vpc, err := cloudClient.CreateVPC([]string{resourceDesc.Deployment.Namespace}, res.IsExclusiveNetworkNeeded())
 		if err != nil {
 			return nil, err
 		}
 		vpcID = vpc.ID
 	} else {
-		utils.Log.Printf("Using VPC %s\n", *vpcID)
+		fmt.Printf("Using VPC %s\n", *vpcID)
 	}
 
 	// get subnets of VPC
