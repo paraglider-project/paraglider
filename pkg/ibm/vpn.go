@@ -369,7 +369,7 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 		return err
 	}
 	vpcID := *vpnGateway.(*vpcv1.VPNGateway).VPC.ID
-	fmt.Printf("Found VPN gateway in vpc %s", vpcID)
+	fmt.Printf("Found VPN gateway in vpc %s\n", vpcID)
 
 	defaultRoutingTable, _, err := c.vpcService.GetVPCDefaultRoutingTable(c.vpcService.NewGetVPCDefaultRoutingTableOptions(vpcID))
 	if err != nil {
@@ -382,7 +382,9 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 		utils.Log.Printf("Failed to fetch tables for VPC containing VPN ID %v, during routes deletion process, with error: %+v", VPNGatewayID, err)
 		return err
 	}
-	fmt.Printf("Routing tables in VPC : %+v", tables.RoutingTables)
+	fmt.Printf("Routing tables in VPC : %+v\n", tables.RoutingTables)
+	deletedRoutes := []vpcv1.Route{}
+
 	for _, table := range tables.RoutingTables {
 		routes, _, err := c.vpcService.ListVPCRoutingTableRoutes(
 			&vpcv1.ListVPCRoutingTableRoutesOptions{VPCID: &vpcID, RoutingTableID: table.ID})
@@ -390,37 +392,28 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 			utils.Log.Printf("Failed to fetch routes for VPC containing VPN ID %v, during routes deletion process, with error: %+v", VPNGatewayID, err)
 			return err
 		}
-		fmt.Printf("Routing table routes %s : %+v", *table.ID, routes.Routes)
-	}
+		fmt.Printf("Routing table routes %s : %+v\n", *table.ID, routes.Routes)
 
-	routeCollection, _, err := c.vpcService.ListVPCRoutingTableRoutes(
-		&vpcv1.ListVPCRoutingTableRoutesOptions{VPCID: &vpcID, RoutingTableID: defaultRoutingTable.ID})
-	if err != nil {
-		utils.Log.Printf("Failed to fetch routes for VPC containing VPN ID %v, during routes deletion process, with error: %+v", VPNGatewayID, err)
-		return err
-	}
-	fmt.Printf("Default routing table routes : %+v", routeCollection.Routes)
-
-	deletedRoutes := []vpcv1.Route{}
-	// delete all routes with routing next hop pointing at the specified connection
-	for _, route := range routeCollection.Routes {
-		fmt.Printf("Deleting VPN route %v\n", *route.ID)
-		routeNextHop, isNextHopToVpnConnection := route.NextHop.(*vpcv1.RouteNextHop)
-		if !isNextHopToVpnConnection {
-			return fmt.Errorf("Expected next hop to reference a VPN connection, instead (likely) references an IP address.")
-		}
-		if *routeNextHop.ID == *connection.ID {
-			_, err = c.vpcService.DeleteVPCRoute(&vpcv1.DeleteVPCRouteOptions{
-				VPCID: &vpcID,
-				ID:    route.ID,
-			})
-			if err != nil {
-				utils.Log.Printf("Failed to delete VPC route ID %v routing to connection %v, with error: %+v", *route.ID, *connection.ID, err)
-				return err
+		// delete all routes with routing next hop pointing at the specified connection
+		for _, route := range routes.Routes {
+			fmt.Printf("Deleting VPN route %v\n", *route.ID)
+			routeNextHop, isNextHopToVpnConnection := route.NextHop.(*vpcv1.RouteNextHop)
+			if !isNextHopToVpnConnection {
+				return fmt.Errorf("Expected next hop to reference a VPN connection, instead (likely) references an IP address.")
 			}
-			// keep track of routes set for deletion (directing to the specified connection)
-			deletedRoutes = append(deletedRoutes, route)
-			fmt.Printf("Deleted VPC route %v directing traffic from %v ", *route.ID, *route.Zone.Name)
+			if *routeNextHop.ID == *connection.ID {
+				_, err = c.vpcService.DeleteVPCRoute(&vpcv1.DeleteVPCRouteOptions{
+					VPCID: &vpcID,
+					ID:    route.ID,
+				})
+				if err != nil {
+					utils.Log.Printf("Failed to delete VPC route ID %v routing to connection %v, with error: %+v", *route.ID, *connection.ID, err)
+					return err
+				}
+				// keep track of routes set for deletion (directing to the specified connection)
+				deletedRoutes = append(deletedRoutes, route)
+				fmt.Printf("Deleted VPC route %v directing traffic from %v ", *route.ID, *route.Zone.Name)
+			}
 		}
 	}
 
@@ -431,7 +424,7 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 			utils.Log.Printf("Error occurred while polling route status for routes in routing table %v, during routes deletion process, with error: %+v", *defaultRoutingTable.ID, err)
 			return err
 		}
-		fmt.Printf("route deleted %v\n", *route.ID)
+		fmt.Printf("Route deleted %v\n", *route.ID)
 	}
 
 	return nil
