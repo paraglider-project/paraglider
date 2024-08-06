@@ -402,7 +402,7 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 				return fmt.Errorf("Expected next hop to reference a VPN connection, instead (likely) references an IP address.")
 			}
 			if *routeNextHop.ID == *connection.ID {
-				_, err = c.vpcService.DeleteVPCRoute(&vpcv1.DeleteVPCRouteOptions{
+				_, err = c.vpcService.DeleteVPCRoutingTableRoute(&vpcv1.DeleteVPCRoutingTableRouteOptions{
 					VPCID: &vpcID,
 					ID:    route.ID,
 				})
@@ -427,6 +427,17 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 		fmt.Printf("Route deleted %v\n", *route.ID)
 	}
 
+	for _, table := range tables.RoutingTables {
+		_, err := c.vpcService.DeleteVPCRoutingTable(&vpcv1.DeleteVPCRoutingTableOptions{
+			VPCID: &vpcID,
+			ID:    table.ID,
+		})
+		if err != nil {
+			utils.Log.Printf("Failed to delete VPC routing table ID %v with error: %+v", *table.ID, err)
+			return err
+		}
+		fmt.Printf("Routing table %s deleted\n", *table.ID)
+	}
 	return nil
 }
 
