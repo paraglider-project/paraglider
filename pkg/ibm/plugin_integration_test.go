@@ -1,4 +1,4 @@
-//go:build ibm
+//go:build integration
 
 /*
 Copyright 2023 The Paraglider Authors.
@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
@@ -113,13 +114,13 @@ func TestMain(m *testing.M) {
 }
 
 // TODO(cohen-j-omer) will add verification for number of rules
-// usage: go test --tags=ibm -run TestAddPermitRulesIntegration -timeout 0
+// usage: go test --tags=integration -run TestAddPermitRulesIntegration -timeout 0
 // -timeout 0 removes limit of 10 min. runtime, which is necessary due to long deployment time of Azure's VPN.
 func TestAddPermitRulesIntegration(t *testing.T) {
 	dbPort := 6379
-	IBMServerPort := 7992
-	kvstorePort := 7993
-	taggingPort := 7994
+	IBMServerPort := 7792
+	kvstorePort := 7793
+	taggingPort := 7794
 	IBMResourceIDPrefix := testResourceIDUSEast1
 	image, zone, instanceName := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1
 
@@ -130,13 +131,14 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	defer func() {
 		err := TerminateParagliderDeployments(region)
 		require.NoError(t, err)
+		time.Sleep(10 * time.Second)
 	}()
 
 	orchestratorServerConfig := config.Config{
 		Server: config.Server{
 			Host:    "localhost",
-			Port:    "8080",
-			RpcPort: "8081",
+			Port:    "9080",
+			RpcPort: "9081",
 		},
 		TagService: config.TagService{
 			Host: "localhost",
@@ -202,6 +204,11 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	URIParts := strings.Split(res.Uri, "/")
 	resID := IBMResourceIDPrefix + URIParts[len(URIParts)-1]
 
+	// fetch address space from VM ip address
+	ipOctets := strings.Split(res.Ip, ".")
+	ipOctets[3] = "0"
+	resourceAddressSpace := strings.Join(ipOctets, ".") + "/16"
+
 	// Add permit list for IBM VM
 	fmt.Println("Adding IBM permit list rules...")
 
@@ -216,96 +223,6 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	require.NotNil(t, resp)
 
 	utils.Log.Printf("Test response: %+v", resp)
-}
-
-// TestCreateVpnGateway creates resource, in which it deploys a vpn gateway with vpn connections.
-// usage: go test --tags=integration -run TestCreateVpnGateway -timeout 0
-func TestCreateVpnGateway(t *testing.T) {
-	dbPort := 6379
-	IBMServerPort := 7992
-	kvstorePort := 7993
-	taggingPort := 7994
-	image, zone, instanceName := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1
-
-	region, err := ZoneToRegion(zone)
-	require.NoError(t, err)
-	// removes all of paraglider's deployments on IBM when test ends (if INVISINETS_TEST_PERSIST=1)
-	defer func() {
-		err := TerminateParagliderDeployments(region)
-		require.NoError(t, err)
-	}()
-
-	orchestratorServerConfig := config.Config{
-		Server: config.Server{
-			Host:    "localhost",
-			Port:    "8080",
-			RpcPort: "8081",
-		},
-		TagService: config.TagService{
-			Host: "localhost",
-			Port: strconv.Itoa(taggingPort),
-		},
-		KVStore: config.TagService{
-			Port: strconv.Itoa(kvstorePort),
-			Host: "localhost",
-		},
-		CloudPlugins: []config.CloudPlugin{
-			{
-				Name: utils.IBM,
-				Host: "localhost",
-				Port: strconv.Itoa(IBMServerPort),
-			},
-		},
-		Namespaces: map[string][]config.CloudDeployment{
-			testNamespace: {
-				{
-					Name:       utils.IBM,
-					Deployment: testDeployment,
-				},
-			},
-		},
-	}
-
-	// start controller server
-	fmt.Println("Setting up controller server and kvstore server")
-	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
-	orchestrator.Setup(orchestratorServerConfig, true)
-
-	// start ibm plugin server
-	fmt.Println("Setting up IBM server")
-	ibmServer := Setup(IBMServerPort, orchestratorServerAddr)
-
-	fmt.Println("Setting up kv store server")
-	tagging.Setup(dbPort, taggingPort, true)
-
-	fmt.Println("Setting up kv tagging server")
-	kvstore.Setup(dbPort, kvstorePort, true)
-
-	// Create IBM VM
-	fmt.Println("\nCreating IBM VM...")
-	imageIdentity := vpcv1.ImageIdentityByID{ID: &image}
-	zoneIdentity := vpcv1.ZoneIdentityByName{Name: &zone}
-	myTestProfile := string(testProfile)
-
-	testPrototype := &vpcv1.InstancePrototypeInstanceByImage{
-		Image:   &imageIdentity,
-		Zone:    &zoneIdentity,
-		Name:    core.StringPtr(instanceName),
-		Profile: &vpcv1.InstanceProfileIdentityByName{Name: &myTestProfile},
-	}
-
-	description, err := json.Marshal(vpcv1.CreateInstanceOptions{InstancePrototype: vpcv1.InstancePrototypeIntf(testPrototype)})
-	require.NoError(t, err)
-
-	resource := &paragliderpb.CreateResourceRequest{Name: instanceName, Deployment: &paragliderpb.ParagliderDeployment{Id: testDeployment, Namespace: testNamespace}, Description: description}
-	res, err := ibmServer.CreateResource(context.Background(), resource)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-
-	// fetch address space from VM ip address
-	ipOctets := strings.Split(res.Ip, ".")
-	ipOctets[3] = "0"
-	resourceAddressSpace := strings.Join(ipOctets, ".") + "/16"
 
 	createVPNRequest := &paragliderpb.CreateVpnGatewayRequest{
 		Deployment:   &paragliderpb.ParagliderDeployment{Id: testDeployment, Namespace: testNamespace},

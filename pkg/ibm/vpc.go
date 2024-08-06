@@ -18,6 +18,7 @@ package ibm
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 
@@ -70,6 +71,7 @@ func (c *CloudClient) TerminateVPC(vpcID string) error {
 		ResourceGroupID: c.resourceGroup.ID,
 	})
 	if err != nil {
+		fmt.Printf("instance . %v", err)
 		return err
 	}
 	// TODO: execute instance deletion and polling concurrently
@@ -95,13 +97,29 @@ func (c *CloudClient) TerminateVPC(vpcID string) error {
 	if err != nil {
 		return err
 	}
-
+	// wait until all subnets are deleted
+	for {
+		subnets, _ := c.GetSubnetsInVpcRegionBound(vpcID)
+		if len(subnets) == 0 {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
 	// Delete VPC
 	_, err = c.vpcService.DeleteVPC(&vpcv1.DeleteVPCOptions{
 		ID: &vpcID,
 	})
 	if err != nil {
 		return err
+	}
+	// wait until vpc is deleted
+	for {
+		_, err = c.GetVPCByID(vpcID)
+		if err != nil {
+			break
+		}
+		time.Sleep(1 * time.Second)
+		fmt.Printf("Waiting for VPC to be deleted..\n")
 	}
 
 	utils.Log.Printf("VPC %v deleted successfully", vpcID)
