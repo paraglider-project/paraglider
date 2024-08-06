@@ -182,6 +182,10 @@ Attaches an exisiting resource to Paraglider according to the resource ID and th
 
 Note that a tag is automatically created for the resource with the name ``<namespace>.<cloud>.<name>`` after attachment (where ``name`` is the resource name).
 
+.. note::
+
+    Attach Resource is only supported for Azure currently. Support for other cloud plugins are under active development.
+    
 .. tab-set::
 
     .. tab-item:: CLI
@@ -220,7 +224,8 @@ Note that a tag is automatically created for the resource with the name ``<names
 
                 * ``id``: Id of the resource as specified by the cloud provider
     
-..note:
+.. note::
+    
     Create resource and Attach resource share the same API endpoint. The difference between the two POST requests is the request body. If the request body contains a ``description``, the request is considered as a create resource request. Otherwise, it is considered as an attach resource request. 
 
 
