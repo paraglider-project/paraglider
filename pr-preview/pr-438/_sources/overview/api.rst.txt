@@ -257,7 +257,6 @@ When attaching a service to the Paraglider deployment, the information required 
                 "region": "<region>"
             }
 
-
 Permit List Operations
 ----------------------
 
