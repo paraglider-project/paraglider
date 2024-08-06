@@ -128,10 +128,6 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	region, err := ZoneToRegion(zone)
 	require.NoError(t, err)
 
-	// Clear existing deployments
-	err = TerminateParagliderDeployments(region)
-	require.NoError(t, err)
-
 	defer func() {
 		err := TerminateParagliderDeployments(region)
 		require.NoError(t, err)
