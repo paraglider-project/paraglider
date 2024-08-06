@@ -427,18 +427,6 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 		fmt.Printf("Route deleted %v\n", *route.ID)
 	}
 
-	for _, table := range tables.RoutingTables {
-		_, err := c.vpcService.DeleteVPCRoutingTable(&vpcv1.DeleteVPCRoutingTableOptions{
-			VPCID: &vpcID,
-			ID:    table.ID,
-		})
-		if err != nil {
-			utils.Log.Printf("Failed to delete VPC routing table ID %v with error: %+v", *table.ID, err)
-			return err
-		}
-		fmt.Printf("Routing table %s deleted\n", *table.ID)
-	}
-	time.Sleep(10 * time.Second)
 	return nil
 }
 
