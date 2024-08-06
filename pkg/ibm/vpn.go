@@ -438,6 +438,7 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 		}
 		fmt.Printf("Routing table %s deleted\n", *table.ID)
 	}
+	time.Sleep(10 * time.Second)
 	return nil
 }
 
