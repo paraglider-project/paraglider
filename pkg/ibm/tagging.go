@@ -137,7 +137,6 @@ func (c *CloudClient) getParagliderResourceByTags(resourceType string, tags stri
 	if customQueryStr != "" {
 		query += "AND " + customQueryStr
 	}
-
 	result, err := c.getTaggedResources(query)
 	if err != nil {
 		return nil, err

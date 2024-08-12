@@ -44,8 +44,10 @@ const (
 	SG taggedResourceType = "security-group"
 	// transit gateway for vpc-peering
 	GATEWAY taggedResourceType = "gateway"
-	VPN     taggedResourceType = "vpn"
-	ANY     taggedResourceType = "*"
+	// public gateway for accessing public IP endpoints
+	PGATEWAY taggedResourceType = "public-gateway"
+	VPN      taggedResourceType = "vpn"
+	ANY      taggedResourceType = "*"
 
 	credentialsPath = ".ibm/credentials.yaml"
 	endpointsURL    = "https://control.cloud-object-storage.cloud.ibm.com/v2/endpoints" // url containing constantly updated endpoints of regions.

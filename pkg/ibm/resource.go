@@ -184,7 +184,6 @@ func (i *ResourceInstanceType) CreateResource(name, vpcID, subnetID string, tags
 		utils.Log.Print("Failed to tag instance with error:", err)
 		return nil, err
 	}
-
 	// add instance ID tag to security group
 	err = i.client.attachTag(securityGroup.CRN, []string{*instance.ID})
 	if err != nil {
@@ -511,4 +510,3 @@ func (c *CloudClient) GetResourceHandlerFromID(deploymentID string) (ResourceInt
 
 	return nil, fmt.Errorf("invalid resource ID format: expected '/resourcegroup/{ResourceGroup}/zone/{zone}/{resource}/{resource_id}', got '%s'", deploymentID)
 }
-
