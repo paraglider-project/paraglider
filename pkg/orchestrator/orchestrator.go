@@ -1171,8 +1171,8 @@ func (s *ControllerServer) preCreateOrAttach(c *gin.Context, resourceInfo *Resou
 	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
-	resp, err := client.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tagName})
-	if err == nil && resp.Tag.Ip != nil {
+	_, err := client.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tagName})
+	if err == nil {
 		c.AbortWithStatusJSON(400, createErrorResponse("Tag already exists"))
 		return err
 	}
