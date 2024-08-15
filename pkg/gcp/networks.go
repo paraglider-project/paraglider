@@ -131,7 +131,7 @@ func setupNatGateway(ctx context.Context, routersClient *compute.RoutersClient, 
 		}
 	} else {
 		// Router already exists
-		if router.Nats == nil || len(router.Nats) == 0 {
+		if len(router.Nats) == 0 {
 			// NAT doesn't exist
 			patchRouterReq := &computepb.PatchRouterRequest{
 				Project:        project,
