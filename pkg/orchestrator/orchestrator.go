@@ -168,6 +168,10 @@ func parseTag(tag string) (string, string, string, error) {
 	return tokens[0], tokens[1], tokens[2], nil
 }
 
+func isTagValid(tag *tagservicepb.TagMapping) bool {
+	return tag.Ip != nil
+}
+
 // Get the URI of a tag
 func (s *ControllerServer) getTagUri(tag string) (string, error) {
 	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -1171,8 +1175,8 @@ func (s *ControllerServer) preCreateOrAttach(c *gin.Context, resourceInfo *Resou
 	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
-	_, err = client.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tagName})
-	if err == nil {
+	resp, err := client.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tagName})
+	if err == nil && isTagValid(resp.Tag) {
 		c.AbortWithStatusJSON(400, createErrorResponse("Tag already exists"))
 		return err
 	}
