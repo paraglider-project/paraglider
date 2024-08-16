@@ -48,6 +48,7 @@ const (
 	fakeZone       = fakeRegion + "-a"
 	fakeInstance   = "vm-paraglider-fake"
 	fakeCluster    = "cluster-paraglider-fake"
+	fakeEndpoint   = "vpe-paraglider-fake"
 	fakeImage      = "fake-image"
 	fakeVPC        = "paraglider-fake-vpc"
 	fakeID         = "12345"
@@ -89,6 +90,13 @@ var (
 					ID: core.StringPtr(fakeZone),
 				},
 			},
+		},
+	}
+
+	fakeEndpointGatewayOptions = vpcv1.CreateEndpointGatewayOptions{
+		Target: &vpcv1.EndpointGatewayTargetPrototype{
+			ResourceType: core.StringPtr(vpcv1.EndpointGatewayTargetPrototypeProviderInfrastructureServiceIdentityResourceTypeProviderCloudServiceConst),
+			Name:         core.StringPtr("ibm-ntp-server"),
 		},
 	}
 
@@ -394,18 +402,39 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 							{
 								ID:            core.StringPtr(r.URL.Query().Get("vpc.id")),
 								Ipv4CIDRBlock: &cidrBlock,
+								Zone: &vpcv1.ZoneReference{
+									Name: core.StringPtr(fakeZone),
+								},
 							},
 						}
 					}
 				}
+				if fakeIBMServerState.clusterState.subnetID == fakeID {
+					subnets.Subnets = []vpcv1.Subnet{
+						{
+							Zone: &vpcv1.ZoneReference{
+								Name: core.StringPtr(fakeZone),
+							},
+						},
+					}
+				}
 				sendFakeResponse(w, subnets)
+				return
+			}
+		case strings.Contains(path, "reserved_ips"):
+			if r.Method == http.MethodPost {
+				reservedIP := vpcv1.ReservedIP{ID: core.StringPtr(fakeID)}
+				sendFakeResponse(w, reservedIP)
 				return
 			}
 		case strings.Contains(path, "/subnets/"):
 			if r.Method == http.MethodGet { // Get Subnet Info for a VPC
 				index := strings.LastIndex(path, "/")
 				if cidrBlock, ok := fakeIBMServerState.subnetVPC[path[index+1:]]; ok {
-					subnet := vpcv1.Subnet{Ipv4CIDRBlock: &cidrBlock}
+					subnet := vpcv1.Subnet{
+						Ipv4CIDRBlock: &cidrBlock,
+						Name:          core.StringPtr(fakeZone),
+					}
 					sendFakeResponse(w, subnet)
 					return
 				}
@@ -530,6 +559,32 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 				sendFakeResponse(w, cluster)
 				return
 			}
+		case path == "/endpoint_gateways":
+			if r.Method == http.MethodPost { // Create an endpoint gateway
+				vpe := vpcv1.EndpointGateway{
+					ID:   core.StringPtr(fakeID),
+					CRN:  core.StringPtr(fakeCRN),
+					Name: core.StringPtr(fakeEndpoint),
+				}
+				sendFakeResponse(w, vpe)
+				return
+			}
+		case path == "/endpoint_gateways/"+fakeID:
+			if r.Method == http.MethodGet { // Get an endpoint gateway
+				vpe := vpcv1.EndpointGateway{
+					ID:             core.StringPtr(fakeID),
+					CRN:            core.StringPtr(fakeCRN),
+					Name:           core.StringPtr(fakeEndpoint),
+					LifecycleState: core.StringPtr(endpointReadyState),
+					Ips: []vpcv1.ReservedIPReference{
+						{
+							Address: core.StringPtr(fakeIP),
+						},
+					},
+				}
+				sendFakeResponse(w, vpe)
+				return
+			}
 		case path == "/transit_gateways":
 			if r.Method == http.MethodPost { // Create transit gateway
 				gw := transitgatewayapisv1.TransitGateway{
@@ -585,7 +640,7 @@ func setup(t *testing.T, fakeIBMServerState *fakeIBMServerState) (fakeServer *ht
 	return
 }
 
-func TestCreateResourceNewVPC(t *testing.T) {
+func TestCreateResourceInstanceNewVPC(t *testing.T) {
 	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
 	if err != nil {
 		t.Fatal(err)
@@ -614,7 +669,7 @@ func TestCreateResourceNewVPC(t *testing.T) {
 	require.NotNil(t, resp)
 }
 
-func TestCreateResourceExistingVPCSubnet(t *testing.T) {
+func TestCreateResourceInstanceExistingVPCSubnet(t *testing.T) {
 	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
 	if err != nil {
 		t.Fatal(err)
@@ -734,6 +789,35 @@ func TestCreateResourceClusterExistingVPC(t *testing.T) {
 	resource := &paragliderpb.CreateResourceRequest{
 		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
 		Name:        fakeCluster,
+		Description: description,
+	}
+	resp, err := s.CreateResource(ctx, resource)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+}
+
+func TestCreateResourceEndpointGatewayNewVPC(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// fakeIBMServerState with no state to have a clean slate resource creation
+	fakeIBMServerState := &fakeIBMServerState{}
+	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
+	defer fakeServer.Close()
+
+	s := &IBMPluginServer{
+		orchestratorServerAddr: fakeControllerServerAddr,
+		cloudClient: map[string]*CloudClient{
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		}}
+
+	description, err := json.Marshal(fakeEndpointGatewayOptions)
+	require.NoError(t, err)
+
+	resource := &paragliderpb.CreateResourceRequest{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+		Name:        fakeEndpoint,
 		Description: description,
 	}
 	resp, err := s.CreateResource(ctx, resource)
