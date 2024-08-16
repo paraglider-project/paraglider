@@ -446,14 +446,66 @@ PUT</label><div class="sd-tab-content docutils">
 </div>
 </div>
 </div>
+</section>
+<section id="attach">
+<h3>Attach<a class="headerlink" href="#attach" title="Link to this heading">¶</a></h3>
+<p>Attaches an exisiting resource to Paraglider according to the resource ID and the specified cloud. The resource should exist within a deployment associated with a namespace in Paraglider.</p>
+<p>Note that a tag is automatically created for the resource with the name <code class="docutils literal notranslate"><span class="pre">&lt;namespace&gt;.&lt;cloud&gt;.&lt;name&gt;</span></code> after attachment (where <code class="docutils literal notranslate"><span class="pre">name</span></code> is the resource name).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Attach Resource is only supported for Azure currently. Support for other cloud plugins are under active development.</p>
+</div>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-8" name="sd-tab-set-5" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-8">
+CLI</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>resource<span class="w"> </span>attach<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_id&gt;
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code>: name of the cloud to create the resource in</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource_id</span></code> : Id of the resource as specified by the cloud provider</p></li>
+</ul>
+</div>
+<input id="sd-tab-item-9" name="sd-tab-set-5" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-9">
+REST</label><div class="sd-tab-content docutils">
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-10" name="sd-tab-set-6" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-10">
+POST</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Example request body:</p></li>
+</ul>
+<div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resource-id&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">id</span></code>: Id of the resource as specified by the cloud provider</p></li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Create resource and Attach resource share the same API endpoint. The difference between the two POST requests is the request body. If the request body contains a <code class="docutils literal notranslate"><span class="pre">description</span></code>, the request is considered as a create resource request. Otherwise, it is considered as an attach resource request.</p>
+</div>
 <section id="resource-descriptions">
 <h4>Resource Descriptions<a class="headerlink" href="#resource-descriptions" title="Link to this heading">¶</a></h4>
 <p>For creating resources, the description provided should generally include all fields required to create the resource in the cloud, with the exception of networking details.
 For example, a VM description should exclude the fields definiting the network interface, the subnet, etc.
 When attaching a service to the Paraglider deployment, the information required to find the correct service varies by cloud.</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-8" name="sd-tab-set-5" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-8">
+<input checked="checked" id="sd-tab-item-11" name="sd-tab-set-7" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-11">
 GCP</label><div class="sd-tab-content docutils">
 <p>The fields required for the description depend on the service. For third-party services <a class="reference external" href="https://cloud.google.com/vpc/docs/private-service-connect#:~:text=Service%20attachments,Cloud%20DNS%20zone.">exposed via a service attachment</a>,  the description must be of the form:</p>
 <div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -480,8 +532,8 @@ GCP</label><div class="sd-tab-content docutils">
 <h3>Get<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
 <p>Gets the rules associated with a resource.</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-9" name="sd-tab-set-6" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-9">
+<input checked="checked" id="sd-tab-item-12" name="sd-tab-set-8" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-12">
 CLI</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>rule<span class="w"> </span>get<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;
 </pre></div>
@@ -492,8 +544,8 @@ CLI</label><div class="sd-tab-content docutils">
 <li><p><code class="docutils literal notranslate"><span class="pre">resource_name</span></code>: Paraglider name of the resource</p></li>
 </ul>
 </div>
-<input id="sd-tab-item-10" name="sd-tab-set-6" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-10">
+<input id="sd-tab-item-13" name="sd-tab-set-8" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-13">
 REST</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>GET<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/rules
 </pre></div>
@@ -511,8 +563,8 @@ REST</label><div class="sd-tab-content docutils">
 <h3>Add<a class="headerlink" href="#add" title="Link to this heading">¶</a></h3>
 <p>Adds one or many rules to the permit list associated with a resource.</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-11" name="sd-tab-set-7" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-11">
+<input checked="checked" id="sd-tab-item-14" name="sd-tab-set-9" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-14">
 CLI</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>rule<span class="w"> </span>add<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;<span class="w"> </span><span class="o">[</span>--ssh<span class="w"> </span>&lt;tag&gt;<span class="w"> </span>--ping<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="p">|</span><span class="w"> </span>--ruleFile<span class="w"> </span>&lt;path_to_file&gt;<span class="o">]</span>
 </pre></div>
@@ -546,12 +598,12 @@ CLI</label><div class="sd-tab-content docutils">
 <li><p><code class="docutils literal notranslate"><span class="pre">tag</span></code>: Paraglider tag or IP/CIDR to allow SSH/ICMP traffic to/from</p></li>
 </ul>
 </div>
-<input id="sd-tab-item-12" name="sd-tab-set-7" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-12">
+<input id="sd-tab-item-15" name="sd-tab-set-9" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-15">
 REST</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-13" name="sd-tab-set-8" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-13">
+<input checked="checked" id="sd-tab-item-16" name="sd-tab-set-10" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-16">
 POST</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/rules
 </pre></div>
@@ -578,8 +630,8 @@ POST</label><div class="sd-tab-content docutils">
 <li><p><code class="docutils literal notranslate"><span class="pre">resourceName</span></code>: Paraglider name of the resource</p></li>
 </ul>
 </div>
-<input id="sd-tab-item-14" name="sd-tab-set-8" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-14">
+<input id="sd-tab-item-17" name="sd-tab-set-10" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-17">
 PUT</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>PUT<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/rules/<span class="o">{</span>ruleName<span class="o">}</span>
 </pre></div>
@@ -611,8 +663,8 @@ PUT</label><div class="sd-tab-content docutils">
 <p>If the name is provided in the request body, it will be ignored</p>
 </div>
 </div>
-<input id="sd-tab-item-15" name="sd-tab-set-8" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-15">
+<input id="sd-tab-item-18" name="sd-tab-set-10" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-18">
 POST (bulk operation)</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/applyRules
 </pre></div>
@@ -651,8 +703,8 @@ POST (bulk operation)</label><div class="sd-tab-content docutils">
 <h3>Delete<a class="headerlink" href="#delete" title="Link to this heading">¶</a></h3>
 <p>Deletes one or many rules from the permit list associated with the specified resource.</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-16" name="sd-tab-set-9" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-16">
+<input checked="checked" id="sd-tab-item-19" name="sd-tab-set-11" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-19">
 CLI</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>rule<span class="w"> </span>delete<span class="w"> </span>&lt;cloud&gt;<span class="w"> </span>&lt;resource_name&gt;<span class="w"> </span>--rules<span class="w"> </span>&lt;rule_names&gt;
 </pre></div>
@@ -664,12 +716,12 @@ CLI</label><div class="sd-tab-content docutils">
 <li><p><code class="docutils literal notranslate"><span class="pre">rule_names</span></code>: list of rule names to delete</p></li>
 </ul>
 </div>
-<input id="sd-tab-item-17" name="sd-tab-set-9" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-17">
+<input id="sd-tab-item-20" name="sd-tab-set-11" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-20">
 REST</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-18" name="sd-tab-set-10" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-18">
+<input checked="checked" id="sd-tab-item-21" name="sd-tab-set-12" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-21">
 DELETE</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>DELETE<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/rules/<span class="o">{</span>ruleName<span class="o">}</span>
 </pre></div>
@@ -683,8 +735,8 @@ DELETE</label><div class="sd-tab-content docutils">
 <li><p><code class="docutils literal notranslate"><span class="pre">ruleName</span></code>: name of the rule</p></li>
 </ul>
 </div>
-<input id="sd-tab-item-19" name="sd-tab-set-10" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-19">
+<input id="sd-tab-item-22" name="sd-tab-set-12" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-22">
 POST (bulk operation)</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/namespaces/<span class="o">{</span>namespace<span class="o">}</span>/clouds/<span class="o">{</span>cloud<span class="o">}</span>/resources/<span class="o">{</span>resourceName<span class="o">}</span>/deleteRules
 </pre></div>
@@ -720,8 +772,8 @@ POST (bulk operation)</label><div class="sd-tab-content docutils">
 <h3>Get<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
 <p>Gets the children tags associated with a tag or resolves the tag down to last-level entries (IPs).</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-20" name="sd-tab-set-11" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-20">
+<input checked="checked" id="sd-tab-item-23" name="sd-tab-set-13" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-23">
 CLI</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>tag<span class="w"> </span>get<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--resolve<span class="o">]</span>
 </pre></div>
@@ -732,8 +784,8 @@ CLI</label><div class="sd-tab-content docutils">
 <li><p><code class="docutils literal notranslate"><span class="pre">resolve</span></code>: true/false value indicating whether to resolve to last-level tags or not</p></li>
 </ul>
 </div>
-<input id="sd-tab-item-21" name="sd-tab-set-11" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-21">
+<input id="sd-tab-item-24" name="sd-tab-set-13" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-24">
 REST</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>GET<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</span>/
 </pre></div>
@@ -752,8 +804,8 @@ REST</label><div class="sd-tab-content docutils">
 <h3>Set<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
 <p>Adds children tags to a parent tag or creates a last-level tag that associates a names with an URI and/or IP.</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-22" name="sd-tab-set-12" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-22">
+<input checked="checked" id="sd-tab-item-25" name="sd-tab-set-14" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-25">
 CLI</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>tag<span class="w"> </span><span class="nb">set</span><span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--children<span class="w"> </span>&lt;child_tag_list&gt;<span class="o">]</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="o">[</span>--uri<span class="w"> </span>&lt;uri&gt;<span class="o">]</span><span class="w"> </span><span class="o">[</span>--ip<span class="w"> </span>&lt;ip&gt;<span class="o">]</span>
 </pre></div>
@@ -766,8 +818,8 @@ CLI</label><div class="sd-tab-content docutils">
 <li><p><code class="docutils literal notranslate"><span class="pre">ip</span></code>: ip to associate with tag</p></li>
 </ul>
 </div>
-<input id="sd-tab-item-23" name="sd-tab-set-12" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-23">
+<input id="sd-tab-item-26" name="sd-tab-set-14" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-26">
 REST</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>POST<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</span>/applyMembers
 </pre></div>
@@ -806,8 +858,8 @@ REST</label><div class="sd-tab-content docutils">
 <h3>Delete<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
 <p>Deletes a tag or the association of members tags to that tag.</p>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-24" name="sd-tab-set-13" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-24">
+<input checked="checked" id="sd-tab-item-27" name="sd-tab-set-15" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-27">
 CLI</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glide<span class="w"> </span>tag<span class="w"> </span>delete<span class="w"> </span>&lt;tag&gt;<span class="w"> </span><span class="o">[</span>--member<span class="w"> </span>&lt;members_list&gt;<span class="o">]</span>
 </pre></div>
@@ -818,8 +870,8 @@ CLI</label><div class="sd-tab-content docutils">
 <li><p><code class="docutils literal notranslate"><span class="pre">member</span></code>: child tag to remove membership</p></li>
 </ul>
 </div>
-<input id="sd-tab-item-25" name="sd-tab-set-13" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-25">
+<input id="sd-tab-item-28" name="sd-tab-set-15" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="rest" for="sd-tab-item-28">
 REST</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>DELETE<span class="w"> </span>/tags/<span class="o">{</span>tag<span class="o">}</span>/member/<span class="o">{</span>member<span class="o">}</span>
 </pre></div>
@@ -846,8 +898,8 @@ REST</label><div class="sd-tab-content docutils">
 <section id="all-services">
 <h3>All Services<a class="headerlink" href="#all-services" title="Link to this heading">¶</a></h3>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-26" name="sd-tab-set-14" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-26">
+<input checked="checked" id="sd-tab-item-29" name="sd-tab-set-16" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-29">
 CLI</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>startup<span class="w"> </span>&lt;path_to_config&gt;
 </pre></div>
@@ -858,8 +910,8 @@ CLI</label><div class="sd-tab-content docutils">
 <section id="orchestrator">
 <h3>Orchestrator<a class="headerlink" href="#orchestrator" title="Link to this heading">¶</a></h3>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-27" name="sd-tab-set-15" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-27">
+<input checked="checked" id="sd-tab-item-30" name="sd-tab-set-17" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-30">
 CLI</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>orch<span class="w"> </span>&lt;path_to_config&gt;
 </pre></div>
@@ -870,8 +922,8 @@ CLI</label><div class="sd-tab-content docutils">
 <section id="azure">
 <h3>Azure<a class="headerlink" href="#azure" title="Link to this heading">¶</a></h3>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-28" name="sd-tab-set-16" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-28">
+<input checked="checked" id="sd-tab-item-31" name="sd-tab-set-18" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-31">
 CLI</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>az<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
 </pre></div>
@@ -883,8 +935,8 @@ CLI</label><div class="sd-tab-content docutils">
 <section id="gcp">
 <h3>GCP<a class="headerlink" href="#gcp" title="Link to this heading">¶</a></h3>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-29" name="sd-tab-set-17" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-29">
+<input checked="checked" id="sd-tab-item-32" name="sd-tab-set-19" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-32">
 CLI</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>gcp<span class="w"> </span>&lt;port&gt;<span class="w"> </span>&lt;central_controller_address&gt;
 </pre></div>
@@ -896,8 +948,8 @@ CLI</label><div class="sd-tab-content docutils">
 <section id="tag-service">
 <h3>Tag Service<a class="headerlink" href="#tag-service" title="Link to this heading">¶</a></h3>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-30" name="sd-tab-set-18" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-30">
+<input checked="checked" id="sd-tab-item-33" name="sd-tab-set-20" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-33">
 CLI</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>tagserv<span class="w"> </span>&lt;redis_port&gt;<span class="w"> </span>&lt;server_port&gt;<span class="w"> </span>&lt;clear_keys&gt;
 </pre></div>
@@ -909,8 +961,8 @@ CLI</label><div class="sd-tab-content docutils">
 <section id="key-value-store-service">
 <h3>Key-Value Store Service<a class="headerlink" href="#key-value-store-service" title="Link to this heading">¶</a></h3>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-31" name="sd-tab-set-19" type="radio">
-<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-31">
+<input checked="checked" id="sd-tab-item-34" name="sd-tab-set-21" type="radio">
+<label class="sd-tab-label" data-sync-group="tab" data-sync-id="cli" for="sd-tab-item-34">
 CLI</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>glided<span class="w"> </span>kvserv<span class="w"> </span>&lt;redis_port&gt;<span class="w"> </span>&lt;server_port&gt;<span class="w"> </span>&lt;clear_keys&gt;
 </pre></div>
@@ -991,7 +1043,8 @@ CLI</label><div class="sd-tab-content docutils">
 </ul>
 </li>
 <li><a class="reference internal" href="#resource-operations">Resource Operations</a><ul>
-<li><a class="reference internal" href="#create">Create</a><ul>
+<li><a class="reference internal" href="#create">Create</a></li>
+<li><a class="reference internal" href="#attach">Attach</a><ul>
 <li><a class="reference internal" href="#resource-descriptions">Resource Descriptions</a></li>
 </ul>
 </li>
