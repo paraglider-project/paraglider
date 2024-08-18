@@ -171,6 +171,10 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 	return &paragliderpb.CreateResourceResponse{Name: resource.Name, Uri: resource.URI, Ip: resource.IP}, nil
 }
 
+func (s *IBMPluginServer) AttachResource(ctx context.Context, req *paragliderpb.AttachResourceRequest) (*paragliderpb.AttachResourceResponse, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 // GetUsedAddressSpaces returns a list of address spaces used by either user's or paraglider' subnets,
 // for each paraglider vpc.
 func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
