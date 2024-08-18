@@ -38,7 +38,8 @@ const (
 	fakeInstancePrivateIpAddress = "10.0.0.1"
 	fakeNamespace                = "fake-namespace"
 	fakeRegion                   = "fake-region-1"
-	fakeAvailabilityZone         = fakeRegion + "a"
+	fakeAvailabilityZone1        = fakeRegion + "a"
+	fakeAvailabilityZone2        = fakeRegion + "b"
 	fakeSecurityGroupId          = "fake-sg"
 	fakeSubnetId                 = "fake-subnet-id"
 	fakeVpcId                    = "fake-vpc-id"
@@ -49,7 +50,7 @@ const (
 var (
 	fakeSubnet = &types.Subnet{
 		SubnetId:         aws.String(fakeSubnetId),
-		AvailabilityZone: aws.String(fakeAvailabilityZone),
+		AvailabilityZone: aws.String(fakeAvailabilityZone1),
 	}
 	fakeVpc = &types.Vpc{
 		VpcId:     aws.String(fakeVpcId),
@@ -84,7 +85,7 @@ var fakeInitializeMiddleware = middleware.InitializeMiddlewareFunc("FakeInput", 
 	return next.HandleInitialize(context.WithValue(ctx, &requestContextKey{}, in.Parameters), in)
 })
 
-// fakeDeserizliaeMiddle is a middleware in the deserialize step for faking AWS API calls during tests.
+// fakeDeserializeMiddleware is a middleware in the deserialize step for faking AWS API calls during tests.
 var fakeDeserializeMiddleware = middleware.DeserializeMiddlewareFunc("FakeOutput", func(
 	ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler,
 ) (

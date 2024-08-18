@@ -21,6 +21,8 @@ package aws
 import (
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	orchestrator "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/paraglider-project/paraglider/pkg/utils"
@@ -31,10 +33,12 @@ func TestCreateResource(t *testing.T) {
 	testCases := []struct {
 		name            string
 		fakeServerState fakeServerState
+		shouldError     bool
 	}{
 		{
 			name:            "FromScratch",
 			fakeServerState: fakeServerState{},
+			shouldError:     false,
 		},
 		{
 			name: "ExistingNetwork",
@@ -42,6 +46,18 @@ func TestCreateResource(t *testing.T) {
 				vpc:    fakeVpc,
 				subnet: fakeSubnet,
 			},
+			shouldError: false,
+		},
+		{
+			name: "WrongAvailabilityZone",
+			fakeServerState: fakeServerState{
+				vpc: fakeVpc,
+				subnet: &types.Subnet{
+					SubnetId:         aws.String(fakeSubnetId),
+					AvailabilityZone: aws.String(fakeAvailabilityZone2),
+				},
+			},
+			shouldError: true,
 		},
 	}
 
@@ -61,7 +77,7 @@ func TestCreateResource(t *testing.T) {
 			awsPluginServer := &AwsPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
 
 			// Create instance
-			testInstanceJson, err := getTestInstanceInputJson(fakeAvailabilityZone)
+			testInstanceJson, err := getTestInstanceInputJson(fakeAvailabilityZone1)
 			if err != nil {
 				t.Fatalf("unable to get test instance JSON: %v", err)
 			}
@@ -71,10 +87,14 @@ func TestCreateResource(t *testing.T) {
 				Description: testInstanceJson,
 			}
 			createResourceResp, err := awsPluginServer._CreateResource(ctx, createResourceReq, fakeAwsClients)
-			require.NoError(t, err)
-			require.Equal(t, fakeInstanceName, createResourceResp.Name)
-			require.Equal(t, getInstanceArn(createResourceReq.Deployment.Id, fakeRegion, fakeInstanceId), createResourceResp.Uri)
-			require.Equal(t, fakeInstancePrivateIpAddress, createResourceResp.Ip)
+			if testCase.shouldError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, fakeInstanceName, createResourceResp.Name)
+				require.Equal(t, getInstanceArn(createResourceReq.Deployment.Id, fakeRegion, fakeInstanceId), createResourceResp.Uri)
+				require.Equal(t, fakeInstancePrivateIpAddress, createResourceResp.Ip)
+			}
 		})
 	}
 }

@@ -36,8 +36,8 @@ func getDescribeFilter(namespace string, name string) []types.Filter {
 	}
 }
 
-// getCreateTagSpecifications returns tag specifications for a resource to use for creating (e.g., Create...).
-func getCreateTagSpecifications(namespace string, name string, resourceType types.ResourceType) []types.TagSpecification {
+// getTagSpecificationsForCreateResource returns tag specifications for a resource to use for creating (e.g., Create...).
+func getTagSpecificationsForCreateResource(namespace string, name string, resourceType types.ResourceType) []types.TagSpecification {
 	return []types.TagSpecification{
 		{
 			ResourceType: resourceType,
@@ -57,6 +57,11 @@ func getNameTag(tags []types.Tag) string {
 		}
 	}
 	return ""
+}
+
+// getRegionFromAvailabilityZone returns the region from an availability zone.
+func getRegionFromAvailabilityZone(availabilityZone string) string {
+	return availabilityZone[:len(availabilityZone)-1]
 }
 
 // getNamespacePrefix returns the prefix for all resources within a specific namespace.

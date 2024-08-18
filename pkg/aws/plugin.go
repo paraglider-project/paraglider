@@ -65,7 +65,7 @@ func (s *AwsPluginServer) _CreateResource(ctx context.Context, req *paragliderpb
 
 	// Get region
 	availabilityZone := *runInstancesInput.Placement.AvailabilityZone
-	region := availabilityZone[:len(availabilityZone)-1]
+	region := getRegionFromAvailabilityZone(availabilityZone)
 
 	// Load config and setup clients
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
@@ -105,7 +105,7 @@ func (s *AwsPluginServer) _CreateResource(ctx context.Context, req *paragliderpb
 			// Create VPC
 			createVpcInput := &ec2.CreateVpcInput{
 				CidrBlock:         aws.String(vpcCidrBlock),
-				TagSpecifications: getCreateTagSpecifications(req.Deployment.Namespace, vpcName, types.ResourceTypeVpc),
+				TagSpecifications: getTagSpecificationsForCreateResource(req.Deployment.Namespace, vpcName, types.ResourceTypeVpc),
 			}
 			createVpcOutput, err := ec2Client.CreateVpc(ctx, createVpcInput)
 			if err != nil {
@@ -187,7 +187,7 @@ func (s *AwsPluginServer) _CreateResource(ctx context.Context, req *paragliderpb
 				VpcId:             vpc.VpcId,
 				CidrBlock:         aws.String(*vpc.CidrBlock),
 				AvailabilityZone:  aws.String(availabilityZone),
-				TagSpecifications: getCreateTagSpecifications(req.Deployment.Namespace, subnetName, types.ResourceTypeSubnet),
+				TagSpecifications: getTagSpecificationsForCreateResource(req.Deployment.Namespace, subnetName, types.ResourceTypeSubnet),
 			}
 			createSubnetOutput, err := ec2Client.CreateSubnet(ctx, createSubnetInput)
 			if err != nil {
@@ -210,7 +210,7 @@ func (s *AwsPluginServer) _CreateResource(ctx context.Context, req *paragliderpb
 		VpcId:             vpc.VpcId,
 		GroupName:         aws.String(securityGroupName),
 		Description:       aws.String("Security group for Paraglider"),
-		TagSpecifications: getCreateTagSpecifications(req.Deployment.Namespace, securityGroupName, types.ResourceTypeSecurityGroup),
+		TagSpecifications: getTagSpecificationsForCreateResource(req.Deployment.Namespace, securityGroupName, types.ResourceTypeSecurityGroup),
 	}
 	createSecurityGroupOutput, err := ec2Client.CreateSecurityGroup(ctx, createSecurityGroupInput)
 	if err != nil {
@@ -234,7 +234,7 @@ func (s *AwsPluginServer) _CreateResource(ctx context.Context, req *paragliderpb
 	}
 
 	// Run instance
-	runInstancesInput.TagSpecifications = getCreateTagSpecifications(req.Deployment.Namespace, req.Name, types.ResourceTypeInstance)
+	runInstancesInput.TagSpecifications = getTagSpecificationsForCreateResource(req.Deployment.Namespace, req.Name, types.ResourceTypeInstance)
 	runInstancesOutput, err := ec2Client.RunInstances(ctx, runInstancesInput)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create instance: %w", err)
