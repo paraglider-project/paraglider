@@ -62,7 +62,7 @@ const (
 	fakeGW         = "paraglider-fake-gw"
 	fakeIP         = "10.0.0.2"
 	fakeSubnet1    = "10.0.0.0/16"
-	fakeSubnet2    = "20.1.1.0/28"
+	fakeSubnet2    = "10.1.0.0/16"
 	fakeProfile    = "bx2-2x8"
 	fakeWorkerPool = "fake"
 
@@ -100,7 +100,7 @@ var (
 		},
 	}
 
-	fakePermitList1 = []*paragliderpb.PermitListRule{
+	fakePermitListVPC = []*paragliderpb.PermitListRule{
 		{
 			Name:      fakeRuleName1,
 			Direction: paragliderpb.Direction_INBOUND,
@@ -118,14 +118,24 @@ var (
 			Targets:   []string{"10.0.64.1"},
 		},
 	}
-	fakePermitList2 = []*paragliderpb.PermitListRule{
+	fakePermitListMultiVPC = []*paragliderpb.PermitListRule{
 		{
 			Name:      fakeRuleName1,
 			Direction: paragliderpb.Direction_INBOUND,
 			SrcPort:   443,
 			DstPort:   443,
 			Protocol:  6,
-			Targets:   []string{"20.1.1.5"},
+			Targets:   []string{"10.1.1.5"},
+		},
+	}
+	fakePermitListPublic = []*paragliderpb.PermitListRule{
+		{
+			Name:      fakeRuleName1,
+			Direction: paragliderpb.Direction_INBOUND,
+			SrcPort:   443,
+			DstPort:   443,
+			Protocol:  6,
+			Targets:   []string{"169.18.0.2"},
 		},
 	}
 )
@@ -145,6 +155,7 @@ type fakeIBMServerState struct {
 	clusterState  fakeClusterState
 	subnetVPC     map[string]string // VPC to Subnet CIDR mapping
 	rules         int
+	publicGateway bool
 }
 
 func sendFakeResponse(w http.ResponseWriter, response interface{}) {
@@ -201,7 +212,7 @@ func createFakeVPC(connectVPC bool) []*vpcv1.VPC {
 	return vpcs
 }
 
-// Creates fake security group. If addRules is set to true, it adds fakePermitList1's rules to it.
+// Creates fake security group. If addRules is set to true, it adds fakePermitListVPC's rules to it.
 func createFakeSecurityGroup(addRules bool) *vpcv1.SecurityGroup {
 	sg := vpcv1.SecurityGroup{
 		CRN:  core.StringPtr(fakeCRN),
@@ -312,6 +323,13 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 							searchResult.Items = append(searchResult.Items, resultItem)
 						}
 					}
+				case PGATEWAY:
+					if fakeIBMServerState.publicGateway {
+						var resultItem globalsearchv2.ResultItem
+						resultItem.SetProperty("region", fakeRegion)
+						resultItem.CRN = core.StringPtr(fakeCRN)
+						searchResult.Items = append(searchResult.Items, resultItem)
+					}
 				case GATEWAY:
 					// Not Implemented
 				}
@@ -354,6 +372,16 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 					CRN: core.StringPtr(fakeCRN),
 				}
 				sendFakeResponse(w, sg)
+				return
+			}
+		case path == "/vpcs/"+fakeID2:
+			if r.Method == http.MethodGet { // Get VPC
+				vpc := vpcv1.VPC{
+					CRN:  core.StringPtr(fakeCRN2),
+					Name: core.StringPtr(fakeVPC),
+					ID:   core.StringPtr(fakeID2),
+				}
+				sendFakeResponse(w, vpc)
 				return
 			}
 		case path == "/subnets":
@@ -416,6 +444,10 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 					sendFakeResponse(w, subnet)
 					return
 				}
+			}
+			if r.Method == http.MethodPut && strings.Contains(path, "public_gateway") { // Attach subnet to public gateway
+				w.WriteHeader(http.StatusOK)
+				return
 			}
 		case path == "/keys":
 			if r.Method == http.MethodPost { // Create Key
@@ -558,6 +590,7 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 				gw := transitgatewayapisv1.TransitGateway{
 					Name: core.StringPtr(fakeGW),
 					ID:   core.StringPtr(fakeID),
+					Crn:  core.StringPtr(fakeCRN),
 				}
 				sendFakeResponse(w, gw)
 				return
@@ -570,6 +603,23 @@ func getFakeIBMServerHandler(fakeIBMServerState *fakeIBMServerState) http.Handle
 					NetworkID: core.StringPtr("vpc"),
 				}
 				sendFakeResponse(w, conn)
+				return
+			}
+		case path == "/floating_ips":
+			if r.Method == http.MethodPost { // Create a floating ip
+				fip := vpcv1.FloatingIP{
+					ID: core.StringPtr(fakeID),
+				}
+				sendFakeResponse(w, fip)
+				return
+			}
+		case path == "/public_gateways":
+			if r.Method == http.MethodPost { // Create a public gateway
+				gw := vpcv1.PublicGateway{
+					ID:  core.StringPtr(fakeID),
+					CRN: core.StringPtr(fakeCRN),
+				}
+				sendFakeResponse(w, gw)
 				return
 			}
 		}
@@ -834,17 +884,18 @@ func TestGetUsedAddressSpacesMultipleVPC(t *testing.T) {
 }
 
 func TestAddPermitListRules(t *testing.T) {
-	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	fakeOrchestratorServer, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
 	if err != nil {
 		t.Fatal(err)
 	}
+	fakeOrchestratorServer.Counter = 1
 	// fakeIBMServerState with an existing VPC, subnet, instance and a security group
 	fakeIBMServerState := &fakeIBMServerState{
 		VPCs:          createFakeVPC(false),
 		Instance:      createFakeInstance(),
 		SecurityGroup: createFakeSecurityGroup(false),
 		subnetVPC: map[string]string{
-			fakeID: fakeSubnet2,
+			fakeID: fakeSubnet1,
 		},
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
@@ -854,13 +905,13 @@ func TestAddPermitListRules(t *testing.T) {
 		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
 		},
-		orchestratorServerAddr: fakeControllerServerAddr,
+		orchestratorServerAddr: fakeOrchestratorServerAddr,
 	}
 
 	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
-		Rules:     fakePermitList2,
+		Rules:     fakePermitListVPC,
 	}
 
 	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
@@ -870,20 +921,21 @@ func TestAddPermitListRules(t *testing.T) {
 
 func TestAddPermitListRulesExisting(t *testing.T) {
 	store := map[string]string{
-		kvstore.GetFullKey(fakePermitList1[0].Name, utils.IBM, fakeNamespace): fakeID2,
+		kvstore.GetFullKey(fakePermitListVPC[0].Name, utils.IBM, fakeNamespace): fakeID2,
 	}
-	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServerWithStore(utils.IBM, store)
+	fakeOrchestratorServer, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServerWithStore(utils.IBM, store)
 	if err != nil {
 		t.Fatal(err)
 	}
+	fakeOrchestratorServer.Counter = 1
 	// fakeIBMServerState with an existing VPC, subnet, instance and a security group
-	// with existing rules in fakePermitList1
+	// with existing rules in fakePermitListVPC
 	fakeIBMServerState := &fakeIBMServerState{
 		VPCs:          createFakeVPC(false),
 		Instance:      createFakeInstance(),
 		SecurityGroup: createFakeSecurityGroup(true),
 		subnetVPC: map[string]string{
-			fakeID: fakeSubnet2,
+			fakeID: fakeSubnet1,
 		},
 	}
 	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
@@ -899,7 +951,7 @@ func TestAddPermitListRulesExisting(t *testing.T) {
 	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
-		Rules:     fakePermitList2,
+		Rules:     fakePermitListVPC,
 	}
 
 	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
@@ -927,7 +979,7 @@ func TestAddPermitListRulesMissingInstance(t *testing.T) {
 	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
-		Rules:     fakePermitList2,
+		Rules:     fakePermitListVPC,
 	}
 
 	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
@@ -961,7 +1013,7 @@ func TestAddPermitListRulesMissingSecurityGroup(t *testing.T) {
 	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
-		Rules:     fakePermitList1,
+		Rules:     fakePermitListVPC,
 	}
 
 	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
@@ -997,7 +1049,7 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: wrongNamespace,
 		Resource:  fakeInstanceID,
-		Rules:     fakePermitList1,
+		Rules:     fakePermitListVPC,
 	}
 
 	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
@@ -1005,10 +1057,11 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 	require.Nil(t, resp)
 }
 func TestAddPermitListRulesTransitGateway(t *testing.T) {
-	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	fakeControllerServer, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
 	if err != nil {
 		t.Fatal(err)
 	}
+	fakeControllerServer.Counter = 2
 	// fakeIBMServerState with two VPCs (and subnets) across regions
 	fakeIBMServerState := &fakeIBMServerState{
 		VPCs:          createFakeVPC(true),
@@ -1029,12 +1082,87 @@ func TestAddPermitListRulesTransitGateway(t *testing.T) {
 		orchestratorServerAddr: fakeControllerServerAddr,
 	}
 
-	// fakePermitList2 is added to the permit list which will trigger creation of a link
+	// fakePermitListMultiVPC is added to the permit list which will trigger creation of a link
 	// between VPCs across regions, and hence requiriing deployment of a transit gateway.
 	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
-		Rules:     fakePermitList2,
+		Rules:     fakePermitListMultiVPC,
+	}
+
+	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+}
+
+func TestAddPermitListRulesPublicGateway(t *testing.T) {
+	fakeControllerServer, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	fakeControllerServer.Counter = 1
+	if err != nil {
+		t.Fatal(err)
+	}
+	// fakeIBMServerState with two VPCs (and subnets) across regions
+	fakeIBMServerState := &fakeIBMServerState{
+		VPCs:          createFakeVPC(false),
+		Instance:      createFakeInstance(),
+		SecurityGroup: createFakeSecurityGroup(false),
+		subnetVPC: map[string]string{
+			fakeID: fakeSubnet1,
+		},
+	}
+	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
+	defer fakeServer.Close()
+	s := &IBMPluginServer{
+		cloudClient: map[string]*CloudClient{
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
+
+	// fakePermitListPublic is added to the permit list which will trigger creation of a public gateway
+	// to connect the instance to an external system
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
+		Namespace: fakeNamespace,
+		Resource:  fakeInstanceID,
+		Rules:     fakePermitListPublic,
+	}
+
+	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+}
+
+func TestAddPermitListRulesExistingPublicGateway(t *testing.T) {
+	fakeControllerServer, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	fakeControllerServer.Counter = 1
+	if err != nil {
+		t.Fatal(err)
+	}
+	// fakeIBMServerState with two VPCs (and subnets) across regions
+	fakeIBMServerState := &fakeIBMServerState{
+		VPCs:          createFakeVPC(false),
+		Instance:      createFakeInstance(),
+		SecurityGroup: createFakeSecurityGroup(false),
+		subnetVPC: map[string]string{
+			fakeID: fakeSubnet1,
+		},
+		publicGateway: true,
+	}
+	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
+	defer fakeServer.Close()
+	s := &IBMPluginServer{
+		cloudClient: map[string]*CloudClient{
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		orchestratorServerAddr: fakeControllerServerAddr,
+	}
+
+	// fakePermitListPublic is added to the permit list which will trigger creation of a public gateway
+	// to connect the instance to an external system
+	addRulesRequest := &paragliderpb.AddPermitListRulesRequest{
+		Namespace: fakeNamespace,
+		Resource:  fakeInstanceID,
+		Rules:     fakePermitListPublic,
 	}
 
 	resp, err := s.AddPermitListRules(ctx, addRulesRequest)
@@ -1044,8 +1172,8 @@ func TestAddPermitListRulesTransitGateway(t *testing.T) {
 
 func TestDeletePermitListRules(t *testing.T) {
 	store := map[string]string{
-		kvstore.GetFullKey(fakePermitList1[0].Name, utils.IBM, fakeNamespace): fakeID,
-		kvstore.GetFullKey(fakePermitList1[1].Name, utils.IBM, fakeNamespace): fakeID2,
+		kvstore.GetFullKey(fakePermitListVPC[0].Name, utils.IBM, fakeNamespace): fakeID,
+		kvstore.GetFullKey(fakePermitListVPC[1].Name, utils.IBM, fakeNamespace): fakeID2,
 	}
 	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServerWithStore(utils.IBM, store)
 	if err != nil {
@@ -1069,7 +1197,7 @@ func TestDeletePermitListRules(t *testing.T) {
 	deleteRulesRequest := &paragliderpb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
-		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
+		RuleNames: []string{fakePermitListVPC[0].Name, fakePermitListVPC[1].Name},
 	}
 
 	resp, err := s.DeletePermitListRules(ctx, deleteRulesRequest)
@@ -1097,7 +1225,7 @@ func TestDeletePermitListRulesMissingInstance(t *testing.T) {
 	deleteRulesRequest := &paragliderpb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
-		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
+		RuleNames: []string{fakePermitListVPC[0].Name, fakePermitListVPC[1].Name},
 	}
 
 	resp, err := s.DeletePermitListRules(ctx, deleteRulesRequest)
@@ -1127,7 +1255,7 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 	deleteRulesRequest := &paragliderpb.DeletePermitListRulesRequest{
 		Namespace: fakeNamespace,
 		Resource:  fakeInstanceID,
-		RuleNames: []string{fakePermitList1[0].Name, fakePermitList1[1].Name},
+		RuleNames: []string{fakePermitListVPC[0].Name, fakePermitListVPC[1].Name},
 	}
 
 	resp, err := s.DeletePermitListRules(ctx, deleteRulesRequest)
@@ -1136,8 +1264,8 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 }
 func TestGetPermitList(t *testing.T) {
 	store := map[string]string{
-		kvstore.GetFullKey(fakeID, utils.IBM, fakeNamespace):  fakePermitList1[0].Name,
-		kvstore.GetFullKey(fakeID2, utils.IBM, fakeNamespace): fakePermitList1[1].Name,
+		kvstore.GetFullKey(fakeID, utils.IBM, fakeNamespace):  fakePermitListVPC[0].Name,
+		kvstore.GetFullKey(fakeID2, utils.IBM, fakeNamespace): fakePermitListVPC[1].Name,
 	}
 	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServerWithStore(utils.IBM, store)
 	if err != nil {
@@ -1165,9 +1293,9 @@ func TestGetPermitList(t *testing.T) {
 	resp, err := s.GetPermitList(ctx, getRulesRequest)
 	require.NoError(t, err)
 	fmt.Printf("Retu %v\n", resp.Rules)
-	fmt.Printf("Need %v\n", fakePermitList1)
+	fmt.Printf("Need %v\n", fakePermitListVPC)
 
-	require.ElementsMatch(t, resp.Rules, fakePermitList1)
+	require.ElementsMatch(t, resp.Rules, fakePermitListVPC)
 }
 
 func TestGetPermitListEmpty(t *testing.T) {

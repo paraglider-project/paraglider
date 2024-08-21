@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/IBM/vpc-go-sdk/vpcv1"
 	redis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -181,7 +182,6 @@ func (s *IBMPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragli
 			Cloud:     utils.IBM,
 			Namespace: deployment.Namespace,
 		}
-		utils.Log.Printf("Getting used address spaces for deployment : %v\n", deployment.Id)
 		rInfo, err := getResourceMeta(deployment.Id)
 		if err != nil {
 			return nil, err
@@ -367,9 +367,17 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 		// connect clouds if needed
 		for i, peeringCloudInfo := range peeringCloudInfos {
 			if peeringCloudInfo == nil {
-				continue
-			}
-			if peeringCloudInfo.Cloud != utils.IBM {
+				// If peering cloud info is unidentified, the target is a public IP endpoint
+				subnets, err := cloudClient.GetSubnetsInVpcRegionBound(*requestVPCData.ID)
+				if err != nil {
+					utils.Log.Printf("error while fetching subnets of VPC: %+v", err)
+					return nil, err
+				}
+				err = s.connectToPublicGateway(cloudClient, rInfo.ResourceGroup, *requestVPCData.ID, rInfo.Zone, region, subnets)
+				if err != nil {
+					return nil, fmt.Errorf("unable to connect to public gateway: %v", err)
+				}
+			} else if peeringCloudInfo.Cloud != utils.IBM {
 				ruleTargetAddress := ibmRules[i].Remote
 				// Create VPN connections
 				connectCloudsReq := &paragliderpb.ConnectCloudsRequest{
@@ -470,6 +478,61 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	}
 
 	return &paragliderpb.AddPermitListRulesResponse{}, nil
+}
+
+func (s *IBMPluginServer) connectToPublicGateway(cloudClient *CloudClient, resourceGroup, vpcID, zone, region string, subnets []vpcv1.Subnet) error {
+	var publicGateway *vpcv1.PublicGateway
+	var publicGatewayID string
+	publicGatewayRes, err := cloudClient.GetParagliderTaggedResources(PGATEWAY, []string{}, resourceQuery{Region: region})
+	if err != nil {
+		return err
+	}
+
+	if len(publicGatewayRes) == 1 {
+		// a paraglider deployment has a single public gateway per region
+		publicGatewayID = publicGatewayRes[0].ID
+		utils.Log.Printf("Using existing public gateway : %s\n", publicGatewayID)
+	} else if len(publicGatewayRes) == 0 {
+		// create floating IP for the gateway
+		floatingIPOptions := &vpcv1.CreateFloatingIPOptions{
+			FloatingIPPrototype: &vpcv1.FloatingIPPrototypeFloatingIPByZone{
+				Zone:          &vpcv1.ZoneIdentityByName{Name: &zone},
+				ResourceGroup: &vpcv1.ResourceGroupIdentityByID{ID: &resourceGroup},
+			},
+		}
+		floatingIP, _, err := cloudClient.vpcService.CreateFloatingIP(floatingIPOptions)
+		if err != nil {
+			return err
+		}
+		// create a public gateway
+		publicGateway, _, err = cloudClient.vpcService.CreatePublicGateway(&vpcv1.CreatePublicGatewayOptions{
+			VPC:           &vpcv1.VPCIdentityByID{ID: &vpcID},
+			Zone:          &vpcv1.ZoneIdentityByName{Name: &zone},
+			FloatingIP:    &vpcv1.PublicGatewayFloatingIPPrototypeFloatingIPIdentityFloatingIPIdentityByID{ID: floatingIP.ID},
+			ResourceGroup: &vpcv1.ResourceGroupIdentityByID{ID: &resourceGroup},
+		})
+		if err != nil {
+			return err
+		}
+		publicGatewayID = *publicGateway.ID
+		utils.Log.Printf("Creating a new public gateway : %s\n", publicGatewayID)
+		// tag the public gateway
+		err = cloudClient.attachTag(publicGateway.CRN, []string{})
+		if err != nil {
+			return err
+		}
+	}
+	for _, subnet := range subnets {
+		_, _, err = cloudClient.vpcService.SetSubnetPublicGateway(&vpcv1.SetSubnetPublicGatewayOptions{
+			ID:                    subnet.ID,
+			PublicGatewayIdentity: &vpcv1.PublicGatewayIdentityPublicGatewayIdentityByID{ID: &publicGatewayID},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	utils.Log.Printf("Successfully setup subnet for public gateway\n")
+	return nil
 }
 
 // connects the VPC matching the specified vpcCRN, and the remote VPC containing the address space in the specified ibmRule,
