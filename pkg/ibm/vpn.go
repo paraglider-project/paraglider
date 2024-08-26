@@ -403,8 +403,9 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 			}
 			if *routeNextHop.ID == *connection.ID {
 				_, err = c.vpcService.DeleteVPCRoutingTableRoute(&vpcv1.DeleteVPCRoutingTableRouteOptions{
-					VPCID: &vpcID,
-					ID:    route.ID,
+					VPCID:          &vpcID,
+					RoutingTableID: table.ID,
+					ID:             route.ID,
 				})
 				if err != nil {
 					utils.Log.Printf("Failed to delete VPC route ID %v routing to connection %v, with error: %+v", *route.ID, *connection.ID, err)
@@ -479,6 +480,7 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 		utils.Log.Printf("Failed to delete VPN %v, with error: %+v", VPNGatewayID, err)
 		return err
 	}
+	fmt.Printf("VPN gateway with ID %v was set for deletion", VPNGatewayID)
 	utils.Log.Printf("VPN gateway with ID %v was set for deletion", VPNGatewayID)
 
 	// wait for VPN deletion (can't delete reliant resources such as subnets otherwise)

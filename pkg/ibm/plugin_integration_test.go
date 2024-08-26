@@ -121,17 +121,19 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	IBMServerPort := 7792
 	kvstorePort := 7793
 	taggingPort := 7794
-	IBMResourceIDPrefix := testResourceIDUSEast1
-	image, zone, instanceName := testImageUSEast, testZoneUSEast1, testInstanceNameUSEast1
+	IBMResourceIDPrefix := testResourceIDUSSouth1
+	image, zone, instanceName := testImageUSSouth, testZoneUSSouth1, testInstanceNameUSSouth1
 
 	// removes all of paraglide's deployments on IBM
 	region, err := ZoneToRegion(zone)
 	require.NoError(t, err)
 
+	err = TerminateParagliderDeployments(region)
+
 	defer func() {
+		time.Sleep(10 * time.Second)
 		err := TerminateParagliderDeployments(region)
 		require.NoError(t, err)
-		time.Sleep(10 * time.Second)
 	}()
 
 	orchestratorServerConfig := config.Config{
