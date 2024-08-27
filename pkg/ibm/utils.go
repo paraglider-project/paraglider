@@ -36,16 +36,19 @@ import (
 )
 
 const (
-	VPC     taggedResourceType = "vpc"
-	SUBNET  taggedResourceType = "subnet"
-	VM      taggedResourceType = "instance"
-	CLUSTER taggedResourceType = "k8-cluster"
+	VPC      taggedResourceType = "vpc"
+	SUBNET   taggedResourceType = "subnet"
+	VM       taggedResourceType = "instance"
+	CLUSTER  taggedResourceType = "k8-cluster"
+	ENDPOINT taggedResourceType = "endpoint-gateway"
 	// Security group of a specific instance
 	SG taggedResourceType = "security-group"
 	// transit gateway for vpc-peering
 	GATEWAY taggedResourceType = "gateway"
-	VPN     taggedResourceType = "vpn"
-	ANY     taggedResourceType = "*"
+	// public gateway for accessing public IP endpoints
+	PGATEWAY taggedResourceType = "public-gateway"
+	VPN      taggedResourceType = "vpn"
+	ANY      taggedResourceType = "*"
 
 	credentialsPath = ".ibm/credentials.yaml"
 	endpointsURL    = "https://control.cloud-object-storage.cloud.ibm.com/v2/endpoints" // url containing constantly updated endpoints of regions.
@@ -208,6 +211,10 @@ func getZoneFromDesc(resourceDesc []byte) (string, error) {
 
 	clusterOptions := k8sv1.VpcCreateClusterOptions{}
 
+	endpointGatewayOptions := vpcv1.CreateEndpointGatewayOptions{
+		Target: &vpcv1.EndpointGatewayTargetPrototype{},
+	}
+
 	err := json.Unmarshal(resourceDesc, &clusterOptions)
 	if err == nil && clusterOptions.WorkerPool != nil {
 		if len(clusterOptions.WorkerPool.Zones) == 0 {
@@ -217,12 +224,14 @@ func getZoneFromDesc(resourceDesc []byte) (string, error) {
 	}
 
 	err = json.Unmarshal(resourceDesc, &instanceOptions)
-	if err == nil && instanceOptions.InstancePrototype != nil {
+	if err == nil && instanceOptions.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Zone.(*vpcv1.ZoneIdentityByName).Name != nil {
 		zone := instanceOptions.InstancePrototype.(*vpcv1.InstancePrototypeInstanceByImage).Zone
-		if zone.(*vpcv1.ZoneIdentityByName).Name == nil {
-			return "", fmt.Errorf("unspecified zone definition in instance description")
-		}
 		return *zone.(*vpcv1.ZoneIdentityByName).Name, nil
+	}
+
+	err = json.Unmarshal(resourceDesc, &endpointGatewayOptions)
+	if err == nil && endpointGatewayOptions.Target.(*vpcv1.EndpointGatewayTargetPrototype).ResourceType != nil {
+		return defaultZone, nil
 	}
 
 	return "", fmt.Errorf("failed to unmarshal resource description:%+v", err)

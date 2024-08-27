@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch to pull the workflow and code file from"
+        description: "Branch to checkout the code from"
         required: true
         default: "main"
   workflow_run:
