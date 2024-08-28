@@ -55,7 +55,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	// fmt.Fprintf(e.writer, "Attaching resource %s to namespace %s in cloud %s\n", e.resourceID, args[1], args[0])
+	fmt.Fprintf(e.writer, "Attaching resource to %s namespace\n", e.cliSettings.ActiveNamespace)
 	paragliderClient := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 
 	resource := &orchestrator.ResourceID{Id: args[1]}

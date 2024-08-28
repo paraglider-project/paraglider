@@ -75,6 +75,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	resource := &paragliderpb.ResourceDescriptionString{Description: string(e.description)}
 
+	fmt.Fprintf(e.writer, "Creating resource: %v\n", args[1])
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	resourceInfo, err := c.CreateResource(e.cliSettings.ActiveNamespace, args[0], args[1], resource)
 

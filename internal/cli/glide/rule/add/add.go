@@ -18,6 +18,7 @@ package add
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -112,6 +113,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	if len(args) == 1 {
 		err = c.AddPermitListRulesTag(args[0], rules)
 	} else {
+		fmt.Fprintf(e.writer, "Adding permit list rule\n")
 		err = c.AddPermitListRules(e.cliSettings.ActiveNamespace, args[0], args[1], rules)
 	}
 
