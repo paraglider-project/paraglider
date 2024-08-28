@@ -477,6 +477,7 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 
 	_, err = c.vpcService.DeleteVPNGateway(&vpcv1.DeleteVPNGatewayOptions{ID: &VPNGatewayID})
 	if err != nil {
+		fmt.Printf("Failed to delete VPN %v, with error: %+v", VPNGatewayID, err)
 		utils.Log.Printf("Failed to delete VPN %v, with error: %+v", VPNGatewayID, err)
 		return err
 	}
@@ -488,6 +489,9 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf("VPN gateway deleted")
+	time.Sleep(10 * time.Second)
 
 	return nil
 }
