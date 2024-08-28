@@ -128,7 +128,9 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	region, err := ZoneToRegion(zone)
 	require.NoError(t, err)
 
+	// Terminate any existing stray deployments if any
 	err = TerminateParagliderDeployments(region)
+	require.NoError(t, err)
 
 	defer func() {
 		time.Sleep(10 * time.Second)
