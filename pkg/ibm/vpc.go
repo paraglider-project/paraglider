@@ -126,6 +126,9 @@ func (c *CloudClient) TerminateVPC(vpcID string) error {
 		publicGateways, _, err = c.vpcService.ListPublicGateways(&vpcv1.ListPublicGatewaysOptions{
 			ResourceGroupID: c.resourceGroup.ID,
 		})
+		if err != nil {
+			return err
+		}
 		if len(publicGateways.PublicGateways) == 0 {
 			break
 		}
