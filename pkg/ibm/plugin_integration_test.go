@@ -78,7 +78,7 @@ var pingTestPermitList []*paragliderpb.PermitListRule = []*paragliderpb.PermitLi
 		SrcPort:   -1,
 		DstPort:   -1,
 		Protocol:  1,
-		Targets:   []string{"10.0.0.0/16"},
+		Targets:   []string{"10.0.0.1"},
 	},
 	// ssh to accept ssh connection
 	{
@@ -87,7 +87,7 @@ var pingTestPermitList []*paragliderpb.PermitListRule = []*paragliderpb.PermitLi
 		SrcPort:   22,
 		DstPort:   22,
 		Protocol:  6,
-		Targets:   []string{"10.0.0.0/0"},
+		Targets:   []string{"10.0.0.1"},
 	},
 	//All protocol to allow all egress traffic
 	{
@@ -96,7 +96,7 @@ var pingTestPermitList []*paragliderpb.PermitListRule = []*paragliderpb.PermitLi
 		SrcPort:   -1,
 		DstPort:   -1,
 		Protocol:  -1,
-		Targets:   []string{"0.0.0.0/0"},
+		Targets:   []string{"10.0.0.1"},
 	},
 }
 
