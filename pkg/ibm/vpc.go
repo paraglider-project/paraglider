@@ -105,6 +105,33 @@ func (c *CloudClient) TerminateVPC(vpcID string) error {
 		}
 		time.Sleep(1 * time.Second)
 	}
+
+	// terminate all public gateways
+	publicGateways, _, err := c.vpcService.ListPublicGateways(&vpcv1.ListPublicGatewaysOptions{
+		ResourceGroupID: c.resourceGroup.ID,
+	})
+	if err != nil {
+		return err
+	}
+	for _, pgw := range publicGateways.PublicGateways {
+		// set client to the region of the current public gateway
+		fmt.Printf("Found Public Gateway %s\n", *pgw.ID)
+		_, err = c.vpcService.DeletePublicGateway(&vpcv1.DeletePublicGatewayOptions{ID: pgw.ID})
+		if err != nil {
+			return err
+		}
+	}
+	// wait until all public gateways are deleted
+	for {
+		publicGateways, _, err = c.vpcService.ListPublicGateways(&vpcv1.ListPublicGatewaysOptions{
+			ResourceGroupID: c.resourceGroup.ID,
+		})
+		if len(publicGateways.PublicGateways) == 0 {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
 	// Delete VPC
 	_, err = c.vpcService.DeleteVPC(&vpcv1.DeleteVPCOptions{
 		ID: &vpcID,

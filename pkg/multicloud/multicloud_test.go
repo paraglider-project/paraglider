@@ -344,8 +344,8 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	// ibm config
 	IBMServerPort := 7892
 	resourceGroupID := ibm.GetIBMResourceGroupID()
-	ibmResourceIDPrefix := "/resourcegroup/" + resourceGroupID + "/zone/us-east-1" + "/instance/"
-	image, zone, instanceName := "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb", "us-east-1", "pg-vm-east-1" // IBM VM vars
+	ibmResourceIDPrefix := "/resourcegroup/" + resourceGroupID + "/zone/us-south-1" + "/instance/"
+	image, zone, instanceName := "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb", "us-south-1", "pg-vm-south-1" // IBM VM vars
 	ibmNamespace := "pg-multicloud-ibm"
 	ibmDeploymentId := "/resourcegroup/" + resourceGroupID
 	vmProfile := "bx2-2x8"
