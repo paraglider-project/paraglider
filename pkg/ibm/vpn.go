@@ -481,7 +481,6 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 		utils.Log.Printf("Failed to delete VPN %v, with error: %+v", VPNGatewayID, err)
 		return err
 	}
-	fmt.Printf("VPN gateway with ID %v was set for deletion", VPNGatewayID)
 	utils.Log.Printf("VPN gateway with ID %v was set for deletion", VPNGatewayID)
 
 	// wait for VPN deletion (can't delete reliant resources such as subnets otherwise)
@@ -489,9 +488,6 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("VPN gateway deleted")
-	time.Sleep(10 * time.Second)
 
 	return nil
 }

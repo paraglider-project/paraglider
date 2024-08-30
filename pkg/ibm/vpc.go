@@ -29,6 +29,8 @@ const vpcType = "vpc"
 
 const SharedVPC = "shared"
 
+const maxAttempts = 30
+
 // CreateVPC creates a Paraglider VPC for a region resources are tagged.
 func (c *CloudClient) CreateVPC(tags []string, exclusive bool) (*vpcv1.VPC, error) {
 	var prefixManagement string
@@ -98,7 +100,7 @@ func (c *CloudClient) TerminateVPC(vpcID string) error {
 		return err
 	}
 	// wait until all subnets are deleted
-	for {
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		subnets, _ := c.GetSubnetsInVpcRegionBound(vpcID)
 		if len(subnets) == 0 {
 			break
@@ -122,7 +124,7 @@ func (c *CloudClient) TerminateVPC(vpcID string) error {
 		}
 	}
 	// wait until all public gateways are deleted
-	for {
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		publicGateways, _, err = c.vpcService.ListPublicGateways(&vpcv1.ListPublicGatewaysOptions{
 			ResourceGroupID: c.resourceGroup.ID,
 		})
@@ -143,7 +145,7 @@ func (c *CloudClient) TerminateVPC(vpcID string) error {
 		return err
 	}
 	// wait until vpc is deleted
-	for {
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		_, err = c.GetVPCByID(vpcID)
 		if err != nil {
 			break

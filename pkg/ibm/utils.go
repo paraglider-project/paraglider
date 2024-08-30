@@ -26,6 +26,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -141,6 +142,7 @@ func TerminateParagliderDeployments(region string) error {
 			return err
 		}
 	}
+	time.Sleep(10 * time.Second)
 
 	vpcsData, err := cloudClient.GetParagliderTaggedResources(VPC, []string{}, resourceQuery{})
 	if err != nil {

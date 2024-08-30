@@ -238,7 +238,7 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, vpnGatewayResp)
 
-	utils.Log.Printf("VPN gateway creation response: %v", vpnGatewayResp)
+	fmt.Printf("VPN gateway creation response: %v", vpnGatewayResp)
 
 	// random addresses of peer resource on remote cloud.
 	// To test connectivity with existing deployment on remote cloud replace below values.
@@ -259,5 +259,5 @@ func TestAddPermitRulesIntegration(t *testing.T) {
 	vpnConnectionResp, err := ibmServer.CreateVpnConnections(context.Background(), createVPNConnectionRequest)
 	require.NoError(t, err)
 
-	utils.Log.Printf("VPN connection creation response: %v", vpnConnectionResp)
+	fmt.Printf("VPN connection creation response: %v", vpnConnectionResp)
 }
