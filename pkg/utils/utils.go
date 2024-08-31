@@ -37,6 +37,7 @@ const (
 	GCP   = "gcp"
 	AZURE = "azure"
 	IBM   = "ibm"
+	AWS   = "aws"
 )
 
 // Private address spaces as defined in RFC 1918

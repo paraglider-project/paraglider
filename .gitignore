@@ -39,6 +39,7 @@ gomock_*
 
 # Key
 *key*.json
+*key*.csv
 
 # Sphinx
 docs/build/
