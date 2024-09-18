@@ -122,6 +122,13 @@ func (c *CloudClient) TerminateVPC(vpcID string) error {
 		if err != nil {
 			return err
 		}
+		if pgw.FloatingIP != nil {
+			fmt.Printf("Found Floating IP %s\n", *pgw.FloatingIP.ID)
+			_, err := c.vpcService.DeleteFloatingIP(c.vpcService.NewDeleteFloatingIPOptions(*pgw.FloatingIP.ID))
+			if err != nil {
+				return err
+			}
+		}
 	}
 	// wait until all public gateways are deleted
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
