@@ -21,13 +21,12 @@ Microsoft
 IBM Research
 
 **Ashok Narayanan** </br>
-Google
+Snyk
 
 **Anees Shaikh** </br>
 Google
 
 **Sean Kim** </br>
-UC Berkeley
 
 ### Contact Info
 You can contact the TSC at paraglider-tsc [at] googlegroups.com.
