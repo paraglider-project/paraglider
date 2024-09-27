@@ -1,7 +1,7 @@
 # Paraglider Committee Members
 
 ## TSC
-TSC membership is documented [here]().
+TSC membership is documented [here](tsc.md).
 
 ## MAC Liason
 TODO
