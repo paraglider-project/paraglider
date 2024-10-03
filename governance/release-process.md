@@ -20,7 +20,7 @@ Feature work for upcoming releases is tracked through
 [GitHub Issues](https://github.com/paraglider-project/paraglider/issues).
 
 ## Steps to Create a New Release (TODO: Review this more closely)
-1. Bump the version number ([Semantic Versioning 2.0](https://semver.org/))
+1. Bump the version number according to [Semantic Versioning 2.0](https://semver.org/)
   for the following files:
   * [version.go](../internal/version/version.go)
 2. Create a new pull request for the version number changes

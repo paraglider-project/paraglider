@@ -15,4 +15,4 @@ Primary: TODO
 Backup: TODO
 
 ## Project Technical Lead
-Sarah McClure
+TODO
