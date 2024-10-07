@@ -847,7 +847,7 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceRe
 	return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: networkInfo.Address}, nil
 }
 
-func (s *azurePluginServer) checkResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse, error) {
+func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse, error) {
 	checkResponse := &paragliderpb.CheckResourceResponse{}
 	resourceIdInfo, err := getResourceIDInfo(checkReq.Resource)
 	if err != nil {
@@ -871,7 +871,7 @@ func (s *azurePluginServer) checkResource(ctx context.Context, checkReq *paragli
 	return checkResponse, err
 }
 
-func (s *azurePluginServer) fixResource(ctx context.Context, resourceId string, namespace string) error {
+func (s *azurePluginServer) FixResource(ctx context.Context, resourceId string, namespace string) error {
 	return nil
 }
 	

@@ -1144,8 +1144,8 @@ func (s *ControllerServer) handleCreateOrAttachResource(c *gin.Context) {
 		if c.Request.Method == "POST" {
 			resourceInfo.name = resourceToCreate.Name
 		}
-
 		s.resourceCreate(c, resourceInfo, cloudClient, &resourceToCreate)
+		
 	} else if err := c.ShouldBindBodyWithJSON(&resourceToAttach); err == nil && resourceToAttach.Id != "" {
 		if c.Request.Method != "POST" {
 			c.AbortWithStatusJSON(400, createErrorResponse("Only POST method is allowed for attaching resources"))
@@ -1250,7 +1250,13 @@ func (s *ControllerServer) resourceAttach(c *gin.Context, resourceInfo *Resource
 	c.JSON(http.StatusOK, attachResourceResp)
 }
 
-func (s *ControllerServer) checkResource(c *gin.Context, resourceInfo *ResourceInfo, cloudClient string) {
+func (s *ControllerServer) checkResource(c *gin.Context) {
+	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, false)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	
 	// Create connection to cloud plugin
 	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -1629,6 +1635,7 @@ func Setup(cfg config.Config, background bool) {
 	router.DELETE(PermitListRulePUTURL, server.permitListRuleDelete)
 	router.PUT(CreateResourcePUTURL, server.handleCreateOrAttachResource)
 	router.POST(CreateOrAttachResourcePOSTURL, server.handleCreateOrAttachResource)
+	router.GET(CheckResourceURL, server.checkResource)
 	router.POST(RuleOnTagURL, server.permitListRuleAddTag)
 	router.DELETE(RuleOnTagURL, server.permitListRuleDeleteTag)
 	router.GET(ListTagURL, server.listTags)
