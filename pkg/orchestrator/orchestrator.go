@@ -1249,6 +1249,26 @@ func (s *ControllerServer) resourceAttach(c *gin.Context, resourceInfo *Resource
 	c.JSON(http.StatusOK, attachResourceResp)
 }
 
+func (s *ControllerServer) checkResource(c *gin.Context, resourceInfo *ResourceInfo, cloudClient string) {
+	// Create connection to cloud plugin
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	// Send RPC to check resource
+	client := paragliderpb.NewCloudPluginClient(conn)
+	checkResourceReq := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri}
+	// Currently checks the tag
+	_, err = client.CheckResource(context.Background(), checkResourceReq)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+	}
+}
+
+
 func (s *ControllerServer) createTag(c *gin.Context, resourceInfo *ResourceInfo, uri string, ip string) string {
 	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
