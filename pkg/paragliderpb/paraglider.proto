@@ -26,6 +26,7 @@ service CloudPlugin {
     rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}
     rpc CreateResource(CreateResourceRequest) returns (CreateResourceResponse) {}
     rpc AttachResource(AttachResourceRequest) returns (AttachResourceResponse) {}
+    rpc CheckResource(CheckResourceRequest) returns (CheckResourceResponse) {}
     rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}
     rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}
     rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}
@@ -55,6 +56,12 @@ message Namespace {
 message ParagliderDeployment {
     string id = 1;
     string namespace = 2;
+}
+
+message ResourceInfo {
+    string name = 1;
+    string uri = 2;
+    string ip = 3;
 }
 
 message AddressSpaceMapping{
@@ -109,6 +116,15 @@ message AttachResourceResponse {
     string name = 1;
     string uri = 2;
     string ip = 3;
+}
+
+message CheckResourceRequest {
+    string namespace = 1;
+    string resource = 2;
+}
+
+message CheckResourceResponse {
+    ResourceInfo resource = 1;
 }
 
 message AddPermitListRulesRequest {
