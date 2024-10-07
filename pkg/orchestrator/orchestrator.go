@@ -53,6 +53,7 @@ const (
 	DeletePermitListRulesURL      string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/deleteRules"
 	CreateResourcePUTURL          string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName"
 	CreateOrAttachResourcePOSTURL string = "/namespaces/:namespace/clouds/:cloud/resources"
+	CheckResourceURL			  string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/check"
 	RuleOnTagURL                  string = "/tags/:tag/rules"
 	ListTagURL                    string = "/tags"
 	GetTagURL                     string = "/tags/:tag"

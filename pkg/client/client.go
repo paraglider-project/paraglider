@@ -36,6 +36,7 @@ type ParagliderControllerClient interface {
 	DeletePermitListRules(namespace string, cloud string, resourceName string, rules []string) error
 	CreateResource(namespace string, cloud string, resourceName string, resource *paragliderpb.ResourceDescriptionString) (map[string]string, error)
 	AttachResource(namespace string, cloud string, resource *orchestrator.ResourceID) (map[string]string, error)
+	CheckResource(namespace string, cloud string, resourceId string) (*paragliderpb.CheckResourceResponse, error)
 	AddPermitListRulesTag(tag string, rules []*paragliderpb.PermitListRule) error
 	DeletePermitListRulesTag(tag string, rules []string) error
 	GetTag(tag string) (*tagservicepb.TagMapping, error)
@@ -187,6 +188,22 @@ func (c *Client) AttachResource(namespace string, cloud string, resource *orches
 	}
 
 	return resourceDict, nil
+}
+
+func (c *Client) CheckResource(namespace string, cloud string, resourceId string) (*paragliderpb.CheckResourceResponse, error) {
+	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.CheckResourceURL), namespace, cloud, resourceId)
+
+	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check resource: %w", err)
+	}
+
+	checkResp := &paragliderpb.CheckResourceResponse{}
+	err = json.Unmarshal(respBytes, checkResp)
+	if err != nil {
+		return nil, err
+	}
+	return checkResp, nil
 }
 
 // Add permit list rules to a tag
