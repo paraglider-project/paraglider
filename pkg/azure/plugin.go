@@ -847,6 +847,35 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceRe
 	return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: networkInfo.Address}, nil
 }
 
+func (s *azurePluginServer) checkResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse) {
+	checkResponse := &paragliderpb.CheckResourceResponse{}
+	resourceIdInfo, err := getResourceIDInfo(checkReq.Resource)
+	if err != nil {
+		return checkResponse
+	}
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo, namespace)
+	if err != nil {
+		return checkResponse
+	}
+
+	// Check if the resource exists to validate the tags
+	resource, err := ValidateResourceExists(ctx, azureHandler, checkReq.Resource)
+	if err != nil {
+		return checkResponse
+	}
+
+	checkResponse.Resource.Name = *resource.Name
+	checkResponse.Resource.Uri = *resource.ID
+	checkResponse.Resource.Ip = "" // todo: get IP address
+	
+	return checkResponse
+}
+
+func (s *azurePluginServer) fixResource(ctx context.Context, resourceId string, namespace string) error {
+	return nil
+}
+	
+
 func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
