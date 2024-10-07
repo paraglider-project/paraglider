@@ -1258,14 +1258,25 @@ func (s *ControllerServer) checkResource(c *gin.Context, resourceInfo *ResourceI
 	}
 	defer conn.Close()
 
+	// Get tag name and set it in the context
+	tagName := getTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
+	_, err = s.getTagUri(tagName)
+	if err != nil {
+		// todo: check that the error is not a grpc error
+		c.AbortWithStatusJSON(400, createErrorResponse("Resource does not exist on Paraglider"))
+		return
+	}
+
 	// Send RPC to check resource
 	client := paragliderpb.NewCloudPluginClient(conn)
 	checkResourceReq := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri}
-	// Currently checks the tag
 	_, err = client.CheckResource(context.Background(), checkResourceReq)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
 	}
+
+	c.JSON(http.StatusOK, gin.H{"tag": "Resource exists"})
 }
 
 
