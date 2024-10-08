@@ -22,22 +22,18 @@ Feature work for upcoming releases is tracked through
 ## Steps to Create a New Release (TODO: Review this more closely)
 1. Bump the version number ([Semantic Versioning 2.0](https://semver.org/))
   for the following files:
-  * [version.go](../internal/version/version.go)
-2. Create a new pull request for the version number changes
-3. Once the build artifacts complete and all checks pass, download the build
-  artifacts, which can be found via the Actions tab on github
-4. Copy the binary into a VM and manually test user functionality (use the CLI, client, etc.). TODO: Add to CI/CD
-5. Add a tag to the commit with the version number changes
+  * [version.mk](../build/version.mk)
+2. Create a new pull request for the version number changes.
+3. Ensure that the artifacts are built and all checks pass.
+4. Merge the PR upon successful review.
+5. Clone the repo, and add a tag to the commit with the version number changes
   (e.g., "git tag v1.0.0", "git push --tags")
-6. Navigate to the repository and find where it says
-  "Releases". Click the "Create a new release" hyperlink
-7. Click the "Choose a tag" dropdown and select the tag created in the previous
-  step
-8. Enter a "Release title" and click on "Generate release notes" button to pull
+6. This will initiate a release.
+7. Navigate to "Releases" to view the release.
+8. Edit the "Release title" and click on "Generate release notes" button to pull
   in all the PR changes since the last tagged release
-9. Attach binaries / artifacts to the release by clicking on the "Attach
-  binaries..." text. These are the same artifacts downloaded above
-10. After binaries are uploaded, click the "Publish release" button to post the
+9. All binaries/artefacts should already be attached to the release.
+10. Click the "Publish release" button to post the
   release
 
 ## Stable Releases
