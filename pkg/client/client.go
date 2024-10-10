@@ -192,7 +192,6 @@ func (c *Client) AttachResource(namespace string, cloud string, resource *orches
 
 func (c *Client) CheckResource(namespace string, cloud string, resourceId string) (*paragliderpb.CheckResourceResponse, error) {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.CheckResourceURL), namespace, cloud, resourceId)
-
 	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check resource: %w", err)
