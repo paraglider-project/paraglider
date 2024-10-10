@@ -1256,6 +1256,11 @@ func (s *ControllerServer) checkResource(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
+
+	if resourceInfo.name == "" {
+		c.AbortWithStatusJSON(400, createErrorResponse("Resource name not specified"))
+		return
+	}
 	
 	// Create connection to cloud plugin
 	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
