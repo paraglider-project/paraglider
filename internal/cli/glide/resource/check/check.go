@@ -57,12 +57,12 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(e.writer, "Checking resource in %s namespace\n", e.cliSettings.ActiveNamespace)
-	paragliderClient := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
+	client := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 
 	resource := args[1]
-	_, err := paragliderClient.CheckResource(e.cliSettings.ActiveNamespace, args[0], resource)
+	_, err := client.CheckResource(e.cliSettings.ActiveNamespace, args[0], resource)
 	if (err != nil) {
-		fmt.Fprintf(e.writer, "FAIL: %v\n", err)
+		fmt.Fprintf(e.writer, "FAIL: %v\n", err);
 	}
 
 	fmt.Fprintf(e.writer, "All Checks passed.\n")
