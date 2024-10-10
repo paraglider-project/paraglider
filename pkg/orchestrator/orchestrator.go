@@ -173,6 +173,23 @@ func isTagValid(tag *tagservicepb.TagMapping) bool {
 	return tag.Ip != nil
 }
 
+func (s *ControllerServer) getTagWithName(tagName string) (*tagservicepb.TagMapping, error) {
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	// Send RPC to get tag
+	client := tagservicepb.NewTagServiceClient(conn)
+	response, err := client.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tagName})
+	if err != nil {
+		return nil, fmt.Errorf("Could not get tag: %s", err.Error())
+	}
+
+	return response.Tag, nil
+}
+
 // Get the URI of a tag
 func (s *ControllerServer) getTagUri(tag string) (string, error) {
 	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -1262,6 +1279,15 @@ func (s *ControllerServer) checkResource(c *gin.Context) {
 		return
 	}
 	
+	// Get tag name and set it in the context
+	tagName := getTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
+	tag, err := s.getTagWithName(tagName)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	resourceInfo.uri = *tag.Uri
+	
 	// Create connection to cloud plugin
 	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -1269,15 +1295,6 @@ func (s *ControllerServer) checkResource(c *gin.Context) {
 		return
 	}
 	defer conn.Close()
-
-	// Get tag name and set it in the context
-	tagName := getTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
-	_, err = s.getTagUri(tagName)
-	if err != nil {
-		// todo: check that the error is not a grpc error
-		c.AbortWithStatusJSON(400, createErrorResponse("Resource does not exist on Paraglider"))
-		return
-	}
 
 	// Send RPC to check resource
 	client := paragliderpb.NewCloudPluginClient(conn)
