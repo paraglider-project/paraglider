@@ -10,4 +10,7 @@ The maintainers for each Paraglider project are contained in the CODEOWNERS file
 There are many reasons why a maintainer may need to leave a project. In the case that one does, please follow the steps [here](role-changes.md).
 
 ## Adding a maintainer for a project
-All projects should ideally have multiple maintainers (as listed in the relevant CODEOWNERS file(s)). There currently are no upper limits set on the number of maintainers for a Paraglider project. A project will have as many maintainers as it sees are useful for the functioning of the project and its community. To add a maintainer to a Paraglider project, please follow the steps for role changes [here](role-changes.md).
+All projects should ideally have multiple maintainers (as listed in the relevant CODEOWNERS file(s)). 
+There currently are no upper limits set on the number of maintainers for a Paraglider project. 
+A project will have as many maintainers as it sees are useful for the functioning of the project and its community. 
+To add a maintainer to a Paraglider project, please follow the steps for role changes [here](role-changes.md).
