@@ -1,2 +1,6 @@
-This project has adopted the code of conduct defined by the Contributor Covenant to clarify expected behavior in our community.
-For more information, see the [Contributor Covenant Code of Conduct 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
+# Paraglider Project Code of Conduct
+The Paraglider Project encourages all contributors and users to be welcoming, inclusive, and supportive. We do not condone disrespectful or rude behavior of any sort.
+
+Please read the [LF Projects Code of Conduct](https://lfprojects.org/policies/code-of-conduct/) before participating in the Paraglider Project community. Everyone who participates in the Paraglider Project and its community spaces (GitHub, Discord, mailing list, in person, and otherwise) agrees to abide by this [Code of Conduct](https://lfprojects.org/policies/code-of-conduct/).
+
+To report incidents or to appeal reports of incidents, send email to the Manager of LF Projects, Mike Dolan (manager@lfprojects.org). Please include any available relevant information, including links to any publicly accessible material relating to the matter. Every effort will be taken to ensure a safe and collegial environment in which to collaborate on matters relating to the Paraglider Project. In order to protect the community, Paraglider reserves the right to take appropriate action, potentially including the removal of an individual from any and all participation in the project. Paraglider will work towards an equitable resolution in the event of a misunderstanding.
