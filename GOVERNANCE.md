@@ -26,4 +26,3 @@ The community follows and abides by the Diversity & Inclusivity initiatives set 
 
 ## Release Process
 [Release Process](governance/release-process.md)
-
