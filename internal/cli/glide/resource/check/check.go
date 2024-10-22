@@ -38,7 +38,7 @@ func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{writer: os.Stdout, cliSettings: config.ActiveConfig.Settings}
 	cmd := &cobra.Command{
 		Use:     "check <cloud> <resource_id>",
-		Short:   "Checks if a resource is healthy or not",
+		Short:   "Checks for any issues with a resource",
 		Args:    cobra.ExactArgs(2),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
@@ -55,10 +55,10 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	fmt.Fprintf(e.writer, "Checking resource in %s namespace...\n\n", e.cliSettings.ActiveNamespace)
+	resource := args[1]
+	fmt.Fprintf(e.writer, "Checking %s in %s namespace...\n\n", resource, e.cliSettings.ActiveNamespace)
 	client := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 
-	resource := args[1]
 	resp, err := client.CheckResource(e.cliSettings.ActiveNamespace, args[0], resource)
 	if err != nil {
 		fmt.Fprintf(e.writer, "FAIL: %v\n", err)
@@ -67,7 +67,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 
 	// Print the check results
 	for code, validResp := range utils.PgValidMessages {
-		if msg, exists := resp[string(code)]; exists {
+		if msg, exists := resp[code]; exists {
 			fmt.Fprintf(e.writer, "FAIL: %v\n", msg)
 		} else {
 			fmt.Fprintf(e.writer, "OK: %v\n", validResp)
