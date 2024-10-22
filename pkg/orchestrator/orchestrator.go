@@ -1267,59 +1267,65 @@ func (s *ControllerServer) resourceAttach(c *gin.Context, resourceInfo *Resource
 	c.JSON(http.StatusOK, attachResourceResp)
 }
 
-func (s *ControllerServer) checkResource(c *gin.Context) {
+func (s *ControllerServer) checkResourceHelper(c *gin.Context) (*paragliderpb.CheckResourceResponse, *grpc.ClientConn, error) {
 	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, false)
 	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
+		return nil, nil, err
 	}
 
 	if resourceInfo.name == "" {
-		c.AbortWithStatusJSON(400, createErrorResponse("Resource name not specified"))
-		return
+		return nil, nil, errors.New("Resource name not specified")
 	}
 
 	// Get tag from tag service
 	tagName := getTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
 	tag, err := s.getTagWithName(tagName)
 	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
+		return nil, nil, err
 	}
 
 	// Check if tag exists
 	if !isTagValid(tag) {
-		c.AbortWithStatusJSON(400, createErrorResponse("Resource Tag does not exist"))
-		return
+		return nil, nil, errors.New("Resource Tag does not exist")
 	}
 
 	resourceInfo.uri = *tag.Uri
+
 	// Create connection to cloud plugin
 	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
+		return nil, nil, err
 	}
-	defer conn.Close()
 
 	// Send RPC to client to check resource
 	client := paragliderpb.NewCloudPluginClient(conn)
 	checkReq := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri}
 	checkResp, err := client.CheckResource(context.Background(), checkReq)
 	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
+		conn.Close() // close connection if there's an error
+		return nil, nil, err
 	}
 
 	// todo: @J-467 return an error in check
 	if checkResp.Resource != nil && checkResp.Resource.Ip != "" && checkResp.Resource.Ip != *tag.Ip {
-		c.AbortWithStatusJSON(400, createErrorResponse("Resource IP does not match"))
-		return
+		conn.Close() // close connection if there's an error
+		return nil, conn, errors.New("Resource IP does not match")
 	}
 
-	errorMap := gin.H{}
+	return checkResp, conn, nil
+}
+
+func (s *ControllerServer) checkResource(c *gin.Context) {
+	checkResp, conn, err := s.checkResourceHelper(c)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+	defer conn.Close()
+
+	errorMap := map[int32]string{}
 	for _, code := range checkResp.Errors {
-		errorMap[string(code)] = utils.PgErrorMessages[code]
+		errorMap[code] = utils.PgErrorMessages[code]
 	}
 
 	c.JSON(http.StatusOK, errorMap)
