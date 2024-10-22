@@ -874,11 +874,8 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	checkResponse.Resource.Name = *resource.Name
 	checkResponse.Resource.Uri = *resource.ID
 	checkResponse.Resource.Ip = "" // todo: get IP address
-	return checkResponse, nil
-}
 
-func (s *azurePluginServer) FixResource(ctx context.Context, resourceId string, namespace string) error {
-	return nil
+	return checkResponse, nil
 }
 
 func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
