@@ -18,7 +18,9 @@ package resource
 
 import (
 	"github.com/paraglider-project/paraglider/internal/cli/glide/resource/attach"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/resource/check"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/resource/create"
+	"github.com/paraglider-project/paraglider/internal/cli/glide/resource/fix"
 	"github.com/spf13/cobra"
 )
 
@@ -33,6 +35,12 @@ func NewCommand() *cobra.Command {
 
 	attachCmd, _ := attach.NewCommand()
 	cmd.AddCommand(attachCmd)
+
+	checkCmd, _ := check.NewCommand()
+	cmd.AddCommand(checkCmd)
+
+	fixCmd, _ := fix.NewCommand()
+	cmd.AddCommand(fixCmd)
 
 	return cmd
 }
