@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package check
+package fix
 
 import (
 	"fmt"
@@ -24,7 +24,6 @@ import (
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	"github.com/paraglider-project/paraglider/pkg/client"
-	"github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -37,8 +36,8 @@ type executor struct {
 func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{writer: os.Stdout, cliSettings: config.ActiveConfig.Settings}
 	cmd := &cobra.Command{
-		Use:     "check <cloud> <resource_name>",
-		Short:   "Checks for any issues with a resource",
+		Use:     "fix <cloud> <resource_name>",
+		Short:   "Fix any identified problems with a resource as identifid by the check command",
 		Args:    cobra.ExactArgs(2),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
@@ -56,23 +55,21 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	resource := args[1]
-	fmt.Fprintf(e.writer, "Checking %s in %s namespace...\n\n", resource, e.cliSettings.ActiveNamespace)
+	fmt.Fprintf(e.writer, "Fixing issues with %s in %s namespace...\n\n", resource, e.cliSettings.ActiveNamespace)
 	client := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 
-	resp, err := client.CheckResource(e.cliSettings.ActiveNamespace, args[0], resource)
+	resp, err := client.FixResource(e.cliSettings.ActiveNamespace, args[0], resource)
 	if err != nil {
 		fmt.Fprintf(e.writer, "FAIL: %v\n", err)
 		return nil
 	}
 
-	// Print the check results
-	for code, validResp := range utils.PgValidMessages {
-		if msg, exists := resp[code]; exists {
-			fmt.Fprintf(e.writer, "FAIL: %v\n", msg)
-		} else {
-			fmt.Fprintf(e.writer, "OK: %v\n", validResp)
-		}
+	// Print the fix results
+	for _, msg := range resp {
+		fmt.Fprintf(e.writer, "FIXED: %v\n", msg)
 	}
+
+	fmt.Fprintf(e.writer, "Fix Complete\n")
 
 	return nil
 }
