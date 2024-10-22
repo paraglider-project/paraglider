@@ -53,7 +53,7 @@ const (
 	DeletePermitListRulesURL      string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/deleteRules"
 	CreateResourcePUTURL          string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName"
 	CreateOrAttachResourcePOSTURL string = "/namespaces/:namespace/clouds/:cloud/resources"
-	CheckResourceURL			  string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/check"
+	CheckResourceURL              string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/check"
 	RuleOnTagURL                  string = "/tags/:tag/rules"
 	ListTagURL                    string = "/tags"
 	GetTagURL                     string = "/tags/:tag"
@@ -180,7 +180,7 @@ func (s *ControllerServer) getTagWithName(tagName string) (*tagservicepb.TagMapp
 	}
 	defer conn.Close()
 
-	// Send RPC to get tag
+	// Send RPC to get tag from Tag service
 	client := tagservicepb.NewTagServiceClient(conn)
 	response, err := client.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tagName})
 	if err != nil {
@@ -1162,7 +1162,7 @@ func (s *ControllerServer) handleCreateOrAttachResource(c *gin.Context) {
 			resourceInfo.name = resourceToCreate.Name
 		}
 		s.resourceCreate(c, resourceInfo, cloudClient, &resourceToCreate)
-		
+
 	} else if err := c.ShouldBindBodyWithJSON(&resourceToAttach); err == nil && resourceToAttach.Id != "" {
 		if c.Request.Method != "POST" {
 			c.AbortWithStatusJSON(400, createErrorResponse("Only POST method is allowed for attaching resources"))
@@ -1278,16 +1278,22 @@ func (s *ControllerServer) checkResource(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse("Resource name not specified"))
 		return
 	}
-	
-	// Get tag name and set it in the context
+
+	// Get tag from tag service
 	tagName := getTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
 	tag, err := s.getTagWithName(tagName)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
+
+	// Check if tag exists
+	if !isTagValid(tag) {
+		c.AbortWithStatusJSON(400, createErrorResponse("Resource Tag does not exist"))
+		return
+	}
+
 	resourceInfo.uri = *tag.Uri
-	
 	// Create connection to cloud plugin
 	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -1296,18 +1302,28 @@ func (s *ControllerServer) checkResource(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	// Send RPC to check resource
+	// Send RPC to client to check resource
 	client := paragliderpb.NewCloudPluginClient(conn)
-	checkResourceReq := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri}
-	_, err = client.CheckResource(context.Background(), checkResourceReq)
+	checkReq := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri}
+	checkResp, err := client.CheckResource(context.Background(), checkReq)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"tag": "Resource exists"})
-}
+	// todo: @J-467 return an error in check
+	if checkResp.Resource != nil && checkResp.Resource.Ip != "" && checkResp.Resource.Ip != *tag.Ip {
+		c.AbortWithStatusJSON(400, createErrorResponse("Resource IP does not match"))
+		return
+	}
 
+	errorMap := gin.H{}
+	for _, code := range checkResp.Errors {
+		errorMap[string(code)] = utils.PgErrorMessages[code]
+	}
+
+	c.JSON(http.StatusOK, errorMap)
+}
 
 func (s *ControllerServer) createTag(c *gin.Context, resourceInfo *ResourceInfo, uri string, ip string) string {
 	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
