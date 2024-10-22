@@ -24,16 +24,15 @@ import (
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	"github.com/paraglider-project/paraglider/pkg/client"
+	"github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/spf13/cobra"
 )
-
 
 type executor struct {
 	common.CommandExecutor
 	writer      io.Writer
 	cliSettings config.CliSettings
 }
-
 
 func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{writer: os.Stdout, cliSettings: config.ActiveConfig.Settings}
@@ -56,17 +55,24 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	fmt.Fprintf(e.writer, "Checking resource in %s namespace\n", e.cliSettings.ActiveNamespace)
+	fmt.Fprintf(e.writer, "Checking resource in %s namespace...\n\n", e.cliSettings.ActiveNamespace)
 	client := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 
 	resource := args[1]
-	_, err := client.CheckResource(e.cliSettings.ActiveNamespace, args[0], resource)
-	if (err != nil) {
-		fmt.Fprintf(e.writer, "FAIL: %v\n", err);
+	resp, err := client.CheckResource(e.cliSettings.ActiveNamespace, args[0], resource)
+	if err != nil {
+		fmt.Fprintf(e.writer, "FAIL: %v\n", err)
+		return nil
 	}
 
-	fmt.Fprintf(e.writer, "All Checks passed.\n")
+	// Print the check results
+	for code, validResp := range utils.PgValidMessages {
+		if msg, exists := resp[string(code)]; exists {
+			fmt.Fprintf(e.writer, "FAIL: %v\n", msg)
+		} else {
+			fmt.Fprintf(e.writer, "OK: %v\n", validResp)
+		}
+	}
 
 	return nil
 }
-
