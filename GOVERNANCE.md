@@ -12,6 +12,8 @@ An initial TSC has been established per above. TSC eligibility is defined per ab
 The TSC membership is [here](governance/tsc.md). The TSC represents the top-level decision-making body for the project.
 Additional project roles, as needed, are filled by TSC voting (majority).
 
+Disputes are resolved through a TSC majority vote.
+
 
 ## Code of Conduct
 [Paraglider Code of Conduct](CODE-OF-CONDUCT.md)
