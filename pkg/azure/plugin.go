@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
@@ -90,7 +89,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *paragliderpb
 
 	// get the NSG rules
 	for _, rule := range nsg.Properties.SecurityRules {
-		if !strings.HasPrefix(*rule.Name, denyAllNsgRulePrefix) && strings.HasPrefix(*rule.Name, paragliderPrefix) {
+		if *rule.Properties.Access == allowRule {
 			plRule, err := azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
 				utils.Log.Printf("An error occured while getting Paraglider rule from NSG rule: %+v", err)
