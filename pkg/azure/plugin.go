@@ -849,7 +849,8 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceRe
 
 func (s *azurePluginServer) CheckOrFixResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest, shouldFix bool) (*paragliderpb.CheckResourceResponse, error) {
 	checkResponse := &paragliderpb.CheckResourceResponse{Errors: []paragliderpb.ErrorCode{}}
-	resourceIdInfo, err := getResourceIDInfo(checkReq.Resource)
+	resourceID := checkReq.Resource
+	resourceIdInfo, err := getResourceIDInfo(resourceID)
 	if err != nil {
 		return checkResponse, err
 	}
@@ -869,12 +870,72 @@ func (s *azurePluginServer) CheckOrFixResource(ctx context.Context, checkReq *pa
 		return checkResponse, err
 	}
 
+	/* SECURITY RULES CHECK */
+	networkInfo, err := GetNetworkInfoFromResource(ctx, azureHandler, resourceID)
+	if err != nil {
+		return checkResponse, err
+	}
+	resourceIp := networkInfo.Address
+
+	// Ensure the resource's security rules are compliant. Make compliant if possible
+	isNSGCompliant, err := CheckSecurityRulesCompliance(ctx, azureHandler, networkInfo.NSG)
+	if err != nil {
+		// If the NSG doesn't exist, return the error
+		// Otherwise, permit lists wouldn't be retrieved
+		// Return error in all cases
+		if strings.Contains(err.Error(), "ResourceNotFound") {
+			checkResponse.Errors = append(checkResponse.Errors, paragliderpb.ErrorCode_SECURITY_RULES_MISCONFIGURED)
+			err = nil
+		}
+		return checkResponse, err
+	}
+
+	if !isNSGCompliant {
+		checkResponse.Errors = append(checkResponse.Errors, paragliderpb.ErrorCode_SECURITY_RULES_MISCONFIGURED)
+		if shouldFix {
+			// todo: Fix the security rules
+		}
+	}
+
+	/* PERMIT LIST CHECK */
+	s.CheckPermitLists(ctx, resourceID, shouldFix)
+
 	checkResponse.Resource = &paragliderpb.ResourceInfo{}
 	checkResponse.Resource.Name = *resource.Name
 	checkResponse.Resource.Uri = *resource.ID
-	checkResponse.Resource.Ip = "" // todo: get IP address
+	checkResponse.Resource.Ip = resourceIp
 
 	return checkResponse, nil
+}
+
+func (s *azurePluginServer) CheckPermitLists(ctx context.Context, resourceID string, shouldFix bool) error {
+	// Get used address spaces of all clouds
+	orchestratorConn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("unable to establish connection with orchestrator: %w", err)
+	}
+	defer orchestratorConn.Close()
+	orchestratorClient := paragliderpb.NewControllerClient(orchestratorConn)
+	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		return fmt.Errorf("unable to get used address spaces: %w", err)
+	}
+
+	permitListReq := &paragliderpb.GetPermitListRequest{Namespace: namespace, Resource: resourceID}
+	permitListResp, err := s.GetPermitList(ctx, permitListReq)
+	if err != nil {
+		// return checkResponse, err
+		return err
+	}
+
+	for _, rule := range permitListResp.Rules {
+		if rule.Direction == paragliderpb.Direction_INBOUND {
+			for _, target := range rule.Targets {
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse, error) {

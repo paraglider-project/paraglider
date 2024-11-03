@@ -85,6 +85,7 @@ enum Direction {
 enum ErrorCode {
     NO_ERROR = 0;
     RESOURCE_NOT_FOUND = 1;
+    SECURITY_RULES_MISCONFIGURED = 2;
 }
 
 // TODO @smcclure20: have a version of this without the tags field to avoid users setting that at all (?)
