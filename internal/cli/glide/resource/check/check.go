@@ -24,7 +24,6 @@ import (
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	"github.com/paraglider-project/paraglider/pkg/client"
-	"github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -61,16 +60,16 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 
 	resp, err := client.CheckResource(e.cliSettings.ActiveNamespace, args[0], resource)
 	if err != nil {
-		fmt.Fprintf(e.writer, "FAIL: %v\n", err)
+		fmt.Fprintf(e.writer, "\033[91m\u2717 FAIL: %v\033[0m\n", err)
 		return nil
 	}
 
 	// Print the check results
-	for code, validResp := range utils.PgValidMessages {
-		if msg, exists := resp[code]; exists {
-			fmt.Fprintf(e.writer, "FAIL: %v\n", msg)
+	for code, msg := range resp {
+		if code > 0 {
+			fmt.Fprintf(e.writer, "\033[91m\u2717 FAIL: %v\033[0m\n", msg)
 		} else {
-			fmt.Fprintf(e.writer, "OK: %v\n", validResp)
+			fmt.Fprintf(e.writer, "\033[92m\u2713 OK: %v\033[0m\n", msg)
 		}
 	}
 

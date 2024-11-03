@@ -60,15 +60,16 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 
 	resp, err := client.FixResource(e.cliSettings.ActiveNamespace, args[0], resource)
 	if err != nil {
-		fmt.Fprintf(e.writer, "FAIL: %v\n", err)
+		fmt.Fprintf(e.writer, "\033[91mFAIL: %v\033[0m\n", err)
 		return nil
 	}
 
 	// Print the fix results
 	for _, msg := range resp {
-		fmt.Fprintf(e.writer, "FIXED: %v\n", msg)
+		fmt.Fprintf(e.writer, "\033[92m\u2713 FIXED: %v\033[0m\n", msg)
 	}
 
+	// todo: print the error that weren't fixed
 	fmt.Fprintf(e.writer, "Fix Complete\n")
 
 	return nil

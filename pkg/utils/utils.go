@@ -31,19 +31,6 @@ var (
 	Log *log.Logger
 )
 
-const (
-	ResourceNotFound int32 = iota
-)
-
-// Map integer constants to string representations
-var PgErrorMessages = map[int32]string{
-	ResourceNotFound: "Resource not found; Consider deleting the tag",
-}
-
-var PgValidMessages = map[int32]string{
-	ResourceNotFound: "Resource and tag exist",
-}
-
 // Cloud names
 // TODO @seankimkdy: turn these into its own type and use enums
 const (
