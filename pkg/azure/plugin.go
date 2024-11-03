@@ -909,6 +909,16 @@ func (s *azurePluginServer) CheckOrFixResource(ctx context.Context, checkReq *pa
 }
 
 func (s *azurePluginServer) CheckPermitLists(ctx context.Context, resourceID string, shouldFix bool) error {
+	// Get subnets address spaces
+	localVnetAddressSpaces := []string{}
+	for _, addressSpace := range resourceVnet.Properties.AddressSpace.AddressPrefixes {
+		localVnetAddressSpaces = append(localVnetAddressSpaces, *addressSpace)
+	}
+	if len(localVnetAddressSpaces) == 0 {
+		return fmt.Errorf("unable to get subnet address prefix")
+	}
+
+	shouldNAT := false
 	// Get used address spaces of all clouds
 	orchestratorConn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -929,8 +939,33 @@ func (s *azurePluginServer) CheckPermitLists(ctx context.Context, resourceID str
 	}
 
 	for _, rule := range permitListResp.Rules {
+		peeringCloudInfos, err := utils.GetPermitListRulePeeringCloudInfo(rule, getUsedAddressSpacesResp.AddressSpaceMappings)
+		if err != nil {
+			return fmt.Errorf("unable to get peering cloud infos: %w", err)
+		}
+		for i, peeringCloudInfo := range peeringCloudInfos {
+			if peeringCloudInfo == nil {
+				shouldNAT = true
+			} else if peeringCloudInfo.Cloud == utils.AZURE {
+
+			} else {
+				isLocal, err := utils.IsPermitListRuleTagInAddressSpace(rule.Targets[i], localVnetAddressSpaces)
+				if err != nil {
+					return nil, fmt.Errorf("unable to determine if tag is in local vnet address space: %w", err)
+				}
+				if !isLocal {
+					// Create VPC network peering (remote is in a different region or namespace)
+					err = s.createPeering(ctx, *azureHandler, resourceIdInfo, vnetName, peeringCloudInfo, rule.Targets[i])
+					if err != nil {
+						return nil, fmt.Errorf("unable to create vnet peering: %w", err)
+					}
+				}
+			}
+		}
+
 		if rule.Direction == paragliderpb.Direction_INBOUND {
 			for _, target := range rule.Targets {
+
 			}
 		}
 	}
