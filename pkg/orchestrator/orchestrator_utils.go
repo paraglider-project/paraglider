@@ -20,7 +20,6 @@ import (
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
-	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
 // Private ASN ranges (RFC 6996)
@@ -31,9 +30,19 @@ const (
 	MAX_PRIVATE_ASN_4BYTE uint32 = 4294967294
 )
 
-// Map Paraglider error codes to messages for fixed Errors
-var PgFixedMessages = map[int32]string{
-	utils.ResourceNotFound: "Resource not found; Tag is deleted",
+// Invalid messages for error codes(i.e. if the error exists)
+var PgErrorMessages = map[paragliderpb.ErrorCode]string{
+	paragliderpb.ErrorCode_RESOURCE_NOT_FOUND: "Resource not found; Consider deleting the tag",
+}
+
+// Valid messages for error codes (i.e. if the errors don't exist)
+var PgValidMessages = map[paragliderpb.ErrorCode]string{
+	paragliderpb.ErrorCode_RESOURCE_NOT_FOUND: "Resource and tag exist",
+}
+
+// Fixed messages for error codes (i.e. if the errors are fixed)
+var PgFixedMessages = map[paragliderpb.ErrorCode]string{
+	paragliderpb.ErrorCode_RESOURCE_NOT_FOUND: "Resource not found; Tag is deleted",
 }
 
 func allocBlock(addressSpace *ipaddr.IPAddress, blockSize int64) *ipaddr.IPAddress {

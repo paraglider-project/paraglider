@@ -27,6 +27,7 @@ service CloudPlugin {
     rpc CreateResource(CreateResourceRequest) returns (CreateResourceResponse) {}
     rpc AttachResource(AttachResourceRequest) returns (AttachResourceResponse) {}
     rpc CheckResource(CheckResourceRequest) returns (CheckResourceResponse) {}
+    rpc FixResource(CheckResourceRequest) returns (CheckResourceResponse) {}
     rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}
     rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}
     rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}
@@ -81,6 +82,11 @@ enum Direction {
     OUTBOUND = 1;
 }
 
+enum ErrorCode {
+    NO_ERROR = 0;
+    RESOURCE_NOT_FOUND = 1;
+}
+
 // TODO @smcclure20: have a version of this without the tags field to avoid users setting that at all (?)
 message PermitListRule {
     string name = 1;
@@ -125,7 +131,7 @@ message CheckResourceRequest {
 
 message CheckResourceResponse {
     ResourceInfo resource = 1;
-    repeated int32 errors = 2;
+    repeated ErrorCode errors = 2;
 }
 
 message AddPermitListRulesRequest {
