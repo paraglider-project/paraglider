@@ -847,8 +847,8 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceRe
 	return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: networkInfo.Address}, nil
 }
 
-func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse, error) {
-	checkResponse := &paragliderpb.CheckResourceResponse{Errors: []int32{}}
+func (s *azurePluginServer) CheckOrFixResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest, shouldFix bool) (*paragliderpb.CheckResourceResponse, error) {
+	checkResponse := &paragliderpb.CheckResourceResponse{Errors: []paragliderpb.ErrorCode{}}
 	resourceIdInfo, err := getResourceIDInfo(checkReq.Resource)
 	if err != nil {
 		return checkResponse, err
@@ -863,8 +863,7 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	if err != nil {
 		// todo: Do this check in a different way
 		if strings.Contains(err.Error(), "ResourceNotFound") {
-			// err = status.Errorf(codes.NotFound, "Resource Not found")
-			checkResponse.Errors = append(checkResponse.Errors, utils.ResourceNotFound)
+			checkResponse.Errors = append(checkResponse.Errors, paragliderpb.ErrorCode_RESOURCE_NOT_FOUND)
 			err = nil
 		}
 		return checkResponse, err
@@ -876,6 +875,15 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	checkResponse.Resource.Ip = "" // todo: get IP address
 
 	return checkResponse, nil
+}
+
+func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse, error) {
+	return s.CheckOrFixResource(ctx, checkReq, false)
+}
+
+func (s *azurePluginServer) FixResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse, error) {
+	// Checking and fixing any problems along the way
+	return s.CheckOrFixResource(ctx, checkReq, true)
 }
 
 func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
