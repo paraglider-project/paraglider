@@ -443,6 +443,10 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	return &paragliderpb.CreateResourceResponse{Name: resourceInfo.Name, Uri: url, Ip: ip}, nil
 }
 
+func (s *GCPPluginServer) AttachResource(ctx context.Context, req *paragliderpb.AttachResourceRequest) (*paragliderpb.AttachResourceResponse, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func (s *GCPPluginServer) GetUsedAddressSpaces(ctx context.Context, req *paragliderpb.GetUsedAddressSpacesRequest) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
 	clients := &GCPClients{}
 	networksClient, err := clients.GetOrCreateNetworksClient(ctx)
