@@ -24,6 +24,7 @@ import (
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	"github.com/paraglider-project/paraglider/pkg/client"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/spf13/cobra"
 )
 
@@ -58,15 +59,20 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(e.writer, "Fixing issues with %s in %s namespace...\n\n", resource, e.cliSettings.ActiveNamespace)
 	client := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 
-	resp, err := client.FixResource(e.cliSettings.ActiveNamespace, args[0], resource)
+	errMap, fixedResc, err := client.FixResource(e.cliSettings.ActiveNamespace, args[0], resource)
 	if err != nil {
 		fmt.Fprintf(e.writer, "\033[91mFAIL: %v\033[0m\n", err)
 		return nil
 	}
 
 	// Print the fix results
-	for _, msg := range resp {
+	for code, msg := range errMap {
 		fmt.Fprintf(e.writer, "\033[92m\u2713 FIXED: %v\033[0m\n", msg)
+		if code == int32(paragliderpb.ErrorCode_MISSING_RESOURCES) {
+			for _, res := range fixedResc {
+				fmt.Fprintf(e.writer, "Deleted rule that peers to %s on %s cloud\n", res.Name, res.Cloud)
+			}
+		}
 	}
 
 	// todo: print the error that weren't fixed

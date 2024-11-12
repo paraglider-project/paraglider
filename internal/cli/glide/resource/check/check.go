@@ -24,6 +24,7 @@ import (
 	common "github.com/paraglider-project/paraglider/internal/cli/common"
 	"github.com/paraglider-project/paraglider/internal/cli/glide/config"
 	"github.com/paraglider-project/paraglider/pkg/client"
+	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/spf13/cobra"
 )
 
@@ -58,16 +59,22 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(e.writer, "Checking %s in %s namespace...\n\n", resource, e.cliSettings.ActiveNamespace)
 	client := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 
-	resp, err := client.CheckResource(e.cliSettings.ActiveNamespace, args[0], resource)
+	errMap, missingResourses, err := client.CheckResource(e.cliSettings.ActiveNamespace, args[0], resource)
 	if err != nil {
 		fmt.Fprintf(e.writer, "\033[91m\u2717 FAIL: %v\033[0m\n", err)
 		return nil
 	}
 
 	// Print the check results
-	for code, msg := range resp {
+	for code, msg := range errMap {
 		if code > 0 {
 			fmt.Fprintf(e.writer, "\033[91m\u2717 FAIL: %v\033[0m\n", msg)
+			// Print the missing resources
+			if code == int32(paragliderpb.ErrorCode_MISSING_RESOURCES) {
+				for _, res := range missingResourses {
+					fmt.Fprintf(e.writer, "\t\033[93m\u2717 Missing Resource: %s on %s cloud\033[0m\n", res.Name, res.Cloud)
+				}
+			}
 		} else {
 			fmt.Fprintf(e.writer, "\033[92m\u2713 OK: %v\033[0m\n", msg)
 		}

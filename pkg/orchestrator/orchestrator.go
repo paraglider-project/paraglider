@@ -1346,8 +1346,11 @@ func (s *ControllerServer) checkResource(c *gin.Context) {
 		checkErrs[code] = true
 	}
 
+	resp := gin.H{}
+
 	// Add both valid and invalid results to the map
-	// Error codes that don't exist(i.e valid messages) are identified by negative keys
+	// Negative keys means that the error code does not exist. i.e. that particular error check passed
+	// Positive keys means that the error code exists. i.e. that particular error check failed
 	errorMap := map[int32]string{}
 	for code, validResp := range PgValidMessages {
 		if _, exists := checkErrs[code]; exists {
@@ -1362,7 +1365,10 @@ func (s *ControllerServer) checkResource(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, errorMap)
+	resp["errors"] = errorMap
+	resp["missing_resources"] = checkResp.MissingResources
+
+	c.JSON(http.StatusOK, resp)
 }
 
 func (s *ControllerServer) fixResource(c *gin.Context) {
@@ -1383,15 +1389,16 @@ func (s *ControllerServer) fixResource(c *gin.Context) {
 
 	// Send RPC to client to check resource
 	client := paragliderpb.NewCloudPluginClient(conn)
-	checkReq := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri}
-	checkResp, err := client.FixResource(context.Background(), checkReq)
+	fixReq := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri}
+	fixResp, err := client.FixResource(context.Background(), fixReq)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
+	resp := gin.H{}
 	fixedErrors := map[int32]any{}
-	for _, code := range checkResp.Errors {
+	for _, code := range fixResp.Errors {
 		switch code {
 		case paragliderpb.ErrorCode_RESOURCE_NOT_FOUND:
 			// Tag exists; but resource does not. Delete the tag
@@ -1402,10 +1409,15 @@ func (s *ControllerServer) fixResource(c *gin.Context) {
 				c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 				return
 			}
-			// Add the fixed error to the response
-			fixedErrors[int32(code)] = PgFixedMessages[code]
+		case paragliderpb.ErrorCode_MISSING_RESOURCES:
 		}
+
+		// Add the fixed error to the response
+		fixedErrors[int32(code)] = PgFixedMessages[code]
 	}
+
+	resp["fixed_errors"] = fixedErrors
+	resp["fixed_resources"] = fixResp.MissingResources
 
 	c.JSON(http.StatusOK, fixedErrors)
 }
@@ -1687,6 +1699,31 @@ func (s *ControllerServer) DeleteValue(c context.Context, req *paragliderpb.Dele
 		return nil, err
 	}
 	return &paragliderpb.DeleteValueResponse{}, nil
+}
+
+func (s *ControllerServer) GetUriFromIp(c context.Context, req *paragliderpb.GetUriFromIpRequest) (*paragliderpb.GetUriFromIpResponse, error) {
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	// Send RPC to list tags
+	client := tagservicepb.NewTagServiceClient(conn)
+	response, err := client.ListTags(context.Background(), &tagservicepb.ListTagsRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	// todo: check clouds to make sure the clouds match?
+	for _, tag := range response.Tags {
+		if tag.Ip != nil && *tag.Ip == req.Ip {
+			utils.Log.Println("Found tag with matching IP", "ip", req.Ip, "uri", *tag.Uri)
+			return &paragliderpb.GetUriFromIpResponse{Uri: *tag.Uri}, nil
+		}
+	}
+
+	return &paragliderpb.GetUriFromIpResponse{}, nil
 }
 
 // Setup with config file

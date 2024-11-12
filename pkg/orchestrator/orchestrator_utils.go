@@ -33,16 +33,19 @@ const (
 // Invalid messages for error codes(i.e. if the error exists)
 var PgErrorMessages = map[paragliderpb.ErrorCode]string{
 	paragliderpb.ErrorCode_RESOURCE_NOT_FOUND: "Resource not found; Consider deleting the tag",
+	paragliderpb.ErrorCode_MISSING_RESOURCES:  "Some peering resources may be missing. Consider removing the permit lists",
 }
 
 // Valid messages for error codes (i.e. if the errors don't exist)
 var PgValidMessages = map[paragliderpb.ErrorCode]string{
 	paragliderpb.ErrorCode_RESOURCE_NOT_FOUND: "Resource and tag exist",
+	paragliderpb.ErrorCode_MISSING_RESOURCES:  "All peering resources exist",
 }
 
 // Fixed messages for error codes (i.e. if the errors are fixed)
 var PgFixedMessages = map[paragliderpb.ErrorCode]string{
 	paragliderpb.ErrorCode_RESOURCE_NOT_FOUND: "Resource not found; Tag is deleted",
+	paragliderpb.ErrorCode_MISSING_RESOURCES:  "Deleted connection to the missing peered resources",
 }
 
 func allocBlock(addressSpace *ipaddr.IPAddress, blockSize int64) *ipaddr.IPAddress {

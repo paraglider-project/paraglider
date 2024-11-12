@@ -44,6 +44,7 @@ service Controller {
     rpc SetValue(SetValueRequest) returns (SetValueResponse) {}
     rpc GetValue(GetValueRequest) returns (GetValueResponse) {}
     rpc DeleteValue(DeleteValueRequest) returns (DeleteValueResponse) {}
+    rpc GetUriFromIp(GetUriFromIpRequest) returns (GetUriFromIpResponse) {}
 }
 
 // Internal message objects
@@ -86,6 +87,7 @@ enum ErrorCode {
     NO_ERROR = 0;
     RESOURCE_NOT_FOUND = 1;
     SECURITY_RULES_MISCONFIGURED = 2;
+    MISSING_RESOURCES = 3;
 }
 
 // TODO @smcclure20: have a version of this without the tags field to avoid users setting that at all (?)
@@ -133,6 +135,7 @@ message CheckResourceRequest {
 message CheckResourceResponse {
     ResourceInfo resource = 1;
     repeated ErrorCode errors = 2;
+    repeated MissingResource missing_resources = 3;
 }
 
 message AddPermitListRulesRequest {
@@ -283,4 +286,18 @@ message GetNetworkAddressSpacesResponse {
 message GetNetworkAddressSpacesRequest {
     ParagliderDeployment deployment = 1;
     string address_space = 2;
+}
+
+message GetUriFromIpRequest {
+    string ip = 1;
+    string cloud = 2;
+}
+
+message GetUriFromIpResponse {
+    string uri = 1;
+}
+
+message MissingResource {
+    string name = 1;
+    string cloud = 2;
 }
