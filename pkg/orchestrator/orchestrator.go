@@ -1383,15 +1383,16 @@ func (s *ControllerServer) fixResource(c *gin.Context) {
 
 	// Send RPC to client to check resource
 	client := paragliderpb.NewCloudPluginClient(conn)
-	checkReq := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri}
-	checkResp, err := client.FixResource(context.Background(), checkReq)
+	fixReq := &paragliderpb.FixResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri}
+	fixResp, err := client.FixResource(context.Background(), fixReq)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
-	fixedErrors := map[int32]any{}
-	for _, code := range checkResp.Errors {
+	fixedErrMap := map[int32]any{}
+	// Look through all the fixed errors and add them to the map
+	for _, code := range fixResp.Errors {
 		switch code {
 		case paragliderpb.ErrorCode_RESOURCE_NOT_FOUND:
 			// Tag exists; but resource does not. Delete the tag
@@ -1403,11 +1404,11 @@ func (s *ControllerServer) fixResource(c *gin.Context) {
 				return
 			}
 			// Add the fixed error to the response
-			fixedErrors[int32(code)] = PgFixedMessages[code]
+			fixedErrMap[int32(code)] = PgFixedMessages[code]
 		}
 	}
 
-	c.JSON(http.StatusOK, fixedErrors)
+	c.JSON(http.StatusOK, fixedErrMap)
 }
 
 func (s *ControllerServer) createTag(c *gin.Context, resourceInfo *ResourceInfo, uri string, ip string) string {

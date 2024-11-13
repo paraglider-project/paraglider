@@ -847,43 +847,67 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceRe
 	return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: networkInfo.Address}, nil
 }
 
-func (s *azurePluginServer) CheckOrFixResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest, shouldFix bool) (*paragliderpb.CheckResourceResponse, error) {
-	checkResponse := &paragliderpb.CheckResourceResponse{Errors: []paragliderpb.ErrorCode{}}
-	resourceIdInfo, err := getResourceIDInfo(checkReq.Resource)
+func (s *azurePluginServer) CheckOrFixResource(ctx context.Context, req interface{}, shouldFix bool) (*paragliderpb.CheckResourceResponse, error) {
+	resp := &paragliderpb.CheckResourceResponse{Errors: []paragliderpb.ErrorCode{}}
+	var resourceId, namespace string
+
+	switch v := req.(type) {
+	case *paragliderpb.CheckResourceRequest:
+		resourceId = v.Resource
+		namespace = v.Namespace
+	case *paragliderpb.FixResourceRequest:
+		resourceId = v.Resource
+		namespace = v.Namespace
+	default:
+		return nil, fmt.Errorf("invalid request type")
+	}
+
+	resourceIdInfo, err := getResourceIDInfo(resourceId)
 	if err != nil {
-		return checkResponse, err
+		return resp, err
 	}
 	azureHandler, err := s.setupAzureHandler(resourceIdInfo, namespace)
 	if err != nil {
-		return checkResponse, err
+		return resp, err
 	}
 
 	// Check if the resource exists to validate the tags
-	resource, err := ValidateResourceExists(ctx, azureHandler, checkReq.Resource)
+	resource, err := ValidateResourceExists(ctx, azureHandler, resourceId)
 	if err != nil {
 		// todo: Do this check in a different way
 		if strings.Contains(err.Error(), "ResourceNotFound") {
-			checkResponse.Errors = append(checkResponse.Errors, paragliderpb.ErrorCode_RESOURCE_NOT_FOUND)
+			resp.Errors = append(resp.Errors, paragliderpb.ErrorCode_RESOURCE_NOT_FOUND)
 			err = nil
 		}
-		return checkResponse, err
+		return resp, err
 	}
 
-	checkResponse.Resource = &paragliderpb.ResourceInfo{}
-	checkResponse.Resource.Name = *resource.Name
-	checkResponse.Resource.Uri = *resource.ID
-	checkResponse.Resource.Ip = "" // todo: get IP address
+	resp.Resource = &paragliderpb.ResourceInfo{}
+	resp.Resource.Name = *resource.Name
+	resp.Resource.Uri = *resource.ID
+	resp.Resource.Ip = "" // todo: get IP address
 
-	return checkResponse, nil
+	return resp, nil
 }
 
 func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse, error) {
 	return s.CheckOrFixResource(ctx, checkReq, false)
 }
 
-func (s *azurePluginServer) FixResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse, error) {
+func (s *azurePluginServer) FixResource(ctx context.Context, fixReq *paragliderpb.FixResourceRequest) (*paragliderpb.FixResourceResponse, error) {
 	// Checking and fixing any problems along the way
-	return s.CheckOrFixResource(ctx, checkReq, true)
+	// CheckOrFixResource returns a CheckResourceResponse
+	// We then unpack the response into a FixResourceResponse
+	resp, err := s.CheckOrFixResource(ctx, fixReq, true)
+	if err != nil {
+		return nil, err
+	}
+
+	fixResp := &paragliderpb.FixResourceResponse{}
+	fixResp.Resource = resp.Resource
+	fixResp.Errors = resp.Errors // Fixed errors
+
+	return fixResp, nil
 }
 
 func Setup(port int, orchestratorServerAddr string) *azurePluginServer {

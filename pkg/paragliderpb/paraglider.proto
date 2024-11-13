@@ -27,7 +27,7 @@ service CloudPlugin {
     rpc CreateResource(CreateResourceRequest) returns (CreateResourceResponse) {}
     rpc AttachResource(AttachResourceRequest) returns (AttachResourceResponse) {}
     rpc CheckResource(CheckResourceRequest) returns (CheckResourceResponse) {}
-    rpc FixResource(CheckResourceRequest) returns (CheckResourceResponse) {}
+    rpc FixResource(FixResourceRequest) returns (FixResourceResponse) {}
     rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}
     rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}
     rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}
@@ -129,7 +129,17 @@ message CheckResourceRequest {
     string resource = 2;
 }
 
+message FixResourceRequest {
+    string namespace = 1;
+    string resource = 2;
+}
+
 message CheckResourceResponse {
+    ResourceInfo resource = 1;
+    repeated ErrorCode errors = 2;
+}
+
+message FixResourceResponse {
     ResourceInfo resource = 1;
     repeated ErrorCode errors = 2;
 }

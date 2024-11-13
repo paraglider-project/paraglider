@@ -46,3 +46,6 @@ docs/build/
 
 # Python
 .venv/
+
+# temp folder
+temp/
