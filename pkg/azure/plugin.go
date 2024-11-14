@@ -96,7 +96,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *paragliderpb
 				utils.Log.Printf("An error occured while getting Paraglider rule from NSG rule: %+v", err)
 				return nil, err
 			}
-			plRule.Name = getRuleNameFromNSGRuleName(plRule.Name)
+			// plRule.Name = getRuleNameFromNSGRuleName(plRule.Name)
 			rules = append(rules, plRule)
 		}
 	}
@@ -1006,17 +1006,19 @@ func (s *azurePluginServer) CheckPermitLists(ctx context.Context, handler *Azure
 				}
 
 				// The namespace doesn't matter for this check
-				azureHandler, err := s.setupAzureHandler(peerInfo, namespace)
+				peerHandler, err := s.setupAzureHandler(peerInfo, namespace)
 				if err != nil {
 					return nil, err
 				}
 
-				_, err = ValidateResourceExists(ctx, azureHandler, getIpResp.Uri)
+				_, err = ValidateResourceExists(ctx, peerHandler, getIpResp.Uri)
 				if err != nil {
 					utils.Log.Println("Resource doesn't exist in Azure")
 					// The peered resource doesn't exist in Azure
 					if shouldFix {
-						err = azureHandler.DeleteSecurityRule(ctx, *networkInfo.NSG.Name, rule.Name)
+						utils.Log.Println("Deleting security rule: ", rule.Name, handler.resourceGroupName, *networkInfo.NSG.Name)
+
+						err = handler.DeleteSecurityRule(ctx, *networkInfo.NSG.Name, rule.Name)
 						if err != nil {
 							utils.Log.Printf("An error occured while deleting security rule:%+v", err)
 							return nil, err
