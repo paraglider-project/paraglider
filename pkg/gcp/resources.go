@@ -83,7 +83,7 @@ func getAddressName(resourceName string) string {
 
 // Get name of a forwarding rule
 func getForwardingRuleName(resourceName string) string {
-	return paragliderPrefix + "-" + resourceName
+	return paragliderPrefix + resourceName // Cannot contain hyphens
 }
 
 func parseForwardingRuleName(name string) string {
@@ -593,9 +593,11 @@ func (r *clusterHandler) fromResourceDecription(resourceDesc []byte) (*container
 // GCP private service connect
 type privateServiceHandler struct {
 	GCPResourceHandler
-	addressesClient   *compute.AddressesClient
-	forwardingClient  *compute.ForwardingRulesClient
-	attachmentsClient *compute.ServiceAttachmentsClient
+	addressesClient        *compute.AddressesClient
+	globalAddressesClient  *compute.GlobalAddressesClient
+	forwardingClient       *compute.ForwardingRulesClient
+	globalForwardingClient *compute.GlobalForwardingRulesClient
+	attachmentsClient      *compute.ServiceAttachmentsClient
 }
 
 // Initialize necessary clients for the handler
@@ -606,11 +608,23 @@ func (r *privateServiceHandler) initClients(ctx context.Context, clients *GCPCli
 	}
 	r.addressesClient = addressesClient
 
+	globalAddressesClient, err := clients.GetOrCreateGlobalAddressesClient(ctx)
+	if err != nil {
+		return err
+	}
+	r.globalAddressesClient = globalAddressesClient
+
 	forwardingClient, err := clients.GetOrCreateForwardingClient(ctx)
 	if err != nil {
 		return err
 	}
 	r.forwardingClient = forwardingClient
+
+	globalForwardingClient, err := clients.GetOrCreateGlobalForwardingClient(ctx)
+	if err != nil {
+		return err
+	}
+	r.globalForwardingClient = globalForwardingClient
 
 	attachmentsClient, err := clients.GetOrCreateServiceAttachmentsClient(ctx)
 	if err != nil {
@@ -657,7 +671,7 @@ func (r *privateServiceHandler) getResourceInfo(ctx context.Context, resource *p
 
 // Get the subnet requirements for a private service connect attachment
 func (r *privateServiceHandler) getNumberAddressSpacesRequired() int {
-	return 0
+	return 1 // Only used for GCP services (TODO: Change this to depend on that)
 }
 
 // Get the firewall target type and value for a specific service attachment
@@ -696,19 +710,26 @@ func (r *privateServiceHandler) getNetworkInfo(ctx context.Context, resourceInfo
 func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service ServiceAttachmentDescription, subnetName string, resourceInfo *resourceInfo, additionalAddress string) (string, string, error) {
 	// Reserve an IP address to be the endpoint
 	addressName := getAddressName(resourceInfo.Name)
-	addrRequest := computepb.InsertAddressRequest{
+	addrRequest := computepb.InsertGlobalAddressRequest{
 		Project: resourceInfo.Project,
-		Region:  resourceInfo.Region,
 		AddressResource: &computepb.Address{
 			Name:        &addressName,
 			Purpose:     proto.String(addressPurpose),
 			Labels:      map[string]string{paragliderLabel: resourceInfo.Namespace},
-			Subnetwork:  proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName)),
 			AddressType: proto.String(addressType),
-			IpVersion:   proto.String(addressVersion),
 		},
 	}
-	addrOp, err := r.addressesClient.Insert(ctx, &addrRequest)
+
+	// For GCP services, the address must be outside the range of the VPC
+	fmt.Printf("Service description: %+v\n", service)
+	if service.Url != "" {
+		addrRequest.AddressResource.Subnetwork = proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName))
+	} else {
+		addrRequest.AddressResource.Network = proto.String(getVpcUrl(resourceInfo.Project, resourceInfo.Namespace))
+		addrRequest.AddressResource.Address = proto.String(strings.Split(additionalAddress, "/")[0]) // TODO: use variable length to get a /32
+	}
+	fmt.Printf("AddrRequest: %+v\n", addrRequest)
+	addrOp, err := r.globalAddressesClient.Insert(ctx, &addrRequest)
 	if err != nil {
 		return "", "", fmt.Errorf("unable to insert address: %w", err)
 	}
@@ -716,28 +737,19 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 		return "", "", fmt.Errorf("unable to wait for the operation: %w", err)
 	}
 
-	// For GCP services, the address must be outside the range of the VPC
-	if service.Url != "" {
-		addrRequest.AddressResource.Address = &additionalAddress
-	} else {
-		addrRequest.AddressResource.Subnetwork = proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName))
-	}
-
 	// Get the allocated address
-	getAddressReq := computepb.GetAddressRequest{
+	getAddressReq := computepb.GetGlobalAddressRequest{
 		Project: resourceInfo.Project,
-		Region:  resourceInfo.Region,
 		Address: addressName,
 	}
-	addr, err := r.addressesClient.Get(ctx, &getAddressReq)
+	addr, err := r.globalAddressesClient.Get(ctx, &getAddressReq)
 	if err != nil {
 		return "", "", fmt.Errorf("unable to get address: %w", err)
 	}
 
 	// Create a forwarding rule for the endpoint
-	forwardingRuleRequest := computepb.InsertForwardingRuleRequest{
+	forwardingRuleRequest := computepb.InsertGlobalForwardingRuleRequest{
 		Project: resourceInfo.Project,
-		Region:  resourceInfo.Region,
 		ForwardingRuleResource: &computepb.ForwardingRule{
 			Name:      proto.String(getForwardingRuleName(resourceInfo.Name)),
 			IPAddress: addr.SelfLink,
@@ -748,11 +760,9 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 		forwardingRuleRequest.ForwardingRuleResource.Target = proto.String(service.Url)
 	} else {
 		forwardingRuleRequest.ForwardingRuleResource.Target = proto.String(service.Bundle)
-		forwardingRuleRequest.ForwardingRuleResource.AllowPscGlobalAccess = proto.Bool(true)
-		forwardingRuleRequest.ForwardingRuleResource.AllowGlobalAccess = proto.Bool(true)
 	}
 
-	forwardingRuleOp, err := r.forwardingClient.Insert(ctx, &forwardingRuleRequest)
+	forwardingRuleOp, err := r.globalForwardingClient.Insert(ctx, &forwardingRuleRequest)
 	if err != nil {
 		return "", "", fmt.Errorf("unable to insert forwarding rule: %w", err)
 	}
@@ -761,9 +771,8 @@ func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service S
 	}
 
 	// Get the URI of the forwarding rule created
-	forwardingRule, err := r.forwardingClient.Get(ctx, &computepb.GetForwardingRuleRequest{
+	forwardingRule, err := r.globalForwardingClient.Get(ctx, &computepb.GetGlobalForwardingRuleRequest{
 		Project:        resourceInfo.Project,
-		Region:         resourceInfo.Region,
 		ForwardingRule: getForwardingRuleName(resourceInfo.Name),
 	})
 	if err != nil {

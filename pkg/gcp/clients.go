@@ -35,7 +35,9 @@ type GCPClients struct {
 	vpnTunnelsClient          *compute.VpnTunnelsClient
 	externalVpnGatewaysClient *compute.ExternalVpnGatewaysClient
 	addressesClient           *compute.AddressesClient
+	globalAddressesClient     *compute.GlobalAddressesClient
 	forwardingClient          *compute.ForwardingRulesClient
+	globalForwardingClient    *compute.GlobalForwardingRulesClient
 	serviceAttachmentClient   *compute.ServiceAttachmentsClient
 }
 
@@ -149,6 +151,17 @@ func (c *GCPClients) GetOrCreateAddressesClient(ctx context.Context) (*compute.A
 	return c.addressesClient, nil
 }
 
+func (c *GCPClients) GetOrCreateGlobalAddressesClient(ctx context.Context) (*compute.GlobalAddressesClient, error) {
+	if c.globalAddressesClient == nil {
+		globalAddressesClient, err := compute.NewGlobalAddressesRESTClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to create GlobalAddressesClient: %w", err)
+		}
+		c.globalAddressesClient = globalAddressesClient
+	}
+	return c.globalAddressesClient, nil
+}
+
 func (c *GCPClients) GetOrCreateForwardingClient(ctx context.Context) (*compute.ForwardingRulesClient, error) {
 	if c.forwardingClient == nil {
 		forwardingClient, err := compute.NewForwardingRulesRESTClient(ctx)
@@ -158,6 +171,17 @@ func (c *GCPClients) GetOrCreateForwardingClient(ctx context.Context) (*compute.
 		c.forwardingClient = forwardingClient
 	}
 	return c.forwardingClient, nil
+}
+
+func (c *GCPClients) GetOrCreateGlobalForwardingClient(ctx context.Context) (*compute.GlobalForwardingRulesClient, error) {
+	if c.globalForwardingClient == nil {
+		globalForwardingClient, err := compute.NewGlobalForwardingRulesRESTClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to create GlobalForwardingRulesClient: %w", err)
+		}
+		c.globalForwardingClient = globalForwardingClient
+	}
+	return c.globalForwardingClient, nil
 }
 
 func (c *GCPClients) GetOrCreateServiceAttachmentsClient(ctx context.Context) (*compute.ServiceAttachmentsClient, error) {
@@ -202,8 +226,14 @@ func (c *GCPClients) Close() {
 	if c.addressesClient != nil {
 		c.addressesClient.Close()
 	}
+	if c.globalAddressesClient != nil {
+		c.globalAddressesClient.Close()
+	}
 	if c.forwardingClient != nil {
 		c.forwardingClient.Close()
+	}
+	if c.globalForwardingClient != nil {
+		c.globalForwardingClient.Close()
 	}
 	if c.serviceAttachmentClient != nil {
 		c.serviceAttachmentClient.Close()
