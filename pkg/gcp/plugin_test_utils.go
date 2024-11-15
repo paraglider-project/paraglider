@@ -174,9 +174,9 @@ func getFakeAddress() *computepb.Address {
 
 func getFakeForwardingRule() *computepb.ForwardingRule {
 	return &computepb.ForwardingRule{
-		Name:     proto.String(getForwardingRuleName("serviceName")),
+		Name:     proto.String("serviceName"),
 		Id:       proto.Uint64(1234),
-		SelfLink: proto.String(forwardingRuleUrlPrefix + getForwardingRuleName("serviceName")),
+		SelfLink: proto.String(forwardingRuleUrlPrefix + "serviceName"),
 	}
 }
 

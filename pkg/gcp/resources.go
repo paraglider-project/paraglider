@@ -38,9 +38,9 @@ const (
 	privateServiceConnectTypeName = "privateServiceConnect"
 	clusterNameFormat             = "projects/%s/locations/%s/clusters/%s"
 	addressType                   = "INTERNAL"
-	addressVersion                = "IPV4"
 	addressPurpose                = "PRIVATE_SERVICE_CONNECT"
 	paragliderLabel               = "paraglider_ns"
+	globalRegion                  = "global"
 )
 
 type resourceInfo struct {
@@ -64,7 +64,6 @@ type resourceNetworkInfo struct {
 type ServiceAttachmentDescription struct {
 	Url    string `json:"url"`
 	Bundle string `json:"bundle"`
-	Region string `json:"region"`
 }
 
 func resourceIsInNamespace(network string, namespace string) bool {
@@ -79,15 +78,6 @@ func getNetworkTag(namespace string, resourceType string, resourceId string) str
 // Get name for an IP address resource
 func getAddressName(resourceName string) string {
 	return paragliderPrefix + "-" + resourceName + "-address"
-}
-
-// Get name of a forwarding rule
-func getForwardingRuleName(resourceName string) string {
-	return paragliderPrefix + resourceName // Cannot contain hyphens
-}
-
-func parseForwardingRuleName(name string) string {
-	return strings.TrimPrefix(name, paragliderPrefix+"-")
 }
 
 // Convert integer resource IDs to a string for naming
@@ -155,7 +145,7 @@ func parseResourceUrl(resourceUrl string) (*resourceInfo, error) {
 	} else if name, ok := parsedResourceId["clusters"]; ok {
 		return &resourceInfo{Project: parsedResourceId["projects"], Zone: parsedResourceId["locations"], Region: getRegionFromZone(parsedResourceId["locations"]), Name: name, ResourceType: clusterTypeName}, nil
 	} else if name, ok := parsedResourceId["forwardingRules"]; ok {
-		return &resourceInfo{Project: parsedResourceId["projects"], Region: parsedResourceId["regions"], Name: parseForwardingRuleName(name), ResourceType: privateServiceConnectTypeName}, nil
+		return &resourceInfo{Project: parsedResourceId["projects"], Region: parsedResourceId["regions"], Name: name, ResourceType: privateServiceConnectTypeName}, nil
 	}
 	return nil, fmt.Errorf("unable to parse resource URL")
 }
@@ -663,7 +653,7 @@ func (r *privateServiceHandler) getResourceInfo(ctx context.Context, resource *p
 		}
 		region = urlParams["regions"]
 	} else {
-		region = description.Region
+		region = globalRegion
 	}
 
 	return &resourceInfo{Region: region, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: privateServiceConnectTypeName, Name: resource.Name}, nil
@@ -682,102 +672,189 @@ func (r *privateServiceHandler) getFirewallTarget(resourceInfo *resourceInfo, ne
 // Get network information about a service attachment
 // Returns the network name, resource ID (service attachment ID, not URL since this is used for firewall rule naming), and IP address
 func (r *privateServiceHandler) getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo) (*resourceNetworkInfo, error) {
-	// Get the forwarding rule
-	forwardingRule, err := r.forwardingClient.Get(ctx, &computepb.GetForwardingRuleRequest{
-		Project:        resourceInfo.Project,
-		Region:         resourceInfo.Region,
-		ForwardingRule: getForwardingRuleName(resourceInfo.Name),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to get forwarding rule: %w", err)
+	var ruleId string
+	var address string
+	if resourceInfo.Region != globalRegion {
+		// Get the forwarding rule
+		forwardingRule, err := r.forwardingClient.Get(ctx, &computepb.GetForwardingRuleRequest{
+			Project:        resourceInfo.Project,
+			Region:         resourceInfo.Region,
+			ForwardingRule: resourceInfo.Name,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("unable to get forwarding rule: %w", err)
+		}
+		ruleId = convertIntIdToString(*forwardingRule.Id)
+
+		// Get the address information
+		addressRequest := &computepb.GetAddressRequest{
+			Address: getAddressName(resourceInfo.Name),
+			Project: resourceInfo.Project,
+			Region:  resourceInfo.Region,
+		}
+		addr, err := r.addressesClient.Get(ctx, addressRequest)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get address: %w", err)
+		}
+		address = *addr.Address
+	} else {
+		// Get the forwarding rule
+		forwardingRule, err := r.globalForwardingClient.Get(ctx, &computepb.GetGlobalForwardingRuleRequest{
+			Project:        resourceInfo.Project,
+			ForwardingRule: resourceInfo.Name,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("unable to get forwarding rule: %w", err)
+		}
+		ruleId = convertIntIdToString(*forwardingRule.Id)
+
+		// Get the address information
+		addressRequest := &computepb.GetGlobalAddressRequest{
+			Address: getAddressName(resourceInfo.Name),
+			Project: resourceInfo.Project,
+		}
+		addr, err := r.globalAddressesClient.Get(ctx, addressRequest)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get address: %w", err)
+		}
+		address = *addr.Address
 	}
 
-	// Get the address information
-	addressRequest := &computepb.GetAddressRequest{
-		Address: getAddressName(resourceInfo.Name),
-		Project: resourceInfo.Project,
-		Region:  resourceInfo.Region,
-	}
-	addr, err := r.addressesClient.Get(ctx, addressRequest)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get address: %w", err)
-	}
-
-	return &resourceNetworkInfo{NetworkName: getVpcName(resourceInfo.Namespace), ResourceID: convertIntIdToString(*forwardingRule.Id), Address: *addr.Address}, nil
+	return &resourceNetworkInfo{NetworkName: getVpcName(resourceInfo.Namespace), ResourceID: ruleId, Address: address}, nil
 }
 
 // Create a private service connect endpoint with given network settings
 func (r *privateServiceHandler) createWithNetwork(ctx context.Context, service ServiceAttachmentDescription, subnetName string, resourceInfo *resourceInfo, additionalAddress string) (string, string, error) {
 	// Reserve an IP address to be the endpoint
 	addressName := getAddressName(resourceInfo.Name)
-	addrRequest := computepb.InsertGlobalAddressRequest{
-		Project: resourceInfo.Project,
-		AddressResource: &computepb.Address{
-			Name:        &addressName,
-			Purpose:     proto.String(addressPurpose),
-			Labels:      map[string]string{paragliderLabel: resourceInfo.Namespace},
-			AddressType: proto.String(addressType),
-		},
+	addressResource := &computepb.Address{
+		Name:        &addressName,
+		Labels:      map[string]string{paragliderLabel: resourceInfo.Namespace},
+		AddressType: proto.String(addressType),
 	}
 
 	// For GCP services, the address must be outside the range of the VPC
-	fmt.Printf("Service description: %+v\n", service)
+	var addressURL string
+	var address string
+	var ruleURI string
 	if service.Url != "" {
+		addrRequest := computepb.InsertAddressRequest{
+			Project:         resourceInfo.Project,
+			Region:          resourceInfo.Region,
+			AddressResource: addressResource,
+		}
 		addrRequest.AddressResource.Subnetwork = proto.String(getSubnetworkUrl(resourceInfo.Project, resourceInfo.Region, subnetName))
+
+		addrOp, err := r.addressesClient.Insert(ctx, &addrRequest)
+		if err != nil {
+			return "", "", fmt.Errorf("unable to insert address: %w", err)
+		}
+		if err = addrOp.Wait(ctx); err != nil {
+			return "", "", fmt.Errorf("unable to wait for the operation: %w", err)
+		}
+
+		// Get the allocated address
+		getAddressReq := computepb.GetAddressRequest{
+			Project: resourceInfo.Project,
+			Region:  resourceInfo.Region,
+			Address: addressName,
+		}
+		addr, err := r.addressesClient.Get(ctx, &getAddressReq)
+		if err != nil {
+			return "", "", fmt.Errorf("unable to get address: %w", err)
+		}
+		addressURL = *addr.SelfLink
+		address = *addr.Address
+
+		// Create a forwarding rule for the endpoint
+		forwardingRuleRequest := computepb.InsertForwardingRuleRequest{
+			Project: resourceInfo.Project,
+			Region:  resourceInfo.Region,
+			ForwardingRuleResource: &computepb.ForwardingRule{
+				Name:                 proto.String(resourceInfo.Name),
+				IPAddress:            proto.String(addressURL),
+				Network:              proto.String(getVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
+				Target:               proto.String(service.Url),
+				AllowPscGlobalAccess: proto.Bool(true),
+			},
+		}
+
+		forwardingRuleOp, err := r.forwardingClient.Insert(ctx, &forwardingRuleRequest)
+		if err != nil {
+			return "", "", fmt.Errorf("unable to insert forwarding rule: %w", err)
+		}
+		if err = forwardingRuleOp.Wait(ctx); err != nil {
+			return "", "", fmt.Errorf("unable to wait for the operation: %w", err)
+		}
+
+		// Get the URI of the forwarding rule created
+		forwardingRule, err := r.forwardingClient.Get(ctx, &computepb.GetForwardingRuleRequest{
+			Project:        resourceInfo.Project,
+			Region:         resourceInfo.Region,
+			ForwardingRule: resourceInfo.Name,
+		})
+		if err != nil {
+			return "", "", fmt.Errorf("unable to get forwarding rule: %w", err)
+		}
+		ruleURI = *forwardingRule.SelfLink
 	} else {
+		addrRequest := computepb.InsertGlobalAddressRequest{
+			Project:         resourceInfo.Project,
+			AddressResource: addressResource,
+		}
+		addrRequest.AddressResource.Purpose = proto.String(addressPurpose)
 		addrRequest.AddressResource.Network = proto.String(getVpcUrl(resourceInfo.Project, resourceInfo.Namespace))
 		addrRequest.AddressResource.Address = proto.String(strings.Split(additionalAddress, "/")[0]) // TODO: use variable length to get a /32
-	}
-	fmt.Printf("AddrRequest: %+v\n", addrRequest)
-	addrOp, err := r.globalAddressesClient.Insert(ctx, &addrRequest)
-	if err != nil {
-		return "", "", fmt.Errorf("unable to insert address: %w", err)
-	}
-	if err = addrOp.Wait(ctx); err != nil {
-		return "", "", fmt.Errorf("unable to wait for the operation: %w", err)
+
+		addrOp, err := r.globalAddressesClient.Insert(ctx, &addrRequest)
+		if err != nil {
+			return "", "", fmt.Errorf("unable to insert address: %w", err)
+		}
+		if err = addrOp.Wait(ctx); err != nil {
+			return "", "", fmt.Errorf("unable to wait for the operation: %w", err)
+		}
+
+		// Get the allocated address
+		getAddressReq := computepb.GetGlobalAddressRequest{
+			Project: resourceInfo.Project,
+			Address: addressName,
+		}
+		addr, err := r.globalAddressesClient.Get(ctx, &getAddressReq)
+		if err != nil {
+			return "", "", fmt.Errorf("unable to get address: %w", err)
+		}
+		addressURL = *addr.SelfLink
+		address = *addr.Address
+
+		// Create a forwarding rule for the endpoint
+		forwardingRuleRequest := computepb.InsertGlobalForwardingRuleRequest{
+			Project: resourceInfo.Project,
+			ForwardingRuleResource: &computepb.ForwardingRule{
+				Name:      proto.String(resourceInfo.Name),
+				IPAddress: proto.String(addressURL),
+				Network:   proto.String(getVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
+				Target:    proto.String(service.Bundle),
+			},
+		}
+
+		forwardingRuleOp, err := r.globalForwardingClient.Insert(ctx, &forwardingRuleRequest)
+		if err != nil {
+			return "", "", fmt.Errorf("unable to insert forwarding rule: %w", err)
+		}
+		if err = forwardingRuleOp.Wait(ctx); err != nil {
+			return "", "", fmt.Errorf("unable to wait for the operation: %w", err)
+		}
+
+		// Get the URI of the forwarding rule created
+		forwardingRule, err := r.globalForwardingClient.Get(ctx, &computepb.GetGlobalForwardingRuleRequest{
+			Project:        resourceInfo.Project,
+			ForwardingRule: resourceInfo.Name,
+		})
+		if err != nil {
+			return "", "", fmt.Errorf("unable to get forwarding rule: %w", err)
+		}
+		ruleURI = *forwardingRule.SelfLink
 	}
 
-	// Get the allocated address
-	getAddressReq := computepb.GetGlobalAddressRequest{
-		Project: resourceInfo.Project,
-		Address: addressName,
-	}
-	addr, err := r.globalAddressesClient.Get(ctx, &getAddressReq)
-	if err != nil {
-		return "", "", fmt.Errorf("unable to get address: %w", err)
-	}
-
-	// Create a forwarding rule for the endpoint
-	forwardingRuleRequest := computepb.InsertGlobalForwardingRuleRequest{
-		Project: resourceInfo.Project,
-		ForwardingRuleResource: &computepb.ForwardingRule{
-			Name:      proto.String(getForwardingRuleName(resourceInfo.Name)),
-			IPAddress: addr.SelfLink,
-			Network:   proto.String(getVpcUrl(resourceInfo.Project, resourceInfo.Namespace)),
-		},
-	}
-	if service.Url != "" {
-		forwardingRuleRequest.ForwardingRuleResource.Target = proto.String(service.Url)
-	} else {
-		forwardingRuleRequest.ForwardingRuleResource.Target = proto.String(service.Bundle)
-	}
-
-	forwardingRuleOp, err := r.globalForwardingClient.Insert(ctx, &forwardingRuleRequest)
-	if err != nil {
-		return "", "", fmt.Errorf("unable to insert forwarding rule: %w", err)
-	}
-	if err = forwardingRuleOp.Wait(ctx); err != nil {
-		return "", "", fmt.Errorf("unable to wait for the operation: %w", err)
-	}
-
-	// Get the URI of the forwarding rule created
-	forwardingRule, err := r.globalForwardingClient.Get(ctx, &computepb.GetGlobalForwardingRuleRequest{
-		Project:        resourceInfo.Project,
-		ForwardingRule: getForwardingRuleName(resourceInfo.Name),
-	})
-	if err != nil {
-		return "", "", fmt.Errorf("unable to get forwarding rule: %w", err)
-	}
-
-	return *forwardingRule.SelfLink, *addr.Address, nil
+	return ruleURI, address, nil
 }
