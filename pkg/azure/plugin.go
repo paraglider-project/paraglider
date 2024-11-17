@@ -851,7 +851,9 @@ func (s *azurePluginServer) CheckOrFixResource(ctx context.Context, checkReq *pa
 	resp := &paragliderpb.CheckResourceResponse{}
 	resourceId := checkReq.GetResource()
 	namespace := checkReq.GetNamespace()
+	shouldFix := checkReq.GetFix()
 
+	// Initialize all checks
 	resp.Resource_Exists = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_Resource_Exists}
 	resp.Network_Exists = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_Network_Exists}
 	resp.PermitListConfig = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_PermitListConfig}
@@ -864,13 +866,13 @@ func (s *azurePluginServer) CheckOrFixResource(ctx context.Context, checkReq *pa
 	if err != nil {
 		return resp, err
 	}
-	azureHandler, err := s.setupAzureHandler(resourceIdInfo, namespace)
+	handler, err := s.setupAzureHandler(resourceIdInfo, namespace)
 	if err != nil {
 		return resp, err
 	}
 
 	// Check if the resource exists to validate the tags
-	_, err = ValidateResourceExists(ctx, azureHandler, resourceId)
+	_, err = ValidateResourceExists(ctx, handler, resourceId)
 	if err != nil {
 		// todo: Do this check in a different way
 		if strings.Contains(err.Error(), "ResourceNotFound") {
@@ -882,6 +884,55 @@ func (s *azurePluginServer) CheckOrFixResource(ctx context.Context, checkReq *pa
 		return resp, err
 	}
 	resp.Resource_Exists.Status = paragliderpb.CheckStatus_OK
+
+	// Get Network Information
+	networkInfo, err := GetNetworkInfoFromResource(ctx, handler, resourceId)
+	if err != nil {
+		if strings.Contains(err.Error(), "ResourceNotFound") {
+			if strings.HasPrefix(err.Error(), "NIC") {
+				resp.Network_Exists.Status = paragliderpb.CheckStatus_FAIL
+				return resp, nil
+			}
+
+			if strings.HasPrefix(err.Error(), "NSG") {
+				resp.PermitListConfig.Status = paragliderpb.CheckStatus_FAIL
+				return resp, nil
+			}
+		}
+	}
+	// NSG, NIC, and Subnet Exists
+
+	// Network Exists Check
+	vnet, err := handler.GetVirtualNetwork(ctx, getVnetFromSubnetId(networkInfo.SubnetID))
+	if err != nil {
+		if strings.Contains(err.Error(), "ResourceNotFound") {
+			resp.Network_Exists.Status = paragliderpb.CheckStatus_FAIL
+			return resp, nil
+		}
+	}
+	if !isProvisioned(vnet.Properties.ProvisioningState) {
+		resp.Network_Exists.Status = paragliderpb.CheckStatus_FAIL
+		return resp, nil
+	}
+	resp.Network_Exists.Status = paragliderpb.CheckStatus_OK
+
+	// Permit List Configuration Check
+	if !isProvisioned(networkInfo.NSG.Properties.ProvisioningState) {
+		resp.PermitListConfig.Status = paragliderpb.CheckStatus_FAIL
+		return resp, nil
+	}
+
+	isNSGCompliant, _ := CheckSecurityRulesCompliance(ctx, handler, networkInfo.NSG)
+	if !isNSGCompliant {
+		resp.PermitListConfig.Status = paragliderpb.CheckStatus_FAIL
+		if shouldFix {
+			// todo: Fix the security rules
+		}
+	} else {
+		resp.PermitListConfig.Status = paragliderpb.CheckStatus_OK
+	}
+
+	// Permit List Targets Check
 
 	return resp, nil
 }

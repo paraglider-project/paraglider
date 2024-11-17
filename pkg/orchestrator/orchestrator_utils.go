@@ -37,8 +37,16 @@ var checkMessages = map[paragliderpb.CheckCode]map[paragliderpb.CheckStatus]stri
 		paragliderpb.CheckStatus_FAIL:  "Resource not found; Consider deleting the tag",
 		paragliderpb.CheckStatus_FIXED: "Resource not found; Tag is deleted",
 	},
-	paragliderpb.CheckCode_Network_Exists:               {},
-	paragliderpb.CheckCode_PermitListConfig:             {},
+	paragliderpb.CheckCode_Network_Exists: {
+		paragliderpb.CheckStatus_OK:    "Network exists",
+		paragliderpb.CheckStatus_FAIL:  "Network does not exist",
+		paragliderpb.CheckStatus_FIXED: "Network is created",
+	},
+	paragliderpb.CheckCode_PermitListConfig: {
+		paragliderpb.CheckStatus_OK:    "Permit lists are correctly configurations",
+		paragliderpb.CheckStatus_FAIL:  "Permit lists are incorrectly configured",
+		paragliderpb.CheckStatus_FIXED: "Permit lists are correctly configured",
+	},
 	paragliderpb.CheckCode_PermitListTargets:            {},
 	paragliderpb.CheckCode_IntraCloudEndpointsReachable: {},
 	paragliderpb.CheckCode_MultiCloudEndpointsReachable: {},
