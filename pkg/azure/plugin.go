@@ -847,20 +847,18 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceRe
 	return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: networkInfo.Address}, nil
 }
 
-func (s *azurePluginServer) CheckOrFixResource(ctx context.Context, req interface{}, shouldFix bool) (*paragliderpb.CheckResourceResponse, error) {
-	resp := &paragliderpb.CheckResourceResponse{Errors: []paragliderpb.ErrorCode{}}
-	var resourceId, namespace string
+func (s *azurePluginServer) CheckOrFixResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse, error) {
+	resp := &paragliderpb.CheckResourceResponse{}
+	resourceId := checkReq.GetResource()
+	namespace := checkReq.GetNamespace()
 
-	switch v := req.(type) {
-	case *paragliderpb.CheckResourceRequest:
-		resourceId = v.Resource
-		namespace = v.Namespace
-	case *paragliderpb.FixResourceRequest:
-		resourceId = v.Resource
-		namespace = v.Namespace
-	default:
-		return nil, fmt.Errorf("invalid request type")
-	}
+	resp.Resource_Exists = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_Resource_Exists}
+	resp.Network_Exists = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_Network_Exists}
+	resp.PermitListConfig = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_PermitListConfig}
+	resp.PermitListTargets = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_PermitListTargets}
+	resp.IntraCloudEndpointsReachable = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_IntraCloudEndpointsReachable}
+	resp.MultiCloudEndpointsReachable = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_MultiCloudEndpointsReachable}
+	resp.PublicEndpointsReachable = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_PublicEndpointsReachable}
 
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
 	if err != nil {
@@ -872,42 +870,20 @@ func (s *azurePluginServer) CheckOrFixResource(ctx context.Context, req interfac
 	}
 
 	// Check if the resource exists to validate the tags
-	resource, err := ValidateResourceExists(ctx, azureHandler, resourceId)
+	_, err = ValidateResourceExists(ctx, azureHandler, resourceId)
 	if err != nil {
 		// todo: Do this check in a different way
 		if strings.Contains(err.Error(), "ResourceNotFound") {
-			resp.Errors = append(resp.Errors, paragliderpb.ErrorCode_RESOURCE_NOT_FOUND)
-			err = nil
+			resp.Resource_Exists = &paragliderpb.CheckResult{
+				Code:   paragliderpb.CheckCode_Resource_Exists,
+				Status: paragliderpb.CheckStatus_FAIL,
+			}
 		}
 		return resp, err
 	}
-
-	resp.Resource = &paragliderpb.ResourceInfo{}
-	resp.Resource.Name = *resource.Name
-	resp.Resource.Uri = *resource.ID
-	resp.Resource.Ip = "" // todo: get IP address
+	resp.Resource_Exists.Status = paragliderpb.CheckStatus_OK
 
 	return resp, nil
-}
-
-func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse, error) {
-	return s.CheckOrFixResource(ctx, checkReq, false)
-}
-
-func (s *azurePluginServer) FixResource(ctx context.Context, fixReq *paragliderpb.FixResourceRequest) (*paragliderpb.FixResourceResponse, error) {
-	// Checking and fixing any problems along the way
-	// CheckOrFixResource returns a CheckResourceResponse
-	// We then unpack the response into a FixResourceResponse
-	resp, err := s.CheckOrFixResource(ctx, fixReq, true)
-	if err != nil {
-		return nil, err
-	}
-
-	fixResp := &paragliderpb.FixResourceResponse{}
-	fixResp.Resource = resp.Resource
-	fixResp.Errors = resp.Errors // Fixed errors
-
-	return fixResp, nil
 }
 
 func Setup(port int, orchestratorServerAddr string) *azurePluginServer {

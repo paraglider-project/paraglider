@@ -19,6 +19,7 @@ package orchestrator
 import (
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 
+	// "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 )
 
@@ -30,19 +31,19 @@ const (
 	MAX_PRIVATE_ASN_4BYTE uint32 = 4294967294
 )
 
-// Invalid messages for error codes(i.e. if the error exists)
-var PgErrorMessages = map[paragliderpb.ErrorCode]string{
-	paragliderpb.ErrorCode_RESOURCE_NOT_FOUND: "Resource not found; Consider deleting the tag",
-}
-
 // Valid messages for error codes (i.e. if the errors don't exist)
-var PgValidMessages = map[paragliderpb.ErrorCode]string{
-	paragliderpb.ErrorCode_RESOURCE_NOT_FOUND: "Resource and tag exist",
-}
-
-// Fixed messages for error codes (i.e. if the errors are fixed)
-var PgFixedMessages = map[paragliderpb.ErrorCode]string{
-	paragliderpb.ErrorCode_RESOURCE_NOT_FOUND: "Resource not found; Tag is deleted",
+var checkMessages = map[paragliderpb.CheckCode]map[paragliderpb.CheckStatus]string{
+	paragliderpb.CheckCode_Resource_Exists: {
+		paragliderpb.CheckStatus_OK:    "Resource and tag exists",
+		paragliderpb.CheckStatus_FAIL:  "Resource not found; Consider deleting the tag",
+		paragliderpb.CheckStatus_FIXED: "Resource not found; Tag is deleted",
+	},
+	paragliderpb.CheckCode_Network_Exists:               {},
+	paragliderpb.CheckCode_PermitListConfig:             {},
+	paragliderpb.CheckCode_PermitListTargets:            {},
+	paragliderpb.CheckCode_IntraCloudEndpointsReachable: {},
+	paragliderpb.CheckCode_MultiCloudEndpointsReachable: {},
+	paragliderpb.CheckCode_PublicEndpointsReachable:     {},
 }
 
 func allocBlock(addressSpace *ipaddr.IPAddress, blockSize int64) *ipaddr.IPAddress {
@@ -75,4 +76,74 @@ func findUnusedBlocks(addressSpace []string, usedAddressSpaces []*paragliderpb.A
 	}
 
 	return availBlocks
+}
+
+func getCheckMessages(r *paragliderpb.CheckResourceResponse) ([]string, error) {
+	var messages []string
+	for _, check := range []*paragliderpb.CheckResult{
+		r.Resource_Exists,
+		r.Network_Exists,
+		r.PermitListConfig,
+		r.PermitListTargets,
+		r.IntraCloudEndpointsReachable,
+		r.MultiCloudEndpointsReachable,
+		r.PublicEndpointsReachable,
+	} {
+		if check != nil {
+			messages = append(messages, getCheckMessage(check.GetCode(), check.GetStatus()))
+
+			// Append any additional messages
+			if check.Messages != nil {
+				for _, msg := range check.GetMessages() {
+					messages = append(messages, msg)
+				}
+			}
+		}
+	}
+	return messages, nil
+}
+
+func getCheckMessage(code paragliderpb.CheckCode, status paragliderpb.CheckStatus) string {
+	prefix := getStatusPrefix(status)
+	if msg, ok := checkMessages[code]; ok {
+		if msg, ok := msg[status]; ok {
+			return prefix + msg + "\033[0m" // reset color
+		}
+	}
+
+	return prefix + "Could not check " + getCheckName(code)
+}
+
+func getStatusPrefix(status paragliderpb.CheckStatus) string {
+	switch status {
+	case paragliderpb.CheckStatus_OK:
+		return "\033[92m\u2713 OK: "
+	case paragliderpb.CheckStatus_FAIL:
+		return "\033[91m\u2717 FAIL: "
+	case paragliderpb.CheckStatus_FIXED:
+		return "\033[93m\u2713 FIXED: "
+	default:
+		return "UNKNOWN: "
+	}
+}
+
+func getCheckName(code paragliderpb.CheckCode) string {
+	switch code {
+	case paragliderpb.CheckCode_Resource_Exists:
+		return "Resource Exists"
+	case paragliderpb.CheckCode_Network_Exists:
+		return "Network Exists"
+	case paragliderpb.CheckCode_PermitListConfig:
+		return "Permit List Configurations"
+	case paragliderpb.CheckCode_PermitListTargets:
+		return "Permit List Targets"
+	case paragliderpb.CheckCode_IntraCloudEndpointsReachable:
+		return "IntraCloud Endpoints Reachability"
+	case paragliderpb.CheckCode_MultiCloudEndpointsReachable:
+		return "MultiCloud Endpoints Reachability"
+	case paragliderpb.CheckCode_PublicEndpointsReachable:
+		return "Public Endpoints Reachability"
+	default:
+		return "Other error"
+	}
 }

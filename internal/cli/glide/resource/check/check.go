@@ -58,19 +58,14 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(e.writer, "Checking %s in %s namespace...\n\n", resource, e.cliSettings.ActiveNamespace)
 	client := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 
-	resp, err := client.CheckResource(e.cliSettings.ActiveNamespace, args[0], resource)
+	messages, err := client.CheckResource(e.cliSettings.ActiveNamespace, args[0], resource)
 	if err != nil {
 		fmt.Fprintf(e.writer, "\033[91m\u2717 FAIL: %v\033[0m\n", err)
 		return nil
 	}
 
-	// Print the check results
-	for code, msg := range resp {
-		if code > 0 {
-			fmt.Fprintf(e.writer, "\033[91m\u2717 FAIL: %v\033[0m\n", msg)
-		} else {
-			fmt.Fprintf(e.writer, "\033[92m\u2713 OK: %v\033[0m\n", msg)
-		}
+	for _, message := range messages {
+		fmt.Fprintf(e.writer, "%s\n", message)
 	}
 
 	return nil
