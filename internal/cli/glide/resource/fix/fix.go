@@ -37,7 +37,7 @@ func NewCommand() (*cobra.Command, *executor) {
 	executor := &executor{writer: os.Stdout, cliSettings: config.ActiveConfig.Settings}
 	cmd := &cobra.Command{
 		Use:     "fix <cloud> <resource_name>",
-		Short:   "Fix any identified problems with a resource as identifid by the check command",
+		Short:   "Fix any identified issues with a resource",
 		Args:    cobra.ExactArgs(2),
 		PreRunE: executor.Validate,
 		RunE:    executor.Execute,
@@ -64,8 +64,8 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	for _, message := range messages {
-		fmt.Fprintf(e.writer, "%s\n", message)
+	for _, msg := range messages {
+		fmt.Fprintf(e.writer, "%s\n", msg)
 	}
 
 	return nil
