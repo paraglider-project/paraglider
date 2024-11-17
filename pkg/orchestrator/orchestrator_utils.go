@@ -43,11 +43,11 @@ var checkMessages = map[paragliderpb.CheckCode]map[paragliderpb.CheckStatus]stri
 		paragliderpb.CheckStatus_FIXED: "Network is created",
 	},
 	paragliderpb.CheckCode_PermitListConfig: {
-		paragliderpb.CheckStatus_OK:    "Permit lists are correctly configurations",
+		paragliderpb.CheckStatus_OK:    "Permit lists are correctly configured",
 		paragliderpb.CheckStatus_FAIL:  "Permit lists are incorrectly configured",
 		paragliderpb.CheckStatus_FIXED: "Permit lists are correctly configured",
 	},
-	paragliderpb.CheckCode_PermitListTargets:            {},
+	paragliderpb.CheckCode_PermitListTargets:               {},
 	paragliderpb.CheckCode_IntraCloudConnectionsConfigured: {},
 	paragliderpb.CheckCode_MultiCloudConnectionsConfigured: {},
 	paragliderpb.CheckCode_PublicConnectionsConfigured:     {},
