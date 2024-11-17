@@ -37,8 +37,8 @@ type ParagliderControllerClient interface {
 	DeletePermitListRules(namespace string, cloud string, resourceName string, rules []string) error
 	CreateResource(namespace string, cloud string, resourceName string, resource *paragliderpb.ResourceDescriptionString) (map[string]string, error)
 	AttachResource(namespace string, cloud string, resource *orchestrator.ResourceID) (map[string]string, error)
-	CheckResource(namespace string, cloud string, resourceName string) (map[int32]string, error)
-	FixResource(namespace string, cloud string, resourceName string) (map[int32]string, error)
+	CheckResource(namespace string, cloud string, resourceName string) ([]string, error)
+	FixResource(namespace string, cloud string, resourceName string) ([]string, error)
 	AddPermitListRulesTag(tag string, rules []*paragliderpb.PermitListRule) error
 	DeletePermitListRulesTag(tag string, rules []string) error
 	GetTag(tag string) (*tagservicepb.TagMapping, error)
@@ -192,40 +192,38 @@ func (c *Client) AttachResource(namespace string, cloud string, resource *orches
 	return resourceDict, nil
 }
 
-func (c *Client) CheckResource(namespace string, cloud string, resourceName string) (map[int32]string, error) {
+func (c *Client) CheckResource(namespace string, cloud string, resourceName string) ([]string, error) {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.CheckResourceURL), namespace, cloud, resourceName)
 	respBytes, err := c.sendRequest(path, http.MethodGet, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get the errors in a map
-	resp := map[int32]string{}
-	err = json.Unmarshal(respBytes, &resp)
+	checkMessages := []string{}
+	err = json.Unmarshal(respBytes, &checkMessages)
 	if err != nil {
 		utils.Log.Println("Error in unmarshalling response:", err)
 		return nil, err
 	}
 
-	return resp, nil
+	return checkMessages, nil
 }
 
-func (c *Client) FixResource(namespace string, cloud string, resourceName string) (map[int32]string, error) {
+func (c *Client) FixResource(namespace string, cloud string, resourceName string) ([]string, error) {
 	path := fmt.Sprintf(orchestrator.GetFormatterString(orchestrator.FixResourceURL), namespace, cloud, resourceName)
 	respBytes, err := c.sendRequest(path, http.MethodPost, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// Bind the fixed errors to a map
-	resp := map[int32]string{}
-	err = json.Unmarshal(respBytes, &resp)
+	fixMessages := []string{}
+	err = json.Unmarshal(respBytes, &fixMessages)
 	if err != nil {
 		utils.Log.Println("Error in unmarshalling response:", err)
 		return nil, err
 	}
 
-	return resp, nil
+	return fixMessages, nil
 }
 
 // Add permit list rules to a tag

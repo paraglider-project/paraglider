@@ -1285,130 +1285,63 @@ func (s *ControllerServer) resourceAttach(c *gin.Context, resourceInfo *Resource
 	c.JSON(http.StatusOK, attachResourceResp)
 }
 
-// Returns the resource info and cloud client for a given resource
-func (s *ControllerServer) getResourceInfo(c *gin.Context) (resourceInfo *ResourceInfo, cloudClient string, err error) {
-	resourceInfo, cloudClient, err = s.getAndValidateResourceURLParams(c, false)
+func (s *ControllerServer) checkOrFixResource(c *gin.Context, shouldFix bool) ([]string, error) {
+	// Get resource info
+	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	if resourceInfo.name == "" {
-		return nil, "", errors.New("Resource name not specified")
-	}
-
-	// Get tag from tag service
-	tagName := getTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
-	tag, err := s.getTagWithName(tagName)
+	// Create connection to cloud plugin
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, "", err
+		return nil, err
+	}
+	defer conn.Close()
+
+	// Send RPC to client to check resource
+	client := paragliderpb.NewCloudPluginClient(conn)
+	req := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri, Fix: shouldFix}
+	resp, err := client.CheckOrFixResource(context.Background(), req)
+	if err != nil {
+		return nil, err
 	}
 
-	// Check if tag exists
-	if !isTagValid(tag) {
-		return nil, "", errors.New("Resource Tag does not exist")
+	// Resource doesn't exist. Fix by deleting tag from the local tag service
+	if shouldFix && resp.Resource_Exists.GetStatus() == paragliderpb.CheckStatus_FAIL {
+		tagName := getTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
+		if err = s.deleteTagWithName(tagName); err != nil {
+			return nil, err
+		}
+		resp.Resource_Exists.Status = paragliderpb.CheckStatus_FIXED
 	}
 
-	resourceInfo.uri = *tag.Uri
+	messages, err := getCheckMessages(resp)
+	if err != nil {
+		return nil, err
+	}
 
-	return resourceInfo, cloudClient, nil
+	return messages, nil
 }
 
 func (s *ControllerServer) checkResource(c *gin.Context) {
-	// Get resource info
-	resourceInfo, cloudClient, err := s.getResourceInfo(c)
+	messages, err := s.checkOrFixResource(c, false)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
-	// Create connection to cloud plugin
-	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-	defer conn.Close()
-
-	// Send RPC to client to check resource
-	client := paragliderpb.NewCloudPluginClient(conn)
-	checkReq := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri}
-	checkResp, err := client.CheckResource(context.Background(), checkReq)
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-	// Not checking if resource does not exist because if it doesn't,
-	// it would be the only error code in the Errors array and would be reported to client
-
-	// Create map of error codes for fast lookup
-	checkErrs := map[paragliderpb.ErrorCode]bool{}
-	for _, code := range checkResp.Errors {
-		checkErrs[code] = true
-	}
-
-	// Add both valid and invalid results to the map
-	// Error codes that don't exist(i.e valid messages) are identified by negative keys
-	errorMap := map[int32]string{}
-	for code, validResp := range PgValidMessages {
-		if _, exists := checkErrs[code]; exists {
-			errorMap[int32(code)] = PgErrorMessages[code]
-			if code == paragliderpb.ErrorCode_RESOURCE_NOT_FOUND {
-				// Don't check for other errors if resource not found
-				break
-			}
-		} else {
-			// Make error negative to reflect it's a valid message
-			errorMap[-1*int32(code)] = validResp
-		}
-	}
-
-	c.JSON(http.StatusOK, errorMap)
+	c.JSON(http.StatusOK, messages)
 }
 
 func (s *ControllerServer) fixResource(c *gin.Context) {
-	// Get resource info
-	resourceInfo, cloudClient, err := s.getResourceInfo(c)
+	messages, err := s.checkOrFixResource(c, true)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
 
-	// Create connection to cloud plugin
-	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-	defer conn.Close()
-
-	// Send RPC to client to check resource
-	client := paragliderpb.NewCloudPluginClient(conn)
-	fixReq := &paragliderpb.FixResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri}
-	fixResp, err := client.FixResource(context.Background(), fixReq)
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-
-	fixedErrMap := map[int32]any{}
-	// Look through all the fixed errors and add them to the map
-	for _, code := range fixResp.Errors {
-		switch code {
-		case paragliderpb.ErrorCode_RESOURCE_NOT_FOUND:
-			// Tag exists; but resource does not. Delete the tag
-			tagName := getTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
-			// Delete the tag from the local tag service
-			err = s.deleteTagWithName(tagName)
-			if err != nil {
-				c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-				return
-			}
-			// Add the fixed error to the response
-			fixedErrMap[int32(code)] = PgFixedMessages[code]
-		}
-	}
-
-	c.JSON(http.StatusOK, fixedErrMap)
+	c.JSON(http.StatusOK, messages)
 }
 
 func (s *ControllerServer) createTag(c *gin.Context, resourceInfo *ResourceInfo, uri string, ip string) string {
