@@ -64,8 +64,8 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	for _, message := range messages {
-		fmt.Fprintf(e.writer, "%s\n", message)
+	for _, msg := range messages {
+		fmt.Fprintf(e.writer, "%s\n", msg)
 	}
 
 	return nil

@@ -19,7 +19,6 @@ package orchestrator
 import (
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 
-	// "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 )
 

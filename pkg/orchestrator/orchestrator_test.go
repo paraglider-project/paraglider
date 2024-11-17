@@ -843,7 +843,7 @@ func TestFindUnusedAsn(t *testing.T) {
 	ctx := context.Background()
 
 	// Typical case
-	orchestratorServear.usedAsns = []uint32{64512}
+	orchestratorServer.usedAsns = []uint32{64512}
 	asn, err := orchestratorServer.FindUnusedAsn(ctx, &paragliderpb.FindUnusedAsnRequest{})
 	require.NoError(t, err)
 	require.Equal(t, uint32(64513), asn.Asn)
