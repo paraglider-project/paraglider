@@ -93,9 +93,7 @@ func getCheckMessages(r *paragliderpb.CheckResourceResponse) ([]string, error) {
 
 			// Append any additional messages
 			if check.Messages != nil {
-				for _, msg := range check.GetMessages() {
-					messages = append(messages, msg)
-				}
+				messages = append(messages, check.Messages...)
 			}
 		}
 	}
@@ -106,7 +104,7 @@ func getCheckMessage(code paragliderpb.CheckCode, status paragliderpb.CheckStatu
 	prefix := getStatusPrefix(status)
 	if msg, ok := checkMessages[code]; ok {
 		if msg, ok := msg[status]; ok {
-			return prefix + msg + "\033[0m" // reset color
+			return prefix + msg
 		}
 	}
 
@@ -122,7 +120,7 @@ func getStatusPrefix(status paragliderpb.CheckStatus) string {
 	case paragliderpb.CheckStatus_FIXED:
 		return "\033[93m\u2713 FIXED: "
 	default:
-		return "UNKNOWN: "
+		return "\033[0m\u2717 UNKNOWN: "
 	}
 }
 

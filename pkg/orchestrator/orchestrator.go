@@ -174,23 +174,6 @@ func isTagValid(tag *tagservicepb.TagMapping) bool {
 	return tag.Ip != nil
 }
 
-func (s *ControllerServer) getTagWithName(tagName string) (*tagservicepb.TagMapping, error) {
-	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
-	// Send RPC to get tag from Tag service
-	client := tagservicepb.NewTagServiceClient(conn)
-	response, err := client.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tagName})
-	if err != nil {
-		return nil, fmt.Errorf("Could not get tag: %s", err.Error())
-	}
-
-	return response.Tag, nil
-}
-
 func (s *ControllerServer) deleteTagWithName(tagName string) error {
 	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -1512,15 +1495,7 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 	tagName := c.Param("tag")
 
 	// Call DeleteTag
-	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-	defer conn.Close()
-
-	client := tagservicepb.NewTagServiceClient(conn)
-	_, err = client.DeleteTag(context.Background(), &tagservicepb.DeleteTagRequest{TagName: tagName})
+	err := s.deleteTagWithName(tagName)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
