@@ -146,7 +146,7 @@ message AttachResourceResponse {
 message CheckResourceRequest {
     string namespace = 1;
     string resource = 2;
-    bool fix = 3; // if true, the plugin should attempt to fix any issues it finds
+    bool attemptFix = 3; // if true, the plugin should attempt to fix any issues it finds
 }
 
 message CheckResourceResponse {
