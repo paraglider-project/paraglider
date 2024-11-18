@@ -48,9 +48,9 @@ var checkMessages = map[paragliderpb.CheckCode]map[paragliderpb.CheckStatus]stri
 		paragliderpb.CheckStatus_FIXED: "Permit lists are correctly configured",
 	},
 	paragliderpb.CheckCode_PermitListTargets:            {},
-	paragliderpb.CheckCode_IntraCloudEndpointsReachable: {},
-	paragliderpb.CheckCode_MultiCloudEndpointsReachable: {},
-	paragliderpb.CheckCode_PublicEndpointsReachable:     {},
+	paragliderpb.CheckCode_IntraCloudConnectionsConfigured: {},
+	paragliderpb.CheckCode_MultiCloudConnectionsConfigured: {},
+	paragliderpb.CheckCode_PublicConnectionsConfigured:     {},
 }
 
 func allocBlock(addressSpace *ipaddr.IPAddress, blockSize int64) *ipaddr.IPAddress {
@@ -92,9 +92,9 @@ func getCheckMessages(r *paragliderpb.CheckResourceResponse) ([]string, error) {
 		r.Network_Exists,
 		r.PermitListConfig,
 		r.PermitListTargets,
-		r.IntraCloudEndpointsReachable,
-		r.MultiCloudEndpointsReachable,
-		r.PublicEndpointsReachable,
+		r.IntraCloudConnectionsConfigured,
+		r.MultiCloudConnectionsConfigured,
+		r.MultiCloudConnectionsConfigured,
 	} {
 		if check != nil {
 			messages = append(messages, getCheckMessage(check.GetCode(), check.GetStatus()))
@@ -142,11 +142,11 @@ func getCheckName(code paragliderpb.CheckCode) string {
 		return "Permit List Configurations"
 	case paragliderpb.CheckCode_PermitListTargets:
 		return "Permit List Targets"
-	case paragliderpb.CheckCode_IntraCloudEndpointsReachable:
+	case paragliderpb.CheckCode_IntraCloudConnectionsConfigured:
 		return "IntraCloud Endpoints Reachability"
-	case paragliderpb.CheckCode_MultiCloudEndpointsReachable:
+	case paragliderpb.CheckCode_MultiCloudConnectionsConfigured:
 		return "MultiCloud Endpoints Reachability"
-	case paragliderpb.CheckCode_PublicEndpointsReachable:
+	case paragliderpb.CheckCode_PublicConnectionsConfigured:
 		return "Public Endpoints Reachability"
 	default:
 		return "Other error"
