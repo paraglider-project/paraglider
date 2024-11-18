@@ -866,6 +866,7 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	if err != nil {
 		return resp, err
 	}
+  
 	handler, err := s.setupAzureHandler(resourceIdInfo, namespace)
 	if err != nil {
 		return resp, err
@@ -873,6 +874,7 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 
 	// Check if the resource exists to validate the tags
 	_, err = ValidateResourceExists(ctx, handler, resourceId)
+
 	if err != nil {
 		// todo: Do this check in a different way
 		if strings.Contains(err.Error(), "ResourceNotFound") {
@@ -933,7 +935,7 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	}
 
 	// Permit List Targets Check
-
+  
 	return resp, nil
 }
 
