@@ -40,6 +40,7 @@ service Controller {
     rpc GetUsedAddressSpaces(google.protobuf.Empty) returns (GetUsedAddressSpacesResponse) {} // TODO @seankimkdy: we should rename either this or the CloudPlugin's to not share the same method name
     rpc FindUnusedAsn(FindUnusedAsnRequest) returns (FindUnusedAsnResponse) {}
     rpc ConnectClouds(ConnectCloudsRequest) returns (ConnectCloudsResponse) {}
+    rpc RetrieveUriFromTag(RetrieveUriRequest) returns (RetrieveUriResponse) {}
     rpc SetValue(SetValueRequest) returns (SetValueResponse) {}
     rpc GetValue(GetValueRequest) returns (GetValueResponse) {}
     rpc DeleteValue(DeleteValueRequest) returns (DeleteValueResponse) {}
@@ -56,12 +57,6 @@ message Namespace {
 message ParagliderDeployment {
     string id = 1;
     string namespace = 2;
-}
-
-message ResourceInfo {
-    string name = 1;
-    string uri = 2;
-    string ip = 3;
 }
 
 message AddressSpaceMapping{
@@ -146,7 +141,17 @@ message AttachResourceResponse {
 message CheckResourceRequest {
     string namespace = 1;
     string resource = 2;
-    bool attemptFix = 3; // if true, the plugin should attempt to fix any issues it finds
+    bool attempt_fix = 3; // if true, the plugin should attempt to fix any issues it finds
+}
+
+message RetrieveUriRequest {
+    string tag = 1;
+    string cloud = 2;
+    bool shouldValidate = 3;
+}
+
+message RetrieveUriResponse {
+    string uri = 1;
 }
 
 message CheckResourceResponse {
