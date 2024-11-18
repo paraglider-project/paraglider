@@ -851,7 +851,7 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	resp := &paragliderpb.CheckResourceResponse{}
 	resourceId := checkReq.GetResource()
 	namespace := checkReq.GetNamespace()
-	shouldFix := checkReq.GetFix()
+	attemptFix := checkReq.GetAttemptFix()
 
 	// Initialize all checks
 	resp.Resource_Exists = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_Resource_Exists}
@@ -925,7 +925,7 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	isNSGCompliant, _ := CheckSecurityRulesCompliance(ctx, handler, networkInfo.NSG)
 	if !isNSGCompliant {
 		resp.PermitListConfig.Status = paragliderpb.CheckStatus_FAIL
-		if shouldFix {
+		if attemptFix {
 			// todo: Fix the security rules
 		}
 	} else {
