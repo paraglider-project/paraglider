@@ -26,7 +26,7 @@ service CloudPlugin {
     rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}
     rpc CreateResource(CreateResourceRequest) returns (CreateResourceResponse) {}
     rpc AttachResource(AttachResourceRequest) returns (AttachResourceResponse) {}
-    rpc CheckOrFixResource(CheckResourceRequest) returns (CheckResourceResponse) {}
+    rpc CheckResource(CheckResourceRequest) returns (CheckResourceResponse) {}
     rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}
     rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}
     rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}
@@ -87,9 +87,9 @@ enum CheckCode {
     Network_Exists = 2; // VNET or VPC
     PermitListConfig = 3;
     PermitListTargets = 4;
-    IntraCloudEndpointsReachable = 5;
-    MultiCloudEndpointsReachable = 6;
-    PublicEndpointsReachable = 7;
+    IntraCloudConnectionsConfigured = 5;
+    MultiCloudConnectionsConfigured = 6;
+    PublicConnectionsConfigured = 7;
     // TODO: Maybe add one for connectivity exists?
 }
 
@@ -154,9 +154,9 @@ message CheckResourceResponse {
     CheckResult Network_Exists = 2; // VNET or VPC
     CheckResult PermitListConfig = 3;
     CheckResult PermitListTargets = 4;
-    CheckResult IntraCloudEndpointsReachable = 5;
-    CheckResult MultiCloudEndpointsReachable = 6;
-    CheckResult PublicEndpointsReachable = 7;
+    CheckResult IntraCloudConnectionsConfigured = 5;
+    CheckResult MultiCloudConnectionsConfigured = 6;
+    CheckResult PublicConnectionsConfigured = 7;
 }
 
 message AddPermitListRulesRequest {

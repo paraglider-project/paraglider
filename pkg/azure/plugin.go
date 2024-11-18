@@ -847,7 +847,7 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceRe
 	return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: networkInfo.Address}, nil
 }
 
-func (s *azurePluginServer) CheckOrFixResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse, error) {
+func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse, error) {
 	resp := &paragliderpb.CheckResourceResponse{}
 	resourceId := checkReq.GetResource()
 	namespace := checkReq.GetNamespace()
@@ -856,9 +856,9 @@ func (s *azurePluginServer) CheckOrFixResource(ctx context.Context, checkReq *pa
 	resp.Network_Exists = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_Network_Exists}
 	resp.PermitListConfig = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_PermitListConfig}
 	resp.PermitListTargets = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_PermitListTargets}
-	resp.IntraCloudEndpointsReachable = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_IntraCloudEndpointsReachable}
-	resp.MultiCloudEndpointsReachable = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_MultiCloudEndpointsReachable}
-	resp.PublicEndpointsReachable = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_PublicEndpointsReachable}
+	resp.IntraCloudConnectionsConfigured = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_IntraCloudConnectionsConfigured}
+	resp.MultiCloudConnectionsConfigured = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_MultiCloudConnectionsConfigured}
+	resp.PublicConnectionsConfigured = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_PublicConnectionsConfigured}
 
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
 	if err != nil {

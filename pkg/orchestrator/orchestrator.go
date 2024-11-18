@@ -1268,7 +1268,7 @@ func (s *ControllerServer) resourceAttach(c *gin.Context, resourceInfo *Resource
 	c.JSON(http.StatusOK, attachResourceResp)
 }
 
-func (s *ControllerServer) checkOrFixResource(c *gin.Context, attemptFix bool) ([]string, error) {
+func (s *ControllerServer) resourceCheck(c *gin.Context, attemptFix bool) ([]string, error) {
 	// Get resource info
 	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
 	if err != nil {
@@ -1285,7 +1285,7 @@ func (s *ControllerServer) checkOrFixResource(c *gin.Context, attemptFix bool) (
 	// Send RPC to client to check resource
 	client := paragliderpb.NewCloudPluginClient(conn)
 	req := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri, AttemptFix: attemptFix}
-	resp, err := client.CheckOrFixResource(context.Background(), req)
+	resp, err := client.CheckResource(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}
@@ -1308,7 +1308,7 @@ func (s *ControllerServer) checkOrFixResource(c *gin.Context, attemptFix bool) (
 }
 
 func (s *ControllerServer) checkResource(c *gin.Context) {
-	messages, err := s.checkOrFixResource(c, false)
+	messages, err := s.resourceCheck(c, false)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1318,7 +1318,7 @@ func (s *ControllerServer) checkResource(c *gin.Context) {
 }
 
 func (s *ControllerServer) fixResource(c *gin.Context) {
-	messages, err := s.checkOrFixResource(c, true)
+	messages, err := s.resourceCheck(c, true)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
