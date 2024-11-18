@@ -1268,7 +1268,7 @@ func (s *ControllerServer) resourceAttach(c *gin.Context, resourceInfo *Resource
 	c.JSON(http.StatusOK, attachResourceResp)
 }
 
-func (s *ControllerServer) checkOrFixResource(c *gin.Context, shouldFix bool) ([]string, error) {
+func (s *ControllerServer) checkOrFixResource(c *gin.Context, attemptFix bool) ([]string, error) {
 	// Get resource info
 	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
 	if err != nil {
@@ -1284,14 +1284,14 @@ func (s *ControllerServer) checkOrFixResource(c *gin.Context, shouldFix bool) ([
 
 	// Send RPC to client to check resource
 	client := paragliderpb.NewCloudPluginClient(conn)
-	req := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri, Fix: shouldFix}
+	req := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri, AttemptFix: attemptFix}
 	resp, err := client.CheckOrFixResource(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}
 
 	// Resource doesn't exist. Fix by deleting tag from the local tag service
-	if shouldFix && resp.Resource_Exists.GetStatus() == paragliderpb.CheckStatus_FAIL {
+	if attemptFix && resp.Resource_Exists.GetStatus() == paragliderpb.CheckStatus_FAIL {
 		tagName := getTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
 		if err = s.deleteTagWithName(tagName); err != nil {
 			return nil, err
