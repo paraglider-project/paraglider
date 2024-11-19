@@ -58,12 +58,6 @@ message ParagliderDeployment {
     string namespace = 2;
 }
 
-message ResourceInfo {
-    string name = 1;
-    string uri = 2;
-    string ip = 3;
-}
-
 message AddressSpaceMapping{
     repeated string address_spaces = 1;
     string cloud = 2;
