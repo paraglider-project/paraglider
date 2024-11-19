@@ -90,7 +90,7 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *paragliderpb
 	// get the NSG rules
 	for _, rule := range nsg.Properties.SecurityRules {
 		// Ignore default Azure rules with priority above maxPriority
-		if *rule.Properties.Access == allowRule && *rule.Properties.Priority <= maxPriority {
+		if rule.Properties.Access != nil && *rule.Properties.Access == allowRule {
 			plRule, err := azureHandler.GetPermitListRuleFromNSGRule(rule)
 			if err != nil {
 				utils.Log.Printf("An error occured while getting Paraglider rule from NSG rule: %+v", err)
