@@ -851,14 +851,7 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	resp := &paragliderpb.CheckResourceResponse{}
 	resourceId := checkReq.GetResource()
 	namespace := checkReq.GetNamespace()
-
-	resp.Resource_Exists = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_Resource_Exists}
-	resp.Network_Exists = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_Network_Exists}
-	resp.PermitListConfig = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_PermitListConfig}
-	resp.PermitListTargets = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_PermitListTargets}
-	resp.IntraCloudConnectionsConfigured = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_IntraCloudConnectionsConfigured}
-	resp.MultiCloudConnectionsConfigured = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_MultiCloudConnectionsConfigured}
-	resp.PublicConnectionsConfigured = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_PublicConnectionsConfigured}
+	checks := make(map[int32]*paragliderpb.CheckResult)
 
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
 	if err != nil {
@@ -874,15 +867,17 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	if err != nil {
 		// todo: Do this check in a different way
 		if strings.Contains(err.Error(), "ResourceNotFound") {
-			resp.Resource_Exists = &paragliderpb.CheckResult{
-				Code:   paragliderpb.CheckCode_Resource_Exists,
+			checks[int32(paragliderpb.CheckCode_Resource_Exists)] = &paragliderpb.CheckResult{
 				Status: paragliderpb.CheckStatus_FAIL,
 			}
 		}
 		return resp, err
 	}
-	resp.Resource_Exists.Status = paragliderpb.CheckStatus_OK
+	checks[int32(paragliderpb.CheckCode_Resource_Exists)] = &paragliderpb.CheckResult{
+		Status: paragliderpb.CheckStatus_OK,
+	}
 
+	resp.Checks = checks
 	return resp, nil
 }
 

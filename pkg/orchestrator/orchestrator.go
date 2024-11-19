@@ -1281,25 +1281,37 @@ func (s *ControllerServer) resourceCheck(c *gin.Context, attemptFix bool) ([]str
 		return nil, err
 	}
 	defer conn.Close()
+	client := paragliderpb.NewCloudPluginClient(conn)
 
 	// Send RPC to client to check resource
-	client := paragliderpb.NewCloudPluginClient(conn)
-	req := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri, AttemptFix: attemptFix}
+	requiredChecks := []paragliderpb.CheckCode{
+		paragliderpb.CheckCode_Resource_Exists,
+		paragliderpb.CheckCode_Network_Exists,
+		paragliderpb.CheckCode_PermitListConfig,
+		paragliderpb.CheckCode_PermitListTargets,
+		paragliderpb.CheckCode_IntraCloudConnectionsConfigured,
+		paragliderpb.CheckCode_MultiCloudConnectionsConfigured,
+		paragliderpb.CheckCode_PublicConnectionsConfigured,
+	}
+	req := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri, AttemptFix: attemptFix, RequiredChecks: requiredChecks}
 	resp, err := client.CheckResource(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}
 
 	// Resource doesn't exist. Fix by deleting tag from the local tag service
-	if attemptFix && resp.Resource_Exists.GetStatus() == paragliderpb.CheckStatus_FAIL {
-		tagName := getTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
-		if err = s.deleteTagWithName(tagName); err != nil {
-			return nil, err
+	if attemptFix {
+		res, ok := resp.Checks[int32(paragliderpb.CheckCode_Resource_Exists)]
+		if ok && res.GetStatus() == paragliderpb.CheckStatus_FAIL {
+			tagName := getTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
+			if err = s.deleteTagWithName(tagName); err != nil {
+				return nil, err
+			}
+			resp.Checks[int32(paragliderpb.CheckCode_Resource_Exists)].Status = paragliderpb.CheckStatus_FIXED
 		}
-		resp.Resource_Exists.Status = paragliderpb.CheckStatus_FIXED
 	}
 
-	messages, err := getCheckMessages(resp)
+	messages, err := getCheckMessages(resp.Checks, requiredChecks)
 	if err != nil {
 		return nil, err
 	}

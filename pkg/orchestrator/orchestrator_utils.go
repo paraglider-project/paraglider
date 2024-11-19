@@ -77,26 +77,22 @@ func findUnusedBlocks(addressSpace []string, usedAddressSpaces []*paragliderpb.A
 	return availBlocks
 }
 
-func getCheckMessages(r *paragliderpb.CheckResourceResponse) ([]string, error) {
+func getCheckMessages(checks map[int32]*paragliderpb.CheckResult, requiredChecks []paragliderpb.CheckCode) ([]string, error) {
 	var messages []string
-	for _, check := range []*paragliderpb.CheckResult{
-		r.Resource_Exists,
-		r.Network_Exists,
-		r.PermitListConfig,
-		r.PermitListTargets,
-		r.IntraCloudConnectionsConfigured,
-		r.MultiCloudConnectionsConfigured,
-		r.MultiCloudConnectionsConfigured,
-	} {
-		if check != nil {
-			messages = append(messages, getCheckMessage(check.GetCode(), check.GetStatus()))
+
+	for _, code := range requiredChecks {
+		if check, ok := checks[int32(code)]; ok {
+			messages = append(messages, getCheckMessage(paragliderpb.CheckCode(code), check.Status))
 
 			// Append any additional messages
 			if check.Messages != nil {
 				messages = append(messages, check.Messages...)
 			}
+		} else {
+			messages = append(messages, getCheckMessage(paragliderpb.CheckCode(code), paragliderpb.CheckStatus_UNKNOWN))
 		}
 	}
+
 	return messages, nil
 }
 
