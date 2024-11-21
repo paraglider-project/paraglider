@@ -873,7 +873,8 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 				Status: paragliderpb.CheckStatus_FAIL,
 			}
 		}
-		return resp, err
+		resp.Checks = checks
+		return resp, nil
 	}
 	checks[int32(paragliderpb.CheckCode_Resource_Exists)] = &paragliderpb.CheckResult{
 		Status: paragliderpb.CheckStatus_OK,
