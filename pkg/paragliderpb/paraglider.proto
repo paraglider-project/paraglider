@@ -33,6 +33,7 @@ service CloudPlugin {
     rpc CreateVpnGateway(CreateVpnGatewayRequest) returns (CreateVpnGatewayResponse) {}
     rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (CreateVpnConnectionsResponse) {}
     rpc GetNetworkAddressSpaces(GetNetworkAddressSpacesRequest) returns (GetNetworkAddressSpacesResponse) {}
+    rpc ValidateResource(ValidateResourceRequest) returns (ValidateResourceResponse) {}
 }
 
 service Controller {
@@ -144,18 +145,27 @@ message CheckResourceRequest {
     repeated CheckCode required_checks = 4;
 }
 
+message CheckResourceResponse {
+    map<int32, CheckResult> checks = 1;
+}
+
 message RetrieveUriRequest {
-    string tag = 1;
+    string tag_name = 1;
     string cloud = 2;
     bool shouldValidate = 3;
 }
 
 message RetrieveUriResponse {
     string uri = 1;
+    bool validated = 2;
 }
 
-message CheckResourceResponse {
-    map<int32, CheckResult> checks = 1;
+message ValidateResourceRequest {
+    string uri = 1;
+}
+
+message ValidateResourceResponse {
+    bool validated = 2;
 }
 
 message AddPermitListRulesRequest {

@@ -819,6 +819,11 @@ func (s *IBMPluginServer) GetNetworkAddressSpaces(ctx context.Context, req *para
 	return nil, fmt.Errorf("failed to locate VPC containing address space: %v", req.AddressSpace)
 }
 
+func (s *IBMPluginServer) ValidateResource(ctx context.Context, req *paragliderpb.ValidateResourceRequest) (*paragliderpb.ValidateResourceResponse, error) {
+	// TODO Implement method
+	return nil, fmt.Errorf("ValidateResource is not implemented")
+}
+
 // Setup starts up the plugin server and stores the orchestrator server address.
 func Setup(port int, orchestratorServerAddr string) *IBMPluginServer {
 	pluginServerAddress := "localhost"
