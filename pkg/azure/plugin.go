@@ -866,7 +866,6 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 
 	// Resource Exists Check
 	_, err = ValidateResourceExists(ctx, handler, resourceId)
-
 	if err != nil {
 		// todo: Do this check in a different way
 		if strings.Contains(err.Error(), "ResourceNotFound") {
@@ -886,7 +885,8 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 		if strings.Contains(err.Error(), "ResourceNotFound") {
 			if strings.HasPrefix(err.Error(), "NIC") {
 				checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
-					Status: paragliderpb.CheckStatus_FAIL,
+					Status:   paragliderpb.CheckStatus_FAIL,
+					Messages: []string{"Error with Network Interface:\n", err.Error()},
 				}
 				resp.Checks = checks
 				return resp, nil
@@ -894,7 +894,8 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 
 			if strings.HasPrefix(err.Error(), "NSG") {
 				checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
-					Status: paragliderpb.CheckStatus_FAIL,
+					Status:   paragliderpb.CheckStatus_FAIL,
+					Messages: []string{"Error with Network Security Group:\n", err.Error()},
 				}
 				resp.Checks = checks
 				return resp, nil
@@ -915,7 +916,8 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	}
 	if !isProvisioned(vnet.Properties.ProvisioningState) {
 		checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
-			Status: paragliderpb.CheckStatus_FAIL,
+			Status:   paragliderpb.CheckStatus_FAIL,
+			Messages: []string{"Virtual Network is not provisioned"},
 		}
 		resp.Checks = checks
 		return resp, nil
@@ -928,7 +930,8 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	// Permit List Configuration Check
 	if !isProvisioned(networkInfo.NSG.Properties.ProvisioningState) {
 		checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
-			Status: paragliderpb.CheckStatus_FAIL,
+			Status:   paragliderpb.CheckStatus_FAIL,
+			Messages: []string{"Network Security Group is not provisioned"},
 		}
 		resp.Checks = checks
 		return resp, nil
@@ -941,7 +944,8 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 		}
 	} else {
 		checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
-			Status: paragliderpb.CheckStatus_FAIL,
+			Status:   paragliderpb.CheckStatus_FAIL,
+			Messages: []string{"Security rules are not compliant"},
 		}
 		if attemptFix {
 			// todo: Fix the security rules
