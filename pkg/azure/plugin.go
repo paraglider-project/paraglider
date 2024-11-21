@@ -844,15 +844,7 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	resourceId := checkReq.GetResource()
 	namespace := checkReq.GetNamespace()
 	attemptFix := checkReq.GetAttemptFix()
-
-	// Initialize all checks
-	resp.Resource_Exists = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_Resource_Exists}
-	resp.Network_Exists = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_Network_Exists}
-	resp.PermitListConfig = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_PermitListConfig}
-	resp.PermitListTargets = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_PermitListTargets}
-	resp.IntraCloudConnectionsConfigured = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_IntraCloudConnectionsConfigured}
-	resp.MultiCloudConnectionsConfigured = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_MultiCloudConnectionsConfigured}
-	resp.PublicConnectionsConfigured = &paragliderpb.CheckResult{Code: paragliderpb.CheckCode_PublicConnectionsConfigured}
+	checks := make(map[int32]*paragliderpb.CheckResult)
 
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
 	if err != nil {
@@ -864,66 +856,92 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 		return resp, err
 	}
 
-	// Check if the resource exists to validate the tags
+	// Resource Exists Check
 	_, err = ValidateResourceExists(ctx, handler, resourceId)
-
 	if err != nil {
 		// todo: Do this check in a different way
 		if strings.Contains(err.Error(), "ResourceNotFound") {
-			resp.Resource_Exists = &paragliderpb.CheckResult{
-				Code:   paragliderpb.CheckCode_Resource_Exists,
+			checks[int32(paragliderpb.CheckCode_Resource_Exists)] = &paragliderpb.CheckResult{
 				Status: paragliderpb.CheckStatus_FAIL,
 			}
 		}
 		return resp, err
 	}
-	resp.Resource_Exists.Status = paragliderpb.CheckStatus_OK
+	checks[int32(paragliderpb.CheckCode_Resource_Exists)] = &paragliderpb.CheckResult{
+		Status: paragliderpb.CheckStatus_OK,
+	}
 
 	// Get Network Information
 	networkInfo, err := GetNetworkInfoFromResource(ctx, handler, resourceId)
 	if err != nil {
 		if strings.Contains(err.Error(), "ResourceNotFound") {
 			if strings.HasPrefix(err.Error(), "NIC") {
-				resp.Network_Exists.Status = paragliderpb.CheckStatus_FAIL
+				checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
+					Status:   paragliderpb.CheckStatus_FAIL,
+					Messages: []string{"Error with Network Interface:\n", err.Error()},
+				}
+				resp.Checks = checks
 				return resp, nil
 			}
 
 			if strings.HasPrefix(err.Error(), "NSG") {
-				resp.PermitListConfig.Status = paragliderpb.CheckStatus_FAIL
+				checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
+					Status:   paragliderpb.CheckStatus_FAIL,
+					Messages: []string{"Error with Network Security Group:\n", err.Error()},
+				}
+				resp.Checks = checks
 				return resp, nil
 			}
 		}
 	}
-	// NSG, NIC, and Subnet Exists
 
+	// NSG, NIC, and Subnet Exists
 	// Network Exists Check
 	vnet, err := handler.GetVirtualNetwork(ctx, getVnetFromSubnetId(networkInfo.SubnetID))
 	if err != nil {
-		if strings.Contains(err.Error(), "ResourceNotFound") {
-			resp.Network_Exists.Status = paragliderpb.CheckStatus_FAIL
-			return resp, nil
+		checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
+			Status:   paragliderpb.CheckStatus_FAIL,
+			Messages: []string{"Error with Virtual Network:\n", err.Error()},
 		}
-	}
-	if !isProvisioned(vnet.Properties.ProvisioningState) {
-		resp.Network_Exists.Status = paragliderpb.CheckStatus_FAIL
+		resp.Checks = checks
 		return resp, nil
 	}
-	resp.Network_Exists.Status = paragliderpb.CheckStatus_OK
+	if !isProvisioned(vnet.Properties.ProvisioningState) {
+		checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
+			Status:   paragliderpb.CheckStatus_FAIL,
+			Messages: []string{"Virtual Network is not provisioned"},
+		}
+		resp.Checks = checks
+		return resp, nil
+	}
+
+	checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
+		Status: paragliderpb.CheckStatus_OK,
+	}
 
 	// Permit List Configuration Check
 	if !isProvisioned(networkInfo.NSG.Properties.ProvisioningState) {
-		resp.PermitListConfig.Status = paragliderpb.CheckStatus_FAIL
+		checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
+			Status:   paragliderpb.CheckStatus_FAIL,
+			Messages: []string{"Network Security Group is not provisioned"},
+		}
+		resp.Checks = checks
 		return resp, nil
 	}
 
 	isNSGCompliant, _ := CheckSecurityRulesCompliance(ctx, handler, networkInfo.NSG)
-	if !isNSGCompliant {
-		resp.PermitListConfig.Status = paragliderpb.CheckStatus_FAIL
+	if isNSGCompliant {
+		checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
+			Status: paragliderpb.CheckStatus_OK,
+		}
+	} else {
+		checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
+			Status:   paragliderpb.CheckStatus_FAIL,
+			Messages: []string{"Security rules are not compliant"},
+		}
 		if attemptFix {
 			// todo: Fix the security rules
 		}
-	} else {
-		resp.PermitListConfig.Status = paragliderpb.CheckStatus_OK
 	}
 
 	// Permit List Targets Check

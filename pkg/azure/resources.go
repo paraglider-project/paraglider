@@ -340,7 +340,7 @@ func (r *azureResourceHandlerVM) fromResourceDecription(resourceDesc []byte) (*a
 }
 
 func isProvisioned(provState *armnetwork.ProvisioningState) bool {
-	return *provState == armnetwork.ProvisioningStateSucceeded
+	return provState != nil && *provState == armnetwork.ProvisioningStateSucceeded
 }
 
 // AKS implementation of the NewAzureResourceHandler interface
