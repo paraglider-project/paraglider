@@ -53,6 +53,8 @@ const (
 	DeletePermitListRulesURL      string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/deleteRules"
 	CreateResourcePUTURL          string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName"
 	CreateOrAttachResourcePOSTURL string = "/namespaces/:namespace/clouds/:cloud/resources"
+	CheckResourceURL              string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/check"
+	FixResourceURL                string = "/namespaces/:namespace/clouds/:cloud/resources/:resourceName/fix"
 	RuleOnTagURL                  string = "/tags/:tag/rules"
 	ListTagURL                    string = "/tags"
 	GetTagURL                     string = "/tags/:tag"
@@ -170,6 +172,23 @@ func parseTag(tag string) (string, string, string, error) {
 
 func isTagValid(tag *tagservicepb.TagMapping) bool {
 	return tag.Ip != nil
+}
+
+func (s *ControllerServer) deleteTagWithName(tagName string) error {
+	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	// Send RPC to delete tag from Tag service
+	client := tagservicepb.NewTagServiceClient(conn)
+	_, err = client.DeleteTag(context.Background(), &tagservicepb.DeleteTagRequest{TagName: tagName})
+	if err != nil {
+		return fmt.Errorf("Could not delete tag: %s", err.Error())
+	}
+
+	return nil
 }
 
 // Get the URI of a tag
@@ -1143,8 +1162,8 @@ func (s *ControllerServer) handleCreateOrAttachResource(c *gin.Context) {
 		if c.Request.Method == "POST" {
 			resourceInfo.name = resourceToCreate.Name
 		}
-
 		s.resourceCreate(c, resourceInfo, cloudClient, &resourceToCreate)
+
 	} else if err := c.ShouldBindBodyWithJSON(&resourceToAttach); err == nil && resourceToAttach.Id != "" {
 		if c.Request.Method != "POST" {
 			c.AbortWithStatusJSON(400, createErrorResponse("Only POST method is allowed for attaching resources"))
@@ -1247,6 +1266,77 @@ func (s *ControllerServer) resourceAttach(c *gin.Context, resourceInfo *Resource
 
 	attachResourceResp.Name = tagName
 	c.JSON(http.StatusOK, attachResourceResp)
+}
+
+func (s *ControllerServer) resourceCheck(c *gin.Context, attemptFix bool) ([]string, error) {
+	// Get resource info
+	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create connection to cloud plugin
+	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := paragliderpb.NewCloudPluginClient(conn)
+
+	// Send RPC to client to check resource
+	requiredChecks := []paragliderpb.CheckCode{
+		paragliderpb.CheckCode_Resource_Exists,
+		paragliderpb.CheckCode_Network_Exists,
+		paragliderpb.CheckCode_PermitListConfig,
+		paragliderpb.CheckCode_PermitListTargets,
+		paragliderpb.CheckCode_IntraCloudConnectionsConfigured,
+		paragliderpb.CheckCode_MultiCloudConnectionsConfigured,
+		paragliderpb.CheckCode_PublicConnectionsConfigured,
+	}
+	req := &paragliderpb.CheckResourceRequest{Namespace: resourceInfo.namespace, Resource: resourceInfo.uri, AttemptFix: attemptFix, RequiredChecks: requiredChecks}
+	resp, err := client.CheckResource(context.Background(), req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Resource doesn't exist. Fix by deleting tag from the local tag service
+	if attemptFix {
+		res, ok := resp.Checks[int32(paragliderpb.CheckCode_Resource_Exists)]
+		if ok && res.GetStatus() == paragliderpb.CheckStatus_FAIL {
+			tagName := getTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
+			if err = s.deleteTagWithName(tagName); err != nil {
+				return nil, err
+			}
+			resp.Checks[int32(paragliderpb.CheckCode_Resource_Exists)].Status = paragliderpb.CheckStatus_FIXED
+		}
+	}
+
+	messages, err := getCheckMessages(resp.Checks, requiredChecks)
+	if err != nil {
+		return nil, err
+	}
+
+	return messages, nil
+}
+
+func (s *ControllerServer) checkResource(c *gin.Context) {
+	messages, err := s.resourceCheck(c, false)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, messages)
+}
+
+func (s *ControllerServer) fixResource(c *gin.Context) {
+	messages, err := s.resourceCheck(c, true)
+	if err != nil {
+		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, messages)
 }
 
 func (s *ControllerServer) createTag(c *gin.Context, resourceInfo *ResourceInfo, uri string, ip string) string {
@@ -1417,15 +1507,7 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 	tagName := c.Param("tag")
 
 	// Call DeleteTag
-	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
-		return
-	}
-	defer conn.Close()
-
-	client := tagservicepb.NewTagServiceClient(conn)
-	_, err = client.DeleteTag(context.Background(), &tagservicepb.DeleteTagRequest{TagName: tagName})
+	err := s.deleteTagWithName(tagName)
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
@@ -1597,6 +1679,8 @@ func Setup(cfg config.Config, background bool) {
 	router.DELETE(PermitListRulePUTURL, server.permitListRuleDelete)
 	router.PUT(CreateResourcePUTURL, server.handleCreateOrAttachResource)
 	router.POST(CreateOrAttachResourcePOSTURL, server.handleCreateOrAttachResource)
+	router.GET(CheckResourceURL, server.checkResource)
+	router.POST(FixResourceURL, server.fixResource)
 	router.POST(RuleOnTagURL, server.permitListRuleAddTag)
 	router.DELETE(RuleOnTagURL, server.permitListRuleDeleteTag)
 	router.GET(ListTagURL, server.listTags)

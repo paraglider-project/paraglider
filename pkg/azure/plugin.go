@@ -847,6 +847,41 @@ func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceRe
 	return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: networkInfo.Address}, nil
 }
 
+func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse, error) {
+	resp := &paragliderpb.CheckResourceResponse{}
+	resourceId := checkReq.GetResource()
+	namespace := checkReq.GetNamespace()
+	checks := make(map[int32]*paragliderpb.CheckResult)
+
+	resourceIdInfo, err := getResourceIDInfo(resourceId)
+	if err != nil {
+		return resp, err
+	}
+	azureHandler, err := s.setupAzureHandler(resourceIdInfo, namespace)
+	if err != nil {
+		return resp, err
+	}
+
+	// Check if the resource exists to validate the tags
+	_, err = ValidateResourceExists(ctx, azureHandler, resourceId)
+	if err != nil {
+		// todo: Do this check in a different way
+		if strings.Contains(err.Error(), "ResourceNotFound") {
+			checks[int32(paragliderpb.CheckCode_Resource_Exists)] = &paragliderpb.CheckResult{
+				Status: paragliderpb.CheckStatus_FAIL,
+			}
+		}
+		resp.Checks = checks
+		return resp, nil
+	}
+	checks[int32(paragliderpb.CheckCode_Resource_Exists)] = &paragliderpb.CheckResult{
+		Status: paragliderpb.CheckStatus_OK,
+	}
+
+	resp.Checks = checks
+	return resp, nil
+}
+
 func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {

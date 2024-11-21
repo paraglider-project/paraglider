@@ -26,6 +26,7 @@ service CloudPlugin {
     rpc GetUsedBgpPeeringIpAddresses(GetUsedBgpPeeringIpAddressesRequest) returns (GetUsedBgpPeeringIpAddressesResponse) {}
     rpc CreateResource(CreateResourceRequest) returns (CreateResourceResponse) {}
     rpc AttachResource(AttachResourceRequest) returns (AttachResourceResponse) {}
+    rpc CheckResource(CheckResourceRequest) returns (CheckResourceResponse) {}
     rpc GetPermitList(GetPermitListRequest) returns (GetPermitListResponse) {}
     rpc AddPermitListRules(AddPermitListRulesRequest) returns (AddPermitListRulesResponse) {}
     rpc DeletePermitListRules(DeletePermitListRulesRequest) returns (DeletePermitListRulesResponse) {}
@@ -74,6 +75,30 @@ enum Direction {
     OUTBOUND = 1;
 }
 
+enum CheckCode {
+    Other = 0;
+    Resource_Exists = 1;
+    Network_Exists = 2; // VNET or VPC
+    PermitListConfig = 3;
+    PermitListTargets = 4;
+    IntraCloudConnectionsConfigured = 5;
+    MultiCloudConnectionsConfigured = 6;
+    PublicConnectionsConfigured = 7;
+    // TODO: Maybe add one for connectivity exists?
+}
+
+enum CheckStatus {
+    UNKNOWN = 0; // default value
+    OK = 1;
+    FAIL = 2;
+    FIXED = 3;
+}
+
+message CheckResult {
+    CheckStatus status = 2;
+    repeated string messages = 3;
+}
+
 // TODO @smcclure20: have a version of this without the tags field to avoid users setting that at all (?)
 message PermitListRule {
     string name = 1;
@@ -109,6 +134,17 @@ message AttachResourceResponse {
     string name = 1;
     string uri = 2;
     string ip = 3;
+}
+
+message CheckResourceRequest {
+    string namespace = 1;
+    string resource = 2;
+    bool attemptFix = 3; // if true, the plugin should attempt to fix any issues it finds
+    repeated CheckCode required_checks = 4;
+}
+
+message CheckResourceResponse {
+    map<int32, CheckResult> checks = 1;
 }
 
 message AddPermitListRulesRequest {
