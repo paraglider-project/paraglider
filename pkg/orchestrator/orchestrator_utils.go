@@ -47,7 +47,11 @@ var checkMessages = map[paragliderpb.CheckCode]map[paragliderpb.CheckStatus]stri
 		paragliderpb.CheckStatus_FAIL:  "Permit lists are incorrectly configured",
 		paragliderpb.CheckStatus_FIXED: "Permit lists are correctly configured",
 	},
-	paragliderpb.CheckCode_PermitListTargets:               {},
+	paragliderpb.CheckCode_PermitListTargets: {
+		paragliderpb.CheckStatus_OK:    "All Permit List targets are valid",
+		paragliderpb.CheckStatus_FAIL:  "Some Permit List targets do not exist",
+		paragliderpb.CheckStatus_FIXED: "Permit Lists have been fixed",
+	},
 	paragliderpb.CheckCode_IntraCloudConnectionsConfigured: {},
 	paragliderpb.CheckCode_MultiCloudConnectionsConfigured: {},
 	paragliderpb.CheckCode_PublicConnectionsConfigured:     {},
