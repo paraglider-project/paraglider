@@ -852,17 +852,19 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	resourceId := checkReq.GetResource()
 	namespace := checkReq.GetNamespace()
 	attemptFix := checkReq.GetAttemptFix()
+  
 	checks := make(map[int32]*paragliderpb.CheckResult)
 
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
 	if err != nil {
 		return resp, err
 	}
-
+  
 	handler, err := s.setupAzureHandler(resourceIdInfo, namespace)
 	if err != nil {
 		return resp, err
 	}
+
 
 	// Resource Exists Check
 	_, err = ValidateResourceExists(ctx, handler, resourceId)
