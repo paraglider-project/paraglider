@@ -11,7 +11,12 @@ Welcome to Paraglider!
 .. image:: https://img.shields.io/discord/1116864463832891502?logo=discord&logoColor=white&logoSize=auto&label=Discord&labelColor=7289DA&color=17cf48&link=https%3A%2F%2Fdiscord.gg%2FKrZGbfZ7wm
    :alt: Discord
    :target: https://discord.gg/KrZGbfZ7wm
-   :height: 28
+   :height: 28px
+
+.. image:: ./_static/wiki-button.png
+   :alt: Wiki
+   :target: https://lf-networking.atlassian.net/wiki/spaces/PAR/overview?homepageId=15106050
+   :height: 28px
 
 The Paraglider project aims to simplify the creation and management of single-cloud and multi-cloud networks. It reduces the need for developers and administrators to have detailed networking knowledge, hiding the complexity of components like virtual networks, access controls, load balancers, and inter-cloud connections.
 
