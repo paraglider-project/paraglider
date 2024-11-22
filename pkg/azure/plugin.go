@@ -85,21 +85,13 @@ func (s *azurePluginServer) GetPermitList(ctx context.Context, req *paragliderpb
 	}
 	nsg := netInfo.NSG
 
-	// initialize a list of permit list rules
-	rules := []*paragliderpb.PermitListRule{}
-
 	// get the NSG rules
-	for _, rule := range nsg.Properties.SecurityRules {
-		if !strings.HasPrefix(*rule.Name, denyAllNsgRulePrefix) && strings.HasPrefix(*rule.Name, paragliderPrefix) {
-			plRule, err := azureHandler.GetPermitListRuleFromNSGRule(rule)
-			if err != nil {
-				utils.Log.Printf("An error occured while getting Paraglider rule from NSG rule: %+v", err)
-				return nil, err
-			}
-			plRule.Name = getRuleNameFromNSGRuleName(plRule.Name)
-			rules = append(rules, plRule)
-		}
+	rules, err := getPermitListsFromRules(azureHandler, nsg.Properties.SecurityRules, true)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting permit list rules:%+v", err)
+		return nil, err
 	}
+
 	return &paragliderpb.GetPermitListResponse{Rules: rules}, nil
 }
 
@@ -956,8 +948,179 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	}
 
 	// Permit List Targets Check
+	status, msgs, err := s.CheckPermitLists(ctx, handler, resourceId, networkInfo, checkReq.Namespace, attemptFix)
+	if err != nil {
+		// todo: should we return an error here?
+		utils.Log.Printf("An error occured while checking permit lists:%+v", err)
+		return nil, err
+	}
+	checks[int32(paragliderpb.CheckCode_PermitListTargets)] = &paragliderpb.CheckResult{Status: status, Messages: msgs}
+
 	resp.Checks = checks
 	return resp, nil
+}
+
+func (s *azurePluginServer) CheckPermitLists(ctx context.Context, handler *AzureSDKHandler, resourceID string, networkInfo *resourceNetworkInfo, namespace string, attemptFix bool) (paragliderpb.CheckStatus, []string, error) {
+	vnetName := getVnetFromSubnetId(networkInfo.SubnetID)
+	vnet, err := handler.GetVirtualNetwork(ctx, vnetName)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting vnet:%+v", err)
+		return paragliderpb.CheckStatus_FAIL, nil, err
+	}
+
+	// Get subnets address spaces
+	localVnetAddressSpaces := []string{}
+	for _, addressSpace := range vnet.Properties.AddressSpace.AddressPrefixes {
+		localVnetAddressSpaces = append(localVnetAddressSpaces, *addressSpace)
+	}
+	if len(localVnetAddressSpaces) == 0 {
+		return paragliderpb.CheckStatus_FAIL, nil, fmt.Errorf("unable to get subnet address prefix for vnet")
+	}
+
+	// Used when fixing. Tracks IPs associated to any deleted rule
+	deletedIps := map[string]bool{}
+	visitedIps := map[string]bool{}
+	requireNAT := false
+
+	// Get used address spaces of all clouds
+	orchestratorConn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return paragliderpb.CheckStatus_FAIL, nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
+	}
+	defer orchestratorConn.Close()
+	orchestratorClient := paragliderpb.NewControllerClient(orchestratorConn)
+	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		return paragliderpb.CheckStatus_FAIL, nil, fmt.Errorf("unable to get used address spaces: %w", err)
+	}
+
+	// Get permit lists for resource
+	rules, err := getPermitListsFromRules(handler, networkInfo.NSG.Properties.SecurityRules, false)
+	if err != nil {
+		return paragliderpb.CheckStatus_FAIL, nil, fmt.Errorf("unable to get permit lists from rules: %w", err)
+	}
+
+	status := paragliderpb.CheckStatus_OK
+	messages := []string{}
+	for _, rule := range rules {
+		peeringCloudInfos, err := utils.GetPermitListRulePeeringCloudInfo(rule, getUsedAddressSpacesResp.AddressSpaceMappings)
+		if err != nil {
+			return paragliderpb.CheckStatus_FAIL, nil, fmt.Errorf("unable to get peering cloud infos: %w", err)
+		}
+
+		for i, peeringCloudInfo := range peeringCloudInfos {
+			// If the rule has no tag for the target, skip
+			if len(rule.Tags) <= i {
+				continue
+			}
+
+			peerTag := rule.Tags[i]
+			peerIp := rule.Targets[i]
+			// For check, no need to check the same IP twice if both inbound and outbound rules exist
+			// For fix, both inbound and outbound rules need to be deleted
+			if visitedIps[peerIp] && !attemptFix {
+				continue // Skip if the IP has already been visited and checked
+			}
+
+			if peeringCloudInfo == nil {
+				// Public IP
+				requireNAT = true
+			} else {
+				// If a deleted IP is seen in another rule, it means the rule is
+				// in the opposite direction(in vs outbound) and should also be deleted
+				if deletedIps[peerIp] && attemptFix {
+					err = handler.DeleteSecurityRule(ctx, *networkInfo.NSG.Name, rule.Name)
+					if err == nil {
+						status = paragliderpb.CheckStatus_FIXED
+					} else {
+						status = paragliderpb.CheckStatus_FAIL
+					}
+					continue
+				}
+
+				// Get the URI for the peered resource
+				var uriReq *paragliderpb.RetrieveUriRequest
+				var uriResp *paragliderpb.RetrieveUriResponse
+				if peeringCloudInfo.Cloud == utils.AZURE {
+					// Azure will handle validation of azure resources
+					uriReq = &paragliderpb.RetrieveUriRequest{TagName: peerTag, Cloud: utils.AZURE, ShouldValidate: false}
+					uriResp, err = orchestratorClient.RetrieveUriFromTag(ctx, uriReq)
+					if err != nil {
+						return paragliderpb.CheckStatus_FAIL, nil, fmt.Errorf("unable to get uri from ip: %w", err)
+					}
+
+					peerInfo, err := getResourceIDInfo(uriResp.Uri)
+					if err != nil {
+						utils.Log.Printf("An error occured while getting resource id info:%+v", err)
+						return paragliderpb.CheckStatus_FAIL, nil, err
+					}
+					// The namespace doesn't matter for this peer setup
+					peerHandler, err := s.setupAzureHandler(peerInfo, namespace)
+					if err != nil {
+						return paragliderpb.CheckStatus_FAIL, nil, err
+					}
+
+					_, err = ValidateResourceExists(ctx, peerHandler, uriResp.Uri)
+					if err == nil {
+						uriResp.Validated = true
+					}
+				} else {
+					uriReq = &paragliderpb.RetrieveUriRequest{TagName: peerTag, Cloud: utils.AZURE, ShouldValidate: true}
+					uriResp, err = orchestratorClient.RetrieveUriFromTag(ctx, uriReq)
+					if err != nil {
+						return paragliderpb.CheckStatus_FAIL, nil, fmt.Errorf("unable to get uri from ip: %w", err)
+					}
+				}
+
+				// The peered resource doesn't exist
+				if !uriResp.Validated {
+					status = paragliderpb.CheckStatus_FAIL
+
+					// Attempt fixing by deleting the rule
+					if attemptFix {
+						err = handler.DeleteSecurityRule(ctx, *networkInfo.NSG.Name, rule.Name)
+						if err == nil {
+							status = paragliderpb.CheckStatus_FIXED
+							deletedIps[peerIp] = true
+						} else {
+							// Add error message if fix failed
+							messages = append(messages, fmt.Sprintf("Failed to delete permit list to resource: %s", peerTag))
+						}
+					} else {
+						messages = append(messages, fmt.Sprintf("Peered resource doesn't exist: %s", peerTag))
+					}
+				}
+			}
+
+			visitedIps[peerIp] = true
+		}
+	}
+
+	if requireNAT {
+	}
+
+	return status, messages, nil
+}
+
+func (s *azurePluginServer) ValidateResource(ctx context.Context, req *paragliderpb.ValidateResourceRequest) (*paragliderpb.ValidateResourceResponse, error) {
+	resourceInfo, err := getResourceIDInfo(req.Uri)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting resource id info:%+v", err)
+		return nil, err
+	}
+
+	// The namespace doesn't matter for handler setup to check resource existence
+	handler, err := s.setupAzureHandler(resourceInfo, "")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = ValidateResourceExists(ctx, handler, req.Uri)
+	if err != nil {
+		return &paragliderpb.ValidateResourceResponse{Validated: false}, nil
+	}
+
+	return &paragliderpb.ValidateResourceResponse{Validated: true}, nil
 }
 
 func Setup(port int, orchestratorServerAddr string) *azurePluginServer {

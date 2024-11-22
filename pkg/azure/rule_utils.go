@@ -21,6 +21,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
@@ -76,7 +77,7 @@ func CheckSecurityRulesCompliance(ctx context.Context, azureHandler *AzureSDKHan
 
 // Checks that the NSG rules in a particular direction are conformant as per the description of (func) CheckSecurityRulesCompliance
 //
-// Returns: 
+// Returns:
 //
 // 1. If deny all rule exists, priority number of the deny all rule & no error
 //
@@ -195,4 +196,26 @@ func isDenyAllRule(rule *armnetwork.SecurityRule) bool {
 		*rule.Properties.DestinationPortRange == azureSecurityRuleAsterisk &&
 		*rule.Properties.Protocol == armnetwork.SecurityRuleProtocolAsterisk &&
 		*rule.Properties.Access == armnetwork.SecurityRuleAccessDeny
+}
+
+// if stripPrefix is true, the "paraglider-" prefix will be stripped from the rule name, if any.
+func getPermitListsFromRules(handler *AzureSDKHandler, rules []*armnetwork.SecurityRule, stripPrefix bool) ([]*paragliderpb.PermitListRule, error) {
+	permitLists := []*paragliderpb.PermitListRule{}
+
+	for _, rule := range rules {
+		if rule.Properties.Access != nil && *rule.Properties.Access == allowRule && *rule.Properties.Priority <= maxPriority {
+			plRule, err := handler.GetPermitListRuleFromNSGRule(rule)
+			if err != nil {
+				utils.Log.Printf("An error occured while getting Paraglider rule from NSG rule: %+v", err)
+				return nil, err
+			}
+			if stripPrefix {
+				plRule.Name = getRuleNameFromNSGRuleName(plRule.Name)
+			}
+
+			permitLists = append(permitLists, plRule)
+		}
+	}
+
+	return permitLists, nil
 }

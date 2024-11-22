@@ -865,6 +865,11 @@ func (s *GCPPluginServer) GetNetworkAddressSpaces(ctx context.Context, req *para
 	return nil, fmt.Errorf("GetNetworkAddressSpaces is currently not implemented by GCP, implying plugin does not support BGP disabled VPN connections")
 }
 
+func (s *GCPPluginServer) ValidateResource(ctx context.Context, req *paragliderpb.ValidateResourceRequest) (*paragliderpb.ValidateResourceResponse, error) {
+	// TODO Implement method
+	return nil, fmt.Errorf("ValidateResource is not implemented")
+}
+
 func Setup(port int, orchestratorServerAddr string) *GCPPluginServer {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {

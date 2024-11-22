@@ -1136,6 +1136,43 @@ func (s *ControllerServer) getParagliderDeployments(cloud string) []*paragliderp
 	return pgDeployments
 }
 
+func (s *ControllerServer) RetrieveUriFromTag(ctx context.Context, req *paragliderpb.RetrieveUriRequest) (*paragliderpb.RetrieveUriResponse, error) {
+	tagName := req.TagName
+	if tagName == "" {
+		return nil, fmt.Errorf("tag name not specified")
+	}
+
+	uri, err := s.getTagUri(tagName)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.ShouldValidate {
+		// Validate the URI
+		cloudClient, ok := s.pluginAddresses[req.Cloud]
+		if !ok {
+			return nil, fmt.Errorf("invalid cloud name: %s", req.Cloud)
+		}
+
+		conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return nil, fmt.Errorf("unable to connect to cloud plugin: %w", err)
+		}
+		defer conn.Close()
+
+		client := paragliderpb.NewCloudPluginClient(conn)
+		resp, err := client.ValidateResource(context.Background(), &paragliderpb.ValidateResourceRequest{Uri: uri})
+		if err != nil {
+			return nil, fmt.Errorf("unable to retrieve resource: %w", err)
+		}
+
+		return &paragliderpb.RetrieveUriResponse{Uri: uri, Validated: resp.Validated}, nil
+	}
+
+	return &paragliderpb.RetrieveUriResponse{Uri: uri, Validated: false}, nil
+
+}
+
 // handleCreateOrAttachResource handles the creation or attachment of a resource.
 //
 // 1. Retrieves and validates the resource URL parameters.
