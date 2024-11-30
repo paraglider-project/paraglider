@@ -26,6 +26,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -141,6 +142,7 @@ func TerminateParagliderDeployments(region string) error {
 			return err
 		}
 	}
+	time.Sleep(10 * time.Second)
 
 	vpcsData, err := cloudClient.GetParagliderTaggedResources(VPC, []string{}, resourceQuery{})
 	if err != nil {
@@ -148,6 +150,7 @@ func TerminateParagliderDeployments(region string) error {
 	}
 	// terminate all VPCs and their associated resources.
 	for _, vpcsData := range vpcsData {
+		utils.Log.Printf("VPC : %v", vpcsData.ID)
 		// cloud client must be set to the region of the current VPC
 		cloudClient, err := NewIBMCloudClient(resGroupID, vpcsData.Region)
 		if err != nil {

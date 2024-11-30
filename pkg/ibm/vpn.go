@@ -365,42 +365,56 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 	// get the routing table of the VPC where the VPN gateway resides
 	vpnGateway, _, err := c.vpcService.GetVPNGateway(c.vpcService.NewGetVPNGatewayOptions(VPNGatewayID))
 	if err != nil {
-		utils.Log.Printf("Failed to fetch VPN gateway data for VPN ID %v, during routes deletion process, with error: %+v", VPNGatewayID, err)
+		fmt.Printf("Failed to fetch VPN gateway data for VPN ID %v, during routes deletion process, with error: %+v", VPNGatewayID, err)
 		return err
 	}
 	vpcID := *vpnGateway.(*vpcv1.VPNGateway).VPC.ID
+	fmt.Printf("Found VPN gateway in vpc %s\n", vpcID)
+
 	defaultRoutingTable, _, err := c.vpcService.GetVPCDefaultRoutingTable(c.vpcService.NewGetVPCDefaultRoutingTableOptions(vpcID))
 	if err != nil {
-		utils.Log.Printf("Failed to fetch default routing table for VPC containing VPN ID %v, during routes deletion process, with error: %+v", VPNGatewayID, err)
+		fmt.Printf("Failed to fetch default routing table for VPC containing VPN ID %v, during routes deletion process, with error: %+v", VPNGatewayID, err)
 		return err
 	}
 
-	routeCollection, _, err := c.vpcService.ListVPCRoutingTableRoutes(
-		&vpcv1.ListVPCRoutingTableRoutesOptions{VPCID: &vpcID, RoutingTableID: defaultRoutingTable.ID})
+	tables, _, err := c.vpcService.ListVPCRoutingTables(&vpcv1.ListVPCRoutingTablesOptions{VPCID: &vpcID})
 	if err != nil {
-		utils.Log.Printf("Failed to fetch routes for VPC containing VPN ID %v, during routes deletion process, with error: %+v", VPNGatewayID, err)
+		utils.Log.Printf("Failed to fetch tables for VPC containing VPN ID %v, during routes deletion process, with error: %+v", VPNGatewayID, err)
 		return err
 	}
-
+	fmt.Printf("Routing tables in VPC : %+v\n", tables.RoutingTables)
 	deletedRoutes := []vpcv1.Route{}
-	// delete all routes with routing next hop pointing at the specified connection
-	for _, route := range routeCollection.Routes {
-		routeNextHop, isNextHopToVpnConnection := route.NextHop.(*vpcv1.RouteNextHop)
-		if !isNextHopToVpnConnection {
-			return fmt.Errorf("Expected next hop to reference a VPN connection, instead (likely) references an IP address.")
+
+	for _, table := range tables.RoutingTables {
+		routes, _, err := c.vpcService.ListVPCRoutingTableRoutes(
+			&vpcv1.ListVPCRoutingTableRoutesOptions{VPCID: &vpcID, RoutingTableID: table.ID})
+		if err != nil {
+			fmt.Printf("Failed to fetch routes for VPC containing VPN ID %v, during routes deletion process, with error: %+v", VPNGatewayID, err)
+			return err
 		}
-		if *routeNextHop.ID == *connection.ID {
-			_, err = c.vpcService.DeleteVPCRoute(&vpcv1.DeleteVPCRouteOptions{
-				VPCID: &vpcID,
-				ID:    route.ID,
-			})
-			if err != nil {
-				utils.Log.Printf("Failed to delete VPC route ID %v routing to connection %v, with error: %+v", *route.ID, *connection.ID, err)
-				return err
+		fmt.Printf("Routing table routes %s : %+v\n", *table.ID, routes.Routes)
+
+		// delete all routes with routing next hop pointing at the specified connection
+		for _, route := range routes.Routes {
+			fmt.Printf("Deleting VPN route %v\n", *route.ID)
+			routeNextHop, isNextHopToVpnConnection := route.NextHop.(*vpcv1.RouteNextHop)
+			if !isNextHopToVpnConnection {
+				return fmt.Errorf("Expected next hop to reference a VPN connection, instead (likely) references an IP address.")
 			}
-			// keep track of routes set for deletion (directing to the specified connection)
-			deletedRoutes = append(deletedRoutes, route)
-			utils.Log.Printf("Deleted VPC route %v directing traffic from %v ", *route.ID, *route.Zone.Name)
+			if *routeNextHop.ID == *connection.ID {
+				_, err = c.vpcService.DeleteVPCRoutingTableRoute(&vpcv1.DeleteVPCRoutingTableRouteOptions{
+					VPCID:          &vpcID,
+					RoutingTableID: table.ID,
+					ID:             route.ID,
+				})
+				if err != nil {
+					fmt.Printf("Failed to delete VPC route ID %v routing to connection %v, with error: %+v", *route.ID, *connection.ID, err)
+					return err
+				}
+				// keep track of routes set for deletion (directing to the specified connection)
+				deletedRoutes = append(deletedRoutes, route)
+				fmt.Printf("Deleted VPC route %v directing traffic from %v ", *route.ID, *route.Zone.Name)
+			}
 		}
 	}
 
@@ -411,6 +425,7 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 			utils.Log.Printf("Error occurred while polling route status for routes in routing table %v, during routes deletion process, with error: %+v", *defaultRoutingTable.ID, err)
 			return err
 		}
+		fmt.Printf("Route deleted %v\n", *route.ID)
 	}
 
 	return nil
@@ -421,7 +436,7 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 	vpnConnections, _, err := c.vpcService.ListVPNGatewayConnections(
 		&vpcv1.ListVPNGatewayConnectionsOptions{VPNGatewayID: core.StringPtr(VPNGatewayID)})
 	if err != nil {
-		utils.Log.Printf("Failed to fetch VPN connections of VPN %v, during VPN deletion process, with error: %+v", VPNGatewayID, err)
+		fmt.Printf("Failed to fetch VPN connections of VPN %v, during VPN deletion process, with error: %+v", VPNGatewayID, err)
 		return err
 	}
 
@@ -431,15 +446,18 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 		// delete routes directing to this connection
 		err := c.DeleteRoutesDependentOnConnection(VPNGatewayID, connection)
 		if err != nil {
-			utils.Log.Printf("Failed to delete routes of VPN connection %v, during VPN deletion process, with error: %+v", *connection.ID, err)
+			fmt.Printf("Failed to delete routes of VPN connection %v, during VPN deletion process, with error: %+v", *connection.ID, err)
 			return err
 		}
+		fmt.Printf("VPN Routes Deleted\n")
+		time.Sleep(10 * time.Second)
 		// set connection for deletion
+		fmt.Printf("Trying to delete gateway connection connection: %v\n", *connection.ID)
 		_, err = c.vpcService.DeleteVPNGatewayConnection(
 			&vpcv1.DeleteVPNGatewayConnectionOptions{VPNGatewayID: &VPNGatewayID, ID: connection.ID})
 
 		if err != nil {
-			utils.Log.Printf("Failed to delete VPN connection %v, with error: %+v", *connection.ID, err)
+			fmt.Printf("Failed to delete VPN connection %v, with error: %+v", *connection.ID, err)
 			return err
 		}
 	}
@@ -449,17 +467,20 @@ func (c *CloudClient) DeleteVPN(VPNGatewayID string) error {
 		connectionID := *connectionInterface.(*vpcv1.VPNGatewayConnectionRouteModeVPNGatewayConnectionStaticRouteMode).ID
 		err = c.pollVPNConnectionDeleted(VPNGatewayID, connectionID)
 		if err != nil {
-			utils.Log.Printf("Error occurred while polling connection %v status, during VPN deletion process, with error: %+v", connectionID, err)
+			fmt.Printf("Error occurred while polling connection %v status, during VPN deletion process, with error: %+v", connectionID, err)
 			return err
 		}
+		fmt.Printf("VPN Connection %s Deleted\n", connectionID)
 	}
+	fmt.Printf("VPN Connections Deleted\n")
+	time.Sleep(10 * time.Second)
 
 	_, err = c.vpcService.DeleteVPNGateway(&vpcv1.DeleteVPNGatewayOptions{ID: &VPNGatewayID})
 	if err != nil {
-		utils.Log.Printf("Failed to delete VPN %v, with error: %+v", VPNGatewayID, err)
+		fmt.Printf("Failed to delete VPN %v, with error: %+v", VPNGatewayID, err)
 		return err
 	}
-	utils.Log.Printf("VPN gateway with ID %v was set for deletion", VPNGatewayID)
+	fmt.Printf("VPN gateway with ID %v was set for deletion", VPNGatewayID)
 
 	// wait for VPN deletion (can't delete reliant resources such as subnets otherwise)
 	err = c.pollVPNStatus(VPNGatewayID, false)
