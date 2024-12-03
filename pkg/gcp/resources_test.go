@@ -64,7 +64,7 @@ func getFakeClusterResourceDescription() (*paragliderpb.CreateResourceRequest, *
 func getFakePSCRequest(isGoogleService bool) (*paragliderpb.CreateResourceRequest, *ServiceAttachmentDescription, error) {
 	var description *ServiceAttachmentDescription
 	if isGoogleService {
-		description = &ServiceAttachmentDescription{Bundle: "all-apis", Region: fakeRegion}
+		description = &ServiceAttachmentDescription{Bundle: "all-apis"}
 	} else {
 		description = &ServiceAttachmentDescription{Url: fakeServiceAttachmentUrl}
 	}
@@ -494,7 +494,7 @@ func TestPrivateServiceCreateWithNetwork(t *testing.T) {
 	assert.Equal(t, *getFakeAddress().Address, ip)
 
 	// GCP Service
-	serviceDescription = &ServiceAttachmentDescription{Bundle: "all-apis", Region: "us-west"}
+	serviceDescription = &ServiceAttachmentDescription{Bundle: "all-apis"}
 
 	url, ip, err = pscHandler.createWithNetwork(ctx, *serviceDescription, subnet, rInfo, "1.1.1.1")
 
