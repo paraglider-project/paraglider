@@ -154,7 +154,7 @@ func TestGetResourceNetworkInfo(t *testing.T) {
 	rInfo = &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakePscName, ResourceType: privateServiceConnectTypeName, Namespace: fakeNamespace}
 
 	forwardingRule := getFakeForwardingRule()
-	address := getFakeAddress()
+	address := getFakeAddress(false)
 	serverState = fakeServerState{forwardingRule: forwardingRule, address: address}
 	fakeServer, ctx, fakeClients, fakeGRPCServer = setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
@@ -229,7 +229,7 @@ func TestReadAndProvisionResource(t *testing.T) {
 	assert.Equal(t, ip, getFakeCluster(true).ClusterIpv4Cidr)
 
 	// Test for Private Service Connect
-	serverState.address = getFakeAddress()
+	serverState.address = getFakeAddress(false)
 	serverState.forwardingRule = getFakeForwardingRule()
 
 	resource, _, err = getFakePSCRequest(false)
@@ -241,7 +241,7 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, *getFakeForwardingRule().SelfLink, url)
-	assert.Equal(t, *getFakeAddress().Address, ip)
+	assert.Equal(t, *getFakeAddress(false).Address, ip)
 }
 
 func TestInstanceReadAndProvisionResource(t *testing.T) {
@@ -426,7 +426,7 @@ func TestPrivateServiceReadAndProvisionResource(t *testing.T) {
 
 	rInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakePscName, ResourceType: privateServiceConnectTypeName}
 
-	serverState := fakeServerState{address: getFakeAddress(), forwardingRule: getFakeForwardingRule()}
+	serverState := fakeServerState{address: getFakeAddress(false), forwardingRule: getFakeForwardingRule()}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
@@ -437,7 +437,7 @@ func TestPrivateServiceReadAndProvisionResource(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, *getFakeForwardingRule().SelfLink, url)
-	assert.Equal(t, ip, *getFakeAddress().Address)
+	assert.Equal(t, ip, *getFakeAddress(false).Address)
 }
 
 func TestPrivateServiceGetResourceInfo(t *testing.T) {
@@ -458,7 +458,7 @@ func TestPrivateServiceGetNetworkInfo(t *testing.T) {
 	resourceInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Zone: fakeZone, Name: fakePscName, ResourceType: privateServiceConnectTypeName}
 
 	forwardingRule := getFakeForwardingRule()
-	address := getFakeAddress()
+	address := getFakeAddress(false)
 	serverState := fakeServerState{forwardingRule: forwardingRule, address: address}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
@@ -480,7 +480,7 @@ func TestPrivateServiceCreateWithNetwork(t *testing.T) {
 	serviceDescription := &ServiceAttachmentDescription{Url: fakeServiceAttachmentUrl}
 
 	rInfo := &resourceInfo{Project: fakeProject, Region: fakeRegion, Name: fakePscName, ResourceType: privateServiceConnectTypeName}
-	serverState := fakeServerState{address: getFakeAddress(), forwardingRule: getFakeForwardingRule()}
+	serverState := fakeServerState{address: getFakeAddress(false), forwardingRule: getFakeForwardingRule()}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
@@ -491,14 +491,17 @@ func TestPrivateServiceCreateWithNetwork(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, *getFakeForwardingRule().SelfLink, url)
-	assert.Equal(t, *getFakeAddress().Address, ip)
+	assert.Equal(t, *getFakeAddress(false).Address, ip)
 
 	// GCP Service
 	serviceDescription = &ServiceAttachmentDescription{Bundle: "all-apis"}
+	serverState = fakeServerState{address: getFakeAddress(true), forwardingRule: getFakeForwardingRule()}
+	fakeServer, ctx, fakeClients, fakeGRPCServer = setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	url, ip, err = pscHandler.createWithNetwork(ctx, *serviceDescription, subnet, rInfo, "1.1.1.1")
 
 	require.NoError(t, err)
 	assert.Equal(t, *getFakeForwardingRule().SelfLink, url)
-	assert.Equal(t, *getFakeAddress().Address, ip)
+	assert.Equal(t, *getFakeAddress(true).Address, ip)
 }
