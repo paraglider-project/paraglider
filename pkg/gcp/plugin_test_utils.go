@@ -166,10 +166,15 @@ func getFakeCluster(includeNetwork bool) *containerpb.Cluster {
 	return cluster
 }
 
-func getFakeAddress() *computepb.Address {
-	return &computepb.Address{
-		Address: proto.String(fakeIpAddress),
+func getFakeAddress(isGlobal bool) *computepb.Address {
+	addr := &computepb.Address{
+		Address: proto.String(fakeIpAddress)}
+	if isGlobal {
+		addr.SelfLink = proto.String(computeUrlPrefix + "projects/" + fakeProject + "/global/addresses/fakeAddress")
+	} else {
+		addr.SelfLink = proto.String(computeUrlPrefix + "projects/" + fakeProject + "/regions/" + fakeRegion + "/addresses/fakeAddress")
 	}
+	return addr
 }
 
 func getFakeForwardingRule() *computepb.ForwardingRule {
@@ -295,7 +300,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponseFakeOperation(w)
 				return
 			}
-		// Addresses
+		// Addresses (Regional)
 		case strings.HasPrefix(path, urlProject+urlRegion+"/addresses"):
 			if r.Method == "GET" {
 				if fakeServerState.address != nil {
@@ -308,8 +313,34 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponseFakeOperation(w)
 				return
 			}
-		// Forwarding Rules
+		// Addresses (Global)
+		case strings.HasPrefix(path, urlProject+"/global/addresses"):
+			if r.Method == "GET" {
+				if fakeServerState.address != nil {
+					sendResponse(w, fakeServerState.address)
+				} else {
+					http.Error(w, "no address found", http.StatusNotFound)
+				}
+				return
+			} else if r.Method == "POST" {
+				sendResponseFakeOperation(w)
+				return
+			}
+		// Forwarding Rules (Regional)
 		case strings.HasPrefix(path, urlProject+urlRegion+"/forwardingRules"):
+			if r.Method == "POST" {
+				sendResponseFakeOperation(w)
+				return
+			} else if r.Method == "GET" {
+				if fakeServerState.forwardingRule != nil {
+					sendResponse(w, fakeServerState.forwardingRule)
+				} else {
+					http.Error(w, "no forwarding rule found", http.StatusNotFound)
+				}
+				return
+			}
+		// Forwarding Rules (Global)
+		case strings.HasPrefix(path, urlProject+"/global/forwardingRules"):
 			if r.Method == "POST" {
 				sendResponseFakeOperation(w)
 				return
@@ -467,7 +498,17 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 		t.Fatal(err)
 	}
 
+	fakeClients.globalAddressesClient, err = compute.NewGlobalAddressesRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	fakeClients.forwardingClient, err = compute.NewForwardingRulesRESTClient(ctx, clientOptions...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fakeClients.globalForwardingClient, err = compute.NewGlobalForwardingRulesRESTClient(ctx, clientOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}
