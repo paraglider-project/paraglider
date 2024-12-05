@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ibm
+package identity
 
 import (
 	"bytes"
@@ -33,6 +33,15 @@ import (
 
 const keyPath = "/.ibm/keys/paraglider-key"
 const spireAgent = "/spire-1.10.0-linux-amd64-musl.tar.gz"
+
+// AddAccessToResource adds a permitlist to
+func AddAccessToResource() error {
+
+}
+
+func RevokeAccessToResource() error {
+
+}
 
 func generateJointToken(spiffeID string) string {
 	cmd := exec.Command("kubectl", "exec", "-it", "spire-server-0", "-n", "spire-server", "-c", "spire-server", "--", "/opt/spire/bin/spire-server", "token", "generate", "-spiffeID", spiffeID)
@@ -70,27 +79,22 @@ func copySpireBinary(user, ip string) {
 	if err != nil {
 		log.Fatalf("Failed to create private key: %v", err)
 	}
-	// Create a new SCP client
 	client := scp.NewClient(host, &config)
 
-	// Connect to the remote server
 	if err := client.Connect(); err != nil {
 		log.Fatalf("Failed to connect to remote server: %v", err)
 	}
 	defer client.Close()
 
-	// Path to the file you want to copy and the destination on the VM
 	localFilePath := os.Getenv("HOME") + spireAgent
 	remoteFilePath := "/tmp/" + spireAgent
 
-	// Copy the file to the remote server
 	file, err := os.Open(localFilePath)
 	if err != nil {
 		log.Fatalf("Failed to open local file: %v", err)
 	}
 	defer file.Close()
 
-	// Copy the file
 	if err := client.CopyFile(context.Background(), file, remoteFilePath, "0644"); err != nil {
 		log.Fatalf("Failed to copy file: %v", err)
 	}
@@ -103,7 +107,6 @@ func escapeSingleQuotes(input string) string {
 }
 
 func createSpireConfig(jointToken string) string {
-	// The file content to write
 	spireConf := fmt.Sprintf(`agent {
 	log_level = "DEBUG"
 	trust_domain = "spire-server.local"
@@ -133,19 +136,16 @@ plugins {
 func setupSpireAgent(user, ip, spireServerIP, jointToken string) error {
 	host := ip + ":22"
 
-	// Load the private key
 	key, err := os.ReadFile(os.Getenv("HOME") + keyPath)
 	if err != nil {
 		log.Fatalf("Unable to read private key: %v", err)
 	}
 
-	// Create the Signer for this private key
 	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
 		log.Fatalf("Unable to parse private key: %v", err)
 	}
 
-	// Set up SSH client configuration with public key authentication
 	config := &ssh.ClientConfig{
 		User: user,
 		Auth: []ssh.AuthMethod{
@@ -154,7 +154,6 @@ func setupSpireAgent(user, ip, spireServerIP, jointToken string) error {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
-	// Connect to the SSH server
 	client, err := ssh.Dial("tcp", host, config)
 	if err != nil {
 		log.Fatalf("Failed to dial: %s", err)
@@ -231,7 +230,6 @@ func runCommand(client *ssh.Client, cmd string) (string, error) {
 	}
 	defer session.Close()
 
-	// Capture the output of the command
 	var outputBuf bytes.Buffer
 	session.Stdout = &outputBuf
 	session.Stderr = &outputBuf
