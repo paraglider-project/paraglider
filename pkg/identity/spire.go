@@ -36,11 +36,11 @@ const spireAgent = "/spire-1.10.0-linux-amd64-musl.tar.gz"
 
 // AddAccessToResource adds a permitlist to
 func AddAccessToResource() error {
-
+	return nil
 }
 
 func RevokeAccessToResource() error {
-
+	return nil
 }
 
 func generateJointToken(spiffeID string) string {
