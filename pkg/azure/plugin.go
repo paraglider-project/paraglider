@@ -851,19 +851,23 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	resp := &paragliderpb.CheckResourceResponse{}
 	resourceId := checkReq.GetResource()
 	namespace := checkReq.GetNamespace()
+	attemptFix := checkReq.GetAttemptFix()
+  
 	checks := make(map[int32]*paragliderpb.CheckResult)
 
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
 	if err != nil {
 		return resp, err
 	}
-	azureHandler, err := s.setupAzureHandler(resourceIdInfo, namespace)
+  
+	handler, err := s.setupAzureHandler(resourceIdInfo, namespace)
 	if err != nil {
 		return resp, err
 	}
 
-	// Check if the resource exists to validate the tags
-	_, err = ValidateResourceExists(ctx, azureHandler, resourceId)
+
+	// Resource Exists Check
+	_, err = ValidateResourceExists(ctx, handler, resourceId)
 	if err != nil {
 		// todo: Do this check in a different way
 		if strings.Contains(err.Error(), "ResourceNotFound") {
@@ -878,6 +882,80 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 		Status: paragliderpb.CheckStatus_OK,
 	}
 
+	// Get Network Information
+	networkInfo, err := GetNetworkInfoFromResource(ctx, handler, resourceId)
+	if err != nil {
+		if strings.Contains(err.Error(), "ResourceNotFound") {
+			if strings.HasPrefix(err.Error(), "NIC") {
+				checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
+					Status:   paragliderpb.CheckStatus_FAIL,
+					Messages: []string{"Error with Network Interface:\n", err.Error()},
+				}
+				resp.Checks = checks
+				return resp, nil
+			}
+
+			if strings.HasPrefix(err.Error(), "NSG") {
+				checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
+					Status:   paragliderpb.CheckStatus_FAIL,
+					Messages: []string{"Error with Network Security Group:\n", err.Error()},
+				}
+				resp.Checks = checks
+				return resp, nil
+			}
+		}
+	}
+
+	// NSG, NIC, and Subnet Exists
+	// Network Exists Check
+	vnet, err := handler.GetVirtualNetwork(ctx, getVnetFromSubnetId(networkInfo.SubnetID))
+	if err != nil {
+		checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
+			Status:   paragliderpb.CheckStatus_FAIL,
+			Messages: []string{"Error with Virtual Network:\n", err.Error()},
+		}
+		resp.Checks = checks
+		return resp, nil
+	}
+	if !isProvisioned(vnet.Properties.ProvisioningState) {
+		checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
+			Status:   paragliderpb.CheckStatus_FAIL,
+			Messages: []string{"Virtual Network is not provisioned"},
+		}
+		resp.Checks = checks
+		return resp, nil
+	}
+
+	checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
+		Status: paragliderpb.CheckStatus_OK,
+	}
+
+	// Permit List Configuration Check
+	if !isProvisioned(networkInfo.NSG.Properties.ProvisioningState) {
+		checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
+			Status:   paragliderpb.CheckStatus_FAIL,
+			Messages: []string{"Network Security Group is not provisioned"},
+		}
+		resp.Checks = checks
+		return resp, nil
+	}
+
+	isNSGCompliant, _ := CheckSecurityRulesCompliance(ctx, handler, networkInfo.NSG)
+	if isNSGCompliant {
+		checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
+			Status: paragliderpb.CheckStatus_OK,
+		}
+	} else {
+		checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
+			Status:   paragliderpb.CheckStatus_FAIL,
+			Messages: []string{"Security rules are not compliant"},
+		}
+		if attemptFix {
+			// todo: Fix the security rules
+		}
+	}
+
+	// Permit List Targets Check
 	resp.Checks = checks
 	return resp, nil
 }

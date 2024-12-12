@@ -227,7 +227,7 @@ func (r *azureResourceHandlerVM) getNetworkInfo(ctx context.Context, resource *a
 	nic, err := sdkHandler.GetNetworkInterface(ctx, nicName)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network interface:%+v", err)
-		return nil, err
+		return nil, fmt.Errorf("NIC Error: %w", err) // formatted error used in check()
 	}
 
 	nsgName, err := GetLastSegment(*nic.Properties.NetworkSecurityGroup.ID)
@@ -237,7 +237,7 @@ func (r *azureResourceHandlerVM) getNetworkInfo(ctx context.Context, resource *a
 	nsg, err := sdkHandler.GetSecurityGroup(ctx, nsgName)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the network security group:%+v", err)
-		return nil, err
+		return nil, fmt.Errorf("NSG Error: %w", err) // formatted error used in check()
 	}
 
 	info := resourceNetworkInfo{
@@ -337,6 +337,10 @@ func (r *azureResourceHandlerVM) fromResourceDecription(resourceDesc []byte) (*a
 	}
 
 	return vm, nil
+}
+
+func isProvisioned(provState *armnetwork.ProvisioningState) bool {
+	return provState != nil && *provState == armnetwork.ProvisioningStateSucceeded
 }
 
 // AKS implementation of the NewAzureResourceHandler interface
