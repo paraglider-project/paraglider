@@ -52,9 +52,21 @@ var checkMessages = map[paragliderpb.CheckCode]map[paragliderpb.CheckStatus]stri
 		paragliderpb.CheckStatus_FAIL:  "Some Permit List targets do not exist",
 		paragliderpb.CheckStatus_FIXED: "Permit Lists have been fixed",
 	},
-	paragliderpb.CheckCode_IntraCloudConnectionsConfigured: {},
-	paragliderpb.CheckCode_MultiCloudConnectionsConfigured: {},
-	paragliderpb.CheckCode_PublicConnectionsConfigured:     {},
+	paragliderpb.CheckCode_IntraCloudConnectionsConfigured: {
+		paragliderpb.CheckStatus_OK:    "IntraCloud connections configurations are properly setup",
+		paragliderpb.CheckStatus_FAIL:  "There is a problem with intraCloud connections configurations",
+		paragliderpb.CheckStatus_FIXED: "IntraCloud connections configurations have been fixed",
+	},
+	paragliderpb.CheckCode_MultiCloudConnectionsConfigured: {
+		paragliderpb.CheckStatus_OK:    "MultiCloud connections configurations are properly setup",
+		paragliderpb.CheckStatus_FAIL:  "There is a problem with multiCloud connections configurations",
+		paragliderpb.CheckStatus_FIXED: "MultiCloud connections configurations have been fixed",
+	},
+	paragliderpb.CheckCode_PublicConnectionsConfigured: {
+		paragliderpb.CheckStatus_OK:    "Public connections configurations are properly setup",
+		paragliderpb.CheckStatus_FAIL:  "There is a problem with public connections configurations",
+		paragliderpb.CheckStatus_FIXED: "Public connections configurations have been fixed",
+	},
 }
 
 func allocBlock(addressSpace *ipaddr.IPAddress, blockSize int64) *ipaddr.IPAddress {
@@ -116,7 +128,7 @@ func getCheckMessage(code paragliderpb.CheckCode, status paragliderpb.CheckStatu
 		}
 	}
 
-	return prefix + "Could not check " + getCheckName(code)
+	return prefix + "Unable to check " + getCheckName(code)
 }
 
 func getStatusPrefix(status paragliderpb.CheckStatus) string {

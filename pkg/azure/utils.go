@@ -499,3 +499,21 @@ func getOrCreateNatGateway(ctx context.Context, handler *AzureSDKHandler, namesp
 	}
 	return natGateway, nil
 }
+
+func textBetween(str, start, end string) string {
+	startIdx := strings.Index(str, start)
+	if startIdx == -1 {
+		return "" // Start string not found
+	}
+
+	// Adjust to the character after the start substring
+	startIdx += len(start)
+
+	endIdx := strings.Index(str[startIdx:], end)
+	if endIdx == -1 {
+		return "" // End string not found
+	}
+
+	// Extract and return the text between the start and end
+	return str[startIdx : startIdx+endIdx]
+}
