@@ -880,8 +880,9 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	// Resource Exists Check
 	_, err = ValidateResourceExists(ctx, handler, resourceId)
 	if err != nil {
-		// todo: Do this check in a different way
-		if strings.Contains(err.Error(), "ResourceNotFound") {
+		// todo: Do this check in a different way. This format is based on return text in err msg
+		errorText := textBetween(err.Error(), "ERROR CODE", "\n")
+		if strings.Contains(errorText, "NotFound") {
 			checks[int32(paragliderpb.CheckCode_Resource_Exists)] = &paragliderpb.CheckResult{
 				Status: paragliderpb.CheckStatus_FAIL,
 			}
@@ -896,7 +897,8 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	// Get Network Information
 	networkInfo, err := GetNetworkInfoFromResource(ctx, handler, resourceId)
 	if err != nil {
-		if strings.Contains(err.Error(), "ResourceNotFound") {
+		errorText := textBetween(err.Error(), "ERROR CODE", "\n")
+		if strings.Contains(errorText, "NotFound") {
 			if strings.HasPrefix(err.Error(), "NIC") {
 				checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
 					Status:   paragliderpb.CheckStatus_FAIL,
