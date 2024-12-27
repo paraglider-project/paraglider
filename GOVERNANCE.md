@@ -1,32 +1,28 @@
-# Paraglider Governance
-This document outlines the governance of the project and will be added to soon. 
+# Paraglider Project Governance
+This document contains governance documentation for the Paraglider Project.
 
-The Technical Steering Committee (TSC) is in charge of making high-level technical decisions for Paraglider. 
+## Top-Level Governance
 
-## Technical Steering Committee Members
+* [Project Charter](governance/technical-charter.pdf)
+* [Technical Steering Committee](governance/tsc.md)
+* [TSC Procedures](governance/tsc-procedures.md)
 
-**Sarah McClure** </br>
-UC Berkeley
+An initial TSC has been established per above. TSC eligibility is defined per above and aligns with the Technical Charter. Maintainer is defined below. TSC Chair, TAC representative, and MAC liaison roles are assigned through nomination, then TSC voting. Additional roles, including Project Technical Leads (PTLs) may be defined as project needs arise.
 
-**Diego Vega** </br>
-Microsoft
+The TSC membership is [here](governance/tsc.md). The TSC represents the top-level decision-making body for the project.
+Additional project roles, as needed, are filled by TSC voting (majority).
 
-**Sylvia Ratnasamy** </br>
-UC Berkeley
 
-**Deepak Bansal** </br>
-Microsoft
+## Code of Conduct
+[Paraglider Code of Conduct](CODE-OF-CONDUCT.md)
 
-**Pravein Govindan Kannan** </br>
-IBM Research
+## Diversity & Inclusivity
+The community follows and abides by the Diversity & Inclusivity initiatives set forth by the Linux Foundation.
 
-**Ashok Narayanan** </br>
-Snyk
+## Project Roles and Processes for Role Changes
+* [Maintainers](governance/maintainers.md)
+* [Other Project Roles](governance/roles.md)
+* [Change Process](governance/role-changes.md)
 
-**Anees Shaikh** </br>
-Google
-
-**Sean Kim** </br>
-
-### Contact Info
-You can contact the TSC at paraglider-tsc [at] googlegroups.com.
+## Release Process
+[Release Process](governance/release-process.md)

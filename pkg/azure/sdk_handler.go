@@ -307,12 +307,14 @@ func (h *AzureSDKHandler) GetAllVnetsAddressSpaces(ctx context.Context, namespac
 		}
 
 		for _, v := range page.Value {
-			if v.Tags != nil && *v.Tags[namespaceTagKey] == namespace {
-				addressPrefixes := make([]string, len(v.Properties.AddressSpace.AddressPrefixes))
-				for i, addressPrefix := range v.Properties.AddressSpace.AddressPrefixes {
-					addressPrefixes[i] = *addressPrefix
+			if v.Tags != nil {
+				if val, ok := v.Tags[namespaceTagKey]; ok && *val == namespace {
+					addressPrefixes := make([]string, len(v.Properties.AddressSpace.AddressPrefixes))
+					for i, addressPrefix := range v.Properties.AddressSpace.AddressPrefixes {
+						addressPrefixes[i] = *addressPrefix
+					}
+					addressSpaces[*v.Name] = addressPrefixes
 				}
-				addressSpaces[*v.Name] = addressPrefixes
 			}
 		}
 	}
