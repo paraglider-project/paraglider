@@ -35,6 +35,12 @@ import (
 type GCPPluginServer struct {
 	paragliderpb.UnimplementedCloudPluginServer
 	orchestratorServerAddr string
+	flags                  paragliderpb.SetPluginFlagsRequest
+}
+
+func (s *GCPPluginServer) SetPluginFlags(ctx context.Context, req *paragliderpb.SetPluginFlagsRequest) (*paragliderpb.SetPluginFlagsResponse, error) {
+	s.flags = *req
+	return &paragliderpb.SetPluginFlagsResponse{}, nil
 }
 
 func (s *GCPPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest) (*paragliderpb.GetPermitListResponse, error) {
@@ -297,6 +303,12 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	resourceInfo, err := IsValidResource(ctx, resourceDescription)
 	if err != nil {
 		return nil, fmt.Errorf("unsupported resource description: %w", err)
+	}
+
+	if !s.flags.KubernetesClustersEnabled && resourceInfo.ResourceType == clusterTypeName {
+		return nil, fmt.Errorf("kubernetes clusters are not enabled")
+	} else if !s.flags.PrivateEndpointsEnabled && resourceInfo.ResourceType == privateServiceConnectTypeName {
+		return nil, fmt.Errorf("private endpoints are not enabled")
 	}
 
 	// Set project and namespace in resourceInfo

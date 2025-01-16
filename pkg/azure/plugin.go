@@ -39,6 +39,7 @@ type azurePluginServer struct {
 	paragliderpb.UnimplementedCloudPluginServer
 	orchestratorServerAddr string
 	azureCredentialGetter  IAzureCredentialGetter
+	flags                  paragliderpb.SetPluginFlagsRequest
 }
 
 const (
@@ -63,6 +64,11 @@ func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo, nam
 	}
 
 	return &azureHandler, nil
+}
+
+func (s *azurePluginServer) SetPluginFlags(ctx context.Context, req *paragliderpb.SetPluginFlagsRequest) (*paragliderpb.SetPluginFlagsResponse, error) {
+	s.flags = *req
+	return &paragliderpb.SetPluginFlagsResponse{}, nil
 }
 
 // GetPermitList returns the permit list for the given resource by getting the NSG rules
@@ -271,6 +277,11 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 	if err != nil {
 		utils.Log.Printf("Resource description is invalid:%+v", err)
 		return nil, err
+	}
+
+	if !s.flags.GetKubernetesClustersEnabled() && strings.Contains(resourceDescInfo.ResourceID, managedClusterTypeName) {
+		utils.Log.Printf("Kubernetes clusters are disabled")
+		return nil, fmt.Errorf("kubernetes clusters are disabled")
 	}
 
 	resourceIdInfo, err := getResourceIDInfo(resourceDesc.Deployment.Id)

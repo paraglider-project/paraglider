@@ -50,4 +50,19 @@ type Config struct {
 	Namespaces   map[string][]CloudDeployment `yaml:"namespaces"`
 	AddressSpace []string                     `yaml:"addressSpace"`
 	CloudPlugins []CloudPlugin                `yaml:"cloudPlugins"`
+	FeatureFlags Flags                        `yaml:"featureFlags"`
+}
+
+type OrchestratorFlags struct {
+	AttachResourceEnabled bool `yaml:"attachResourceEnabled"`
+}
+
+type PluginFlags struct {
+	KubernetesClustersEnabled bool `yaml:"kubernetesClustersEnabled"`
+	PrivateEndpointsEnabled   bool `yaml:"privateEndpointsEnabled"`
+}
+
+type Flags struct {
+	OrchestratorFlags OrchestratorFlags                       `yaml:"orchestratorFlags"`
+	PluginFlags       map[string]paragliderpb.SetFlagsRequest `yaml:"pluginFlags"`
 }

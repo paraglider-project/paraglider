@@ -32,6 +32,7 @@ service CloudPlugin {
     rpc CreateVpnGateway(CreateVpnGatewayRequest) returns (CreateVpnGatewayResponse) {}
     rpc CreateVpnConnections(CreateVpnConnectionsRequest) returns (CreateVpnConnectionsResponse) {}
     rpc GetNetworkAddressSpaces(GetNetworkAddressSpacesRequest) returns (GetNetworkAddressSpacesResponse) {}
+    rpc SetFlags(SetFlagsRequest) returns (SetFlagsResponse) {}
 }
 
 service Controller {
@@ -259,4 +260,12 @@ message GetNetworkAddressSpacesResponse {
 message GetNetworkAddressSpacesRequest {
     ParagliderDeployment deployment = 1;
     string address_space = 2;
+}
+
+message SetFlagsRequest {
+    bool private_endpoints_enabled = 1;
+    bool kubernetes_clusters_enabled = 2;
+}
+
+message SetFlagsResponse {
 }

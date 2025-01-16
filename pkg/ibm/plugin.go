@@ -37,6 +37,7 @@ type IBMPluginServer struct {
 	paragliderpb.UnimplementedCloudPluginServer
 	cloudClient            map[string]*CloudClient
 	orchestratorServerAddr string
+	flags                  paragliderpb.SetFlagsRequest
 }
 
 var defaultRegion = "us-east"
@@ -76,6 +77,11 @@ func (s *IBMPluginServer) getAllClientsForVPCs(cloudClient *CloudClient, resourc
 	return cloudClients, nil
 }
 
+func (s *IBMPluginServer) SetPluginFlags(ctx context.Context, req *paragliderpb.SetPluginFlagsRequest) (*paragliderpb.SetPluginFlagsResponse, error) {
+	s.flags = *req
+	return &paragliderpb.SetPluginFlagsResponse{}, nil
+}
+
 // CreateResource creates the specified resource (instance and cluster).
 func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragliderpb.CreateResourceRequest) (*paragliderpb.CreateResourceResponse, error) {
 	var vpcID *string
@@ -93,6 +99,12 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 	rInfo, err := getResourceMeta(resourceDesc.Deployment.Id)
 	if err != nil {
 		return nil, err
+	}
+
+	if !s.flags.KubernetesClustersEnabled && strings.Contains(rInfo.ResourceID, ClusterResourceType) {
+		return nil, fmt.Errorf("Kubernetes clusters are disabled")
+	} else if s.flags.PrivateEndpointsEnabled && strings.Contains(rInfo.ResourceID, PrivateEndpointResourceType) {
+		return nil, fmt.Errorf("Private endpoints are disabled")
 	}
 
 	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)

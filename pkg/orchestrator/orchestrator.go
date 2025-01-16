@@ -1218,6 +1218,11 @@ func (s *ControllerServer) resourceCreate(c *gin.Context, resourceInfo *Resource
 }
 
 func (s *ControllerServer) resourceAttach(c *gin.Context, resourceInfo *ResourceInfo, cloudClient string) {
+	if !s.config.FeatureFlags.OrchestratorFlags.AttachResourceEnabled {
+		c.AbortWithStatusJSON(400, createErrorResponse("AttachResource feature is disabled"))
+		return
+	}
+
 	// Create connection to cloud plugin
 	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -1561,6 +1566,17 @@ func Setup(cfg config.Config, background bool) {
 
 	for _, c := range cfg.CloudPlugins {
 		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port
+		if cfg.FeatureFlags.PluginFlags != nil {
+			conn, err := grpc.NewClient(server.pluginAddresses[c.Name], grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				return
+			}
+			defer conn.Close()
+
+			// Send feature flags
+			client := paragliderpb.NewCloudPluginClient(conn)
+			_, err = client.SetFeatureFlags(context.Background(), &cfg.FeatureFlags.PluginFlags[c.Name])
+		}
 	}
 
 	// If address space isn't declared in config, fall back to default private address space
