@@ -263,6 +263,10 @@ message GetNetworkAddressSpacesRequest {
 }
 
 message SetFlagsRequest {
+    PluginFlags flags = 1;
+}
+
+message PluginFlags {
     bool private_endpoints_enabled = 1;
     bool kubernetes_clusters_enabled = 2;
 }

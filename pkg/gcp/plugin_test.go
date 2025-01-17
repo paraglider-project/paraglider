@@ -34,6 +34,22 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func TestSetFlags(t *testing.T) {
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &fakeServerState{})
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	s := &GCPPluginServer{flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: false}}
+
+	request := &paragliderpb.SetFlagsRequest{Flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: true, PrivateEndpointsEnabled: true}}
+
+	response, err := s.SetFlags(ctx, request)
+
+	require.NoError(t, err)
+	require.NotNil(t, response)
+	require.True(t, s.flags.KubernetesClustersEnabled)
+	require.True(t, s.flags.PrivateEndpointsEnabled)
+}
+
 func TestGetPermitList(t *testing.T) {
 	fakeServerState := &fakeServerState{
 		instance: getFakeInstance(true),
@@ -350,7 +366,8 @@ func TestCreateResource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr,
+		flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: false}}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
 		Zone:             fakeZone,
@@ -385,7 +402,8 @@ func TestCreateResourceCluster(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr,
+		flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: true, PrivateEndpointsEnabled: false}}
 	description, err := json.Marshal(&containerpb.CreateClusterRequest{
 		Cluster: getFakeCluster(false),
 		Parent:  fmt.Sprintf("projects/%s/locations/%s", fakeProject, fakeZone),
@@ -403,6 +421,43 @@ func TestCreateResourceCluster(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
+
+func TestCreateResourceClusterDisabled(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		cluster: getFakeCluster(true), // Include cluster in server state since CreateResource will fetch after creating to add the tag
+		network: &computepb.Network{
+			Name:        proto.String(getVpcName(fakeNamespace)),
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")},
+		},
+	}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr,
+		flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: false}}
+	description, err := json.Marshal(&containerpb.CreateClusterRequest{
+		Cluster: getFakeCluster(false),
+		Parent:  fmt.Sprintf("projects/%s/locations/%s", fakeProject, fakeZone),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource := &paragliderpb.CreateResourceRequest{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
+		Name:        fakeClusterName,
+		Description: description,
+	}
+
+	resp, err := s._CreateResource(ctx, resource, fakeClients)
+	require.Error(t, err)
+	require.Nil(t, resp)
+}
+
+// TODO NOW: add tests for PSCs once your current PR gets through
 
 func TestCreateResourceMissingNetwork(t *testing.T) {
 	// Include instance in server state since CreateResource will fetch after creating to add the tag

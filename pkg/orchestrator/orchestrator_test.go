@@ -63,7 +63,9 @@ func newOrchestratorServer() *ControllerServer {
 		pluginAddresses:           make(map[string]string),
 		usedBgpPeeringIpAddresses: make(map[string][]string),
 		namespace:                 defaultNamespace,
-		config:                    config.Config{AddressSpace: []string{defaultAddressSpace}},
+		config: config.Config{AddressSpace: []string{defaultAddressSpace},
+			FeatureFlags: config.Flags{OrchestratorFlags: config.OrchestratorFlags{AttachResourceEnabled: false}},
+		},
 	}
 	return s
 }
@@ -663,6 +665,7 @@ func TestAttachResourcePost(t *testing.T) {
 			Namespace:     defaultNamespace,
 		},
 	}
+	orchestratorServer.config.FeatureFlags.OrchestratorFlags.AttachResourceEnabled = true
 
 	fakeplugin.SetupFakePluginServer(port)
 	faketagservice.SetupFakeTagServer(tagServerPort)
@@ -693,6 +696,16 @@ func TestAttachResourcePost(t *testing.T) {
 
 	// Bad cloud name
 	url = fmt.Sprintf(GetFormatterString(CreateOrAttachResourcePOSTURL), defaultNamespace, "wrong")
+	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	w = httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// Feature disabled
+	orchestratorServer.config.FeatureFlags.OrchestratorFlags.AttachResourceEnabled = false
+
+	url = fmt.Sprintf(GetFormatterString(CreateOrAttachResourcePOSTURL), defaultNamespace, exampleCloudName)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 	w = httptest.NewRecorder()
 

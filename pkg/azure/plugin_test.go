@@ -48,11 +48,25 @@ func setupTestAzurePluginServer() (*azurePluginServer, context.Context) {
 	server := &azurePluginServer{}
 	server.orchestratorServerAddr = "fakecontrollerserveraddr"
 	server.azureCredentialGetter = &dummyAzureCredentialGetter{}
+	server.flags = &paragliderpb.PluginFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: false}
 
 	return server, context.Background()
 }
 
 /* ---- Tests ---- */
+
+func TestSetFlags(t *testing.T) {
+	t.Run("SetFlags: Success", func(t *testing.T) {
+		server, ctx := setupTestAzurePluginServer()
+		req := &paragliderpb.SetFlagsRequest{Flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: true, PrivateEndpointsEnabled: true}}
+		resp, err := server.SetFlags(ctx, req)
+
+		require.NotNil(t, resp)
+		require.NoError(t, err)
+		assert.True(t, server.flags.KubernetesClustersEnabled)
+		assert.True(t, server.flags.PrivateEndpointsEnabled)
+	})
+}
 
 func TestCreateResource(t *testing.T) {
 	t.Run("TestCreateResource: Success", func(t *testing.T) {
@@ -158,11 +172,47 @@ func TestCreateResource(t *testing.T) {
 			t.Fatal(err)
 		}
 		server.orchestratorServerAddr = orchAddr
+		server.flags.KubernetesClustersEnabled = true
 
 		response, err := server.CreateResource(ctx, desc)
 
 		require.NoError(t, err)
 		require.NotNil(t, response)
+	})
+
+	t.Run("TestCreateResource: Disabled Cluster Creation", func(t *testing.T) {
+		cluster := getFakeCluster(true)
+		desc, err := getFakeClusterResourceDescription(to.Ptr(getFakeCluster(false)))
+		if err != nil {
+			t.Errorf("Error while creating valid resource description: %v", err)
+		}
+
+		serverState := &fakeServerState{
+			subId:   subID,
+			rgName:  rgName,
+			vnet:    getFakeParagliderVirtualNetwork(),
+			subnet:  getFakeParagliderSubnet(),
+			nic:     getFakeParagliderInterface(),
+			nsg:     getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName),
+			vpnGw:   &armnetwork.VirtualNetworkGateway{},
+			cluster: &cluster,
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
+
+		server, _ := setupTestAzurePluginServer()
+
+		_, orchAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.AZURE)
+		if err != nil {
+			t.Fatal(err)
+		}
+		server.orchestratorServerAddr = orchAddr
+		server.flags.KubernetesClustersEnabled = false
+
+		response, err := server.CreateResource(ctx, desc)
+
+		require.Error(t, err)
+		require.Nil(t, response)
 	})
 }
 

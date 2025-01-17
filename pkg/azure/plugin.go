@@ -39,7 +39,7 @@ type azurePluginServer struct {
 	paragliderpb.UnimplementedCloudPluginServer
 	orchestratorServerAddr string
 	azureCredentialGetter  IAzureCredentialGetter
-	flags                  paragliderpb.SetPluginFlagsRequest
+	flags                  *paragliderpb.PluginFlags
 }
 
 const (
@@ -66,9 +66,9 @@ func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo, nam
 	return &azureHandler, nil
 }
 
-func (s *azurePluginServer) SetPluginFlags(ctx context.Context, req *paragliderpb.SetPluginFlagsRequest) (*paragliderpb.SetPluginFlagsResponse, error) {
-	s.flags = *req
-	return &paragliderpb.SetPluginFlagsResponse{}, nil
+func (s *azurePluginServer) SetFlags(ctx context.Context, req *paragliderpb.SetFlagsRequest) (*paragliderpb.SetFlagsResponse, error) {
+	s.flags = req.Flags
+	return &paragliderpb.SetFlagsResponse{}, nil
 }
 
 // GetPermitList returns the permit list for the given resource by getting the NSG rules
@@ -867,6 +867,7 @@ func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 	azureServer := &azurePluginServer{
 		orchestratorServerAddr: orchestratorServerAddr,
 		azureCredentialGetter:  &AzureCredentialGetter{},
+		flags:                  &paragliderpb.PluginFlags{PrivateEndpointsEnabled: false, KubernetesClustersEnabled: false},
 	}
 	paragliderpb.RegisterCloudPluginServer(grpcServer, azureServer)
 	fmt.Println("Starting server on port: ", port)

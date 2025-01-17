@@ -16,6 +16,8 @@ limitations under the License.
 
 package config
 
+import "github.com/paraglider-project/paraglider/pkg/paragliderpb"
+
 type CloudDeployment struct {
 	Name       string `yaml:"name"`
 	Deployment string `yaml:"deployment"`
@@ -63,6 +65,6 @@ type PluginFlags struct {
 }
 
 type Flags struct {
-	OrchestratorFlags OrchestratorFlags                       `yaml:"orchestratorFlags"`
-	PluginFlags       map[string]paragliderpb.SetFlagsRequest `yaml:"pluginFlags"`
+	OrchestratorFlags OrchestratorFlags                   `yaml:"orchestratorFlags"`
+	PluginFlags       map[string]paragliderpb.PluginFlags `yaml:"pluginFlags"`
 }

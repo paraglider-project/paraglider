@@ -1575,7 +1575,9 @@ func Setup(cfg config.Config, background bool) {
 
 			// Send feature flags
 			client := paragliderpb.NewCloudPluginClient(conn)
-			_, err = client.SetFeatureFlags(context.Background(), &cfg.FeatureFlags.PluginFlags[c.Name])
+			cloudFlags := &paragliderpb.PluginFlags{KubernetesClustersEnabled: cfg.FeatureFlags.PluginFlags[c.Name].KubernetesClustersEnabled,
+				PrivateEndpointsEnabled: cfg.FeatureFlags.PluginFlags[c.Name].PrivateEndpointsEnabled}
+			_, err = client.SetFlags(context.Background(), &paragliderpb.SetFlagsRequest{Flags: cloudFlags})
 		}
 	}
 
