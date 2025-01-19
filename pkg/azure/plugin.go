@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
@@ -861,11 +860,10 @@ func (s *azurePluginServer) ValidateResource(ctx context.Context, req *paraglide
 }
 
 func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragliderpb.CheckResourceRequest) (*paragliderpb.CheckResourceResponse, error) {
-	resp := &paragliderpb.CheckResourceResponse{}
+	resp := &paragliderpb.CheckResourceResponse{Checks: make(map[int32]*paragliderpb.CheckResult)}
 	resourceId := checkReq.GetResource()
 	namespace := checkReq.GetNamespace()
 	attemptFix := checkReq.GetAttemptFix()
-	checks := make(map[int32]*paragliderpb.CheckResult)
 
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
 	if err != nil {
@@ -878,362 +876,59 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	}
 
 	// Resource Exists Check
-	_, err = ValidateResourceExists(ctx, handler, resourceId)
+	res, err := resourceExistsCheck(ctx, handler, resourceId)
 	if err != nil {
-		// todo: Do this check in a different way. This format is based on return text in err msg
-		errorText := textBetween(err.Error(), "ERROR CODE", "\n")
-		if strings.Contains(errorText, "NotFound") {
-			checks[int32(paragliderpb.CheckCode_Resource_Exists)] = &paragliderpb.CheckResult{
-				Status: paragliderpb.CheckStatus_FAIL,
-			}
-		}
-		resp.Checks = checks
-		return resp, nil
+		return resp, err
 	}
-	checks[int32(paragliderpb.CheckCode_Resource_Exists)] = &paragliderpb.CheckResult{
-		Status: paragliderpb.CheckStatus_OK,
+	resp.Checks[int32(paragliderpb.CheckCode_Resource_Exists)] = res
+	if res.Status == paragliderpb.CheckStatus_FAIL {
+		return resp, nil
 	}
 
 	// Get Network Information
-	networkInfo, err := GetNetworkInfoFromResource(ctx, handler, resourceId)
+	res, networkInfo, vnet, err := networkCheck(ctx, handler, resourceId)
 	if err != nil {
-		errorText := textBetween(err.Error(), "ERROR CODE", "\n")
-		if strings.Contains(errorText, "NotFound") {
-			if strings.HasPrefix(err.Error(), "NIC") {
-				checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
-					Status:   paragliderpb.CheckStatus_FAIL,
-					Messages: []string{"Error with Network Interface:\n", err.Error()},
-				}
-				resp.Checks = checks
-				return resp, nil
-			}
-
-			if strings.HasPrefix(err.Error(), "NSG") {
-				checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
-					Status:   paragliderpb.CheckStatus_FAIL,
-					Messages: []string{"Error with Network Security Group:\n", err.Error()},
-				}
-				resp.Checks = checks
-				return resp, nil
-			}
-		}
+		return resp, err
 	}
-
-	// NSG, NIC, and Subnet Exists
-	// Network Exists Check
-	vnet, err := handler.GetVirtualNetwork(ctx, getVnetFromSubnetId(networkInfo.SubnetID))
-	if err != nil {
-		checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
-			Status:   paragliderpb.CheckStatus_FAIL,
-			Messages: []string{"Error with Virtual Network:\n", err.Error()},
-		}
-		resp.Checks = checks
+	resp.Checks[int32(paragliderpb.CheckCode_Network_Exists)] = res
+	if res.Status == paragliderpb.CheckStatus_FAIL {
 		return resp, nil
-	}
-	if !isProvisioned(vnet.Properties.ProvisioningState) {
-		checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
-			Status:   paragliderpb.CheckStatus_FAIL,
-			Messages: []string{"Virtual Network is not provisioned"},
-		}
-		resp.Checks = checks
-		return resp, nil
-	}
-
-	checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
-		Status: paragliderpb.CheckStatus_OK,
 	}
 
 	// Permit List Configuration Check
-	if !isProvisioned(networkInfo.NSG.Properties.ProvisioningState) {
-		checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
-			Status:   paragliderpb.CheckStatus_FAIL,
-			Messages: []string{"Network Security Group is not provisioned"},
-		}
-		resp.Checks = checks
-		return resp, nil
+	res, err = permitListConfigCheck(ctx, handler, networkInfo.NSG, attemptFix)
+	if err != nil {
+		return resp, err
 	}
-
-	isNSGCompliant, _ := CheckSecurityRulesCompliance(ctx, handler, networkInfo.NSG)
-	if isNSGCompliant {
-		checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
-			Status: paragliderpb.CheckStatus_OK,
-		}
-	} else {
-		checks[int32(paragliderpb.CheckCode_PermitListConfig)] = &paragliderpb.CheckResult{
-			Status:   paragliderpb.CheckStatus_FAIL,
-			Messages: []string{"Security rules are not compliant"},
-		}
-		if attemptFix {
-			// todo: Fix the security rules
-		}
-	}
+	resp.Checks[int32(paragliderpb.CheckCode_PermitListConfig)] = res
 
 	// Permit List Targets Check
-	status, msgs, publicCloudConn, _, peerVnets, targets, err := s.CheckPermitLists(ctx, handler, resourceId, networkInfo, checkReq.Namespace, attemptFix)
+	res, publicConn, _, peerVnets, targets, err := permitListsTargetCheck(ctx, s, handler, networkInfo, namespace, attemptFix)
 	if err != nil {
-		// todo: should we return an error here?
 		utils.Log.Printf("An error occured while checking permit lists:%+v", err)
-		return nil, err
+		return resp, err
 	}
-	checks[int32(paragliderpb.CheckCode_PermitListTargets)] = &paragliderpb.CheckResult{Status: status, Messages: msgs}
+	resp.Checks[int32(paragliderpb.CheckCode_PermitListTargets)] = res
 
 	// Public Cloud Connnection Configuration Check
-	// todo: Maybe we need to check for more than NAT?
-	hasNAT := false
-	createdNAT := false
-	if publicCloudConn {
-		if attemptFix {
-			_, err = getOrCreateNatGateway(ctx, handler, namespace, *vnet.Location)
-			createdNAT = (err == nil)
-		} else {
-			natGatewayName := getNatGatewayName(namespace, *vnet.Location)
-			_, err = handler.GetNatGateway(ctx, natGatewayName)
-			hasNAT = (err == nil)
-		}
-	}
-
-	if !publicCloudConn || publicCloudConn && hasNAT {
-		checks[int32(paragliderpb.CheckCode_PublicConnectionsConfigured)] = &paragliderpb.CheckResult{
-			Status: paragliderpb.CheckStatus_OK,
-		}
-	} else if createdNAT {
-		checks[int32(paragliderpb.CheckCode_PublicConnectionsConfigured)] = &paragliderpb.CheckResult{
-			Status: paragliderpb.CheckStatus_FIXED,
+	if publicConn {
+		res, err = publicConnectionsCheck(ctx, handler, *vnet.Location, attemptFix)
+		if err != nil {
+			utils.Log.Printf("An error occured while checking public connection:%+v", err)
 		}
 	} else {
-		// Resource should have a NAT if it references a public IP
-		checks[int32(paragliderpb.CheckCode_PublicConnectionsConfigured)] = &paragliderpb.CheckResult{
-			Status:   paragliderpb.CheckStatus_FAIL,
-			Messages: []string{"Error with Network Address Translator:\n", err.Error()},
-		}
+		res = &paragliderpb.CheckResult{Status: paragliderpb.CheckStatus_OK}
 	}
+	resp.Checks[int32(paragliderpb.CheckCode_PublicConnectionsConfigured)] = res
 
 	// Intra-cloud Check
-	peerings := vnet.Properties.VirtualNetworkPeerings
-	checks[int32(paragliderpb.CheckCode_IntraCloudConnectionsConfigured)] = &paragliderpb.CheckResult{
-		Messages: make([]string, 0),
+	res, err = intraCloudCheck(ctx, s, handler, resourceIdInfo, vnet, peerVnets, targets, attemptFix)
+	if err != nil {
+		utils.Log.Printf("An error occured while checking intra-cloud connections:%+v", err)
 	}
-	for _, peering := range peerings {
-		remoteId := *peering.Properties.RemoteVirtualNetwork.ID
-		brokenPeering := false
-		target := ""
-		peeringCloudInfo, ok := peerVnets[remoteId]
-		if ok {
-			if *peering.Properties.PeeringState != armnetwork.VirtualNetworkPeeringStateConnected {
-				brokenPeering = true
-				target = targets[peeringCloudInfo]
-			} else {
-				// Remove the peer vnet from the map to signify that it is connected
-				delete(peerVnets, remoteId)
-			}
-		}
+	resp.Checks[int32(paragliderpb.CheckCode_IntraCloudConnectionsConfigured)] = res
 
-		if brokenPeering {
-			if attemptFix {
-				err = s.createPeering(ctx, *handler, resourceIdInfo, *vnet.Name, peeringCloudInfo, target)
-				if err == nil {
-					delete(peerVnets, remoteId)
-				} else {
-					checks[int32(paragliderpb.CheckCode_IntraCloudConnectionsConfigured)].Messages = append(checks[int32(paragliderpb.CheckCode_IntraCloudConnectionsConfigured)].Messages, "Error creating peering to vnet")
-				}
-			} else {
-				checks[int32(paragliderpb.CheckCode_IntraCloudConnectionsConfigured)].Messages = append(checks[int32(paragliderpb.CheckCode_IntraCloudConnectionsConfigured)].Messages, "Peering to vnet not connected")
-			}
-		}
-	}
-
-	// All existing and connected peer vnets should be deleted from the peer vnets map
-	if len(peerVnets) > 0 {
-		checks[int32(paragliderpb.CheckCode_IntraCloudConnectionsConfigured)].Status = paragliderpb.CheckStatus_FAIL
-	} else if attemptFix {
-		checks[int32(paragliderpb.CheckCode_IntraCloudConnectionsConfigured)].Status = paragliderpb.CheckStatus_FIXED
-	} else {
-		checks[int32(paragliderpb.CheckCode_IntraCloudConnectionsConfigured)].Status = paragliderpb.CheckStatus_OK
-	}
-
-	resp.Checks = checks
 	return resp, nil
-}
-
-// Check that the targets of the permit lists exists
-// Also return whether the resource has any multicloud or public cloud connection
-func (s *azurePluginServer) CheckPermitLists(
-	ctx context.Context,
-	handler *AzureSDKHandler,
-	resourceID string,
-	networkInfo *resourceNetworkInfo,
-	namespace string,
-	attemptFix bool,
-) (status paragliderpb.CheckStatus, messages []string, publicCloud bool, multiCloud bool, peerVnets map[string]*utils.PeeringCloudInfo, targets map[*utils.PeeringCloudInfo]string, err error) {
-	vnetName := getVnetFromSubnetId(networkInfo.SubnetID)
-	vnet, err := handler.GetVirtualNetwork(ctx, vnetName)
-	if err != nil {
-		utils.Log.Printf("An error occured while getting vnet:%+v", err)
-		return paragliderpb.CheckStatus_FAIL, nil, false, false, nil, nil, err
-	}
-
-	// Get subnets address spaces
-	localVnetAddressSpaces := []string{}
-	for _, addressSpace := range vnet.Properties.AddressSpace.AddressPrefixes {
-		localVnetAddressSpaces = append(localVnetAddressSpaces, *addressSpace)
-	}
-	if len(localVnetAddressSpaces) == 0 {
-		return paragliderpb.CheckStatus_FAIL, nil, false, false, nil, nil, fmt.Errorf("unable to get subnet address prefix for vnet")
-	}
-
-	// Used when fixing. Tracks IPs associated to any deleted rule
-	deletedIps := map[string]bool{}
-	visitedIps := map[string]bool{}
-	publicCloud = false
-
-	// Map of vnet name to peering cloud info
-	peerVnets = make(map[string]*utils.PeeringCloudInfo)
-	targets = make(map[*utils.PeeringCloudInfo]string)
-
-	// Get used address spaces of all clouds
-	orchestratorConn, err := grpc.NewClient(s.orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return paragliderpb.CheckStatus_FAIL, nil, false, false, peerVnets, targets, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
-	}
-	defer orchestratorConn.Close()
-	orchestratorClient := paragliderpb.NewControllerClient(orchestratorConn)
-	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &emptypb.Empty{})
-	if err != nil {
-		return paragliderpb.CheckStatus_FAIL, nil, false, false, peerVnets, targets, fmt.Errorf("unable to get used address spaces: %w", err)
-	}
-
-	// Get permit lists for resource
-	rules, err := getPermitListsFromRules(handler, networkInfo.NSG.Properties.SecurityRules, false)
-	if err != nil {
-		return paragliderpb.CheckStatus_FAIL, nil, false, false, peerVnets, targets, fmt.Errorf("unable to get permit lists from rules: %w", err)
-	}
-
-	status = paragliderpb.CheckStatus_OK
-	messages = []string{}
-	for _, rule := range rules {
-		peeringCloudInfos, err := utils.GetPermitListRulePeeringCloudInfo(rule, getUsedAddressSpacesResp.AddressSpaceMappings)
-		if err != nil {
-			return paragliderpb.CheckStatus_FAIL, nil, publicCloud, multiCloud, peerVnets, targets, fmt.Errorf("unable to get peering cloud infos: %w", err)
-		}
-
-		for i, peeringCloudInfo := range peeringCloudInfos {
-			// If the rule has no tag for the target, skip
-			// May be because the resource was attached and Paraglider does not know about targets
-			if i >= len(rule.Tags) {
-				continue
-			}
-
-			peerTag := rule.Tags[i]
-			peerIp := rule.Targets[i]
-			// For check, no need to check the same IP twice if both inbound and outbound rules exist
-			// For fix, both inbound and outbound rules need to be deleted
-			if visitedIps[peerIp] && !attemptFix {
-				continue // Skip if the IP has already been visited and checked
-			}
-
-			if peeringCloudInfo == nil {
-				// Public IP
-				publicCloud = true
-			} else {
-				// If a deleted IP is seen in another rule, it means the rule is
-				// in the opposite direction(in vs outbound) and should also be deleted
-				if deletedIps[peerIp] && attemptFix {
-					err = handler.DeleteSecurityRule(ctx, *networkInfo.NSG.Name, rule.Name)
-					if err == nil {
-						status = paragliderpb.CheckStatus_FIXED
-					} else {
-						status = paragliderpb.CheckStatus_FAIL
-					}
-					continue
-				}
-
-				// Get the URI for the peered resource
-				var uriReq *paragliderpb.RetrieveUriRequest
-				var uriResp *paragliderpb.RetrieveUriResponse
-				if peeringCloudInfo.Cloud == utils.AZURE {
-					// Azure will handle validation of azure resources
-					uriReq = &paragliderpb.RetrieveUriRequest{TagName: peerTag, Cloud: utils.AZURE, ShouldValidate: false}
-					uriResp, err = orchestratorClient.RetrieveUriFromTag(ctx, uriReq)
-					if err != nil {
-						return paragliderpb.CheckStatus_FAIL, nil, publicCloud, multiCloud, peerVnets, targets, fmt.Errorf("unable to get uri from ip: %w", err)
-					}
-					peerUri := uriResp.Uri
-					peerInfo, err := getResourceIDInfo(peerUri)
-					if err != nil {
-						utils.Log.Printf("An error occured while getting resource id info:%+v", err)
-						return paragliderpb.CheckStatus_FAIL, nil, publicCloud, multiCloud, peerVnets, targets, err
-					}
-					// The namespace doesn't matter for this peer handler setup
-					// because this handler is setup to only validate if the resource exists on the cloud
-					peerHandler, err := s.setupAzureHandler(peerInfo, namespace)
-					if err != nil {
-						return paragliderpb.CheckStatus_FAIL, nil, publicCloud, multiCloud, peerVnets, targets, err
-					}
-
-					_, err = ValidateResourceExists(ctx, peerHandler, peerUri)
-					if err == nil {
-						uriResp.Validated = true
-					}
-
-					// Get the Peer Vnet for peering validation if peer is validated
-					if uriResp.Validated {
-						isLocal, err := utils.IsPermitListRuleTagInAddressSpace(peerIp, localVnetAddressSpaces)
-						if err != nil {
-							return paragliderpb.CheckStatus_FAIL, nil, publicCloud, multiCloud, peerVnets, targets, err
-						}
-						if !isLocal {
-							// Get peer Vnet
-							peerNetworkInfo, err := GetNetworkInfoFromResource(ctx, peerHandler, peerUri)
-							if err != nil {
-								return paragliderpb.CheckStatus_FAIL, nil, publicCloud, multiCloud, peerVnets, targets, err
-							}
-							peerVnetName := getVnetFromSubnetId(peerNetworkInfo.SubnetID)
-							peerVnet, err := peerHandler.GetVirtualNetwork(ctx, peerVnetName)
-							if err != nil {
-								return paragliderpb.CheckStatus_FAIL, nil, publicCloud, multiCloud, peerVnets, targets, err
-							}
-							peerVnets[*peerVnet.ID] = peeringCloudInfo
-							targets[peeringCloudInfo] = peerIp
-						}
-					}
-				} else {
-					// External cloud should validate that resource existss
-					uriReq = &paragliderpb.RetrieveUriRequest{TagName: peerTag, Cloud: utils.AZURE, ShouldValidate: true}
-					uriResp, err = orchestratorClient.RetrieveUriFromTag(ctx, uriReq)
-					if err != nil {
-						return paragliderpb.CheckStatus_FAIL, nil, publicCloud, multiCloud, peerVnets, targets, fmt.Errorf("unable to get uri from ip: %w", err)
-					}
-					// Multi connection exists if cross-cloud resource is validated/exists
-					if !multiCloud {
-						multiCloud = uriResp.Validated
-					}
-				}
-
-				if !uriResp.Validated {
-					// The peered resource doesn't exist
-					status = paragliderpb.CheckStatus_FAIL
-
-					// Attempt fixing by deleting the rule
-					if attemptFix {
-						err = handler.DeleteSecurityRule(ctx, *networkInfo.NSG.Name, rule.Name)
-						if err == nil {
-							status = paragliderpb.CheckStatus_FIXED
-							deletedIps[peerIp] = true
-						} else {
-							// Add error message if fix failed
-							messages = append(messages, fmt.Sprintf("Failed to delete permit list to resource: %s", peerTag))
-						}
-					} else {
-						messages = append(messages, fmt.Sprintf("Peered resource doesn't exist: %s", peerTag))
-					}
-				}
-			}
-
-			visitedIps[peerIp] = true
-		}
-	}
-
-	return status, messages, publicCloud, multiCloud, peerVnets, targets, nil
 }
 
 func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
