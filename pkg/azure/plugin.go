@@ -880,8 +880,9 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	// Resource Exists Check
 	_, err = ValidateResourceExists(ctx, handler, resourceId)
 	if err != nil {
-		// todo: Do this check in a different way
-		if strings.Contains(err.Error(), "ResourceNotFound") {
+		// todo: Do this check in a different way. This format is based on return text in err msg
+		errorText := textBetween(err.Error(), "ERROR CODE", "\n")
+		if strings.Contains(errorText, "NotFound") {
 			checks[int32(paragliderpb.CheckCode_Resource_Exists)] = &paragliderpb.CheckResult{
 				Status: paragliderpb.CheckStatus_FAIL,
 			}
@@ -896,7 +897,8 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	// Get Network Information
 	networkInfo, err := GetNetworkInfoFromResource(ctx, handler, resourceId)
 	if err != nil {
-		if strings.Contains(err.Error(), "ResourceNotFound") {
+		errorText := textBetween(err.Error(), "ERROR CODE", "\n")
+		if strings.Contains(errorText, "NotFound") {
 			if strings.HasPrefix(err.Error(), "NIC") {
 				checks[int32(paragliderpb.CheckCode_Network_Exists)] = &paragliderpb.CheckResult{
 					Status:   paragliderpb.CheckStatus_FAIL,
@@ -967,13 +969,44 @@ func (s *azurePluginServer) CheckResource(ctx context.Context, checkReq *paragli
 	}
 
 	// Permit List Targets Check
-	status, msgs, _, _, err := s.CheckPermitLists(ctx, handler, resourceId, networkInfo, checkReq.Namespace, attemptFix)
+	status, msgs, publicCloudConn, _, err := s.CheckPermitLists(ctx, handler, resourceId, networkInfo, checkReq.Namespace, attemptFix)
 	if err != nil {
 		// todo: should we return an error here?
 		utils.Log.Printf("An error occured while checking permit lists:%+v", err)
 		return nil, err
 	}
 	checks[int32(paragliderpb.CheckCode_PermitListTargets)] = &paragliderpb.CheckResult{Status: status, Messages: msgs}
+
+	// Public Cloud Connnection Configuration Check
+	// todo: Maybe we need to check for more than NAT?
+	hasNAT := false
+	createdNAT := false
+	if publicCloudConn {
+		if attemptFix {
+			_, err = getOrCreateNatGateway(ctx, handler, namespace, *vnet.Location)
+			createdNAT = (err == nil)
+		} else {
+			natGatewayName := getNatGatewayName(namespace, *vnet.Location)
+			_, err = handler.GetNatGateway(ctx, natGatewayName)
+			hasNAT = (err == nil)
+		}
+	}
+
+	if !publicCloudConn || publicCloudConn && hasNAT {
+		checks[int32(paragliderpb.CheckCode_PublicConnectionsConfigured)] = &paragliderpb.CheckResult{
+			Status: paragliderpb.CheckStatus_OK,
+		}
+	} else if createdNAT {
+		checks[int32(paragliderpb.CheckCode_PublicConnectionsConfigured)] = &paragliderpb.CheckResult{
+			Status: paragliderpb.CheckStatus_FIXED,
+		}
+	} else {
+		// Resource should have a NAT if it references a public IP
+		checks[int32(paragliderpb.CheckCode_PublicConnectionsConfigured)] = &paragliderpb.CheckResult{
+			Status:   paragliderpb.CheckStatus_FAIL,
+			Messages: []string{"Error with Network Address Translator:\n", err.Error()},
+		}
+	}
 
 	resp.Checks = checks
 	return resp, nil
