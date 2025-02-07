@@ -316,7 +316,13 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	resourceInfo.Namespace = resourceDescription.Deployment.Namespace
 
 	subnetExists := false
-	subnetName := getSubnetworkName(resourceDescription.Deployment.Namespace, resourceInfo.Region)
+	var subnetName string
+	if resourceInfo.Region == globalRegion {
+		subnetName = ""
+		subnetExists = true
+	} else {
+		subnetName = getSubnetworkName(resourceDescription.Deployment.Namespace, resourceInfo.Region)
+	}
 
 	// Get the networks client
 	networksClient, err := clients.GetOrCreateNetworksClient(ctx)
@@ -383,7 +389,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		} else {
 			return nil, fmt.Errorf("failed to get paraglider vpc network: %w", err)
 		}
-	} else {
+	} else if !subnetExists {
 		// Check if there is a subnet in the region that resource will be placed in
 		for _, subnetURL := range getNetworkResp.Subnetworks {
 			parsedSubnetURL := parseUrl(subnetURL)
