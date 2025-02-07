@@ -17,8 +17,7 @@ GOTEST_OPTS ?=
 GOTEST_TOOL ?= gotestsum $(GOTESTSUM_OPTS) --
 endif
 
-# Optionally test just one package
-# By default, does not test internal directory packages if a specific package is specified
+# Optionally test an individual package
 INTERNAL_PKG ?= ...
 PKG ?= ...
 
@@ -39,8 +38,6 @@ else
 GOTEST_PKG = ./pkg/$(PKG)
 endif
 endif
-
-
 
 # Overriden when running integration tests in CI/CD pipeline
 GOTEST_CMD = CGO_ENABLED=1 $(GOTEST_TOOL) -v $(GOTEST_INTERNAL_PKGS) $(GOTEST_PKG) $(GOTEST_OPTS)
