@@ -459,7 +459,7 @@ func TestCreateResourceClusterDisabled(t *testing.T) {
 
 func TestCreateResourcePsc(t *testing.T) {
 	fakeServerState := &fakeServerState{
-		address:        getFakeAddress(),
+		address:        getFakeAddress(false),
 		forwardingRule: getFakeForwardingRule(),
 		network: &computepb.Network{
 			Name:        proto.String(getVpcName(fakeNamespace)),
@@ -494,7 +494,7 @@ func TestCreateResourcePsc(t *testing.T) {
 
 func TestCreateResourcePscDisabled(t *testing.T) {
 	fakeServerState := &fakeServerState{
-		address:        getFakeAddress(),
+		address:        getFakeAddress(false),
 		forwardingRule: getFakeForwardingRule(),
 		network: &computepb.Network{
 			Name:        proto.String(getVpcName(fakeNamespace)),
