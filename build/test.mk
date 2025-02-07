@@ -17,8 +17,33 @@ GOTEST_OPTS ?=
 GOTEST_TOOL ?= gotestsum $(GOTESTSUM_OPTS) --
 endif
 
+# Optionally test just one package
+# By default, does not test internal directory packages if a specific package is specified
+INTERNAL_PKG ?= ...
+PKG ?= ...
+
+# If either type of package is specified, test only that directory (but do both if both are specified)
+# Otherwise, test all
+ifneq ($(PKG),...)
+GOTEST_PKG = ./pkg/$(PKG)
+ifneq ($(INTERNAL_PKG),...)
+GOTEST_INTERNAL_PKGS = ./internal/$(INTERNAL_PKG)
+else
+GOTEST_INTERNAL_PKGS = 
+endif
+else
+GOTEST_INTERNAL_PKGS = ./internal/$(INTERNAL_PKG)
+ifneq ($(INTERNAL_PKG),...)
+GOTEST_PKG = 
+else
+GOTEST_PKG = ./pkg/$(PKG)
+endif
+endif
+
+
+
 # Overriden when running integration tests in CI/CD pipeline
-GOTEST_CMD = CGO_ENABLED=1 $(GOTEST_TOOL) -v ./internal/... ./pkg/... $(GOTEST_OPTS)
+GOTEST_CMD = CGO_ENABLED=1 $(GOTEST_TOOL) -v $(GOTEST_INTERNAL_PKGS) $(GOTEST_PKG) $(GOTEST_OPTS)
 
 .PHONY: test
 test: ## Runs unit tests in the internal and pkg folders
