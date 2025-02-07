@@ -457,7 +457,75 @@ func TestCreateResourceClusterDisabled(t *testing.T) {
 	require.Nil(t, resp)
 }
 
-// TODO NOW: add tests for PSCs once your current PR gets through
+func TestCreateResourcePsc(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		address:        getFakeAddress(),
+		forwardingRule: getFakeForwardingRule(),
+		network: &computepb.Network{
+			Name:        proto.String(getVpcName(fakeNamespace)),
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")},
+		},
+	}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr,
+		flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: true}}
+	description, err := json.Marshal(&ServiceAttachmentDescription{
+		Url: fakeServiceAttachmentUrl,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource := &paragliderpb.CreateResourceRequest{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
+		Name:        fakePscName,
+		Description: description,
+	}
+
+	resp, err := s._CreateResource(ctx, resource, fakeClients)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+}
+
+func TestCreateResourcePscDisabled(t *testing.T) {
+	fakeServerState := &fakeServerState{
+		address:        getFakeAddress(),
+		forwardingRule: getFakeForwardingRule(),
+		network: &computepb.Network{
+			Name:        proto.String(getVpcName(fakeNamespace)),
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")},
+		},
+	}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, fakeServerState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr,
+		flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: false}}
+	description, err := json.Marshal(&ServiceAttachmentDescription{
+		Url: fakeServiceAttachmentUrl,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource := &paragliderpb.CreateResourceRequest{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: "projects/" + fakeProject, Namespace: fakeNamespace},
+		Name:        fakePscName,
+		Description: description,
+	}
+
+	resp, err := s._CreateResource(ctx, resource, fakeClients)
+	require.Error(t, err)
+	require.Nil(t, resp)
+}
 
 func TestCreateResourceMissingNetwork(t *testing.T) {
 	// Include instance in server state since CreateResource will fetch after creating to add the tag
