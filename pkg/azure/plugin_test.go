@@ -785,6 +785,7 @@ func TestCreateVpnConnections(t *testing.T) {
 func TestAttachResource(t *testing.T) {
 	fakeNsg := getFakeNsgWithRules(validSecurityGroupID, validSecurityGroupName)
 	pluginServer, _ := setupTestAzurePluginServer()
+	pluginServer.flags.AttachResourceEnabled = true
 	fakeVm := getFakeVirtualMachine(true)
 	req := &paragliderpb.AttachResourceRequest{
 		Namespace: namespace,
@@ -821,6 +822,26 @@ func TestAttachResource(t *testing.T) {
 		}
 		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
 		defer Teardown(fakeServer)
+
+		resp, err := pluginServer.AttachResource(ctx, req)
+		require.Error(t, err)
+		require.Nil(t, resp)
+	})
+
+	t.Run("AttachResource: Failure - Disabled Feature", func(t *testing.T) {
+		serverState := &fakeServerState{
+			subId:  subID,
+			rgName: rgName,
+			nic:    getFakeInterface(),
+			nsg:    fakeNsg,
+			vnet:   getFakeParagliderVirtualNetwork(),
+			vpnGw:  &armnetwork.VirtualNetworkGateway{},
+			vm:     to.Ptr(fakeVm),
+		}
+		fakeServer, ctx := SetupFakeAzureServer(t, serverState)
+		defer Teardown(fakeServer)
+
+		pluginServer.flags.AttachResourceEnabled = false
 
 		resp, err := pluginServer.AttachResource(ctx, req)
 		require.Error(t, err)

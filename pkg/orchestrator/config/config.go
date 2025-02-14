@@ -16,8 +16,6 @@ limitations under the License.
 
 package config
 
-import "github.com/paraglider-project/paraglider/pkg/paragliderpb"
-
 type CloudDeployment struct {
 	Name       string `yaml:"name"`
 	Deployment string `yaml:"deployment"`
@@ -52,19 +50,11 @@ type Config struct {
 	Namespaces   map[string][]CloudDeployment `yaml:"namespaces"`
 	AddressSpace []string                     `yaml:"addressSpace"`
 	CloudPlugins []CloudPlugin                `yaml:"cloudPlugins"`
-	FeatureFlags Flags                        `yaml:"featureFlags"`
+	FeatureFlags map[string]FeatureFlags      `yaml:"featureFlags"`
 }
 
-type OrchestratorFlags struct {
-	AttachResourceEnabled bool `yaml:"attachResourceEnabled"`
-}
-
-type PluginFlags struct {
+type FeatureFlags struct {
+	AttachResourceEnabled     bool `yaml:"attachResourceEnabled"`
 	KubernetesClustersEnabled bool `yaml:"kubernetesClustersEnabled"`
 	PrivateEndpointsEnabled   bool `yaml:"privateEndpointsEnabled"`
-}
-
-type Flags struct {
-	OrchestratorFlags OrchestratorFlags                   `yaml:"orchestratorFlags"`
-	PluginFlags       map[string]paragliderpb.PluginFlags `yaml:"pluginFlags"`
 }

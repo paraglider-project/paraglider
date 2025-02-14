@@ -269,6 +269,7 @@ message SetFlagsRequest {
 message PluginFlags {
     bool private_endpoints_enabled = 1;
     bool kubernetes_clusters_enabled = 2;
+    bool attach_resource_enabled = 3;
 }
 
 message SetFlagsResponse {

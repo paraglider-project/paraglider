@@ -63,9 +63,8 @@ func newOrchestratorServer() *ControllerServer {
 		pluginAddresses:           make(map[string]string),
 		usedBgpPeeringIpAddresses: make(map[string][]string),
 		namespace:                 defaultNamespace,
-		config: config.Config{AddressSpace: []string{defaultAddressSpace},
-			FeatureFlags: config.Flags{OrchestratorFlags: config.OrchestratorFlags{AttachResourceEnabled: false}},
-		},
+		config:                    config.Config{AddressSpace: []string{defaultAddressSpace}},
+		flags:                     config.FeatureFlags{AttachResourceEnabled: true, KubernetesClustersEnabled: true, PrivateEndpointsEnabled: true},
 	}
 	return s
 }
@@ -665,7 +664,7 @@ func TestAttachResourcePost(t *testing.T) {
 			Namespace:     defaultNamespace,
 		},
 	}
-	orchestratorServer.config.FeatureFlags.OrchestratorFlags.AttachResourceEnabled = true
+	orchestratorServer.flags.AttachResourceEnabled = true
 
 	fakeplugin.SetupFakePluginServer(port)
 	faketagservice.SetupFakeTagServer(tagServerPort)
@@ -703,7 +702,7 @@ func TestAttachResourcePost(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Feature disabled
-	orchestratorServer.config.FeatureFlags.OrchestratorFlags.AttachResourceEnabled = false
+	orchestratorServer.flags.AttachResourceEnabled = false
 
 	url = fmt.Sprintf(GetFormatterString(CreateOrAttachResourcePOSTURL), defaultNamespace, exampleCloudName)
 	req, _ = http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))

@@ -891,7 +891,7 @@ func Setup(port int, orchestratorServerAddr string) *GCPPluginServer {
 	grpcServer := grpc.NewServer()
 	gcpServer := &GCPPluginServer{}
 	gcpServer.orchestratorServerAddr = orchestratorServerAddr
-	gcpServer.flags = &paragliderpb.PluginFlags{PrivateEndpointsEnabled: false, KubernetesClustersEnabled: false}
+	gcpServer.flags = &paragliderpb.PluginFlags{PrivateEndpointsEnabled: false, KubernetesClustersEnabled: false, AttachResourceEnabled: false}
 	paragliderpb.RegisterCloudPluginServer(grpcServer, gcpServer)
 	fmt.Println("Starting server on port :", port)
 	go func() {

@@ -846,7 +846,7 @@ func Setup(port int, orchestratorServerAddr string) *IBMPluginServer {
 	ibmServer := &IBMPluginServer{
 		cloudClient:            make(map[string]*CloudClient),
 		orchestratorServerAddr: orchestratorServerAddr,
-		flags:                  &paragliderpb.PluginFlags{PrivateEndpointsEnabled: false, KubernetesClustersEnabled: false},
+		flags:                  &paragliderpb.PluginFlags{PrivateEndpointsEnabled: false, KubernetesClustersEnabled: false, AttachResourceEnabled: false},
 	}
 	paragliderpb.RegisterCloudPluginServer(grpcServer, ibmServer)
 	utils.Log.Printf("\nStarting IBM plugin server on: %v:%v\n", pluginServerAddress, port)
