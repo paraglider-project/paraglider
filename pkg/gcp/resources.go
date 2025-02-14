@@ -656,12 +656,17 @@ func (r *privateServiceHandler) getResourceInfo(ctx context.Context, resource *p
 		region = globalRegion
 	}
 
-	return &resourceInfo{Region: region, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(), ResourceType: privateServiceConnectTypeName, Name: resource.Name}, nil
+	return &resourceInfo{Region: region, NumAdditionalAddressSpaces: r.getNumberAddressSpacesRequired(description), ResourceType: privateServiceConnectTypeName, Name: resource.Name}, nil
 }
 
 // Get the subnet requirements for a private service connect attachment
-func (r *privateServiceHandler) getNumberAddressSpacesRequired() int {
-	return 1 // Only used for GCP services (TODO: Change this to depend on that)
+func (r *privateServiceHandler) getNumberAddressSpacesRequired(description *ServiceAttachmentDescription) int {
+	// return 1 // Only used for GCP services (TODO: Change this to depend on that)
+	if description.Bundle != "" {
+		return 1
+	}
+
+	return 0
 }
 
 // Get the firewall target type and value for a specific service attachment
