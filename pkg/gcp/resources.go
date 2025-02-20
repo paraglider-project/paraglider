@@ -661,7 +661,6 @@ func (r *privateServiceHandler) getResourceInfo(ctx context.Context, resource *p
 
 // Get the subnet requirements for a private service connect attachment
 func (r *privateServiceHandler) getNumberAddressSpacesRequired(description *ServiceAttachmentDescription) int {
-	// return 1 // Only used for GCP services (TODO: Change this to depend on that)
 	if description.Bundle != "" {
 		return 1
 	}
