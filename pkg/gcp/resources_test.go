@@ -444,7 +444,6 @@ func TestPrivateServiceGetResourceInfo(t *testing.T) {
 	pscHandler := &privateServiceHandler{}
 	resource, _, err := getFakePSCRequest(false)
 	require.NoError(t, err)
-
 	resourceInfo, err := pscHandler.getResourceInfo(context.Background(), resource)
 
 	require.NoError(t, err)
@@ -458,7 +457,6 @@ func TestPrivateServiceGetResourceInfoGoogleService(t *testing.T) {
 	pscHandler := &privateServiceHandler{}
 	resource, _, err := getFakePSCRequest(true)
 	require.NoError(t, err)
-
 	resourceInfo, err := pscHandler.getResourceInfo(context.Background(), resource)
 
 	require.NoError(t, err)
