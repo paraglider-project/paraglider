@@ -444,11 +444,24 @@ func TestPrivateServiceGetResourceInfo(t *testing.T) {
 	pscHandler := &privateServiceHandler{}
 	resource, _, err := getFakePSCRequest(false)
 	require.NoError(t, err)
-
 	resourceInfo, err := pscHandler.getResourceInfo(context.Background(), resource)
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeRegion, resourceInfo.Region)
+	assert.Equal(t, 0, resourceInfo.NumAdditionalAddressSpaces)
+	assert.Equal(t, privateServiceConnectTypeName, resourceInfo.ResourceType)
+	assert.Equal(t, fakePscName, resourceInfo.Name)
+}
+
+func TestPrivateServiceGetResourceInfoGoogleService(t *testing.T) {
+	pscHandler := &privateServiceHandler{}
+	resource, _, err := getFakePSCRequest(true)
+	require.NoError(t, err)
+	resourceInfo, err := pscHandler.getResourceInfo(context.Background(), resource)
+
+	require.NoError(t, err)
+	assert.Equal(t, "global", resourceInfo.Region)
+	assert.Equal(t, 1, resourceInfo.NumAdditionalAddressSpaces)
 	assert.Equal(t, privateServiceConnectTypeName, resourceInfo.ResourceType)
 	assert.Equal(t, fakePscName, resourceInfo.Name)
 }
