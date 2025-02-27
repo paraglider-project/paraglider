@@ -67,6 +67,9 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	if e.resolveFlag {
 		tagMappings, err := c.ResolveTag(args[0])
 		if err != nil {
+			if isTagNotFound(err){
+				return fmt.Error("tag '%s' dose not exist", args[0])
+			}
 			return err
 		}
 
@@ -83,4 +86,11 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+func isTagNotFound(err error) bool {
+	var httpErr *http.ResponseError
+	if error.As(err, &httpErr) && httpErr.Response.StatusCode !=200{
+		return true
+	}
+	return false
 }
