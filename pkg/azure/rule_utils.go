@@ -75,8 +75,9 @@ func CheckSecurityRulesCompliance(ctx context.Context, azureHandler *AzureSDKHan
 }
 
 // Checks that the NSG rules in a particular direction are conformant as per the description of (func) CheckSecurityRulesCompliance
+// If any deny rule exists, it should be a deny all rule at the lowest priority (4096)
 //
-// Returns: 
+// Returns:
 //
 // 1. If deny all rule exists, priority number of the deny all rule & no error
 //
