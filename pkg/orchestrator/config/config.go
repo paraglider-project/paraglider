@@ -50,4 +50,11 @@ type Config struct {
 	Namespaces   map[string][]CloudDeployment `yaml:"namespaces"`
 	AddressSpace []string                     `yaml:"addressSpace"`
 	CloudPlugins []CloudPlugin                `yaml:"cloudPlugins"`
+	FeatureFlags map[string]FeatureFlags      `yaml:"featureFlags"`
+}
+
+type FeatureFlags struct {
+	AttachResourceEnabled     bool `yaml:"attachResourceEnabled"`
+	KubernetesClustersEnabled bool `yaml:"kubernetesClustersEnabled"`
+	PrivateEndpointsEnabled   bool `yaml:"privateEndpointsEnabled"`
 }

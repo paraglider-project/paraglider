@@ -39,6 +39,7 @@ type azurePluginServer struct {
 	paragliderpb.UnimplementedCloudPluginServer
 	orchestratorServerAddr string
 	azureCredentialGetter  IAzureCredentialGetter
+	flags                  *paragliderpb.PluginFlags
 }
 
 const (
@@ -63,6 +64,11 @@ func (s *azurePluginServer) setupAzureHandler(resourceIdInfo ResourceIDInfo, nam
 	}
 
 	return &azureHandler, nil
+}
+
+func (s *azurePluginServer) SetFlags(ctx context.Context, req *paragliderpb.SetFlagsRequest) (*paragliderpb.SetFlagsResponse, error) {
+	s.flags = req.Flags
+	return &paragliderpb.SetFlagsResponse{}, nil
 }
 
 // GetPermitList returns the permit list for the given resource by getting the NSG rules
@@ -271,6 +277,11 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 	if err != nil {
 		utils.Log.Printf("Resource description is invalid:%+v", err)
 		return nil, err
+	}
+
+	if !s.flags.GetKubernetesClustersEnabled() && strings.Contains(resourceDescInfo.ResourceID, managedClusterTypeName) {
+		utils.Log.Printf("Kubernetes clusters are disabled")
+		return nil, fmt.Errorf("kubernetes clusters are disabled")
 	}
 
 	resourceIdInfo, err := getResourceIDInfo(resourceDesc.Deployment.Id)
@@ -797,6 +808,11 @@ func (s *azurePluginServer) GetNetworkAddressSpaces(ctx context.Context, req *pa
 
 // Add an existing Azure resource to a paraglider deployment
 func (s *azurePluginServer) AttachResource(ctx context.Context, attachResourceReq *paragliderpb.AttachResourceRequest) (*paragliderpb.AttachResourceResponse, error) {
+	if !s.flags.GetAttachResourceEnabled() {
+		utils.Log.Printf("Attach resource is disabled")
+		return nil, fmt.Errorf("attach resource is disabled")
+	}
+
 	resourceId := attachResourceReq.GetResource()
 	resourceIdInfo, err := getResourceIDInfo(resourceId)
 	if err != nil {
@@ -856,6 +872,7 @@ func Setup(port int, orchestratorServerAddr string) *azurePluginServer {
 	azureServer := &azurePluginServer{
 		orchestratorServerAddr: orchestratorServerAddr,
 		azureCredentialGetter:  &AzureCredentialGetter{},
+		flags:                  &paragliderpb.PluginFlags{PrivateEndpointsEnabled: false, KubernetesClustersEnabled: false, AttachResourceEnabled: false},
 	}
 	paragliderpb.RegisterCloudPluginServer(grpcServer, azureServer)
 	fmt.Println("Starting server on port: ", port)

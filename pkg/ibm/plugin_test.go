@@ -640,6 +640,20 @@ func setup(t *testing.T, fakeIBMServerState *fakeIBMServerState) (fakeServer *ht
 	return
 }
 
+func TestSetFlags(t *testing.T) {
+	s := &IBMPluginServer{
+		flags: &paragliderpb.PluginFlags{PrivateEndpointsEnabled: false, KubernetesClustersEnabled: false},
+	}
+	resp, err := s.SetFlags(context.Background(),
+		&paragliderpb.SetFlagsRequest{Flags: &paragliderpb.PluginFlags{PrivateEndpointsEnabled: true,
+			KubernetesClustersEnabled: true}})
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.True(t, s.flags.PrivateEndpointsEnabled)
+	require.True(t, s.flags.KubernetesClustersEnabled)
+}
+
 func TestCreateResourceInstanceNewVPC(t *testing.T) {
 	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
 	if err != nil {
@@ -654,7 +668,9 @@ func TestCreateResourceInstanceNewVPC(t *testing.T) {
 		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
-		}}
+		},
+		flags: &paragliderpb.PluginFlags{PrivateEndpointsEnabled: false, KubernetesClustersEnabled: false},
+	}
 
 	description, err := json.Marshal(fakeInstanceOptions)
 	require.NoError(t, err)
@@ -688,7 +704,9 @@ func TestCreateResourceInstanceExistingVPCSubnet(t *testing.T) {
 		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
-		}}
+		},
+		flags: &paragliderpb.PluginFlags{PrivateEndpointsEnabled: false, KubernetesClustersEnabled: false},
+	}
 
 	description, err := json.Marshal(fakeInstanceOptions)
 	require.NoError(t, err)
@@ -719,7 +737,9 @@ func TestCreateResourceExistingVPCMissingSubnet(t *testing.T) {
 		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
-		}}
+		},
+		flags: &paragliderpb.PluginFlags{PrivateEndpointsEnabled: false, KubernetesClustersEnabled: false},
+	}
 
 	description, err := json.Marshal(fakeInstanceOptions)
 	require.NoError(t, err)
@@ -750,7 +770,9 @@ func TestCreateResourceCluster(t *testing.T) {
 		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
-		}}
+		},
+		flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: true},
+	}
 
 	description, err := json.Marshal(fakeClusterOptions)
 	require.NoError(t, err)
@@ -763,6 +785,39 @@ func TestCreateResourceCluster(t *testing.T) {
 	resp, err := s.CreateResource(ctx, resource)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
+}
+
+func TestCreateResourceClusterDisabled(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// fakeIBMServerState with no states
+	fakeIBMServerState := &fakeIBMServerState{
+		VPCs: createFakeVPC(false),
+	}
+	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
+	defer fakeServer.Close()
+
+	s := &IBMPluginServer{
+		orchestratorServerAddr: fakeControllerServerAddr,
+		cloudClient: map[string]*CloudClient{
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: false},
+	}
+
+	description, err := json.Marshal(fakeClusterOptions)
+	require.NoError(t, err)
+
+	resource := &paragliderpb.CreateResourceRequest{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+		Name:        fakeCluster,
+		Description: description,
+	}
+	resp, err := s.CreateResource(ctx, resource)
+	require.Error(t, err)
+	require.Nil(t, resp)
 }
 
 func TestCreateResourceClusterExistingVPC(t *testing.T) {
@@ -781,7 +836,9 @@ func TestCreateResourceClusterExistingVPC(t *testing.T) {
 		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
-		}}
+		},
+		flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: true},
+	}
 
 	description, err := json.Marshal(fakeClusterOptions)
 	require.NoError(t, err)
@@ -810,7 +867,9 @@ func TestCreateResourceEndpointGatewayNewVPC(t *testing.T) {
 		orchestratorServerAddr: fakeControllerServerAddr,
 		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
-		}}
+		},
+		flags: &paragliderpb.PluginFlags{PrivateEndpointsEnabled: true},
+	}
 
 	description, err := json.Marshal(fakeEndpointGatewayOptions)
 	require.NoError(t, err)
@@ -823,6 +882,37 @@ func TestCreateResourceEndpointGatewayNewVPC(t *testing.T) {
 	resp, err := s.CreateResource(ctx, resource)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
+}
+
+func TestCreateResourceEndpointGatewayDisabled(t *testing.T) {
+	_, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// fakeIBMServerState with no state to have a clean slate resource creation
+	fakeIBMServerState := &fakeIBMServerState{}
+	fakeServer, ctx, fakeClient := setup(t, fakeIBMServerState)
+	defer fakeServer.Close()
+
+	s := &IBMPluginServer{
+		orchestratorServerAddr: fakeControllerServerAddr,
+		cloudClient: map[string]*CloudClient{
+			getClientMapKey(fakeID, fakeRegion): fakeClient,
+		},
+		flags: &paragliderpb.PluginFlags{PrivateEndpointsEnabled: false},
+	}
+
+	description, err := json.Marshal(fakeEndpointGatewayOptions)
+	require.NoError(t, err)
+
+	resource := &paragliderpb.CreateResourceRequest{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: fakeDeploymentID, Namespace: fakeNamespace},
+		Name:        fakeEndpoint,
+		Description: description,
+	}
+	resp, err := s.CreateResource(ctx, resource)
+	require.Error(t, err)
+	require.Nil(t, resp)
 }
 
 func TestGetUsedAddressSpaces(t *testing.T) {

@@ -35,6 +35,12 @@ import (
 type GCPPluginServer struct {
 	paragliderpb.UnimplementedCloudPluginServer
 	orchestratorServerAddr string
+	flags                  *paragliderpb.PluginFlags
+}
+
+func (s *GCPPluginServer) SetFlags(ctx context.Context, req *paragliderpb.SetFlagsRequest) (*paragliderpb.SetFlagsResponse, error) {
+	s.flags = req.Flags
+	return &paragliderpb.SetFlagsResponse{}, nil
 }
 
 func (s *GCPPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.GetPermitListRequest) (*paragliderpb.GetPermitListResponse, error) {
@@ -297,6 +303,12 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	resourceInfo, err := IsValidResource(ctx, resourceDescription)
 	if err != nil {
 		return nil, fmt.Errorf("unsupported resource description: %w", err)
+	}
+
+	if resourceInfo.ResourceType == clusterTypeName && !s.flags.KubernetesClustersEnabled {
+		return nil, fmt.Errorf("kubernetes clusters are not enabled")
+	} else if resourceInfo.ResourceType == privateServiceConnectTypeName && !s.flags.PrivateEndpointsEnabled {
+		return nil, fmt.Errorf("private endpoints are not enabled")
 	}
 
 	// Set project and namespace in resourceInfo
@@ -879,6 +891,7 @@ func Setup(port int, orchestratorServerAddr string) *GCPPluginServer {
 	grpcServer := grpc.NewServer()
 	gcpServer := &GCPPluginServer{}
 	gcpServer.orchestratorServerAddr = orchestratorServerAddr
+	gcpServer.flags = &paragliderpb.PluginFlags{PrivateEndpointsEnabled: false, KubernetesClustersEnabled: false, AttachResourceEnabled: false}
 	paragliderpb.RegisterCloudPluginServer(grpcServer, gcpServer)
 	fmt.Println("Starting server on port :", port)
 	go func() {

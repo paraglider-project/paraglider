@@ -66,6 +66,7 @@ type ResourceIntf interface {
 	GetID() string
 	GetSecurityGroupID() (string, error)
 	GetVPC() (*vpcv1.VPCReference, error)
+	GetTypeName() string
 }
 
 // ResourceInstanceType is the handler for instance type resources
@@ -145,6 +146,10 @@ func (i *ResourceInstanceType) waitForReady() (bool, error) {
 		time.Sleep(sleepDuration)
 	}
 	return false, fmt.Errorf("instance ID %v failed to launch within the alloted time", i.ID)
+}
+
+func (i *ResourceInstanceType) GetTypeName() string {
+	return InstanceResourceType
 }
 
 // CreateResource create an instance
@@ -325,6 +330,10 @@ func (c *ResourceClusterType) waitForReady() (bool, error) {
 	return false, fmt.Errorf("cluster ID %v failed to launch within the alloted time", c.ID)
 }
 
+func (i *ResourceClusterType) GetTypeName() string {
+	return ClusterResourceType
+}
+
 // CreateResource creates a cluster
 func (c *ResourceClusterType) CreateResource(name, vpcID, subnetID string, tags []string, resourceDesc []byte) (*ResourceResponse, error) {
 	clusterOptions, err := c.getResourceOptions(resourceDesc)
@@ -498,6 +507,10 @@ func (e *ResourcePrivateEndpointType) waitForReady() (bool, error) {
 		time.Sleep(sleepDuration)
 	}
 	return false, fmt.Errorf("endpoint gateway ID %v failed to launch within the alloted time", e.ID)
+}
+
+func (i *ResourcePrivateEndpointType) GetTypeName() string {
+	return PrivateEndpointResourceType
 }
 
 // CreateResource create a private endpoint (VPE)
