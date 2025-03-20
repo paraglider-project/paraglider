@@ -21,26 +21,30 @@ endif
 INTERNAL_PKG ?= ...
 PKG ?= ...
 
-# If either type of package is specified, test only that directory (but do both if both are specified)
-# Otherwise, test all
-ifneq ($(PKG),...)
-GOTEST_PKG = ./pkg/$(PKG)
-ifneq ($(INTERNAL_PKG),...)
-GOTEST_INTERNAL_PKGS = ./internal/$(INTERNAL_PKG)
+GOTEST_PKG := 
+GOTEST_INTERNAL_PKG :=
+
+# Set package directories with explicit conditionals.
+ifeq ($(PKG),...)
+  GOTEST_PKG =
 else
-GOTEST_INTERNAL_PKGS = 
+  GOTEST_PKG = ./pkg/$(PKG)
 endif
+
+ifeq ($(INTERNAL_PKG),...)
+  GOTEST_INTERNAL_PKG =
 else
-GOTEST_INTERNAL_PKGS = ./internal/$(INTERNAL_PKG)
-ifneq ($(INTERNAL_PKG),...)
-GOTEST_PKG = 
-else
-GOTEST_PKG = ./pkg/$(PKG)
+  GOTEST_INTERNAL_PKG = ./internal/$(INTERNAL_PKG)
 endif
+
+# If neither directory was set, default to testing all.
+ifeq ($(strip $(GOTEST_PKG) $(GOTEST_INTERNAL_PKG)),)
+  GOTEST_PKG = ./pkg/...
+  GOTEST_INTERNAL_PKG = ./internal/...
 endif
 
 # Overriden when running integration tests in CI/CD pipeline
-GOTEST_CMD = CGO_ENABLED=1 $(GOTEST_TOOL) -v $(GOTEST_INTERNAL_PKGS) $(GOTEST_PKG) $(GOTEST_OPTS)
+GOTEST_CMD = CGO_ENABLED=1 $(GOTEST_TOOL) -v $(GOTEST_INTERNAL_PKG) $(GOTEST_PKG) $(GOTEST_OPTS)
 
 .PHONY: test
 test: ## Runs unit tests in the internal and pkg folders
