@@ -24,11 +24,15 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/api/iterator"
+
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
 	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
+	"google.golang.org/api/option"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -213,6 +217,7 @@ func GetResourceNetworkInfo(ctx context.Context, resourceInfo *resourceInfo, cli
 
 // Read parameters from within the resource description and ensure it is a valid resource
 func IsValidResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
+	// Verify resource is supported
 	handler, err := getResourceHandlerFromDescription(resource.Description)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get resource handler: %w", err)
@@ -241,6 +246,245 @@ func GetFirewallTarget(ctx context.Context, resourceInfo *resourceInfo, netInfo 
 	}
 	target := handler.getFirewallTarget(resourceInfo, netInfo)
 	return &target, nil
+}
+
+func GetNetworkInfoFromResource(ctx context.Context, resourceID string, resourceInfo *resourceInfo, vpcName string) (*resourceNetworkInfo, error) {
+	// Create a Compute client with credentials
+	region := getRegionFromZone(resourceInfo.Zone)
+
+	client, err := compute.NewSubnetworksRESTClient(ctx, option.WithCredentialsFile("path_to_your_service_account_key.json"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create compute client: %v", err)
+	}
+	defer client.Close()
+
+	// List subnets in the region (adjust as needed)
+	req := &computepb.ListSubnetworksRequest{
+		Project: resourceInfo.Project,
+		Region:  region,
+	}
+
+	// Use the client to list the subnets
+	it := client.List(ctx, req)
+
+	// Iterate through the subnets
+	for {
+		subnet, err := it.Next()
+		if err == iterator.Done {
+			break // No more results
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to list subnets: %v", err)
+		}
+
+		// Check if the subnet belongs to the desired VPC (vpcName is a string)
+		if subnet.Network != nil && *subnet.Network == vpcName {
+			// Dereference pointer fields (SelfLink and IpCidrRange) and return the network info
+			return &resourceNetworkInfo{
+				SubnetUrl:   *subnet.SelfLink, // Dereference pointer to string
+				NetworkName: vpcName,
+				Address:     *subnet.IpCidrRange, // Dereference pointer to string
+			}, nil
+		}
+	}
+
+	// Return error if no subnet was found for the given VPC
+	return nil, fmt.Errorf("no subnet found for VPC %s", vpcName)
+}
+
+// Returns the resource and network info if the resource complies with paraglider requirements. Otherwise, it returns an error
+func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx context.Context, resourceReq *paragliderpb.CreateResourceRequest, project string, resourceID string, server *GCPPluginServer) (*resourceInfo, *resourceNetworkInfo, error) {
+	// Ensure the resource exists
+	resourceInfo, err := IsValidResource(ctx, resourceReq)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	networkInfo, err := GetNetworkInfoFromResource(ctx, resourceID, resourceInfo, getVpcName(resourceInfo.Namespace))
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error in getting resource %s network info: %w", resourceID, err)
+	}
+
+	// handler, err := getResourceHandler(ctx, resourceInfo.ResourceType, clients)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("unable to get resource handler: %w", err)
+	// }
+	// netInfo, err := handler.getNetworkInfo(ctx, resourceInfo)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("unable to get network info: %w", err)
+	// }
+
+	// Ensure the VPC's address space doesn't overlap with Paraglider's address space
+
+	// we want the name of the
+	// information of the resource or in the subresource
+	// vpcName := getVpcName(resourceInfo.Namespace) // this gets the vpc of the paraglider network, not the network we are trying to attach resource from
+
+	// our instanceResponse is the vpc
+	// Returns the network name, subnet URL, IP, and instance ID converted to a string for rule naming
+	instanceRequest := &computepb.GetInstanceRequest{
+		Instance: resourceInfo.Name,
+		Project:  resourceInfo.Project,
+		Zone:     resourceInfo.Zone,
+	}
+	instanceResponse, err := r.client.Get(ctx, instanceRequest)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to get instance: %w", err)
+	}
+
+	// Ensure the Vnet address space doesn't overlap with paraglider's address space
+	vpcName := *instanceResponse.NetworkInterfaces[0].Network
+	isOverlapping, err := DoesVPCOverlapWithParaglider(ctx, resourceInfo, vpcName, server)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error checking if VPC overlaps with Paraglider: %w", err)
+	}
+
+	if isOverlapping {
+		return nil, nil, fmt.Errorf("Resource %s Network Address Space overlaps with Paraglider Network Address Space. Not allowed", resourceID)
+	}
+
+	// // Ensure the resource's security rules are compliant. Make compliant if possible
+	// isNSGCompliant, err := CheckSecurityRulesCompliance(ctx, azureHandler, networkInfo.NSG)
+	// if err != nil || !isNSGCompliant {
+	// 	return nil, nil, fmt.Errorf("NSG rules are not compliant: %w", err)
+	// }
+
+	return resourceInfo, networkInfo, nil
+}
+
+// GetVPCAddressSpace retrieves the address space for a given VPC network
+func GetVPCAddressSpace(ctx context.Context, project, vpcName string) ([]string, error) {
+	clients := &GCPClients{}
+	networksClient, err := clients.GetOrCreateNetworksClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get networks client: %w", err)
+	}
+	subnetworksClient, err := clients.GetOrCreateSubnetworksClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get subnetworks client: %w", err)
+	}
+
+	getNetworkReq := &computepb.GetNetworkRequest{
+		Network: vpcName,
+		Project: project,
+	}
+
+	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get paraglider vpc network: %w", err)
+	}
+
+	var addressSpaces []string
+
+	// Iterate over all subnetworks associated with the VPC
+	for _, subnetURL := range getNetworkResp.Subnetworks {
+		// Parse the subnetwork URL to get region and subnetwork name
+		parsedSubnetURL := parseUrl(subnetURL)
+
+		// Prepare request to get subnetwork details
+		getSubnetworkRequest := &computepb.GetSubnetworkRequest{
+			Project:    project,
+			Region:     parsedSubnetURL["regions"],
+			Subnetwork: parsedSubnetURL["subnetworks"],
+		}
+
+		// Fetch subnetwork details
+		getSubnetworkResp, err := subnetworksClient.Get(ctx, getSubnetworkRequest)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get subnetwork: %w", err)
+		}
+
+		// Append the primary CIDR range
+		addressSpaces = append(addressSpaces, *getSubnetworkResp.IpCidrRange)
+
+		// Append the secondary CIDR ranges (if any)
+		for _, secondaryRange := range getSubnetworkResp.SecondaryIpRanges {
+			addressSpaces = append(addressSpaces, *secondaryRange.IpCidrRange)
+		}
+	}
+
+	// Return the list of address spaces (CIDR ranges)
+	return addressSpaces, nil
+}
+
+// DoesVnetOverlapWithParaglider checks if the GCP VPC's address space overlaps with any of the used address spaces
+func DoesVPCOverlapWithParaglider(ctx context.Context, resourceInfo *resourceInfo, vpcName string, server *GCPPluginServer) (bool, error) {
+	// Get VPC address space (CIDR block)
+	vpcAddressSpaces, err := GetVPCAddressSpace(ctx, resourceInfo.Project, vpcName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get VPC address space: %v", err)
+	}
+
+	// GetUsedAddressSpaces by checking the subnetworks IpCidrRange
+	clients := &GCPClients{}
+	networksClient, err := clients.GetOrCreateNetworksClient(ctx)
+	if err != nil {
+		return false, fmt.Errorf("unable to get networks client: %w", err)
+	}
+	subnetworksClient, err := clients.GetOrCreateSubnetworksClient(ctx)
+	if err != nil {
+		return false, fmt.Errorf("unable to get subnetworks client: %w", err)
+	}
+
+	getNetworkReq := &computepb.GetNetworkRequest{
+		Network: vpcName,
+		Project: project,
+	}
+
+	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
+	if err != nil {
+		return false, fmt.Errorf("failed to get paraglider vpc network: %w", err)
+	}
+
+	req := &paragliderpb.GetUsedAddressSpacesRequest{
+		Deployments: []*paragliderpb.ParagliderDeployment{
+			{Id: "projects/" + resourceInfo.Project, Namespace: resourceInfo.Namespace},
+		},
+	}
+
+	resp := &paragliderpb.GetUsedAddressSpacesResponse{}	
+	resp.AddressSpaceMappings = make([]*paragliderpb.AddressSpaceMapping, len(req.Deployments))
+	for i, deployment := range req.Deployments {
+		resp.AddressSpaceMappings[i] = &paragliderpb.AddressSpaceMapping{
+			Cloud:     utils.GCP,
+			Namespace: deployment.Namespace,
+		}
+		project := parseUrl(deployment.Id)["projects"]
+
+		vpcName := getVpcName(deployment.Namespace)
+		getNetworkReq := &computepb.GetNetworkRequest{
+			Network: vpcName,
+			Project: project,
+		}
+
+		getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
+		if err != nil {
+			if isErrorNotFound(err) {
+				continue
+			} else {
+				return nil, fmt.Errorf("failed to get paraglider vpc network: %w", err)
+			}
+		}
+		resp.AddressSpaceMappings[i].AddressSpaces = []string{}
+		for _, subnetURL := range getNetworkResp.Subnetworks {
+			parsedSubnetURL := parseUrl(subnetURL)
+			getSubnetworkRequest := &computepb.GetSubnetworkRequest{
+				Project:    project,
+				Region:     parsedSubnetURL["regions"],
+				Subnetwork: parsedSubnetURL["subnetworks"],
+			}
+			getSubnetworkResp, err := subnetworksClient.Get(ctx, getSubnetworkRequest)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get paraglider subnetwork: %w", err)
+			}
+
+			resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, *getSubnetworkResp.IpCidrRange)
+			for _, secondaryRange := range getSubnetworkResp.SecondaryIpRanges {
+				resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, *secondaryRange.IpCidrRange)
+			}
+		}
+
+	return false, nil
 }
 
 // Interface to implement to support a resource
