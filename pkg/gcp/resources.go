@@ -343,12 +343,18 @@ func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx
 		return nil, nil, fmt.Errorf("Resource %s Network Address Space overlaps with Paraglider Network Address Space. Not allowed", resourceID)
 	}
 
-	// // Ensure the resource's security rules are compliant. Make compliant if possible
-	// isNSGCompliant, err := CheckSecurityRulesCompliance(ctx, azureHandler, networkInfo.NSG)
-	// if err != nil || !isNSGCompliant {
-	// 	return nil, nil, fmt.Errorf("NSG rules are not compliant: %w", err)
-	// }
+    // Fetch firewall rules for the resource using getFirewallRules function
+    firewallRules, err := getFirewallRules(ctx, project, resourceID, clients)
+    if err != nil {
+        return nil, nil, fmt.Errorf("Error retrieving firewall rules for resource %s: %w", resourceID, err)
+    }
 
+    // Call CheckFirewallRulesCompliance to verify firewall rule compliance
+    isCompliant, err := CheckFirewallRulesCompliance(firewallRules)
+    if err != nil || !isCompliant {
+        return nil, nil, fmt.Errorf("Firewall rules are not compliant: %w", err)
+    }
+	
 	return resourceInfo, networkInfo, nil
 }
 

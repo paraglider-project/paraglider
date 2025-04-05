@@ -31,6 +31,8 @@ const (
 	firewallRuleDescriptionPrefix = "paraglider rule" // GCP firewall rule prefix for description
 	targetTypeTag                 = "TAG"
 	targetTypeAddress             = "ADDRESS"
+	highestPriority               = 0
+	lowestPriority                = 65534
 )
 
 // Maps between of GCP and Paraglider traffic direction terminologies
@@ -228,4 +230,60 @@ func parseDescriptionTags(description string) []string {
 
 func getFirewallNamePrefix(namespace string) string {
 	return getParagliderNamespacePrefix(namespace) + "-fw"
+}
+
+// 1. A deny-all rule exists at the lowest priority (highest number)
+// 2. All higher-priority rules (lower numbers) are allow rules
+func CheckFirewallRulesCompliance(firewalls []*computepb.Firewall) (bool, error) {
+	denyAllRule := findDenyAllRule(firewalls)
+	if denyAllRule == nil {
+		return false, fmt.Errorf("no deny-all rule found")
+	}
+
+	if !hasValidDestinationRanges(denyAllRule) {
+		return false, fmt.Errorf("deny-all rule does not have DestinationRanges set to '0.0.0.0/0'")
+	}
+
+	denyAllPriority := denyAllRule.GetPriority()
+
+	// Check that all rules with a higher priority (lower priority number) are allow rules
+	for _, fw := range firewalls {
+		if fw.GetPriority() < denyAllPriority && len(fw.Allowed) == 0 && !isDenyAllRule(fw) {
+			return false, fmt.Errorf("non-allow rule found with higher priority than deny-all")
+		}
+	}
+
+	return true, nil
+}
+
+// Iterates and locates the deny-all firewall rule with the lowest priority
+func findDenyAllRule(firewalls []*computepb.Firewall) *computepb.Firewall {
+	var denyAllRule *computepb.Firewall
+	lowestSeenPriority := int32(lowestPriority)
+
+	for _, fw := range firewalls {
+		if isDenyAllRule(fw) && fw.GetPriority() >= lowestSeenPriority {
+			lowestSeenPriority = fw.GetPriority()
+			denyAllRule = fw
+		}
+	}
+
+	return denyAllRule
+}
+
+// Checks if a firewall rule is a deny-all rule
+func isDenyAllRule(fw *computepb.Firewall) bool {
+	return len(fw.Denied) > 0 &&
+		len(fw.Allowed) == 0 &&
+		strings.ToLower(fw.Denied[0].GetIPProtocol()) == "all"
+}
+
+// Checks that DestinationRanges is set to "0.0.0.0/0"
+func hasValidDestinationRanges(fw *computepb.Firewall) bool {
+	for _, rangeValue := range fw.GetDestinationRanges() {
+		if rangeValue == "0.0.0.0/0" {
+			return true
+		}
+	}
+	return false
 }
