@@ -632,6 +632,9 @@ func (r *privateServiceHandler) readAndProvisionResource(ctx context.Context, re
 	if err != nil {
 		return "", "", fmt.Errorf("unable to parse resource description: %w", err)
 	}
+	if len(additionalAddrSpaces) == 0 {
+		return r.createWithNetwork(ctx, *description, subnetName, resourceInfo, "")
+	}
 	return r.createWithNetwork(ctx, *description, subnetName, resourceInfo, additionalAddrSpaces[0])
 }
 
