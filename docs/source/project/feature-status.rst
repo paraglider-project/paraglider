@@ -7,18 +7,35 @@ This pages lists important information about the status of the features in each 
 
 Azure
 ~~~~~
-* Supports VMs for all paraglider operations.
-* Managed k8s cluster support is in progress / initial.
-* Multicloud connections are supported with GCP.
+:bdg-success:`Supported`
+
+* VMs for all Paraglider operations
+* Multicloud connections with GCP 
+
+:bdg-warning:`In Progress / Initial`
+
+* Managed Kubernetes clusters :bdg-ref-secondary:`Feature Flag <feature_flags>`
+* Connections to managed services via Private Endpoints  :bdg-ref-secondary:`Feature Flag <feature_flags>`
 
 GCP
 ~~~
-* Supports instances for all paraglider operations.
-* Managed k8s cluster support is in progress / initial.
-* Support for connections to services is in progress / initial.
+:bdg-success:`Supported`
+
+* Instances for all Paraglider operations
 * Multicloud connections are supported with Azure.
+
+:bdg-warning:`In Progress / Initial`
+
+* Managed Kubernetes clusters :bdg-ref-secondary:`Feature Flag <feature_flags>`
+* Connections to managed services via Private Service Connect  :bdg-ref-secondary:`Feature Flag <feature_flags>`
 
 IBM
 ~~~
-* Supports instances and k8s cluster for all paraglider operations.
-* Support for multicloud connections to Azure and GCP is in progress.
+:bdg-success:`Supported`
+
+* Instances and Kubernetes clusters for all Paraglider operations.
+
+:bdg-warning:`In Progress / Initial`
+
+* Support for multicloud connections to Azure and GCP is in progress. [TODO: CHECK THIS]
+* [TODO: MANAGED SERVICES?]

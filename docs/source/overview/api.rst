@@ -65,6 +65,8 @@ Lists all namespaces configured on the controller.
 Resource Operations
 -------------------
 
+.. _create_resource:
+
 Create
 ^^^^^^
 
@@ -174,6 +176,8 @@ Note that a tag is automatically created for the resource with the name ``<names
                 * ``cloud``: name of the cloud to create the resource in
                 * ``resource_name`` : name of the resource to be created in the Paraglider controller (note: this name will be scoped on cloud and namespace when stored)
                 * ``description``: JSON string describing the resource to be created (excluding networking details)
+
+.. _attach_resource:
 
 Attach
 ^^^^^^
