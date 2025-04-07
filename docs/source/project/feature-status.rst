@@ -33,9 +33,9 @@ IBM
 ~~~
 :bdg-success:`Supported`
 
-* Instances and Kubernetes clusters for all Paraglider operations.
+* Instances and Kubernetes clusters for all Paraglider operations
+* Multicloud connections to Azure
 
 :bdg-warning:`In Progress / Initial`
 
-* Support for multicloud connections to Azure and GCP is in progress. [TODO: CHECK THIS]
-* [TODO: MANAGED SERVICES?]
+* Multicloud connections to GCP
