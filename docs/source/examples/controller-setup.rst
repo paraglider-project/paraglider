@@ -59,6 +59,42 @@ This file contains all information needed to spin up each of the microservices.
 .. note: 
     The key-value store service can be omitted if none of the plugins require it. Currently, only the IBM plugin requires it.
 
+.. _feature_flags:
+
+Feature Flags
+~~~~~~~~~~~~~
+The controller supports feature flags for each of the cloud plugins. 
+The feature flags are set in the configuration file under the ``featureFlags`` field. 
+Each plugin can have its own set of feature flags.
+To see which features are currently supported by each plugin, see :ref:`feature-status`.
+There are currently three feature flags:
+
+* ``attachResourceEnabled``: Enables attaching existing resources (not created with Paraglider) to the deployment (ie, using the :ref:`attach operation <attach_resource>`).
+* ``kubernetesClustersEnabled``: Enables creating Kubernetes clusters in the deployment (ie, providing a cluster description to the :ref:`create resource operation <create_resource>`).
+* ``privateEndpointsEnabled``: Enables creating private endpoints (eg, Private Endpoints in Azure, Private Service Connect in GCP) in the deployment (ie, providing a cluster description to the :ref:`create resource operation <create_resource>`).
+
+Below is an example of how to set the feature flags in the configuration file:
+
+.. code-block:: yaml
+
+    featureFlags:
+        azure:
+            attachResourceEnabled: true
+            kubernetesClustersEnabled: true
+            privateEndpointsEnabled: false
+        gcp:
+            attachResourceEnabled: false
+            kubernetesClustersEnabled: false
+            privateEndpointsEnabled: true
+        ibm:
+            attachResourceEnabled: false
+            kubernetesClustersEnabled: true
+            privateEndpointsEnabled: false
+
+.. note:
+    All feature flags are set to ``false`` by default. If a feature flag is not set, it will be treated as false.
+
+
 Running the Controller
 -----------------------
 To run the controller all locally, you need to run the following command:
