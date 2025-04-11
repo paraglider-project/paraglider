@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -339,24 +338,19 @@ func TestMulticloud(t *testing.T) {
 // -timeout 0 removes limit of 10 minutes runtime, which is necessary due to long deployment time of Azure's VPN.
 // Note: if user doesn't have resource group privileges, set env PARAGLIDER_AZURE_RESOURCE_GROUP with an existing resource group
 func TestMulticloudIBMAzure(t *testing.T) {
-	// TODO remove condition after an IBM account is integrated to a git workflow.
-	// skip test if it runs on a git-action.
-	if os.Getenv("GH_RUN_NUMBER") != "" {
-		t.Skip("test temporarily disabled from git-actions until an IBM account is integrated to a git workflow")
-	}
 	dbPort := 6379
-	kvstorePort := 7993
-	taggingPort := 7994
+	kvstorePort := 7893
+	taggingPort := 7894
 	// ibm config
-	IBMServerPort := 7992
+	IBMServerPort := 7892
 	resourceGroupID := ibm.GetIBMResourceGroupID()
-	ibmResourceIDPrefix := "/resourcegroup/" + resourceGroupID + "/zone/us-east-1" + "/instance/"
-	image, zone, instanceName := "r014-0acbdcb5-a68f-4a52-98ea-4da4fe89bacb", "us-east-1", "pg-vm-east-1" // IBM VM vars
+	ibmResourceIDPrefix := "/resourcegroup/" + resourceGroupID + "/zone/us-south-1" + "/instance/"
+	image, zone, instanceName := "r006-01deb923-46f6-44c3-8fdc-99d8493d2464", "us-south-1", "pg-vm-south-1" // IBM VM vars
 	ibmNamespace := "pg-multicloud-ibm"
 	ibmDeploymentId := "/resourcegroup/" + resourceGroupID
 	vmProfile := "bx2-2x8"
 	// azure config
-	azureServerPort := 7991
+	azureServerPort := 7891
 	azureSubscriptionId := azure.GetAzureSubscriptionId()
 	azureResourceGroupName := azure.SetupAzureTesting(azureSubscriptionId, "ibmazure")
 	azureNamespace := "multicloud"
@@ -378,8 +372,8 @@ func TestMulticloudIBMAzure(t *testing.T) {
 	orchestratorServerConfig := config.Config{
 		Server: config.Server{
 			Host:    "localhost",
-			Port:    "8080",
-			RpcPort: "8081",
+			Port:    "9080",
+			RpcPort: "9081",
 		},
 		TagService: config.TagService{
 			Port: strconv.Itoa(taggingPort),

@@ -82,6 +82,7 @@ func (c *CloudClient) areTagsAttached(CRN *string, tags []string) error {
 
 	for attempt := 1; attempt <= maxAttempts; attempt += 1 {
 		resource, err := c.GetParagliderTaggedResources(ANY, tags, resourceQuery{CRN: *CRN})
+		fmt.Printf("CRN : %s ,resource: %+v, tags: %+v, err: %+v\n", *CRN, resource, tags, err)
 		if len(resource) == 1 && err == nil {
 			return nil
 		}
