@@ -251,7 +251,7 @@ func TestGetPermitList(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Equal(t, fakePlRules[0], resp.Rules[0])
-		require.Len(t, resp.Rules, 2)
+		require.Len(t, resp.Rules, 4)
 	})
 
 	// NSG get fails due to GetNetworkInterface call
