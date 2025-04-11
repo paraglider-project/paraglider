@@ -57,7 +57,7 @@ Running Functional Tests
 Paraglider uses both unit and functional tests.
 While unit tests use a fake cloud provider, functional tests make API calls to real cloud providers, which requires further setup.
 
-You can run these with the following commands
+You can run these with the following commands:
 
 .. code-block:: console
 
