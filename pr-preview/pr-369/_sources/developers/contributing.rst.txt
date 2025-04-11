@@ -78,4 +78,4 @@ For more information, see the `Contributor Covenant Code of Conduct 2.1 <https:/
 Troubleshooting and getting help
 ---------------------------------
 
-If you have a question, please visit our Discord (linked at the footer) to post your question and we'll get back to you ASAP
+If you have a question, please visit our Discord (linked at the footer) to post your question and we'll get back to you ASAP.

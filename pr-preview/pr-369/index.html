@@ -5,13 +5,13 @@
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="What is Paraglider?" href="overview/what-is-paraglider.html" />
 
-    <link rel="shortcut icon" href="_static/logo-square.png"/><!-- Generated with Sphinx 7.3.7 and Furo 2024.05.06 -->
+    <link rel="shortcut icon" href="_static/logo-square.png"/><!-- Generated with Sphinx 7.3.7 and Furo 2024.07.18 -->
         <title>Paraglider documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=a746c00c" />
-    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=387cc868" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=613ab9ff" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=87e54e7c" />
-    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=36a5483c" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=302659d7" />
     
     
 
@@ -90,19 +90,6 @@
       <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
     </svg>
   </symbol>
-  <symbol id="svg-sun-half" viewBox="0 0 24 24">
-    <title>Auto light/dark mode</title>
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
-      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M13 12h5" />
-      <path d="M13 15h4" />
-      <path d="M13 18h1" />
-      <path d="M13 9h4" />
-      <path d="M13 6h1" />
-    </svg>
-  </symbol>
   <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
     <title>Auto light/dark, in light mode</title>
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -143,7 +130,7 @@
       <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
       <path d="M13.5 6.5l4 4" />
       <path d="M20 21l2 -2l-2 -2" />
-      <path d="M17 17l-2 2l2 2" /
+      <path d="M17 17l-2 2l2 2" />
     </svg>
   </symbol>
   <symbol id="svg-eye" viewBox="0 0 24 24">
@@ -291,14 +278,15 @@
           <section id="welcome-to-paraglider">
 <h1>Welcome to Paraglider!<a class="headerlink" href="#welcome-to-paraglider" title="Link to this heading">¶</a></h1>
 <br />
-<a href="https://discord.gg/KrZGbfZ7wm"><img src="https://dcbadge.vercel.app/api/server/KrZGbfZ7wm?compact=true&?compact=true" /></a>
 <a class="github-button" href="https://github.com/paraglider-project/paraglider" data-size="large" data-show-count="true" aria-label="Star paraglider-project/paraglider on GitHub">Star</a>
-
 <!-- Place this tag in your head or just before your close body tag. -->
-<script async defer src="https://buttons.github.io/buttons.js"></script><p>Paraglider is a cross-cloud control plane for configuring cloud networks.</p>
-<p>The Paraglider project aims to evolve cloud networking by simplifying the creation and management of single and multi-cloud networking.
-The project reduces the need for detailed networking knowledge from developers and administrators, and hides the complexity of low-level components like virtual networks, access control, load balancers, and inter-cloud connections. Paraglider provides high-level constructs for modeling connectivity and security as well as key network functions. Additionally, it provides mechanisms for semantically meaningful names and groups rather than limiting to IP-based constructs.
-The Paraglider configuration, in the form of connectivity requirements between networked resources (VMs, containers, PaaS resources, etc.), is then translated to cloud-specific configurations via plugins tailored for each platform.</p>
+<script async defer src="https://buttons.github.io/buttons.js"></script><a class="reference external image-reference" href="https://discord.gg/KrZGbfZ7wm"><img alt="Discord" src="https://img.shields.io/discord/1116864463832891502?logo=discord&amp;logoColor=white&amp;logoSize=auto&amp;label=Discord&amp;labelColor=7289DA&amp;color=17cf48&amp;link=https%3A%2F%2Fdiscord.gg%2FKrZGbfZ7wm" style="height: 28px;" />
+</a>
+<a class="reference external image-reference" href="https://lf-networking.atlassian.net/wiki/spaces/PAR/overview?homepageId=15106050"><img alt="Wiki" src="_images/wiki-button.png" style="height: 28px;" />
+</a>
+<p>The Paraglider project aims to simplify the creation and management of single-cloud and multi-cloud networks. It reduces the need for developers and administrators to have detailed networking knowledge, hiding the complexity of components like virtual networks, access controls, load balancers, and inter-cloud connections.</p>
+<p>Paraglider provides high-level constructs for modeling connectivity, security, and key network functions. It also offers mechanisms for using semantically meaningful names and groups instead of IP-based constructs. The Paraglider configuration, expressed as connectivity requirements between networked resources (VMs, containers, PaaS resources, etc.), is translated into cloud-specific configurations through plugins tailored for each cloud platform.</p>
+<p>Ultimately, Paraglider delivers a unified cross-cloud control plane that streamlines cloud networking.</p>
 <p>Paraglider began as a research project at UC Berkeley in the NetSys Lab. The work was originally published in <a class="reference external" href="https://dl.acm.org/doi/pdf/10.1145/3458336.3465303">HotOS</a> and <a class="reference external" href="https://www.usenix.org/system/files/nsdi23-mcclure.pdf">NSDI</a>.
 Since publication, the design goals for the implementation have evolved to support private address spaces, but still match the simplified interface proposed in the papers.</p>
 <p>The project is now run by an cross-industry working group consisting of members from Microsoft, Google, IBM, and UC Berkeley. It is a Linux Foundation open-source project.</p>
@@ -394,7 +382,7 @@ Since publication, the design goals for the implementation have evolved to suppo
 </div><script src="_static/documentation_options.js?v=5929fcd5"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
-    <script src="_static/scripts/furo.js?v=4e2eecee"></script>
+    <script src="_static/scripts/furo.js?v=5fa4622c"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=a56c686a"></script>
     <script src="_static/design-tabs.js?v=f930bc37"></script>

@@ -175,6 +175,88 @@ Note that a tag is automatically created for the resource with the name ``<names
                 * ``resource_name`` : name of the resource to be created in the Paraglider controller (note: this name will be scoped on cloud and namespace when stored)
                 * ``description``: JSON string describing the resource to be created (excluding networking details)
 
+Attach
+^^^^^^
+
+Attaches an exisiting resource to Paraglider according to the resource ID and the specified cloud. The resource should exist within a deployment associated with a namespace in Paraglider.
+
+Note that a tag is automatically created for the resource with the name ``<namespace>.<cloud>.<name>`` after attachment (where ``name`` is the resource name).
+
+.. note::
+
+    Attach Resource is only supported for Azure currently. Support for other cloud plugins are under active development.
+    
+.. tab-set::
+
+    .. tab-item:: CLI
+        :sync: cli
+
+        .. code-block:: shell
+            
+            glide resource attach <cloud> <resource_id>
+
+        Parameters:
+
+        * ``cloud``: name of the cloud to create the resource in
+        * ``resource_id`` : Id of the resource as specified by the cloud provider
+
+
+    .. tab-item:: REST
+        :sync: rest
+
+        .. tab-set::
+
+            .. tab-item:: POST
+
+                .. code-block:: shell
+
+                    POST /namespaces/{namespace}/clouds/{cloud}/resources
+
+                * Example request body:
+
+                .. code-block:: JSON
+
+                    {
+                        "id": "resource-id"
+                    }
+
+                Parameters:
+
+                * ``id``: Id of the resource as specified by the cloud provider
+    
+.. note::
+    
+    Create resource and Attach resource share the same API endpoint. The difference between the two POST requests is the request body. If the request body contains a ``description``, the request is considered as a create resource request. Otherwise, it is considered as an attach resource request. 
+
+
+Resource Descriptions
+~~~~~~~~~~~~~~~~~~~~~~~~~
+For creating resources, the description provided should generally include all fields required to create the resource in the cloud, with the exception of networking details. 
+For example, a VM description should exclude the fields definiting the network interface, the subnet, etc.
+When attaching a service to the Paraglider deployment, the information required to find the correct service varies by cloud.
+
+.. tab-set::
+
+    .. tab-item:: GCP
+
+        The fields required for the description depend on the service. For third-party services `exposed via a service attachment <https://cloud.google.com/vpc/docs/private-service-connect#:~:text=Service%20attachments,Cloud%20DNS%20zone.>`_,  the description must be of the form:
+
+        .. code-block:: JSON
+
+            { 
+                "url": "<service attachment URI>"
+            }
+
+
+        For Google services, the description must include the API bundle name `API bundle name <https://cloud.google.com/vpc/docs/about-accessing-google-apis-endpoints#supported-apis>`_ and the region in which Paraglider should connect to the services.
+
+        .. code-block:: JSON
+
+            {
+                "api_bundle": "<api_bundle_name>",
+                "region": "<region>"
+            }
+
 Permit List Operations
 ----------------------
 
