@@ -305,22 +305,6 @@ func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx
 		return nil, nil, fmt.Errorf("Error in getting resource %s network info: %w", resourceID, err)
 	}
 
-	// handler, err := getResourceHandler(ctx, resourceInfo.ResourceType, clients)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("unable to get resource handler: %w", err)
-	// }
-	// netInfo, err := handler.getNetworkInfo(ctx, resourceInfo)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("unable to get network info: %w", err)
-	// }
-
-	// Ensure the VPC's address space doesn't overlap with Paraglider's address space
-
-	// we want the name of the
-	// information of the resource or in the subresource
-	// vpcName := getVpcName(resourceInfo.Namespace) // this gets the vpc of the paraglider network, not the network we are trying to attach resource from
-
-	// our instanceResponse is the vpc
 	// Returns the network name, subnet URL, IP, and instance ID converted to a string for rule naming
 	instanceRequest := &computepb.GetInstanceRequest{
 		Instance: resourceInfo.Name,
