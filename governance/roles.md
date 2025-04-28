@@ -4,15 +4,15 @@
 TSC membership is documented [here](tsc.md).
 
 ## MAC Liason
-TODO
+Diego Vega
 
 ## TAC Liason
 TODO
 
 ## Release Manager
-Primary: TODO
+Primary: Pravein Govindan Kannan
 
-Backup: TODO
+Backup: Sean Kim
 
 ## Project Technical Lead
-TODO
+Sarah McClure
