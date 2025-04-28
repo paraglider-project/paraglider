@@ -80,6 +80,7 @@ type ControllerServer struct {
 	config                    config.Config
 	namespace                 string
 	addressRequest            sync.Mutex
+	flags                     config.FeatureFlags
 }
 
 type ResourceInfo struct {
@@ -1218,6 +1219,11 @@ func (s *ControllerServer) resourceCreate(c *gin.Context, resourceInfo *Resource
 }
 
 func (s *ControllerServer) resourceAttach(c *gin.Context, resourceInfo *ResourceInfo, cloudClient string) {
+	if !s.flags.AttachResourceEnabled {
+		c.AbortWithStatusJSON(400, createErrorResponse("AttachResource feature is disabled"))
+		return
+	}
+
 	// Create connection to cloud plugin
 	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -1559,9 +1565,33 @@ func Setup(cfg config.Config, background bool) {
 	server.localTagService = cfg.TagService.Host + ":" + cfg.TagService.Port
 	server.localKVStoreService = cfg.KVStore.Host + ":" + cfg.KVStore.Port
 
+	orchestratorFlags := &config.FeatureFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: false, AttachResourceEnabled: false}
 	for _, c := range cfg.CloudPlugins {
 		server.pluginAddresses[c.Name] = c.Host + ":" + c.Port
+		if cfg.FeatureFlags != nil {
+			conn, err := grpc.NewClient(server.pluginAddresses[c.Name], grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				return
+			}
+			defer conn.Close()
+
+			// Send feature flags
+			client := paragliderpb.NewCloudPluginClient(conn)
+			cloudFlags := &paragliderpb.PluginFlags{KubernetesClustersEnabled: cfg.FeatureFlags[c.Name].KubernetesClustersEnabled,
+				PrivateEndpointsEnabled: cfg.FeatureFlags[c.Name].PrivateEndpointsEnabled, AttachResourceEnabled: cfg.FeatureFlags[c.Name].AttachResourceEnabled}
+			_, err = client.SetFlags(context.Background(), &paragliderpb.SetFlagsRequest{Flags: cloudFlags})
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+
+			// Update orchestrator flags
+			orchestratorFlags.KubernetesClustersEnabled = orchestratorFlags.KubernetesClustersEnabled || cfg.FeatureFlags[c.Name].KubernetesClustersEnabled
+			orchestratorFlags.PrivateEndpointsEnabled = orchestratorFlags.PrivateEndpointsEnabled || cfg.FeatureFlags[c.Name].PrivateEndpointsEnabled
+			orchestratorFlags.AttachResourceEnabled = orchestratorFlags.AttachResourceEnabled || cfg.FeatureFlags[c.Name].AttachResourceEnabled
+		}
 	}
+	server.flags = *orchestratorFlags
 
 	// If address space isn't declared in config, fall back to default private address space
 	if cfg.AddressSpace == nil {
