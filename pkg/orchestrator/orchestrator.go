@@ -387,8 +387,8 @@ func (s *ControllerServer) permitListRuleAddTag(c *gin.Context) {
 	tag := c.Param("tag")
 
 	// Parse permit list rules to add
-	var rule *paragliderpb.PermitListRule
-	if err := c.BindJSON(&rule); err != nil {
+	var rules []*paragliderpb.PermitListRule
+	if err := c.BindJSON(&rules); err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
@@ -441,7 +441,7 @@ func (s *ControllerServer) permitListRuleAddTag(c *gin.Context) {
 
 		// Send RPC to add rule
 		client := paragliderpb.NewCloudPluginClient(conn)
-		_, err = client.AddPermitListRules(context.Background(), &paragliderpb.AddPermitListRulesRequest{Rules: []*paragliderpb.PermitListRule{rule}, Namespace: namespace, Resource: *mapping.Uri})
+		_, err = client.AddPermitListRules(context.Background(), &paragliderpb.AddPermitListRulesRequest{Rules: rules, Namespace: namespace, Resource: *mapping.Uri})
 		if err != nil {
 			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 			return
