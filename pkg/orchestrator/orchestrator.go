@@ -28,7 +28,7 @@ import (
 	"strings"
 	"sync"
 
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/gin-gonic/gin"
 	"github.com/seancfoley/ipaddress-go/ipaddr"

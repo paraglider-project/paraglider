@@ -190,7 +190,7 @@ func (c *CloudClient) createRoutes(routingTableID, vpcID, VPNConnectionID string
 				},
 				Action: core.StringPtr(vpcv1.CreateVPCRoutingTableRouteOptionsActionDeliverConst),
 				Name:   core.StringPtr(generateResourceName(string(routeType))),
-				NextHop: &vpcv1.RoutePrototypeNextHop{
+				NextHop: &vpcv1.RouteNextHopPrototype{
 					ID: &VPNConnectionID,
 				},
 			}
@@ -611,7 +611,7 @@ func (c *CloudClient) getAvailablePriority(routeData *vpcv1.CreateVPCRoutingTabl
 	}
 	routeDestination := *routeData.Destination
 	routeZone := *routeData.Zone.(*vpcv1.ZoneIdentityByName).Name
-	routeConnectionID := *routeData.NextHop.(*vpcv1.RoutePrototypeNextHop).ID
+	routeConnectionID := *routeData.NextHop.(*vpcv1.RouteNextHopPrototype).ID
 
 	for _, route := range routeCollection.Routes {
 		// check if rule exists
