@@ -5,11 +5,11 @@ Roadmap
 
 This pages lists some of the features that are planned for the future of Paraglider.
 
-Features:
+Features
 ^^^^^^^^^^
 .. card::
 
-    Get the IBM plugin caught up with the other plugins in feature completeness. 
+    Get the IBM plugin caught up with the other plugins in feature completeness.
     +++
     :bdg-warning:`Short-term` :bdg-link-muted:`Github Issue <https://github.com/paraglider-project/paraglider/issues/271>`
 
@@ -48,7 +48,7 @@ Features:
     +++
     :bdg-primary:`Longer-term` :bdg-link-muted:`Github Issue <https://github.com/paraglider-project/paraglider/issues/228>`
 
-Technical:
+Technical
 ^^^^^^^^^^
 .. card::
 
@@ -62,7 +62,7 @@ Technical:
     +++
     :bdg-primary:`Longer-term` :bdg-link-muted:`Github Issue <https://github.com/paraglider-project/paraglider/issues/277>`
 
-Integration:
+Integration
 ^^^^^^^^^^^^^^
 .. card::
 

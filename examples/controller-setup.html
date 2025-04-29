@@ -331,6 +331,37 @@ For information on the commands for running each individual microservice, see <a
 <li><p>The <code class="docutils literal notranslate"><span class="pre">tagService</span></code> field determines where the tag service should be hosted.</p></li>
 <li><p>The <code class="docutils literal notranslate"><span class="pre">kvStore</span></code> field determines where the key-value store should be hosted.</p></li>
 </ul>
+<section id="feature-flags">
+<span id="id1"></span><h3>Feature Flags<a class="headerlink" href="#feature-flags" title="Link to this heading">¶</a></h3>
+<p>The controller supports feature flags for each of the cloud plugins.
+These flags are used to enable or disable new features which can be at various levels of support across plugins.
+Since some features are not universally supported, the controller allows users to enable them on a per-plugin basis.
+Each plugin can have its own set of feature flags.
+To see which features are currently supported by each plugin, see <a class="reference internal" href="../project/feature-status.html#feature-status"><span class="std std-ref">Feature Status</span></a>.
+The feature flags are set in the configuration file under the <code class="docutils literal notranslate"><span class="pre">featureFlags</span></code> field.
+There are currently three feature flags:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">attachResourceEnabled</span></code>: Enables attaching existing resources (not created with Paraglider) to the deployment (i.e., using the <a class="reference internal" href="../overview/api.html#attach-resource"><span class="std std-ref">attach operation</span></a>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kubernetesClustersEnabled</span></code>: Enables creating Kubernetes clusters in the deployment (i.e., providing a cluster description to the <a class="reference internal" href="../overview/api.html#create-resource"><span class="std std-ref">create resource operation</span></a>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">privateEndpointsEnabled</span></code>: Enables creating private endpoints (e.g., Private Endpoints in Azure, Private Service Connect in GCP) in the deployment (i.e., providing a cluster description to the <a class="reference internal" href="../overview/api.html#create-resource"><span class="std std-ref">create resource operation</span></a>).</p></li>
+</ul>
+<p>Below is an example of how to set the feature flags in the configuration file:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">featureFlags</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">azure</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">attachResourceEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">        </span><span class="nt">kubernetesClustersEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">        </span><span class="nt">privateEndpointsEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">    </span><span class="nt">gcp</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">attachResourceEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">        </span><span class="nt">kubernetesClustersEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">        </span><span class="nt">privateEndpointsEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">ibm</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">attachResourceEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">        </span><span class="nt">kubernetesClustersEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">        </span><span class="nt">privateEndpointsEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</pre></div>
+</div>
+</section>
 </section>
 <section id="running-the-controller">
 <h2>Running the Controller<a class="headerlink" href="#running-the-controller" title="Link to this heading">¶</a></h2>
@@ -404,7 +435,10 @@ For information on the commands for running each individual microservice, see <a
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Controller Setup</a><ul>
-<li><a class="reference internal" href="#configuration">Configuration</a></li>
+<li><a class="reference internal" href="#configuration">Configuration</a><ul>
+<li><a class="reference internal" href="#feature-flags">Feature Flags</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#running-the-controller">Running the Controller</a></li>
 </ul>
 </li>
