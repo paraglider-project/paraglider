@@ -71,7 +71,7 @@ There are currently three feature flags:
 
 * ``attachResourceEnabled``: Enables attaching existing resources (not created with Paraglider) to the deployment (i.e., using the :ref:`attach operation <attach_resource>`).
 * ``kubernetesClustersEnabled``: Enables creating Kubernetes clusters in the deployment (i.e., providing a cluster description to the :ref:`create resource operation <create_resource>`).
-* ``privateEndpointsEnabled``: Enables creating private endpoints (eg, Private Endpoints in Azure, Private Service Connect in GCP) in the deployment (ie, providing a cluster description to the :ref:`create resource operation <create_resource>`).
+* ``privateEndpointsEnabled``: Enables creating private endpoints (e.g., Private Endpoints in Azure, Private Service Connect in GCP) in the deployment (i.e., providing a cluster description to the :ref:`create resource operation <create_resource>`).
 
 Below is an example of how to set the feature flags in the configuration file:
 
