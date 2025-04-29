@@ -69,7 +69,7 @@ Each plugin can have its own set of feature flags.
 To see which features are currently supported by each plugin, see :ref:`feature-status`.
 There are currently three feature flags:
 
-* ``attachResourceEnabled``: Enables attaching existing resources (not created with Paraglider) to the deployment (ie, using the :ref:`attach operation <attach_resource>`).
+* ``attachResourceEnabled``: Enables attaching existing resources (not created with Paraglider) to the deployment (i.e., using the :ref:`attach operation <attach_resource>`).
 * ``kubernetesClustersEnabled``: Enables creating Kubernetes clusters in the deployment (ie, providing a cluster description to the :ref:`create resource operation <create_resource>`).
 * ``privateEndpointsEnabled``: Enables creating private endpoints (eg, Private Endpoints in Azure, Private Service Connect in GCP) in the deployment (ie, providing a cluster description to the :ref:`create resource operation <create_resource>`).
 
