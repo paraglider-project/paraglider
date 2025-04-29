@@ -107,7 +107,7 @@ func TestMulticloud(t *testing.T) {
 	ctx := context.Background()
 
 	// Create Azure VM 1
-	azureVm1Location := "westus"
+	azureVm1Location := "westus2"
 	azureVm1Parameters := azure.GetTestVmParameters(azureVm1Location)
 	azureVm1Description, err := json.Marshal(azureVm1Parameters)
 	azureVm1Name := "paraglider-vm-test-1"
@@ -443,7 +443,7 @@ func TestMulticloudIBMAzure(t *testing.T) {
 
 	// Create Azure VM
 	fmt.Println("\nCreating Azure VM...")
-	azureVm1Location := "westus"
+	azureVm1Location := "westus2"
 	azureVm1Parameters := azure.GetTestVmParameters(azureVm1Location)
 	azureVm1Description, err := json.Marshal(azureVm1Parameters)
 	require.NoError(t, err)
