@@ -41,5 +41,4 @@ Features with flags to enable/disable them are listed with :octicon:`gear;1em;sd
       - :bdg-info:`Initial`
       - :bdg-success:`Supported` :raw-html:`<br />` with GCP
       - :bdg-danger:`Unsupported`
-    
-
+      
