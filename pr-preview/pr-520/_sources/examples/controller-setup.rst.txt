@@ -64,9 +64,11 @@ This file contains all information needed to spin up each of the microservices.
 Feature Flags
 ~~~~~~~~~~~~~
 The controller supports feature flags for each of the cloud plugins. 
-The feature flags are set in the configuration file under the ``featureFlags`` field. 
+These flags are used to enable or disable new features which can be at various levels of support across plugins.
+Since some features are not universally supported, the controller allows users to enable them on a per-plugin basis.
 Each plugin can have its own set of feature flags.
 To see which features are currently supported by each plugin, see :ref:`feature-status`.
+The feature flags are set in the configuration file under the ``featureFlags`` field. 
 There are currently three feature flags:
 
 * ``attachResourceEnabled``: Enables attaching existing resources (not created with Paraglider) to the deployment (i.e., using the :ref:`attach operation <attach_resource>`).

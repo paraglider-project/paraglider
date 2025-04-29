@@ -9,7 +9,7 @@ Features
 ^^^^^^^^^^
 .. card::
 
-    Get the IBM plugin caught up with the other plugins in feature completeness. [TODO: Maybe remove?]
+    Get the IBM plugin caught up with the other plugins in feature completeness.
     +++
     :bdg-warning:`Short-term` :bdg-link-muted:`Github Issue <https://github.com/paraglider-project/paraglider/issues/271>`
 
