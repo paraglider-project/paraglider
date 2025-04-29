@@ -1,6 +1,7 @@
 module github.com/paraglider-project/paraglider
 
-go 1.22.2
+go 1.23.2
+
 toolchain go1.24.1
 
 require (
