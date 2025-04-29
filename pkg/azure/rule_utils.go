@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
+	armnetwork "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
 )
 
@@ -76,7 +76,7 @@ func CheckSecurityRulesCompliance(ctx context.Context, azureHandler *AzureSDKHan
 
 // Checks that the NSG rules in a particular direction are conformant as per the description of (func) CheckSecurityRulesCompliance
 //
-// Returns: 
+// Returns:
 //
 // 1. If deny all rule exists, priority number of the deny all rule & no error
 //

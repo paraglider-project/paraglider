@@ -25,8 +25,8 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
+	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
+	armnetwork "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
 	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
 	"github.com/paraglider-project/paraglider/pkg/orchestrator"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"

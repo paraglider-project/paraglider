@@ -22,7 +22,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-redis/redismock/v9"
+	redismock "github.com/go-redis/redismock/v9"
 	storepb "github.com/paraglider-project/paraglider/pkg/kvstore/storepb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

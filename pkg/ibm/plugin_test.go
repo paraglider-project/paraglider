@@ -95,7 +95,7 @@ var (
 
 	fakeEndpointGatewayOptions = vpcv1.CreateEndpointGatewayOptions{
 		Target: &vpcv1.EndpointGatewayTargetPrototype{
-			ResourceType: core.StringPtr(vpcv1.EndpointGatewayTargetPrototypeProviderInfrastructureServiceIdentityResourceTypeProviderCloudServiceConst),
+			ResourceType: core.StringPtr(vpcv1.EndpointGatewayTargetPrototypeResourceTypeProviderCloudServiceConst),
 			Name:         core.StringPtr("ibm-ntp-server"),
 		},
 	}

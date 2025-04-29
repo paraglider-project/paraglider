@@ -21,7 +21,7 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 
 	az "github.com/paraglider-project/paraglider/pkg/azure"
 	gcp "github.com/paraglider-project/paraglider/pkg/gcp"
