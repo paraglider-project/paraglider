@@ -3,22 +3,42 @@
 Feature Status
 --------------
 
+.. role:: raw-html(raw)
+    :format: html
+
 This pages lists important information about the status of the features in each plugin.
 
-Azure
-~~~~~
-* Supports VMs for all paraglider operations.
-* Managed k8s cluster support is in progress / initial.
-* Multicloud connections are supported with GCP.
+Features with flags to enable/disable them are listed with :octicon:`gear;1em;sd-text-info`.
 
-GCP
-~~~
-* Supports instances for all paraglider operations.
-* Managed k8s cluster support is in progress / initial.
-* Support for connections to services is in progress / initial.
-* Multicloud connections are supported with Azure.
-
-IBM
-~~~
-* Supports instances and k8s cluster for all paraglider operations.
-* Support for multicloud connections to Azure and GCP is in progress.
+.. list-table::
+    :widths: 10 15 20 20 25 20
+    :header-rows: 1
+    
+    * - Cloud
+      - VMs
+      - Kubernetes Clusters :octicon:`gear;1em;sd-text-info`
+      - Managed Services :octicon:`gear;1em;sd-text-info`
+      - Multicloud Connections
+      - Resource Attachment :octicon:`gear;1em;sd-text-info`
+    
+    * - Azure
+      - :bdg-success:`Supported`
+      - :bdg-info:`Initial`
+      - :bdg-info:`Initial`
+      - :bdg-success:`Supported` :raw-html:`<br />` with GCP
+      - :bdg-info:`Initial`
+    
+    * - GCP
+      - :bdg-success:`Supported`
+      - :bdg-info:`Initial`
+      - :bdg-info:`Initial`
+      - :bdg-success:`Supported` :raw-html:`<br />` with Azure and IBM
+      - :bdg-warning:`In Progress`
+    
+    * - IBM
+      - :bdg-success:`Supported`
+      - :bdg-success:`Supported`
+      - :bdg-info:`Initial`
+      - :bdg-success:`Supported` :raw-html:`<br />` with GCP
+      - :bdg-danger:`Unsupported`
+      
