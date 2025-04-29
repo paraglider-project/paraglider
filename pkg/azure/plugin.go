@@ -43,7 +43,7 @@ type azurePluginServer struct {
 }
 
 const (
-	vpnLocation                = "westus2" // TODO @seankimkdy: should this be configurable/dynamic?
+	vpnLocation                = "westus" // TODO @seankimkdy: should this be configurable/dynamic?
 	gatewaySubnetName          = "GatewaySubnet"
 	gatewaySubnetAddressPrefix = "192.168.255.0/27"
 )
