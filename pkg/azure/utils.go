@@ -44,6 +44,7 @@ const (
 	virtualNetworkGatewayTypeName = "Microsoft.Network/virtualNetworkGateways"
 	virtualNetworkTypeName        = "Microsoft.Network/virtualNetworks"
 	networkWatcherTypeName        = "Microsoft.Network/networkWatchers"
+	natGatewayTypeName            = "Microsoft.Network/natGateways"
 )
 
 // Gets subscription ID defined in environment variable
@@ -176,6 +177,7 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 					connectionTypeName,
 					virtualNetworkGatewayTypeName,
 					localNetworkGatewayTypeName,
+					natGatewayTypeName,
 					publicIPAddressTypeName,
 					virtualNetworkTypeName,
 					networkSecurityGroupTypeName,
