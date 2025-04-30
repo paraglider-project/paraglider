@@ -1,4 +1,4 @@
-//go:build integration-azure
+//go:build integrationazure
 
 /*
 Copyright 2023 The Paraglider Authors.

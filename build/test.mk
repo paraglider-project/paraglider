@@ -30,7 +30,7 @@ integration-test:
 
 .PHONY: integration-test-azure
 integration-test:
-	$(GOTEST_CMD) -tags=integration-azure -timeout 70m
+	$(GOTEST_CMD) -tags=integrationazure -timeout 70m
 
 .PHONY: multicloud-test
 multicloud-test:
