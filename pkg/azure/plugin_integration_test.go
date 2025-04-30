@@ -395,6 +395,11 @@ func TestAttachResourceIntegration(t *testing.T) {
 				},
 			},
 		},
+		FeatureFlags: map[string]config.FeatureFlags{
+			utils.AZURE: {
+				AttachResourceEnabled: true,
+			},
+		},
 	}
 	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
 	orchestrator.Setup(orchestratorServerConfig, true)

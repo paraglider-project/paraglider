@@ -28,7 +28,7 @@ test: ## Runs unit tests in the internal and pkg folders
 integration-test:
 	$(GOTEST_CMD) -tags=integration -timeout 70m
 
-.PHONY: integration-test-azure
+.PHONY: azure-integration-test
 integration-test:
 	$(GOTEST_CMD) -tags=integrationazure -timeout 70m
 
