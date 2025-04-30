@@ -83,7 +83,7 @@ func SetupAzureTesting(subscriptionId string, testName string) string {
 	}
 	resourceGroupsClient := createResourceGroupsClient(subscriptionId)
 	_, err := resourceGroupsClient.CreateOrUpdate(context.Background(), resourceGroupName, armresources.ResourceGroup{
-		Location: to.Ptr("westus"),
+		Location: to.Ptr("westus2"),
 	}, nil)
 	if err != nil {
 		panic(fmt.Sprintf("Error while creating resource group: %v", err))
