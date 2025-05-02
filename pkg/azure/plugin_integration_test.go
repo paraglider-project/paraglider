@@ -438,7 +438,7 @@ func TestAttachResourceIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create Non-Paraglider Vnet
-	externalVnetParams := getVirtualNetworkParameters(vmLocation, externalAddressSpace)
+	externalVnetParams := GetVirtualNetworkParameters(vmLocation, externalAddressSpace)
 	externalVnet, err := azureHandler.CreateOrUpdateVirtualNetwork(ctx, externalVnetName, externalVnetParams)
 	require.NotNil(t, externalVnet)
 	require.NoError(t, err)
