@@ -375,13 +375,13 @@ func TestPermitListRuleTagAdd(t *testing.T) {
 
 	// Well-formed request
 	tags := []string{"1.1.1.1"}
-	rule := &paragliderpb.PermitListRule{
+	rule := []*paragliderpb.PermitListRule{&paragliderpb.PermitListRule{
 		Name:      "rulename",
 		Tags:      tags,
 		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
-		Protocol:  1}
+		Protocol:  1}}
 	jsonValue, _ := json.Marshal(rule)
 
 	url := fmt.Sprintf(GetFormatterString(RuleOnTagURL), defaultNamespace+"."+exampleCloudName+"."+faketagservice.ValidTagName)
