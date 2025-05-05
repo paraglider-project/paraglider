@@ -43,7 +43,7 @@ jobs:
     steps:
       - name: Download commit SHA artifact
         if: github.event_name == 'workflow_run'
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v9
         with:
           name: commit_sha
           run_id: ${{ github.event.workflow_run.id }}
