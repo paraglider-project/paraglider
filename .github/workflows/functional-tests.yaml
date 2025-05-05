@@ -90,10 +90,10 @@ jobs:
         with:
           workload_identity_provider: 'projects/112338121957/locations/global/workloadIdentityPools/github/providers/paraglider'
           service_account: 'invisinets-cicd@invisinets-cicd.iam.gserviceaccount.com'
-      - name: Authenticate to Azure
-        uses: azure/login@v2
-        with:
-            creds: ${{ secrets.AZURE_CREDENTIALS }}
+      # - name: Authenticate to Azure
+      #   uses: azure/login@v2
+      #   with:
+      #       creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: Authenticate to AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:

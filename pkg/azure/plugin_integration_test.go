@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integrationazure
 
 /*
 Copyright 2023 The Paraglider Authors.
@@ -68,7 +68,7 @@ func TestBasicPermitListOps(t *testing.T) {
 	ctx := context.Background()
 
 	vmNamePrefix := "sample-vm"
-	vmLocation := "westus"
+	vmLocation := "westus2"
 	parameters := GetTestVmParameters(vmLocation)
 	descriptionJson, err := json.Marshal(parameters)
 	require.NoError(t, err)
@@ -170,7 +170,7 @@ func TestCrossNamespaces(t *testing.T) {
 
 	// Create vm1 in rg1
 	vm1Name := "vm-paraglider-test1"
-	vm1Location := "westus"
+	vm1Location := "westus2"
 	createVM1Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroup1Name, resourceGroup1Namespace, vm1Location, vm1Name)
 	require.NoError(t, err)
 	require.NotNil(t, createVM1Resp)
@@ -178,7 +178,7 @@ func TestCrossNamespaces(t *testing.T) {
 
 	// Create vm2 in rg2
 	vm2Name := "vm-paraglider-test2"
-	vm2Location := "westus"
+	vm2Location := "westus2"
 	createVM2Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroup2Name, resourceGroup2Namespace, vm2Location, vm2Name)
 	require.NoError(t, err)
 	require.NotNil(t, createVM2Resp)
@@ -288,7 +288,7 @@ func TestMultipleRegionsIntraNamespace(t *testing.T) {
 
 	// Create 2 VMs in different regions
 	vm1Name := "vm-paraglider-test-west"
-	vm1Location := "westus"
+	vm1Location := "westus2"
 	createVM1Resp, err := createVM(ctx, azureServer, subscriptionId, resourceGroupName, defaultNamespace, vm1Location, vm1Name)
 	require.NoError(t, err)
 	require.NotNil(t, createVM1Resp)
@@ -395,6 +395,11 @@ func TestAttachResourceIntegration(t *testing.T) {
 				},
 			},
 		},
+		FeatureFlags: map[string]config.FeatureFlags{
+			utils.AZURE: {
+				AttachResourceEnabled: true,
+			},
+		},
 	}
 	orchestratorServerAddr := orchestratorServerConfig.Server.Host + ":" + orchestratorServerConfig.Server.RpcPort
 	orchestrator.Setup(orchestratorServerConfig, true)
@@ -402,7 +407,7 @@ func TestAttachResourceIntegration(t *testing.T) {
 	// Setup Azure plugin server
 	azureServer := Setup(azureServerPort, orchestratorServerAddr)
 
-	vmLocation := "westus"
+	vmLocation := "westus2"
 	externalVmParameters := GetTestVmParameters(vmLocation)
 	externalVmName := "external-vm"
 	externalVnetName := "external-vnet"
@@ -433,7 +438,7 @@ func TestAttachResourceIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create Non-Paraglider Vnet
-	externalVnetParams := getVirtualNetworkParameters(vmLocation, externalAddressSpace)
+	externalVnetParams := GetVirtualNetworkParameters(vmLocation, externalAddressSpace)
 	externalVnet, err := azureHandler.CreateOrUpdateVirtualNetwork(ctx, externalVnetName, externalVnetParams)
 	require.NotNil(t, externalVnet)
 	require.NoError(t, err)
@@ -563,7 +568,7 @@ func TestPublicIPAddressTarget(t *testing.T) {
 	ctx := context.Background()
 
 	// Create VM
-	vmLocation := "westus"
+	vmLocation := "westus2"
 	vmParameters := GetTestVmParameters(vmLocation)
 	vmDescriptionJson, err := json.Marshal(vmParameters)
 	require.NoError(t, err)

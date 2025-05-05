@@ -44,6 +44,7 @@ const (
 	virtualNetworkGatewayTypeName = "Microsoft.Network/virtualNetworkGateways"
 	virtualNetworkTypeName        = "Microsoft.Network/virtualNetworks"
 	networkWatcherTypeName        = "Microsoft.Network/networkWatchers"
+	natGatewayTypeName            = "Microsoft.Network/natGateways"
 )
 
 // Gets subscription ID defined in environment variable
@@ -83,7 +84,7 @@ func SetupAzureTesting(subscriptionId string, testName string) string {
 	}
 	resourceGroupsClient := createResourceGroupsClient(subscriptionId)
 	_, err := resourceGroupsClient.CreateOrUpdate(context.Background(), resourceGroupName, armresources.ResourceGroup{
-		Location: to.Ptr("westus"),
+		Location: to.Ptr("westus2"),
 	}, nil)
 	if err != nil {
 		panic(fmt.Sprintf("Error while creating resource group: %v", err))
@@ -176,6 +177,7 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 					connectionTypeName,
 					virtualNetworkGatewayTypeName,
 					localNetworkGatewayTypeName,
+					natGatewayTypeName,
 					publicIPAddressTypeName,
 					virtualNetworkTypeName,
 					networkSecurityGroupTypeName,
@@ -431,11 +433,11 @@ func DoesVnetOverlapWithParaglider(ctx context.Context, handler *AzureSDKHandler
 	return false, nil
 }
 
-// getVirtualNetworkParameters creates and returns an instance of armnetwork.VirtualNetwork
+// GetVirtualNetworkParameters creates and returns an instance of armnetwork.VirtualNetwork
 // with the specified parameters.
 //
 // Subnet address space is the same as the Vnet address space.
-func getVirtualNetworkParameters(location string, addressSpace string) armnetwork.VirtualNetwork {
+func GetVirtualNetworkParameters(location string, addressSpace string) armnetwork.VirtualNetwork {
 	return armnetwork.VirtualNetwork{
 		Location: to.Ptr(location),
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
