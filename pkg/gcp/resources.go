@@ -221,15 +221,14 @@ func (r *instanceHandler) IsValidResource(ctx context.Context, req *paragliderpb
 	}
 
 	// Make a GetInstanceRequest to verify the instance exists
-	instanceReq := &computepb.GetInstanceRequest{
+	instanceRequest := &computepb.GetInstanceRequest{
+		Instance: resourceInfo.Name,
 		Project:  resourceInfo.Project,
 		Zone:     resourceInfo.Zone,
-		Instance: resourceInfo.Name,
 	}
-
-	_, err = r.client.Get(ctx, instanceReq)
+	_, err = r.client.Get(ctx, instanceRequest)
 	if err != nil {
-		return nil, fmt.Errorf("instance does not exist or could not be retrieved: %w", err)
+		return nil, fmt.Errorf("unable to get instance: %w", err)
 	}
 
 	resourceInfo.Namespace = req.GetNamespace()
@@ -271,7 +270,7 @@ func GetFirewallTarget(ctx context.Context, resourceInfo *resourceInfo, netInfo 
 }
 
 // Returns the resource and network info if the resource complies with paraglider requirements. Otherwise, it returns an error
-func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx context.Context, resourceReq *paragliderpb.AttachResourceRequest, project string, resourceID string, server *GCPPluginServer, clients *GCPClients) (*resourceInfo, *resourceNetworkInfo, error) {
+func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx context.Context, resourceReq *paragliderpb.AttachResourceRequest, project string, resourceID string, clients *GCPClients) (*resourceInfo, *resourceNetworkInfo, error) {
 	// Ensure the resource exists
 	resourceInfo, err := r.IsValidResource(ctx, resourceReq)
 	if err != nil {
@@ -296,7 +295,7 @@ func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx
 
 	// Ensure the Vnet address space doesn't overlap with paraglider's address space
 	vpcName := *instanceResponse.NetworkInterfaces[0].Network
-	isOverlapping, err := DoesVPCOverlapWithParaglider(ctx, resourceInfo, vpcName, server, clients)
+	isOverlapping, err := DoesVPCOverlapWithParaglider(ctx, resourceInfo, vpcName, clients)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error checking if VPC overlaps with Paraglider: %w", err)
 	}
@@ -375,7 +374,7 @@ func GetVPCAddressSpace(ctx context.Context, project, vpcName string, clients *G
 }
 
 // DoesVnetOverlapWithParaglider checks if the GCP VPC's address space overlaps with any of the used address spaces
-func DoesVPCOverlapWithParaglider(ctx context.Context, resourceInfo *resourceInfo, vpcName string, server *GCPPluginServer, clients *GCPClients) (bool, error) {
+func DoesVPCOverlapWithParaglider(ctx context.Context, resourceInfo *resourceInfo, vpcName string, clients *GCPClients) (bool, error) {
 	// Get VPC address space (CIDR block)
 	// vpcAddressSpaces, err := GetVPCAddressSpace(ctx, resourceInfo.Project, vpcName, clients)
 	// if err != nil {
