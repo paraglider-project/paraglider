@@ -294,7 +294,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	project := parseUrl(resourceDescription.Deployment.Id)["projects"]
 
 	// Read and validate user-provided description
-	resourceInfo, err := IsValidResource(ctx, resourceDescription)
+	resourceInfo, err := IsValidResourceFromDescription(ctx, resourceDescription)
 	if err != nil {
 		return nil, fmt.Errorf("unsupported resource description: %w", err)
 	}
@@ -870,6 +870,69 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *paragl
 func (s *GCPPluginServer) GetNetworkAddressSpaces(ctx context.Context, req *paragliderpb.GetNetworkAddressSpacesRequest) (*paragliderpb.GetNetworkAddressSpacesResponse, error) {
 	return nil, fmt.Errorf("GetNetworkAddressSpaces is currently not implemented by GCP, implying plugin does not support BGP disabled VPN connections")
 }
+
+// // Add an existing GCP resource to a paraglider deployment
+// func (s *GCPPluginServer) AttachResource(ctx context.Context, attachResourceReq *paragliderpb.AttachResourceRequest) (*paragliderpb.AttachResourceResponse, error) {
+// 	clients := &GCPClients{}
+// 	defer clients.Close()
+
+// 	resource, networkInfo, err := ValidateResourceCompliesWithParagliderRequirements(ctx, resourceId, azureHandler, s)
+// 	if err != nil {
+// 		utils.Log.Printf("An error occured while validating resource:%+v", err)
+// 		return nil, err
+// 	}
+
+// 	func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx context.Context, resourceReq *paragliderpb.CreateResourceRequest, project string, resourceID string, server *GCPPluginServer) (*resourceInfo, *resourceNetworkInfo, error) {
+
+// 	resourceId := attachResourceReq.GetResource()
+// 	resourceIdInfo, err := getResourceIDInfo(resourceId)
+// 	if err != nil {
+// 		utils.Log.Printf("An error occured while getting resource id info:%+v", err)
+// 		return nil, err
+// 	}
+
+// 	azureHandler, err := s.setupAzureHandler(resourceIdInfo, attachResourceReq.GetNamespace())
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	resource, networkInfo, err := ValidateResourceCompliesWithParagliderRequirements(ctx, resourceId, azureHandler, s)
+// 	if err != nil {
+// 		utils.Log.Printf("An error occured while validating resource:%+v", err)
+// 		return nil, err
+// 	}
+
+// 	// Create VPN gateway vnet if not already created
+// 	vpnGwVnet, err := GetOrCreateVpnGatewayVNet(ctx, azureHandler, namespace)
+// 	if err != nil {
+// 		utils.Log.Printf("An error occured while getting or creating VPN gateway vnet:%+v", err)
+// 		return nil, err
+// 	}
+
+// 	vnetName := getVnetFromSubnetId(networkInfo.SubnetID)
+// 	// Create peering between the VPN gateway vnet and VM vnet. If the VPN gateway already exists, then establish a VPN gateway transit relationship where the vnet can use the gatewayVnet's VPN gateway.
+// 	err = CreateGatewayVnetPeering(ctx, azureHandler, vnetName, *vpnGwVnet.Name, namespace)
+// 	if err != nil {
+// 		utils.Log.Printf("An error occured while creating VPN gateway vnet peering:%+v", err)
+// 		return nil, err
+// 	}
+
+// 	vnet, err := azureHandler.GetVirtualNetwork(ctx, vnetName)
+// 	if err != nil {
+// 		utils.Log.Printf("An error occured while getting vnet:%+v", err)
+// 		return nil, err
+// 	}
+
+// 	// Add Paraglider namespace tag to the vnet
+// 	azureHandler.createParagliderNamespaceTag(&vnet.Tags)
+// 	_, err = azureHandler.CreateOrUpdateVirtualNetwork(ctx, vnetName, *vnet)
+// 	if err != nil {
+// 		utils.Log.Printf("An error occured while creating vnet:%+v", err)
+// 		return nil, err
+// 	}
+
+// 	return &paragliderpb.AttachResourceResponse{Name: *resource.Name, Uri: *resource.ID, Ip: networkInfo.Address}, nil
+// }
 
 func Setup(port int, orchestratorServerAddr string) *GCPPluginServer {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))

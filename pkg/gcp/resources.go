@@ -24,15 +24,12 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/api/iterator"
-
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
-	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
-	"google.golang.org/api/option"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -215,8 +212,33 @@ func GetResourceNetworkInfo(ctx context.Context, resourceInfo *resourceInfo, cli
 	return netInfo, nil
 }
 
+// Verifies the existence of a GCP resource described in an AttachResourceRequest and returns the resourceInfo
+func (r *instanceHandler) IsValidResource(ctx context.Context, req *paragliderpb.AttachResourceRequest) (*resourceInfo, error) {
+	// Parse the resource URL to get the resourceInfo (project, zone, name, etc)
+	resourceInfo, err := parseResourceUrl(req.GetResource())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse resource URL: %w", err)
+	}
+
+	// Make a GetInstanceRequest to verify the instance exists
+	instanceReq := &computepb.GetInstanceRequest{
+		Project:  resourceInfo.Project,
+		Zone:     resourceInfo.Zone,
+		Instance: resourceInfo.Name,
+	}
+
+	_, err = r.client.Get(ctx, instanceReq)
+	if err != nil {
+		return nil, fmt.Errorf("instance does not exist or could not be retrieved: %w", err)
+	}
+
+	resourceInfo.Namespace = req.GetNamespace()
+
+	return resourceInfo, nil
+}
+
 // Read parameters from within the resource description and ensure it is a valid resource
-func IsValidResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
+func IsValidResourceFromDescription(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
 	// Verify resource is supported
 	handler, err := getResourceHandlerFromDescription(resource.Description)
 	if err != nil {
@@ -248,59 +270,15 @@ func GetFirewallTarget(ctx context.Context, resourceInfo *resourceInfo, netInfo 
 	return &target, nil
 }
 
-func GetNetworkInfoFromResource(ctx context.Context, resourceID string, resourceInfo *resourceInfo, vpcName string) (*resourceNetworkInfo, error) {
-	// Create a Compute client with credentials
-	region := getRegionFromZone(resourceInfo.Zone)
-
-	client, err := compute.NewSubnetworksRESTClient(ctx, option.WithCredentialsFile("path_to_your_service_account_key.json"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create compute client: %v", err)
-	}
-	defer client.Close()
-
-	// List subnets in the region (adjust as needed)
-	req := &computepb.ListSubnetworksRequest{
-		Project: resourceInfo.Project,
-		Region:  region,
-	}
-
-	// Use the client to list the subnets
-	it := client.List(ctx, req)
-
-	// Iterate through the subnets
-	for {
-		subnet, err := it.Next()
-		if err == iterator.Done {
-			break // No more results
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to list subnets: %v", err)
-		}
-
-		// Check if the subnet belongs to the desired VPC (vpcName is a string)
-		if subnet.Network != nil && *subnet.Network == vpcName {
-			// Dereference pointer fields (SelfLink and IpCidrRange) and return the network info
-			return &resourceNetworkInfo{
-				SubnetUrl:   *subnet.SelfLink, // Dereference pointer to string
-				NetworkName: vpcName,
-				Address:     *subnet.IpCidrRange, // Dereference pointer to string
-			}, nil
-		}
-	}
-
-	// Return error if no subnet was found for the given VPC
-	return nil, fmt.Errorf("no subnet found for VPC %s", vpcName)
-}
-
 // Returns the resource and network info if the resource complies with paraglider requirements. Otherwise, it returns an error
-func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx context.Context, resourceReq *paragliderpb.CreateResourceRequest, project string, resourceID string, server *GCPPluginServer) (*resourceInfo, *resourceNetworkInfo, error) {
+func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx context.Context, resourceReq *paragliderpb.AttachResourceRequest, project string, resourceID string, server *GCPPluginServer, clients *GCPClients) (*resourceInfo, *resourceNetworkInfo, error) {
 	// Ensure the resource exists
-	resourceInfo, err := IsValidResource(ctx, resourceReq)
+	resourceInfo, err := r.IsValidResource(ctx, resourceReq)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	networkInfo, err := GetNetworkInfoFromResource(ctx, resourceID, resourceInfo, getVpcName(resourceInfo.Namespace))
+	networkInfo, err := GetResourceNetworkInfo(ctx, resourceInfo, clients)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Error in getting resource %s network info: %w", resourceID, err)
 	}
@@ -318,7 +296,7 @@ func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx
 
 	// Ensure the Vnet address space doesn't overlap with paraglider's address space
 	vpcName := *instanceResponse.NetworkInterfaces[0].Network
-	isOverlapping, err := DoesVPCOverlapWithParaglider(ctx, resourceInfo, vpcName, server)
+	isOverlapping, err := DoesVPCOverlapWithParaglider(ctx, resourceInfo, vpcName, server, clients)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error checking if VPC overlaps with Paraglider: %w", err)
 	}
@@ -327,24 +305,23 @@ func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx
 		return nil, nil, fmt.Errorf("Resource %s Network Address Space overlaps with Paraglider Network Address Space. Not allowed", resourceID)
 	}
 
-    // Fetch firewall rules for the resource using getFirewallRules function
-    firewallRules, err := getFirewallRules(ctx, project, resourceID, clients)
-    if err != nil {
-        return nil, nil, fmt.Errorf("Error retrieving firewall rules for resource %s: %w", resourceID, err)
-    }
+	// Fetch firewall rules for the resource using getFirewallRules function
+	firewallRules, err := getFirewallRules(ctx, project, resourceID, clients)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error retrieving firewall rules for resource %s: %w", resourceID, err)
+	}
 
-    // Call CheckFirewallRulesCompliance to verify firewall rule compliance
-    isCompliant, err := CheckFirewallRulesCompliance(firewallRules)
-    if err != nil || !isCompliant {
-        return nil, nil, fmt.Errorf("Firewall rules are not compliant: %w", err)
-    }
+	// Call CheckFirewallRulesCompliance to verify firewall rule compliance
+	isCompliant, err := CheckFirewallRulesCompliance(firewallRules)
+	if err != nil || !isCompliant {
+		return nil, nil, fmt.Errorf("Firewall rules are not compliant: %w", err)
+	}
 	
 	return resourceInfo, networkInfo, nil
 }
 
 // GetVPCAddressSpace retrieves the address space for a given VPC network
-func GetVPCAddressSpace(ctx context.Context, project, vpcName string) ([]string, error) {
-	clients := &GCPClients{}
+func GetVPCAddressSpace(ctx context.Context, project, vpcName string, clients *GCPClients) ([]string, error) {
 	networksClient, err := clients.GetOrCreateNetworksClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get networks client: %w", err)
@@ -398,15 +375,16 @@ func GetVPCAddressSpace(ctx context.Context, project, vpcName string) ([]string,
 }
 
 // DoesVnetOverlapWithParaglider checks if the GCP VPC's address space overlaps with any of the used address spaces
-func DoesVPCOverlapWithParaglider(ctx context.Context, resourceInfo *resourceInfo, vpcName string, server *GCPPluginServer) (bool, error) {
+func DoesVPCOverlapWithParaglider(ctx context.Context, resourceInfo *resourceInfo, vpcName string, server *GCPPluginServer, clients *GCPClients) (bool, error) {
 	// Get VPC address space (CIDR block)
-	vpcAddressSpaces, err := GetVPCAddressSpace(ctx, resourceInfo.Project, vpcName)
-	if err != nil {
-		return false, fmt.Errorf("failed to get VPC address space: %v", err)
-	}
+	// vpcAddressSpaces, err := GetVPCAddressSpace(ctx, resourceInfo.Project, vpcName, clients)
+	// if err != nil {
+	// 	return false, fmt.Errorf("failed to get VPC address space: %v", err)
+	// }
 
 	// GetUsedAddressSpaces by checking the subnetworks IpCidrRange
-	clients := &GCPClients{}
+	// PASS IN OR INITIALIZE CLIENTS?
+	// clients := &GCPClients{}
 	networksClient, err := clients.GetOrCreateNetworksClient(ctx)
 	if err != nil {
 		return false, fmt.Errorf("unable to get networks client: %w", err)
@@ -416,15 +394,15 @@ func DoesVPCOverlapWithParaglider(ctx context.Context, resourceInfo *resourceInf
 		return false, fmt.Errorf("unable to get subnetworks client: %w", err)
 	}
 
-	getNetworkReq := &computepb.GetNetworkRequest{
-		Network: vpcName,
-		Project: project,
-	}
+	// getNetworkReq := &computepb.GetNetworkRequest{
+	// 	Network: vpcName,
+	// 	Project: resourceInfo.Project,
+	// }
 
-	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
-	if err != nil {
-		return false, fmt.Errorf("failed to get paraglider vpc network: %w", err)
-	}
+	// getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
+	// if err != nil {
+	// 	return false, fmt.Errorf("failed to get paraglider vpc network: %w", err)
+	// }
 
 	req := &paragliderpb.GetUsedAddressSpacesRequest{
 		Deployments: []*paragliderpb.ParagliderDeployment{
@@ -432,7 +410,7 @@ func DoesVPCOverlapWithParaglider(ctx context.Context, resourceInfo *resourceInf
 		},
 	}
 
-	resp := &paragliderpb.GetUsedAddressSpacesResponse{}	
+	resp := &paragliderpb.GetUsedAddressSpacesResponse{}
 	resp.AddressSpaceMappings = make([]*paragliderpb.AddressSpaceMapping, len(req.Deployments))
 	for i, deployment := range req.Deployments {
 		resp.AddressSpaceMappings[i] = &paragliderpb.AddressSpaceMapping{
@@ -452,7 +430,7 @@ func DoesVPCOverlapWithParaglider(ctx context.Context, resourceInfo *resourceInf
 			if isErrorNotFound(err) {
 				continue
 			} else {
-				return nil, fmt.Errorf("failed to get paraglider vpc network: %w", err)
+				return false, fmt.Errorf("failed to get paraglider vpc network: %w", err)
 			}
 		}
 		resp.AddressSpaceMappings[i].AddressSpaces = []string{}
@@ -465,7 +443,7 @@ func DoesVPCOverlapWithParaglider(ctx context.Context, resourceInfo *resourceInf
 			}
 			getSubnetworkResp, err := subnetworksClient.Get(ctx, getSubnetworkRequest)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get paraglider subnetwork: %w", err)
+				return false, fmt.Errorf("failed to get paraglider subnetwork: %w", err)
 			}
 
 			resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, *getSubnetworkResp.IpCidrRange)
@@ -473,6 +451,7 @@ func DoesVPCOverlapWithParaglider(ctx context.Context, resourceInfo *resourceInf
 				resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, *secondaryRange.IpCidrRange)
 			}
 		}
+	}
 
 	return false, nil
 }
@@ -483,7 +462,7 @@ type GCPResourceHandler interface {
 	readAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnetName string, resourceInfo *resourceInfo, additionalAddrSpaces []string) (string, string, error)
 	// Get network information about the resource
 	getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo) (*resourceNetworkInfo, error)
-	// Get information about the reosurce from the resource description
+	// Get information about the resource from the resource description
 	getResourceInfo(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error)
 	// Initialize necessary clients
 	initClients(ctx context.Context, clients *GCPClients) error
@@ -555,6 +534,27 @@ func (r *instanceHandler) getNetworkInfo(ctx context.Context, resourceInfo *reso
 	ip := *instanceResponse.NetworkInterfaces[0].NetworkIP
 	return &resourceNetworkInfo{NetworkName: networkName, SubnetUrl: subnetUrl, ResourceID: resourceID, Address: ip}, nil
 }
+
+// // Get the resource information for an instance from an AttachResourceRequest
+// func (r *instanceHandler) getResourceInfo(ctx context.Context, req *paragliderpb.AttachResourceRequest) (*resourceInfo, error) {
+// 	resourceID := req.GetResource()
+
+// 	// Retrieve resource ID info (this could be from a database, GCP API, etc.)
+// 	resourceIDInfo, err := getResourceIDInfo(resourceID)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
+// 	}
+
+// 	// Construct the resource info based on the retrieved data
+// 	region := getRegionFromZone(resourceIDInfo.Zone)
+// 	return &resourceInfo{
+// 		Name:         resourceIDInfo.Name,
+// 		Project:      resourceIDInfo.Project,
+// 		Zone:         resourceIDInfo.Zone,
+// 		Region:       region,
+// 		ResourceType: instanceTypeName,
+// 	}, nil
+// }
 
 // Create an instance with given network settings
 // Returns the instance URL and instance IP
@@ -895,7 +895,6 @@ func (r *privateServiceHandler) getResourceInfo(ctx context.Context, resource *p
 
 // Get the subnet requirements for a private service connect attachment
 func (r *privateServiceHandler) getNumberAddressSpacesRequired(description *ServiceAttachmentDescription) int {
-	// return 1 // Only used for GCP services (TODO: Change this to depend on that)
 	if description.Bundle != "" {
 		return 1
 	}
