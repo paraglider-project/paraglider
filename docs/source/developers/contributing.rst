@@ -13,12 +13,11 @@ This page gives an overview of how to contribute to the project. Please read ove
 
    contributing/prerequisites.rst
    contributing/building.rst
-   contributing/contributing-issues.rst
    contributing/writing-go.rst
-   contributing/known-issues.rst
 
 Overview
 ----------
+
 Paraglider provides a streamlined interface for users to manage their cloud network resources.
 Cloud customers interact with the Paraglider APIs exposed by the Paraglider controller. 
 The controller is responsible for provisioning and updating the relevant cloud network resources based on the requests from the user. 
@@ -27,6 +26,7 @@ For more information about the design and architecture, please refer to :ref:`ho
 
 Guidelines
 ------------------
+
 We always welcome minor contributions like documentation improvements, typo corrections, bug fixes, and minor features in the form of pull requests. 
 You are also welcome to `choose an existing issue <https://github.com/paraglider-project/paraglider/issues>`_, or `create an issue to work on <https://github.com/paraglider-project/paraglider/issues/new>`_.
 
@@ -45,7 +45,7 @@ Contributors sign-off that they adhere to these requirements by adding a Signed-
 
     Signed-off-by: Random J Developer <random@developer.example.org>
 
-We provide a Git Hook to automatically add this line to your commit messages. You can install it by running the following command after installing the repo.
+We provide a Git Hook to automatically add this line to your commit messages. You can install it by running the following command after cloning the repo.
 
 .. code-block:: console
 
@@ -57,13 +57,13 @@ If you'd like to do this manually, git has a ``-s`` command line option to appen
 
     $ git commit -s -m 'This is my commit message'
 
-Visual Studio Code has a setting, git.alwaysSignOff to automatically add a Signed-off-by line to commit messages. Search for "sign-off" in VS Code settings to find it and enable it.
-
+VS Code has a setting, git.alwaysSignOff to automatically add a Signed-off-by line to commit messages. Search for "sign-off" in VS Code settings to find it and enable it.
 
 Creating issues
 --------------------
-Please create issues for needed work and bugs in the `repo <https://github.com/paraglider-project/paraglider/issues>`_.
 
+Please create issues for needed work and bugs in the `repo <https://github.com/paraglider-project/paraglider/issues>`_.
+Please provide as much information as possible, including the version of the software you are using, the operating system, and the steps to reproduce the issue.
 
 Sending pull requests
 ----------------------
@@ -75,10 +75,7 @@ Code of Conduct
 This project has adopted the code of conduct defined by the Contributor Covenant to clarify expected behavior in our community.
 For more information, see the `Contributor Covenant Code of Conduct 2.1 <https://www.contributor-covenant.org/version/2/1/code_of_conduct/>`_.
 
-
 Troubleshooting and getting help
 ---------------------------------
-* Have a question? - Visit our Discord (linked on our homepage) to post your question and we'll get back to you ASAP
-* Found an issue? - Refer to :ref:`contributingissues` on filing a bug report
-* Have a proposal? - Refer to :ref:`contributingissues` for instructions on filing a feature request
 
+If you have a question, please visit our Discord (linked at the footer) to post your question and we'll get back to you ASAP.
