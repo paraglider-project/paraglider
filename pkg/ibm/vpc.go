@@ -18,6 +18,7 @@ package ibm
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 
@@ -27,6 +28,8 @@ import (
 const vpcType = "vpc"
 
 const SharedVPC = "shared"
+
+const maxAttempts = 30
 
 // CreateVPC creates a Paraglider VPC for a region resources are tagged.
 func (c *CloudClient) CreateVPC(tags []string, exclusive bool) (*vpcv1.VPC, error) {
@@ -70,6 +73,7 @@ func (c *CloudClient) TerminateVPC(vpcID string) error {
 		ResourceGroupID: c.resourceGroup.ID,
 	})
 	if err != nil {
+		fmt.Printf("instance . %v", err)
 		return err
 	}
 	// TODO: execute instance deletion and polling concurrently
@@ -95,6 +99,50 @@ func (c *CloudClient) TerminateVPC(vpcID string) error {
 	if err != nil {
 		return err
 	}
+	// wait until all subnets are deleted
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		subnets, _ := c.GetSubnetsInVpcRegionBound(vpcID)
+		if len(subnets) == 0 {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	// terminate all public gateways
+	publicGateways, _, err := c.vpcService.ListPublicGateways(&vpcv1.ListPublicGatewaysOptions{
+		ResourceGroupID: c.resourceGroup.ID,
+	})
+	if err != nil {
+		return err
+	}
+	for _, pgw := range publicGateways.PublicGateways {
+		// set client to the region of the current public gateway
+		fmt.Printf("Found Public Gateway %s\n", *pgw.ID)
+		_, err = c.vpcService.DeletePublicGateway(&vpcv1.DeletePublicGatewayOptions{ID: pgw.ID})
+		if err != nil {
+			return err
+		}
+		if pgw.FloatingIP != nil {
+			fmt.Printf("Found Floating IP %s\n", *pgw.FloatingIP.ID)
+			_, err := c.vpcService.DeleteFloatingIP(c.vpcService.NewDeleteFloatingIPOptions(*pgw.FloatingIP.ID))
+			if err != nil {
+				return err
+			}
+		}
+	}
+	// wait until all public gateways are deleted
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		publicGateways, _, err = c.vpcService.ListPublicGateways(&vpcv1.ListPublicGatewaysOptions{
+			ResourceGroupID: c.resourceGroup.ID,
+		})
+		if err != nil {
+			return err
+		}
+		if len(publicGateways.PublicGateways) == 0 {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
 
 	// Delete VPC
 	_, err = c.vpcService.DeleteVPC(&vpcv1.DeleteVPCOptions{
@@ -102,6 +150,15 @@ func (c *CloudClient) TerminateVPC(vpcID string) error {
 	})
 	if err != nil {
 		return err
+	}
+	// wait until vpc is deleted
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		_, err = c.GetVPCByID(vpcID)
+		if err != nil {
+			break
+		}
+		time.Sleep(1 * time.Second)
+		fmt.Printf("Waiting for VPC to be deleted..\n")
 	}
 
 	utils.Log.Printf("VPC %v deleted successfully", vpcID)

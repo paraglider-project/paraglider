@@ -29,6 +29,8 @@ env:
   PARAGLIDER_GCP_PROJECT_PARENT: ${{ secrets.GCP_FOLDER_ID }}
   PARAGLIDER_GCP_PROJECT_BILLING_ACCOUNT_NAME: ${{ secrets.GCP_BILLING_ACCOUNT_NAME }}
   PARAGLIDER_AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  PARAGLIDER_IBM_API_KEY: ${{ secrets.PARAGLIDER_IBM_API_KEY }}
+  PARAGLIDER_IBM_RESOURCE_GROUP_ID: ${{ secrets.PARAGLIDER_IBM_RESOURCE_GROUP_ID }}
   PARAGLIDER_AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
 
 jobs:
@@ -85,6 +87,10 @@ jobs:
       - name: Make build
         run: |
           make build
+      - name: Start Redis
+        uses: supercharge/redis-github-action@1.7.0
+        with:
+          redis-version: ${{ matrix.redis-version }}
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
