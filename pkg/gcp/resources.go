@@ -212,32 +212,32 @@ func GetResourceNetworkInfo(ctx context.Context, resourceInfo *resourceInfo, cli
 	return netInfo, nil
 }
 
-// Verifies the existence of a GCP resource described in an AttachResourceRequest and returns the resourceInfo
-func (r *instanceHandler) IsValidResource(ctx context.Context, req *paragliderpb.AttachResourceRequest) (*resourceInfo, error) {
-	// Parse the resource URL to get the resourceInfo (project, zone, name, etc)
-	resourceInfo, err := parseResourceUrl(req.GetResource())
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse resource URL: %w", err)
-	}
+// // Verifies the existence of a GCP resource described in an AttachResourceRequest and returns the resourceInfo
+// func (r *instanceHandler) IsValidResource(ctx context.Context, req *paragliderpb.AttachResourceRequest) (*resourceInfo, error) {
+// 	// Parse the resource URL to get the resourceInfo (project, zone, name, etc)
+// 	resourceInfo, err := parseResourceUrl(req.GetResource())
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to parse resource URL: %w", err)
+// 	}
 
-	// Make a GetInstanceRequest to verify the instance exists
-	instanceRequest := &computepb.GetInstanceRequest{
-		Instance: resourceInfo.Name,
-		Project:  resourceInfo.Project,
-		Zone:     resourceInfo.Zone,
-	}
-	_, err = r.client.Get(ctx, instanceRequest)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get instance: %w", err)
-	}
+// 	// Make a GetInstanceRequest to verify the instance exists
+// 	instanceRequest := &computepb.GetInstanceRequest{
+// 		Instance: resourceInfo.Name,
+// 		Project:  resourceInfo.Project,
+// 		Zone:     resourceInfo.Zone,
+// 	}
+// 	_, err = r.client.Get(ctx, instanceRequest)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("unable to get instance: %w", err)
+// 	}
 
-	resourceInfo.Namespace = req.GetNamespace()
+// 	resourceInfo.Namespace = req.GetNamespace()
 
-	return resourceInfo, nil
-}
+// 	return resourceInfo, nil
+// }
 
 // Read parameters from within the resource description and ensure it is a valid resource
-func IsValidResourceFromDescription(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
+func IsValidResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
 	// Verify resource is supported
 	handler, err := getResourceHandlerFromDescription(resource.Description)
 	if err != nil {
@@ -271,11 +271,13 @@ func GetFirewallTarget(ctx context.Context, resourceInfo *resourceInfo, netInfo 
 
 // Returns the resource and network info if the resource complies with paraglider requirements. Otherwise, it returns an error
 func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx context.Context, resourceReq *paragliderpb.AttachResourceRequest, project string, resourceID string, clients *GCPClients) (*resourceInfo, *resourceNetworkInfo, error) {
-	// Ensure the resource exists
-	resourceInfo, err := r.IsValidResource(ctx, resourceReq)
+	// Get the ResourceInfo from AttachResourceRequest
+	resourceInfo, err := parseResourceUrl(resourceReq.GetResource())
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to parse resource URL: %w", err)
 	}
+
+	resourceInfo.Namespace = resourceReq.GetNamespace()
 
 	networkInfo, err := GetResourceNetworkInfo(ctx, resourceInfo, clients)
 	if err != nil {

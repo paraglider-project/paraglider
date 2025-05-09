@@ -30,6 +30,7 @@ import (
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func getFakeInstanceResourceDescription() (*paragliderpb.CreateResourceRequest, *computepb.InsertInstanceRequest, error) {
@@ -166,12 +167,12 @@ func TestGetResourceNetworkInfo(t *testing.T) {
 	assert.Equal(t, *address.Address, netInfo.Address)
 }
 
-func TestIsValidResourceFromDescription(t *testing.T) {
+func TestIsValidResource(t *testing.T) {
 	// Test for instance
 	resource, fakeInstance, err := getFakeInstanceResourceDescription()
 	require.NoError(t, err)
 
-	resourceInfo, err := IsValidResourceFromDescription(context.Background(), resource)
+	resourceInfo, err := IsValidResource(context.Background(), resource)
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeZone, resourceInfo.Zone)
@@ -181,7 +182,7 @@ func TestIsValidResourceFromDescription(t *testing.T) {
 	resource, fakeCluster, err := getFakeClusterResourceDescription()
 	require.NoError(t, err)
 
-	resourceInfo, err = IsValidResourceFromDescription(context.Background(), resource)
+	resourceInfo, err = IsValidResource(context.Background(), resource)
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeZone, resourceInfo.Zone)
@@ -191,18 +192,27 @@ func TestIsValidResourceFromDescription(t *testing.T) {
 	resource, _, err = getFakePSCRequest(false)
 	require.NoError(t, err)
 
-	resourceInfo, err = IsValidResourceFromDescription(context.Background(), resource)
+	resourceInfo, err = IsValidResource(context.Background(), resource)
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeRegion, resourceInfo.Region)
 	assert.Equal(t, resource.Name, resourceInfo.Name)
 }
 
-func TestInstanceIsValidResource(t *testing.T) {
+func TestValidateResourceCompliesWithParagliderRequirements(t *testing.T) {
 	instanceHandler := &instanceHandler{}
-	instance := getFakeInstance(true)
-	serverState := fakeServerState{instance: instance}
+	// rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeInstanceName, ResourceType: instanceTypeName}
+	// serverState := fakeServerState{instance: instance}
+	firewallMap := map[string]*computepb.Firewall{
+		*fakeDenyAllRule.Name: fakeDenyAllRule,
+	}
+	
+	serverState := fakeServerState{
+		instance: getFakeInstance(true),
+		firewallMap: firewallMap,
+	}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
 	req := &paragliderpb.AttachResourceRequest{
@@ -213,222 +223,36 @@ func TestInstanceIsValidResource(t *testing.T) {
 	err := instanceHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
-	verifiedResourceInfo, err := instanceHandler.IsValidResource(ctx, req)
+	verifiedResourceInfo, _, err := instanceHandler.ValidateResourceCompliesWithParagliderRequirements(
+		ctx, req, fakeProject, fakeResourceId, fakeClients,
+	)
 
 	require.NoError(t, err)
 	assert.Equal(t, fakeInstanceName, verifiedResourceInfo.Name)
 	assert.Equal(t, fakeZone, verifiedResourceInfo.Zone)
 	assert.Equal(t, fakeProject, verifiedResourceInfo.Project)
 	assert.Equal(t, req.GetNamespace(), verifiedResourceInfo.Namespace)
-
 }
 
-// func TestValidateResourceCompliesWithParagliderRequirements(t *testing.T) {
-// 	instanceHandler := &instanceHandler{}
-// 	// rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeInstanceName, ResourceType: instanceTypeName}
-// 	instance := getFakeInstance(true)
-// 	serverState := fakeServerState{instance: instance}
-// 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
-// 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+func TestGetVPCAddressSpace(t *testing.T) {
+	serverState := fakeServerState{
+		network: &computepb.Network{
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")},
+		},
+		subnetwork: &computepb.Subnetwork{
+			IpCidrRange: proto.String("10.10.0.0/16"),
+			SecondaryIpRanges: []*computepb.SubnetworkSecondaryRange{
+				{IpCidrRange: proto.String("10.11.0.0/16")},
+			},
+		},
+	}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
 
-// 	req := &paragliderpb.AttachResourceRequest{
-// 		Resource: fmt.Sprintf("projects/%s/zones/%s/instances/%s", fakeProject, fakeZone, fakeInstanceName),
-// 		Namespace: fakeNamespace,
-// 	}
-
-// 	err := instanceHandler.initClients(ctx, fakeClients)
-// 	require.NoError(t, err)
-
-// 	verifiedResourceInfo, _, err := instanceHandler.ValidateResourceCompliesWithParagliderRequirements(
-// 		ctx, req, fakeProject, fakeResourceId, fakeClients,
-// 	)
-
-// 	require.NoError(t, err)
-// 	assert.Equal(t, fakeInstanceName, verifiedResourceInfo.Name)
-// 	assert.Equal(t, fakeZone, verifiedResourceInfo.Zone)
-// 	assert.Equal(t, fakeProject, verifiedResourceInfo.Project)
-// 	assert.Equal(t, req.GetNamespace(), verifiedResourceInfo.Namespace)
-// }
-
-// func TestValidateResourceCompliesWithParagliderRequirements(t *testing.T) {
-// 	resource, _, err := getFakeInstanceResourceDescription()
-// 	require.NoError(t, err)
-
-// 	rInfo := &resourceInfo{
-// 		Project:      fakeProject,
-// 		Zone:         fakeZone,
-// 		Name:         fakeInstanceName,
-// 		ResourceType: instanceTypeName,
-// 		Namespace:    fakeNamespace,
-// 	}
-// 	instance := getFakeInstance(true)
-// 	subnetworks := []*computepb.Subnetwork{
-// 		{
-// 			Network:     to.Ptr(getVpcName(fakeNamespace)),
-// 			SelfLink:    to.Ptr("fake-subnet-url"),
-// 			IpCidrRange: to.Ptr("10.0.0.0/24"),
-// 		},
-// 	}
-// 	firewalls := []*computepb.Firewall{{Name: to.Ptr("fw-1")}}
-
-// 	serverState := fakeServerState{
-// 		instance:     instance,
-// 		subnetworks:  map[string][]*computepb.Subnetwork{fakeRegion: subnetworks},
-// 		firewallMap:  map[string]*computepb.Firewall{"fw-1": firewalls[0]},
-// 	}
-// 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
-// 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
-
-// 	handler := &instanceHandler{client: fakeClients.ComputeInstances}
-// 	resourceInfo, networkInfo, err := handler.ValidateResourceCompliesWithParagliderRequirements(
-// 		ctx, resource, fakeProject, "resource-id", fakeServer,
-// 	)
-
-// 	require.NoError(t, err)
-// 	assert.Equal(t, fakeInstanceName, resourceInfo.Name)
-// 	assert.Equal(t, "10.0.0.0/24", networkInfo.Address)
-// }
-
-// func TestGetVPCAddressSpace(t *testing.T) {
-// 	subnetUrl := "https://www.googleapis.com/compute/v1/projects/fake-project/regions/fake-region/subnetworks/fake-subnet"
-// 	subnet := &computepb.Subnetwork{
-// 		IpCidrRange: to.Ptr("10.10.0.0/16"),
-// 		SecondaryIpRanges: []*computepb.SubnetworkSecondaryRange{
-// 			{IpCidrRange: to.Ptr("10.11.0.0/16")},
-// 		},
-// 	}
-// 	serverState := fakeServerState{
-// 		network: &computepb.Network{
-// 			Subnetworks: []string{subnetUrl},
-// 		},
-// 		subnetworkMap: map[string]*computepb.Subnetwork{
-// 			subnetUrl: subnet,
-// 		},
-// 	}
-// 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
-// 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
-
-// 	addressSpaces, err := GetVPCAddressSpace(ctx, fakeProject, "fake-vpc")
-// 	require.NoError(t, err)
-// 	assert.ElementsMatch(t, []string{"10.10.0.0/16", "10.11.0.0/16"}, addressSpaces)
-// }
-
-// func TestDoesVPCOverlapWithParaglider(t *testing.T) {
-// 	paragliderCIDR := "10.0.0.0/16"
-
-// 	resource := &resourceInfo{
-// 		Project:   fakeProject,
-// 		Namespace: fakeNamespace,
-// 	}
-
-// 	subnetURL := "https://www.googleapis.com/compute/v1/projects/fake-project/regions/fake-region/subnetworks/fake-subnet"
-// 	network := &computepb.Network{Subnetworks: []string{subnetURL}}
-
-// 	// Initial fake server state with overlapping VPC CIDR
-// 	serverState := fakeServerState{
-// 		network:       network,
-// 		subnetworkMap: map[string]*computepb.Subnetwork{},
-// 		usedAddressSpaces: []*paragliderpb.AddressSpaceMapping{
-// 			{
-// 				Cloud:         utils.GCP,
-// 				Namespace:     fakeNamespace,
-// 				AddressSpaces: []string{paragliderCIDR},
-// 			},
-// 		},
-// 	}
-
-// 	// Fake server setup for test
-// 	fakeServer, ctx, _, fakeGRPCServer := setup(t, &serverState)
-// 	defer teardown(fakeServer, nil, fakeGRPCServer)
-
-// 	// Overlapping VPC CIDR
-// 	vpcOverlapCIDR := "10.0.0.0/16"
-// 	subnet := &computepb.Subnetwork{
-// 		IpCidrRange: to.Ptr(vpcOverlapCIDR),
-// 	}
-// 	serverState.subnetworkMap[subnetURL] = subnet // Update subnet in server state
-
-// 	overlaps, err := DoesVPCOverlapWithParaglider(ctx, resource, "fake-vpc", fakeServer)
-// 	require.NoError(t, err)
-// 	assert.True(t, overlaps, "Expected address spaces to overlap")
-
-// 	// Non-overlapping CIDR (reset subnet state and run again)
-// 	vpcNonOverlapCIDR := "192.168.0.0/16"
-// 	subnetNonOverlap := &computepb.Subnetwork{
-// 		IpCidrRange: to.Ptr(vpcNonOverlapCIDR),
-// 	}
-// 	serverState.subnetworkMap[subnetURL] = subnetNonOverlap // Update subnet for non-overlapping CIDR
-
-// 	overlaps, err = DoesVPCOverlapWithParaglider(ctx, resource, "fake-vpc", fakeServer)
-// 	require.NoError(t, err)
-// 	assert.False(t, overlaps, "Expected address spaces not to overlap")
-// }
-
-// func TestDoesVPCOverlapWithParaglider(t *testing.T) {
-// 	vpcAddress := "10.0.0.0/16"
-// 	paragliderAddress := "10.0.0.0/16"
-
-// 	resource := &resourceInfo{
-// 		Project:   fakeProject,
-// 		Namespace: fakeNamespace,
-// 	}
-
-// 	subnetUrl := "https://www.googleapis.com/compute/v1/projects/fake-project/regions/fake-region/subnetworks/fake-subnet"
-// 	network := &computepb.Network{Subnetworks: []string{subnetUrl}}
-// 	subnet := &computepb.Subnetwork{
-// 		IpCidrRange: to.Ptr(vpcAddress),
-// 	}
-
-// 	serverState := fakeServerState{
-// 		network:       network,
-// 		subnetworkMap: map[string]*computepb.Subnetwork{subnetUrl: subnet},
-// 	}
-
-// 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
-// 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
-
-// 	overlaps, err := DoesVPCOverlapWithParaglider(ctx, resource, "fake-vpc", fakeServer)
-// 	require.NoError(t, err)
-// 	assert.True(t, overlaps)
-// }
-
-// func TestDoesVPCOverlapWithParagliderNoOverlap(t *testing.T) {
-// 	vpcCIDR := "192.168.0.0/16"
-// 	paragliderCIDR := "10.0.0.0/16"
-
-// 	resource := &resourceInfo{
-// 		Project:   fakeProject,
-// 		Namespace: fakeNamespace,
-// 	}
-
-// 	subnetUrl := "https://www.googleapis.com/compute/v1/projects/fake-project/regions/fake-region/subnetworks/fake-subnet"
-// 	network := &computepb.Network{
-// 		Subnetworks: []string{subnetUrl},
-// 	}
-// 	subnet := &computepb.Subnetwork{
-// 		IpCidrRange: to.Ptr(vpcCIDR),
-// 	}
-
-// 	// Fake server that returns VPC with 192.168.0.0/16 and Paraglider with 10.0.0.0/16
-// 	serverState := fakeServerState{
-// 		network:       network,
-// 		subnetworkMap: map[string]*computepb.Subnetwork{subnetUrl: subnet},
-// 		usedAddressSpaces: []*paragliderpb.AddressSpaceMapping{
-// 			{
-// 				Cloud:         utils.GCP,
-// 				Namespace:     fakeNamespace,
-// 				AddressSpaces: []string{paragliderCIDR},
-// 			},
-// 		},
-// 	}
-
-// 	fakeServer, ctx, _, fakeGRPCServer := setup(t, &serverState)
-// 	defer teardown(fakeServer, nil, fakeGRPCServer)
-
-// 	overlaps, err := DoesVPCOverlapWithParaglider(ctx, resource, "fake-vpc", fakeServer)
-// 	require.NoError(t, err)
-// 	assert.False(t, overlaps, "Expected no overlap between VPC and Paraglider address spaces")
-// }
+	addressSpaces, err := GetVPCAddressSpace(ctx, fakeProject, "fake-vpc", fakeClients)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"10.10.0.0/16", "10.11.0.0/16"}, addressSpaces)
+}
 
 func TestReadAndProvisionResource(t *testing.T) {
 	// Test for instance

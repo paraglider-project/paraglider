@@ -294,7 +294,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 	project := parseUrl(resourceDescription.Deployment.Id)["projects"]
 
 	// Read and validate user-provided description
-	resourceInfo, err := IsValidResourceFromDescription(ctx, resourceDescription)
+	resourceInfo, err := IsValidResource(ctx, resourceDescription)
 	if err != nil {
 		return nil, fmt.Errorf("unsupported resource description: %w", err)
 	}

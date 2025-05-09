@@ -124,6 +124,20 @@ var (
 		Network:           proto.String(getVpcUrl(fakeProject, fakeNamespace)),
 		TargetTags:        []string{fakeNetworkTag},
 	}
+	fakeDenyAllRule = &computepb.Firewall{
+		Denied: []*computepb.Denied{
+			{
+				IPProtocol: proto.String("all"),
+			},
+		},
+		Allowed:           []*computepb.Allowed{},
+		DestinationRanges: []string{"0.0.0.0/0"},
+		Direction:         proto.String(computepb.Firewall_EGRESS.String()),
+		Name:              proto.String("deny-all-egress"),
+		Priority:          proto.Int32(65534),
+		Network:           proto.String(getVpcUrl(fakeProject, fakeNamespace)),
+		TargetTags:        []string{fakeNetworkTag},
+	}
 )
 
 // Fake instance
@@ -288,6 +302,15 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponseFakeOperation(w)
 				return
 			}
+		case path == urlProject+urlRegion+"/subnetworks/"+fakeSubnetName:
+			if r.Method == "GET" {
+				if fakeServerState.subnetwork != nil {
+					sendResponse(w, fakeServerState.subnetwork)
+				} else {
+					http.Error(w, "no subnetwork found", http.StatusNotFound)
+				}
+				return
+			}		
 		case strings.HasPrefix(path, urlProject+urlRegion+"/subnetworks"):
 			if r.Method == "GET" {
 				if fakeServerState.subnetwork != nil {
