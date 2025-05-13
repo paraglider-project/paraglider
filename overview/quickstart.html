@@ -351,15 +351,12 @@ IBM</label><div class="sd-tab-content docutils">
 </li>
 <li><p>Create a new API key.</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>mkdir<span class="w"> </span>-p<span class="w"> </span>~/.ibm
-<span class="gp">$ </span>ibmcloud<span class="w"> </span>iam<span class="w"> </span>api-key-create<span class="w"> </span>glide_apikey<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;API Key&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="o">{</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;iam_api_key: &quot;</span><span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>grep<span class="w"> </span>-o<span class="w"> </span><span class="s1">&#39;[^ ]\+$&#39;</span><span class="p">;</span><span class="w"> </span><span class="o">}</span><span class="w"> </span>&gt;<span class="w"> </span>~/.ibm/credentials.yaml
+<span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">PARAGLIDER_IBM_API_KEY</span><span class="o">=</span><span class="k">$(</span>ibmcloud<span class="w"> </span>iam<span class="w"> </span>api-key-create<span class="w"> </span>glide_apikey<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;API Key&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-o<span class="w"> </span><span class="s1">&#39;[^ ]\+$&#39;</span><span class="k">)</span>
 </pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>An existing API key could also be used by the IBM plugin. Copy the API Key to <code class="docutils literal notranslate"><span class="pre">~/.ibm/credentials.yaml</span></code>.</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">iam_api_key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${API_KEY}</span>
-</pre></div>
-</div>
+<p>An existing API key could also be used by the IBM plugin. Set the API Key to <code class="docutils literal notranslate"><span class="pre">PARAGLIDER_IBM_API_KEY</span></code>.</p>
 </div>
 </li>
 </ol>
