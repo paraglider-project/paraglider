@@ -215,30 +215,6 @@ func GetResourceNetworkInfo(ctx context.Context, resourceInfo *resourceInfo, cli
 	return netInfo, nil
 }
 
-// // Verifies the existence of a GCP resource described in an AttachResourceRequest and returns the resourceInfo
-// func (r *instanceHandler) IsValidResource(ctx context.Context, req *paragliderpb.AttachResourceRequest) (*resourceInfo, error) {
-// 	// Parse the resource URL to get the resourceInfo (project, zone, name, etc)
-// 	resourceInfo, err := parseResourceUrl(req.GetResource())
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to parse resource URL: %w", err)
-// 	}
-
-// 	// Make a GetInstanceRequest to verify the instance exists
-// 	instanceRequest := &computepb.GetInstanceRequest{
-// 		Instance: resourceInfo.Name,
-// 		Project:  resourceInfo.Project,
-// 		Zone:     resourceInfo.Zone,
-// 	}
-// 	_, err = r.client.Get(ctx, instanceRequest)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("unable to get instance: %w", err)
-// 	}
-
-// 	resourceInfo.Namespace = req.GetNamespace()
-
-// 	return resourceInfo, nil
-// }
-
 // Read parameters from within the resource description and ensure it is a valid resource
 func IsValidResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
 	// Verify resource is supported
@@ -492,27 +468,6 @@ func (r *instanceHandler) getNetworkInfo(ctx context.Context, resourceInfo *reso
 	ip := *instanceResponse.NetworkInterfaces[0].NetworkIP
 	return &resourceNetworkInfo{NetworkName: networkName, SubnetUrl: subnetUrl, ResourceID: resourceID, Address: ip}, nil
 }
-
-// // Get the resource information for an instance from an AttachResourceRequest
-// func (r *instanceHandler) getResourceInfo(ctx context.Context, req *paragliderpb.AttachResourceRequest) (*resourceInfo, error) {
-// 	resourceID := req.GetResource()
-
-// 	// Retrieve resource ID info (this could be from a database, GCP API, etc.)
-// 	resourceIDInfo, err := getResourceIDInfo(resourceID)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("unable to get resource ID info: %w", err)
-// 	}
-
-// 	// Construct the resource info based on the retrieved data
-// 	region := getRegionFromZone(resourceIDInfo.Zone)
-// 	return &resourceInfo{
-// 		Name:         resourceIDInfo.Name,
-// 		Project:      resourceIDInfo.Project,
-// 		Zone:         resourceIDInfo.Zone,
-// 		Region:       region,
-// 		ResourceType: instanceTypeName,
-// 	}, nil
-// }
 
 // Create an instance with given network settings
 // Returns the instance URL and instance IP
