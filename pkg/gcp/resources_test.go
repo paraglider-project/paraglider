@@ -27,7 +27,9 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	fake "github.com/paraglider-project/paraglider/pkg/fake/orchestrator/rpc"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -201,30 +203,41 @@ func TestIsValidResource(t *testing.T) {
 
 func TestValidateResourceCompliesWithParagliderRequirements(t *testing.T) {
 	instanceHandler := &instanceHandler{}
-	// rInfo := &resourceInfo{Project: fakeProject, Zone: fakeZone, Name: fakeInstanceName, ResourceType: instanceTypeName}
-	// serverState := fakeServerState{instance: instance}
 	firewallMap := map[string]*computepb.Firewall{
 		*fakeDenyAllRule.Name: fakeDenyAllRule,
 	}
-	
+
 	serverState := fakeServerState{
-		instance: getFakeInstance(true),
+		instance:    getFakeInstance(true),
 		firewallMap: firewallMap,
+		network: &computepb.Network{
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")},
+		},
+		subnetwork: &computepb.Subnetwork{
+			IpCidrRange: proto.String("10.10.0.0/16"),
+			SecondaryIpRanges: []*computepb.SubnetworkSecondaryRange{
+				{IpCidrRange: proto.String("10.11.0.0/16")},
+			},
+		},
 	}
 	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
-
 	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	req := &paragliderpb.AttachResourceRequest{
 		Resource:  fmt.Sprintf("projects/%s/zones/%s/instances/%s", fakeProject, fakeZone, fakeInstanceName),
 		Namespace: fakeNamespace,
 	}
 
-	err := instanceHandler.initClients(ctx, fakeClients)
+	err = instanceHandler.initClients(ctx, fakeClients)
 	require.NoError(t, err)
 
 	verifiedResourceInfo, _, err := instanceHandler.ValidateResourceCompliesWithParagliderRequirements(
-		ctx, req, fakeProject, fakeResourceId, fakeClients,
+		ctx, req, fakeProject, fakeResourceId, fakeOrchestratorServerAddr, fakeClients,
 	)
 
 	require.NoError(t, err)

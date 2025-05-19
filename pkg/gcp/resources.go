@@ -30,7 +30,10 @@ import (
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 	utils "github.com/paraglider-project/paraglider/pkg/utils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -270,7 +273,7 @@ func GetFirewallTarget(ctx context.Context, resourceInfo *resourceInfo, netInfo 
 }
 
 // Returns the resource and network info if the resource complies with paraglider requirements. Otherwise, it returns an error
-func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx context.Context, resourceReq *paragliderpb.AttachResourceRequest, project string, resourceID string, clients *GCPClients) (*resourceInfo, *resourceNetworkInfo, error) {
+func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx context.Context, resourceReq *paragliderpb.AttachResourceRequest, project string, resourceID string, orchestratorServerAddr string, clients *GCPClients) (*resourceInfo, *resourceNetworkInfo, error) {
 	// Get the ResourceInfo from AttachResourceRequest
 	resourceInfo, err := parseResourceUrl(resourceReq.GetResource())
 	if err != nil {
@@ -297,7 +300,7 @@ func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx
 
 	// Ensure the Vnet address space doesn't overlap with paraglider's address space
 	vpcName := *instanceResponse.NetworkInterfaces[0].Network
-	isOverlapping, err := DoesVPCOverlapWithParaglider(ctx, resourceInfo, vpcName, clients)
+	isOverlapping, err := DoesVPCOverlapWithParaglider(ctx, resourceInfo, vpcName, orchestratorServerAddr, clients)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error checking if VPC overlaps with Paraglider: %w", err)
 	}
@@ -317,7 +320,7 @@ func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx
 	if err != nil || !isCompliant {
 		return nil, nil, fmt.Errorf("Firewall rules are not compliant: %w", err)
 	}
-	
+
 	return resourceInfo, networkInfo, nil
 }
 
@@ -346,17 +349,14 @@ func GetVPCAddressSpace(ctx context.Context, project, vpcName string, clients *G
 
 	// Iterate over all subnetworks associated with the VPC
 	for _, subnetURL := range getNetworkResp.Subnetworks {
-		// Parse the subnetwork URL to get region and subnetwork name
 		parsedSubnetURL := parseUrl(subnetURL)
 
-		// Prepare request to get subnetwork details
 		getSubnetworkRequest := &computepb.GetSubnetworkRequest{
 			Project:    project,
 			Region:     parsedSubnetURL["regions"],
 			Subnetwork: parsedSubnetURL["subnetworks"],
 		}
 
-		// Fetch subnetwork details
 		getSubnetworkResp, err := subnetworksClient.Get(ctx, getSubnetworkRequest)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get subnetwork: %w", err)
@@ -376,80 +376,37 @@ func GetVPCAddressSpace(ctx context.Context, project, vpcName string, clients *G
 }
 
 // DoesVnetOverlapWithParaglider checks if the GCP VPC's address space overlaps with any of the used address spaces
-func DoesVPCOverlapWithParaglider(ctx context.Context, resourceInfo *resourceInfo, vpcName string, clients *GCPClients) (bool, error) {
+func DoesVPCOverlapWithParaglider(ctx context.Context, resourceInfo *resourceInfo, vpcName string, orchestratorServerAddr string, clients *GCPClients) (bool, error) {
 	// Get VPC address space (CIDR block)
-	// vpcAddressSpaces, err := GetVPCAddressSpace(ctx, resourceInfo.Project, vpcName, clients)
-	// if err != nil {
-	// 	return false, fmt.Errorf("failed to get VPC address space: %v", err)
-	// }
-
-	// GetUsedAddressSpaces by checking the subnetworks IpCidrRange
-	// PASS IN OR INITIALIZE CLIENTS?
-	// clients := &GCPClients{}
-	networksClient, err := clients.GetOrCreateNetworksClient(ctx)
+	vpcAddressSpaces, err := GetVPCAddressSpace(ctx, resourceInfo.Project, vpcName, clients)
 	if err != nil {
-		return false, fmt.Errorf("unable to get networks client: %w", err)
+		return false, fmt.Errorf("failed to get VPC address space: %v", err)
 	}
-	subnetworksClient, err := clients.GetOrCreateSubnetworksClient(ctx)
+
+	// Get used address spaces of all clouds
+	orchestratorConn, err := grpc.NewClient(orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return false, fmt.Errorf("unable to get subnetworks client: %w", err)
+		return false, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
+	}
+	defer orchestratorConn.Close()
+	orchestratorClient := paragliderpb.NewControllerClient(orchestratorConn)
+	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		return false, fmt.Errorf("unable to get used address spaces: %w", err)
 	}
 
-	// getNetworkReq := &computepb.GetNetworkRequest{
-	// 	Network: vpcName,
-	// 	Project: resourceInfo.Project,
-	// }
+	// Check if the VPC address space overlaps with any of the used address spaces
+	for _, mapping := range getUsedAddressSpacesResp.AddressSpaceMappings {
+		for _, addressSpace := range mapping.AddressSpaces {
+			for _, vpcAddress := range vpcAddressSpaces {
+				doesOverlap, err := utils.DoCIDROverlap(vpcAddress, addressSpace)
+				if err != nil {
+					return true, err
+				}
 
-	// getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
-	// if err != nil {
-	// 	return false, fmt.Errorf("failed to get paraglider vpc network: %w", err)
-	// }
-
-	req := &paragliderpb.GetUsedAddressSpacesRequest{
-		Deployments: []*paragliderpb.ParagliderDeployment{
-			{Id: "projects/" + resourceInfo.Project, Namespace: resourceInfo.Namespace},
-		},
-	}
-
-	resp := &paragliderpb.GetUsedAddressSpacesResponse{}
-	resp.AddressSpaceMappings = make([]*paragliderpb.AddressSpaceMapping, len(req.Deployments))
-	for i, deployment := range req.Deployments {
-		resp.AddressSpaceMappings[i] = &paragliderpb.AddressSpaceMapping{
-			Cloud:     utils.GCP,
-			Namespace: deployment.Namespace,
-		}
-		project := parseUrl(deployment.Id)["projects"]
-
-		vpcName := getVpcName(deployment.Namespace)
-		getNetworkReq := &computepb.GetNetworkRequest{
-			Network: vpcName,
-			Project: project,
-		}
-
-		getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
-		if err != nil {
-			if isErrorNotFound(err) {
-				continue
-			} else {
-				return false, fmt.Errorf("failed to get paraglider vpc network: %w", err)
-			}
-		}
-		resp.AddressSpaceMappings[i].AddressSpaces = []string{}
-		for _, subnetURL := range getNetworkResp.Subnetworks {
-			parsedSubnetURL := parseUrl(subnetURL)
-			getSubnetworkRequest := &computepb.GetSubnetworkRequest{
-				Project:    project,
-				Region:     parsedSubnetURL["regions"],
-				Subnetwork: parsedSubnetURL["subnetworks"],
-			}
-			getSubnetworkResp, err := subnetworksClient.Get(ctx, getSubnetworkRequest)
-			if err != nil {
-				return false, fmt.Errorf("failed to get paraglider subnetwork: %w", err)
-			}
-
-			resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, *getSubnetworkResp.IpCidrRange)
-			for _, secondaryRange := range getSubnetworkResp.SecondaryIpRanges {
-				resp.AddressSpaceMappings[i].AddressSpaces = append(resp.AddressSpaceMappings[i].AddressSpaces, *secondaryRange.IpCidrRange)
+				if doesOverlap {
+					return true, nil
+				}
 			}
 		}
 	}

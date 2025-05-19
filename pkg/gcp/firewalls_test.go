@@ -1,13 +1,5 @@
 package gcp
 
-// import (
-// 	"testing"
-// 	"github.com/stretchr/testify/assert"
-// 	"github.com/stretchr/testify/require"
-// 	"cloud.google.com/go/compute/apiv1/computepb"
-// 	"google.golang.org/protobuf/proto"
-// )
-
 // func TestCheckFirewallRulesCompliance(t *testing.T) {
 // 	tests := []struct {
 // 		name        string
