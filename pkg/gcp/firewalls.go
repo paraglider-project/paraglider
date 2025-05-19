@@ -235,20 +235,25 @@ func getFirewallNamePrefix(namespace string) string {
 // 1. A deny-all rule exists at the lowest priority (highest number)
 // 2. All higher-priority rules (lower numbers) are allow rules
 func CheckFirewallRulesCompliance(firewalls []*computepb.Firewall) (bool, error) {
-	denyAllRule := findDenyAllRule(firewalls)
-	if denyAllRule == nil {
+	var denyAll *computepb.Firewall
+	for _, rule := range firewalls {
+		if isDenyAllRule(rule) {
+			if !hasValidDestinationRanges(rule) {
+				return false, fmt.Errorf("deny-all rule does not have DestinationRanges set to '0.0.0.0/0'")
+			}
+			if denyAll == nil || rule.GetPriority() > denyAll.GetPriority() {
+				denyAll = rule
+			}
+		}
+	}
+
+	if denyAll == nil {
 		return false, fmt.Errorf("no deny-all rule found")
 	}
 
-	if !hasValidDestinationRanges(denyAllRule) {
-		return false, fmt.Errorf("deny-all rule does not have DestinationRanges set to '0.0.0.0/0'")
-	}
-
-	denyAllPriority := denyAllRule.GetPriority()
-
-	// Check that all rules with a higher priority (lower priority number) are allow rules
-	for _, fw := range firewalls {
-		if fw.GetPriority() < denyAllPriority && len(fw.Allowed) == 0 && !isDenyAllRule(fw) {
+	denyAllPriority := denyAll.GetPriority()
+	for _, rule := range firewalls {
+		if rule.GetPriority() < denyAllPriority && rule.GetAllowed() == nil {
 			return false, fmt.Errorf("non-allow rule found with higher priority than deny-all")
 		}
 	}
