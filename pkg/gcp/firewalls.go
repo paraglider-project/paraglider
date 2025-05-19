@@ -261,23 +261,12 @@ func CheckFirewallRulesCompliance(firewalls []*computepb.Firewall) (bool, error)
 	return true, nil
 }
 
-// Iterates and locates the deny-all firewall rule with the lowest priority
-func findDenyAllRule(firewalls []*computepb.Firewall) *computepb.Firewall {
-	var denyAllRule *computepb.Firewall
-	lowestSeenPriority := int32(lowestPriority)
-
-	for _, fw := range firewalls {
-		if isDenyAllRule(fw) && fw.GetPriority() >= lowestSeenPriority {
-			lowestSeenPriority = fw.GetPriority()
-			denyAllRule = fw
-		}
-	}
-
-	return denyAllRule
-}
-
 // Checks if a firewall rule is a deny-all rule
 func isDenyAllRule(fw *computepb.Firewall) bool {
+	if fw == nil {
+		return false
+	}
+
 	return len(fw.Denied) > 0 &&
 		len(fw.Allowed) == 0 &&
 		strings.ToLower(fw.Denied[0].GetIPProtocol()) == "all"
