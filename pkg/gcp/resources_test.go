@@ -247,6 +247,145 @@ func TestValidateResourceCompliesWithParagliderRequirements(t *testing.T) {
 	assert.Equal(t, req.GetNamespace(), verifiedResourceInfo.Namespace)
 }
 
+func TestValidateResourceCompliesWithParagliderRequirementsResourceUrlError(t *testing.T) {
+	instanceHandler := &instanceHandler{}
+	req := &paragliderpb.AttachResourceRequest{
+		Resource:  "invalid-resource-url",
+		Namespace: "ns",
+	}
+
+	_, _, err := instanceHandler.ValidateResourceCompliesWithParagliderRequirements(
+		context.Background(), req, "project", "resourceId", "orchestratorAddr", &GCPClients{},
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse resource URL")
+}
+
+func TestValidateResourceCompliesWithParagliderRequirementsNoInstance(t *testing.T) {
+	instanceHandler := &instanceHandler{}
+	firewallMap := map[string]*computepb.Firewall{
+		*fakeDenyAllRule.Name: fakeDenyAllRule,
+	}
+
+	serverState := fakeServerState{
+		firewallMap: firewallMap,
+		network: &computepb.Network{
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")},
+		},
+		subnetwork: &computepb.Subnetwork{
+			IpCidrRange: proto.String("10.10.0.0/16"),
+			SecondaryIpRanges: []*computepb.SubnetworkSecondaryRange{
+				{IpCidrRange: proto.String("10.11.0.0/16")},
+			},
+		},
+	}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := &paragliderpb.AttachResourceRequest{
+		Resource:  fmt.Sprintf("projects/%s/zones/%s/instances/%s", fakeProject, fakeZone, fakeInstanceName),
+		Namespace: fakeNamespace,
+	}
+
+	err = instanceHandler.initClients(ctx, fakeClients)
+	require.NoError(t, err)
+
+	_, _, err = instanceHandler.ValidateResourceCompliesWithParagliderRequirements(
+		ctx, req, fakeProject, fakeResourceId, fakeOrchestratorServerAddr, fakeClients,
+	)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unable to get instance")
+}
+
+func TestValidateResourceCompliesWithParagliderRequirementsVPCOverlap(t *testing.T) {
+	instanceHandler := &instanceHandler{}
+
+	// Overlapping
+	serverState := fakeServerState{
+		network: &computepb.Network{
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")},
+		},
+		subnetwork: &computepb.Subnetwork{
+			IpCidrRange: proto.String("10.0.0.0/16"), // this will overlap with orchestrator's 10.0.0.0/16
+		},
+	}
+
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	// Setup fake orchestrator with Counter = 1 so it returns 10.0.0.0/16 as used address space
+	fakeOrchestrator, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fakeOrchestrator.Counter = 1
+
+	req := &paragliderpb.AttachResourceRequest{
+		Resource:  fmt.Sprintf("projects/%s/zones/%s/instances/%s", fakeProject, fakeZone, fakeInstanceName),
+		Namespace: fakeNamespace,
+	}
+
+	err = instanceHandler.initClients(ctx, fakeClients)
+	require.NoError(t, err)
+
+	_, _, err = instanceHandler.ValidateResourceCompliesWithParagliderRequirements(
+		ctx, req, fakeProject, fakeResourceId, fakeOrchestratorServerAddr, fakeClients,
+	)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Error in getting resource")
+}
+
+func TestValidateResourceCompliesWithParagliderRequirementsFirewallsError(t *testing.T) {
+	instanceHandler := &instanceHandler{}
+	firewallMap := map[string]*computepb.Firewall{
+		*fakeDenyAllRule.Name: nil,
+	}
+
+	serverState := fakeServerState{
+		instance:    getFakeInstance(true),
+		firewallMap: firewallMap,
+		network: &computepb.Network{
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")},
+		},
+		subnetwork: &computepb.Subnetwork{
+			IpCidrRange: proto.String("10.10.0.0/16"),
+			SecondaryIpRanges: []*computepb.SubnetworkSecondaryRange{
+				{IpCidrRange: proto.String("10.11.0.0/16")},
+			},
+		},
+	}
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	_, fakeOrchestratorServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := &paragliderpb.AttachResourceRequest{
+		Resource:  fmt.Sprintf("projects/%s/zones/%s/instances/%s", fakeProject, fakeZone, fakeInstanceName),
+		Namespace: fakeNamespace,
+	}
+
+	err = instanceHandler.initClients(ctx, fakeClients)
+	require.NoError(t, err)
+
+	_, _, err = instanceHandler.ValidateResourceCompliesWithParagliderRequirements(
+		ctx, req, fakeProject, fakeResourceId, fakeOrchestratorServerAddr, fakeClients,
+	)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Firewall rules are not compliant")
+}
+
 func TestGetVPCAddressSpace(t *testing.T) {
 	serverState := fakeServerState{
 		network: &computepb.Network{
@@ -265,6 +404,53 @@ func TestGetVPCAddressSpace(t *testing.T) {
 	addressSpaces, err := GetVPCAddressSpace(ctx, fakeProject, "fake-vpc", fakeClients)
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"10.10.0.0/16", "10.11.0.0/16"}, addressSpaces)
+}
+
+func TestDoesVPCOverlapWithParaglider(t *testing.T) {
+	// Overlapping
+	serverState := fakeServerState{
+		network: &computepb.Network{
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")},
+		},
+		subnetwork: &computepb.Subnetwork{
+			IpCidrRange: proto.String("10.0.0.0/16"), // this will overlap with orchestrator's 10.0.0.0/16
+		},
+	}
+
+	fakeServer, ctx, fakeClients, fakeGRPCServer := setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	// Setup fake orchestrator with Counter = 1 so it returns 10.0.0.0/16 as used address space
+	fakeOrchestrator, orchestratorAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.GCP)
+	if err != nil {
+		t.Fatalf("failed to setup fake orchestrator: %v", err)
+	}
+	fakeOrchestrator.Counter = 1
+
+	resource := &resourceInfo{
+		Project: fakeProject,
+	}
+
+	overlap, err := DoesVPCOverlapWithParaglider(ctx, resource, "fake-vpc", orchestratorAddr, fakeClients)
+	require.NoError(t, err)
+	assert.True(t, overlap, "Expected VPC to overlap with orchestrator-used CIDR space")
+
+	// Nonoverlapping
+	serverState = fakeServerState{
+		network: &computepb.Network{
+			Subnetworks: []string{fmt.Sprintf("regions/%s/subnetworks/%s", fakeRegion, "paraglider-"+fakeRegion+"-subnet")},
+		},
+		subnetwork: &computepb.Subnetwork{
+			IpCidrRange: proto.String("192.168.0.0/16"), // this will not overlap with orchestrator's 10.0.0.0/16
+		},
+	}
+
+	fakeServer, ctx, fakeClients, fakeGRPCServer = setup(t, &serverState)
+	defer teardown(fakeServer, fakeClients, fakeGRPCServer)
+
+	overlap, err = DoesVPCOverlapWithParaglider(ctx, resource, "fake-vpc", orchestratorAddr, fakeClients)
+	require.NoError(t, err)
+	assert.False(t, overlap, "Expected VPC to not overlap with orchestrator-used CIDR space")
 }
 
 func TestReadAndProvisionResource(t *testing.T) {

@@ -20,14 +20,14 @@ func TestCheckFirewallRulesCompliance(t *testing.T) {
 			firewalls: []*computepb.Firewall{
 				{
 					Priority:        proto.Int32(100),
-					Allowed:         []*computepb.Allowed{{IPProtocol: proto.String("tcp")}}, // Correct way to refer to Allowed
+					Allowed:         []*computepb.Allowed{{IPProtocol: proto.String("tcp")}},
 					Denied:          nil,
 					DestinationRanges: []string{"0.0.0.0/0"},
 				},
 				{
 					Priority:        proto.Int32(200),
 					Allowed:         nil,
-					Denied:          []*computepb.Denied{{IPProtocol: proto.String("all")}}, // Correct way to refer to Denied
+					Denied:          []*computepb.Denied{{IPProtocol: proto.String("all")}},
 					DestinationRanges: []string{"0.0.0.0/0"},
 				},
 				{
@@ -64,7 +64,7 @@ func TestCheckFirewallRulesCompliance(t *testing.T) {
 				},
 			},
 			expected:    false,
-			expectedErr: "deny-all rule does not have DestinationRanges set to '0.0.0.0/0'",
+			expectedErr: "no deny-all rule found",
 		},
 		{
 			name: "Non-allow rule above deny-all",
@@ -83,7 +83,7 @@ func TestCheckFirewallRulesCompliance(t *testing.T) {
 				},
 			},
 			expected:    false,
-			expectedErr: "non-allow rule found with higher priority than deny-all",
+			expectedErr: "found a deny rule with higher priority than deny-all",
 		},
 	}
 
@@ -101,14 +101,14 @@ func TestCheckFirewallRulesCompliance(t *testing.T) {
 	}
 }
 
-func TestIsDenyAllRule(t *testing.T) {
+func TestIsDenyRule(t *testing.T) {
 	tests := []struct {
 		name      string
 		firewall  *computepb.Firewall
 		expect    bool
 	}{
 		{
-			name: "Deny-all rule",
+			name: "Deny rule",
 			firewall: &computepb.Firewall{
 				Priority:        proto.Int32(lowestPriority),
 				Allowed:         nil,
@@ -138,16 +138,6 @@ func TestIsDenyAllRule(t *testing.T) {
 			expect: false,
 		},
 		{
-			name: "Denied protocol is not 'all'",
-			firewall: &computepb.Firewall{
-				Priority:        proto.Int32(lowestPriority),
-				Allowed:         nil,
-				Denied:          []*computepb.Denied{{IPProtocol: proto.String("tcp")}},
-				DestinationRanges: []string{"0.0.0.0/0"},
-			},
-			expect: false,
-		},
-		{
 			name: "No rule",
 			expect: false,
 		},
@@ -156,44 +146,8 @@ func TestIsDenyAllRule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isDenyAllRule(tt.firewall)
+			result := isDenyRule(tt.firewall)
 			assert.Equal(t, tt.expect, result)
-		})
-	}
-}
-
-func TestHasValidDestinationRanges(t *testing.T) {
-	tests := []struct {
-		name     string
-		firewall *computepb.Firewall
-		expected bool
-	}{
-		{
-			name: "Valid destination range",
-			firewall: &computepb.Firewall{
-				Priority:        proto.Int32(lowestPriority),
-				Allowed:         nil,
-				Denied:          []*computepb.Denied{{IPProtocol: proto.String("all")}},
-				DestinationRanges: []string{"0.0.0.0/0"},
-			},
-			expected: true,
-		},
-		{
-			name: "Invalid destination range",
-			firewall: &computepb.Firewall{
-				Priority:        proto.Int32(lowestPriority),
-				Allowed:         nil,
-				Denied:          []*computepb.Denied{{IPProtocol: proto.String("all")}},
-				DestinationRanges: []string{"192.168.0.0/16"},
-			},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := hasValidDestinationRanges(tt.firewall)
-			assert.Equal(t, tt.expected, result)
 		})
 	}
 }

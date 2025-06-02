@@ -134,7 +134,7 @@ var (
 		DestinationRanges: []string{"0.0.0.0/0"},
 		Direction:         proto.String(computepb.Firewall_EGRESS.String()),
 		Name:              proto.String("deny-all-egress"),
-		Priority:          proto.Int32(65534),
+		Priority:          proto.Int32(lowestPriority),
 		Network:           proto.String(getVpcUrl(fakeProject, fakeNamespace)),
 		TargetTags:        []string{fakeNetworkTag},
 	}
