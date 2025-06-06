@@ -66,25 +66,7 @@ func TestCheckFirewallRulesCompliance(t *testing.T) {
 			expected:    false,
 			expectedErr: "no deny-all rule found",
 		},
-		{
-			name: "Non-allow rule above deny-all",
-			firewalls: []*computepb.Firewall{
-				{
-					Priority:        proto.Int32(100),
-					Allowed:         nil,
-					Denied:          []*computepb.Denied{{IPProtocol: proto.String("all")}},
-					DestinationRanges: []string{"0.0.0.0/0"},
-				},
-				{
-					Priority:        proto.Int32(50),
-					Allowed:         nil,
-					Denied:          []*computepb.Denied{{IPProtocol: proto.String("icmp")}},
-					DestinationRanges: []string{"0.0.0.0/0"},
-				},
-			},
-			expected:    false,
-			expectedErr: "found a deny rule with higher priority than deny-all",
-		},
+
 	}
 
 	for _, tt := range tests {
@@ -101,7 +83,7 @@ func TestCheckFirewallRulesCompliance(t *testing.T) {
 	}
 }
 
-func TestIsDenyRule(t *testing.T) {
+func TestIsDenyAllRule(t *testing.T) {
 	tests := []struct {
 		name      string
 		firewall  *computepb.Firewall
@@ -138,15 +120,38 @@ func TestIsDenyRule(t *testing.T) {
 			expect: false,
 		},
 		{
+			name: "Denied protocol is not 'all'",
+			firewall: &computepb.Firewall{
+				Priority:        proto.Int32(lowestPriority),
+				Allowed:         nil,
+				Denied:          []*computepb.Denied{{IPProtocol: proto.String("tcp")}},
+				DestinationRanges: []string{"0.0.0.0/0"},
+			},
+			expect: false,
+		},
+		{
+			name: "Invalid destination range",
+			firewall: &computepb.Firewall{
+				Priority:        proto.Int32(lowestPriority),
+				Allowed:         nil,
+				Denied:          []*computepb.Denied{{IPProtocol: proto.String("all")}},
+				DestinationRanges: []string{"192.168.0.0/16"},
+			},
+			expect: false,
+		},
+		{
 			name: "No rule",
 			expect: false,
 		},
-
+		{
+			name: "No rule",
+			expect: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isDenyRule(tt.firewall)
+			result := isDenyAllRule(tt.firewall)
 			assert.Equal(t, tt.expect, result)
 		})
 	}

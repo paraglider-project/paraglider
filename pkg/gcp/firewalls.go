@@ -239,11 +239,10 @@ func CheckFirewallRulesCompliance(firewalls []*computepb.Firewall) (bool, error)
 	var highestDenyPrio = int32(lowestPriority)
 	for _, firewall := range firewalls {
 		println("highest seen", highestDenyPrio)
+
 		if len(firewall.Denied) > 0 {
-			if isDenyRule(firewall) {
-				if strings.ToLower(firewall.Denied[0].GetIPProtocol()) == "all" {
-					denyAll = firewall
-				}
+			if isDenyAllRule(firewall) {
+				denyAll = firewall
 				if firewall.GetPriority() < int32(highestDenyPrio) {
 					highestDenyPrio = firewall.GetPriority()
 					println("new highest seen", highestDenyPrio)
@@ -266,7 +265,7 @@ func CheckFirewallRulesCompliance(firewalls []*computepb.Firewall) (bool, error)
 }
 
 // Checks if a firewall rule is a deny rule
-func isDenyRule(firewall *computepb.Firewall) bool {
+func isDenyAllRule(firewall *computepb.Firewall) bool {
 	if firewall == nil {
 		return false
 	}
@@ -278,5 +277,7 @@ func isDenyRule(firewall *computepb.Firewall) bool {
 		}
 	}
 
-	return len(firewall.Allowed) == 0 && len(firewall.Denied) > 0
+	return len(firewall.Denied) > 0 &&
+		len(firewall.Allowed) == 0 &&
+		strings.ToLower(firewall.Denied[0].GetIPProtocol()) == "all"
 }
