@@ -59,7 +59,7 @@ func (c *Client) processResponse(resp *http.Response) ([]byte, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return bodyBytes, fmt.Errorf("Request failed with status code %d: %s", resp.StatusCode, string(bodyBytes))
+		return bodyBytes, fmt.Errorf("request failed with status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	return bodyBytes, nil

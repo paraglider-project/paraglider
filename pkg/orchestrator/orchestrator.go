@@ -783,13 +783,13 @@ func (s *ControllerServer) getUsedAsns(cloud string) (*paragliderpb.GetUsedAsnsR
 	// Ensure correct cloud name
 	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
-		return nil, errors.New("Invalid cloud name")
+		return nil, errors.New("invalid cloud name")
 	}
 
 	// Connect to cloud plugin
 	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("Unable to connect to cloud plugin: %s", err.Error())
+		return nil, fmt.Errorf("unable to connect to cloud plugin: %s", err.Error())
 	}
 	defer conn.Close()
 
@@ -805,7 +805,7 @@ func (s *ControllerServer) updateUsedAsns() error {
 	for _, cloud := range s.config.CloudPlugins {
 		asnList, err := s.getUsedAsns(cloud.Name)
 		if err != nil {
-			return fmt.Errorf("Could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
+			return fmt.Errorf("could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
 		}
 		s.usedAsns = append(s.usedAsns, asnList.Asns...)
 	}
@@ -855,13 +855,13 @@ func (s *ControllerServer) getUsedBgpPeeringIpAddresses(cloud string) (*paraglid
 	// Ensure correct cloud name
 	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
-		return nil, errors.New("Invalid cloud name")
+		return nil, errors.New("invalid cloud name")
 	}
 
 	// Connect to cloud plugin
 	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("Unable to connect to cloud plugin: %s", err.Error())
+		return nil, fmt.Errorf("unable to connect to cloud plugin: %s", err.Error())
 	}
 	defer conn.Close()
 
@@ -877,7 +877,7 @@ func (s *ControllerServer) updateUsedBgpPeeringIpAddresses(namespace string) err
 	for _, cloud := range s.config.CloudPlugins {
 		bgpPeeringIpAddressesList, err := s.getUsedBgpPeeringIpAddresses(cloud.Name)
 		if err != nil {
-			return fmt.Errorf("Could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
+			return fmt.Errorf("could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
 		}
 		s.usedBgpPeeringIpAddresses[cloud.Name] = bgpPeeringIpAddressesList.IpAddresses
 	}

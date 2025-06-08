@@ -220,7 +220,7 @@ func TeardownAwsTesting(namespace string, region string) {
 	}
 	describeInstancesOutput, err := ec2Client.DescribeInstances(ctx, describeInstancesInput)
 	if err != nil {
-		panic(fmt.Errorf("Failed to describe instances: %w", err))
+		panic(fmt.Errorf("failed to describe instances: %w", err))
 	}
 
 	// Delete instances
@@ -256,13 +256,13 @@ func TeardownAwsTesting(namespace string, region string) {
 	}
 	describeSubnetsOutput, err := ec2Client.DescribeSubnets(ctx, describeSubnetsInput)
 	if err != nil {
-		panic(fmt.Errorf("Failed to describe subnets: %w", err))
+		panic(fmt.Errorf("failed to describe subnets: %w", err))
 	}
 	for _, subnet := range describeSubnetsOutput.Subnets {
 		deleteSubnetInput := &ec2.DeleteSubnetInput{SubnetId: subnet.SubnetId}
 		_, err := ec2Client.DeleteSubnet(ctx, deleteSubnetInput)
 		if err != nil {
-			panic(fmt.Errorf("Failed to delete subnet %s: %w", *subnet.SubnetId, err))
+			panic(fmt.Errorf("failed to delete subnet %s: %w", *subnet.SubnetId, err))
 		}
 	}
 
@@ -272,13 +272,13 @@ func TeardownAwsTesting(namespace string, region string) {
 	}
 	describeSecurityGroupsOutput, err := ec2Client.DescribeSecurityGroups(ctx, describeSecurityGroupsInput)
 	if err != nil {
-		panic(fmt.Errorf("Failed to describe security groups: %w", err))
+		panic(fmt.Errorf("failed to describe security groups: %w", err))
 	}
 	for _, securityGroup := range describeSecurityGroupsOutput.SecurityGroups {
 		deleteSecurityGroupInput := &ec2.DeleteSecurityGroupInput{GroupId: securityGroup.GroupId}
 		_, err := ec2Client.DeleteSecurityGroup(ctx, deleteSecurityGroupInput)
 		if err != nil {
-			panic(fmt.Errorf("Failed to delete security group %s: %w", *securityGroup.GroupId, err))
+			panic(fmt.Errorf("failed to delete security group %s: %w", *securityGroup.GroupId, err))
 		}
 	}
 
@@ -288,7 +288,7 @@ func TeardownAwsTesting(namespace string, region string) {
 	}
 	describeVpcsOutput, err := ec2Client.DescribeVpcs(ctx, describeVpcsInput)
 	if err != nil {
-		panic(fmt.Errorf("Failed to describe VPCs: %w", err))
+		panic(fmt.Errorf("failed to describe VPCs: %w", err))
 	}
 	for _, vpc := range describeVpcsOutput.Vpcs {
 		deleteVpcInput := &ec2.DeleteVpcInput{
@@ -296,7 +296,7 @@ func TeardownAwsTesting(namespace string, region string) {
 		}
 		_, err := ec2Client.DeleteVpc(ctx, deleteVpcInput)
 		if err != nil {
-			panic(fmt.Errorf("Failed to delete VPC %s: %w", *vpc.VpcId, err))
+			panic(fmt.Errorf("failed to delete VPC %s: %w", *vpc.VpcId, err))
 		}
 	}
 }

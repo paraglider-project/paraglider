@@ -39,7 +39,7 @@ func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 		return nil, err
 	}
 	if len(vpcData) == 0 {
-		return nil, fmt.Errorf("No VPC located at the region specified for VPN deployment")
+		return nil, fmt.Errorf("no VPC located at the region specified for VPN deployment")
 	}
 
 	subnets, err := c.GetSubnetsInVpcRegionBound(vpcData[0].ID)
@@ -48,7 +48,7 @@ func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 		return nil, err
 	}
 	if len(subnets) == 0 {
-		return nil, fmt.Errorf("VPC %v doesn't contain subnets. Unable to deploy VPN", vpcData[0].ID)
+		return nil, fmt.Errorf("vPC %v doesn't contain subnets. Unable to deploy VPN", vpcData[0].ID)
 	}
 
 	subnetID := *subnets[0].ID
@@ -73,7 +73,7 @@ func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 			}
 			if len(vpn) == 0 {
 				utils.Log.Printf("Failed to fetch existing VPN in region %v. Possible tagging/global search issue.", c.region)
-				return nil, fmt.Errorf("Failed to fetch existing VPN in region %v", c.region)
+				return nil, fmt.Errorf("failed to fetch existing VPN in region %v", c.region)
 			}
 			utils.Log.Printf("Retrieving already deployed VPN gateway of VPC %v\n", vpcData[0].ID)
 			ipAddresses, err := c.GetVPNIPs(vpn[0].ID) // array lookup is safe since a VPN exists
@@ -250,7 +250,7 @@ func (c *CloudClient) CreateVPNConnectionRouteBased(VPNGatewayID, peerGatewayIP,
 	var connectionID string
 
 	if peerCloud != utils.AZURE {
-		return fmt.Errorf("VPN connections are not yet supported between IBM and Peer cloud %v", peerCloud)
+		return fmt.Errorf("vPN connections are not yet supported between IBM and Peer cloud %v", peerCloud)
 	}
 	// get or create IKE and IPSec policies to establish a secure VPN connection
 	IKEPolicyID, err := c.getOrCreateIKEPolicy(peerCloud)
@@ -334,7 +334,7 @@ func (c *CloudClient) pollVPNConnectionDeleted(VPNGatewayID, connectionID string
 		}
 		time.Sleep(10 * time.Second)
 	}
-	return fmt.Errorf("Connection with ID: %v failed to delete in the alloted time frame", connectionID)
+	return fmt.Errorf("connection with ID: %v failed to delete in the alloted time frame", connectionID)
 }
 
 // Polls a VPN connection status. Returns an error if connection fails to delete within the alloted time frame.
@@ -387,7 +387,7 @@ func (c *CloudClient) DeleteRoutesDependentOnConnection(VPNGatewayID string, con
 	for _, route := range routeCollection.Routes {
 		routeNextHop, isNextHopToVpnConnection := route.NextHop.(*vpcv1.RouteNextHop)
 		if !isNextHopToVpnConnection {
-			return fmt.Errorf("Expected next hop to reference a VPN connection, instead (likely) references an IP address.")
+			return fmt.Errorf("expected next hop to reference a VPN connection, instead (likely) references an IP address")
 		}
 		if *routeNextHop.ID == *connection.ID {
 			_, err = c.vpcService.DeleteVPCRoute(&vpcv1.DeleteVPCRouteOptions{
@@ -633,5 +633,5 @@ func (c *CloudClient) getAvailablePriority(routeData *vpcv1.CreateVPCRoutingTabl
 	}
 
 	// rule doesn't exist, but no available priority found
-	return false, -1, fmt.Errorf("No available priority found to create a route in zone: %v, destination: %v, to connectionID: %v", routeZone, routeDestination, routeConnectionID)
+	return false, -1, fmt.Errorf("no available priority found to create a route in zone: %v, destination: %v, to connectionID: %v", routeZone, routeDestination, routeConnectionID)
 }

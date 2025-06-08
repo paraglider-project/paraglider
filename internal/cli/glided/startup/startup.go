@@ -1,4 +1,4 @@
-/*
+ /*
 Copyright 2023 The Paraglider Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -87,17 +87,18 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, cloud := range cfg.CloudPlugins {
-		if cloud.Name == "gcp" {
+		switch cloud.Name {
+		case "gcp":
 			e.gcpPort, err = strconv.Atoi(cloud.Port)
 			if err != nil {
 				return err
 			}
-		} else if cloud.Name == "azure" {
+		case "azure":
 			e.azPort, err = strconv.Atoi(cloud.Port)
 			if err != nil {
 				return err
 			}
-		} else if cloud.Name == "ibm" {
+		case "ibm":
 			e.ibmPort, err = strconv.Atoi(cloud.Port)
 			if err != nil {
 				return err

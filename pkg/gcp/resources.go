@@ -153,13 +153,14 @@ func parseResourceUrl(resourceUrl string) (*resourceInfo, error) {
 // Get the resource handler for a given resource type with necessary clients initialized if provided
 func getResourceHandler(ctx context.Context, resourceType string, clients *GCPClients) (GCPResourceHandler, error) {
 	var handler GCPResourceHandler
-	if resourceType == instanceTypeName {
+	switch resourceType {
+	case instanceTypeName:
 		handler = &instanceHandler{}
-	} else if resourceType == clusterTypeName {
+	case clusterTypeName:
 		handler = &clusterHandler{}
-	} else if resourceType == privateServiceConnectTypeName {
+	case privateServiceConnectTypeName:
 		handler = &privateServiceHandler{}
-	} else {
+	default:
 		return nil, fmt.Errorf("unknown resource type")
 	}
 	if clients != nil {

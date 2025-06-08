@@ -247,13 +247,14 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// Firewalls
 		case strings.HasPrefix(path, urlProject+"/global/firewalls"):
-			if r.Method == "POST" {
+			switch r.Method {
+			case "POST":
 				sendResponseFakeOperation(w)
 				return
-			} else if r.Method == "DELETE" {
+			case "DELETE":
 				sendResponseFakeOperation(w)
 				return
-			} else if r.Method == "PATCH" {
+			case "PATCH":
 				req := &computepb.Firewall{}
 				err := json.Unmarshal(body, req)
 				if err != nil {
@@ -266,7 +267,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				}
 				sendResponseFakeOperation(w)
 				return
-			} else if r.Method == "GET" {
+			case "GET":
 				firewalls := make([]*computepb.Firewall, 0, len(fakeServerState.firewallMap))
 				for _, value := range fakeServerState.firewallMap {
 					firewalls = append(firewalls, value)
@@ -277,61 +278,66 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// Networks
 		case strings.HasPrefix(path, urlProject+"/global/networks"):
-			if r.Method == "GET" {
+			switch r.Method {
+			case "GET":
 				if fakeServerState.network != nil {
 					sendResponse(w, fakeServerState.network)
 				} else {
 					http.Error(w, "no network found", http.StatusNotFound)
 				}
 				return
-			} else if r.Method == "POST" {
+			case "POST":
 				sendResponseFakeOperation(w)
 				return
 			}
 		case strings.HasPrefix(path, urlProject+urlRegion+"/subnetworks"):
-			if r.Method == "GET" {
+			switch r.Method {
+			case "GET":
 				if fakeServerState.subnetwork != nil {
 					sendResponse(w, fakeServerState.subnetwork)
 				} else {
 					http.Error(w, "no subnetwork found", http.StatusNotFound)
 				}
 				return
-			} else if r.Method == "POST" {
+			case "POST":
 				sendResponseFakeOperation(w)
 				return
 			}
 		// Addresses (Regional)
 		case strings.HasPrefix(path, urlProject+urlRegion+"/addresses"):
-			if r.Method == "GET" {
+			switch r.Method {
+			case "GET":
 				if fakeServerState.address != nil {
 					sendResponse(w, fakeServerState.address)
 				} else {
 					http.Error(w, "no address found", http.StatusNotFound)
 				}
 				return
-			} else if r.Method == "POST" {
+			case "POST":
 				sendResponseFakeOperation(w)
 				return
 			}
 		// Addresses (Global)
 		case strings.HasPrefix(path, urlProject+"/global/addresses"):
-			if r.Method == "GET" {
+			switch r.Method {
+			case "GET":
 				if fakeServerState.address != nil {
 					sendResponse(w, fakeServerState.address)
 				} else {
 					http.Error(w, "no address found", http.StatusNotFound)
 				}
 				return
-			} else if r.Method == "POST" {
+			case "POST":
 				sendResponseFakeOperation(w)
 				return
 			}
 		// Forwarding Rules (Regional)
 		case strings.HasPrefix(path, urlProject+urlRegion+"/forwardingRules"):
-			if r.Method == "POST" {
+			switch r.Method {
+			case "POST":
 				sendResponseFakeOperation(w)
 				return
-			} else if r.Method == "GET" {
+			case "GET":
 				if fakeServerState.forwardingRule != nil {
 					sendResponse(w, fakeServerState.forwardingRule)
 				} else {
@@ -341,10 +347,11 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// Forwarding Rules (Global)
 		case strings.HasPrefix(path, urlProject+"/global/forwardingRules"):
-			if r.Method == "POST" {
+			switch r.Method {
+			case "POST":
 				sendResponseFakeOperation(w)
 				return
-			} else if r.Method == "GET" {
+			case "GET":
 				if fakeServerState.forwardingRule != nil {
 					sendResponse(w, fakeServerState.forwardingRule)
 				} else {
@@ -354,14 +361,15 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// VPN Gateways
 		case strings.HasPrefix(path, urlProject+urlRegion+"/vpnGateways"):
-			if r.Method == "GET" {
+			switch r.Method {
+			case "GET":
 				if fakeServerState.vpnGateway != nil {
 					sendResponse(w, fakeServerState.vpnGateway)
 				} else {
 					http.Error(w, "no vpn gateway found", http.StatusNotFound)
 				}
 				return
-			} else if r.Method == "POST" {
+			case "POST":
 				sendResponseFakeOperation(w)
 				return
 			}
@@ -379,10 +387,11 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// Routers
 		case strings.HasPrefix(path, urlProject+urlRegion+"/routers"):
-			if r.Method == "POST" || r.Method == "PATCH" {
+			switch r.Method {
+			case "POST", "PATCH":
 				sendResponseFakeOperation(w)
 				return
-			} else if r.Method == "GET" {
+			case "GET":
 				if fakeServerState.router != nil {
 					sendResponse(w, fakeServerState.router)
 				} else {

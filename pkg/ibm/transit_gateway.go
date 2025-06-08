@@ -155,7 +155,7 @@ func (c *CloudClient) pollConnectionDeleted(connectionID string, gwID string) (b
 		// sleep to avoid busy waiting
 		time.Sleep(10 * time.Second)
 	}
-	return false, fmt.Errorf("Connection with ID: %v wasn't deleted in the alloted time frame", connectionID)
+	return false, fmt.Errorf("connection with ID: %v wasn't deleted in the alloted time frame", connectionID)
 }
 
 // removes the specified connection from the specified transit gateway.

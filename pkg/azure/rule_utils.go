@@ -62,7 +62,7 @@ func CheckSecurityRulesCompliance(ctx context.Context, azureHandler *AzureSDKHan
 	priority, err = validateSecurityRulesConform(reservedPrioritiesOutbound)
 	if err != nil {
 		if priority == -1 {
-			return false, fmt.Errorf("Non-compliant: %v", err)
+			return false, fmt.Errorf("non-compliant: %v", err)
 		}
 
 		_, err := setupAndCreateDenyAllRule(ctx, azureHandler, priority, outboundDirectionRule, *nsg.Name)
@@ -97,7 +97,7 @@ func validateSecurityRulesConform(reservedPriorities map[int32]*armnetwork.Secur
 		if (access == armnetwork.SecurityRuleAccessDeny) && (priority <= lowestDenyPriorityNum) {
 			// Any deny rule must be a deny all rule
 			if !isDenyAllRule(rule) {
-				return -1, fmt.Errorf("Deny Rule at priority(%d) is not a Deny all rule", priority)
+				return -1, fmt.Errorf("deny Rule at priority(%d) is not a Deny all rule", priority)
 			}
 
 			lowestRule = rule
@@ -107,23 +107,23 @@ func validateSecurityRulesConform(reservedPriorities map[int32]*armnetwork.Secur
 
 	// An allow rule's priority number is higher than a deny rule's priority number
 	if highestAllowPriorityNum > lowestDenyPriorityNum {
-		return -1, fmt.Errorf("Allow Rule with lower priority(%d) than Deny Rule(%d)", highestAllowPriorityNum, lowestDenyPriorityNum)
+		return -1, fmt.Errorf("allow Rule with lower priority(%d) than Deny Rule(%d)", highestAllowPriorityNum, lowestDenyPriorityNum)
 	}
 
 	if lowestRule == nil {
 		if reservedPriorities[maxPriority] != nil {
 			// The max priority number should not be associated to an allow rule
-			return -1, fmt.Errorf("Allow Rule at lowest priority(%d). Must be a deny all rule", maxPriority)
+			return -1, fmt.Errorf("allow Rule at lowest priority(%d). Must be a deny all rule", maxPriority)
 		}
 
 		// No deny all rule exists; return priority to create deny all rule
-		return maxPriority, fmt.Errorf("No deny rule present")
+		return maxPriority, fmt.Errorf("no deny rule present")
 	}
 
 	// If not a deny all rule, return priority to create a deny all rule
 	if !isDenyAllRule(lowestRule) {
 		lastPriority := getNextAvailablePriority(reservedPriorities, minPriority, maxPriority, false)
-		return lastPriority, fmt.Errorf("Deny Rule not at lowest priority(%d) is not a Deny all rule", lowestDenyPriorityNum)
+		return lastPriority, fmt.Errorf("deny Rule not at lowest priority(%d) is not a Deny all rule", lowestDenyPriorityNum)
 	}
 
 	return lowestDenyPriorityNum, nil

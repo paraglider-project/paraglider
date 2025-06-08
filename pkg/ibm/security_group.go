@@ -191,10 +191,8 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolICMP(
 	if err != nil {
 		return nil, err
 	}
-	isEgress := false
-	if *ibmRuleIcmp.Direction == outboundType {
-		isEgress = true
-	}
+	isEgress := *ibmRuleIcmp.Direction == outboundType
+
 	icmpCode := int64(-1)
 	if ibmRuleIcmp.Code != nil { // rule allows specific icmp code
 		icmpCode = *ibmRuleIcmp.Code
@@ -230,10 +228,8 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolTCPUDP(
 	if err != nil {
 		return nil, err
 	}
-	isEgress := false
-	if *ibmRuleTCPUDP.Direction == "outbound" {
-		isEgress = true
-	}
+	isEgress := *ibmRuleTCPUDP.Direction == "outbound"
+
 	rule := SecurityGroupRule{
 		ID:         *ibmRuleTCPUDP.ID,
 		Protocol:   *ibmRuleTCPUDP.Protocol,
@@ -308,7 +304,7 @@ func (c *CloudClient) addSecurityGroupRule(sgID string, prototype vpcv1.Security
 func (c *CloudClient) translateRuleProtocol(rule SecurityGroupRule) (vpcv1.SecurityGroupRulePrototypeIntf, error) {
 	var remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf
 	if len(rule.Remote) == 0 {
-		return nil, fmt.Errorf("SecurityGroupRule is missing remote value")
+		return nil, fmt.Errorf("securityGroupRule is missing remote value")
 	}
 	remote, err := GetRemoteType(rule.Remote)
 	if err != nil {
@@ -504,7 +500,7 @@ func IBMToParagliderRules(rules []SecurityGroupRule) ([]*paragliderpb.PermitList
 
 	for _, rule := range rules {
 		if rule.PortMin != rule.PortMax {
-			return nil, fmt.Errorf("SG rules with port ranges aren't currently supported")
+			return nil, fmt.Errorf("sG rules with port ranges aren't currently supported")
 		}
 		// PortMin=PortMax since port ranges aren't supported.
 		// srcPort=dstPort since ibm security rules are stateful,
@@ -532,7 +528,7 @@ func ParagliderToIBMRules(securityGroupID string, rules []*paragliderpb.PermitLi
 	var sgRules []SecurityGroupRule
 	for _, rule := range rules {
 		if len(rule.Targets) == 0 {
-			return nil, fmt.Errorf("PermitListRule is missing Tag value. Rule:%+v", rule)
+			return nil, fmt.Errorf("permitListRule is missing Tag value. Rule:%+v", rule)
 		}
 		for _, target := range rule.Targets {
 			remote := target
@@ -570,7 +566,7 @@ func ParagliderToIBMRule(securityGroupID string, pgRule *paragliderpb.PermitList
 	[]SecurityGroupRule, error) {
 
 	if len(pgRule.Targets) == 0 {
-		return nil, fmt.Errorf("PermitListRule is missing target value. Rule:%+v", pgRule)
+		return nil, fmt.Errorf("permitListRule is missing target value. Rule:%+v", pgRule)
 	}
 	sgRules := make([]SecurityGroupRule, len(pgRule.Targets))
 	for i, target := range pgRule.Targets {

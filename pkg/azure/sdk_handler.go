@@ -173,7 +173,7 @@ func (h *AzureSDKHandler) SetSubIdAndResourceGroup(subid string, resourceGroupNa
 }
 
 func (h *AzureSDKHandler) GetResource(ctx context.Context, resourceID string) (*armresources.GenericResource, error) {
-	var apiVersion string = "2024-03-01"
+	var apiVersion = "2024-03-01"
 	options := armresources.ClientGetByIDOptions{}
 
 	resource, err := h.resourcesClient.GetByID(ctx, resourceID, apiVersion, &options)
@@ -926,11 +926,12 @@ func getIPs(rule *paragliderpb.PermitListRule, resourceIP string) ([]*string, []
 // getTarget returns the paraglider targets for a given nsg rule
 func getTargets(rule *armnetwork.SecurityRule) []string {
 	var targets []string
-	if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
+	switch *rule.Properties.Direction {
+	case armnetwork.SecurityRuleDirectionInbound:
 		for _, ptr := range rule.Properties.SourceAddressPrefixes {
 			targets = append(targets, *ptr)
 		}
-	} else if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionOutbound {
+	case armnetwork.SecurityRuleDirectionOutbound:
 		for _, ptr := range rule.Properties.DestinationAddressPrefixes {
 			targets = append(targets, *ptr)
 		}

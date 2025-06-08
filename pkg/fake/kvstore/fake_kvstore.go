@@ -39,21 +39,21 @@ func (s *FakeKVStoreServer) Get(c context.Context, req *storepb.GetRequest) (*st
 	if req.Key == ValidKey {
 		return &storepb.GetResponse{Value: ValidValue}, nil
 	}
-	return nil, fmt.Errorf("Get: Invalid key")
+	return nil, fmt.Errorf("get: Invalid key")
 }
 
 func (s *FakeKVStoreServer) Set(c context.Context, req *storepb.SetRequest) (*storepb.SetResponse, error) {
 	if req.Key == ValidKey {
 		return &storepb.SetResponse{}, nil
 	}
-	return nil, fmt.Errorf("Set: Invalid key")
+	return nil, fmt.Errorf("set: Invalid key")
 }
 
 func (s *FakeKVStoreServer) Delete(c context.Context, req *storepb.DeleteRequest) (*storepb.DeleteResponse, error) {
 	if req.Key == ValidKey {
 		return &storepb.DeleteResponse{}, nil
 	}
-	return nil, fmt.Errorf("Delete: Invalid key")
+	return nil, fmt.Errorf("delete: Invalid key")
 }
 
 func NewFakeKVStoreServer() *FakeKVStoreServer {

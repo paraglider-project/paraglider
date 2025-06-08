@@ -323,7 +323,7 @@ func ZoneToRegion(zone string) (string, error) {
 	lastIndex := strings.LastIndex(zone, "-")
 	if lastIndex == -1 {
 		// Hyphen not found, handle this situation
-		return "", fmt.Errorf("Wrong format for zone: missing hyphen.")
+		return "", fmt.Errorf("wrong format for zone: missing hyphen")
 	}
 	region := zone[:lastIndex]
 
@@ -378,12 +378,12 @@ func getStructHash(s interface{}, fieldsToExclude []string) (uint64, error) {
 				return 0, err
 			}
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			_, err := h.Write([]byte(fmt.Sprint(f.Int())))
+			_, err := fmt.Fprint(h, f.Int())
 			if err != nil {
 				return 0, err
 			}
 		case reflect.Bool:
-			_, err := h.Write([]byte(fmt.Sprint(f.Bool())))
+			_, err := fmt.Fprint(h, f.Bool())
 			if err != nil {
 				return 0, err
 			}
