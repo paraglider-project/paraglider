@@ -709,11 +709,10 @@ func TestPrivateServiceGetResourceInfo(t *testing.T) {
 	assert.Equal(t, fakePscName, resourceInfo.Name)
 }
 
-func TestGCPPrivateServiceGetResourceInfo(t *testing.T) {
+func TestPrivateServiceGetResourceInfoGoogleService(t *testing.T) {
 	pscHandler := &privateServiceHandler{}
 	resource, _, err := getFakePSCRequest(true)
 	require.NoError(t, err)
-
 	resourceInfo, err := pscHandler.getResourceInfo(context.Background(), resource)
 
 	require.NoError(t, err)
