@@ -143,10 +143,6 @@ func TestIsDenyAllRule(t *testing.T) {
 			name: "No rule",
 			expect: false,
 		},
-		{
-			name: "No rule",
-			expect: false,
-		},
 	}
 
 	for _, tt := range tests {
