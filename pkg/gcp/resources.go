@@ -28,8 +28,12 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
-	"github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
+	utils "github.com/paraglider-project/paraglider/pkg/utils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -213,6 +217,7 @@ func GetResourceNetworkInfo(ctx context.Context, resourceInfo *resourceInfo, cli
 
 // Read parameters from within the resource description and ensure it is a valid resource
 func IsValidResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
+	// Verify resource is supported
 	handler, err := getResourceHandlerFromDescription(resource.Description)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get resource handler: %w", err)
@@ -243,13 +248,155 @@ func GetFirewallTarget(ctx context.Context, resourceInfo *resourceInfo, netInfo 
 	return &target, nil
 }
 
+// Returns the resource and network info if the resource complies with paraglider requirements. Otherwise, it returns an error
+func (r *instanceHandler) ValidateResourceCompliesWithParagliderRequirements(ctx context.Context, resourceReq *paragliderpb.AttachResourceRequest, project string, resourceID string, orchestratorServerAddr string, clients *GCPClients) (*resourceInfo, *resourceNetworkInfo, error) {
+	// Get the ResourceInfo from AttachResourceRequest
+	resourceInfo, err := parseResourceUrl(resourceReq.GetResource())
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse resource URL: %w", err)
+	}
+
+	resourceInfo.Namespace = resourceReq.GetNamespace()
+
+	networkInfo, err := GetResourceNetworkInfo(ctx, resourceInfo, clients)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error in getting resource %s network info: %w", resourceID, err)
+	}
+
+	// Returns the network name, subnet URL, IP, and instance ID converted to a string for rule naming
+	instanceRequest := &computepb.GetInstanceRequest{
+		Instance: resourceInfo.Name,
+		Project:  resourceInfo.Project,
+		Zone:     resourceInfo.Zone,
+	}
+	instanceResponse, err := r.client.Get(ctx, instanceRequest)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to get instance: %w", err)
+	}
+
+	// Ensure the Vnet address space doesn't overlap with paraglider's address space
+	vpcName := *instanceResponse.NetworkInterfaces[0].Network
+	isOverlapping, err := DoesVPCOverlapWithParaglider(ctx, resourceInfo, vpcName, orchestratorServerAddr, clients)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error checking if VPC overlaps with Paraglider: %w", err)
+	}
+
+	if isOverlapping {
+		return nil, nil, fmt.Errorf("Resource %s Network Address Space overlaps with Paraglider Network Address Space. Not allowed", resourceID)
+	}
+
+	// Fetch firewall rules for the resource using getFirewallRules function
+	firewallRules, err := getFirewallRules(ctx, project, resourceID, clients)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error retrieving firewall rules for resource %s: %w", resourceID, err)
+	}
+
+	// Call CheckFirewallRulesCompliance to verify firewall rule compliance
+	isCompliant, err := CheckFirewallRulesCompliance(firewallRules)
+	if err != nil || !isCompliant {
+		return nil, nil, fmt.Errorf("Firewall rules are not compliant: %w", err)
+	}
+
+	return resourceInfo, networkInfo, nil
+}
+
+// GetVPCAddressSpace retrieves the address space for a given VPC network
+func GetVPCAddressSpace(ctx context.Context, project, vpcName string, clients *GCPClients) ([]string, error) {
+	networksClient, err := clients.GetOrCreateNetworksClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get networks client: %w", err)
+	}
+	subnetworksClient, err := clients.GetOrCreateSubnetworksClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get subnetworks client: %w", err)
+	}
+
+	getNetworkReq := &computepb.GetNetworkRequest{
+		Network: vpcName,
+		Project: project,
+	}
+
+	getNetworkResp, err := networksClient.Get(ctx, getNetworkReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get paraglider vpc network: %w", err)
+	}
+
+	var addressSpaces []string
+
+	// Iterate over all subnetworks associated with the VPC
+	for _, subnetURL := range getNetworkResp.Subnetworks {
+		parsedSubnetURL := parseUrl(subnetURL)
+
+		getSubnetworkRequest := &computepb.GetSubnetworkRequest{
+			Project:    project,
+			Region:     parsedSubnetURL["regions"],
+			Subnetwork: parsedSubnetURL["subnetworks"],
+		}
+
+		getSubnetworkResp, err := subnetworksClient.Get(ctx, getSubnetworkRequest)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get subnetwork: %w", err)
+		}
+
+		// Append the primary CIDR range
+		addressSpaces = append(addressSpaces, *getSubnetworkResp.IpCidrRange)
+
+		// Append the secondary CIDR ranges (if any)
+		for _, secondaryRange := range getSubnetworkResp.SecondaryIpRanges {
+			addressSpaces = append(addressSpaces, *secondaryRange.IpCidrRange)
+		}
+	}
+
+	// Return the list of address spaces (CIDR ranges)
+	return addressSpaces, nil
+}
+
+// DoesVnetOverlapWithParaglider checks if the GCP VPC's address space overlaps with any of the used address spaces
+func DoesVPCOverlapWithParaglider(ctx context.Context, resourceInfo *resourceInfo, vpcName string, orchestratorServerAddr string, clients *GCPClients) (bool, error) {
+	// Get VPC address space (CIDR block)
+	vpcAddressSpaces, err := GetVPCAddressSpace(ctx, resourceInfo.Project, vpcName, clients)
+	if err != nil {
+		return false, fmt.Errorf("failed to get VPC address space: %v", err)
+	}
+
+	// Get used address spaces of all clouds
+	orchestratorConn, err := grpc.NewClient(orchestratorServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return false, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
+	}
+	defer orchestratorConn.Close()
+	orchestratorClient := paragliderpb.NewControllerClient(orchestratorConn)
+	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		return false, fmt.Errorf("unable to get used address spaces: %w", err)
+	}
+
+	// Check if the VPC address space overlaps with any of the used address spaces
+	for _, mapping := range getUsedAddressSpacesResp.AddressSpaceMappings {
+		for _, addressSpace := range mapping.AddressSpaces {
+			for _, vpcAddress := range vpcAddressSpaces {
+				doesOverlap, err := utils.DoCIDROverlap(vpcAddress, addressSpace)
+				if err != nil {
+					return true, err
+				}
+
+				if doesOverlap {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
+}
+
 // Interface to implement to support a resource
 type GCPResourceHandler interface {
 	// Read and provision the resource with the provided subnet
 	readAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnetName string, resourceInfo *resourceInfo, additionalAddrSpaces []string) (string, string, error)
 	// Get network information about the resource
 	getNetworkInfo(ctx context.Context, resourceInfo *resourceInfo) (*resourceNetworkInfo, error)
-	// Get information about the reosurce from the resource description
+	// Get information about the resource from the resource description
 	getResourceInfo(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error)
 	// Initialize necessary clients
 	initClients(ctx context.Context, clients *GCPClients) error

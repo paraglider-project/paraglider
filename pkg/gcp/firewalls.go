@@ -31,6 +31,8 @@ const (
 	firewallRuleDescriptionPrefix = "paraglider rule" // GCP firewall rule prefix for description
 	targetTypeTag                 = "TAG"
 	targetTypeAddress             = "ADDRESS"
+	highestPriority               = 0
+	lowestPriority                = 65534
 )
 
 // Maps between of GCP and Paraglider traffic direction terminologies
@@ -228,4 +230,50 @@ func parseDescriptionTags(description string) []string {
 
 func getFirewallNamePrefix(namespace string) string {
 	return getParagliderNamespacePrefix(namespace) + "-fw"
+}
+
+// 1. A deny-all rule exists at the lowest priority (highest number)
+// 2. All higher-priority rules (lower numbers) are allow rules
+func CheckFirewallRulesCompliance(firewalls []*computepb.Firewall) (bool, error) {
+	var denyAll *computepb.Firewall
+	var highestDenyPrio = int32(lowestPriority)
+	for _, firewall := range firewalls {
+		if len(firewall.Denied) > 0 {
+			if isDenyAllRule(firewall) {
+				denyAll = firewall
+				if firewall.GetPriority() < int32(highestDenyPrio) {
+					highestDenyPrio = firewall.GetPriority()
+				}
+
+			}
+		}
+	}
+
+	if denyAll == nil {
+		return false, fmt.Errorf("no deny-all rule found")
+	}
+
+	if denyAll.GetPriority() > highestDenyPrio {
+		return false, fmt.Errorf("found a deny rule with higher priority than deny-all")
+	}
+
+	return true, nil
+}
+
+// Checks if a firewall rule is a deny rule
+func isDenyAllRule(firewall *computepb.Firewall) bool {
+	if firewall == nil {
+		return false
+	}
+
+	// Checks that DestinationRanges is set to "0.0.0.0/0"
+	for _, rangeValue := range firewall.GetDestinationRanges() {
+		if rangeValue != "0.0.0.0/0" {
+			return false
+		}
+	}
+
+	return len(firewall.Denied) > 0 &&
+		len(firewall.Allowed) == 0 &&
+		strings.ToLower(firewall.Denied[0].GetIPProtocol()) == "all"
 }
