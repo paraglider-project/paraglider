@@ -30,9 +30,9 @@ jobs:
       pull-requests: write
     steps:
       - name: Check out repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Python ${{ env.PYTHONVER}}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHONVER }}
       - name: Build docs
