@@ -285,8 +285,8 @@
 <li><p>Create two VMs in Azure in different regions and connect them together</p></li>
 <li><p>Create a third VM in GCP and connect to one of the Azure VMs</p></li>
 </ul>
-<div class="mermaid">
-            graph LR
+<pre  class="mermaid">
+        graph LR
 
    subgraph Azure
    A(&quot;A&lt;br&gt;(westus)&quot;) &lt;---&gt; B(&quot;B&lt;br&gt;(eastus)&quot;)
@@ -297,7 +297,7 @@
    end
 
    A &lt;---&gt; C
-        </div></section>
+    </pre></section>
 <section id="setup">
 <h2>Setup<a class="headerlink" href="#setup" title="Link to this heading">¶</a></h2>
 <section id="installation">
@@ -522,7 +522,13 @@
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=a56c686a"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script src="https://unpkg.com/mermaid@10.2.0/dist/mermaid.min.js"></script>
-    <script>mermaid.initialize({startOnLoad:true});</script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs"></script>
+    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";import elkLayouts from "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs";mermaid.registerLayoutLoaders(elkLayouts);mermaid.initialize({startOnLoad:false});</script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";
+window.addEventListener("load", () => mermaid.run());
+</script>
     </body>
 </html>
