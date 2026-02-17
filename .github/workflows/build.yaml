@@ -69,7 +69,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Check out repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Go ${{ env.GOVER }}
         uses: actions/setup-go@v5
         with:
