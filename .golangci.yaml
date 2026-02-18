@@ -1,19 +1,88 @@
-linters:
-  enable:
-  - goheader
-issues:
-  exclude-rules:
-    # Ignore test files which have unit/integration tags
-    - path: _test\.go
-      linters:
-        - goheader
-linters-settings:
-  # Settings for linter 'goheader'
-  #
-  # This is used to validate that all go files have the required copyright header.
-  goheader:
-    template-path: build/header.tmpl
+version: "2"
+
 run:
-  build-tags:
-    - unit
-    - integration
+  # linter execution
+  timeout: 30m
+  issues-exit-code: 1
+  concurrency: 4
+  # check tests as well
+  tests: true
+  # fail if go.mod file is outdated.
+  modules-download-mode: readonly
+  # use the Go version from the go.mod file.
+  go: ""
+
+linters:
+  # set to true to run only fast linters (e.g., for pre-commit)
+  fast: false
+
+  disable-all: true
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - contextcheck
+    - durationcheck
+    - errcheck 
+    - errname
+    - errorlint
+    - ginkgolinter
+    - gocritic
+    - godot
+    - gosec
+    - govet
+    - grouper
+    - lll
+    - loggercheck
+    - importas
+    - ineffassign
+    - makezero
+    - misspell
+    - nakedret
+    - nestif
+    - nilerr
+    - nolintlint
+    - nonamedreturns
+    - nosprintfhostport
+    - prealloc
+    - predeclared
+    - promlinter
+    - reassign
+    - revive
+    - staticcheck
+    - tagliatelle
+    - testableexamples
+    - thelper
+    - testpackage
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - varnamelen
+    - whitespace
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+
+output:
+  sort-order:
+    - file # filepath, line, and column.
+    - linter
+    - severity
+  # Show statistics per linter.
+  # Default: false
+  show-stats: true
+
+issues:
+  # setting 0 to have all the results.
+  max-issues-per-linter: 0
+  # nothing should be skipped to not miss errors.
+  max-same-issues: 0
+  # analyze only new code (manually set to false to check existing code)
+  new: false
+  # do not automatically fix 
+  fix: true
