@@ -1,8 +1,6 @@
 module github.com/paraglider-project/paraglider
 
-go 1.23.2
-
-toolchain go1.24.1
+go 1.26.0
 
 require (
 	cloud.google.com/go/billing v1.20.4
