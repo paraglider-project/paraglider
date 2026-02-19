@@ -140,6 +140,8 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 			return nil, err
 		}
 		vpcID = vpc.ID
+	} else {
+		utils.Log.Printf("Using VPC %s\n", *vpcID)
 	}
 
 	// get subnets of VPC
