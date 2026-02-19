@@ -54,6 +54,6 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	fmt.Fprintln(e.writer, "Server address: ", e.cliSettings.ServerAddr)
+	_, _ = fmt.Fprintln(e.writer, "Server address: ", e.cliSettings.ServerAddr)
 	return nil
 }

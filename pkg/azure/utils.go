@@ -47,7 +47,7 @@ const (
 	natGatewayTypeName            = "Microsoft.Network/natGateways"
 )
 
-// Gets subscription ID defined in environment variable
+// Gets subscription ID defined in environment variable.
 func GetAzureSubscriptionId() string {
 	subscriptionId := os.Getenv("PARAGLIDER_AZURE_SUBSCRIPTION_ID")
 	if subscriptionId == "" {
@@ -56,7 +56,7 @@ func GetAzureSubscriptionId() string {
 	return subscriptionId
 }
 
-// Creates a resource groups client
+// Creates a resource groups client.
 func createResourceGroupsClient(subscriptionId string) *armresources.ResourceGroupsClient {
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
@@ -152,10 +152,10 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 								providerNamespace := strings.Split(*resource.Type, "/")[0]
 								resp, err := providersClient.Get(ctx, providerNamespace, nil)
 								if err != nil {
-									panic(fmt.Errorf("Unable to get provider resource type: %w", err))
+									panic(fmt.Errorf("unable to get provider resource type: %w", err))
 								}
 								// Store all API versions under this provider namespace to reduce potential duplicate requests
-								for _, resourceType := range resp.Provider.ResourceTypes {
+								for _, resourceType := range resp.ResourceTypes {
 									// Breakdown of the term "resource type" overloading
 									// - *resource.Type = "Microsoft.Compute/virtualMachines"
 									// - providerNamespace = "Microsoft.Compute"
@@ -166,7 +166,6 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 						}
 						resourceTypeToResources[*resource.Type] = append(resourceTypeToResources[*resource.Type], resource)
 					}
-
 				}
 				// Delete resources in the following order
 				deletionOrder := []string{
@@ -187,7 +186,7 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 					if resources, ok := resourceTypeToResources[resourceType]; ok {
 						err = deleteResources(ctx, resourcesClient, resources, resourceTypeToAPIVersion[resourceType])
 						if err != nil {
-							panic(fmt.Errorf("Failed to delete resource type %s: %w", resourceType, err))
+							panic(fmt.Errorf("failed to delete resource type %s: %w", resourceType, err))
 						}
 						delete(resourceTypeToResources, resourceType)
 					}
@@ -198,7 +197,7 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 					for resourceType, resources := range resourceTypeToResources {
 						err = deleteResources(ctx, resourcesClient, resources, resourceTypeToAPIVersion[resourceType])
 						if err != nil {
-							panic(fmt.Errorf("Failed to delete resource type %s: %w", resourceType, err))
+							panic(fmt.Errorf("failed to delete resource type %s: %w", resourceType, err))
 						}
 					}
 				}
@@ -211,11 +210,11 @@ func deleteResources(ctx context.Context, resourcesClient *armresources.Client, 
 	for _, resource := range resources {
 		pollerResp, err := resourcesClient.BeginDeleteByID(ctx, *resource.ID, apiVersion, nil)
 		if err != nil {
-			return fmt.Errorf("Error while deleting resource: %v", err)
+			return fmt.Errorf("error while deleting resource: %w", err)
 		}
 		_, err = pollerResp.PollUntilDone(ctx, nil)
 		if err != nil {
-			return fmt.Errorf("Error while deleting resource: %v", err)
+			return fmt.Errorf("error while deleting resource: %w", err)
 		}
 	}
 	return nil
@@ -254,7 +253,7 @@ func InitializeServer(orchestratorAddr string) *azurePluginServer {
 	}
 }
 
-// TODO @seankimkdy: figure out how to merge this with Azure SDK handler
+// TODO @seankimkdy: figure out how to merge this with Azure SDK handler.
 func GetVmIpAddress(vmId string) (string, error) {
 	resourceIdInfo, err := getResourceIDInfo(vmId)
 	if err != nil {
@@ -296,7 +295,7 @@ func findNetworkWatcher(ctx context.Context, watchersClient *armnetwork.Watchers
 	for pager.More() {
 		result, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get next page of resources: %v", err)
+			return nil, fmt.Errorf("failed to get next page of resources: %w", err)
 		}
 
 		for _, networkWatcher := range result.Value {

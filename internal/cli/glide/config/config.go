@@ -28,9 +28,7 @@ const (
 	DefaultNamespace      = "default"
 )
 
-var (
-	ActiveConfig *CliConfig
-)
+var ActiveConfig *CliConfig
 
 type CliConfig struct {
 	Settings CliSettings
@@ -55,7 +53,7 @@ func ReadOrCreateConfig() error {
 		parentDir := filepath.Dir(newConfig.Path)
 		_, err := os.Stat(parentDir)
 		if os.IsNotExist(err) {
-			err := os.MkdirAll(parentDir, 0755)
+			err := os.MkdirAll(parentDir, 0o755)
 			if err != nil {
 				return err
 			}
@@ -83,7 +81,7 @@ func SaveActiveConfig() error {
 		return err
 	}
 
-	err = os.WriteFile(ActiveConfig.Path, data, 0644)
+	err = os.WriteFile(ActiveConfig.Path, data, 0o644)
 	if err != nil {
 		return err
 	}

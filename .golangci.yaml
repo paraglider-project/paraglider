@@ -11,6 +11,9 @@ run:
   modules-download-mode: readonly
   # use the Go version from the go.mod file.
   go: ""
+  build-tags:
+    - unit
+    - integration
 
 linters:
   # set to true to run only fast linters (e.g., for pre-commit)
@@ -18,55 +21,21 @@ linters:
 
   disable-all: true
   enable:
-    - asasalint
-    - asciicheck
-    - bidichk
-    - bodyclose
-    - contextcheck
-    - durationcheck
-    - errcheck 
-    - errname
-    - errorlint
-    - ginkgolinter
-    - gocritic
-    - godot
-    - gosec
+    - errcheck
     - govet
-    - grouper
-    - lll
-    - loggercheck
-    - importas
     - ineffassign
-    - makezero
-    - misspell
-    - nakedret
-    - nestif
-    - nilerr
-    - nolintlint
-    - nonamedreturns
-    - nosprintfhostport
-    - prealloc
-    - predeclared
-    - promlinter
-    - reassign
-    - revive
     - staticcheck
-    - tagliatelle
-    - testableexamples
-    - thelper
-    - testpackage
-    - tparallel
-    - unconvert
-    - unparam
     - unused
-    - usestdlibvars
-    - varnamelen
-    - whitespace
+    - goheader
 
 formatters:
   enable:
     - gofumpt
     - goimports
+
+linters-settings:
+  goheader:
+    template-path: build/header.tmpl
 
 output:
   sort-order:

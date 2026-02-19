@@ -329,7 +329,6 @@ func TestInstanceCreateWithNetwork(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, url, *instanceRequest.InstanceResource.Name)
 	assert.Equal(t, ip, *getFakeInstance(true).NetworkInterfaces[0].NetworkIP)
-
 }
 
 func TestClusterReadAndProvisionResource(t *testing.T) {

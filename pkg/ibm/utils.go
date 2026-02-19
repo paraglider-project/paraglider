@@ -41,11 +41,11 @@ const (
 	VM       taggedResourceType = "instance"
 	CLUSTER  taggedResourceType = "k8-cluster"
 	ENDPOINT taggedResourceType = "endpoint-gateway"
-	// Security group of a specific instance
+	// Security group of a specific instance.
 	SG taggedResourceType = "security-group"
-	// transit gateway for vpc-peering
+	// transit gateway for vpc-peering.
 	GATEWAY taggedResourceType = "gateway"
-	// public gateway for accessing public IP endpoints
+	// public gateway for accessing public IP endpoints.
 	PGATEWAY taggedResourceType = "public-gateway"
 	VPN      taggedResourceType = "vpn"
 	ANY      taggedResourceType = "*"
@@ -54,13 +54,13 @@ const (
 	endpointsURL    = "https://control.cloud-object-storage.cloud.ibm.com/v2/endpoints" // url containing constantly updated endpoints of regions.
 	publicSSHKey    = ".ibm/keys/paraglider-key.pub"
 	privateSSHKey   = ".ibm/keys/paraglider-key"
-	// paragliderResourcePrefix is used to prefix a resource's name
+	// paragliderResourcePrefix is used to prefix a resource's name.
 	paragliderResourcePrefix = "paraglider"
-	// paragliderTag is the default tag attached to all paraglider resources
+	// paragliderTag is the default tag attached to all paraglider resources.
 	paragliderTag = "pg"
 )
 
-// taggedResourceType indicates the type of tagged resource to fetch
+// taggedResourceType indicates the type of tagged resource to fetch.
 type taggedResourceType string
 
 // cache of regions, initialized by GetRegions(). Shouldn't be accessed directly outside of file.
@@ -82,19 +82,19 @@ type resourceData struct {
 	Zone   string
 }
 
-// resourceIDInfo defines the necessary fields of a resource sent in a request
+// resourceIDInfo defines the necessary fields of a resource sent in a request.
 type resourceIDInfo struct {
 	ResourceGroup string `json:"resourcegroup"`
 	Zone          string `json:"zone"`
 	ResourceID    string `json:"resourceid"`
 }
 
-// returns url of IBM region
+// returns url of IBM region.
 func endpointURL(region string) string {
 	return fmt.Sprintf("https://%s.iaas.cloud.ibm.com/v1", region)
 }
 
-// crn2Id returns ID of resource based on its CRN
+// crn2Id returns ID of resource based on its CRN.
 func crn2Id(crn string) string {
 	index := strings.LastIndex(crn, ":")
 	if index == -1 {
@@ -103,17 +103,17 @@ func crn2Id(crn string) string {
 	return crn[index+1:]
 }
 
-// generateResourceName returns unique paraglider resource name
+// generateResourceName returns unique paraglider resource name.
 func generateResourceName(name string) string {
 	return fmt.Sprintf("%v-%v-%v", paragliderResourcePrefix, name, uuid.New().String()[:8])
 }
 
-// isParagliderResource returns if a given resource (e.g. permit list) belongs to paraglider
+// isParagliderResource returns if a given resource (e.g. permit list) belongs to paraglider.
 func isParagliderResource(name string) bool {
 	return strings.HasPrefix(name, paragliderResourcePrefix)
 }
 
-// TODO cleanup k8s clusters
+// TODO cleanup k8s clusters.
 func TerminateParagliderDeployments(region string) error {
 	if os.Getenv("INVISINETS_TEST_PERSIST") == "1" {
 		utils.Log.Printf("Skipped IBM resource cleanup function - INVISINETS_TEST_PERSIST is set to 1")
@@ -177,7 +177,7 @@ func getClientMapKey(resGroup, region string) string {
 }
 
 // returns ResourceIDInfo out of an agreed upon formatted string:
-// "/resourcegroup/{ResourceGroupName}/zone/{zone}/resourcetype/{ResourceID}"
+// "/resourcegroup/{ResourceGroupName}/zone/{zone}/resourcetype/{ResourceID}".
 func getResourceMeta(deploymentID string) (resourceIDInfo, error) {
 	parts := strings.Split(deploymentID, "/")
 
@@ -233,8 +233,7 @@ func getZoneFromDesc(resourceDesc []byte) (string, error) {
 		return defaultZone, nil
 	}
 
-	return "", fmt.Errorf("failed to unmarshal resource description:%+v", err)
-
+	return "", fmt.Errorf("failed to unmarshal resource description:%+w", err)
 }
 
 func setRuleValToStore(ctx context.Context, client paragliderpb.ControllerClient, key, value, namespace string) error {
@@ -256,7 +255,6 @@ func getRuleValFromStore(ctx context.Context, client paragliderpb.ControllerClie
 		Namespace: namespace,
 	}
 	resp, err := client.GetValue(ctx, getVal)
-
 	if err != nil {
 		return "", err
 	}
@@ -283,7 +281,7 @@ func getRegions() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	responseBody, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
@@ -299,7 +297,7 @@ func getRegions() ([]string, error) {
 	return regionCache, nil
 }
 
-// doesSliceContain returns true if a slice contains an item
+// doesSliceContain returns true if a slice contains an item.
 func doesSliceContain[T comparable](slice []T, target T) bool {
 	for _, val := range slice {
 		if val == target {
@@ -309,21 +307,21 @@ func doesSliceContain[T comparable](slice []T, target T) bool {
 	return false
 }
 
-// isRegionValid returns true if region is a valid IBM region
+// isRegionValid returns true if region is a valid IBM region.
 func isRegionValid(region string) (bool, error) {
 	regions, err := getRegions()
 	if err != nil {
 		return false, err
 	}
-	return doesSliceContain(regions[:], region), nil
+	return doesSliceContain(regions, region), nil
 }
 
-// returns region of string with region validation
+// returns region of string with region validation.
 func ZoneToRegion(zone string) (string, error) {
 	lastIndex := strings.LastIndex(zone, "-")
 	if lastIndex == -1 {
 		// Hyphen not found, handle this situation
-		return "", fmt.Errorf("Wrong format for zone: missing hyphen.")
+		return "", fmt.Errorf("wrong format for zone: missing hyphen")
 	}
 	region := zone[:lastIndex]
 
@@ -335,7 +333,7 @@ func ZoneToRegion(zone string) (string, error) {
 }
 
 // areStructsEqual returns true if two given structs of the same type have matching fields values
-// on all types except those listed in fieldsToExclude
+// on all types except those listed in fieldsToExclude.
 func areStructsEqual(s1, s2 interface{}, fieldsToExclude []string) bool {
 	v1 := reflect.ValueOf(s1)
 	v2 := reflect.ValueOf(s2)
@@ -378,12 +376,12 @@ func getStructHash(s interface{}, fieldsToExclude []string) (uint64, error) {
 				return 0, err
 			}
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			_, err := h.Write([]byte(fmt.Sprint(f.Int())))
+			_, err := fmt.Fprint(h, f.Int())
 			if err != nil {
 				return 0, err
 			}
 		case reflect.Bool:
-			_, err := h.Write([]byte(fmt.Sprint(f.Bool())))
+			_, err := fmt.Fprint(h, f.Bool())
 			if err != nil {
 				return 0, err
 			}
@@ -399,7 +397,7 @@ func getStructHash(s interface{}, fieldsToExclude []string) (uint64, error) {
 	return h.Sum64(), nil
 }
 
-// GetIBMResourceGroupID returns resource group ID defined in environment variable PARAGLIDER_IBM_RESOURCE_GROUP_ID
+// GetIBMResourceGroupID returns resource group ID defined in environment variable PARAGLIDER_IBM_RESOURCE_GROUP_ID.
 func GetIBMResourceGroupID() string {
 	resourceGroupID := os.Getenv("PARAGLIDER_IBM_RESOURCE_GROUP_ID")
 	if resourceGroupID == "" {

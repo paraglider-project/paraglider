@@ -83,7 +83,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		defer ruleFile.Close()
+		defer func() { _ = ruleFile.Close() }()
 		fileRules, err := io.ReadAll(ruleFile)
 		if err != nil {
 			return err
@@ -113,7 +113,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	if len(args) == 1 {
 		err = c.AddPermitListRulesTag(args[0], rules)
 	} else {
-		fmt.Fprintf(e.writer, "Adding permit list rule\n")
+		_, _ = fmt.Fprintf(e.writer, "Adding permit list rule\n")
 		err = c.AddPermitListRules(e.cliSettings.ActiveNamespace, args[0], args[1], rules)
 	}
 

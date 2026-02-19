@@ -67,7 +67,7 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 	return fmt.Errorf("failed to tag resource CRN %v", *CRN)
 }
 
-// areTagsAttached returns an error if resource's tags aren't updated (visible to global search service) in the alloted time
+// areTagsAttached returns an error if resource's tags aren't updated (visible to global search service) in the alloted time.
 func (c *CloudClient) areTagsAttached(CRN *string, tags []string) error {
 	maxAttempts := 30 // retries number to tag a resource
 
@@ -94,7 +94,7 @@ func (c *CloudClient) areTagsAttached(CRN *string, tags []string) error {
 // GetParagliderTaggedResources returns slice of IDs of tagged resources
 // Arg resourceType: type of VPC resource, e.g. subnet, security group, instance.
 // Arg tags: labels set by dev, e.g. {<vpcID>,<deploymentID>}
-// Args customQueryMap: map of attributes to filter by, e.g. {"region":"<regionName>"}
+// Args customQueryMap: map of attributes to filter by, e.g. {"region":"<regionName>"}.
 func (c *CloudClient) GetParagliderTaggedResources(resourceType taggedResourceType, tags []string, customQuery resourceQuery) ([]resourceData, error) {
 	// parse tags
 	var tagsStr string
@@ -129,7 +129,7 @@ func (c *CloudClient) GetParagliderTaggedResources(resourceType taggedResourceTy
 	return resourceList, nil
 }
 
-// returns IDs of resources filtered by tags and query
+// returns IDs of resources filtered by tags and query.
 func (c *CloudClient) getParagliderResourceByTags(resourceType string, tags string, customQueryStr string) ([]resourceData, error) {
 	var taggedResources []resourceData
 
@@ -192,5 +192,5 @@ func (c *CloudClient) getTaggedResources(query string) (*globalsearchv2.ScanResu
 		time.Sleep(5 * time.Second)
 	}
 	utils.Log.Printf("Failed to fetch tagged resource with with query %v", query)
-	return nil, fmt.Errorf("Failed to fetch tagged resource")
+	return nil, fmt.Errorf("failed to fetch tagged resource")
 }

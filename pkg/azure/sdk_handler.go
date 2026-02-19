@@ -79,7 +79,7 @@ const (
 	virtualNetworkResourceID   = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s"
 )
 
-// mapping from IANA protocol numbers (what paraglider uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols
+// mapping from IANA protocol numbers (what paraglider uses) to Azure SecurityRuleProtocol except for * which is -1 for all protocols.
 var paragliderToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
 	-1: armnetwork.SecurityRuleProtocolAsterisk,
 	1:  armnetwork.SecurityRuleProtocolIcmp,
@@ -89,7 +89,7 @@ var paragliderToAzureprotocol = map[int32]armnetwork.SecurityRuleProtocol{
 	51: armnetwork.SecurityRuleProtocolAh,
 }
 
-// mapping from Azure SecurityRuleProtocol to IANA protocol numbers
+// mapping from Azure SecurityRuleProtocol to IANA protocol numbers.
 var azureToParagliderProtocol = map[armnetwork.SecurityRuleProtocol]int32{
 	armnetwork.SecurityRuleProtocolAsterisk: -1,
 	armnetwork.SecurityRuleProtocolIcmp:     1,
@@ -99,19 +99,19 @@ var azureToParagliderProtocol = map[armnetwork.SecurityRuleProtocol]int32{
 	armnetwork.SecurityRuleProtocolAh:       51,
 }
 
-// mapping from paraglider direction to Azure SecurityRuleDirection
+// mapping from paraglider direction to Azure SecurityRuleDirection.
 var paragliderToAzureDirection = map[paragliderpb.Direction]armnetwork.SecurityRuleDirection{
 	paragliderpb.Direction_INBOUND:  armnetwork.SecurityRuleDirectionInbound,
 	paragliderpb.Direction_OUTBOUND: armnetwork.SecurityRuleDirectionOutbound,
 }
 
-// mapping from Azure SecurityRuleDirection to paraglider direction
+// mapping from Azure SecurityRuleDirection to paraglider direction.
 var azureToParagliderDirection = map[armnetwork.SecurityRuleDirection]paragliderpb.Direction{
 	armnetwork.SecurityRuleDirectionInbound:  paragliderpb.Direction_INBOUND,
 	armnetwork.SecurityRuleDirectionOutbound: paragliderpb.Direction_OUTBOUND,
 }
 
-// InitializeClients initializes the necessary azure clients for the necessary operations
+// InitializeClients initializes the necessary azure clients for the necessary operations.
 func (h *AzureSDKHandler) InitializeClients(cred azcore.TokenCredential) error {
 	var err error
 	h.resourcesClientFactory, err = armresources.NewClientFactory(h.subscriptionID, cred, nil)
@@ -173,7 +173,7 @@ func (h *AzureSDKHandler) SetSubIdAndResourceGroup(subid string, resourceGroupNa
 }
 
 func (h *AzureSDKHandler) GetResource(ctx context.Context, resourceID string) (*armresources.GenericResource, error) {
-	var apiVersion string = "2024-03-01"
+	apiVersion := "2024-03-01"
 	options := armresources.ClientGetByIDOptions{}
 
 	resource, err := h.resourcesClient.GetByID(ctx, resourceID, apiVersion, &options)
@@ -237,12 +237,12 @@ func (h *AzureSDKHandler) CreateSecurityRuleFromPermitList(ctx context.Context, 
 func (h *AzureSDKHandler) CreateSecurityRule(ctx context.Context, nsgName string, ruleName string, rule *armnetwork.SecurityRule) (*armnetwork.SecurityRule, error) {
 	pollerResp, err := h.securityRulesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, nsgName, ruleName, *rule, nil)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create HTTP security rule: %v", err)
+		return nil, fmt.Errorf("cannot create HTTP security rule: %w", err)
 	}
 
 	resp, err := pollerResp.PollUntilDone(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get security rule create or update future response: %v", err)
+		return nil, fmt.Errorf("cannot get security rule create or update future response: %w", err)
 	}
 
 	return &resp.SecurityRule, nil
@@ -334,7 +334,7 @@ func (h *AzureSDKHandler) GetVnetAddressSpace(ctx context.Context, vnetName stri
 }
 
 // Temporarily needed method to deal with the mess of AzureSDKHandlers
-// TODO @seankimkdy: remove once AzureSDKHandler is no longer a mess
+// TODO @seankimkdy: remove once AzureSDKHandler is no longer a mess.
 func (h *AzureSDKHandler) CreateVnetPeeringOneWay(ctx context.Context, vnet1Name string, vnet2Name string, vnet2SubscriptionID string, vnet2ResourceGroupName string) error {
 	// create first link from vnet1 to vnet2
 	vnet1ToVnet2PeeringParameters := armnetwork.VirtualNetworkPeering{
@@ -372,7 +372,7 @@ func (h *AzureSDKHandler) CreateVnetPeering(ctx context.Context, vnet1Name strin
 	return nil
 }
 
-// Creates (if not exists) or updates vnet peering to use remote gateway
+// Creates (if not exists) or updates vnet peering to use remote gateway.
 func (h *AzureSDKHandler) CreateOrUpdateVnetPeeringRemoteGateway(ctx context.Context, vnetName string, gatewayVnetName string, vnetToGatewayVnetPeering *armnetwork.VirtualNetworkPeering, gatewayVnetToVnetPeering *armnetwork.VirtualNetworkPeering) error {
 	// Gateway vnet to vnet peering must be created/updated first to allow gateway transit before creating/updating vnet to gateway vnet peering
 	if gatewayVnetToVnetPeering == nil {
@@ -452,7 +452,7 @@ func (h *AzureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 	} else {
 		srcPort, err = strconv.Atoi(*rule.Properties.SourcePortRange)
 		if err != nil {
-			return nil, fmt.Errorf("cannot convert source port range to int: %v", err)
+			return nil, fmt.Errorf("cannot convert source port range to int: %w", err)
 		}
 	}
 
@@ -461,7 +461,7 @@ func (h *AzureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 	} else {
 		dstPort, err = strconv.Atoi(*rule.Properties.DestinationPortRange)
 		if err != nil {
-			return nil, fmt.Errorf("cannot convert destination port range to int: %v", err)
+			return nil, fmt.Errorf("cannot convert destination port range to int: %w", err)
 		}
 	}
 
@@ -478,7 +478,7 @@ func (h *AzureSDKHandler) GetPermitListRuleFromNSGRule(rule *armnetwork.Security
 	return permitListRule, nil
 }
 
-// GetSecurityGroup reutrns the network security group object given the nsg name
+// GetSecurityGroup reutrns the network security group object given the nsg name.
 func (h *AzureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) (*armnetwork.SecurityGroup, error) {
 	nsgResp, err := h.securityGroupsClient.Get(ctx, h.resourceGroupName, nsgName, &armnetwork.SecurityGroupsClientGetOptions{Expand: nil})
 	if err != nil {
@@ -489,7 +489,7 @@ func (h *AzureSDKHandler) GetSecurityGroup(ctx context.Context, nsgName string) 
 }
 
 // GetParagliderVnet returns a valid paraglider vnet. A paraglider vnet is a vnet created by Paraglider
-// with a default subnet with the same address space as the vnet and there is only one vnet per location
+// with a default subnet with the same address space as the vnet and there is only one vnet per location.
 func (h *AzureSDKHandler) GetParagliderVnet(ctx context.Context, vnetName string, location string, namespace string, orchestratorAddr string) (*armnetwork.VirtualNetwork, error) {
 	// Get the virtual network
 	res, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, &armnetwork.VirtualNetworksClientGetOptions{Expand: nil})
@@ -503,7 +503,7 @@ func (h *AzureSDKHandler) GetParagliderVnet(ctx context.Context, vnetName string
 				utils.Log.Printf("could not dial the orchestrator")
 				return nil, err
 			}
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 			client := paragliderpb.NewControllerClient(conn)
 			response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
 			if err != nil {
@@ -520,7 +520,7 @@ func (h *AzureSDKHandler) GetParagliderVnet(ctx context.Context, vnetName string
 	return &res.VirtualNetwork, nil
 }
 
-// AddSubnetToParagliderVnet adds a subnet to an paraglider vnet
+// AddSubnetToParagliderVnet adds a subnet to an paraglider vnet.
 func (h *AzureSDKHandler) AddSubnetToParagliderVnet(ctx context.Context, namespace string, vnetName string, subnetName string, orchestratorAddr string) (*armnetwork.Subnet, error) {
 	// Get a new address space
 	conn, err := grpc.NewClient(orchestratorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -528,11 +528,10 @@ func (h *AzureSDKHandler) AddSubnetToParagliderVnet(ctx context.Context, namespa
 		utils.Log.Printf("could not dial the orchestrator")
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client := paragliderpb.NewControllerClient(conn)
 	response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
-
 	if err != nil {
 		return nil, err
 	}
@@ -558,7 +557,7 @@ func (h *AzureSDKHandler) AddSubnetToParagliderVnet(ctx context.Context, namespa
 }
 
 // CreateParagliderVirtualNetwork creates a new paraglider virtual network with a default subnet with the same address
-// space as the vnet
+// space as the vnet.
 func (h *AzureSDKHandler) CreateParagliderVirtualNetwork(ctx context.Context, location string, vnetName string, addressSpace string) (*armnetwork.VirtualNetwork, error) {
 	// TODO @seankimkdy: delete and consolidate calls to this method with CreateParagliderVirtualNetwork
 	parameters := armnetwork.VirtualNetwork{
@@ -665,7 +664,7 @@ func (h *AzureSDKHandler) CreateSecurityGroup(ctx context.Context, resourceName 
 	return &nsgResp.SecurityGroup, nil
 }
 
-// CreateNetworkInterface creates a new network interface with a dynamic private IP address
+// CreateNetworkInterface creates a new network interface with a dynamic private IP address.
 func (h *AzureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID string, location string, nicName string) (*armnetwork.Interface, error) {
 	nsg, err := h.CreateSecurityGroup(ctx, nicName, location, map[string]string{})
 	if err != nil {
@@ -705,7 +704,7 @@ func (h *AzureSDKHandler) CreateNetworkInterface(ctx context.Context, subnetID s
 	return &resp.Interface, err
 }
 
-// CreateVirtualMachine creates a new virtual machine with the given parameters and name
+// CreateVirtualMachine creates a new virtual machine with the given parameters and name.
 func (h *AzureSDKHandler) CreateVirtualMachine(ctx context.Context, parameters armcompute.VirtualMachine, vmName string) (*armcompute.VirtualMachine, error) {
 	h.createParagliderNamespaceTag(&parameters.Tags)
 	pollerResponse, err := h.virtualMachinesClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, vmName, parameters, nil)
@@ -720,7 +719,7 @@ func (h *AzureSDKHandler) CreateVirtualMachine(ctx context.Context, parameters a
 	return &resp.VirtualMachine, nil
 }
 
-// CreateAKSCluster creates a new AKS cluster with the given parameters and name
+// CreateAKSCluster creates a new AKS cluster with the given parameters and name.
 func (h *AzureSDKHandler) CreateAKSCluster(ctx context.Context, parameters armcontainerservice.ManagedCluster, clusterName string) (*armcontainerservice.ManagedCluster, error) {
 	h.createParagliderNamespaceTag(&parameters.Tags)
 	pollerResponse, err := h.managedClustersClient.BeginCreateOrUpdate(ctx, h.resourceGroupName, clusterName, parameters, nil)
@@ -735,7 +734,7 @@ func (h *AzureSDKHandler) CreateAKSCluster(ctx context.Context, parameters armco
 	return &resp.ManagedCluster, nil
 }
 
-// GetVnet returns the virtual network with the given name
+// GetVnet returns the virtual network with the given name.
 func (h *AzureSDKHandler) GetVnet(ctx context.Context, vnetName string) (*armnetwork.VirtualNetwork, error) {
 	vnet, err := h.virtualNetworksClient.Get(ctx, h.resourceGroupName, vnetName, nil)
 	if err != nil {
@@ -881,7 +880,7 @@ func (h *AzureSDKHandler) GetNatGateway(ctx context.Context, name string) (*armn
 	return &resp.NatGateway, nil
 }
 
-// Creates a tag for the Paraglider namespace in the "Tag" field of various resource parameters
+// Creates a tag for the Paraglider namespace in the "Tag" field of various resource parameters.
 func (h *AzureSDKHandler) createParagliderNamespaceTag(tags *map[string]*string) {
 	if *tags == nil {
 		*tags = make(map[string]*string)
@@ -923,14 +922,15 @@ func getIPs(rule *paragliderpb.PermitListRule, resourceIP string) ([]*string, []
 	return sourceIP, destIP
 }
 
-// getTarget returns the paraglider targets for a given nsg rule
+// getTarget returns the paraglider targets for a given nsg rule.
 func getTargets(rule *armnetwork.SecurityRule) []string {
 	var targets []string
-	if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
+	switch *rule.Properties.Direction {
+	case armnetwork.SecurityRuleDirectionInbound:
 		for _, ptr := range rule.Properties.SourceAddressPrefixes {
 			targets = append(targets, *ptr)
 		}
-	} else if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionOutbound {
+	case armnetwork.SecurityRuleDirectionOutbound:
 		for _, ptr := range rule.Properties.DestinationAddressPrefixes {
 			targets = append(targets, *ptr)
 		}
@@ -938,7 +938,7 @@ func getTargets(rule *armnetwork.SecurityRule) []string {
 	return targets
 }
 
-// Format the description to keep metadata about tags
+// Format the description to keep metadata about tags.
 func getRuleDescription(tags []string) string {
 	if len(tags) == 0 {
 		return nsgRuleDescriptionPrefix
@@ -946,7 +946,7 @@ func getRuleDescription(tags []string) string {
 	return fmt.Sprintf("%s:%v", nsgRuleDescriptionPrefix, tags)
 }
 
-// Parses description string to get tags
+// Parses description string to get tags.
 func parseDescriptionTags(description *string) []string {
 	var tags []string
 	if description != nil && strings.HasPrefix(*description, nsgRuleDescriptionPrefix+":[") {
@@ -958,14 +958,14 @@ func parseDescriptionTags(description *string) []string {
 	return tags
 }
 
-// Checks if Azure error response is a not found error
+// Checks if Azure error response is a not found error.
 func isErrorNotFound(err error) bool {
 	var azError *azcore.ResponseError
 	ok := errors.As(err, &azError)
 	return ok && azError.StatusCode == http.StatusNotFound
 }
 
-// Returns peering name from local vnet to remote vnet
+// Returns peering name from local vnet to remote vnet.
 func getPeeringName(localVnetName string, remoteVnetName string) string {
 	return localVnetName + "-to-" + remoteVnetName
 }

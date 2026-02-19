@@ -75,9 +75,8 @@ func Version() string {
 	return version
 }
 
-// VersionString returns a formatted string representation of the version from a list of supported
+// VersionString returns a formatted string representation of the version from a list of supported.
 func VersionString(v VersionInfo) string {
 	format := "Release: %s \nVersion: %s\n\nCommit: %s\n"
 	return fmt.Sprintf(format, v.Release, v.Version, v.Commit)
-
 }

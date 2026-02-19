@@ -366,8 +366,10 @@ func TestCreateResource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr,
-		flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: false}}
+	s := &GCPPluginServer{
+		orchestratorServerAddr: fakeOrchestratorServerAddr,
+		flags:                  &paragliderpb.PluginFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: false},
+	}
 	description, err := json.Marshal(&computepb.InsertInstanceRequest{
 		Project:          fakeProject,
 		Zone:             fakeZone,
@@ -402,8 +404,10 @@ func TestCreateResourceCluster(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr,
-		flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: true, PrivateEndpointsEnabled: false}}
+	s := &GCPPluginServer{
+		orchestratorServerAddr: fakeOrchestratorServerAddr,
+		flags:                  &paragliderpb.PluginFlags{KubernetesClustersEnabled: true, PrivateEndpointsEnabled: false},
+	}
 	description, err := json.Marshal(&containerpb.CreateClusterRequest{
 		Cluster: getFakeCluster(false),
 		Parent:  fmt.Sprintf("projects/%s/locations/%s", fakeProject, fakeZone),
@@ -437,8 +441,10 @@ func TestCreateResourceClusterDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr,
-		flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: false}}
+	s := &GCPPluginServer{
+		orchestratorServerAddr: fakeOrchestratorServerAddr,
+		flags:                  &paragliderpb.PluginFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: false},
+	}
 	description, err := json.Marshal(&containerpb.CreateClusterRequest{
 		Cluster: getFakeCluster(false),
 		Parent:  fmt.Sprintf("projects/%s/locations/%s", fakeProject, fakeZone),
@@ -473,8 +479,10 @@ func TestCreateResourcePsc(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr,
-		flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: true}}
+	s := &GCPPluginServer{
+		orchestratorServerAddr: fakeOrchestratorServerAddr,
+		flags:                  &paragliderpb.PluginFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: true},
+	}
 	description, err := json.Marshal(&ServiceAttachmentDescription{
 		Url: fakeServiceAttachmentUrl,
 	})
@@ -508,8 +516,10 @@ func TestCreateResourcePscDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &GCPPluginServer{orchestratorServerAddr: fakeOrchestratorServerAddr,
-		flags: &paragliderpb.PluginFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: false}}
+	s := &GCPPluginServer{
+		orchestratorServerAddr: fakeOrchestratorServerAddr,
+		flags:                  &paragliderpb.PluginFlags{KubernetesClustersEnabled: false, PrivateEndpointsEnabled: false},
+	}
 	description, err := json.Marshal(&ServiceAttachmentDescription{
 		Url: fakeServiceAttachmentUrl,
 	})

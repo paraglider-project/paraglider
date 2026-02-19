@@ -39,7 +39,7 @@ const (
 	outboundType = "outbound"
 )
 
-// SecurityGroupRule defines the entries of a security group rule
+// SecurityGroupRule defines the entries of a security group rule.
 type SecurityGroupRule struct {
 	ID         string // Unique identifier of this rule
 	SgID       string // Unique ID of the security group to which this rule belongs
@@ -53,19 +53,19 @@ type SecurityGroupRule struct {
 	Egress     bool   // The rule affects to outbound traffic (true) or inbound (false)
 }
 
-// mapping paraglider traffic directions to booleans
+// mapping paraglider traffic directions to booleans.
 var paragliderToIBMDirection = map[paragliderpb.Direction]bool{
 	paragliderpb.Direction_OUTBOUND: true,
 	paragliderpb.Direction_INBOUND:  false,
 }
 
-// mapping booleans paraglider traffic directions
+// mapping booleans paraglider traffic directions.
 var ibmToParagliderDirection = map[bool]paragliderpb.Direction{
 	true:  paragliderpb.Direction_OUTBOUND,
 	false: paragliderpb.Direction_INBOUND,
 }
 
-// mapping integers determined by the IANA standard to IBM protocols
+// mapping integers determined by the IANA standard to IBM protocols.
 var paragliderToIBMprotocol = map[int32]string{
 	-1: "all",
 	1:  "icmp",
@@ -73,7 +73,7 @@ var paragliderToIBMprotocol = map[int32]string{
 	17: "udp",
 }
 
-// mapping IBM protocols to integers determined by the IANA standard
+// mapping IBM protocols to integers determined by the IANA standard.
 var ibmToParagliderProtocol = map[string]int32{
 	"all":  -1,
 	"icmp": 1,
@@ -83,7 +83,8 @@ var ibmToParagliderProtocol = map[string]int32{
 
 // creates security group in the specified VPC and tags it.
 func (c *CloudClient) createSecurityGroup(
-	vpcID string) (*vpcv1.SecurityGroup, error) {
+	vpcID string,
+) (*vpcv1.SecurityGroup, error) {
 	sgTags := []string{vpcID}
 
 	vpcIdentity := vpcv1.VPCIdentityByID{ID: &vpcID}
@@ -116,7 +117,7 @@ func (c *CloudClient) getDefaultSecurityGroup(vpcID string) (*vpcv1.DefaultSecur
 	return vpc, nil
 }
 
-// GetSecurityRulesOfSG gets the rules of security groups
+// GetSecurityRulesOfSG gets the rules of security groups.
 func (c *CloudClient) GetSecurityRulesOfSG(sgID string) ([]SecurityGroupRule, error) {
 	options := &vpcv1.ListSecurityGroupRulesOptions{}
 	options.SetSecurityGroupID(sgID)
@@ -127,10 +128,10 @@ func (c *CloudClient) GetSecurityRulesOfSG(sgID string) ([]SecurityGroupRule, er
 	return c.translateSecurityGroupRules(rules.Rules, sgID)
 }
 
-// returns SecurityGroupRule objects, converted from abstract rules
+// returns SecurityGroupRule objects, converted from abstract rules.
 func (c *CloudClient) translateSecurityGroupRules(
-	ibmRules []vpcv1.SecurityGroupRuleIntf, sgID string) ([]SecurityGroupRule, error) {
-
+	ibmRules []vpcv1.SecurityGroupRuleIntf, sgID string,
+) ([]SecurityGroupRule, error) {
 	rules := make([]SecurityGroupRule, len(ibmRules))
 	for i, ibmRule := range ibmRules {
 		rule, err := c.translateSecurityGroupRule(ibmRule, sgID)
@@ -143,9 +144,10 @@ func (c *CloudClient) translateSecurityGroupRules(
 	return rules, nil
 }
 
-// translateSecurityGroupRule returns a SecurityGroupRule converted from vpcv1.SecurityGroupRuleIntf based on its concrete type
+// translateSecurityGroupRule returns a SecurityGroupRule converted from vpcv1.SecurityGroupRuleIntf based on its concrete type.
 func (c *CloudClient) translateSecurityGroupRule(
-	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
+	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string,
+) (*SecurityGroupRule, error) {
 	switch ibmRule.(type) {
 	case *vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAll:
 		return c.translateSecurityGroupRuleGroupRuleProtocolAll(ibmRule, sgID)
@@ -158,10 +160,10 @@ func (c *CloudClient) translateSecurityGroupRule(
 }
 
 // translateSecurityGroupRuleGroupRuleProtocolAll returns SecurityGroupRule object converted from
-// SecurityGroupRuleIntf, whose concrete type is SecurityGroupRuleSecurityGroupRuleProtocolAll
+// SecurityGroupRuleIntf, whose concrete type is SecurityGroupRuleSecurityGroupRuleProtocolAll.
 func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolAll(
-	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
-
+	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string,
+) (*SecurityGroupRule, error) {
 	ibmRuleProtoAll := ibmRule.(*vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolAll)
 	remote, remoteType, err := c.translateSecurityGroupRuleRemote(ibmRuleProtoAll.Remote)
 	if err != nil {
@@ -182,19 +184,17 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolAll(
 }
 
 // translateSecurityGroupRuleGroupRuleProtocolICMP returns SecurityGroupRule object converted from
-// SecurityGroupRuleIntf, whose concrete type is SecurityGroupRuleSecurityGroupRuleProtocolIcmp
+// SecurityGroupRuleIntf, whose concrete type is SecurityGroupRuleSecurityGroupRuleProtocolIcmp.
 func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolICMP(
-	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
-
+	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string,
+) (*SecurityGroupRule, error) {
 	ibmRuleIcmp := ibmRule.(*vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolIcmp)
 	remote, remoteType, err := c.translateSecurityGroupRuleRemote(ibmRuleIcmp.Remote)
 	if err != nil {
 		return nil, err
 	}
-	isEgress := false
-	if *ibmRuleIcmp.Direction == outboundType {
-		isEgress = true
-	}
+	isEgress := *ibmRuleIcmp.Direction == outboundType
+
 	icmpCode := int64(-1)
 	if ibmRuleIcmp.Code != nil { // rule allows specific icmp code
 		icmpCode = *ibmRuleIcmp.Code
@@ -221,19 +221,17 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolICMP(
 }
 
 // translateSecurityGroupRuleGroupRuleProtocolTCPUDP returns SecurityGroupRule object converted from
-// SecurityGroupRuleIntf, whose concrete type is SecurityGroupRuleSecurityGroupRuleProtocolTcpudp
+// SecurityGroupRuleIntf, whose concrete type is SecurityGroupRuleSecurityGroupRuleProtocolTcpudp.
 func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolTCPUDP(
-	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string) (*SecurityGroupRule, error) {
-
+	ibmRule vpcv1.SecurityGroupRuleIntf, sgID string,
+) (*SecurityGroupRule, error) {
 	ibmRuleTCPUDP := ibmRule.(*vpcv1.SecurityGroupRuleSecurityGroupRuleProtocolTcpudp)
 	remote, remoteType, err := c.translateSecurityGroupRuleRemote(ibmRuleTCPUDP.Remote)
 	if err != nil {
 		return nil, err
 	}
-	isEgress := false
-	if *ibmRuleTCPUDP.Direction == "outbound" {
-		isEgress = true
-	}
+	isEgress := *ibmRuleTCPUDP.Direction == "outbound"
+
 	rule := SecurityGroupRule{
 		ID:         *ibmRuleTCPUDP.ID,
 		Protocol:   *ibmRuleTCPUDP.Protocol,
@@ -250,10 +248,10 @@ func (c *CloudClient) translateSecurityGroupRuleGroupRuleProtocolTCPUDP(
 	return &rule, nil
 }
 
-// returns remote(IP/CIDR address) and remote-type(IP/CIDR) of an abstract rule
+// returns remote(IP/CIDR address) and remote-type(IP/CIDR) of an abstract rule.
 func (c *CloudClient) translateSecurityGroupRuleRemote(
-	ibmRuleRemoteIntf vpcv1.SecurityGroupRuleRemoteIntf) (string, string, error) {
-
+	ibmRuleRemoteIntf vpcv1.SecurityGroupRuleRemoteIntf,
+) (string, string, error) {
 	switch v := ibmRuleRemoteIntf.(type) {
 	// According to the docs, the interface should map to a specific type,
 	// but in this case it seems to just map to a generic "remote" where pointers may be nil
@@ -292,7 +290,6 @@ func (c *CloudClient) AddSecurityGroupRule(rule SecurityGroupRule) (string, erro
 }
 
 func (c *CloudClient) addSecurityGroupRule(sgID string, prototype vpcv1.SecurityGroupRulePrototypeIntf) (string, error) {
-
 	options := vpcv1.CreateSecurityGroupRuleOptions{
 		SecurityGroupID:            &sgID,
 		SecurityGroupRulePrototype: prototype,
@@ -304,7 +301,7 @@ func (c *CloudClient) addSecurityGroupRule(sgID string, prototype vpcv1.Security
 	return c.getIBMRuleID(res), err
 }
 
-// returns an IBM abstract rule object, converted from a SecurityGroupRule
+// returns an IBM abstract rule object, converted from a SecurityGroupRule.
 func (c *CloudClient) translateRuleProtocol(rule SecurityGroupRule) (vpcv1.SecurityGroupRulePrototypeIntf, error) {
 	var remotePrototype vpcv1.SecurityGroupRuleRemotePrototypeIntf
 	if len(rule.Remote) == 0 {
@@ -362,7 +359,7 @@ func (c *CloudClient) translateRuleProtocol(rule SecurityGroupRule) (vpcv1.Secur
 	return prototype, nil
 }
 
-// Adds rule represented by the SecurityGroupRule object to its security group
+// Adds rule represented by the SecurityGroupRule object to its security group.
 func (c *CloudClient) UpdateSecurityGroupRule(rule SecurityGroupRule) error {
 	prototype, err := c.translateRuleProtocol(rule)
 	if err != nil {
@@ -381,7 +378,6 @@ func (c *CloudClient) UpdateSecurityGroupRule(rule SecurityGroupRule) error {
 }
 
 func (c *CloudClient) updateSecurityGroupRule(sgID string, ruleID string, patch map[string]interface{}) error {
-
 	options := vpcv1.UpdateSecurityGroupRuleOptions{
 		SecurityGroupID:        &sgID,
 		ID:                     &ruleID,
@@ -391,7 +387,7 @@ func (c *CloudClient) updateSecurityGroupRule(sgID string, ruleID string, patch 
 	return err
 }
 
-// DeleteSecurityGroupRule deletes a rule from the security group
+// DeleteSecurityGroupRule deletes a rule from the security group.
 func (c *CloudClient) DeleteSecurityGroupRule(sgID, ruleID string) error {
 	options := vpcv1.DeleteSecurityGroupRuleOptions{
 		SecurityGroupID: &sgID,
@@ -423,7 +419,7 @@ func IsRemoteInCIDR(remote, cidr string) (bool, error) {
 }
 
 // GetRemoteType returns IBM specific keyword returned by vpc1 SDK,
-// indicating the type of remote an SG rule permits
+// indicating the type of remote an SG rule permits.
 func GetRemoteType(remote string) (string, error) {
 	ip := net.ParseIP(remote)
 	if ip != nil {
@@ -437,7 +433,7 @@ func GetRemoteType(remote string) (string, error) {
 }
 
 // returns IBM specific keyword returned by vpc1 SDK,
-// indicating the traffic direction an SG rule permits
+// indicating the traffic direction an SG rule permits.
 func getEgressDirection(egress bool) *string {
 	if egress {
 		return core.StringPtr(outboundType)
@@ -520,15 +516,15 @@ func IBMToParagliderRules(rules []SecurityGroupRule) ([]*paragliderpb.PermitList
 			Protocol:  ibmToParagliderProtocol[rule.Protocol],
 		}
 		paragliderRules = append(paragliderRules, permitListRule)
-
 	}
 	return paragliderRules, nil
 }
 
 // returns IBM SecurityGroupRule, converted from specified paraglider rule
-// NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code
+// NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code.
 func ParagliderToIBMRules(securityGroupID string, rules []*paragliderpb.PermitListRule) (
-	[]SecurityGroupRule, error) {
+	[]SecurityGroupRule, error,
+) {
 	var sgRules []SecurityGroupRule
 	for _, rule := range rules {
 		if len(rule.Targets) == 0 {
@@ -565,10 +561,10 @@ func ParagliderToIBMRules(securityGroupID string, rules []*paragliderpb.PermitLi
 }
 
 // returns rules in IBM cloud format to paraglider format
-// NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code
+// NOTE: with the current PermitListRule we can't translate ICMP rules with specific type or code.
 func ParagliderToIBMRule(securityGroupID string, pgRule *paragliderpb.PermitListRule) (
-	[]SecurityGroupRule, error) {
-
+	[]SecurityGroupRule, error,
+) {
 	if len(pgRule.Targets) == 0 {
 		return nil, fmt.Errorf("PermitListRule is missing target value. Rule:%+v", pgRule)
 	}

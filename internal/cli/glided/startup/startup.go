@@ -63,7 +63,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var cfg config.Config
 	decoder := yaml.NewDecoder(f)
@@ -87,17 +87,18 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, cloud := range cfg.CloudPlugins {
-		if cloud.Name == "gcp" {
+		switch cloud.Name {
+		case "gcp":
 			e.gcpPort, err = strconv.Atoi(cloud.Port)
 			if err != nil {
 				return err
 			}
-		} else if cloud.Name == "azure" {
+		case "azure":
 			e.azPort, err = strconv.Atoi(cloud.Port)
 			if err != nil {
 				return err
 			}
-		} else if cloud.Name == "ibm" {
+		case "ibm":
 			e.ibmPort, err = strconv.Atoi(cloud.Port)
 			if err != nil {
 				return err

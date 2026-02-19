@@ -43,7 +43,7 @@ type IBMPluginServer struct {
 var defaultRegion = "us-east"
 
 // setupCloudClient fetches the cloud client for a resgroup and region from the map if cached, or creates a new one.
-// This function should be the only way the IBM plugin server to get a client
+// This function should be the only way the IBM plugin server to get a client.
 func (s *IBMPluginServer) setupCloudClient(resourceGroupID, region string) (*CloudClient, error) {
 	clientKey := getClientMapKey(resourceGroupID, region)
 	if client, ok := s.cloudClient[clientKey]; ok {
@@ -58,7 +58,7 @@ func (s *IBMPluginServer) setupCloudClient(resourceGroupID, region string) (*Clo
 	return client, nil
 }
 
-// getAllClientsForVPCs returns the paraglider VPC IDs and the corresponding clients that are present in all the regions
+// getAllClientsForVPCs returns the paraglider VPC IDs and the corresponding clients that are present in all the regions.
 func (s *IBMPluginServer) getAllClientsForVPCs(cloudClient *CloudClient, resourceGroupName string) (map[string]*CloudClient, error) {
 	cloudClients := make(map[string]*CloudClient)
 	vpcsData, err := cloudClient.GetParagliderTaggedResources(VPC, []string{}, resourceQuery{})
@@ -113,9 +113,9 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 	}
 
 	if res.GetTypeName() == ClusterResourceType && !s.flags.KubernetesClustersEnabled {
-		return nil, fmt.Errorf("Kubernetes clusters are disabled")
+		return nil, fmt.Errorf("kubernetes clusters are disabled")
 	} else if res.GetTypeName() == PrivateEndpointResourceType && !s.flags.PrivateEndpointsEnabled {
-		return nil, fmt.Errorf("Private endpoints are disabled")
+		return nil, fmt.Errorf("private endpoints are disabled")
 	}
 
 	// get VPCs in the request's namespace which can be shared between resources created
@@ -158,7 +158,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 		if err != nil {
 			return nil, err
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		client := paragliderpb.NewControllerClient(conn)
 		resp, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: []int32{0}})
 		if err != nil {
@@ -276,12 +276,12 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.G
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	client := paragliderpb.NewControllerClient(conn)
 
 	// Get the permitlist names from the rule ID
 	for _, rule := range paragliderRules {
-		//IBM rule ID is transiently stored in rule name during translation
+		// IBM rule ID is transiently stored in rule name during translation
 		ruleName, err := getRuleValFromStore(ctx, client, rule.Name, req.Namespace)
 		if err != nil {
 			utils.Log.Printf("Failed to get value from KVstore for rule %s: %v.", ruleName, err)
@@ -294,7 +294,6 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.G
 
 // AddPermitListRules attaches security group rules to the specified resource in PermitList.AssociatedResource.
 func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paragliderpb.AddPermitListRulesRequest) (*paragliderpb.AddPermitListRulesResponse, error) {
-
 	utils.Log.Printf("Adding PermitListRules %v, %v. namespace :%s \n ", req.Resource, req.Rules, req.Namespace)
 	rInfo, err := getResourceMeta(req.Resource)
 	if err != nil {
@@ -359,7 +358,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
-	defer orchestratorConn.Close()
+	defer func() { _ = orchestratorConn.Close() }()
 	controllerClient := paragliderpb.NewControllerClient(orchestratorConn)
 	addressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &emptypb.Empty{})
 	if err != nil {
@@ -391,7 +390,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 				}
 				err = s.connectToPublicGateway(cloudClient, rInfo.ResourceGroup, *requestVPCData.ID, rInfo.Zone, region, subnets)
 				if err != nil {
-					return nil, fmt.Errorf("unable to connect to public gateway: %v", err)
+					return nil, fmt.Errorf("unable to connect to public gateway: %w", err)
 				}
 			} else if peeringCloudInfo.Cloud != utils.IBM {
 				ruleTargetAddress := ibmRules[i].Remote
@@ -405,7 +404,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 					AddressSpacesCloudB: []string{ruleTargetAddress},
 				}
 				if len(ruleTargetAddress) == 0 {
-					return nil, fmt.Errorf("Missing remote address for rule %+v", ibmRules[i])
+					return nil, fmt.Errorf("missing remote address for rule %+v", ibmRules[i])
 				}
 				_, err := controllerClient.ConnectClouds(ctx, connectCloudsReq)
 				if err != nil {
@@ -458,7 +457,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 					utils.Log.Printf("Error occurred while deleting SG rule %v, after failing to retrieve it from the KV store: %+v", ruleID, err)
 					return nil, err
 				}
-				return nil, fmt.Errorf("failed to get from kv store %v", err)
+				return nil, fmt.Errorf("failed to get from kv store %w", err)
 			}
 
 			if oldRuleID != "" {
@@ -478,7 +477,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 				if err != nil {
 					return nil, err
 				}
-				return nil, fmt.Errorf("failed to set kv store: %v", err)
+				return nil, fmt.Errorf("failed to set kv store: %w", err)
 			}
 			// Store the reverse representation to be used to retrieve permitlist name for getpermitlist requests
 			err = setRuleValToStore(ctx, controllerClient, ruleID, ibmRule.ID, req.Namespace)
@@ -488,7 +487,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 				if err != nil {
 					return nil, err
 				}
-				return nil, fmt.Errorf("failed to set kv store: %v", err)
+				return nil, fmt.Errorf("failed to set kv store: %w", err)
 			}
 		}
 	}
@@ -552,9 +551,8 @@ func (s *IBMPluginServer) connectToPublicGateway(cloudClient *CloudClient, resou
 }
 
 // connects the VPC matching the specified vpcCRN, and the remote VPC containing the address space in the specified ibmRule,
-// to the global transit gateway, if such a VPC exists
+// to the global transit gateway, if such a VPC exists.
 func (s *IBMPluginServer) connectToTransitGatewayIfNeeded(cloudClient *CloudClient, ibmRule SecurityGroupRule, gwID, resourceGroup, vpcCRN, region string) error {
-
 	// get the VPCs and clients to search if the remote IP resides in any of them
 	clients, err := s.getAllClientsForVPCs(cloudClient, resourceGroup)
 	if err != nil {
@@ -605,7 +603,7 @@ func (s *IBMPluginServer) connectToTransitGatewayIfNeeded(cloudClient *CloudClie
 	return nil
 }
 
-// DeletePermitListRules deletes security group rules matching the attributes of the rules contained in the relevant Security group
+// DeletePermitListRules deletes security group rules matching the attributes of the rules contained in the relevant Security group.
 func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragliderpb.DeletePermitListRulesRequest) (*paragliderpb.DeletePermitListRulesResponse, error) {
 	rInfo, err := getResourceMeta(req.Resource)
 	if err != nil {
@@ -646,13 +644,13 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	client := paragliderpb.NewControllerClient(conn)
 
 	for _, ruleName := range req.RuleNames {
 		ruleID, err := getRuleValFromStore(ctx, client, ruleName, req.Namespace)
 		if err != nil && !strings.Contains(err.Error(), string(redis.Nil)) {
-			return nil, fmt.Errorf("failed to get from kv store %v", err)
+			return nil, fmt.Errorf("failed to get from kv store %w", err)
 		}
 		if ruleID == "" {
 			utils.Log.Printf("Rule %s not found in KVstore.", ruleName)
@@ -691,7 +689,7 @@ func (s *IBMPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderp
 		return nil, err
 	}
 	if region == "" {
-		return nil, fmt.Errorf("Failed to find a region containing address space %v", req.AddressSpace)
+		return nil, fmt.Errorf("failed to find a region containing address space %v", req.AddressSpace)
 	}
 	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 	if err != nil {
@@ -705,7 +703,7 @@ func (s *IBMPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderp
 	return &paragliderpb.CreateVpnGatewayResponse{GatewayIpAddresses: ipAddresses}, nil
 }
 
-// returns the region of the VPC containing the specified address space
+// returns the region of the VPC containing the specified address space.
 func (s *IBMPluginServer) getRegionOfAddressSpace(resourceGroup, namespace, addressSpace string) (string, error) {
 	client, err := s.setupCloudClient(resourceGroup, defaultRegion)
 	if err != nil {
@@ -735,10 +733,10 @@ func (s *IBMPluginServer) getRegionOfAddressSpace(resourceGroup, namespace, addr
 	return "", nil
 }
 
-// CreateVpnConnections creates VPN connection
+// CreateVpnConnections creates VPN connection.
 func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.CreateVpnConnectionsResponse, error) {
 	if len(req.RemoteAddresses) == 0 {
-		return nil, fmt.Errorf("RemoteAddress is a mandatory field for IBM VPN connections.")
+		return nil, fmt.Errorf("remoteAddress is a mandatory field for IBM VPN connections")
 	}
 	rInfo, err := getResourceMeta(req.Deployment.Id)
 	if err != nil {
@@ -752,7 +750,7 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 		return nil, err
 	}
 	if region == "" {
-		return nil, fmt.Errorf("Failed to find a region containing address space %v", req.AddressSpace)
+		return nil, fmt.Errorf("failed to find a region containing address space %v", req.AddressSpace)
 	}
 	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 	if err != nil {
@@ -769,7 +767,7 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 	// needless to check [vpn instances>1] case, since GetVPNInNamespaceRegion is filtered by region,
 	// 		and implementation guarantees one VPN per namespace and region.
 	if len(vpns) == 0 {
-		return nil, fmt.Errorf("No vpn found in namespace %v and region %v", req.Deployment.Namespace, region)
+		return nil, fmt.Errorf("no vpn found in namespace %v and region %v", req.Deployment.Namespace, region)
 	}
 	vpn := vpns[0]
 
@@ -785,17 +783,17 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 	return &paragliderpb.CreateVpnConnectionsResponse{}, nil
 }
 
-// GetUsedBgpPeeringIpAddresses will return empty response since IBM doesn't currently support BGP peering
+// GetUsedBgpPeeringIpAddresses will return empty response since IBM doesn't currently support BGP peering.
 func (s *IBMPluginServer) GetUsedBgpPeeringIpAddresses(ctx context.Context, req *paragliderpb.GetUsedBgpPeeringIpAddressesRequest) (*paragliderpb.GetUsedBgpPeeringIpAddressesResponse, error) {
 	return &paragliderpb.GetUsedBgpPeeringIpAddressesResponse{}, nil
 }
 
-// GetUsedAsns returns an empty response, since ASNs aren't exposed on IBM cloud
+// GetUsedAsns returns an empty response, since ASNs aren't exposed on IBM cloud.
 func (s *IBMPluginServer) GetUsedAsns(ctx context.Context, req *paragliderpb.GetUsedAsnsRequest) (*paragliderpb.GetUsedAsnsResponse, error) {
 	return &paragliderpb.GetUsedAsnsResponse{}, nil
 }
 
-// GetResourceSubnetsAddress returns the subnets addresses of the VPC containing the specified address space
+// GetResourceSubnetsAddress returns the subnets addresses of the VPC containing the specified address space.
 func (s *IBMPluginServer) GetNetworkAddressSpaces(ctx context.Context, req *paragliderpb.GetNetworkAddressSpacesRequest) (*paragliderpb.GetNetworkAddressSpacesResponse, error) {
 	rInfo, err := getResourceMeta(req.Deployment.Id)
 	if err != nil {

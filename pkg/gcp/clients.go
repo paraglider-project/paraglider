@@ -45,7 +45,7 @@ func (c *GCPClients) GetOrCreateInstancesClient(ctx context.Context) (*compute.I
 	if c.instancesClient == nil {
 		instancesClient, err := compute.NewInstancesRESTClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create InstancesClient: %w", err)
+			return nil, fmt.Errorf("failed to create InstancesClient: %w", err)
 		}
 		c.instancesClient = instancesClient
 	}
@@ -56,7 +56,7 @@ func (c *GCPClients) GetOrCreateClustersClient(ctx context.Context) (*container.
 	if c.clustersClient == nil {
 		clustersClient, err := container.NewClusterManagerClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create ClusterManagerClient: %w", err)
+			return nil, fmt.Errorf("failed to create ClusterManagerClient: %w", err)
 		}
 		c.clustersClient = clustersClient
 	}
@@ -67,7 +67,7 @@ func (c *GCPClients) GetOrCreateFirewallsClient(ctx context.Context) (*compute.F
 	if c.firewallsClient == nil {
 		firewallsClient, err := compute.NewFirewallsRESTClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create FirewallsClient: %w", err)
+			return nil, fmt.Errorf("failed to create FirewallsClient: %w", err)
 		}
 		c.firewallsClient = firewallsClient
 	}
@@ -78,7 +78,7 @@ func (c *GCPClients) GetOrCreateNetworksClient(ctx context.Context) (*compute.Ne
 	if c.networksClient == nil {
 		networksClient, err := compute.NewNetworksRESTClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create NetworksClient: %w", err)
+			return nil, fmt.Errorf("failed to create NetworksClient: %w", err)
 		}
 		c.networksClient = networksClient
 	}
@@ -89,7 +89,7 @@ func (c *GCPClients) GetOrCreateSubnetworksClient(ctx context.Context) (*compute
 	if c.subnetworksClient == nil {
 		subnetworksClient, err := compute.NewSubnetworksRESTClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create SubnetworksClient: %w", err)
+			return nil, fmt.Errorf("failed to create SubnetworksClient: %w", err)
 		}
 		c.subnetworksClient = subnetworksClient
 	}
@@ -100,7 +100,7 @@ func (c *GCPClients) GetOrCreateRoutersClient(ctx context.Context) (*compute.Rou
 	if c.routersClient == nil {
 		routersClient, err := compute.NewRoutersRESTClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create RoutersClient: %w", err)
+			return nil, fmt.Errorf("failed to create RoutersClient: %w", err)
 		}
 		c.routersClient = routersClient
 	}
@@ -111,7 +111,7 @@ func (c *GCPClients) GetOrCreateVpnGatewaysClient(ctx context.Context) (*compute
 	if c.vpnGatewaysClient == nil {
 		vpnGatewaysClient, err := compute.NewVpnGatewaysRESTClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create VpnGatewaysClient: %w", err)
+			return nil, fmt.Errorf("failed to create VpnGatewaysClient: %w", err)
 		}
 		c.vpnGatewaysClient = vpnGatewaysClient
 	}
@@ -122,7 +122,7 @@ func (c *GCPClients) GetOrCreateVpnTunnelsClient(ctx context.Context) (*compute.
 	if c.vpnTunnelsClient == nil {
 		vpnTunnelsClient, err := compute.NewVpnTunnelsRESTClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create VpnTunnelsClient: %w", err)
+			return nil, fmt.Errorf("failed to create VpnTunnelsClient: %w", err)
 		}
 		c.vpnTunnelsClient = vpnTunnelsClient
 	}
@@ -133,7 +133,7 @@ func (c *GCPClients) GetOrCreateExternalVpnGatewaysClient(ctx context.Context) (
 	if c.externalVpnGatewaysClient == nil {
 		externalVpnGatewaysClient, err := compute.NewExternalVpnGatewaysRESTClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create ExternalVpnGatewaysClient: %w", err)
+			return nil, fmt.Errorf("failed to create ExternalVpnGatewaysClient: %w", err)
 		}
 		c.externalVpnGatewaysClient = externalVpnGatewaysClient
 	}
@@ -144,7 +144,7 @@ func (c *GCPClients) GetOrCreateAddressesClient(ctx context.Context) (*compute.A
 	if c.addressesClient == nil {
 		addressesClient, err := compute.NewAddressesRESTClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create AddressesClient: %w", err)
+			return nil, fmt.Errorf("failed to create AddressesClient: %w", err)
 		}
 		c.addressesClient = addressesClient
 	}
@@ -155,7 +155,7 @@ func (c *GCPClients) GetOrCreateGlobalAddressesClient(ctx context.Context) (*com
 	if c.globalAddressesClient == nil {
 		globalAddressesClient, err := compute.NewGlobalAddressesRESTClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create GlobalAddressesClient: %w", err)
+			return nil, fmt.Errorf("failed to create GlobalAddressesClient: %w", err)
 		}
 		c.globalAddressesClient = globalAddressesClient
 	}
@@ -166,7 +166,7 @@ func (c *GCPClients) GetOrCreateForwardingClient(ctx context.Context) (*compute.
 	if c.forwardingClient == nil {
 		forwardingClient, err := compute.NewForwardingRulesRESTClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create ForwardingRulesClient: %w", err)
+			return nil, fmt.Errorf("failed to create ForwardingRulesClient: %w", err)
 		}
 		c.forwardingClient = forwardingClient
 	}
@@ -177,7 +177,7 @@ func (c *GCPClients) GetOrCreateGlobalForwardingClient(ctx context.Context) (*co
 	if c.globalForwardingClient == nil {
 		globalForwardingClient, err := compute.NewGlobalForwardingRulesRESTClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create GlobalForwardingRulesClient: %w", err)
+			return nil, fmt.Errorf("failed to create GlobalForwardingRulesClient: %w", err)
 		}
 		c.globalForwardingClient = globalForwardingClient
 	}
@@ -188,7 +188,7 @@ func (c *GCPClients) GetOrCreateServiceAttachmentsClient(ctx context.Context) (*
 	if c.serviceAttachmentClient == nil {
 		serviceAttachmentClient, err := compute.NewServiceAttachmentsRESTClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create ServiceAttachmentsClient: %w", err)
+			return nil, fmt.Errorf("failed to create ServiceAttachmentsClient: %w", err)
 		}
 		c.serviceAttachmentClient = serviceAttachmentClient
 	}
@@ -197,45 +197,45 @@ func (c *GCPClients) GetOrCreateServiceAttachmentsClient(ctx context.Context) (*
 
 func (c *GCPClients) Close() {
 	if c.instancesClient != nil {
-		c.instancesClient.Close()
+		_ = c.instancesClient.Close()
 	}
 	if c.clustersClient != nil {
-		c.clustersClient.Close()
+		_ = c.clustersClient.Close()
 	}
 	if c.firewallsClient != nil {
-		c.firewallsClient.Close()
+		_ = c.firewallsClient.Close()
 	}
 	if c.networksClient != nil {
-		c.networksClient.Close()
+		_ = c.networksClient.Close()
 	}
 	if c.subnetworksClient != nil {
-		c.subnetworksClient.Close()
+		_ = c.subnetworksClient.Close()
 	}
 	if c.routersClient != nil {
-		c.routersClient.Close()
+		_ = c.routersClient.Close()
 	}
 	if c.vpnGatewaysClient != nil {
-		c.vpnGatewaysClient.Close()
+		_ = c.vpnGatewaysClient.Close()
 	}
 	if c.vpnTunnelsClient != nil {
-		c.vpnTunnelsClient.Close()
+		_ = c.vpnTunnelsClient.Close()
 	}
 	if c.externalVpnGatewaysClient != nil {
-		c.externalVpnGatewaysClient.Close()
+		_ = c.externalVpnGatewaysClient.Close()
 	}
 	if c.addressesClient != nil {
-		c.addressesClient.Close()
+		_ = c.addressesClient.Close()
 	}
 	if c.globalAddressesClient != nil {
-		c.globalAddressesClient.Close()
+		_ = c.globalAddressesClient.Close()
 	}
 	if c.forwardingClient != nil {
-		c.forwardingClient.Close()
+		_ = c.forwardingClient.Close()
 	}
 	if c.globalForwardingClient != nil {
-		c.globalForwardingClient.Close()
+		_ = c.globalForwardingClient.Close()
 	}
 	if c.serviceAttachmentClient != nil {
-		c.serviceAttachmentClient.Close()
+		_ = c.serviceAttachmentClient.Close()
 	}
 }

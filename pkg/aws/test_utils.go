@@ -30,7 +30,7 @@ import (
 	"github.com/aws/smithy-go/middleware"
 )
 
-// Fake AWS parameters for testing
+// Fake AWS parameters for testing.
 const (
 	fakeAccountId                = "123456789"
 	fakeInstanceName             = "fake-instance"
@@ -46,7 +46,7 @@ const (
 	fakeVpcCidrBlock             = "10.0.0.0/16"
 )
 
-// Fake AWS parameters for testing
+// Fake AWS parameters for testing.
 var (
 	fakeSubnet = &types.Subnet{
 		SubnetId:         aws.String(fakeSubnetId),
@@ -72,8 +72,10 @@ type fakeServerState struct {
 
 // fakeServerStateContextKey is an empty struct to be used as a key for context values.
 // See SA1029 (https://staticcheck.dev/docs/checks#SA1029) on why we shouldn't use string keys.
-type fakeServerStateContextKey struct{}
-type requestContextKey struct{}
+type (
+	fakeServerStateContextKey struct{}
+	requestContextKey         struct{}
+)
 
 // fakeInitializeMiddleware is a middleware in the initialize step for faking AWS API calls during tests.
 var fakeInitializeMiddleware = middleware.InitializeMiddlewareFunc("FakeInput", func(
@@ -92,6 +94,7 @@ var fakeDeserializeMiddleware = middleware.DeserializeMiddlewareFunc("FakeOutput
 	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
 ) {
 	fakeServerState := ctx.Value(&fakeServerStateContextKey{}).(fakeServerState)
+	_ = fakeServerState // Used in some switch cases below
 	switch ctx.Value(&requestContextKey{}).(type) {
 	// VPCs
 	case *ec2.CreateVpcInput:
@@ -125,14 +128,14 @@ var fakeDeserializeMiddleware = middleware.DeserializeMiddlewareFunc("FakeOutput
 	case *ec2.DescribeInstancesInput:
 		out.Result = &ec2.DescribeInstancesOutput{Reservations: []types.Reservation{{Instances: []types.Instance{*fakeInstance}}}}
 	}
-	return
+	return out, metadata, err
 })
 
 // setupTest sets up necessary fake components for a unit test.
 func setupTest(fakeServerState fakeServerState) (context.Context, *awsClients, error) {
 	// Set fake AWS credentials which are required for config
-	os.Setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
-	os.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+	_ = os.Setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
+	_ = os.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
 
 	// Load AWS config
 	ctx := context.WithValue(context.TODO(), &fakeServerStateContextKey{}, fakeServerState)
@@ -220,7 +223,7 @@ func TeardownAwsTesting(namespace string, region string) {
 	}
 	describeInstancesOutput, err := ec2Client.DescribeInstances(ctx, describeInstancesInput)
 	if err != nil {
-		panic(fmt.Errorf("Failed to describe instances: %w", err))
+		panic(fmt.Errorf("failed to describe instances: %w", err))
 	}
 
 	// Delete instances
@@ -256,13 +259,13 @@ func TeardownAwsTesting(namespace string, region string) {
 	}
 	describeSubnetsOutput, err := ec2Client.DescribeSubnets(ctx, describeSubnetsInput)
 	if err != nil {
-		panic(fmt.Errorf("Failed to describe subnets: %w", err))
+		panic(fmt.Errorf("failed to describe subnets: %w", err))
 	}
 	for _, subnet := range describeSubnetsOutput.Subnets {
 		deleteSubnetInput := &ec2.DeleteSubnetInput{SubnetId: subnet.SubnetId}
 		_, err := ec2Client.DeleteSubnet(ctx, deleteSubnetInput)
 		if err != nil {
-			panic(fmt.Errorf("Failed to delete subnet %s: %w", *subnet.SubnetId, err))
+			panic(fmt.Errorf("failed to delete subnet %s: %w", *subnet.SubnetId, err))
 		}
 	}
 
@@ -272,13 +275,13 @@ func TeardownAwsTesting(namespace string, region string) {
 	}
 	describeSecurityGroupsOutput, err := ec2Client.DescribeSecurityGroups(ctx, describeSecurityGroupsInput)
 	if err != nil {
-		panic(fmt.Errorf("Failed to describe security groups: %w", err))
+		panic(fmt.Errorf("failed to describe security groups: %w", err))
 	}
 	for _, securityGroup := range describeSecurityGroupsOutput.SecurityGroups {
 		deleteSecurityGroupInput := &ec2.DeleteSecurityGroupInput{GroupId: securityGroup.GroupId}
 		_, err := ec2Client.DeleteSecurityGroup(ctx, deleteSecurityGroupInput)
 		if err != nil {
-			panic(fmt.Errorf("Failed to delete security group %s: %w", *securityGroup.GroupId, err))
+			panic(fmt.Errorf("failed to delete security group %s: %w", *securityGroup.GroupId, err))
 		}
 	}
 
@@ -288,7 +291,7 @@ func TeardownAwsTesting(namespace string, region string) {
 	}
 	describeVpcsOutput, err := ec2Client.DescribeVpcs(ctx, describeVpcsInput)
 	if err != nil {
-		panic(fmt.Errorf("Failed to describe VPCs: %w", err))
+		panic(fmt.Errorf("failed to describe VPCs: %w", err))
 	}
 	for _, vpc := range describeVpcsOutput.Vpcs {
 		deleteVpcInput := &ec2.DeleteVpcInput{
@@ -296,7 +299,7 @@ func TeardownAwsTesting(namespace string, region string) {
 		}
 		_, err := ec2Client.DeleteVpc(ctx, deleteVpcInput)
 		if err != nil {
-			panic(fmt.Errorf("Failed to delete VPC %s: %w", *vpc.VpcId, err))
+			panic(fmt.Errorf("failed to delete VPC %s: %w", *vpc.VpcId, err))
 		}
 	}
 }

@@ -55,17 +55,17 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-	fmt.Fprintf(e.writer, "Attaching resource to %s namespace\n", e.cliSettings.ActiveNamespace)
+	_, _ = fmt.Fprintf(e.writer, "Attaching resource to %s namespace\n", e.cliSettings.ActiveNamespace)
 	paragliderClient := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 
 	resource := &orchestrator.ResourceID{Id: args[1]}
 	resourceInfo, err := paragliderClient.AttachResource(e.cliSettings.ActiveNamespace, args[0], resource)
 	if err != nil {
-		fmt.Fprintf(e.writer, "Failed to attach resource: %v\n", err)
+		_, _ = fmt.Fprintf(e.writer, "Failed to attach resource: %v\n", err)
 		return err
 	}
 
-	fmt.Fprintf(e.writer, "Resource Attached.\ntag: %s\nuri: %s\nip: %s\n", resourceInfo["name"], resourceInfo["uri"], resourceInfo["ip"])
+	_, _ = fmt.Fprintf(e.writer, "Resource Attached.\ntag: %s\nuri: %s\nip: %s\n", resourceInfo["name"], resourceInfo["uri"], resourceInfo["ip"])
 
 	return nil
 }

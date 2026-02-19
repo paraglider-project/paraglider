@@ -45,7 +45,6 @@ type executor struct {
 }
 
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
-
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	tagMappings, err := c.ListTags()
 	if err != nil {
@@ -53,7 +52,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	}
 	// Print the tags
 	for i, tagMap := range tagMappings {
-		fmt.Fprintf(e.writer, "%d). %v\n", i, tagMap)
+		_, _ = fmt.Fprintf(e.writer, "%d). %v\n", i, tagMap)
 	}
 	return nil
 }

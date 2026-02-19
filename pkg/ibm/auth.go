@@ -67,7 +67,6 @@ func (c *CloudClient) setupAuth() (string, error) {
 			utils.Log.Println("Failed to register SSH key\n", err)
 			return "", err
 		}
-
 	} else {
 		keyID = *result.ID
 	}
@@ -97,7 +96,7 @@ func (c *CloudClient) getKeyByPublicKey(publicKeyData string) (string, error) {
 			 key was found`)
 }
 
-// GetAPIKey returns API KEY ID defined in environment variable
+// GetAPIKey returns API KEY ID defined in environment variable.
 func getAPIKey() (string, error) {
 	apiKey := os.Getenv("PARAGLIDER_IBM_API_KEY")
 	if apiKey == "" {
@@ -106,7 +105,7 @@ func getAPIKey() (string, error) {
 	return apiKey, nil
 }
 
-// returns a user authenticator object to authorize IBM cloud services
+// returns a user authenticator object to authorize IBM cloud services.
 func getAuthenticator() (*core.IamAuthenticator, error) {
 	apiKey, err := getAPIKey()
 	if err != nil {
@@ -126,13 +125,13 @@ func getLocalPubKey() (string, error) {
 	}
 
 	pubKeyPath := filepath.Join(homeDir, publicSSHKey)
-	err = os.MkdirAll(filepath.Dir(filepath.Join(homeDir, publicSSHKey)), 0700)
+	err = os.MkdirAll(filepath.Dir(filepath.Join(homeDir, publicSSHKey)), 0o700)
 	if err != nil {
 		utils.Log.Println("Failed to create ssh key folder\n", err)
 		return "", err
 	}
 
-	//check if ssh keys exist
+	// check if ssh keys exist
 	_, err = os.Stat(pubKeyPath)
 
 	if err != nil {
@@ -170,11 +169,11 @@ func createSSHKeys(privateKeyPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	privateKeyFile, err := os.OpenFile(privateKeyPath, os.O_RDWR|os.O_CREATE, 0600)
+	privateKeyFile, err := os.OpenFile(privateKeyPath, os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return "", err
 	}
-	defer privateKeyFile.Close()
+	defer func() { _ = privateKeyFile.Close() }()
 	privateKeyPEM := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)}
 	if err := pem.Encode(privateKeyFile, privateKeyPEM); err != nil {
 		return "", err
@@ -187,11 +186,11 @@ func createSSHKeys(privateKeyPath string) (string, error) {
 	}
 	pubKeyStr := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(publicRsaKey)))
 
-	publicKeyFile, err := os.OpenFile(privateKeyPath+".pub", os.O_RDWR|os.O_CREATE, 0655)
+	publicKeyFile, err := os.OpenFile(privateKeyPath+".pub", os.O_RDWR|os.O_CREATE, 0o655)
 	if err != nil {
 		return "", err
 	}
-	defer publicKeyFile.Close()
+	defer func() { _ = publicKeyFile.Close() }()
 	_, err = publicKeyFile.WriteString(pubKeyStr)
 	if err != nil {
 		return "", err
