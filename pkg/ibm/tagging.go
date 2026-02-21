@@ -191,5 +191,5 @@ func (c *CloudClient) getTaggedResources(query string) (*globalsearchv2.ScanResu
 		time.Sleep(5 * time.Second)
 	}
 	utils.Log.Printf("Failed to fetch tagged resource with with query %v", query)
-	return nil, fmt.Errorf("Failed to fetch tagged resource")
+	return nil, fmt.Errorf("failed to fetch tagged resource")
 }

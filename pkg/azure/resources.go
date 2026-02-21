@@ -91,7 +91,7 @@ func GetAndCheckResourceState(ctx context.Context, handler *AzureSDKHandler, res
 	// Check the vnet tags for paraglider namespace if prefix doesn't match
 	vnet, err := handler.GetVirtualNetwork(ctx, vnetName)
 	if err != nil {
-		return nil, fmt.Errorf("Error in getting vnet %s: %w", vnetName, err)
+		return nil, fmt.Errorf("error in getting vnet %s: %w", vnetName, err)
 	}
 
 	for _, tag := range vnet.Tags {
@@ -116,11 +116,11 @@ func GetNetworkInfoFromResource(ctx context.Context, handler *AzureSDKHandler, r
 	resourceHandler, err := getResourceHandler(resourceID)
 	if err != nil {
 		utils.Log.Printf("An error occured while getting the resource handler for resource %s: %+v", resourceID, err)
-		return nil, fmt.Errorf("Getting Resource Handler error: %w", err)
+		return nil, fmt.Errorf("getting Resource Handler error: %w", err)
 	}
 	networkInfo, err := resourceHandler.getNetworkInfo(ctx, resource, handler)
 	if err != nil {
-		utils.Log.Printf("An error occured while getting network info for resource %s: %+v", resourceID, err)
+		utils.Log.Printf("an error occured while getting network info for resource %s: %+v", resourceID, err)
 		return nil, err
 	}
 	return networkInfo, nil
@@ -172,7 +172,7 @@ func ValidateResourceCompliesWithParagliderRequirements(ctx context.Context, res
 
 	networkInfo, err := GetNetworkInfoFromResource(ctx, azureHandler, resourceID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Error in getting resource %s network info: %w", resourceID, err)
+		return nil, nil, fmt.Errorf("error in getting resource %s network info: %w", resourceID, err)
 	}
 
 	// Ensure the Vnet address space doesn't overlap with paraglider's address space
@@ -183,13 +183,13 @@ func ValidateResourceCompliesWithParagliderRequirements(ctx context.Context, res
 	}
 
 	if isOverlapping {
-		return nil, nil, fmt.Errorf("Resource %s Network Address Space overlaps with Paraglider Network Address Space. Not allowed", resourceID)
+		return nil, nil, fmt.Errorf("resource %s Network Address Space overlaps with Paraglider Network Address Space. Not allowed", resourceID)
 	}
 
 	// Ensure the resource's security rules are compliant. Make compliant if possible
 	isNSGCompliant, err := CheckSecurityRulesCompliance(ctx, azureHandler, networkInfo.NSG)
 	if err != nil || !isNSGCompliant {
-		return nil, nil, fmt.Errorf("NSG rules are not compliant: %w", err)
+		return nil, nil, fmt.Errorf("nSG rules are not compliant: %w", err)
 	}
 
 	return resource, networkInfo, nil

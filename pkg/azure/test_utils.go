@@ -102,7 +102,8 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 		// NSGs
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/networkSecurityGroups/"):
 			if strings.Contains(path, "/securityRules") {
-				if r.Method == "PUT" {
+				switch r.Method {
+				case "PUT":
 					rule := &armnetwork.SecurityRule{}
 					err = json.Unmarshal(body, rule)
 					if err != nil {
@@ -114,7 +115,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					}
 					sendResponse(w, rule)
 					return
-				} else if r.Method == "DELETE" {
+				case "DELETE":
 					w.WriteHeader(http.StatusOK)
 					return
 				}
@@ -877,7 +878,7 @@ func runConnectivityCheck(ctx context.Context, namespace string, subscriptionId 
 			return false, err
 		}
 		// TODO @seankimkdy: Unclear why ConnectionStatus returns "Reachable" which is not a valid armnetwork.ConnectionStatus constant (https://github.com/Azure/azure-sdk-for-go/issues/21777)
-		if *resp.ConnectivityInformation.ConnectionStatus == armnetwork.ConnectionStatus("Reachable") {
+		if *resp.ConnectionStatus == armnetwork.ConnectionStatus("Reachable") {
 			return true, nil
 		}
 	}
@@ -894,7 +895,7 @@ func RunICMPConnectivityCheck(ctx context.Context, namespace string, subscriptio
 	if err != nil {
 		return false, fmt.Errorf("unable to check if destination IP address is private: %w", err)
 	} else if !isPrivate {
-		return false, fmt.Errorf("Azure does not support public destination IP address for ICMP")
+		return false, fmt.Errorf("azure does not support public destination IP address for ICMP")
 	}
 	return runConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, sourceVmName, destinationIPAddress, 0, armnetwork.ProtocolIcmp, tries)
 }

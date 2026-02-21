@@ -113,9 +113,9 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 	}
 
 	if res.GetTypeName() == ClusterResourceType && !s.flags.KubernetesClustersEnabled {
-		return nil, fmt.Errorf("Kubernetes clusters are disabled")
+		return nil, fmt.Errorf("kubernetes clusters are disabled")
 	} else if res.GetTypeName() == PrivateEndpointResourceType && !s.flags.PrivateEndpointsEnabled {
-		return nil, fmt.Errorf("Private endpoints are disabled")
+		return nil, fmt.Errorf("private endpoints are disabled")
 	}
 
 	// get VPCs in the request's namespace which can be shared between resources created
@@ -405,7 +405,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 					AddressSpacesCloudB: []string{ruleTargetAddress},
 				}
 				if len(ruleTargetAddress) == 0 {
-					return nil, fmt.Errorf("Missing remote address for rule %+v", ibmRules[i])
+					return nil, fmt.Errorf("missing remote address for rule %+v", ibmRules[i])
 				}
 				_, err := controllerClient.ConnectClouds(ctx, connectCloudsReq)
 				if err != nil {
@@ -691,7 +691,7 @@ func (s *IBMPluginServer) CreateVpnGateway(ctx context.Context, req *paragliderp
 		return nil, err
 	}
 	if region == "" {
-		return nil, fmt.Errorf("Failed to find a region containing address space %v", req.AddressSpace)
+		return nil, fmt.Errorf("failed to find a region containing address space %v", req.AddressSpace)
 	}
 	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 	if err != nil {
@@ -738,7 +738,7 @@ func (s *IBMPluginServer) getRegionOfAddressSpace(resourceGroup, namespace, addr
 // CreateVpnConnections creates VPN connection
 func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragliderpb.CreateVpnConnectionsRequest) (*paragliderpb.CreateVpnConnectionsResponse, error) {
 	if len(req.RemoteAddresses) == 0 {
-		return nil, fmt.Errorf("RemoteAddress is a mandatory field for IBM VPN connections.")
+		return nil, fmt.Errorf("remoteAddress is a mandatory field for IBM VPN connections")
 	}
 	rInfo, err := getResourceMeta(req.Deployment.Id)
 	if err != nil {
@@ -752,7 +752,7 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 		return nil, err
 	}
 	if region == "" {
-		return nil, fmt.Errorf("Failed to find a region containing address space %v", req.AddressSpace)
+		return nil, fmt.Errorf("failed to find a region containing address space %v", req.AddressSpace)
 	}
 	cloudClient, err := s.setupCloudClient(rInfo.ResourceGroup, region)
 	if err != nil {
@@ -769,7 +769,7 @@ func (s *IBMPluginServer) CreateVpnConnections(ctx context.Context, req *paragli
 	// needless to check [vpn instances>1] case, since GetVPNInNamespaceRegion is filtered by region,
 	// 		and implementation guarantees one VPN per namespace and region.
 	if len(vpns) == 0 {
-		return nil, fmt.Errorf("No vpn found in namespace %v and region %v", req.Deployment.Namespace, region)
+		return nil, fmt.Errorf("no vpn found in namespace %v and region %v", req.Deployment.Namespace, region)
 	}
 	vpn := vpns[0]
 

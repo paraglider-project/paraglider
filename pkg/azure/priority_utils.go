@@ -25,9 +25,10 @@ import (
 // Existing rules map is filled to ensure that rules that just need their contents updated do not get recreated with new priorities
 func setupMaps(reservedPrioritiesInbound map[int32]*armnetwork.SecurityRule, reservedPrioritiesOutbound map[int32]*armnetwork.SecurityRule, existingRulePriorities map[string]int32, nsg *armnetwork.SecurityGroup) error {
 	for _, rule := range nsg.Properties.SecurityRules {
-		if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
+		switch *rule.Properties.Direction {
+		case armnetwork.SecurityRuleDirectionInbound:
 			reservedPrioritiesInbound[*rule.Properties.Priority] = rule
-		} else if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionOutbound {
+		case armnetwork.SecurityRuleDirectionOutbound:
 			reservedPrioritiesOutbound[*rule.Properties.Priority] = rule
 		}
 

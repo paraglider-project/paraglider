@@ -55,7 +55,7 @@ func (s *FakeTagServiceServer) GetTag(c context.Context, req *tagservicepb.GetTa
 	if strings.HasSuffix(req.TagName, ValidLastLevelTagName) {
 		return &tagservicepb.GetTagResponse{Tag: &tagservicepb.TagMapping{Name: req.TagName, Uri: &TagUri, Ip: &TagIp}}, nil
 	}
-	return nil, fmt.Errorf("GetTag: Invalid tag name")
+	return nil, fmt.Errorf("getTag: Invalid tag name")
 }
 
 func (s *FakeTagServiceServer) ResolveTag(c context.Context, req *tagservicepb.ResolveTagRequest) (*tagservicepb.ResolveTagResponse, error) {
@@ -63,7 +63,7 @@ func (s *FakeTagServiceServer) ResolveTag(c context.Context, req *tagservicepb.R
 		newUri := "uri/" + req.TagName
 		return &tagservicepb.ResolveTagResponse{Tags: []*tagservicepb.TagMapping{{Name: req.TagName, Uri: &newUri, Ip: &ResolvedTagIp}}}, nil
 	}
-	return nil, fmt.Errorf("ResolveTag: Invalid tag name")
+	return nil, fmt.Errorf("resolveTag: Invalid tag name")
 }
 
 func (s *FakeTagServiceServer) SetTag(c context.Context, tagMapping *tagservicepb.SetTagRequest) (*tagservicepb.SetTagResponse, error) {

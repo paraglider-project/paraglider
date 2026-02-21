@@ -152,10 +152,10 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 								providerNamespace := strings.Split(*resource.Type, "/")[0]
 								resp, err := providersClient.Get(ctx, providerNamespace, nil)
 								if err != nil {
-									panic(fmt.Errorf("Unable to get provider resource type: %w", err))
+									panic(fmt.Errorf("unable to get provider resource type: %w", err))
 								}
 								// Store all API versions under this provider namespace to reduce potential duplicate requests
-								for _, resourceType := range resp.Provider.ResourceTypes {
+								for _, resourceType := range resp.ResourceTypes {
 									// Breakdown of the term "resource type" overloading
 									// - *resource.Type = "Microsoft.Compute/virtualMachines"
 									// - providerNamespace = "Microsoft.Compute"
@@ -187,7 +187,7 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 					if resources, ok := resourceTypeToResources[resourceType]; ok {
 						err = deleteResources(ctx, resourcesClient, resources, resourceTypeToAPIVersion[resourceType])
 						if err != nil {
-							panic(fmt.Errorf("Failed to delete resource type %s: %w", resourceType, err))
+							panic(fmt.Errorf("failed to delete resource type %s: %w", resourceType, err))
 						}
 						delete(resourceTypeToResources, resourceType)
 					}
@@ -198,7 +198,7 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 					for resourceType, resources := range resourceTypeToResources {
 						err = deleteResources(ctx, resourcesClient, resources, resourceTypeToAPIVersion[resourceType])
 						if err != nil {
-							panic(fmt.Errorf("Failed to delete resource type %s: %w", resourceType, err))
+							panic(fmt.Errorf("failed to delete resource type %s: %w", resourceType, err))
 						}
 					}
 				}
@@ -211,11 +211,11 @@ func deleteResources(ctx context.Context, resourcesClient *armresources.Client, 
 	for _, resource := range resources {
 		pollerResp, err := resourcesClient.BeginDeleteByID(ctx, *resource.ID, apiVersion, nil)
 		if err != nil {
-			return fmt.Errorf("Error while deleting resource: %v", err)
+			return fmt.Errorf("error while deleting resource: %v", err)
 		}
 		_, err = pollerResp.PollUntilDone(ctx, nil)
 		if err != nil {
-			return fmt.Errorf("Error while deleting resource: %v", err)
+			return fmt.Errorf("error while deleting resource: %v", err)
 		}
 	}
 	return nil

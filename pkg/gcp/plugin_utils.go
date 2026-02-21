@@ -188,7 +188,7 @@ func GetInstanceIpAddress(project string, zone string, instanceName string) (str
 	ctx := context.Background()
 	instancesClient, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
-		return "", fmt.Errorf("NewInstancesRESTClient: %w", err)
+		return "", fmt.Errorf("newInstancesRESTClient: %w", err)
 	}
 	getInstanceReq := &computepb.GetInstanceRequest{
 		Instance: instanceName,
@@ -206,7 +206,7 @@ func GetInstanceId(project string, zone string, instanceName string) (uint64, er
 	ctx := context.Background()
 	instancesClient, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("NewInstancesRESTClient: %w", err)
+		return 0, fmt.Errorf("newInstancesRESTClient: %w", err)
 	}
 	getInstanceReq := &computepb.GetInstanceRequest{
 		Instance: instanceName,

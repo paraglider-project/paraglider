@@ -129,9 +129,9 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 		return nil, err
 	}
 
-	var existingRulePriorities map[string]int32 = make(map[string]int32)
-	var reservedPrioritiesInbound map[int32]*armnetwork.SecurityRule = make(map[int32]*armnetwork.SecurityRule)
-	var reservedPrioritiesOutbound map[int32]*armnetwork.SecurityRule = make(map[int32]*armnetwork.SecurityRule)
+	var existingRulePriorities = make(map[string]int32)
+	var reservedPrioritiesInbound = make(map[int32]*armnetwork.SecurityRule)
+	var reservedPrioritiesOutbound = make(map[int32]*armnetwork.SecurityRule)
 	err = setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, existingRulePriorities, netInfo.NSG)
 	if err != nil {
 		utils.Log.Printf("An error occured during setup: %+v", err)
@@ -218,10 +218,11 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 		// if the priority is already used, we need to find the next available priority
 		priority, ok := existingRulePriorities[getNSGRuleName(rule.Name)]
 		if !ok {
-			if rule.Direction == paragliderpb.Direction_INBOUND {
+			switch rule.Direction {
+			case paragliderpb.Direction_INBOUND:
 				priority = getNextAvailablePriority(reservedPrioritiesInbound, inboundPriority, maxPriority, true)
 				inboundPriority = priority + 1
-			} else if rule.Direction == paragliderpb.Direction_OUTBOUND {
+			case paragliderpb.Direction_OUTBOUND:
 				priority = getNextAvailablePriority(reservedPrioritiesOutbound, outboundPriority, maxPriority, true)
 				outboundPriority = priority + 1
 			}
