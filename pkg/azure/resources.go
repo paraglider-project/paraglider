@@ -496,6 +496,197 @@ type azureResourceHandlePrivateEndpoint struct {
 	AzureResourceHandler
 }
 
-func getNetworkInfo(ctx context.Context, endpointUri string) {
-	
+// Gets the network information for a private endpoint
+func (r *azureResourceHandlePrivateEndpoint) getNetworkInfo(ctx context.Context, resource *armresources.GenericResource, sdkHandler *AzureSDKHandler) (*resourceNetworkInfo, error) {
+	properties, ok := resource.Properties.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("failed to read resource.Properties")
+	}
+
+	// Get the network interfaces from the private endpoint
+	networkInterfaces, ok := properties["networkInterfaces"].([]interface{})
+	if !ok || len(networkInterfaces) == 0 {
+		return nil, fmt.Errorf("private endpoint does not have network interfaces")
+	}
+
+	// Get the first network interface ID
+	firstNic := networkInterfaces[0].(map[string]interface{})
+	nicID, ok := firstNic["id"].(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to read network interface ID")
+	}
+
+	// Extract the NIC name from the ID
+	nicName, err := GetLastSegment(nicID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the network interface details
+	nic, err := sdkHandler.GetNetworkInterface(ctx, nicName)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting the network interface:%+v", err)
+		return nil, err
+	}
+
+	// Get the subnet ID and private IP address from the NIC
+	if nic.Properties == nil || len(nic.Properties.IPConfigurations) == 0 {
+		return nil, fmt.Errorf("network interface does not have IP configurations")
+	}
+
+	ipConfig := nic.Properties.IPConfigurations[0]
+	if ipConfig.Properties == nil || ipConfig.Properties.Subnet == nil || ipConfig.Properties.Subnet.ID == nil {
+		return nil, fmt.Errorf("network interface IP configuration is missing subnet information")
+	}
+
+	if ipConfig.Properties.PrivateIPAddress == nil {
+		return nil, fmt.Errorf("network interface IP configuration is missing private IP address")
+	}
+
+	// Get the NSG - it should be associated with the NIC or the subnet
+	var nsg *armnetwork.SecurityGroup
+	if nic.Properties.NetworkSecurityGroup != nil && nic.Properties.NetworkSecurityGroup.ID != nil {
+		// NSG is associated with the NIC
+		nsgName, err := GetLastSegment(*nic.Properties.NetworkSecurityGroup.ID)
+		if err != nil {
+			return nil, err
+		}
+		nsg, err = sdkHandler.GetSecurityGroup(ctx, nsgName)
+		if err != nil {
+			utils.Log.Printf("An error occured while getting the network security group:%+v", err)
+			return nil, err
+		}
+	} else {
+		// Try to get NSG from the subnet
+		subnet, err := sdkHandler.GetSubnetByID(ctx, *ipConfig.Properties.Subnet.ID)
+		if err != nil {
+			utils.Log.Printf("An error occured while getting the subnet:%+v", err)
+			return nil, err
+		}
+
+		if subnet.Properties != nil && subnet.Properties.NetworkSecurityGroup != nil && subnet.Properties.NetworkSecurityGroup.ID != nil {
+			nsgName, err := GetLastSegment(*subnet.Properties.NetworkSecurityGroup.ID)
+			if err != nil {
+				return nil, err
+			}
+			nsg, err = sdkHandler.GetSecurityGroup(ctx, nsgName)
+			if err != nil {
+				utils.Log.Printf("An error occured while getting the network security group:%+v", err)
+				return nil, err
+			}
+		} else {
+			return nil, fmt.Errorf("no network security group found for private endpoint")
+		}
+	}
+
+	info := resourceNetworkInfo{
+		SubnetID: *ipConfig.Properties.Subnet.ID,
+		Address:  *ipConfig.Properties.PrivateIPAddress,
+		Location: *resource.Location,
+		NSG:      nsg,
+	}
+	return &info, nil
+}
+
+// Gets the resource information from the description
+func (r *azureResourceHandlePrivateEndpoint) getResourceInfoFromDescription(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
+	privateEndpoint, err := r.fromResourceDecription(resource.Description)
+	if err != nil {
+		return nil, err
+	}
+	requiresSubnet, extraPrefixes := r.getNetworkRequirements()
+	resourceDeploymentIdInfo, err := getResourceIDInfo(resource.Deployment.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &resourceInfo{
+		ResourceName:               resource.Name,
+		ResourceID:                 getPrivateEndpointUri(resourceDeploymentIdInfo.SubscriptionID, resourceDeploymentIdInfo.ResourceGroupName, resource.Name),
+		Location:                   *privateEndpoint.Location,
+		RequiresSubnet:             requiresSubnet,
+		NumAdditionalAddressSpaces: extraPrefixes,
+	}, nil
+}
+
+// Reads the resource description and provisions the resource with the given subnet
+func (r *azureResourceHandlePrivateEndpoint) readAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+	privateEndpoint, err := r.fromResourceDecription(resource.Description)
+	if err != nil {
+		return "", err
+	}
+	ip, err := r.createWithNetwork(ctx, privateEndpoint, subnet, resource.Name, sdkHandler, additionalAddressSpaces)
+	if err != nil {
+		return "", err
+	}
+	return ip, nil
+}
+
+// Returns the network requirements (requires its own subnet, how many address spaces) for a private endpoint
+func (r *azureResourceHandlePrivateEndpoint) getNetworkRequirements() (bool, int) {
+	return false, 0
+}
+
+// Creates a private endpoint with the given subnet
+// Returns the private IP address of the private endpoint
+func (r *azureResourceHandlePrivateEndpoint) createWithNetwork(ctx context.Context, privateEndpoint *armnetwork.PrivateEndpoint, subnet *armnetwork.Subnet, resourceName string, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+	// Set the subnet for the private endpoint
+	privateEndpoint.Properties.Subnet = &armnetwork.Subnet{
+		ID: subnet.ID,
+	}
+
+	// Create the private endpoint
+	createdEndpoint, err := sdkHandler.CreatePrivateEndpoint(ctx, resourceName, *privateEndpoint)
+	if err != nil {
+		utils.Log.Printf("An error occured while creating the private endpoint:%+v", err)
+		return "", err
+	}
+
+	// Get the network interface to retrieve the private IP
+	if createdEndpoint.Properties == nil || createdEndpoint.Properties.NetworkInterfaces == nil || len(createdEndpoint.Properties.NetworkInterfaces) == 0 {
+		return "", fmt.Errorf("created private endpoint does not have network interfaces")
+	}
+
+	nicID := *createdEndpoint.Properties.NetworkInterfaces[0].ID
+	nicName, err := GetLastSegment(nicID)
+	if err != nil {
+		return "", err
+	}
+
+	nic, err := sdkHandler.GetNetworkInterface(ctx, nicName)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting the network interface:%+v", err)
+		return "", err
+	}
+
+	if nic.Properties == nil || len(nic.Properties.IPConfigurations) == 0 || nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress == nil {
+		return "", fmt.Errorf("network interface does not have a private IP address")
+	}
+
+	return *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress, nil
+}
+
+// Converts the resource description to a private endpoint object
+func (r *azureResourceHandlePrivateEndpoint) fromResourceDecription(resourceDesc []byte) (*armnetwork.PrivateEndpoint, error) {
+	privateEndpoint := &armnetwork.PrivateEndpoint{}
+	err := json.Unmarshal(resourceDesc, privateEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal resource description:%+v", err)
+	}
+
+	// Some validations on the Private Endpoint
+	if privateEndpoint.Location == nil || privateEndpoint.Properties == nil {
+		return nil, fmt.Errorf("resource description is missing location or properties")
+	}
+
+	// Reject Private Endpoints that already have a subnet configured
+	if privateEndpoint.Properties.Subnet != nil {
+		return nil, fmt.Errorf("resource description cannot contain subnet")
+	}
+
+	// Validate that the private endpoint has private link service connections
+	if len(privateEndpoint.Properties.PrivateLinkServiceConnections) == 0 {
+		return nil, fmt.Errorf("resource description must contain private link service connections")
+	}
+
+	return privateEndpoint, nil
 }

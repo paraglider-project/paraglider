@@ -42,6 +42,10 @@ func getClusterUri(subscriptionId string, resourceGroupName string, clusterName 
 	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", subscriptionId, resourceGroupName, managedClusterTypeName, clusterName)
 }
 
+func getPrivateEndpointUri(subscriptionId string, resourceGroupName string, privateEndpointName string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", subscriptionId, resourceGroupName, privateEndpointTypeName, privateEndpointName)
+}
+
 func getDeploymentUri(subscriptionId string, resourceGroupName string) string {
 	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", subscriptionId, resourceGroupName)
 }
