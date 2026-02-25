@@ -63,10 +63,13 @@ func getResourceHandler(resourceID string) (AzureResourceHandler, error) {
 func getResourceHandlerFromDescription(resourceDesc []byte) (AzureResourceHandler, error) {
 	vm := &armcompute.VirtualMachine{}
 	aks := &armcontainerservice.ManagedCluster{}
+	pe := &armnetwork.PrivateEndpoint{}
 	if err := json.Unmarshal(resourceDesc, vm); err == nil && vm.Properties != nil && vm.Properties.HardwareProfile != nil {
 		return &azureResourceHandlerVM{}, nil
 	} else if err := json.Unmarshal(resourceDesc, aks); err == nil && aks.Properties != nil && aks.Properties.AgentPoolProfiles != nil && len(aks.Properties.AgentPoolProfiles) > 0 {
 		return &azureResourceHandlerAKS{}, nil
+	} else if err := json.Unmarshal(resourceDesc, pe); err == nil && pe.Properties != nil && pe.Properties.PrivateLinkServiceConnections != nil && len(pe.Properties.PrivateLinkServiceConnections) > 0 {
+		return &azureResourceHandlePrivateEndpoint{}, nil
 	}
 	return nil, fmt.Errorf("resource description contains unsupported resource type")
 }
@@ -543,40 +546,14 @@ func (r *azureResourceHandlePrivateEndpoint) getNetworkInfo(ctx context.Context,
 		return nil, fmt.Errorf("network interface IP configuration is missing private IP address")
 	}
 
-	// Get the NSG - it should be associated with the NIC or the subnet
-	var nsg *armnetwork.SecurityGroup
-	if nic.Properties.NetworkSecurityGroup != nil && nic.Properties.NetworkSecurityGroup.ID != nil {
-		// NSG is associated with the NIC
-		nsgName, err := GetLastSegment(*nic.Properties.NetworkSecurityGroup.ID)
-		if err != nil {
-			return nil, err
-		}
-		nsg, err = sdkHandler.GetSecurityGroup(ctx, nsgName)
-		if err != nil {
-			utils.Log.Printf("An error occured while getting the network security group:%+v", err)
-			return nil, err
-		}
-	} else {
-		// Try to get NSG from the subnet
-		subnet, err := sdkHandler.GetSubnetByID(ctx, *ipConfig.Properties.Subnet.ID)
-		if err != nil {
-			utils.Log.Printf("An error occured while getting the subnet:%+v", err)
-			return nil, err
-		}
-
-		if subnet.Properties != nil && subnet.Properties.NetworkSecurityGroup != nil && subnet.Properties.NetworkSecurityGroup.ID != nil {
-			nsgName, err := GetLastSegment(*subnet.Properties.NetworkSecurityGroup.ID)
-			if err != nil {
-				return nil, err
-			}
-			nsg, err = sdkHandler.GetSecurityGroup(ctx, nsgName)
-			if err != nil {
-				utils.Log.Printf("An error occured while getting the network security group:%+v", err)
-				return nil, err
-			}
-		} else {
-			return nil, fmt.Errorf("no network security group found for private endpoint")
-		}
+	nsgName, err := GetLastSegment(*nic.Properties.NetworkSecurityGroup.ID)
+	if err != nil {
+		return nil, err
+	}
+	nsg, err := sdkHandler.GetSecurityGroup(ctx, nsgName)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting the network security group:%+v", err)
+		return nil, err
 	}
 
 	info := resourceNetworkInfo{
