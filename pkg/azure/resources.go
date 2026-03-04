@@ -54,7 +54,7 @@ func getResourceHandler(resourceID string) (AzureResourceHandler, error) {
 	} else if strings.Contains(resourceID, managedClusterTypeName) {
 		return &azureResourceHandlerAKS{}, nil
 	} else if strings.Contains(resourceID, privateEndpointTypeName) {
-		return &azureResourceHandlePrivateEndpoint{}, nil
+		return &azureResourceHandlerPrivateEndpoint{}, nil
 	} else {
 		return nil, fmt.Errorf("resource type %s is not supported", resourceID)
 	}
@@ -69,7 +69,7 @@ func getResourceHandlerFromDescription(resourceDesc []byte) (AzureResourceHandle
 	} else if err := json.Unmarshal(resourceDesc, aks); err == nil && aks.Properties != nil && aks.Properties.AgentPoolProfiles != nil && len(aks.Properties.AgentPoolProfiles) > 0 {
 		return &azureResourceHandlerAKS{}, nil
 	} else if err := json.Unmarshal(resourceDesc, pe); err == nil && pe.Properties != nil && pe.Properties.PrivateLinkServiceConnections != nil && len(pe.Properties.PrivateLinkServiceConnections) > 0 {
-		return &azureResourceHandlePrivateEndpoint{}, nil
+		return &azureResourceHandlerPrivateEndpoint{}, nil
 	}
 	return nil, fmt.Errorf("resource description contains unsupported resource type")
 }
@@ -495,12 +495,12 @@ func (r *azureResourceHandlerAKS) fromResourceDecription(resourceDesc []byte) (*
 }
 
 // Private Endpoint implementation of the NewAzureResourceHandler interface
-type azureResourceHandlePrivateEndpoint struct {
+type azureResourceHandlerPrivateEndpoint struct {
 	AzureResourceHandler
 }
 
 // Gets the network information for a private endpoint
-func (r *azureResourceHandlePrivateEndpoint) getNetworkInfo(ctx context.Context, resource *armresources.GenericResource, sdkHandler *AzureSDKHandler) (*resourceNetworkInfo, error) {
+func (r *azureResourceHandlerPrivateEndpoint) getNetworkInfo(ctx context.Context, resource *armresources.GenericResource, sdkHandler *AzureSDKHandler) (*resourceNetworkInfo, error) {
 	properties, ok := resource.Properties.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("failed to read resource.Properties")
@@ -566,7 +566,7 @@ func (r *azureResourceHandlePrivateEndpoint) getNetworkInfo(ctx context.Context,
 }
 
 // Gets the resource information from the description
-func (r *azureResourceHandlePrivateEndpoint) getResourceInfoFromDescription(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
+func (r *azureResourceHandlerPrivateEndpoint) getResourceInfoFromDescription(ctx context.Context, resource *paragliderpb.CreateResourceRequest) (*resourceInfo, error) {
 	privateEndpoint, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
 		return nil, err
@@ -586,7 +586,7 @@ func (r *azureResourceHandlePrivateEndpoint) getResourceInfoFromDescription(ctx 
 }
 
 // Reads the resource description and provisions the resource with the given subnet
-func (r *azureResourceHandlePrivateEndpoint) readAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+func (r *azureResourceHandlerPrivateEndpoint) readAndProvisionResource(ctx context.Context, resource *paragliderpb.CreateResourceRequest, subnet *armnetwork.Subnet, resourceInfo *ResourceIDInfo, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	privateEndpoint, err := r.fromResourceDecription(resource.Description)
 	if err != nil {
 		return "", err
@@ -599,13 +599,13 @@ func (r *azureResourceHandlePrivateEndpoint) readAndProvisionResource(ctx contex
 }
 
 // Returns the network requirements (requires its own subnet, how many address spaces) for a private endpoint
-func (r *azureResourceHandlePrivateEndpoint) getNetworkRequirements() (bool, int) {
+func (r *azureResourceHandlerPrivateEndpoint) getNetworkRequirements() (bool, int) {
 	return false, 0
 }
 
 // Creates a private endpoint with the given subnet
 // Returns the private IP address of the private endpoint
-func (r *azureResourceHandlePrivateEndpoint) createWithNetwork(ctx context.Context, privateEndpoint *armnetwork.PrivateEndpoint, subnet *armnetwork.Subnet, resourceName string, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
+func (r *azureResourceHandlerPrivateEndpoint) createWithNetwork(ctx context.Context, privateEndpoint *armnetwork.PrivateEndpoint, subnet *armnetwork.Subnet, resourceName string, sdkHandler *AzureSDKHandler, additionalAddressSpaces []string) (string, error) {
 	// Set the subnet for the private endpoint
 	privateEndpoint.Properties.Subnet = &armnetwork.Subnet{
 		ID: subnet.ID,
@@ -639,11 +639,52 @@ func (r *azureResourceHandlePrivateEndpoint) createWithNetwork(ctx context.Conte
 		return "", fmt.Errorf("network interface does not have a private IP address")
 	}
 
-	return *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress, nil
+	privateIP := *nic.Properties.IPConfigurations[0].Properties.PrivateIPAddress
+
+	// Get the VNet ID from the subnet to link the DNS zone
+	vnetName := getVnetFromSubnetId(*subnet.ID)
+	vnet, err := sdkHandler.GetVirtualNetwork(ctx, vnetName)
+	if err != nil {
+		utils.Log.Printf("An error occured while getting the virtual network:%+v", err)
+		return "", err
+	}
+
+	// Determine the private DNS zone name based on the GroupID
+	// GroupID indicates the sub-resource type (e.g., "blob", "sqlServer", "vault")
+	groupID := *privateEndpoint.Properties.PrivateLinkServiceConnections[0].Properties.GroupIDs[0]
+	privateDNSZoneName := getPrivateDNSZoneNameForGroupID(groupID)
+
+	// Create or get the private DNS zone
+	dnsZoneParams := getPrivateDNSZoneParams(*privateEndpoint.Location)
+	_, err = sdkHandler.CreatePrivateDNSZone(ctx, privateDNSZoneName, dnsZoneParams)
+	if err != nil {
+		utils.Log.Printf("An error occured while creating the private DNS zone:%+v", err)
+		return "", err
+	}
+
+	// Link the DNS zone to the virtual network
+	vnetLinkName := getDNSZoneLinkName(vnetName)
+	vnetLinkParams := getVirtualNetworkLinkParams(*vnet.ID, *privateEndpoint.Location)
+	_, err = sdkHandler.CreateVirtualNetworkLink(ctx, privateDNSZoneName, vnetLinkName, vnetLinkParams)
+	if err != nil {
+		utils.Log.Printf("An error occured while creating the virtual network link:%+v", err)
+		return "", err
+	}
+
+	// Create a DNS A record for the private endpoint
+	// The record name is typically the private endpoint name
+	recordSetParams := getDnsRecordSetParams([]string{privateIP})
+	_, err = sdkHandler.CreateDnsRecordSet(ctx, privateDNSZoneName, resourceName, recordSetParams)
+	if err != nil {
+		utils.Log.Printf("An error occured while creating the DNS record set:%+v", err)
+		return "", err
+	}
+
+	return privateIP, nil
 }
 
 // Converts the resource description to a private endpoint object
-func (r *azureResourceHandlePrivateEndpoint) fromResourceDecription(resourceDesc []byte) (*armnetwork.PrivateEndpoint, error) {
+func (r *azureResourceHandlerPrivateEndpoint) fromResourceDecription(resourceDesc []byte) (*armnetwork.PrivateEndpoint, error) {
 	privateEndpoint := &armnetwork.PrivateEndpoint{}
 	err := json.Unmarshal(resourceDesc, privateEndpoint)
 	if err != nil {

@@ -90,6 +90,10 @@ func getParagliderResourceName(resourceType string) string {
 	return paragliderPrefix + "-" + resourceType + "-" + uuid.New().String()
 }
 
+func getDNSZoneLinkName(vnetName string) string {
+	return paragliderPrefix + "-dnslink-" + vnetName
+}
+
 // getNSGRuleName returns a name for the Paraglider rule
 func getNSGRuleName(ruleName string) string {
 	return paragliderPrefix + "-" + ruleName

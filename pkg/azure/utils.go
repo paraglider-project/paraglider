@@ -45,7 +45,7 @@ const (
 	virtualNetworkGatewayTypeName = "Microsoft.Network/virtualNetworkGateways"
 	virtualNetworkTypeName        = "Microsoft.Network/virtualNetworks"
 	networkWatcherTypeName        = "Microsoft.Network/networkWatchers"
-	privateEndpointTypeName       = "Microsoft.Network/" // todo @J-467: update this
+	privateEndpointTypeName       = "Microsoft.Network/privateEndpoints"
 )
 
 // Gets subscription ID defined in environment variable
@@ -156,7 +156,7 @@ func TeardownAzureTesting(subscriptionId string, resourceGroupName string, names
 									panic(fmt.Errorf("Unable to get provider resource type: %w", err))
 								}
 								// Store all API versions under this provider namespace to reduce potential duplicate requests
-								for _, resourceType := range resp.Provider.ResourceTypes {
+								for _, resourceType := range resp.ResourceTypes {
 									// Breakdown of the term "resource type" overloading
 									// - *resource.Type = "Microsoft.Compute/virtualMachines"
 									// - providerNamespace = "Microsoft.Compute"
@@ -403,7 +403,7 @@ func RunPingConnectivityCheck(sourceVmResourceID string, destinationIPAddress st
 			return false, err
 		}
 		// TODO @seankimkdy: Unclear why ConnectionStatus returns "Reachable" which is not a valid armnetwork.ConnectionStatus constant (https://github.com/Azure/azure-sdk-for-go/issues/21777)
-		if *resp.ConnectivityInformation.ConnectionStatus == armnetwork.ConnectionStatus("Reachable") {
+		if *resp.ConnectionStatus == armnetwork.ConnectionStatus("Reachable") {
 			return true, nil
 		}
 	}
@@ -578,15 +578,68 @@ func getPrivateEndpointParams(connectionName string, subnetID string, privateLin
 	}
 }
 
+// Returns the private DNS zone name for a given Private Link GroupID
+// See https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-dns
+func getPrivateDNSZoneNameForGroupID(groupID string) string {
+	// Map of common GroupIDs to their corresponding private DNS zone names
+	dnsZoneMap := map[string]string{
+		// Storage
+		"blob":           "privatelink.blob.core.windows.net",
+		"blob_secondary": "privatelink.blob.core.windows.net",
+		"file":           "privatelink.file.core.windows.net",
+		"queue":          "privatelink.queue.core.windows.net",
+		"table":          "privatelink.table.core.windows.net",
+		"web":            "privatelink.web.core.windows.net",
+		"dfs":            "privatelink.dfs.core.windows.net",
+		// SQL Database
+		"sqlServer": "privatelink.database.windows.net",
+		// Cosmos DB
+		"Sql":       "privatelink.documents.azure.com",
+		"MongoDB":   "privatelink.mongo.cosmos.azure.com",
+		"Cassandra": "privatelink.cassandra.cosmos.azure.com",
+		"Gremlin":   "privatelink.gremlin.cosmos.azure.com",
+		"Table":     "privatelink.table.cosmos.azure.com",
+		// Key Vault
+		"vault": "privatelink.vaultcore.azure.net",
+		// Container Registry
+		"registry": "privatelink.azurecr.io",
+		// App Service
+		"sites": "privatelink.azurewebsites.net",
+		// Service Bus (uses "namespace" as GroupID)
+		"namespace": "privatelink.servicebus.windows.net",
+		// Azure Kubernetes Service
+		"management": "privatelink.{region}.azmk8s.io",
+		// Cognitive Services
+		"account": "privatelink.cognitiveservices.azure.com",
+		// Search Service
+		"searchService": "privatelink.search.windows.net",
+		// Azure ML
+		"amlworkspace": "privatelink.api.azureml.ms",
+		// PostgreSQL
+		"postgresqlServer": "privatelink.postgres.database.azure.com",
+		// MySQL
+		"mysqlServer": "privatelink.mysql.database.azure.com",
+		// MariaDB
+		"mariadbServer": "privatelink.mariadb.database.azure.com",
+	}
+
+	if zoneName, exists := dnsZoneMap[groupID]; exists {
+		return zoneName
+	}
+
+	// Default: use a generic format if not found in map
+	return fmt.Sprintf("privatelink.%s.azure.com", groupID)
+}
+
 func getPrivateDNSZoneParams(location string) armprivatedns.PrivateZone {
 	return armprivatedns.PrivateZone{
-		Location: to.Ptr(location),
+		Location: to.Ptr("global"),
 	}
 }
 
 func getVirtualNetworkLinkParams(virtualNetworkID string, location string) armprivatedns.VirtualNetworkLink {
 	return armprivatedns.VirtualNetworkLink{
-		Location: to.Ptr(location),
+		Location: to.Ptr("global"),
 		Properties: &armprivatedns.VirtualNetworkLinkProperties{
 			RegistrationEnabled: to.Ptr(true),
 			VirtualNetwork: &armprivatedns.SubResource{
@@ -595,7 +648,6 @@ func getVirtualNetworkLinkParams(virtualNetworkID string, location string) armpr
 		},
 	}
 }
-
 
 // Returns parameters for A record set with the specified IP address
 func getDnsRecordSetParams(ipAddresses []string) armprivatedns.RecordSet {
