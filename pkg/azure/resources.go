@@ -655,20 +655,27 @@ func (r *azureResourceHandlerPrivateEndpoint) createWithNetwork(ctx context.Cont
 	privateDNSZoneName := getPrivateDNSZoneNameForGroupID(groupID)
 
 	// Create or get the private DNS zone
-	dnsZoneParams := getPrivateDNSZoneParams(*privateEndpoint.Location)
+	dnsZoneParams := getPrivateDNSZoneParams()
 	_, err = sdkHandler.CreatePrivateDNSZone(ctx, privateDNSZoneName, dnsZoneParams)
 	if err != nil {
 		utils.Log.Printf("An error occured while creating the private DNS zone:%+v", err)
 		return "", err
 	}
 
-	// Link the DNS zone to the virtual network
-	vnetLinkName := getDNSZoneLinkName(vnetName)
-	vnetLinkParams := getVirtualNetworkLinkParams(*vnet.ID, *privateEndpoint.Location)
-	_, err = sdkHandler.CreateVirtualNetworkLink(ctx, privateDNSZoneName, vnetLinkName, vnetLinkParams)
+	// Link the DNS zone to the virtual network (skip if already linked)
+	alreadyLinked, err := sdkHandler.VNetAlreadyLinkedToDNSZone(ctx, privateDNSZoneName, *vnet.ID)
 	if err != nil {
-		utils.Log.Printf("An error occured while creating the virtual network link:%+v", err)
+		utils.Log.Printf("An error occured while checking virtual network links:%+v", err)
 		return "", err
+	}
+	if !alreadyLinked {
+		vnetLinkName := getDNSZoneLinkName(vnetName)
+		vnetLinkParams := getVirtualNetworkLinkParams(*vnet.ID)
+		_, err = sdkHandler.CreateVirtualNetworkLink(ctx, privateDNSZoneName, vnetLinkName, vnetLinkParams)
+		if err != nil {
+			utils.Log.Printf("An error occured while creating the virtual network link:%+v", err)
+			return "", err
+		}
 	}
 
 	// Create a DNS A record for the private endpoint

@@ -699,6 +699,26 @@ func (h *AzureSDKHandler) GetVirtualNetworkLink(ctx context.Context, privateZone
 	return &resp.VirtualNetworkLink, nil
 }
 
+// VNetAlreadyLinkedToDNSZone returns true if the given VNet ID is already linked to the DNS zone,
+// regardless of the link name. This is needed because Azure rejects a second link to the same VNet.
+func (h *AzureSDKHandler) VNetAlreadyLinkedToDNSZone(ctx context.Context, privateZoneName, vnetID string) (bool, error) {
+	pager := h.virtualNetworkLinkClient.NewListPager(h.resourceGroupName, privateZoneName, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return false, err
+		}
+		for _, link := range page.Value {
+			if link.Properties != nil && link.Properties.VirtualNetwork != nil && link.Properties.VirtualNetwork.ID != nil {
+				if strings.EqualFold(*link.Properties.VirtualNetwork.ID, vnetID) {
+					return true, nil
+				}
+			}
+		}
+	}
+	return false, nil
+}
+
 func (h *AzureSDKHandler) CreateDnsRecordSet(ctx context.Context, privateZoneName string, recordSetName string, parameters armprivatedns.RecordSet) (*armprivatedns.RecordSet, error) {
 	// Record type "A" maps a name to an IPv4 address
 	resp, err := h.recordSetClient.CreateOrUpdate(ctx, h.resourceGroupName, privateZoneName, armprivatedns.RecordTypeA, recordSetName, parameters, nil)

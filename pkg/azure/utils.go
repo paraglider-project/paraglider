@@ -631,13 +631,13 @@ func getPrivateDNSZoneNameForGroupID(groupID string) string {
 	return fmt.Sprintf("privatelink.%s.azure.com", groupID)
 }
 
-func getPrivateDNSZoneParams(location string) armprivatedns.PrivateZone {
+func getPrivateDNSZoneParams() armprivatedns.PrivateZone {
 	return armprivatedns.PrivateZone{
-		Location: to.Ptr("global"),
+		Location: to.Ptr("global"), // Normal regions are not accepted for private DNS zones
 	}
 }
 
-func getVirtualNetworkLinkParams(virtualNetworkID string, location string) armprivatedns.VirtualNetworkLink {
+func getVirtualNetworkLinkParams(virtualNetworkID string) armprivatedns.VirtualNetworkLink {
 	return armprivatedns.VirtualNetworkLink{
 		Location: to.Ptr("global"),
 		Properties: &armprivatedns.VirtualNetworkLinkProperties{

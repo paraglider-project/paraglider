@@ -31,6 +31,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	paragliderpb "github.com/paraglider-project/paraglider/pkg/paragliderpb"
 )
@@ -65,9 +66,11 @@ const (
 	invalidVmName                            = "invalid-vm-name"
 	validVmName                              = "valid-vm-name"
 	validResourceName                        = "valid-resource-name"
+	validPrivateEndpointName                 = "valid-private-endpoint-name"
 	invalidVmURI                             = uriPrefix + "Microsoft.Compute/virtualMachines/" + invalidVmName
 	vmURI                                    = uriPrefix + "Microsoft.Compute/virtualMachines/" + validVmName
 	aksURI                                   = uriPrefix + "Microsoft.ContainerService/managedClusters/" + validClusterName
+	privateEndpointURI                       = uriPrefix + "Microsoft.Network/privateEndpoints/" + validPrivateEndpointName
 )
 
 func sendResponse(w http.ResponseWriter, resp any) {
@@ -98,7 +101,8 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 		// NSGs
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/networkSecurityGroups/"):
 			if strings.Contains(path, "/securityRules") {
-				if r.Method == "PUT" {
+				switch r.Method {
+				case "PUT":
 					rule := &armnetwork.SecurityRule{}
 					err = json.Unmarshal(body, rule)
 					if err != nil {
@@ -110,7 +114,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					}
 					sendResponse(w, rule)
 					return
-				} else if r.Method == "DELETE" {
+				case "DELETE":
 					w.WriteHeader(http.StatusOK)
 					return
 				}
@@ -344,6 +348,44 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponse(w, fakeServerState.cluster) // Return server state cluster so that it can have server-side fields in it
 				return
 			}
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/privateEndpoints/"):
+			if r.Method == "GET" {
+				if fakeServerState.privateEndpoint == nil {
+					http.Error(w, "private endpoint not found", http.StatusNotFound)
+					return
+				}
+				sendResponse(w, fakeServerState.privateEndpoint)
+				return
+			}
+			if r.Method == "PUT" {
+				privateEndpoint := &armnetwork.PrivateEndpoint{}
+				err = json.Unmarshal(body, privateEndpoint)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("unable to unmarshal request: %s", err.Error()), http.StatusBadRequest)
+					return
+				}
+				sendResponse(w, fakeServerState.privateEndpoint) // Return server state PE so that it can have server-side fields in it
+				return
+			}
+		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/privateDnsZones/"):
+			if strings.Contains(path, "/virtualNetworkLinks") && r.Method == "GET" {
+				links := fakeServerState.privateDNSZoneVNetLinks
+				if links == nil {
+					links = []*armprivatedns.VirtualNetworkLink{}
+				}
+				sendResponse(w, armprivatedns.VirtualNetworkLinkListResult{Value: links})
+				return
+			}
+			// Handle DNS zone, virtual network link, and record set PUT operations
+			if r.Method == "PUT" {
+				w.WriteHeader(http.StatusOK)
+				sendResponse(w, map[string]interface{}{
+					"id":       path,
+					"name":     "fake-dns-zone",
+					"location": "global",
+				})
+				return
+			}
 		}
 		fmt.Printf("unsupported request: %s %s\n", r.Method, path)
 	})
@@ -351,19 +393,21 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 
 // Struct to hold state for fake server
 type fakeServerState struct {
-	subId         string
-	rgName        string
-	nsg           *armnetwork.SecurityGroup
-	vm            *armcompute.VirtualMachine
-	nic           *armnetwork.Interface
-	vnet          *armnetwork.VirtualNetwork
-	publicIP      *armnetwork.PublicIPAddress
-	subnet        *armnetwork.Subnet
-	vpnGw         *armnetwork.VirtualNetworkGateway
-	localGw       *armnetwork.LocalNetworkGateway
-	vpnConnection *armnetwork.VirtualNetworkGatewayConnection
-	vnetPeering   *armnetwork.VirtualNetworkPeering
-	cluster       *armcontainerservice.ManagedCluster
+	subId                   string
+	rgName                  string
+	nsg                     *armnetwork.SecurityGroup
+	vm                      *armcompute.VirtualMachine
+	nic                     *armnetwork.Interface
+	vnet                    *armnetwork.VirtualNetwork
+	publicIP                *armnetwork.PublicIPAddress
+	subnet                  *armnetwork.Subnet
+	vpnGw                   *armnetwork.VirtualNetworkGateway
+	localGw                 *armnetwork.LocalNetworkGateway
+	vpnConnection           *armnetwork.VirtualNetworkGatewayConnection
+	vnetPeering             *armnetwork.VirtualNetworkPeering
+	cluster                 *armcontainerservice.ManagedCluster
+	privateEndpoint         *armnetwork.PrivateEndpoint
+	privateDNSZoneVNetLinks []*armprivatedns.VirtualNetworkLink
 }
 
 // Sets up fake http server
@@ -753,4 +797,72 @@ func getFakeVnetInLocation(location *string, addressSpace string) *armnetwork.Vi
 			},
 		},
 	}
+}
+
+func getFakePrivateEndpoint(networkInfo bool) *armnetwork.PrivateEndpoint {
+	pe := &armnetwork.PrivateEndpoint{
+		Name:     to.Ptr(validPrivateEndpointName),
+		ID:       to.Ptr(privateEndpointURI),
+		Location: to.Ptr(testLocation),
+		Properties: &armnetwork.PrivateEndpointProperties{
+			PrivateLinkServiceConnections: []*armnetwork.PrivateLinkServiceConnection{
+				{
+					Name: to.Ptr("test-connection"),
+					Properties: &armnetwork.PrivateLinkServiceConnectionProperties{
+						PrivateLinkServiceID: to.Ptr("/subscriptions/test/resourceGroups/test/providers/Microsoft.Storage/storageAccounts/testaccount"),
+						GroupIDs:             []*string{to.Ptr("blob")},
+					},
+				},
+			},
+		},
+	}
+
+	if networkInfo {
+		pe.Properties.NetworkInterfaces = []*armnetwork.Interface{
+			{
+				ID: to.Ptr(validNicId),
+			},
+		}
+	}
+
+	return pe
+}
+
+func getFakePrivateEndpointGenericResource() armresources.GenericResource {
+	pe := getFakePrivateEndpoint(true)
+	return armresources.GenericResource{
+		ID:       pe.ID,
+		Name:     pe.Name,
+		Location: pe.Location,
+		Properties: map[string]interface{}{
+			"networkInterfaces": []interface{}{
+				map[string]interface{}{
+					"id": validNicId,
+				},
+			},
+		},
+	}
+}
+
+func getFakeVNetLink(vnetID string) *armprivatedns.VirtualNetworkLink {
+	return &armprivatedns.VirtualNetworkLink{
+		Name:     to.Ptr("existing-vnet-link"),
+		Location: to.Ptr("global"),
+		Properties: &armprivatedns.VirtualNetworkLinkProperties{
+			VirtualNetwork:      &armprivatedns.SubResource{ID: to.Ptr(vnetID)},
+			RegistrationEnabled: to.Ptr(false),
+		},
+	}
+}
+
+func getFakePrivateEndpointResourceDescription(pe *armnetwork.PrivateEndpoint) (*paragliderpb.CreateResourceRequest, error) {
+	peJson, err := json.Marshal(pe)
+	if err != nil {
+		return nil, err
+	}
+	return &paragliderpb.CreateResourceRequest{
+		Deployment:  &paragliderpb.ParagliderDeployment{Id: deploymentId, Namespace: namespace},
+		Name:        *pe.Name,
+		Description: peJson,
+	}, nil
 }

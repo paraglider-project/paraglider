@@ -24,6 +24,8 @@ import (
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,14 +33,15 @@ import (
 
 func setupFakeServerWithState(t *testing.T) (*httptest.Server, *fakeServerState) {
 	serverState := &fakeServerState{
-		subId:   subID,
-		rgName:  rgName,
-		nsg:     getFakeNSG(),
-		vnet:    getFakeParagliderVirtualNetwork(),
-		nic:     getFakeParagliderInterface(),
-		subnet:  getFakeParagliderSubnet(),
-		vm:      to.Ptr(getFakeVirtualMachine(true)),
-		cluster: to.Ptr(getFakeCluster(true)),
+		subId:           subID,
+		rgName:          rgName,
+		nsg:             getFakeNSG(),
+		vnet:            getFakeParagliderVirtualNetwork(),
+		nic:             getFakeParagliderInterface(),
+		subnet:          getFakeParagliderSubnet(),
+		vm:              to.Ptr(getFakeVirtualMachine(true)),
+		cluster:         to.Ptr(getFakeCluster(true)),
+		privateEndpoint: getFakePrivateEndpoint(true),
 	}
 
 	fakeServer, _ := SetupFakeAzureServer(t, serverState)
@@ -137,6 +140,17 @@ func TestGetNetworkInfoFromResource(t *testing.T) {
 	assert.Equal(t, aksInfo.Address, *getFakeParagliderSubnet().Properties.AddressPrefix)
 	assert.Equal(t, aksInfo.Location, *serverState.cluster.Location)
 	assert.Equal(t, *aksInfo.NSG.ID, *getFakeNSG().ID)
+
+	// Test for Private Endpoint
+	serverState.privateEndpoint = getFakePrivateEndpoint(true)
+	_ = handler.InitializeClients(nil)
+	peInfo, err := GetNetworkInfoFromResource(context.Background(), handler, privateEndpointURI)
+
+	require.NoError(t, err)
+	assert.Equal(t, peInfo.SubnetID, *getFakeParagliderSubnet().ID)
+	assert.Equal(t, peInfo.Address, *getFakeParagliderInterface().Properties.IPConfigurations[0].Properties.PrivateIPAddress)
+	assert.Equal(t, peInfo.Location, *serverState.privateEndpoint.Location)
+	assert.Equal(t, *peInfo.NSG.ID, *getFakeNSG().ID)
 }
 
 func TestValidateResourceExists(t *testing.T) {
@@ -158,6 +172,12 @@ func TestValidateResourceExists(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, existingCluster)
 	assert.Equal(t, aksURI, *existingCluster.ID)
+
+	// Test for Private Endpoint
+	existingPE, err := ValidateResourceExists(context.Background(), handler, privateEndpointURI)
+	require.NoError(t, err)
+	require.NotNil(t, existingPE)
+	assert.Equal(t, privateEndpointURI, *existingPE.ID)
 }
 
 func TestReadAndProvisionResource(t *testing.T) {
@@ -190,6 +210,16 @@ func TestReadAndProvisionResource(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, ip, *getFakeParagliderSubnet().Properties.AddressPrefix)
+
+	// Test for Private Endpoint
+	privateEndpoint := getFakePrivateEndpoint(false)
+	resourceDescriptionPE, err := getFakePrivateEndpointResourceDescription(privateEndpoint)
+	require.NoError(t, err)
+	resourceInfo = getFakeResourceInfo(*privateEndpoint.Name)
+	ip, err = ReadAndProvisionResource(context.Background(), resourceDescriptionPE, subnet, &resourceInfo, handler, []string{})
+
+	require.NoError(t, err)
+	assert.Equal(t, ip, *getFakeParagliderInterface().Properties.IPConfigurations[0].Properties.PrivateIPAddress)
 }
 
 func TestGetResourceInfoFromResourceDesc(t *testing.T) {
@@ -216,6 +246,17 @@ func TestGetResourceInfoFromResourceDesc(t *testing.T) {
 	assert.Equal(t, resourceInfo.ResourceName, *cluster.Name)
 	assert.Equal(t, resourceInfo.ResourceID, *cluster.ID)
 	assert.Equal(t, resourceInfo.Location, *cluster.Location)
+
+	// Test for Private Endpoint
+	privateEndpoint := getFakePrivateEndpoint(false)
+	resourceDescriptionPE, err := getFakePrivateEndpointResourceDescription(privateEndpoint)
+	require.NoError(t, err)
+	resourceInfo, err = GetResourceInfoFromResourceDesc(context.Background(), resourceDescriptionPE)
+
+	require.NoError(t, err)
+	assert.Equal(t, resourceInfo.ResourceName, *privateEndpoint.Name)
+	assert.Equal(t, resourceInfo.ResourceID, privateEndpointURI)
+	assert.Equal(t, resourceInfo.Location, *privateEndpoint.Location)
 }
 
 func TestAzureResourceHandlerVMGetResourceInfoFromDescription(t *testing.T) {
@@ -415,4 +456,183 @@ func TestAzureResourceHandlerAKSReadAndProvisionResource(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, ip, *getFakeParagliderSubnet().Properties.AddressPrefix)
+}
+
+func TestAzurePrivateEndpointGetNetworkInfo(t *testing.T) {
+	serverState := &fakeServerState{
+		subId:           subID,
+		rgName:          rgName,
+		privateEndpoint: getFakePrivateEndpoint(true),
+		nsg:             getFakeNSG(),
+		nic:             getFakeParagliderInterface(),
+		subnet:          getFakeParagliderSubnet(),
+	}
+	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
+
+	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
+
+	peHandler := &azureResourceHandlerPrivateEndpoint{}
+	resource := getFakePrivateEndpointGenericResource()
+
+	netInfo, err := peHandler.getNetworkInfo(context.Background(), &resource, handler)
+
+	require.NoError(t, err)
+	assert.Equal(t, netInfo.SubnetID, *getFakeParagliderSubnet().ID)
+	assert.Equal(t, netInfo.Address, *getFakeParagliderInterface().Properties.IPConfigurations[0].Properties.PrivateIPAddress)
+	assert.Equal(t, netInfo.Location, *serverState.privateEndpoint.Location)
+	assert.Equal(t, *netInfo.NSG.ID, *getFakeNSG().ID)
+}
+
+func TestAzurePrivateEndpointFromResourceDecription(t *testing.T) {
+	peHandler := &azureResourceHandlerPrivateEndpoint{}
+
+	t.Run("Valid Private Endpoint", func(t *testing.T) {
+		fakePrivateEndpoint := getFakePrivateEndpoint(false)
+		resourceDescription, err := getFakePrivateEndpointResourceDescription(fakePrivateEndpoint)
+		require.NoError(t, err)
+
+		pe, err := peHandler.fromResourceDecription(resourceDescription.Description)
+		require.NoError(t, err)
+		assert.NotNil(t, pe)
+		assert.Equal(t, *fakePrivateEndpoint.Location, *pe.Location)
+	})
+
+	t.Run("Invalid - Already has subnet", func(t *testing.T) {
+		fakePrivateEndpoint := getFakePrivateEndpoint(false)
+		fakePrivateEndpoint.Properties.Subnet = &armnetwork.Subnet{ID: to.Ptr("some-subnet-id")}
+
+		resourceDescription, err := getFakePrivateEndpointResourceDescription(fakePrivateEndpoint)
+		require.NoError(t, err)
+
+		_, err = peHandler.fromResourceDecription(resourceDescription.Description)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot contain subnet")
+	})
+
+	t.Run("Invalid - No private link service connections", func(t *testing.T) {
+		fakePrivateEndpoint := getFakePrivateEndpoint(false)
+		fakePrivateEndpoint.Properties.PrivateLinkServiceConnections = []*armnetwork.PrivateLinkServiceConnection{}
+
+		resourceDescription, err := getFakePrivateEndpointResourceDescription(fakePrivateEndpoint)
+		require.NoError(t, err)
+
+		_, err = peHandler.fromResourceDecription(resourceDescription.Description)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must contain private link service connections")
+	})
+}
+
+func TestAzurePrivateEndpointCreateWithNetwork(t *testing.T) {
+	subnet := getFakeParagliderSubnet()
+	privateEndpoint := getFakePrivateEndpoint(false)
+	expectedIP := *getFakeParagliderInterface().Properties.IPConfigurations[0].Properties.PrivateIPAddress
+
+	newHandler := func(t *testing.T, state *fakeServerState) *AzureSDKHandler {
+		fakeServer, _ := SetupFakeAzureServer(t, state)
+		t.Cleanup(func() { Teardown(fakeServer) })
+		h := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+		require.NoError(t, h.InitializeClients(nil))
+		return h
+	}
+
+	t.Run("No existing DNS infra", func(t *testing.T) {
+		handler := newHandler(t, &fakeServerState{
+			subId:           subID,
+			rgName:          rgName,
+			privateEndpoint: getFakePrivateEndpoint(true),
+			nic:             getFakeParagliderInterface(),
+			vnet:            getFakeParagliderVirtualNetwork(),
+			subnet:          getFakeParagliderSubnet(),
+		})
+		peHandler := &azureResourceHandlerPrivateEndpoint{}
+		ip, err := peHandler.createWithNetwork(context.Background(), getFakePrivateEndpoint(false), subnet, *privateEndpoint.Name, handler, []string{})
+		require.NoError(t, err)
+		assert.Equal(t, expectedIP, ip)
+	})
+
+	t.Run("DNS zone exists, no VNet link", func(t *testing.T) {
+		// DNS zone exists but has no VNet links yet; link should be created
+		handler := newHandler(t, &fakeServerState{
+			subId:                   subID,
+			rgName:                  rgName,
+			privateEndpoint:         getFakePrivateEndpoint(true),
+			nic:                     getFakeParagliderInterface(),
+			vnet:                    getFakeParagliderVirtualNetwork(),
+			subnet:                  getFakeParagliderSubnet(),
+			privateDNSZoneVNetLinks: []*armprivatedns.VirtualNetworkLink{},
+		})
+		peHandler := &azureResourceHandlerPrivateEndpoint{}
+		ip, err := peHandler.createWithNetwork(context.Background(), getFakePrivateEndpoint(false), subnet, *privateEndpoint.Name, handler, []string{})
+		require.NoError(t, err)
+		assert.Equal(t, expectedIP, ip)
+	})
+
+	t.Run("DNS zone and VNet link already exist", func(t *testing.T) {
+		// Both DNS zone and VNet link exist (possibly created outside Paraglider);
+		// link creation should be skipped without error
+		handler := newHandler(t, &fakeServerState{
+			subId:           subID,
+			rgName:          rgName,
+			privateEndpoint: getFakePrivateEndpoint(true),
+			nic:             getFakeParagliderInterface(),
+			vnet:            getFakeParagliderVirtualNetwork(),
+			subnet:          getFakeParagliderSubnet(),
+			privateDNSZoneVNetLinks: []*armprivatedns.VirtualNetworkLink{
+				getFakeVNetLink(validVnetId),
+			},
+		})
+		peHandler := &azureResourceHandlerPrivateEndpoint{}
+		ip, err := peHandler.createWithNetwork(context.Background(), getFakePrivateEndpoint(false), subnet, *privateEndpoint.Name, handler, []string{})
+		require.NoError(t, err)
+		assert.Equal(t, expectedIP, ip)
+	})
+}
+
+func TestAzureResourceHandlerPrivateEndpointGetResourceInfoFromDescription(t *testing.T) {
+	privateEndpoint := getFakePrivateEndpoint(false)
+
+	peHandler := &azureResourceHandlerPrivateEndpoint{}
+	resourceDescription, err := getFakePrivateEndpointResourceDescription(privateEndpoint)
+	require.NoError(t, err)
+
+	resourceInfo, err := peHandler.getResourceInfoFromDescription(context.Background(), resourceDescription)
+
+	require.NoError(t, err)
+	assert.Equal(t, resourceInfo.ResourceName, *privateEndpoint.Name)
+	assert.Equal(t, resourceInfo.ResourceID, privateEndpointURI)
+	assert.Equal(t, resourceInfo.Location, *privateEndpoint.Location)
+	assert.False(t, resourceInfo.RequiresSubnet)
+	assert.Equal(t, 0, resourceInfo.NumAdditionalAddressSpaces)
+}
+
+func TestAzureResourceHandlerPrivateEndpointReadAndProvisionResource(t *testing.T) {
+	serverState := &fakeServerState{
+		subId:           subID,
+		rgName:          rgName,
+		privateEndpoint: getFakePrivateEndpoint(true),
+		nic:             getFakeParagliderInterface(),
+		vnet:            getFakeParagliderVirtualNetwork(),
+	}
+	fakeServer, _ := SetupFakeAzureServer(t, serverState)
+	defer Teardown(fakeServer)
+
+	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
+
+	privateEndpoint := getFakePrivateEndpoint(false)
+
+	peHandler := &azureResourceHandlerPrivateEndpoint{}
+	resourceDescription, err := getFakePrivateEndpointResourceDescription(privateEndpoint)
+	require.NoError(t, err)
+
+	resourceInfo := getFakeResourceInfo(*privateEndpoint.Name)
+	subnet := getFakeParagliderSubnet()
+	ip, err := peHandler.readAndProvisionResource(context.Background(), resourceDescription, subnet, &resourceInfo, handler, []string{})
+
+	require.NoError(t, err)
+	assert.Equal(t, ip, *getFakeParagliderInterface().Properties.IPConfigurations[0].Properties.PrivateIPAddress)
 }
