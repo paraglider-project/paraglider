@@ -12,7 +12,7 @@ and guides for developers responsible for preparing upcoming stable releases.
 ## Active Development
 
 Active development is happening on the `main` branch and the target is to
-release a new version approximately every 6 months.
+release a new version approximately once a year.
 
 ## Release Tracking
 
