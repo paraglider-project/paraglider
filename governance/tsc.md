@@ -15,9 +15,6 @@ UC Berkeley
 **Deepak Bansal** </br>
 Microsoft
 
-**Pravein Govindan Kannan** </br>
-IBM Research
-
 **Ashok Narayanan** </br>
 Snyk
 
