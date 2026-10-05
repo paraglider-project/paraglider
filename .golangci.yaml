@@ -16,10 +16,10 @@ run:
     - integration
 
 linters:
-  # set to true to run only fast linters (e.g., for pre-commit)
-  fast: false
-
-  disable-all: true
+  default: none
+  settings:
+    goheader:
+      template-path: build/header.tmpl
   enable:
     - errcheck
     - govet
@@ -32,10 +32,6 @@ formatters:
   enable:
     - gofumpt
     - goimports
-
-linters-settings:
-  goheader:
-    template-path: build/header.tmpl
 
 output:
   sort-order:
