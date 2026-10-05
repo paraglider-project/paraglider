@@ -48,7 +48,6 @@ func getFakeInstanceResourceDescription() (*paragliderpb.CreateResourceRequest, 
 
 func getFakeClusterResourceDescription() (*paragliderpb.CreateResourceRequest, *containerpb.CreateClusterRequest, error) {
 	clusterRequest := &containerpb.CreateClusterRequest{
-		Zone:    fakeZone,
 		Parent:  fmt.Sprintf("projects/%s/locations/%s", fakeProject, fakeZone),
 		Cluster: getFakeCluster(false),
 	}

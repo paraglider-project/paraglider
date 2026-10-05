@@ -117,7 +117,7 @@ func (c *CloudClient) CreateRouteBasedVPN(namespace string) ([]string, error) {
 func (c *CloudClient) pollVPNStatus(vpnId string, readyOrDeleted bool) error {
 	attempts := 40
 	sleepDuration := 10 * time.Second
-	utils.Log.Printf("\nPolling VPN status. Process might take up to %v seconds", attempts*(int(sleepDuration/time.Second)))
+	utils.Log.Printf("\nPolling VPN status. Process might take up to %v seconds", attempts*int(sleepDuration/time.Second))
 	for attempt := 1; attempt <= attempts; attempt += 1 {
 		vpnData, _, err := c.vpcService.GetVPNGateway(c.vpcService.NewGetVPNGatewayOptions(
 			vpnId,
