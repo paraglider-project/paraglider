@@ -36,9 +36,8 @@ func (c *CloudClient) attachTag(CRN *string, tags []string) error {
 		ResourceType: &userTypeTag,
 	}
 
-	attachTagOptions := c.taggingService.NewAttachTagOptions(
-		[]globaltaggingv1.Resource{*resourceModel},
-	)
+	attachTagOptions := c.taggingService.NewAttachTagOptions()
+	attachTagOptions.SetResources([]globaltaggingv1.Resource{*resourceModel})
 	attachTagOptions.SetTagNames(tags)
 
 	// attach tags with retires.
