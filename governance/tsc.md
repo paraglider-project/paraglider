@@ -24,8 +24,5 @@ Snyk
 **Anees Shaikh** </br>
 Google
 
-**Sean Kim** </br>
-Independent
-
 ### Contact Info
 You can contact the TSC at paraglider-tsc [at] lists.paragliderproject.io.
