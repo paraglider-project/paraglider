@@ -18,9 +18,6 @@ Microsoft
 **Pravein Govindan Kannan** </br>
 IBM Research
 
-**Ashok Narayanan** </br>
-Snyk
-
 **Anees Shaikh** </br>
 Google
 
