@@ -26,10 +26,10 @@ import (
 )
 
 func TestGetNextAvailabilityPriority(t *testing.T) {
-	var reservedPriorities = make(map[int32]*armnetwork.SecurityRule)
+	reservedPriorities := make(map[int32]*armnetwork.SecurityRule)
 	var start int32 = minPriority
 	var end int32 = maxPriority
-	var lowestPriority bool = true
+	lowestPriority := true
 	var priority int32
 
 	t.Run("TestGetNextLowestAvailabilityPriority", func(t *testing.T) {

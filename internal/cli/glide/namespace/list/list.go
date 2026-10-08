@@ -56,7 +56,6 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	namespaces, err := c.ListNamespaces()
-
 	if err != nil {
 		return err
 	}

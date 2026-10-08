@@ -241,7 +241,7 @@ func TestResolveTag(t *testing.T) {
 	resp, err := server.ResolveTag(context.Background(), &tagservicepb.ResolveTagRequest{TagName: mapping.Name})
 	assert.Nil(t, err)
 	assert.Equal(t, resp.Tags[0], childMapping)
-	assert.Equal(t, *(resp.Tags[1].Ip), childIp)
+	assert.Equal(t, *resp.Tags[1].Ip, childIp)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
@@ -264,7 +264,7 @@ func TestResolveTagMemberNotPresent(t *testing.T) {
 	resp, err := server.ResolveTag(context.Background(), &tagservicepb.ResolveTagRequest{TagName: mapping.Name})
 	assert.Nil(t, err)
 	assert.Equal(t, resp.Tags[0], childMapping)
-	assert.Equal(t, *(resp.Tags[1].Ip), childIp)
+	assert.Equal(t, *resp.Tags[1].Ip, childIp)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)

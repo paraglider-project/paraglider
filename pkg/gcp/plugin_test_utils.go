@@ -40,7 +40,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Fake project and resource
+// Fake project and resource.
 const (
 	fakeProject              = "paraglider-fake"
 	fakeRegion               = "us-fake1"
@@ -59,18 +59,18 @@ const (
 
 	fakeIpAddress = "1.1.1.1"
 
-	// Missing resources not registered in fake server
+	// Missing resources not registered in fake server.
 	fakeMissingInstance   = "vm-paraglider-missing"
 	fakeMissingResourceId = computeUrlPrefix + "projects/" + fakeProject + "/zones/" + fakeZone + "/instances/" + fakeMissingInstance
 
-	// Overarching dummy operation name
+	// Overarching dummy operation name.
 	fakeOperation = "operation-fake"
 )
 
-// Fake tag for fake resource
+// Fake tag for fake resource.
 var fakeNetworkTag = getNetworkTag(fakeNamespace, instanceTypeName, convertIntIdToString(fakeInstanceId))
 
-// Portions of GCP API URLs
+// Portions of GCP API URLs.
 var (
 	urlProject  = "/compute/v1/projects/" + fakeProject
 	urlZone     = "/zones/" + fakeZone
@@ -78,7 +78,7 @@ var (
 	urlInstance = "/instances/" + fakeInstanceName
 )
 
-// Fake firewalls and permitlists
+// Fake firewalls and permitlists.
 var (
 	fakePermitListRule1 = &paragliderpb.PermitListRule{
 		Name:      "rule-name1",
@@ -126,8 +126,10 @@ var (
 	}
 )
 
-// Fake instance
-func getFakeInstance(includeNetwork bool) *computepb.Instance {
+// Fake instance.
+func getFakeInstance(
+	includeNetwork bool,
+) *computepb.Instance {
 	instance := &computepb.Instance{
 		Id:   proto.Uint64(fakeInstanceId),
 		Name: proto.String(fakeInstanceName),
@@ -145,8 +147,10 @@ func getFakeInstance(includeNetwork bool) *computepb.Instance {
 	return instance
 }
 
-// Fake cluster
-func getFakeCluster(includeNetwork bool) *containerpb.Cluster {
+// Fake cluster.
+func getFakeCluster(
+	includeNetwork bool,
+) *containerpb.Cluster {
 	cluster := &containerpb.Cluster{
 		Name: fakeClusterName,
 		Id:   fakeClusterId,
@@ -166,9 +170,12 @@ func getFakeCluster(includeNetwork bool) *containerpb.Cluster {
 	return cluster
 }
 
-func getFakeAddress(isGlobal bool) *computepb.Address {
+func getFakeAddress(
+	isGlobal bool,
+) *computepb.Address {
 	addr := &computepb.Address{
-		Address: proto.String(fakeIpAddress)}
+		Address: proto.String(fakeIpAddress),
+	}
 	if isGlobal {
 		addr.SelfLink = proto.String(computeUrlPrefix + "projects/" + fakeProject + "/global/addresses/fakeAddress")
 	} else {
@@ -185,7 +192,9 @@ func getFakeForwardingRule() *computepb.ForwardingRule {
 	}
 }
 
-func sendResponse(w http.ResponseWriter, resp any) {
+func sendResponse(
+	w http.ResponseWriter, resp any,
+) {
 	b, err := json.Marshal(resp)
 	if err != nil {
 		http.Error(w, "unable to marshal request: "+err.Error(), http.StatusBadRequest)
@@ -197,15 +206,21 @@ func sendResponse(w http.ResponseWriter, resp any) {
 	}
 }
 
-func sendResponseFakeOperation(w http.ResponseWriter) {
+func sendResponseFakeOperation(
+	w http.ResponseWriter,
+) {
 	sendResponse(w, &computepb.Operation{Name: proto.String(fakeOperation)})
 }
 
-func sendResponseDoneOperation(w http.ResponseWriter) {
+func sendResponseDoneOperation(
+	w http.ResponseWriter,
+) {
 	sendResponse(w, &computepb.Operation{Status: computepb.Operation_DONE.Enum()})
 }
 
-func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
+func getFakeServerHandler(
+	fakeServerState *fakeServerState,
+) http.HandlerFunc {
 	// The handler should be written as minimally as possible to minimize maintenance overhead. Modifying requests (e.g. POST, DELETE)
 	// should generally not do anything other than return the operation response. Instead, initialize the fakeServerState as necessary.
 	// Keep in mind these unit tests should rely as little as possible on the functionality of this fake server.
@@ -219,7 +234,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 		switch {
 		// Instances
 		case path == urlProject+urlZone+urlInstance+"/getEffectiveFirewalls":
-			if r.Method == "GET" {
+			if r.Method == http.MethodGet {
 				firewalls := make([]*computepb.Firewall, 0, len(fakeServerState.firewallMap))
 				for _, value := range fakeServerState.firewallMap {
 					firewalls = append(firewalls, value)
@@ -231,29 +246,30 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				return
 			}
 		case path == urlProject+urlZone+urlInstance+"/setTags":
-			if r.Method == "POST" {
+			if r.Method == http.MethodPost {
 				sendResponseFakeOperation(w)
 				return
 			}
 		case path == urlProject+urlZone+urlInstance:
-			if r.Method == "GET" {
+			if r.Method == http.MethodGet {
 				sendResponse(w, fakeServerState.instance)
 				return
 			}
 		case path == urlProject+urlZone+"/instances":
-			if r.Method == "POST" {
+			if r.Method == http.MethodPost {
 				sendResponseFakeOperation(w)
 				return
 			}
 		// Firewalls
 		case strings.HasPrefix(path, urlProject+"/global/firewalls"):
-			if r.Method == "POST" {
+			switch r.Method {
+			case http.MethodPost:
 				sendResponseFakeOperation(w)
 				return
-			} else if r.Method == "DELETE" {
+			case http.MethodDelete:
 				sendResponseFakeOperation(w)
 				return
-			} else if r.Method == "PATCH" {
+			case http.MethodPatch:
 				req := &computepb.Firewall{}
 				err := json.Unmarshal(body, req)
 				if err != nil {
@@ -266,7 +282,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				}
 				sendResponseFakeOperation(w)
 				return
-			} else if r.Method == "GET" {
+			case http.MethodGet:
 				firewalls := make([]*computepb.Firewall, 0, len(fakeServerState.firewallMap))
 				for _, value := range fakeServerState.firewallMap {
 					firewalls = append(firewalls, value)
@@ -277,61 +293,66 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// Networks
 		case strings.HasPrefix(path, urlProject+"/global/networks"):
-			if r.Method == "GET" {
+			switch r.Method {
+			case http.MethodGet:
 				if fakeServerState.network != nil {
 					sendResponse(w, fakeServerState.network)
 				} else {
 					http.Error(w, "no network found", http.StatusNotFound)
 				}
 				return
-			} else if r.Method == "POST" {
+			case http.MethodPost:
 				sendResponseFakeOperation(w)
 				return
 			}
 		case strings.HasPrefix(path, urlProject+urlRegion+"/subnetworks"):
-			if r.Method == "GET" {
+			switch r.Method {
+			case http.MethodGet:
 				if fakeServerState.subnetwork != nil {
 					sendResponse(w, fakeServerState.subnetwork)
 				} else {
 					http.Error(w, "no subnetwork found", http.StatusNotFound)
 				}
 				return
-			} else if r.Method == "POST" {
+			case http.MethodPost:
 				sendResponseFakeOperation(w)
 				return
 			}
 		// Addresses (Regional)
 		case strings.HasPrefix(path, urlProject+urlRegion+"/addresses"):
-			if r.Method == "GET" {
+			switch r.Method {
+			case http.MethodGet:
 				if fakeServerState.address != nil {
 					sendResponse(w, fakeServerState.address)
 				} else {
 					http.Error(w, "no address found", http.StatusNotFound)
 				}
 				return
-			} else if r.Method == "POST" {
+			case http.MethodPost:
 				sendResponseFakeOperation(w)
 				return
 			}
 		// Addresses (Global)
 		case strings.HasPrefix(path, urlProject+"/global/addresses"):
-			if r.Method == "GET" {
+			switch r.Method {
+			case http.MethodGet:
 				if fakeServerState.address != nil {
 					sendResponse(w, fakeServerState.address)
 				} else {
 					http.Error(w, "no address found", http.StatusNotFound)
 				}
 				return
-			} else if r.Method == "POST" {
+			case http.MethodPost:
 				sendResponseFakeOperation(w)
 				return
 			}
 		// Forwarding Rules (Regional)
 		case strings.HasPrefix(path, urlProject+urlRegion+"/forwardingRules"):
-			if r.Method == "POST" {
+			switch r.Method {
+			case http.MethodPost:
 				sendResponseFakeOperation(w)
 				return
-			} else if r.Method == "GET" {
+			case http.MethodGet:
 				if fakeServerState.forwardingRule != nil {
 					sendResponse(w, fakeServerState.forwardingRule)
 				} else {
@@ -341,10 +362,11 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// Forwarding Rules (Global)
 		case strings.HasPrefix(path, urlProject+"/global/forwardingRules"):
-			if r.Method == "POST" {
+			switch r.Method {
+			case http.MethodPost:
 				sendResponseFakeOperation(w)
 				return
-			} else if r.Method == "GET" {
+			case http.MethodGet:
 				if fakeServerState.forwardingRule != nil {
 					sendResponse(w, fakeServerState.forwardingRule)
 				} else {
@@ -354,35 +376,37 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// VPN Gateways
 		case strings.HasPrefix(path, urlProject+urlRegion+"/vpnGateways"):
-			if r.Method == "GET" {
+			switch r.Method {
+			case http.MethodGet:
 				if fakeServerState.vpnGateway != nil {
 					sendResponse(w, fakeServerState.vpnGateway)
 				} else {
 					http.Error(w, "no vpn gateway found", http.StatusNotFound)
 				}
 				return
-			} else if r.Method == "POST" {
+			case http.MethodPost:
 				sendResponseFakeOperation(w)
 				return
 			}
 		// External VPN Gateways
 		case strings.HasPrefix(path, urlProject+"/global/externalVpnGateways"):
-			if r.Method == "POST" {
+			if r.Method == http.MethodPost {
 				sendResponseFakeOperation(w)
 				return
 			}
 		// VPN Tunnels
 		case strings.HasPrefix(path, urlProject+urlRegion+"/vpnTunnels"):
-			if r.Method == "POST" {
+			if r.Method == http.MethodPost {
 				sendResponseFakeOperation(w)
 				return
 			}
 		// Routers
 		case strings.HasPrefix(path, urlProject+urlRegion+"/routers"):
-			if r.Method == "POST" || r.Method == "PATCH" {
+			switch r.Method {
+			case http.MethodPost, http.MethodPatch:
 				sendResponseFakeOperation(w)
 				return
-			} else if r.Method == "GET" {
+			case http.MethodGet:
 				if fakeServerState.router != nil {
 					sendResponse(w, fakeServerState.router)
 				} else {
@@ -392,17 +416,17 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// Operations
 		case path == urlProject+"/global/operations/"+fakeOperation:
-			if r.Method == "GET" {
+			if r.Method == http.MethodGet {
 				sendResponseDoneOperation(w)
 				return
 			}
 		case path == urlProject+"/regions/"+fakeRegion+"/operations/"+fakeOperation:
-			if r.Method == "GET" {
+			if r.Method == http.MethodGet {
 				sendResponseDoneOperation(w)
 				return
 			}
 		case path == urlProject+"/zones/"+fakeZone+"/operations/"+fakeOperation:
-			if r.Method == "GET" {
+			if r.Method == http.MethodGet {
 				sendResponseDoneOperation(w)
 				return
 			}
@@ -416,22 +440,28 @@ type fakeClusterManagerServer struct {
 	containerpb.UnimplementedClusterManagerServer
 }
 
-func (f *fakeClusterManagerServer) GetCluster(ctx context.Context, req *containerpb.GetClusterRequest) (*containerpb.Cluster, error) {
+func (f *fakeClusterManagerServer) GetCluster(
+	ctx context.Context, req *containerpb.GetClusterRequest,
+) (*containerpb.Cluster, error) {
 	if strings.Contains(req.Name, fakeClusterName) {
 		return getFakeCluster(true), nil
 	}
 	return nil, fmt.Errorf("cluster not found")
 }
 
-func (f *fakeClusterManagerServer) CreateCluster(ctx context.Context, req *containerpb.CreateClusterRequest) (*containerpb.Operation, error) {
+func (f *fakeClusterManagerServer) CreateCluster(
+	ctx context.Context, req *containerpb.CreateClusterRequest,
+) (*containerpb.Operation, error) {
 	return &containerpb.Operation{Name: fakeOperation}, nil
 }
 
-func (f *fakeClusterManagerServer) UpdateCluster(ctx context.Context, req *containerpb.UpdateClusterRequest) (*containerpb.Operation, error) {
+func (f *fakeClusterManagerServer) UpdateCluster(
+	ctx context.Context, req *containerpb.UpdateClusterRequest,
+) (*containerpb.Operation, error) {
 	return &containerpb.Operation{Name: fakeOperation}, nil
 }
 
-// Struct to hold state for fake server
+// Struct to hold state for fake server.
 type fakeServerState struct {
 	firewallMap    map[string]*computepb.Firewall
 	instance       *computepb.Instance
@@ -444,8 +474,10 @@ type fakeServerState struct {
 	forwardingRule *computepb.ForwardingRule
 }
 
-// Sets up fake http server and fake GCP compute clients
-func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context, fakeClients *GCPClients, gsrv *grpc.Server) {
+// Sets up fake http server and fake GCP compute clients.
+func setup(
+	t *testing.T, fakeServerState *fakeServerState,
+) (fakeServer *httptest.Server, ctx context.Context, fakeClients *GCPClients, gsrv *grpc.Server) {
 	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
 	fakeClients = &GCPClients{}
 
@@ -538,11 +570,13 @@ func setup(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest
 		t.Fatal(err)
 	}
 
-	return
+	return fakeServer, ctx, fakeClients, gsrv
 }
 
-// Cleans up fake http server and fake GCP compute clients
-func teardown(fakeServer *httptest.Server, fakeClients *GCPClients, fakeGRPCServer *grpc.Server) {
+// Cleans up fake http server and fake GCP compute clients.
+func teardown(
+	fakeServer *httptest.Server, fakeClients *GCPClients, fakeGRPCServer *grpc.Server,
+) {
 	fakeServer.Close()
 	fakeClients.Close()
 	if fakeGRPCServer != nil {
@@ -550,17 +584,17 @@ func teardown(fakeServer *httptest.Server, fakeClients *GCPClients, fakeGRPCServ
 	}
 }
 
-// RunIcmpConnectivityTest runs a ICMP connectivity test from sourceInstanceName to destinationIpAddress
+// RunIcmpConnectivityTest runs a ICMP connectivity test from sourceInstanceName to destinationIpAddress.
 func RunIcmpConnectivityTest(testName string, namespace string, project string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, tries int) (bool, error) {
 	return runConnectivityTest(testName, namespace, project, sourceInstanceName, sourceInstanceZone, destinationIpAddress, 0, "ICMP", tries)
 }
 
-// RunTcpConnectivityTest runs a TCP connectivity test from sourceInstanceName to destinationIpAddress:destinationPort
+// RunTcpConnectivityTest runs a TCP connectivity test from sourceInstanceName to destinationIpAddress:destinationPort.
 func RunTcpConnectivityTest(testName string, namespace string, project string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, destinationPort int, tries int) (bool, error) {
 	return runConnectivityTest(testName, namespace, project, sourceInstanceName, sourceInstanceZone, destinationIpAddress, destinationPort, "TCP", tries)
 }
 
-// runConnectivityTest runs a connectivity test from sourceInstanceName to destinationIpAddress:destinationPort with the specified protocol
+// runConnectivityTest runs a connectivity test from sourceInstanceName to destinationIpAddress:destinationPort with the specified protocol.
 func runConnectivityTest(testName string, namespace string, project string, sourceInstanceName string, sourceInstanceZone string, destinationIpAddress string, destinationPort int, protocol string, tries int) (bool, error) {
 	ctx := context.Background()
 	reachabilityClient, err := networkmanagement.NewReachabilityClient(ctx) // Can't use REST client for some reason (filed as bug within Google internally)
@@ -619,7 +653,7 @@ func runConnectivityTest(testName string, namespace string, project string, sour
 	return false, nil
 }
 
-// Returns connectivity test ID
+// Returns connectivity test ID.
 func getConnectivityTestId(namespace string, name string) string {
 	return getParagliderNamespacePrefix(namespace) + "-" + name + "-connectivity-test"
 }

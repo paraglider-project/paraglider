@@ -48,7 +48,6 @@ func getFakeInstanceResourceDescription() (*paragliderpb.CreateResourceRequest, 
 
 func getFakeClusterResourceDescription() (*paragliderpb.CreateResourceRequest, *containerpb.CreateClusterRequest, error) {
 	clusterRequest := &containerpb.CreateClusterRequest{
-		Zone:    fakeZone,
 		Parent:  fmt.Sprintf("projects/%s/locations/%s", fakeProject, fakeZone),
 		Cluster: getFakeCluster(false),
 	}
@@ -329,7 +328,6 @@ func TestInstanceCreateWithNetwork(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, url, *instanceRequest.InstanceResource.Name)
 	assert.Equal(t, ip, *getFakeInstance(true).NetworkInterfaces[0].NetworkIP)
-
 }
 
 func TestClusterReadAndProvisionResource(t *testing.T) {

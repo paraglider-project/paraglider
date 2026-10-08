@@ -78,7 +78,6 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(e.writer, "Creating resource: %v\n", args[1])
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	resourceInfo, err := c.CreateResource(e.cliSettings.ActiveNamespace, args[0], args[1], resource)
-
 	if err != nil {
 		fmt.Fprintf(e.writer, "Failed to create resource: %v\n", err)
 		return err

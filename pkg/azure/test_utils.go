@@ -102,7 +102,8 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 		// NSGs
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/networkSecurityGroups/"):
 			if strings.Contains(path, "/securityRules") {
-				if r.Method == "PUT" {
+				switch r.Method {
+				case http.MethodPut:
 					rule := &armnetwork.SecurityRule{}
 					err = json.Unmarshal(body, rule)
 					if err != nil {
@@ -114,12 +115,12 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					}
 					sendResponse(w, rule)
 					return
-				} else if r.Method == "DELETE" {
+				case http.MethodDelete:
 					w.WriteHeader(http.StatusOK)
 					return
 				}
 			} else {
-				if r.Method == "GET" {
+				if r.Method == http.MethodGet {
 					if fakeServerState.nsg == nil {
 						http.Error(w, "nsg not found", http.StatusNotFound)
 						return
@@ -127,7 +128,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					sendResponse(w, fakeServerState.nsg)
 					return
 				}
-				if r.Method == "PUT" {
+				if r.Method == http.MethodPut {
 					nsg := &armnetwork.SecurityGroup{}
 					err = json.Unmarshal(body, nsg)
 					if err != nil {
@@ -140,7 +141,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// VMs
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Compute/virtualMachines/"):
-			if r.Method == "GET" {
+			if r.Method == http.MethodGet {
 				if fakeServerState.vm == nil {
 					http.Error(w, "vm not found", http.StatusNotFound)
 					return
@@ -148,7 +149,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponse(w, fakeServerState.vm)
 				return
 			}
-			if r.Method == "PUT" {
+			if r.Method == http.MethodPut {
 				vm := &armcompute.VirtualMachine{}
 				err = json.Unmarshal(body, vm)
 				if err != nil {
@@ -160,7 +161,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// NICs
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/networkInterfaces/"):
-			if r.Method == "GET" {
+			if r.Method == http.MethodGet {
 				if fakeServerState.nic == nil {
 					http.Error(w, "nic not found", http.StatusNotFound)
 					return
@@ -168,7 +169,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponse(w, fakeServerState.nic)
 				return
 			}
-			if r.Method == "PUT" {
+			if r.Method == http.MethodPut {
 				nic := &armnetwork.Interface{}
 				err = json.Unmarshal(body, nic)
 				if err != nil {
@@ -181,7 +182,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 		// Virtual Networks (and their sub-resources)
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/virtualNetworks"):
 			if strings.Contains(path, "/virtualNetworkPeerings/") { // VirtualNetworkPeerings
-				if r.Method == "GET" {
+				if r.Method == http.MethodGet {
 					if fakeServerState.vnetPeering == nil {
 						http.Error(w, "vnet peering not found", http.StatusNotFound)
 						return
@@ -189,7 +190,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					sendResponse(w, fakeServerState.vnetPeering)
 					return
 				}
-				if r.Method == "PUT" {
+				if r.Method == http.MethodPut {
 					peering := &armnetwork.VirtualNetworkPeering{}
 					err = json.Unmarshal(body, peering)
 					if err != nil {
@@ -200,7 +201,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					return
 				}
 			} else if strings.Contains(path, "/subnets/") { // Subnets
-				if r.Method == "GET" {
+				if r.Method == http.MethodGet {
 					if fakeServerState.subnet == nil {
 						http.Error(w, "subnet not found", http.StatusNotFound)
 						return
@@ -208,7 +209,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					sendResponse(w, fakeServerState.subnet)
 					return
 				}
-				if r.Method == "PUT" {
+				if r.Method == http.MethodPut {
 					subnet := &armnetwork.Subnet{}
 					err = json.Unmarshal(body, subnet)
 					if err != nil {
@@ -219,7 +220,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					return
 				}
 			} else {
-				if r.Method == "GET" && strings.HasSuffix(path, "/virtualNetworks") {
+				if r.Method == http.MethodGet && strings.HasSuffix(path, "/virtualNetworks") {
 					if fakeServerState.vnet == nil {
 						http.Error(w, "vnet not found", http.StatusNotFound)
 						return
@@ -229,7 +230,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					sendResponse(w, response)
 					return
 				}
-				if r.Method == "GET" {
+				if r.Method == http.MethodGet {
 					if fakeServerState.vnet == nil {
 						http.Error(w, "vnet not found", http.StatusNotFound)
 						return
@@ -237,7 +238,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 					sendResponse(w, fakeServerState.vnet)
 					return
 				}
-				if r.Method == "PUT" {
+				if r.Method == http.MethodPut {
 					vnet := &armnetwork.VirtualNetwork{}
 					err = json.Unmarshal(body, vnet)
 					if err != nil {
@@ -250,7 +251,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// VirtualNetworkGateways
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/virtualNetworkGateways/"):
-			if r.Method == "GET" {
+			if r.Method == http.MethodGet {
 				if fakeServerState.vpnGw == nil {
 					http.Error(w, "gateway not found", http.StatusNotFound)
 					return
@@ -258,7 +259,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponse(w, fakeServerState.vpnGw)
 				return
 			}
-			if r.Method == "PUT" {
+			if r.Method == http.MethodPut {
 				gateway := &armnetwork.VirtualNetworkGateway{}
 				err = json.Unmarshal(body, gateway)
 				if err != nil {
@@ -270,7 +271,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// PublicIPAddresses
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/publicIPAddresses/"):
-			if r.Method == "GET" {
+			if r.Method == http.MethodGet {
 				if fakeServerState.publicIP == nil {
 					http.Error(w, "public IP not found", http.StatusNotFound)
 					return
@@ -278,7 +279,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponse(w, fakeServerState.publicIP)
 				return
 			}
-			if r.Method == "PUT" {
+			if r.Method == http.MethodPut {
 				publicIP := &armnetwork.PublicIPAddress{}
 				err = json.Unmarshal(body, publicIP)
 				if err != nil {
@@ -290,7 +291,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// LocalNetworkGateways
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/localNetworkGateways/"):
-			if r.Method == "GET" {
+			if r.Method == http.MethodGet {
 				if fakeServerState.localGw == nil {
 					http.Error(w, "local gateway not found", http.StatusNotFound)
 					return
@@ -298,7 +299,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponse(w, fakeServerState.localGw)
 				return
 			}
-			if r.Method == "PUT" {
+			if r.Method == http.MethodPut {
 				localGateway := &armnetwork.LocalNetworkGateway{}
 				err = json.Unmarshal(body, localGateway)
 				if err != nil {
@@ -310,7 +311,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// VirtualNetworkGatewayConnections
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/connections/"):
-			if r.Method == "GET" {
+			if r.Method == http.MethodGet {
 				if fakeServerState.vpnConnection == nil {
 					http.Error(w, "vpn connection not found", http.StatusNotFound)
 					return
@@ -318,7 +319,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponse(w, fakeServerState.vpnConnection)
 				return
 			}
-			if r.Method == "PUT" {
+			if r.Method == http.MethodPut {
 				vpnConnection := &armnetwork.VirtualNetworkGatewayConnection{}
 				err = json.Unmarshal(body, vpnConnection)
 				if err != nil {
@@ -330,7 +331,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// ManagedClusters
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.ContainerService/managedClusters/"):
-			if r.Method == "GET" {
+			if r.Method == http.MethodGet {
 				if fakeServerState.cluster == nil {
 					http.Error(w, "cluster not found", http.StatusNotFound)
 					return
@@ -338,7 +339,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponse(w, fakeServerState.cluster)
 				return
 			}
-			if r.Method == "PUT" {
+			if r.Method == http.MethodPut {
 				cluster := &armcontainerservice.ManagedCluster{}
 				err = json.Unmarshal(body, cluster)
 				if err != nil {
@@ -350,7 +351,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 			}
 		// NatGateways
 		case strings.HasPrefix(path, urlPrefix+"/Microsoft.Network/natGateways/"):
-			if r.Method == "GET" {
+			if r.Method == http.MethodGet {
 				if fakeServerState.natGateway == nil {
 					http.Error(w, "nat gateway not found", http.StatusNotFound)
 					return
@@ -358,7 +359,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 				sendResponse(w, fakeServerState.natGateway)
 				return
 			}
-			if r.Method == "PUT" {
+			if r.Method == http.MethodPut {
 				natGateway := &armnetwork.NatGateway{}
 				err = json.Unmarshal(body, natGateway)
 				if err != nil {
@@ -373,7 +374,7 @@ func getFakeServerHandler(fakeServerState *fakeServerState) http.HandlerFunc {
 	})
 }
 
-// Struct to hold state for fake server
+// Struct to hold state for fake server.
 type fakeServerState struct {
 	subId         string
 	rgName        string
@@ -391,7 +392,7 @@ type fakeServerState struct {
 	natGateway    *armnetwork.NatGateway
 }
 
-// Sets up fake http server
+// Sets up fake http server.
 func SetupFakeAzureServer(t *testing.T, fakeServerState *fakeServerState) (fakeServer *httptest.Server, ctx context.Context) {
 	fakeServer = httptest.NewServer(getFakeServerHandler(fakeServerState))
 
@@ -460,7 +461,7 @@ func getFakeNSG() *armnetwork.SecurityGroup {
 	}
 }
 
-// Has "paraglider-" prefix before the vnet name
+// Has "paraglider-" prefix before the vnet name.
 func getFakeParagliderSubnet() *armnetwork.Subnet {
 	return &armnetwork.Subnet{
 		Name: to.Ptr(validSubnetName),
@@ -877,7 +878,7 @@ func runConnectivityCheck(ctx context.Context, namespace string, subscriptionId 
 			return false, err
 		}
 		// TODO @seankimkdy: Unclear why ConnectionStatus returns "Reachable" which is not a valid armnetwork.ConnectionStatus constant (https://github.com/Azure/azure-sdk-for-go/issues/21777)
-		if *resp.ConnectivityInformation.ConnectionStatus == armnetwork.ConnectionStatus("Reachable") {
+		if *resp.ConnectionStatus == armnetwork.ConnectionStatus("Reachable") {
 			return true, nil
 		}
 	}
@@ -894,7 +895,7 @@ func RunICMPConnectivityCheck(ctx context.Context, namespace string, subscriptio
 	if err != nil {
 		return false, fmt.Errorf("unable to check if destination IP address is private: %w", err)
 	} else if !isPrivate {
-		return false, fmt.Errorf("Azure does not support public destination IP address for ICMP")
+		return false, fmt.Errorf("azure does not support public destination IP address for ICMP")
 	}
 	return runConnectivityCheck(ctx, namespace, subscriptionId, resourceGroupName, sourceVmName, destinationIPAddress, 0, armnetwork.ProtocolIcmp, tries)
 }

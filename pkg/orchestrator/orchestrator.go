@@ -94,7 +94,7 @@ type ResourceID struct {
 	Id string `json:"id,omitempty"`
 }
 
-// Return a string usable with Sprintf for inserting URL params
+// Return a string usable with Sprintf for inserting URL params.
 func GetFormatterString(url string) string {
 	new_tokens := []string{}
 	for _, token := range strings.Split(string(url), "/") {
@@ -111,7 +111,7 @@ func createErrorResponse(message string) gin.H {
 	return gin.H{"error": message}
 }
 
-// Returns whether the string provided is a valid IP/CIDR
+// Returns whether the string provided is a valid IP/CIDR.
 func isIpAddrOrCidr(value string) bool {
 	if strings.Contains(value, "/") {
 		_, err := netip.ParsePrefix(value)
@@ -122,7 +122,7 @@ func isIpAddrOrCidr(value string) bool {
 	}
 }
 
-// Retrieve the IPs from a list of name mappings
+// Retrieve the IPs from a list of name mappings.
 func getIPsFromResolvedTag(mappings []*tagservicepb.TagMapping) []string {
 	ips := make([]string, len(mappings))
 	for i, mapping := range mappings {
@@ -131,7 +131,7 @@ func getIPsFromResolvedTag(mappings []*tagservicepb.TagMapping) []string {
 	return ips
 }
 
-// Check if rules given by the user have tags (requirement) and remove any targets they contain (should only be written by the orchestrator)
+// Check if rules given by the user have tags (requirement) and remove any targets they contain (should only be written by the orchestrator).
 func checkAndCleanRule(rule *paragliderpb.PermitListRule) (*paragliderpb.PermitListRule, *Warning, error) {
 	if len(rule.Tags) == 0 {
 		return nil, nil, fmt.Errorf("rule %s contains no tags", rule.Name)
@@ -143,12 +143,12 @@ func checkAndCleanRule(rule *paragliderpb.PermitListRule) (*paragliderpb.PermitL
 	return rule, nil, nil
 }
 
-// Format a subscriber name so that when the value is looked up, it is clear which cloud and namespace the URI belongs to
+// Format a subscriber name so that when the value is looked up, it is clear which cloud and namespace the URI belongs to.
 func createSubscriberName(namespace string, cloud string, uri string) string {
 	return namespace + ">" + cloud + ">" + uri
 }
 
-// Parse subscriber names from database to get the namespace, cloud and URI
+// Parse subscriber names from database to get the namespace, cloud and URI.
 func parseSubscriberName(sub string) (string, string, string) {
 	if strings.Contains(sub, ">") {
 		tokens := strings.Split(sub, ">")
@@ -173,7 +173,7 @@ func isTagValid(tag *tagservicepb.TagMapping) bool {
 	return tag.Ip != nil
 }
 
-// Get the URI of a tag
+// Get the URI of a tag.
 func (s *ControllerServer) getTagUri(tag string) (string, error) {
 	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -194,7 +194,7 @@ func (s *ControllerServer) getTagUri(tag string) (string, error) {
 	return *response.Tag.Uri, nil
 }
 
-// Get URL params for a resource and resolve the resource name if needed
+// Get URL params for a resource and resolve the resource name if needed.
 func (s *ControllerServer) getAndValidateResourceURLParams(c *gin.Context, resolveTag bool) (*ResourceInfo, string, error) {
 	tag := c.Param("resourceName")
 	cloud := c.Param("cloud")
@@ -218,7 +218,7 @@ func (s *ControllerServer) getAndValidateResourceURLParams(c *gin.Context, resol
 	}
 }
 
-// Takes a set of permit list rules and returns the same list with all tags referenced in the original rules resolved to IPs
+// Takes a set of permit list rules and returns the same list with all tags referenced in the original rules resolved to IPs.
 func (s *ControllerServer) resolvePermitListRules(rules []*paragliderpb.PermitListRule, resource *ResourceInfo, subscribe bool) ([]*paragliderpb.PermitListRule, error) {
 	for _, rule := range rules {
 		// Check rule validity and clean fields
@@ -245,8 +245,10 @@ func (s *ControllerServer) resolvePermitListRules(rules []*paragliderpb.PermitLi
 				// Subscribe self to tag
 				if subscribe {
 					_, err := client.Subscribe(context.Background(),
-						&tagservicepb.SubscribeRequest{Subscription: &tagservicepb.Subscription{TagName: tag,
-							Subscriber: createSubscriberName(resource.namespace, resource.cloud, resource.uri)}})
+						&tagservicepb.SubscribeRequest{Subscription: &tagservicepb.Subscription{
+							TagName:    tag,
+							Subscriber: createSubscriberName(resource.namespace, resource.cloud, resource.uri),
+						}})
 					if err != nil {
 						return nil, fmt.Errorf("could not subscribe to tag: %s", err.Error())
 					}
@@ -261,7 +263,7 @@ func (s *ControllerServer) resolvePermitListRules(rules []*paragliderpb.PermitLi
 	return rules, nil
 }
 
-// Get permit list with ID from plugin
+// Get permit list with ID from plugin.
 func (s *ControllerServer) _permitListGet(namespace string, resourceId string, pluginAddress string) (*paragliderpb.GetPermitListResponse, error) {
 	// Connect to the cloud plugin
 	conn, err := grpc.NewClient(pluginAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -282,7 +284,7 @@ func (s *ControllerServer) _permitListGet(namespace string, resourceId string, p
 	return response, nil
 }
 
-// Get specified PermitList from given cloud
+// Get specified PermitList from given cloud.
 func (s *ControllerServer) permitListGet(c *gin.Context) {
 	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
 	if err != nil {
@@ -299,7 +301,7 @@ func (s *ControllerServer) permitListGet(c *gin.Context) {
 	c.JSON(http.StatusOK, response.Rules)
 }
 
-// Add rules to a resource specified in the permit list in the given cloud
+// Add rules to a resource specified in the permit list in the given cloud.
 func (s *ControllerServer) _permitListRulesAdd(req *paragliderpb.AddPermitListRulesRequest, resource *ResourceInfo, pluginAddress string) (*paragliderpb.AddPermitListRulesResponse, error) {
 	// Resolve tags referenced in rules
 	rules, err := s.resolvePermitListRules(req.Rules, resource, true)
@@ -324,7 +326,7 @@ func (s *ControllerServer) _permitListRulesAdd(req *paragliderpb.AddPermitListRu
 	return response, nil
 }
 
-// Add permit list rules to specified resource
+// Add permit list rules to specified resource.
 func (s *ControllerServer) permitListRulesBulkAdd(c *gin.Context) {
 	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
 	if err != nil {
@@ -348,7 +350,7 @@ func (s *ControllerServer) permitListRulesBulkAdd(c *gin.Context) {
 	}
 }
 
-// Add a single rule to a resource permit list
+// Add a single rule to a resource permit list.
 func (s *ControllerServer) permitListRuleAdd(c *gin.Context) {
 	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
 	if err != nil {
@@ -363,7 +365,7 @@ func (s *ControllerServer) permitListRuleAdd(c *gin.Context) {
 		return
 	}
 
-	if c.Request.Method == "PUT" {
+	if c.Request.Method == http.MethodPut {
 		// Get rule name from URL
 		ruleName := c.Param("ruleName")
 		if ruleName == "" {
@@ -382,7 +384,7 @@ func (s *ControllerServer) permitListRuleAdd(c *gin.Context) {
 	}
 }
 
-// Add permit list rules to all resources within a tag
+// Add permit list rules to all resources within a tag.
 func (s *ControllerServer) permitListRuleAddTag(c *gin.Context) {
 	tag := c.Param("tag")
 
@@ -449,7 +451,7 @@ func (s *ControllerServer) permitListRuleAddTag(c *gin.Context) {
 	}
 }
 
-// Delete permit list rules to from resources within a tag
+// Delete permit list rules to from resources within a tag.
 func (s *ControllerServer) permitListRuleDeleteTag(c *gin.Context) {
 	tag := c.Param("tag")
 
@@ -508,7 +510,7 @@ func (s *ControllerServer) permitListRuleDeleteTag(c *gin.Context) {
 	}
 }
 
-// Find the tags dereferenced between two versions of a permit list
+// Find the tags dereferenced between two versions of a permit list.
 func diffTagReferences(beforeList []*paragliderpb.PermitListRule, afterList []*paragliderpb.PermitListRule) []string {
 	beforeListSet := make(map[string]bool)
 	afterListSet := make(map[string]bool)
@@ -540,7 +542,7 @@ func diffTagReferences(beforeList []*paragliderpb.PermitListRule, afterList []*p
 	return tagsDereferenced
 }
 
-// Check whether any tags have been dereferenced by the permit list and unsubscribe from any that have
+// Check whether any tags have been dereferenced by the permit list and unsubscribe from any that have.
 func (s *ControllerServer) checkAndUnsubscribe(resource *ResourceInfo, beforeList []*paragliderpb.PermitListRule, afterList []*paragliderpb.PermitListRule) error {
 	// Find the dereferenced tags
 	tagsToUnsubscribe := diffTagReferences(beforeList, afterList)
@@ -569,7 +571,7 @@ func (s *ControllerServer) checkAndUnsubscribe(resource *ResourceInfo, beforeLis
 	return nil
 }
 
-// Delete permit list rules to specified resource
+// Delete permit list rules to specified resource.
 func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
 	if err != nil {
@@ -624,7 +626,7 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 	}
 }
 
-// Delete a single rule from a resource permit list
+// Delete a single rule from a resource permit list.
 func (s *ControllerServer) permitListRuleDelete(c *gin.Context) {
 	resourceInfo, cloudClient, err := s.getAndValidateResourceURLParams(c, true)
 	if err != nil {
@@ -679,7 +681,7 @@ func (s *ControllerServer) permitListRuleDelete(c *gin.Context) {
 	}
 }
 
-// Get used address spaces from a specified cloud
+// Get used address spaces from a specified cloud.
 func (s *ControllerServer) getAddressSpaces(cloud string) ([]*paragliderpb.AddressSpaceMapping, error) {
 	// Ensure correct cloud name
 	cloudClient, ok := s.pluginAddresses[cloud]
@@ -704,7 +706,7 @@ func (s *ControllerServer) getAddressSpaces(cloud string) ([]*paragliderpb.Addre
 	return resp.AddressSpaceMappings, err
 }
 
-// Update local address space map by getting used address spaces from each cloud plugin
+// Update local address space map by getting used address spaces from each cloud plugin.
 func (s *ControllerServer) updateUsedAddressSpaces() error {
 	// Call each cloud to get address spaces used
 	for _, cloud := range s.config.CloudPlugins {
@@ -717,7 +719,7 @@ func (s *ControllerServer) updateUsedAddressSpaces() error {
 	return nil
 }
 
-// Get a new address block for a new virtual network
+// Get a new address block for a new virtual network.
 func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *paragliderpb.FindUnusedAddressSpacesRequest) (*paragliderpb.FindUnusedAddressSpacesResponse, error) {
 	s.addressRequest.Lock()
 	defer s.addressRequest.Unlock()
@@ -741,7 +743,7 @@ func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *parag
 			reqSize = int64(requestedAddressSpaces[i])
 		}
 		var aBlock *ipaddr.IPAddress
-		// Iterate to allocate the first usunsed block that can accomodate
+		// Iterate to allocate the first usunsed block that can accommodate
 		for _, block := range unusedBlocks {
 			if reqSize < block.GetCount().Int64() {
 				aBlock = allocBlock(block, reqSize)
@@ -765,7 +767,7 @@ func (s *ControllerServer) FindUnusedAddressSpaces(c context.Context, req *parag
 	return &paragliderpb.FindUnusedAddressSpacesResponse{AddressSpaces: respAddressSpaces}, nil
 }
 
-// Gets unused address spaces across all clouds
+// Gets unused address spaces across all clouds.
 func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, _ *emptypb.Empty) (*paragliderpb.GetUsedAddressSpacesResponse, error) {
 	err := s.updateUsedAddressSpaces()
 	if err != nil {
@@ -778,18 +780,18 @@ func (s *ControllerServer) GetUsedAddressSpaces(c context.Context, _ *emptypb.Em
 	return &paragliderpb.GetUsedAddressSpacesResponse{AddressSpaceMappings: s.usedAddressSpaces}, nil
 }
 
-// Get used ASNs from a specified cloud
+// Get used ASNs from a specified cloud.
 func (s *ControllerServer) getUsedAsns(cloud string) (*paragliderpb.GetUsedAsnsResponse, error) {
 	// Ensure correct cloud name
 	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
-		return nil, errors.New("Invalid cloud name")
+		return nil, errors.New("invalid cloud name")
 	}
 
 	// Connect to cloud plugin
 	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("Unable to connect to cloud plugin: %s", err.Error())
+		return nil, fmt.Errorf("unable to connect to cloud plugin: %s", err.Error())
 	}
 	defer conn.Close()
 
@@ -805,7 +807,7 @@ func (s *ControllerServer) updateUsedAsns() error {
 	for _, cloud := range s.config.CloudPlugins {
 		asnList, err := s.getUsedAsns(cloud.Name)
 		if err != nil {
-			return fmt.Errorf("Could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
+			return fmt.Errorf("could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
 		}
 		s.usedAsns = append(s.usedAsns, asnList.Asns...)
 	}
@@ -850,18 +852,18 @@ func (s *ControllerServer) FindUnusedAsn(c context.Context, _ *paragliderpb.Find
 	return resp, nil
 }
 
-// Get used BGP peering IP addresses from a specified cloud
+// Get used BGP peering IP addresses from a specified cloud.
 func (s *ControllerServer) getUsedBgpPeeringIpAddresses(cloud string) (*paragliderpb.GetUsedBgpPeeringIpAddressesResponse, error) {
 	// Ensure correct cloud name
 	cloudClient, ok := s.pluginAddresses[cloud]
 	if !ok {
-		return nil, errors.New("Invalid cloud name")
+		return nil, errors.New("invalid cloud name")
 	}
 
 	// Connect to cloud plugin
 	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("Unable to connect to cloud plugin: %s", err.Error())
+		return nil, fmt.Errorf("unable to connect to cloud plugin: %s", err.Error())
 	}
 	defer conn.Close()
 
@@ -877,14 +879,14 @@ func (s *ControllerServer) updateUsedBgpPeeringIpAddresses(namespace string) err
 	for _, cloud := range s.config.CloudPlugins {
 		bgpPeeringIpAddressesList, err := s.getUsedBgpPeeringIpAddresses(cloud.Name)
 		if err != nil {
-			return fmt.Errorf("Could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
+			return fmt.Errorf("could not retrieve address spaces for cloud %s (error: %s)", cloud, err.Error())
 		}
 		s.usedBgpPeeringIpAddresses[cloud.Name] = bgpPeeringIpAddressesList.IpAddresses
 	}
 	return nil
 }
 
-// Not a public RPC (hence private) used by cloud plugins but follows the same pattern as FindUnusedAsn
+// Not a public RPC (hence private) used by cloud plugins but follows the same pattern as FindUnusedAsn.
 func (s *ControllerServer) findUnusedBgpPeeringIpAddresses(ctx context.Context, cloud1 string, cloud2 string, namespace string) ([]string, error) {
 	// Retrieve all used peering IPs from all clouds
 	err := s.updateUsedBgpPeeringIpAddresses(namespace)
@@ -948,7 +950,7 @@ func (s *ControllerServer) findUnusedBgpPeeringIpAddresses(ctx context.Context, 
 	return ips, nil
 }
 
-// Generates a shared key for VPN connections
+// Generates a shared key for VPN connections.
 func generateSharedKey() string {
 	const length = 24
 	// characters allowed in the random string
@@ -978,7 +980,7 @@ func (s *ControllerServer) getCloudDeployment(cloud, namespace string) string {
 	return ""
 }
 
-// Connects two clouds with VPN gateways
+// Connects two clouds with VPN gateways.
 func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.ConnectCloudsRequest) (*paragliderpb.ConnectCloudsResponse, error) {
 	var isBGPDisabledConnection bool
 	var addressSpaceCloudA, addressSpaceCloudB string // address space of a resource to be served by a VPN created/fetched by this method.
@@ -1105,7 +1107,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 	return nil, fmt.Errorf("clouds %s and %s are not supported for multi-cloud connecting", req.CloudA, req.CloudB)
 }
 
-// Gets all deployments (in Paraglider) format for a given cloud
+// Gets all deployments (in Paraglider) format for a given cloud.
 func (s *ControllerServer) getParagliderDeployments(cloud string) []*paragliderpb.ParagliderDeployment {
 	pgDeployments := []*paragliderpb.ParagliderDeployment{}
 	for namespace, cloudDeployments := range s.config.Namespaces {
@@ -1141,13 +1143,13 @@ func (s *ControllerServer) handleCreateOrAttachResource(c *gin.Context) {
 
 	// Create resource if req. body JSON contains "description"
 	if err := c.ShouldBindBodyWithJSON(&resourceToCreate); err == nil && resourceToCreate.Description != "" {
-		if c.Request.Method == "POST" {
+		if c.Request.Method == http.MethodPost {
 			resourceInfo.name = resourceToCreate.Name
 		}
 
 		s.resourceCreate(c, resourceInfo, cloudClient, &resourceToCreate)
 	} else if err := c.ShouldBindBodyWithJSON(&resourceToAttach); err == nil && resourceToAttach.Id != "" {
-		if c.Request.Method != "POST" {
+		if c.Request.Method != http.MethodPost {
 			c.AbortWithStatusJSON(400, createErrorResponse("Only POST method is allowed for attaching resources"))
 			return
 		}
@@ -1159,7 +1161,7 @@ func (s *ControllerServer) handleCreateOrAttachResource(c *gin.Context) {
 	}
 }
 
-// Check the resource is valid to be created or attached at the orchestrator level
+// Check the resource is valid to be created or attached at the orchestrator level.
 func (s *ControllerServer) preCreateOrAttach(c *gin.Context, resourceInfo *ResourceInfo) error {
 	// Check if tag already exists
 	tagName := getTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
@@ -1185,7 +1187,7 @@ func (s *ControllerServer) preCreateOrAttach(c *gin.Context, resourceInfo *Resou
 	return nil
 }
 
-// Create resource in specified cloud region
+// Create resource in specified cloud region.
 func (s *ControllerServer) resourceCreate(c *gin.Context, resourceInfo *ResourceInfo, cloudClient string, resourceToCreate *paragliderpb.ResourceDescriptionString) {
 	// Create connection to cloud plugin
 	conn, err := grpc.NewClient(cloudClient, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -1274,7 +1276,7 @@ func (s *ControllerServer) createTag(c *gin.Context, resourceInfo *ResourceInfo,
 	return tagName
 }
 
-// List all tags from local tag service
+// List all tags from local tag service.
 func (s *ControllerServer) listTags(c *gin.Context) {
 	// Call listTags locally
 	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -1294,7 +1296,7 @@ func (s *ControllerServer) listTags(c *gin.Context) {
 	c.JSON(http.StatusOK, response.Tags)
 }
 
-// Get tag from local tag service
+// Get tag from local tag service.
 func (s *ControllerServer) getTag(c *gin.Context) {
 	// Call getTag locally
 	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -1316,7 +1318,7 @@ func (s *ControllerServer) getTag(c *gin.Context) {
 	c.JSON(http.StatusOK, response.Tag)
 }
 
-// Resolve tag down to IP/URI(s) from local tag service
+// Resolve tag down to IP/URI(s) from local tag service.
 func (s *ControllerServer) resolveTag(c *gin.Context) {
 	// Call resolveTag locally
 	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -1338,7 +1340,7 @@ func (s *ControllerServer) resolveTag(c *gin.Context) {
 	c.JSON(http.StatusOK, response.Tags)
 }
 
-// Clear targets from rules provided by the user
+// Clear targets from rules provided by the user.
 func clearRuleTargets(rules []*paragliderpb.PermitListRule) []*paragliderpb.PermitListRule {
 	for _, rule := range rules {
 		rule.Targets = []string{}
@@ -1346,7 +1348,7 @@ func clearRuleTargets(rules []*paragliderpb.PermitListRule) []*paragliderpb.Perm
 	return rules
 }
 
-// Update subscribers to a tag about membership changes
+// Update subscribers to a tag about membership changes.
 func (s *ControllerServer) updateSubscribers(tag string) error {
 	// Get the subscribers to the tag
 	conn, err := grpc.NewClient(s.localTagService, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -1386,7 +1388,7 @@ func (s *ControllerServer) updateSubscribers(tag string) error {
 	return nil
 }
 
-// Set tag mapping in local db and update subscribers to membership change
+// Set tag mapping in local db and update subscribers to membership change.
 func (s *ControllerServer) setTag(c *gin.Context) {
 	// Parse data
 	var tag tagservicepb.TagMapping
@@ -1418,7 +1420,7 @@ func (s *ControllerServer) setTag(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{})
 }
 
-// Delete tag (all mappings under it) in local db and update subscribers to membership change
+// Delete tag (all mappings under it) in local db and update subscribers to membership change.
 func (s *ControllerServer) deleteTag(c *gin.Context) {
 	tagName := c.Param("tag")
 
@@ -1447,7 +1449,7 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{})
 }
 
-// Delete members of tag in local db and update subscribers to membership change
+// Delete members of tag in local db and update subscribers to membership change.
 func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	parentTag := c.Param("tag")
 	memberTag := c.Param("member")
@@ -1477,12 +1479,12 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{})
 }
 
-// List all configured namespaces
+// List all configured namespaces.
 func (s *ControllerServer) listNamespaces(c *gin.Context) {
 	c.JSON(http.StatusOK, s.config.Namespaces)
 }
 
-// Get a value from the KV store
+// Get a value from the KV store.
 func (s *ControllerServer) GetValue(c context.Context, req *paragliderpb.GetValueRequest) (*paragliderpb.GetValueResponse, error) {
 	conn, err := grpc.NewClient(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -1499,7 +1501,7 @@ func (s *ControllerServer) GetValue(c context.Context, req *paragliderpb.GetValu
 	return &paragliderpb.GetValueResponse{Value: response.Value}, nil
 }
 
-// Set a value in the KV store
+// Set a value in the KV store.
 func (s *ControllerServer) SetValue(c context.Context, req *paragliderpb.SetValueRequest) (*paragliderpb.SetValueResponse, error) {
 	conn, err := grpc.NewClient(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -1516,7 +1518,7 @@ func (s *ControllerServer) SetValue(c context.Context, req *paragliderpb.SetValu
 	return &paragliderpb.SetValueResponse{}, nil
 }
 
-// Delete a value in the KV store
+// Delete a value in the KV store.
 func (s *ControllerServer) DeleteValue(c context.Context, req *paragliderpb.DeleteValueRequest) (*paragliderpb.DeleteValueResponse, error) {
 	conn, err := grpc.NewClient(s.localKVStoreService, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -1534,7 +1536,7 @@ func (s *ControllerServer) DeleteValue(c context.Context, req *paragliderpb.Dele
 	return &paragliderpb.DeleteValueResponse{}, nil
 }
 
-// Setup with config file
+// Setup with config file.
 func SetupWithFile(configPath string, background bool) {
 	// Read the config
 	f, err := os.Open(configPath)
@@ -1553,7 +1555,7 @@ func SetupWithFile(configPath string, background bool) {
 	Setup(cfg, background)
 }
 
-// Setup and run the server
+// Setup and run the server.
 func Setup(cfg config.Config, background bool) {
 	// Populate server info
 	server := ControllerServer{
@@ -1577,8 +1579,10 @@ func Setup(cfg config.Config, background bool) {
 
 			// Send feature flags
 			client := paragliderpb.NewCloudPluginClient(conn)
-			cloudFlags := &paragliderpb.PluginFlags{KubernetesClustersEnabled: cfg.FeatureFlags[c.Name].KubernetesClustersEnabled,
-				PrivateEndpointsEnabled: cfg.FeatureFlags[c.Name].PrivateEndpointsEnabled, AttachResourceEnabled: cfg.FeatureFlags[c.Name].AttachResourceEnabled}
+			cloudFlags := &paragliderpb.PluginFlags{
+				KubernetesClustersEnabled: cfg.FeatureFlags[c.Name].KubernetesClustersEnabled,
+				PrivateEndpointsEnabled:   cfg.FeatureFlags[c.Name].PrivateEndpointsEnabled, AttachResourceEnabled: cfg.FeatureFlags[c.Name].AttachResourceEnabled,
+			}
 			_, err = client.SetFlags(context.Background(), &paragliderpb.SetFlagsRequest{Flags: cloudFlags})
 			if err != nil {
 				fmt.Println(err.Error())

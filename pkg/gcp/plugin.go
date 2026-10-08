@@ -418,7 +418,6 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		reqAddressSpaces := make([]int32, numAddressSpacesNeeded)
 
 		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: reqAddressSpaces})
-
 		if err != nil {
 			return nil, fmt.Errorf("unable to find unused address space: %w", err)
 		}
@@ -454,7 +453,6 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 
 	// Read and provision the resource
 	url, ip, err := ReadAndProvisionResource(ctx, resourceDescription, subnetName, resourceInfo, addressSpaces, clients)
-
 	if err != nil {
 		return nil, fmt.Errorf("unable to read and provision resource: %w", err)
 	}
@@ -878,7 +876,7 @@ func (s *GCPPluginServer) _CreateVpnConnections(ctx context.Context, req *paragl
 	return &paragliderpb.CreateVpnConnectionsResponse{}, nil
 }
 
-// GetNetworkAddressSpaces returns the address spaces in the virtual network containing the provided address space
+// GetNetworkAddressSpaces returns the address spaces in the virtual network containing the provided address space.
 func (s *GCPPluginServer) GetNetworkAddressSpaces(ctx context.Context, req *paragliderpb.GetNetworkAddressSpacesRequest) (*paragliderpb.GetNetworkAddressSpacesResponse, error) {
 	return nil, fmt.Errorf("GetNetworkAddressSpaces is currently not implemented by GCP, implying plugin does not support BGP disabled VPN connections")
 }
