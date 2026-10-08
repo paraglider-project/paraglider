@@ -27,6 +27,9 @@ linters:
     - staticcheck
     - unused
     - goheader
+  exclusions:
+    presets:
+      - std-error-handling
 
 formatters:
   enable:

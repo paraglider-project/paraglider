@@ -63,7 +63,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = f.Close() }()
+	defer f.Close()
 
 	var cfg config.Config
 	decoder := yaml.NewDecoder(f)

@@ -71,7 +71,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		}
 
 		// Print the tag
-		_, _ = fmt.Fprintf(e.writer, "Tag %s:\n %v\n", args[0], tagMappings)
+		fmt.Fprintf(e.writer, "Tag %s:\n %v\n", args[0], tagMappings)
 	} else {
 		tagMapping, err := c.GetTag(args[0])
 		if err != nil {
@@ -79,7 +79,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		}
 
 		// Print the tag
-		_, _ = fmt.Fprintln(e.writer, tagMapping)
+		fmt.Fprintln(e.writer, tagMapping)
 	}
 
 	return nil

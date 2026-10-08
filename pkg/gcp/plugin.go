@@ -127,7 +127,7 @@ func (s *GCPPluginServer) _AddPermitListRules(ctx context.Context, req *paraglid
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
-	defer func() { _ = orchestratorConn.Close() }()
+	defer orchestratorConn.Close()
 	orchestratorClient := paragliderpb.NewControllerClient(orchestratorConn)
 	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &emptypb.Empty{})
 	if err != nil {
@@ -408,7 +408,7 @@ func (s *GCPPluginServer) _CreateResource(ctx context.Context, resourceDescripti
 		if err != nil {
 			return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 		}
-		defer func() { _ = conn.Close() }()
+		defer conn.Close()
 		client := paragliderpb.NewControllerClient(conn)
 
 		if !subnetExists {
@@ -661,7 +661,7 @@ func (s *GCPPluginServer) _CreateVpnGateway(ctx context.Context, req *paraglider
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 	client := paragliderpb.NewControllerClient(conn)
 	findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &paragliderpb.FindUnusedAsnRequest{})
 	if err != nil {

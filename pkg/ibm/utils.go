@@ -281,7 +281,7 @@ func getRegions() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = response.Body.Close() }()
+	defer response.Body.Close()
 	responseBody, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err

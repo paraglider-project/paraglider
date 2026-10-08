@@ -147,7 +147,7 @@ func (s *azurePluginServer) AddPermitListRules(ctx context.Context, req *paragli
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
-	defer func() { _ = orchestratorConn.Close() }()
+	defer orchestratorConn.Close()
 	orchestratorClient := paragliderpb.NewControllerClient(orchestratorConn)
 	getUsedAddressSpacesResp, err := orchestratorClient.GetUsedAddressSpaces(context.Background(), &emptypb.Empty{})
 	if err != nil {
@@ -334,7 +334,7 @@ func (s *azurePluginServer) CreateResource(ctx context.Context, resourceDesc *pa
 			utils.Log.Printf("Could not dial the orchestrator")
 			return nil, err
 		}
-		defer func() { _ = conn.Close() }()
+		defer conn.Close()
 		client := paragliderpb.NewControllerClient(conn)
 		reqAddressSpaces := make([]int32, resourceDescInfo.NumAdditionalAddressSpaces)
 		response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: reqAddressSpaces})
@@ -523,7 +523,7 @@ func (s *azurePluginServer) CreateVpnGateway(ctx context.Context, req *paraglide
 			if err != nil {
 				return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 			}
-			defer func() { _ = conn.Close() }()
+			defer conn.Close()
 			client := paragliderpb.NewControllerClient(conn)
 			findUnusedAsnResp, err := client.FindUnusedAsn(ctx, &paragliderpb.FindUnusedAsnRequest{})
 			if err != nil {

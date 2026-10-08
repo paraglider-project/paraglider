@@ -179,7 +179,7 @@ func (s *ControllerServer) getTagUri(tag string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("could not contact tag server: %s", err.Error())
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	// Send RPC to get tag
 	client := tagservicepb.NewTagServiceClient(conn)
@@ -233,7 +233,7 @@ func (s *ControllerServer) resolvePermitListRules(rules []*paragliderpb.PermitLi
 				if err != nil {
 					return nil, fmt.Errorf("could not contact tag server: %s", err.Error())
 				}
-				defer func() { _ = conn.Close() }()
+				defer conn.Close()
 
 				// Send RPC to resolve tag
 				client := tagservicepb.NewTagServiceClient(conn)
@@ -270,7 +270,7 @@ func (s *ControllerServer) _permitListGet(namespace string, resourceId string, p
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	// Send the GetPermitList RPC
 	client := paragliderpb.NewCloudPluginClient(conn)
@@ -314,7 +314,7 @@ func (s *ControllerServer) _permitListRulesAdd(req *paragliderpb.AddPermitListRu
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	// Send RPC to create rules
 	client := paragliderpb.NewCloudPluginClient(conn)
@@ -401,7 +401,7 @@ func (s *ControllerServer) permitListRuleAddTag(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	// Send RPC to resolve tag
 	client := tagservicepb.NewTagServiceClient(conn)
@@ -436,7 +436,7 @@ func (s *ControllerServer) permitListRuleAddTag(c *gin.Context) {
 				c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 				return
 			}
-			defer func() { _ = conn.Close() }()
+			defer conn.Close()
 
 			initializedClientConns[cloud] = conn
 		}
@@ -468,7 +468,7 @@ func (s *ControllerServer) permitListRuleDeleteTag(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	// Send RPC to resolve tag
 	client := tagservicepb.NewTagServiceClient(conn)
@@ -498,7 +498,7 @@ func (s *ControllerServer) permitListRuleDeleteTag(c *gin.Context) {
 			c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 			return
 		}
-		defer func() { _ = conn.Close() }()
+		defer conn.Close()
 
 		// Send RPC to add rule
 		client := paragliderpb.NewCloudPluginClient(conn)
@@ -557,7 +557,7 @@ func (s *ControllerServer) checkAndUnsubscribe(resource *ResourceInfo, beforeLis
 	if err != nil {
 		return err
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 	client := tagservicepb.NewTagServiceClient(conn)
 
 	// Send RPC to unsubscribe from each tag
@@ -592,7 +592,7 @@ func (s *ControllerServer) permitListRulesDelete(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 	client := paragliderpb.NewCloudPluginClient(conn)
 
 	// First, get the original list
@@ -647,7 +647,7 @@ func (s *ControllerServer) permitListRuleDelete(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 	client := paragliderpb.NewCloudPluginClient(conn)
 
 	// First, get the original list
@@ -694,7 +694,7 @@ func (s *ControllerServer) getAddressSpaces(cloud string) ([]*paragliderpb.Addre
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to cloud plugin: %s", err.Error())
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	// Send the RPC to get the address spaces
 	client := paragliderpb.NewCloudPluginClient(conn)
@@ -793,7 +793,7 @@ func (s *ControllerServer) getUsedAsns(cloud string) (*paragliderpb.GetUsedAsnsR
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to cloud plugin: %s", err.Error())
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	// Send the RPC to get the ASNs
 	client := paragliderpb.NewCloudPluginClient(conn)
@@ -865,7 +865,7 @@ func (s *ControllerServer) getUsedBgpPeeringIpAddresses(cloud string) (*paraglid
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to cloud plugin: %s", err.Error())
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	// Send the RPC to get the BGP peering IP addresses
 	client := paragliderpb.NewCloudPluginClient(conn)
@@ -1002,7 +1002,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 		if err != nil {
 			return nil, fmt.Errorf("unable to connect to cloud plugin: %w", err)
 		}
-		defer func() { _ = cloudAConn.Close() }()
+		defer cloudAConn.Close()
 		cloudAClient := paragliderpb.NewCloudPluginClient(cloudAConn)
 
 		cloudBClientAddress, ok := s.pluginAddresses[req.CloudB]
@@ -1013,7 +1013,7 @@ func (s *ControllerServer) ConnectClouds(ctx context.Context, req *paragliderpb.
 		if err != nil {
 			return nil, fmt.Errorf("unable to connect to cloud plugin: %w", err)
 		}
-		defer func() { _ = cloudAConn.Close() }()
+		defer cloudAConn.Close()
 		cloudBClient := paragliderpb.NewCloudPluginClient(cloudBconn)
 
 		ctx := context.Background()
@@ -1175,7 +1175,7 @@ func (s *ControllerServer) preCreateOrAttach(c *gin.Context, resourceInfo *Resou
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return err
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
 	resp, err := client.GetTag(context.Background(), &tagservicepb.GetTagRequest{TagName: tagName})
@@ -1195,7 +1195,7 @@ func (s *ControllerServer) resourceCreate(c *gin.Context, resourceInfo *Resource
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	// Send RPC to create the resource
 	resource := paragliderpb.CreateResourceRequest{
@@ -1232,7 +1232,7 @@ func (s *ControllerServer) resourceAttach(c *gin.Context, resourceInfo *Resource
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	// Send RPC to attach resource
 	attachResourceReq := paragliderpb.AttachResourceRequest{
@@ -1263,7 +1263,7 @@ func (s *ControllerServer) createTag(c *gin.Context, resourceInfo *ResourceInfo,
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return ""
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	tagName := getTagName(resourceInfo.namespace, resourceInfo.cloud, resourceInfo.name)
 	tagClient := tagservicepb.NewTagServiceClient(conn)
@@ -1284,7 +1284,7 @@ func (s *ControllerServer) listTags(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	// Send RPC to list tags
 	client := tagservicepb.NewTagServiceClient(conn)
@@ -1304,7 +1304,7 @@ func (s *ControllerServer) getTag(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	// Send RPC to get tag
 	tag := c.Param("tag")
@@ -1326,7 +1326,7 @@ func (s *ControllerServer) resolveTag(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	// Send RPC to get tag
 	tag := c.Param("tag")
@@ -1355,7 +1355,7 @@ func (s *ControllerServer) updateSubscribers(tag string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
 	response, err := client.GetSubscribers(context.Background(), &tagservicepb.GetSubscribersRequest{TagName: tag})
@@ -1403,7 +1403,7 @@ func (s *ControllerServer) setTag(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
 	_, err = client.SetTag(context.Background(), &tagservicepb.SetTagRequest{Tag: &tag})
@@ -1430,7 +1430,7 @@ func (s *ControllerServer) deleteTag(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
 	_, err = client.DeleteTag(context.Background(), &tagservicepb.DeleteTagRequest{TagName: tagName})
@@ -1461,7 +1461,7 @@ func (s *ControllerServer) deleteTagMember(c *gin.Context) {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
 		return
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	client := tagservicepb.NewTagServiceClient(conn)
 	_, err = client.DeleteTagMember(context.Background(), &tagservicepb.DeleteTagMemberRequest{ParentTag: parentTag, ChildTag: memberTag})
@@ -1490,7 +1490,7 @@ func (s *ControllerServer) GetValue(c context.Context, req *paragliderpb.GetValu
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	client := storepb.NewKVStoreClient(conn)
 
@@ -1507,7 +1507,7 @@ func (s *ControllerServer) SetValue(c context.Context, req *paragliderpb.SetValu
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	client := storepb.NewKVStoreClient(conn)
 
@@ -1524,7 +1524,7 @@ func (s *ControllerServer) DeleteValue(c context.Context, req *paragliderpb.Dele
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	client := storepb.NewKVStoreClient(conn)
 
@@ -1543,7 +1543,7 @@ func SetupWithFile(configPath string, background bool) {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	defer func() { _ = f.Close() }()
+	defer f.Close()
 
 	var cfg config.Config
 	decoder := yaml.NewDecoder(f)
@@ -1575,7 +1575,7 @@ func Setup(cfg config.Config, background bool) {
 			if err != nil {
 				return
 			}
-			defer func() { _ = conn.Close() }()
+			defer conn.Close()
 
 			// Send feature flags
 			client := paragliderpb.NewCloudPluginClient(conn)

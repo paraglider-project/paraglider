@@ -52,7 +52,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	}
 	// Print the tags
 	for i, tagMap := range tagMappings {
-		_, _ = fmt.Fprintf(e.writer, "%d). %v\n", i, tagMap)
+		fmt.Fprintf(e.writer, "%d). %v\n", i, tagMap)
 	}
 	return nil
 }

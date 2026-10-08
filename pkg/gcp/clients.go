@@ -197,45 +197,45 @@ func (c *GCPClients) GetOrCreateServiceAttachmentsClient(ctx context.Context) (*
 
 func (c *GCPClients) Close() {
 	if c.instancesClient != nil {
-		_ = c.instancesClient.Close()
+		c.instancesClient.Close()
 	}
 	if c.clustersClient != nil {
-		_ = c.clustersClient.Close()
+		c.clustersClient.Close()
 	}
 	if c.firewallsClient != nil {
-		_ = c.firewallsClient.Close()
+		c.firewallsClient.Close()
 	}
 	if c.networksClient != nil {
-		_ = c.networksClient.Close()
+		c.networksClient.Close()
 	}
 	if c.subnetworksClient != nil {
-		_ = c.subnetworksClient.Close()
+		c.subnetworksClient.Close()
 	}
 	if c.routersClient != nil {
-		_ = c.routersClient.Close()
+		c.routersClient.Close()
 	}
 	if c.vpnGatewaysClient != nil {
-		_ = c.vpnGatewaysClient.Close()
+		c.vpnGatewaysClient.Close()
 	}
 	if c.vpnTunnelsClient != nil {
-		_ = c.vpnTunnelsClient.Close()
+		c.vpnTunnelsClient.Close()
 	}
 	if c.externalVpnGatewaysClient != nil {
-		_ = c.externalVpnGatewaysClient.Close()
+		c.externalVpnGatewaysClient.Close()
 	}
 	if c.addressesClient != nil {
-		_ = c.addressesClient.Close()
+		c.addressesClient.Close()
 	}
 	if c.globalAddressesClient != nil {
-		_ = c.globalAddressesClient.Close()
+		c.globalAddressesClient.Close()
 	}
 	if c.forwardingClient != nil {
-		_ = c.forwardingClient.Close()
+		c.forwardingClient.Close()
 	}
 	if c.globalForwardingClient != nil {
-		_ = c.globalForwardingClient.Close()
+		c.globalForwardingClient.Close()
 	}
 	if c.serviceAttachmentClient != nil {
-		_ = c.serviceAttachmentClient.Close()
+		c.serviceAttachmentClient.Close()
 	}
 }

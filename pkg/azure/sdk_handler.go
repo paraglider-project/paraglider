@@ -503,7 +503,7 @@ func (h *AzureSDKHandler) GetParagliderVnet(ctx context.Context, vnetName string
 				utils.Log.Printf("could not dial the orchestrator")
 				return nil, err
 			}
-			defer func() { _ = conn.Close() }()
+			defer conn.Close()
 			client := paragliderpb.NewControllerClient(conn)
 			response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})
 			if err != nil {
@@ -528,7 +528,7 @@ func (h *AzureSDKHandler) AddSubnetToParagliderVnet(ctx context.Context, namespa
 		utils.Log.Printf("could not dial the orchestrator")
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	client := paragliderpb.NewControllerClient(conn)
 	response, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{})

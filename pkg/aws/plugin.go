@@ -93,7 +93,7 @@ func (s *AwsPluginServer) _CreateResource(ctx context.Context, req *paragliderpb
 			if err != nil {
 				return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 			}
-			defer func() { _ = orchestratorConn.Close() }()
+			defer orchestratorConn.Close()
 			orchestratorClient := paragliderpb.NewControllerClient(orchestratorConn)
 			findUnusedAddressSpacesReq := &paragliderpb.FindUnusedAddressSpacesRequest{}
 			findUnusedAddressSpacesResp, err := orchestratorClient.FindUnusedAddressSpaces(ctx, findUnusedAddressSpacesReq)

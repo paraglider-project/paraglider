@@ -58,7 +58,7 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = descriptionFile.Close() }()
+	defer descriptionFile.Close()
 	e.description, err = io.ReadAll(descriptionFile)
 	if err != nil {
 		return err
@@ -75,15 +75,15 @@ func (e *executor) Validate(cmd *cobra.Command, args []string) error {
 func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 	resource := &paragliderpb.ResourceDescriptionString{Description: string(e.description)}
 
-	_, _ = fmt.Fprintf(e.writer, "Creating resource: %v\n", args[1])
+	fmt.Fprintf(e.writer, "Creating resource: %v\n", args[1])
 	c := client.Client{ControllerAddress: e.cliSettings.ServerAddr}
 	resourceInfo, err := c.CreateResource(e.cliSettings.ActiveNamespace, args[0], args[1], resource)
 	if err != nil {
-		_, _ = fmt.Fprintf(e.writer, "Failed to create resource: %v\n", err)
+		fmt.Fprintf(e.writer, "Failed to create resource: %v\n", err)
 		return err
 	}
 
-	_, _ = fmt.Fprintf(e.writer, "Resource Created.\ntag: %s\nuri: %s\nip: %s\n", resourceInfo["name"], resourceInfo["uri"], resourceInfo["ip"])
+	fmt.Fprintf(e.writer, "Resource Created.\ntag: %s\nuri: %s\nip: %s\n", resourceInfo["name"], resourceInfo["uri"], resourceInfo["ip"])
 
 	return nil
 }

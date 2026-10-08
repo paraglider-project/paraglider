@@ -60,7 +60,7 @@ func (e *executor) Execute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	_, _ = fmt.Fprintf(e.writer, "Namespaces: %v", namespaces)
+	fmt.Fprintf(e.writer, "Namespaces: %v", namespaces)
 
 	return nil
 }

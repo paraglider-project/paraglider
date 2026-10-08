@@ -158,7 +158,7 @@ func (s *IBMPluginServer) CreateResource(c context.Context, resourceDesc *paragl
 		if err != nil {
 			return nil, err
 		}
-		defer func() { _ = conn.Close() }()
+		defer conn.Close()
 		client := paragliderpb.NewControllerClient(conn)
 		resp, err := client.FindUnusedAddressSpaces(context.Background(), &paragliderpb.FindUnusedAddressSpacesRequest{Sizes: []int32{0}})
 		if err != nil {
@@ -276,7 +276,7 @@ func (s *IBMPluginServer) GetPermitList(ctx context.Context, req *paragliderpb.G
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 	client := paragliderpb.NewControllerClient(conn)
 
 	// Get the permitlist names from the rule ID
@@ -358,7 +358,7 @@ func (s *IBMPluginServer) AddPermitListRules(ctx context.Context, req *paraglide
 	if err != nil {
 		return nil, fmt.Errorf("unable to establish connection with orchestrator: %w", err)
 	}
-	defer func() { _ = orchestratorConn.Close() }()
+	defer orchestratorConn.Close()
 	controllerClient := paragliderpb.NewControllerClient(orchestratorConn)
 	addressSpaceMappings, err := controllerClient.GetUsedAddressSpaces(context.Background(), &emptypb.Empty{})
 	if err != nil {
@@ -644,7 +644,7 @@ func (s *IBMPluginServer) DeletePermitListRules(ctx context.Context, req *paragl
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 	client := paragliderpb.NewControllerClient(conn)
 
 	for _, ruleName := range req.RuleNames {
