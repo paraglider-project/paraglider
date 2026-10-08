@@ -175,7 +175,7 @@ func createSSHKeys(privateKeyPath string) (string, error) {
 	}
 	privateKeyPEM := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)}
 	if err := pem.Encode(privateKeyFile, privateKeyPEM); err != nil {
-		_ = privateKeyFile.Close()
+		privateKeyFile.Close()
 		return "", err
 	}
 	// Close (rather than defer) so a failed flush to disk is caught instead of silently discarded.
@@ -195,7 +195,7 @@ func createSSHKeys(privateKeyPath string) (string, error) {
 		return "", err
 	}
 	if _, err := publicKeyFile.WriteString(pubKeyStr); err != nil {
-		_ = publicKeyFile.Close()
+		publicKeyFile.Close()
 		return "", err
 	}
 	if err := publicKeyFile.Close(); err != nil {

@@ -94,7 +94,6 @@ var fakeDeserializeMiddleware = middleware.DeserializeMiddlewareFunc("FakeOutput
 	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
 ) {
 	fakeServerState := ctx.Value(&fakeServerStateContextKey{}).(fakeServerState)
-	_ = fakeServerState // Used in some switch cases below
 	switch ctx.Value(&requestContextKey{}).(type) {
 	// VPCs
 	case *ec2.CreateVpcInput:
@@ -134,8 +133,8 @@ var fakeDeserializeMiddleware = middleware.DeserializeMiddlewareFunc("FakeOutput
 // setupTest sets up necessary fake components for a unit test.
 func setupTest(fakeServerState fakeServerState) (context.Context, *awsClients, error) {
 	// Set fake AWS credentials which are required for config
-	_ = os.Setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
-	_ = os.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+	os.Setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
+	os.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
 
 	// Load AWS config
 	ctx := context.WithValue(context.TODO(), &fakeServerStateContextKey{}, fakeServerState)
