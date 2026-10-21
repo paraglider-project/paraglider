@@ -12,9 +12,6 @@ Microsoft
 **Sylvia Ratnasamy** </br>
 UC Berkeley
 
-**Pravein Govindan Kannan** </br>
-IBM Research
-
 **Ashok Narayanan** </br>
 Snyk
 
