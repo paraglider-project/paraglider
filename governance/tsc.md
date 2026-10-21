@@ -12,12 +12,6 @@ Microsoft
 **Sylvia Ratnasamy** </br>
 UC Berkeley
 
-**Deepak Bansal** </br>
-Microsoft
-
-**Pravein Govindan Kannan** </br>
-IBM Research
-
 **Anees Shaikh** </br>
 Google
 
