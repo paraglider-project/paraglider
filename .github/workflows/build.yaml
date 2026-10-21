@@ -31,7 +31,7 @@ concurrency:
 
 env:
   # Go version to install
-  GOVER: '^1.22'
+  GOVER: '^1.26'
   GOPROXY: https://proxy.golang.org
   
   # gotestsum version - see: https://github.com/gotestyourself/gotestsum
@@ -107,9 +107,9 @@ jobs:
           make build
       - name: Run linter
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'  
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          version: 'latest'
+          version: 'v2.14'
           args: --timeout=10m
       - name: Run make test (unit tests)
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
