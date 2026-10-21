@@ -50,7 +50,8 @@ func TestGetAndCheckResourceState(t *testing.T) {
 	defer Teardown(fakeServer)
 
 	handler := &AzureSDKHandler{subscriptionID: subID, resourceGroupName: rgName}
-	_ = handler.InitializeClients(nil)
+	err := handler.InitializeClients(nil)
+	require.NoError(t, err)
 
 	t.Run("GetAndCheckResourceState: Success - Valid Paraglider VM & namespace", func(t *testing.T) {
 		vmInfo, err := GetAndCheckResourceState(context.Background(), handler, vmURI, namespace)
