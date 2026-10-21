@@ -12,9 +12,6 @@ Microsoft
 **Sylvia Ratnasamy** </br>
 UC Berkeley
 
-**Ashok Narayanan** </br>
-Snyk
-
 **Anees Shaikh** </br>
 Google
 
