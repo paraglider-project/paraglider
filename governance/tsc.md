@@ -12,9 +12,6 @@ Microsoft
 **Sylvia Ratnasamy** </br>
 UC Berkeley
 
-**Deepak Bansal** </br>
-Microsoft
-
 **Ashok Narayanan** </br>
 Snyk
 

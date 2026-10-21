@@ -46,8 +46,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const defaultNamespace = "default"
-const exampleCloudName = "example"
+const (
+	defaultNamespace = "default"
+	exampleCloudName = "example"
+)
 
 var portNum = 10000
 
@@ -138,7 +140,8 @@ func TestPermitListRulesAdd(t *testing.T) {
 		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
-		Protocol:  1}
+		Protocol:  1,
+	}
 	rulesList := []*paragliderpb.PermitListRule{rule}
 	jsonValue, _ := json.Marshal(rulesList)
 
@@ -168,7 +171,8 @@ func TestPermitListRulesAdd(t *testing.T) {
 		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
-		Protocol:  1}
+		Protocol:  1,
+	}
 	rulesList = []*paragliderpb.PermitListRule{rule}
 	jsonValue, _ = json.Marshal(rulesList)
 
@@ -221,7 +225,8 @@ func TestPermitListRulePut(t *testing.T) {
 		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
-		Protocol:  1}
+		Protocol:  1,
+	}
 	jsonValue, _ := json.Marshal(rule)
 
 	url := fmt.Sprintf(GetFormatterString(PermitListRulePUTURL), defaultNamespace, exampleCloudName, name, rule.Name)
@@ -249,7 +254,8 @@ func TestPermitListRulePut(t *testing.T) {
 		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
-		Protocol:  1}
+		Protocol:  1,
+	}
 	jsonValue, _ = json.Marshal(rule)
 
 	url = fmt.Sprintf(GetFormatterString(PermitListRulePUTURL), defaultNamespace, exampleCloudName, name, rule.Name)
@@ -301,7 +307,8 @@ func TestPermitListRulePost(t *testing.T) {
 		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
-		Protocol:  1}
+		Protocol:  1,
+	}
 	jsonValue, _ := json.Marshal(rule)
 
 	url := fmt.Sprintf(GetFormatterString(PermitListRulePOSTURL), defaultNamespace, exampleCloudName, name)
@@ -330,7 +337,8 @@ func TestPermitListRulePost(t *testing.T) {
 		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
-		Protocol:  1}
+		Protocol:  1,
+	}
 	jsonValue, _ = json.Marshal(rule)
 
 	url = fmt.Sprintf(GetFormatterString(PermitListRulePOSTURL), defaultNamespace, exampleCloudName, name)
@@ -375,13 +383,14 @@ func TestPermitListRuleTagAdd(t *testing.T) {
 
 	// Well-formed request
 	tags := []string{"1.1.1.1"}
-	rule := []*paragliderpb.PermitListRule{&paragliderpb.PermitListRule{
+	rule := []*paragliderpb.PermitListRule{{
 		Name:      "rulename",
 		Tags:      tags,
 		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
-		Protocol:  1}}
+		Protocol:  1,
+	}}
 	jsonValue, _ := json.Marshal(rule)
 
 	url := fmt.Sprintf(GetFormatterString(RuleOnTagURL), defaultNamespace+"."+exampleCloudName+"."+faketagservice.ValidTagName)
@@ -1193,7 +1202,8 @@ func TestResolvePermitListRules(t *testing.T) {
 		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
-		Protocol:  1}
+		Protocol:  1,
+	}
 	rulesList := []*paragliderpb.PermitListRule{rule}
 	expectedRule := &paragliderpb.PermitListRule{
 		Name:      "rulename",
@@ -1202,7 +1212,8 @@ func TestResolvePermitListRules(t *testing.T) {
 		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
-		Protocol:  1}
+		Protocol:  1,
+	}
 	expectedRulesList := []*paragliderpb.PermitListRule{expectedRule}
 	resource := &ResourceInfo{uri: "uri", cloud: exampleCloudName, namespace: defaultNamespace}
 
@@ -1235,7 +1246,8 @@ func TestCheckAndCleanRule(t *testing.T) {
 		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
-		Protocol:  1}
+		Protocol:  1,
+	}
 
 	cleanRule, _, err := checkAndCleanRule(rule)
 	assert.Nil(t, err)
@@ -1249,7 +1261,8 @@ func TestCheckAndCleanRule(t *testing.T) {
 		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
-		Protocol:  1}
+		Protocol:  1,
+	}
 
 	_, _, err = checkAndCleanRule(badRule)
 	assert.NotNil(t, err)
@@ -1262,7 +1275,8 @@ func TestCheckAndCleanRule(t *testing.T) {
 		Direction: paragliderpb.Direction_INBOUND,
 		SrcPort:   1,
 		DstPort:   2,
-		Protocol:  1}
+		Protocol:  1,
+	}
 
 	cleanRule, warning, err := checkAndCleanRule(badRule)
 	assert.Nil(t, err)
@@ -1295,19 +1309,19 @@ func TestCreateSubscriberName(t *testing.T) {
 
 func TestDiffTagReferences(t *testing.T) {
 	beforePermitList := []*paragliderpb.PermitListRule{
-		&paragliderpb.PermitListRule{
+		{
 			Tags: []string{"tag1", "1.2.3.4"},
 		},
-		&paragliderpb.PermitListRule{
+		{
 			Tags: []string{"tag1", "tag2", "tag3"},
 		},
 	}
 
 	afterPermitList := []*paragliderpb.PermitListRule{
-		&paragliderpb.PermitListRule{
+		{
 			Tags: []string{"tag1", "1.2.3.4"},
 		},
-		&paragliderpb.PermitListRule{
+		{
 			Tags: []string{"tag3"},
 		},
 	}
@@ -1329,19 +1343,19 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 	resource := ResourceInfo{uri: "uri", cloud: exampleCloudName, namespace: defaultNamespace}
 
 	beforePermitList := []*paragliderpb.PermitListRule{
-		&paragliderpb.PermitListRule{
+		{
 			Tags: []string{faketagservice.ValidTagName + "1", "1.2.3.4"},
 		},
-		&paragliderpb.PermitListRule{
+		{
 			Tags: []string{faketagservice.ValidTagName + "1", faketagservice.ValidTagName + "2", faketagservice.ValidTagName + "2"},
 		},
 	}
 
 	afterPermitList := []*paragliderpb.PermitListRule{
-		&paragliderpb.PermitListRule{
+		{
 			Tags: []string{faketagservice.ValidTagName + "1", "1.2.3.4"},
 		},
-		&paragliderpb.PermitListRule{
+		{
 			Tags: []string{faketagservice.ValidTagName + "3"},
 		},
 	}
@@ -1352,25 +1366,25 @@ func TestCheckAndUnsubscribe(t *testing.T) {
 
 func TestClearRuleTargets(t *testing.T) {
 	permitList := []*paragliderpb.PermitListRule{
-		&paragliderpb.PermitListRule{
+		{
 			Targets: []string{"1.2.3.4"},
 		},
-		&paragliderpb.PermitListRule{
+		{
 			Targets: []string{"1.2.3.4", "2.3.4.5"},
 		},
-		&paragliderpb.PermitListRule{
+		{
 			Tags: []string{"1.2.3.4", "2.3.4.5"},
 		},
 	}
 
 	expectedPermitList := []*paragliderpb.PermitListRule{
-		&paragliderpb.PermitListRule{
+		{
 			Targets: []string{},
 		},
-		&paragliderpb.PermitListRule{
+		{
 			Targets: []string{},
 		},
-		&paragliderpb.PermitListRule{
+		{
 			Targets: []string{},
 			Tags:    []string{"1.2.3.4", "2.3.4.5"},
 		},
