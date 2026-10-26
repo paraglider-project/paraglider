@@ -14,7 +14,7 @@ on:
 
 env:
   # Go version to install
-  GOVER: '^1.22'
+  GOVER: '^1.26'
   GOPROXY: https://proxy.golang.org
   
   # gotestsum version - see: https://github.com/gotestyourself/gotestsum
@@ -43,7 +43,7 @@ jobs:
     steps:
       - name: Download commit SHA artifact
         if: github.event_name == 'workflow_run'
-        uses: dawidd6/action-download-artifact@v11
+        uses: dawidd6/action-download-artifact@v16
         with:
           name: commit_sha
           run_id: ${{ github.event.workflow_run.id }}
