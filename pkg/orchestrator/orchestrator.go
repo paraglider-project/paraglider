@@ -1291,6 +1291,7 @@ func (s *ControllerServer) listTags(c *gin.Context) {
 	response, err := client.ListTags(context.Background(), &tagservicepb.ListTagsRequest{})
 	if err != nil {
 		c.AbortWithStatusJSON(400, createErrorResponse(err.Error()))
+		return
 	}
 
 	c.JSON(http.StatusOK, response.Tags)
