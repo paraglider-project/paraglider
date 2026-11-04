@@ -30,7 +30,7 @@ import (
 )
 
 // Sets up fake orchestrator server
-// Note: this is only meant to be used with one cloud (i.e. primarily for each cloud plugin's unit/integration tests)
+// Note: this is only meant to be used with one cloud (i.e. primarily for each cloud plugin's unit/integration tests).
 type FakeOrchestratorRPCServer struct {
 	paragliderpb.UnimplementedControllerServer
 	Cloud   string

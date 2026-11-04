@@ -35,13 +35,13 @@ const (
 //  1. A deny all rule is present and has the lowest priority (i.e. highest priority number)
 //  2. All rules with higher priority (i.e. lower priority number) are allow rules
 //
-// Creates a deny all rule if there's none to ensure conformant rules for condition 1. (Given condition 2 is met)
+// Creates a deny all rule if there's none to ensure conformant rules for condition 1. (Given condition 2 is met).
 func CheckSecurityRulesCompliance(ctx context.Context, azureHandler *AzureSDKHandler, nsg *armnetwork.SecurityGroup) (bool, error) {
 	reservedPrioritiesInbound := make(map[int32]*armnetwork.SecurityRule)
 	reservedPrioritiesOutbound := make(map[int32]*armnetwork.SecurityRule)
 	err := setupMaps(reservedPrioritiesInbound, reservedPrioritiesOutbound, nil, nsg)
 	if err != nil {
-		utils.Log.Printf("An error occured during setup: %+v", err)
+		utils.Log.Printf("An error occurred during setup: %+v", err)
 		return false, err
 	}
 
@@ -62,7 +62,7 @@ func CheckSecurityRulesCompliance(ctx context.Context, azureHandler *AzureSDKHan
 	priority, err = validateSecurityRulesConform(reservedPrioritiesOutbound)
 	if err != nil {
 		if priority == -1 {
-			return false, fmt.Errorf("Non-compliant: %v", err)
+			return false, fmt.Errorf("non-compliant: %w", err)
 		}
 
 		_, err := setupAndCreateDenyAllRule(ctx, azureHandler, priority, outboundDirectionRule, *nsg.Name)
@@ -82,7 +82,7 @@ func CheckSecurityRulesCompliance(ctx context.Context, azureHandler *AzureSDKHan
 //
 // 2. If no deny all rule exists, priority number to create a deny all rule & an error
 //
-// 3. If the rules are non-conformant, a priority number of -1 & an error
+// 3. If the rules are non-conformant, a priority number of -1 & an error.
 func validateSecurityRulesConform(reservedPriorities map[int32]*armnetwork.SecurityRule) (int32, error) {
 	var lowestRule *armnetwork.SecurityRule
 	lowestDenyPriorityNum := int32(maxPriority)
@@ -97,7 +97,7 @@ func validateSecurityRulesConform(reservedPriorities map[int32]*armnetwork.Secur
 		if (access == armnetwork.SecurityRuleAccessDeny) && (priority <= lowestDenyPriorityNum) {
 			// Any deny rule must be a deny all rule
 			if !isDenyAllRule(rule) {
-				return -1, fmt.Errorf("Deny Rule at priority(%d) is not a Deny all rule", priority)
+				return -1, fmt.Errorf("deny Rule at priority(%d) is not a Deny all rule", priority)
 			}
 
 			lowestRule = rule
@@ -107,23 +107,23 @@ func validateSecurityRulesConform(reservedPriorities map[int32]*armnetwork.Secur
 
 	// An allow rule's priority number is higher than a deny rule's priority number
 	if highestAllowPriorityNum > lowestDenyPriorityNum {
-		return -1, fmt.Errorf("Allow Rule with lower priority(%d) than Deny Rule(%d)", highestAllowPriorityNum, lowestDenyPriorityNum)
+		return -1, fmt.Errorf("allow Rule with lower priority(%d) than Deny Rule(%d)", highestAllowPriorityNum, lowestDenyPriorityNum)
 	}
 
 	if lowestRule == nil {
 		if reservedPriorities[maxPriority] != nil {
 			// The max priority number should not be associated to an allow rule
-			return -1, fmt.Errorf("Allow Rule at lowest priority(%d). Must be a deny all rule", maxPriority)
+			return -1, fmt.Errorf("allow Rule at lowest priority(%d). Must be a deny all rule", maxPriority)
 		}
 
 		// No deny all rule exists; return priority to create deny all rule
-		return maxPriority, fmt.Errorf("No deny rule present")
+		return maxPriority, fmt.Errorf("no deny rule present")
 	}
 
 	// If not a deny all rule, return priority to create a deny all rule
 	if !isDenyAllRule(lowestRule) {
 		lastPriority := getNextAvailablePriority(reservedPriorities, minPriority, maxPriority, false)
-		return lastPriority, fmt.Errorf("Deny Rule not at lowest priority(%d) is not a Deny all rule", lowestDenyPriorityNum)
+		return lastPriority, fmt.Errorf("deny Rule not at lowest priority(%d) is not a Deny all rule", lowestDenyPriorityNum)
 	}
 
 	return lowestDenyPriorityNum, nil
@@ -162,7 +162,7 @@ func setupDenyAllRuleWithPriority(priority int32, direction armnetwork.SecurityR
 	}
 }
 
-// Returns true if the rule is a deny all rule, false otherwise
+// Returns true if the rule is a deny all rule, false otherwise.
 func isDenyAllRule(rule *armnetwork.SecurityRule) bool {
 	var anyDestPrefix, anySourcePrefix bool
 

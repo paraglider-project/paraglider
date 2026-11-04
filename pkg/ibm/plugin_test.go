@@ -645,8 +645,10 @@ func TestSetFlags(t *testing.T) {
 		flags: &paragliderpb.PluginFlags{PrivateEndpointsEnabled: false, KubernetesClustersEnabled: false},
 	}
 	resp, err := s.SetFlags(context.Background(),
-		&paragliderpb.SetFlagsRequest{Flags: &paragliderpb.PluginFlags{PrivateEndpointsEnabled: true,
-			KubernetesClustersEnabled: true}})
+		&paragliderpb.SetFlagsRequest{Flags: &paragliderpb.PluginFlags{
+			PrivateEndpointsEnabled:   true,
+			KubernetesClustersEnabled: true,
+		}})
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -929,7 +931,8 @@ func TestGetUsedAddressSpaces(t *testing.T) {
 	s := &IBMPluginServer{
 		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion): fakeClient,
-		}}
+		},
+	}
 
 	deployment := &paragliderpb.GetUsedAddressSpacesRequest{
 		Deployments: []*paragliderpb.ParagliderDeployment{
@@ -959,7 +962,8 @@ func TestGetUsedAddressSpacesMultipleVPC(t *testing.T) {
 		cloudClient: map[string]*CloudClient{
 			getClientMapKey(fakeID, fakeRegion):    fakeClient,
 			getClientMapKey(fakeID, fakeConRegion): fakeClient,
-		}}
+		},
+	}
 
 	deployment := &paragliderpb.GetUsedAddressSpacesRequest{
 		Deployments: []*paragliderpb.ParagliderDeployment{
@@ -1146,6 +1150,7 @@ func TestAddPermitListRulesWrongNamespace(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
+
 func TestAddPermitListRulesTransitGateway(t *testing.T) {
 	fakeControllerServer, fakeControllerServerAddr, err := fake.SetupFakeOrchestratorRPCServer(utils.IBM)
 	if err != nil {
@@ -1352,6 +1357,7 @@ func TestDeletePermitListRulesWrongNamespace(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
+
 func TestGetPermitList(t *testing.T) {
 	store := map[string]string{
 		kvstore.GetFullKey(fakeID, utils.IBM, fakeNamespace):  fakePermitListVPC[0].Name,

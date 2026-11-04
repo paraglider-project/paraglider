@@ -62,7 +62,7 @@ func (c *CloudClient) CreateVPC(tags []string, exclusive bool) (*vpcv1.VPC, erro
 	return vpc, nil
 }
 
-// TerminateVPC terminates a vpc, deleting its associated instances and subnets
+// TerminateVPC terminates a vpc, deleting its associated instances and subnets.
 func (c *CloudClient) TerminateVPC(vpcID string) error {
 	// Fetch instances of specified VPC
 	instanceList, _, err := c.vpcService.ListInstances(&vpcv1.ListInstancesOptions{
@@ -108,7 +108,7 @@ func (c *CloudClient) TerminateVPC(vpcID string) error {
 	return nil
 }
 
-// GetVPCByID returns vpc data of specified vpc
+// GetVPCByID returns vpc data of specified vpc.
 func (c *CloudClient) GetVPCByID(vpcID string) (*vpcv1.VPC, error) {
 	vpc, response, err := c.vpcService.GetVPC(&vpcv1.GetVPCOptions{
 		ID: &vpcID,
@@ -120,7 +120,7 @@ func (c *CloudClient) GetVPCByID(vpcID string) (*vpcv1.VPC, error) {
 	return vpc, nil
 }
 
-// returns CIDR of VPC
+// returns CIDR of VPC.
 func (c *CloudClient) GetVpcCIDR(vpcID string) ([]string, error) {
 	// aggregate addresses of subnets in VPC
 	subnets, err := c.GetSubnetsInVpcRegionBound(vpcID)
@@ -128,7 +128,7 @@ func (c *CloudClient) GetVpcCIDR(vpcID string) ([]string, error) {
 		utils.Log.Printf("error while aggregating addresses of subnets to fetch VPC's CIDR: %+v", err)
 		return nil, err
 	}
-	var addresses = make([]string, len(subnets))
+	addresses := make([]string, len(subnets))
 	for i, subnet := range subnets {
 		address, err := c.GetSubnetCIDR(*subnet.ID)
 		if err != nil {

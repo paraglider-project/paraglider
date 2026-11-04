@@ -29,13 +29,17 @@ import (
 	fake "github.com/paraglider-project/paraglider/pkg/fake/tagservice"
 )
 
-const AddressSpaceAddress = "10.0.0.0/16"
-const Asn = 64512
+const (
+	AddressSpaceAddress = "10.0.0.0/16"
+	Asn                 = 64512
+)
 
-var BgpPeeringIpAddresses = []string{"169.254.21.1", "169.254.22.1"}
-var ExampleRule = &paragliderpb.PermitListRule{Name: "example-rule", Tags: []string{fake.ValidTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: paragliderpb.Direction_INBOUND}
+var (
+	BgpPeeringIpAddresses = []string{"169.254.21.1", "169.254.22.1"}
+	ExampleRule           = &paragliderpb.PermitListRule{Name: "example-rule", Tags: []string{fake.ValidTagName, "1.2.3.4"}, SrcPort: 1, DstPort: 1, Protocol: 1, Direction: paragliderpb.Direction_INBOUND}
+)
 
-// Mock Cloud Plugin Server
+// Mock Cloud Plugin Server.
 type fakeCloudPluginServer struct {
 	paragliderpb.UnimplementedCloudPluginServer
 	fake.FakeTagServiceServer

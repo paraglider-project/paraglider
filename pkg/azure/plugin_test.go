@@ -130,7 +130,6 @@ func TestCreateResource(t *testing.T) {
 				},
 			},
 		})
-
 		if err != nil {
 			t.Errorf("Error while marshalling description: %v", err)
 		}

@@ -18,6 +18,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -61,7 +62,7 @@ func Execute() {
 	defer cancel()
 
 	err := rootCmd.ExecuteContext(ctx)
-	if err != nil && err == ctx.Err() {
+	if err != nil && errors.Is(err, ctx.Err()) {
 		fmt.Fprintln(os.Stderr, "Cancelled.")
 		os.Exit(1)
 	} else if err != nil {
