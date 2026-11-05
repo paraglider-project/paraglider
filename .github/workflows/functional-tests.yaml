@@ -95,7 +95,7 @@ jobs:
       #   with:
       #       creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: Authenticate to AWS
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: us-east-2
           role-to-assume: arn:aws:iam::952501545072:role/github
