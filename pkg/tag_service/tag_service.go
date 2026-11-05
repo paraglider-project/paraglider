@@ -37,8 +37,25 @@ type tagServiceServer struct {
 	client *redis.Client
 }
 
+// Prefix of the keys used to keep track of the subscribers of a tag. These keys are only used for
+// internal book-keeping and are not tags themselves.
+const subscriptionKeyPrefix = "SUB:"
+
 func getSubscriptionKey(tagName string) string {
-	return "SUB:" + tagName
+	return subscriptionKeyPrefix + tagName
+}
+
+// Returns true if the key is used to store the subscribers of a tag rather than a tag.
+func isSubscriptionKey(key string) bool {
+	return strings.HasPrefix(key, subscriptionKeyPrefix)
+}
+
+// Returns an error if the tag name is reserved for internal book-keeping.
+func checkTagNameNotReserved(tagName string) error {
+	if isSubscriptionKey(tagName) {
+		return fmt.Errorf("cannot use tag name %s because the prefix %s is reserved", tagName, subscriptionKeyPrefix)
+	}
+	return nil
 }
 
 // Returns true if the string is a valid IP or CIDR.
@@ -128,6 +145,10 @@ func (s *tagServiceServer) _setLeafTag(c context.Context, tag *tagservicepb.TagM
 
 // Set tag relationship by adding child tag to parent tag's set.
 func (s *tagServiceServer) SetTag(c context.Context, req *tagservicepb.SetTagRequest) (*tagservicepb.SetTagResponse, error) {
+	if err := checkTagNameNotReserved(req.Tag.Name); err != nil {
+		return &tagservicepb.SetTagResponse{}, fmt.Errorf("SetTag: %w", err)
+	}
+
 	// If tag is leaf entry (no children), set as a hash record and return
 	isLeaf, err := isLeafTagMapping(req.Tag)
 	if err != nil {
@@ -242,11 +263,15 @@ func (s *tagServiceServer) ResolveTag(c context.Context, req *tagservicepb.Resol
 	return &tagservicepb.ResolveTagResponse{Tags: resolvedTags}, nil
 }
 
-// Resolve a list of tags into all base-level IPs.
+// List all tags and their mappings.
 func (s *tagServiceServer) ListTags(c context.Context, req *tagservicepb.ListTagsRequest) (*tagservicepb.ListTagsResponse, error) {
 	var resolvedTagList []*tagservicepb.TagMapping
 	tags := s.client.Keys(c, "*").Val()
 	for _, tag := range tags {
+		// Subscription records are internal book-keeping and should not be reported as tags
+		if isSubscriptionKey(tag) {
+			continue
+		}
 		resp, err := s.GetTag(c, &tagservicepb.GetTagRequest{TagName: tag})
 		if err != nil {
 			// Ignore errors
@@ -261,6 +286,10 @@ func (s *tagServiceServer) ListTags(c context.Context, req *tagservicepb.ListTag
 
 // Delete a member of a tag.
 func (s *tagServiceServer) DeleteTagMember(c context.Context, req *tagservicepb.DeleteTagMemberRequest) (*tagservicepb.DeleteTagMemberResponse, error) {
+	if err := checkTagNameNotReserved(req.ParentTag); err != nil {
+		return &tagservicepb.DeleteTagMemberResponse{}, fmt.Errorf("DeleteTagMember: %w", err)
+	}
+
 	err := s.client.SRem(c, req.ParentTag, req.ChildTag).Err()
 	if err != nil {
 		return &tagservicepb.DeleteTagMemberResponse{}, fmt.Errorf("DeleteTagMember %s: %w", req.ParentTag, err)
@@ -284,6 +313,10 @@ func (s *tagServiceServer) _deleteLeafTag(c context.Context, tag *tagservicepb.T
 
 // Delete a tag and its relationship to its children tags.
 func (s *tagServiceServer) DeleteTag(c context.Context, req *tagservicepb.DeleteTagRequest) (*tagservicepb.DeleteTagResponse, error) {
+	if err := checkTagNameNotReserved(req.TagName); err != nil {
+		return &tagservicepb.DeleteTagResponse{}, fmt.Errorf("DeleteTag: %w", err)
+	}
+
 	// If the tag is a leaf tag, delete the hash record
 	isLeaf, err := s.isLeafTag(c, req.TagName)
 	if err != nil {

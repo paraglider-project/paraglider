@@ -180,6 +180,19 @@ func TestSetTag(t *testing.T) {
 	}
 }
 
+func TestSetTagReservedName(t *testing.T) {
+	db, mock := redismock.NewClientMock()
+	server := newTagServiceServer(db)
+
+	tag := &tagservicepb.TagMapping{Name: getSubscriptionKey("tag"), ChildTags: []string{"child"}}
+	_, err := server.SetTag(context.Background(), &tagservicepb.SetTagRequest{Tag: tag})
+	assert.ErrorContains(t, err, "reserved")
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Error(err)
+	}
+}
+
 func TestGetTag(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
@@ -271,6 +284,32 @@ func TestResolveTagMemberNotPresent(t *testing.T) {
 	}
 }
 
+func TestListTags(t *testing.T) {
+	db, mock := redismock.NewClientMock()
+	server := newTagServiceServer(db)
+
+	// The database also holds a subscription record, which is expected to never be looked up.
+	// Match out of order so that skipping its expectations does not fail the others.
+	mock.MatchExpectationsInOrder(false)
+	parentTag := &tagservicepb.TagMapping{Name: "parent", ChildTags: []string{"child"}}
+	leafTag := &tagservicepb.TagMapping{Name: "child", Uri: &uriVal, Ip: &ipVal}
+	subscriptionKey := getSubscriptionKey(parentTag.Name)
+	mock.ExpectKeys("*").SetVal([]string{parentTag.Name, subscriptionKey, leafTag.Name})
+	mock.ExpectType(parentTag.Name).SetVal("set")
+	mock.ExpectSMembers(parentTag.Name).SetVal(parentTag.ChildTags)
+	mock.ExpectType(subscriptionKey).SetVal("set")
+	mock.ExpectSMembers(subscriptionKey).SetVal([]string{"subscriber"})
+	mock.ExpectType(leafTag.Name).SetVal("hash")
+	mock.ExpectHGetAll(leafTag.Name).SetVal(map[string]string{"uri": *leafTag.Uri, "ip": *leafTag.Ip})
+
+	resp, err := server.ListTags(context.Background(), &tagservicepb.ListTagsRequest{})
+	assert.Nil(t, err)
+	assert.Equal(t, []*tagservicepb.TagMapping{parentTag, leafTag}, resp.Tags)
+
+	// Only the expectations for the subscription record should remain
+	assert.ErrorContains(t, mock.ExpectationsWereMet(), subscriptionKey)
+}
+
 func TestDeleteTagMember(t *testing.T) {
 	db, mock := redismock.NewClientMock()
 	server := newTagServiceServer(db)
@@ -279,6 +318,18 @@ func TestDeleteTagMember(t *testing.T) {
 	mock.ExpectSRem(tag.Name, tag.ChildTags[0]).SetVal(0)
 	_, err := server.DeleteTagMember(context.Background(), &tagservicepb.DeleteTagMemberRequest{ParentTag: tag.Name, ChildTag: tag.ChildTags[0]})
 	assert.Nil(t, err)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestDeleteTagMemberReservedName(t *testing.T) {
+	db, mock := redismock.NewClientMock()
+	server := newTagServiceServer(db)
+
+	_, err := server.DeleteTagMember(context.Background(), &tagservicepb.DeleteTagMemberRequest{ParentTag: getSubscriptionKey("tag"), ChildTag: "subscriber"})
+	assert.ErrorContains(t, err, "reserved")
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
@@ -324,6 +375,18 @@ func TestDeleteTag(t *testing.T) {
 	mock.ExpectHDel(tag.Name, keys...).SetVal(0)
 	_, err = server.DeleteTag(context.Background(), &tagservicepb.DeleteTagRequest{TagName: tag.Name})
 	assert.Nil(t, err)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestDeleteTagReservedName(t *testing.T) {
+	db, mock := redismock.NewClientMock()
+	server := newTagServiceServer(db)
+
+	_, err := server.DeleteTag(context.Background(), &tagservicepb.DeleteTagRequest{TagName: getSubscriptionKey("tag")})
+	assert.ErrorContains(t, err, "reserved")
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Error(err)
